@@ -111,13 +111,24 @@ Artifact 常见字段：`id,origin,title,type,scope,provider,path,project,state,
 
 ```text
 usage = {
-  providers: [{provider,inputTokens,outputTokens,totalTokens,sessionCount,quotaAvailable:false}],
-  daily: [{date,tokens}], totalTokens, sessionCount,
-  quotaAvailable:false, costAvailable:false, historyFullyIndexed:false, coverage
+  inputTokens: integer|null, outputTokens: integer|null, totalTokens: integer|null,
+  observedInputTokens: integer|null, observedOutputTokens: integer|null,
+  observedTotalTokens: integer|null,
+  usageAvailable: boolean, coverage: "complete"|"partial"|"unavailable"|"overflow",
+  sessionCount, observedSessionCount, missingUsageSessionCount,
+  providers: [{provider, ...same aggregate fields..., quotaAvailable:false}],
+  daily: [{date, ...same aggregate fields..., tokens: integer|null, observedTokens: integer|null}],
+  quotaAvailable:false, costAvailable:false, historyFullyIndexed:false, coverageDescription
 }
 ```
 
-daily 把会话用量归入 session 起始日，不是每次 token 发生时刻的精准日账。没有订阅窗口百分比、价格或 reset 数据，不能从 token 总量推导配额。
+计数仅接受 JSON 非负整数，范围 `0...9,007,199,254,740,991`；布尔、字符串、非整数、负数、越界和加法溢出不能转成 0。真实 provider `0` 保持数字 0，缺失则为 null。某维度的 `inputTokens/outputTokens` 要求当前聚合范围内每个 Session 的该维度完整；`totalTokens/usageAvailable` 还要求每个 Session 的两类计数均完整且总和可表示。`complete` 只指此次最多 10,000 个已选索引 Session 的可用计数，不能推导完整 provider 历史。
+
+混合有数据和无数据时，完整 total 为 null，`observed*` 保留能证明的部分和，coverage 为 partial；没有任何有效计数为 unavailable。已观察值的加法也无法安全表示时 coverage 为 overflow，对应和为 null，不能 clamp 或将失败项当零。`observedSessionCount` 含至少一个有效观测分量；`missingUsageSessionCount` 表示缺少完整两分量的 Session 数，并非缺少日志的原始 Session 数。
+
+Session `tokenInput/tokenOutput` 可为 null，追加 `observedTokenInput/observedTokenOutput`、`usageAvailable`、`usageStatus`（同四态）和说明性 `usageCoverage`。Claude 按 assistant message ID 记录计数；缺失事件随后补报可以恢复，同 ID 重复 partial 不抹去已有用量，超过 4,096 条计数账本后只声明有界观测子集。Codex 使用其累计事件；缓存子字段缺省按 provider 可选字段处理，主 input/output 缺失仍不可用。没有主计数时不能从缓存字段推断全部输入。
+
+daily.tokens 与 totalTokens 同义，daily.observedTokens 与 observedTotalTokens 同义。daily 把会话用量归入 session 起始日，不是每次 token 发生时刻的精准日账。UI 不得以 `tokens || 0` 为未知日期绘制零柱；展示 observed 子集时必须明确标为已观测。没有订阅窗口百分比、价格或 reset 数据，不能从 token 总量推导配额。边界依据见 [ADR 0004](../adr/0004-nullable-observed-usage.md)。
 
 ### Memory、Recall 与 Library
 

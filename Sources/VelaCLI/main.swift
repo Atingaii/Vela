@@ -37,6 +37,10 @@ final class Router {
     func call(_ method: String, _ params: JSON) throws -> Any {
         guard method.count < 100, params.count < 80 else { throw VelaError("Invalid request") }
         switch method {
+        case "reuse.preview":
+            var input = params
+            input["helperExecutable"] = URL(fileURLWithPath:CommandLine.arguments[0]).standardizedFileURL.path
+            return try automation.handle(method,input) ?? [:]
         case "system.version": return ["version": version, "platform": "macOS", "home": store.root.path]
         case "settings.get":
             return try VelaPreferences.read(from: store)
@@ -118,6 +122,7 @@ if arguments.isEmpty || arguments.contains("--help") || arguments.first == "help
     vela recall QUERY --project PATH            召回 1000 tokens 内的有效 Memory
     vela sessions                              查看已导入会话
     vela refresh                               增量更新会话
+    vela hook --project PATH [--home PATH]      Codex SessionStart 上下文 Hook
 
     所有资产保存在 ~/.vela，可用 VELA_HOME 或 --home 更改。
     第一次连接项目：vela call projects.add '{"path":"/path/to/project"}'
@@ -129,7 +134,16 @@ if arguments.first == "--version" { print(version); exit(0) }
 do {
     let router = try Router()
     let command = arguments[0]
-    if command == "rpc" || command == "mcp" {
+    if command == "hook" {
+        // Paired Lab runs freeze their context explicitly and must not acquire live Vela memory.
+        if ProcessInfo.processInfo.environment["VELA_INTERNAL_RUN"] == "1" { exit(0) }
+        guard let selected = option("--project") else { fail("Hook requires --project") }
+        let reader = BoundedInputReader(maximumBytes:64_000)
+        guard let frame = try reader.next(), case .data(let data) = frame,
+              let event = try JSONSerialization.jsonObject(with:data) as? JSON else { fail("Hook requires one bounded JSON event") }
+        let result = try router.call("reuse.context",["project":selected,"event":event])
+        if let object = result as? JSON, !object.isEmpty { emit(object) }
+    } else if command == "rpc" || command == "mcp" {
         let isMCP = command == "mcp"
         let watchEnabled = !isMCP && !arguments.contains("--no-watch")
         if watchEnabled { router.foundation.onChange = { emit(["event":"data.changed"]) } }
@@ -144,16 +158,24 @@ do {
             timer.setEventHandler { do { try router.automation.tick() } catch { fputs("Vela scheduler: \(error.localizedDescription)\n",stderr) } }
             timer.resume()
         }
-        while let line = readLine(strippingNewline:true) {
-            if line.utf8.count > 2_000_000 { emit(["error":["message":"Request exceeds 2 MB limit"]]); continue }
-            guard let data = line.data(using:.utf8), let request = (try? JSONSerialization.jsonObject(with:data)) as? JSON else {
+        let inputReader = BoundedInputReader()
+        while let frame = try inputReader.next() {
+            let data: Data
+            switch frame {
+            case .data(let payload): data = payload
+            case .tooLong:
+                if isMCP { emit(["jsonrpc":"2.0","id":NSNull(),"error":["code":-32600,"message":"Request exceeds 2 MB limit"]]) }
+                else { emit(["error":["message":"Request exceeds 2 MB limit"]]) }
+                continue
+            }
+            guard let request = (try? JSONSerialization.jsonObject(with:data)) as? JSON else {
                 if isMCP { emit(["jsonrpc":"2.0","id":NSNull(),"error":["code":-32700,"message":"Parse error"]]) }
                 else { emit(["error":["message":"Invalid JSON request"]]) }
                 continue
             }
             guard let method = request["method"] as? String else { emit(["id":request["id"] ?? NSNull(),"error":["message":"Missing method"]]); continue }
             queueBound.wait(); pending.enter()
-            let automationMethods = ["workflows.","runs.","improve.","lab.","approvals.","inbox.","evidence."]
+            let automationMethods = ["workflows.","runs.","improve.","lab.","reuse.","approvals.","inbox.","evidence."]
             let queue = !isMCP && automationMethods.contains(where:method.hasPrefix) ? automationQueue : foundationQueue
             queue.async {
                 defer { pending.leave(); queueBound.signal() }

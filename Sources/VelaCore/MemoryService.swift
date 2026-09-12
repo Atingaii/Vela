@@ -55,6 +55,9 @@ final class MemoryService {
         case "search": return try store.search(try requireString(params,"query"),project:checkedProject(params),includePrivate:params["includePrivate"] as? Bool ?? false)
         case "library.list": return try store.list("library",project:checkedProject(params))
         case "library.add":
+            if let id = params["id"] as? String, try store.get("library",id) != nil {
+                throw VelaError("Library imports are create-only; an existing reference cannot be overwritten")
+            }
             var item = params; item["title"] = try requireString(params,"title")
             if let project = try checkedProject(params) { item["project"] = project }
             if let sourceURL = params["url"] as? String {
@@ -73,7 +76,7 @@ final class MemoryService {
             guard string(item,"content").utf8.count <= 2 * 1024 * 1024 else { throw VelaError("Extracted library text exceeds 2 MB") }
             item["private"] = privateLibraryPath(string(item,"sourcePath")) || (params["private"] as? Bool ?? true)
             item["tokens"] = tokenEstimate(string(item,"content")); item["state"] = "active"
-            return try store.put("library",item)
+            return try store.put("library",item,createOnly:true)
         case "checkpoint.list": return try store.list("checkpoint",project:checkedProject(params))
         case "checkpoint.save":
             var item = params; item["project"] = try checkedProject(params,required:true)

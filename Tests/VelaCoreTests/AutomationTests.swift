@@ -199,7 +199,7 @@ final class AutomationTests: XCTestCase {
             XCTAssertEqual(results.count,2)
             XCTAssertEqual(results.first {string($0,"variant") == "baseline"}?["exitCode"] as? Int,1)
             XCTAssertEqual(results.first {string($0,"variant") == "candidate"}?["exitCode"] as? Int,0)
-            XCTAssertEqual(completed["originalWorktreeUnchanged"] as? Bool,true)
+            XCTAssertEqual(completed["originalGitStatusUnchanged"] as? Bool,true)
             XCTAssertEqual(try String(contentsOf:root.appendingPathComponent("value.txt")),"baseline\n")
             XCTAssertFalse(FileManager.default.fileExists(atPath:store.root.appendingPathComponent("lab-worktrees/" + string(evaluation,"id")).path))
             let worktrees = try AutomationProcess.git(["worktree","list","--porcelain"],cwd:root.path)

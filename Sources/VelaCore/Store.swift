@@ -76,6 +76,9 @@ public final class VelaStore {
         try execute("PRAGMA synchronous=NORMAL")
         try execute("CREATE TABLE IF NOT EXISTS objects(kind TEXT NOT NULL,id TEXT NOT NULL,project TEXT NOT NULL DEFAULT '',title TEXT NOT NULL DEFAULT '',content TEXT NOT NULL DEFAULT '',private INTEGER NOT NULL DEFAULT 0,updatedAt TEXT NOT NULL,json TEXT NOT NULL,PRIMARY KEY(kind,id))")
         try execute("CREATE INDEX IF NOT EXISTS objects_project ON objects(project,kind,updatedAt)")
+        // Read substring candidates in row order instead of following the
+        // time-ordered listing index through every matching project's content.
+        try execute("CREATE INDEX IF NOT EXISTS objects_search_project ON objects(project,private,kind)")
         // A one-row change counter keeps background analysis from rescanning session history
         // every timer tick. Triggers also observe writes made by another helper connection.
         try execute("CREATE TABLE IF NOT EXISTS session_change_counter(singleton INTEGER PRIMARY KEY CHECK(singleton=1),revision INTEGER NOT NULL)")
@@ -125,13 +128,26 @@ public final class VelaStore {
         try validateIdentifier(kind); try validateIdentifier(id)
         guard assetKinds.contains(kind) else { throw VelaError("This object has no Markdown asset") }
         let directory = root.appendingPathComponent("assets/\(kind)")
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        // Create each component relative to a verified directory, never through a
+        // path that may follow an existing assets/ or kind/ symbolic link.
+        var directoryFD = Darwin.open(root.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard directoryFD >= 0 else { throw VelaError("Cannot open asset store safely") }
+        defer { Darwin.close(directoryFD) }
+        for component in ["assets",kind] {
+            var childFD = openat(directoryFD,component,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            if childFD < 0, errno == ENOENT {
+                guard mkdirat(directoryFD,component,0o700) == 0 || errno == EEXIST else { throw VelaError("Cannot create asset directory safely") }
+                childFD = openat(directoryFD,component,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            }
+            guard childFD >= 0 else { throw VelaError("Refusing unsafe asset directory") }
+            Darwin.close(directoryFD); directoryFD = childFD
+        }
         guard canonicalProject(directory.path).hasPrefix(root.path + "/") else { throw VelaError("Asset directory escapes store") }
         let url = directory.appendingPathComponent(id + ".md")
         if (try? url.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink) == true { throw VelaError("Refusing symlink asset") }
         return url
     }
-    @discardableResult public func put(_ kind: String, _ object: JSON) throws -> JSON {
+    @discardableResult public func put(_ kind: String, _ object: JSON, createOnly: Bool = false) throws -> JSON {
         lock.lock(); defer { lock.unlock() }
         try validateIdentifier(kind)
         var item = object
@@ -142,23 +158,29 @@ public final class VelaStore {
         if let project = item["project"] as? String, !project.isEmpty { item["project"] = canonicalProject(project) }
         var asset: URL?; var oldAsset: Data?
         if assetKinds.contains(kind) {
-            asset = try assetURL(kind: kind, id: id); oldAsset = try? Data(contentsOf: asset!)
+            asset = try assetURL(kind: kind, id: id)
             item["assetPath"] = asset!.path
         }
         let encoded = try jsonString(item)
         if !isBatching { try execute("BEGIN IMMEDIATE") }
+        var attemptedAssetWrite = false
         do {
+            if createOnly, try !select("SELECT json FROM objects WHERE kind=? AND id=?",[kind,id]).isEmpty {
+                throw VelaError("An existing reference cannot be overwritten by a create-only request")
+            }
+            if let asset { oldAsset = try? Data(contentsOf:asset) }
             try execute("INSERT INTO objects(kind,id,project,title,content,private,updatedAt,json) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET project=excluded.project,title=excluded.title,content=excluded.content,private=excluded.private,updatedAt=excluded.updatedAt,json=excluded.json", [kind, id, string(item,"project"), string(item,"title"), string(item,"content"), (item["private"] as? Bool == true || string(item,"scope") == "private") ? 1 : 0, string(item,"updatedAt"), encoded])
             if let asset {
                 var metadata = item; metadata.removeValue(forKey: "content")
                 let markdown = "<!-- Vela metadata: \(try jsonString(metadata)) -->\n\n# \(string(item,"title",kind))\n\n\(string(item,"content"))\n"
+                attemptedAssetWrite = true
                 try Data(markdown.utf8).write(to: asset, options: .atomic)
                 try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: asset.path)
             }
             if !isBatching { try execute("COMMIT") }
         } catch {
             if !isBatching { try? execute("ROLLBACK") }
-            if let asset {
+            if attemptedAssetWrite, let asset {
                 if let oldAsset { try? oldAsset.write(to: asset, options: .atomic) }
                 else { try? FileManager.default.removeItem(at: asset) }
             }
@@ -166,23 +188,52 @@ public final class VelaStore {
         }
         return item
     }
-    @discardableResult public func putBatch(_ objects: [(String,JSON)]) throws -> [JSON] {
+    @discardableResult public func putBatch(_ objects: [(String,JSON)], expecting: [(String,String,String)] = []) throws -> [JSON] {
         lock.lock(); defer { lock.unlock() }
         guard !isBatching else { throw VelaError("Nested store batches are unsupported") }
-        var prepared: [(String,JSON)] = []; var backups: [(URL,Data?)] = []
+        var prepared: [(String,JSON)] = []
         for (kind,raw) in objects {
             var object = raw; let id = string(object,"id",UUID().uuidString.lowercased()); object["id"] = id
             try validateIdentifier(kind); try validateIdentifier(id)
-            if assetKinds.contains(kind) { let asset = try assetURL(kind:kind,id:id); backups.append((asset,try? Data(contentsOf:asset))) }
             prepared.append((kind,object))
         }
         try execute("BEGIN IMMEDIATE"); isBatching = true
+        var writtenBackups: [(URL,Data?)] = []
         do {
-            let result = try prepared.map { try put($0.0,$0.1) }
+            // The write transaction excludes other Vela writers before checking
+            // snapshots, taking backups, or touching any asset directory.
+            for (kind,id,expectedHash) in expecting {
+                try validateIdentifier(kind); try validateIdentifier(id)
+                guard let current = try get(kind,id), stableHash(try jsonString(current)) == expectedHash else {
+                    throw VelaError("Batch source changed or is missing; review the latest state before retrying")
+                }
+            }
+            var result: [JSON] = []
+            for (kind,object) in prepared {
+                var backup: (URL,Data?)?
+                if assetKinds.contains(kind) {
+                    let asset = try assetURL(kind:kind,id:string(object,"id"))
+                    backup = (asset,try? Data(contentsOf:asset))
+                }
+                let saved = try put(kind,object)
+                // A failing put restores its own partial asset write. Only a
+                // completed write belongs to the outer batch rollback.
+                if let backup { writtenBackups.append(backup) }
+                result.append(saved)
+            }
             try execute("COMMIT"); isBatching = false; return result
         } catch {
+            var restorationErrors: [String] = []
+            // Retain the DB write lock through file restoration so a waiting
+            // process cannot write a newer asset before this rollback finishes.
+            for (asset,data) in writtenBackups.reversed() {
+                do {
+                    if let data { try data.write(to:asset,options:.atomic) }
+                    else if FileManager.default.fileExists(atPath:asset.path) { try FileManager.default.removeItem(at:asset) }
+                } catch { restorationErrors.append(error.localizedDescription) }
+            }
             try? execute("ROLLBACK"); isBatching = false
-            for (asset,data) in backups.reversed() { if let data { try? data.write(to:asset,options:.atomic) } else { try? FileManager.default.removeItem(at:asset) } }
+            if !restorationErrors.isEmpty { throw VelaError("Batch failed and asset restoration requires review: " + restorationErrors.joined(separator:"; ")) }
             throw error
         }
     }

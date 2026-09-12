@@ -10,6 +10,16 @@ public final class SafeApplyService {
     private var transactionDepth = 0
     public init(store: VelaStore) { self.store = store }
 
+    /// Internal bounded read for proposal/evaluation snapshots. Uses the same path and file
+    /// identity checks as writes, without creating directories or requiring a known base hash.
+    func readSnapshot(project: String, path: String) throws -> JSON {
+        lock.lock(); defer { lock.unlock() }
+        let target = try SafeTarget(project:project,operation:["path":path,"baseHash":"absent","content":""],createParents:false,verifyBase:false)
+        defer { target.close() }
+        let content = try target.current()
+        return ["path":target.path,"exists":content != nil,"hash":content.map(stableHash) ?? "absent","content":content as Any? ?? NSNull()]
+    }
+
     public func preview(project: String, operations: [JSON]) throws -> [JSON] {
         lock.lock(); defer { lock.unlock() }
         return try prepare(project: project, operations: operations, createParents: false).map { target in

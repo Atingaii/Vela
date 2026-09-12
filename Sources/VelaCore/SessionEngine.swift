@@ -2,6 +2,26 @@ import Foundation
 import CoreServices
 import CSQLite
 
+// Token counts cross JSON into WebKit, so require exact nonnegative integers
+// within both Swift and JavaScript's supported integer range. Never coerce bools,
+// fractions, strings or overflowing provider numbers into fabricated zeroes.
+func usageTokenCount(_ value: Any?) -> Int? {
+    guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+          let count = Int(number.stringValue), count >= 0, count <= 9_007_199_254_740_991 else { return nil }
+    return count
+}
+func usageTokenSum(_ values: [Int]) -> Int? {
+    guard !values.isEmpty else { return nil }
+    var total = 0
+    for value in values {
+        guard value >= 0 else { return nil }
+        let addition = total.addingReportingOverflow(value)
+        guard !addition.overflow, addition.partialValue <= 9_007_199_254_740_991 else { return nil }
+        total = addition.partialValue
+    }
+    return total
+}
+
 final class SessionEngine {
     let store: VelaStore
     let sourceRoots: [String:[URL]]
@@ -193,6 +213,7 @@ final class SessionEngine {
         if session["startedAt"] == nil { session["startedAt"] = isoNow(); session["startedAtSource"] = "ingestion_fallback" }
         let messages = session["messages"] as? [JSON] ?? []
         session["messageCount"] = messages.count; session["content"] = messages.map { string($0,"content") }.joined(separator:"\n")
+        finalizeUsage(provider:provider,session:&session)
         if malformed > 0 { session["parseWarning"] = "Skipped \(malformed) malformed records" }
         _ = try store.put("session",session)
         cursor["id"] = cursorId; cursor["offset"] = offset + consumed; cursor["sourcePath"] = url.path; cursor["fingerprint"] = fingerprint; cursor["modified"] = modified
@@ -247,16 +268,29 @@ final class SessionEngine {
                 var identity = message; if identity["id"] == nil { identity["id"] = row["uuid"] }
                 addMessage(identity,role:role,content:textContent(message["content"]),timestamp:timestamp,session:&session)
                 if let model = message["model"] as? String { session["model"] = model }
-                if let usage = message["usage"] as? JSON {
+                if role == "assistant" || message["usage"] != nil {
                     var totals = session["usageByMessage"] as? [String:JSON] ?? [:]
-                    let key = string(message,"id",string(row,"uuid",stableHash(timestamp + ((try? jsonString(usage)) ?? ""))))
-                    let previous = totals[key] ?? [:]
-                    totals[key] = ["input":intValue(usage,"input_tokens") + intValue(usage,"cache_read_input_tokens") + intValue(usage,"cache_creation_input_tokens"),"output":intValue(usage,"output_tokens")]
-                    session["tokenInput"] = intValue(session,"tokenInput") + intValue(totals[key]!,"input") - intValue(previous,"input")
-                    session["tokenOutput"] = intValue(session,"tokenOutput") + intValue(totals[key]!,"output") - intValue(previous,"output")
-                    if totals.count > 4096, let first = totals.keys.sorted().first, first != key { totals.removeValue(forKey:first) }
+                    let key = string(message,"id",string(row,"uuid",stableHash(timestamp + textContent(message["content"]))))
+                    if let usage = message["usage"] as? JSON {
+                        let previous = totals[key] ?? [:]
+                        let hasInput = ["input_tokens","cache_read_input_tokens","cache_creation_input_tokens"].contains { usage[$0] != nil }
+                        let base = usageTokenCount(usage["input_tokens"])
+                        let read = usage["cache_read_input_tokens"] == nil ? 0 : usageTokenCount(usage["cache_read_input_tokens"])
+                        let creation = usage["cache_creation_input_tokens"] == nil ? 0 : usageTokenCount(usage["cache_creation_input_tokens"])
+                        let input = hasInput ? base.flatMap { base in read.flatMap { read in creation.flatMap { usageTokenSum([base,read,$0]) } } } : usageTokenCount(previous["input"])
+                        let output = usage["output_tokens"] == nil ? usageTokenCount(previous["output"]) : usageTokenCount(usage["output_tokens"])
+                        let overflow = hasInput ? base != nil && read != nil && creation != nil && input == nil : previous["overflow"] as? Bool == true
+                        totals[key] = ["input":input as Any? ?? NSNull(),"output":output as Any? ?? NSNull(),
+                                       "overflow":overflow]
+                    } else if totals[key] == nil {
+                        // A later partial event must not erase usage already
+                        // reported for the same assistant message identifier.
+                        totals[key] = ["input":NSNull(),"output":NSNull()]
+                    }
+                    if totals.count > 4096, let first = totals.keys.sorted().first(where:{$0 != key}) {
+                        totals.removeValue(forKey:first); session["usageLedgerTruncated"] = true
+                    }
                     session["usageByMessage"] = totals
-                    session["usageCoverage"] = session["historyTruncated"] as? Bool == true ? "indexed tail only" : "indexed messages"
                 }
             }
             if row["isApiErrorMessage"] as? Bool == true || type == "error" { session["state"] = "Error" }
@@ -281,7 +315,9 @@ final class SessionEngine {
                 switch string(payload,"type") {
                 case "token_count":
                     if let info = payload["info"] as? JSON, let usage = info["total_token_usage"] as? JSON {
-                        session["tokenInput"] = intValue(usage,"input_tokens"); session["tokenOutput"] = intValue(usage,"output_tokens"); session["usageCoverage"] = "provider-reported cumulative tokens"
+                        session["tokenInput"] = usageTokenCount(usage["input_tokens"]) as Any? ?? NSNull()
+                        session["tokenOutput"] = usageTokenCount(usage["output_tokens"]) as Any? ?? NSNull()
+                        session["usageCoverage"] = "provider-reported cumulative tokens"
                     }
                 case "task_complete","turn_complete": session["state"] = "Completed"
                 case "turn_aborted": session["state"] = "Stopped"
@@ -296,6 +332,35 @@ final class SessionEngine {
             addMessage(row,role:role,content:textContent(row["content"] ?? row["text"] ?? row["message"]),timestamp:timestamp,session:&session)
             if let model = row["model"] as? String { session["model"] = model }
         }
+    }
+    private func finalizeUsage(provider: String, session: inout JSON) {
+        if provider == "claude" {
+            let entries = Array((session["usageByMessage"] as? [String:JSON] ?? [:]).values)
+            let inputs = entries.compactMap { usageTokenCount($0["input"]) }
+            let outputs = entries.compactMap { usageTokenCount($0["output"]) }
+            let input = usageTokenSum(inputs), output = usageTokenSum(outputs)
+            let truncated = session["usageLedgerTruncated"] as? Bool == true
+            session["observedTokenInput"] = input as Any? ?? NSNull()
+            session["observedTokenOutput"] = output as Any? ?? NSNull()
+            session["tokenInput"] = (!truncated && inputs.count == entries.count ? input : nil) as Any? ?? NSNull()
+            session["tokenOutput"] = (!truncated && outputs.count == entries.count ? output : nil) as Any? ?? NSNull()
+            session["usageOverflow"] = entries.contains { $0["overflow"] as? Bool == true } || (!inputs.isEmpty && input == nil) || (!outputs.isEmpty && output == nil)
+            session["usageCoverage"] = truncated ? "bounded usage ledger; older counters unavailable" : (session["historyTruncated"] as? Bool == true ? "indexed tail only" : "indexed assistant messages only")
+        } else {
+            session["tokenInput"] = usageTokenCount(session["tokenInput"]) as Any? ?? NSNull()
+            session["tokenOutput"] = usageTokenCount(session["tokenOutput"]) as Any? ?? NSNull()
+            session["observedTokenInput"] = session["tokenInput"]
+            session["observedTokenOutput"] = session["tokenOutput"]
+            let hasCounter = usageTokenCount(session["tokenInput"]) != nil || usageTokenCount(session["tokenOutput"]) != nil
+            session["usageCoverage"] = provider == "codex" && hasCounter ? "provider-reported cumulative tokens" : "provider usage unavailable"
+        }
+        let input = usageTokenCount(session["tokenInput"]), output = usageTokenCount(session["tokenOutput"])
+        let observedInput = usageTokenCount(session["observedTokenInput"]), observedOutput = usageTokenCount(session["observedTokenOutput"])
+        let available = input != nil && output != nil && usageTokenSum([input!,output!]) != nil
+        let overflow = session["usageOverflow"] as? Bool == true || (observedInput != nil && observedOutput != nil && usageTokenSum([observedInput!,observedOutput!]) == nil)
+        session["usageAvailable"] = available && !overflow
+        session["usageStatus"] = overflow ? "overflow" : available ? "complete" : (observedInput != nil || observedOutput != nil) ? "partial" : "unavailable"
+        if !available { session["usageCoverage"] = string(session,"usageCoverage","provider usage unavailable") + "; missing, invalid or out-of-range counters are unavailable" }
     }
     private func ingestCursorExport(_ url: URL) throws -> Bool {
         let size = (try url.resourceValues(forKeys:[.fileSizeKey])).fileSize ?? 0

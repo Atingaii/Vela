@@ -97,16 +97,43 @@ public final class FoundationService {
     }
     private func usage(_ params: JSON) throws -> JSON {
         let all = try store.sessionSummaries(project:checkedProject(params),limit:10000)
-        var providers: [String:JSON] = [:]; var daily: [String:Int] = [:]
-        for item in all {
-            let provider = string(item,"provider","unknown"); var bucket = providers[provider] ?? ["provider":provider,"inputTokens":0,"outputTokens":0,"totalTokens":0,"sessionCount":0,"quotaAvailable":false]
-            let input = intValue(item,"tokenInput"), output = intValue(item,"tokenOutput")
-            bucket["inputTokens"] = intValue(bucket,"inputTokens") + input; bucket["outputTokens"] = intValue(bucket,"outputTokens") + output
-            bucket["totalTokens"] = intValue(bucket,"totalTokens") + input + output; bucket["sessionCount"] = intValue(bucket,"sessionCount") + 1
-            providers[provider] = bucket
-            let date = String(string(item,"startedAt",string(item,"createdAt")).prefix(10)); daily[date,default:0] += input + output
+        func aggregate(_ items: [JSON]) -> JSON {
+            var inputs: [Int] = [], outputs: [Int] = [], observedInputs: [Int] = [], observedOutputs: [Int] = []
+            var observedSessions = 0, completeSessions = 0
+            for item in items {
+                let input = usageTokenCount(item["tokenInput"]), output = usageTokenCount(item["tokenOutput"])
+                let observedInput = usageTokenCount(item["observedTokenInput"] ?? item["tokenInput"])
+                let observedOutput = usageTokenCount(item["observedTokenOutput"] ?? item["tokenOutput"])
+                if let input { inputs.append(input) }; if let output { outputs.append(output) }
+                if let observedInput { observedInputs.append(observedInput) }; if let observedOutput { observedOutputs.append(observedOutput) }
+                if observedInput != nil || observedOutput != nil { observedSessions += 1 }
+                if let input, let output, usageTokenSum([input,output]) != nil, item["usageAvailable"] as? Bool != false { completeSessions += 1 }
+            }
+            let observedInput = usageTokenSum(observedInputs), observedOutput = usageTokenSum(observedOutputs)
+            let observedTotal = usageTokenSum(observedInputs + observedOutputs)
+            let input = inputs.count == items.count ? usageTokenSum(inputs) : nil
+            let output = outputs.count == items.count ? usageTokenSum(outputs) : nil
+            let total = completeSessions == items.count ? usageTokenSum(inputs + outputs) : nil
+            let overflow = items.contains { string($0,"usageStatus") == "overflow" } ||
+                (!observedInputs.isEmpty && observedInput == nil) || (!observedOutputs.isEmpty && observedOutput == nil) ||
+                ((!observedInputs.isEmpty || !observedOutputs.isEmpty) && observedTotal == nil)
+            let available = total != nil && !overflow
+            return ["inputTokens":input as Any? ?? NSNull(),"outputTokens":output as Any? ?? NSNull(),"totalTokens":(available ? total : nil) as Any? ?? NSNull(),
+                    "observedInputTokens":observedInput as Any? ?? NSNull(),"observedOutputTokens":observedOutput as Any? ?? NSNull(),
+                    "observedTotalTokens":(overflow ? nil : observedTotal) as Any? ?? NSNull(),
+                    "usageAvailable":available,"coverage":overflow ? "overflow" : available ? "complete" : observedSessions > 0 ? "partial" : "unavailable",
+                    "sessionCount":items.count,"observedSessionCount":observedSessions,"missingUsageSessionCount":items.count - completeSessions,"quotaAvailable":false]
         }
-        return ["providers":providers.keys.sorted().compactMap { providers[$0] },"daily":daily.keys.sorted().map { ["date":$0,"tokens":daily[$0]!] as JSON },"totalTokens":providers.values.reduce(0) { $0 + intValue($1,"totalTokens") },"sessionCount":all.count,"coverage":"observed indexed logs only; daily totals attributed to session start date","quotaAvailable":false,"costAvailable":false,"historyFullyIndexed":false]
+        let providers = Dictionary(grouping:all,by:{ string($0,"provider","unknown") })
+        let days = Dictionary(grouping:all,by:{ String(string($0,"startedAt",string($0,"createdAt")).prefix(10)) })
+        var result = aggregate(all)
+        result["providers"] = providers.keys.sorted().map { key -> JSON in var bucket = aggregate(providers[key]!); bucket["provider"] = key; return bucket }
+        result["daily"] = days.keys.sorted().map { key -> JSON in
+            var day = aggregate(days[key]!); day["date"] = key; day["tokens"] = day["totalTokens"]; day["observedTokens"] = day["observedTotalTokens"]; return day
+        }
+        result["coverageDescription"] = "observed indexed logs only; completeness applies to selected indexed sessions, not full provider history; daily totals attributed to session start date"
+        result["costAvailable"] = false; result["historyFullyIndexed"] = false
+        return result
     }
     private func setupList(_ params: JSON) throws -> [JSON] {
         try store.list("artifact",project:checkedProject(params),limit:10000).filter { string($0,"origin") == "setup" }

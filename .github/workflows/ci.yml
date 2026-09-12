@@ -25,7 +25,10 @@ jobs:
           python3 scripts/check-repository.py
           python3 scripts/test-release-resources.py
       - name: JSONL and MCP integration
-        run: python3 scripts/test-rpc.py
+        run: |
+          python3 scripts/test-rpc.py
+          python3 scripts/test-rpc-limits.py
+          python3 scripts/test-restart.py
       - name: Package and audit macOS application
         run: bash scripts/package-macos.sh
       - uses: actions/upload-artifact@v4

@@ -36,9 +36,13 @@ public final class AutomationService {
         case "improve.dismiss":
             var suggestion = try object("suggestion", requireString(params,"id"))
             suggestion["state"] = "dismissed"; return try store.put("suggestion",suggestion)
-        case "lab.list": return try store.list("eval", project: checkedProject(params))
+        case "lab.list": return try store.list("eval", project: checkedProject(params)).map(currentEvaluation)
         case "lab.run": return try createEvaluation(params)
-        case "lab.compare": return try object("eval", requireString(params,"id"))
+        case "lab.compare": return currentEvaluation(try object("eval", requireString(params,"id")))
+        case "lab.promote": return try promoteEvaluation(params)
+        case "reuse.preview": return try previewReuseHook(params)
+        case "reuse.context": return try hookContext(params)
+        case "reuse.outcomes": return try reuseOutcomes(params)
         case "evidence.get": return try evidence(params)
         default: return nil
         }
@@ -324,7 +328,7 @@ public final class AutomationService {
                 var references: [JSON] = result["evidence"] as? [JSON] ?? []
                 if let session = result["sourceSession"] as? String { references.append(["kind":"session","id":session]) }
                 if let run = result["runId"] as? String { references.append(["kind":"run","id":run]) }
-                return ["object":result,"references":references]
+                return ["object":kind == "eval" ? currentEvaluation(result) : result,"references":references]
             }
         }
         throw VelaError("Evidence object not found")

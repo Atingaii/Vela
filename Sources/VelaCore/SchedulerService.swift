@@ -56,7 +56,7 @@ extension AutomationService {
     private func analyzeChangedSessionsIfEnabled() throws {
         guard try store.get("settings","preferences")?["analysisEnabled"] as? Bool == true else { return }
         let revision = try store.sessionRevision()
-        let detectorVersion = "explicit-language-v1"
+        let detectorVersion = "explicit-engineering-v2"
         let previous = try store.get("analysis_state","background")
         if let previous, (previous["sessionRevision"] as? NSNumber)?.int64Value == revision,
            string(previous,"detectorVersion") == detectorVersion { return }
