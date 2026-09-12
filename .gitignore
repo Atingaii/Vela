@@ -1,0 +1,11 @@
+.build/
+.DS_Store
+.task-tmp/
+*.log
+releases/*
+!releases/README.md
+website/.sites/
+website/.env*
+ui-output/
+docs/implementation/antigravity-*.md
+!docs/implementation/antigravity-ui.md

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>发行记录 — Vela</title>
+  <meta name="description" content="Vela 版本发布日志、功能特性与已知限制说明。">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="brand-link" aria-label="Vela 首页">
+        <span class="brand-mark">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="3 20 12 3 21 20 12 16 3 20"></polygon>
+          </svg>
+        </span>
+        <span>Vela</span>
+      </a>
+
+      <nav class="site-nav" aria-label="主导航">
+        <a href="index.html#product" class="nav-link">产品</a>
+        <a href="index.html#how-it-works" class="nav-link">工作方式</a>
+        <a href="docs.html" class="nav-link">文档</a>
+        <a href="releases.html" class="nav-link active">发行记录</a>
+      </nav>
+
+      <div class="header-actions">
+        <a href="https://github.com/Atingaii/Vela" class="btn btn-outline btn-sm" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/releases" class="btn btn-amber btn-sm" target="_blank" rel="noopener noreferrer">获取最新预览版</a>
+        <button class="mobile-menu-toggle" aria-label="展开导航菜单" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main style="padding: 60px 0 80px;">
+    <div class="container" style="max-width: 820px;">
+      <div class="hero-tag">RELEASE LOG</div>
+      <h1 style="font-size: 34px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.8px;">版本发行记录</h1>
+      <p style="font-size: 15px; color: var(--text-secondary); margin-bottom: 40px;">
+        Vela 的每一次更新都严格对应已验证的架构规约与本地安全标准。
+      </p>
+
+      <!-- Release Card 0.1.0 -->
+      <div class="demo-box" style="margin-bottom: 40px;">
+        <div class="demo-header" style="padding: 14px 20px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <strong style="font-size: 18px; color: #fff;">0.1.0-preview.1 · 本地预览版</strong>
+            <span class="demo-badge" style="color: #34d399; background: rgba(52, 211, 153, 0.1);">当前最新</span>
+          </div>
+          <span style="font-size: 12px; color: #a5a5b2; font-family: monospace;">2026-09-12</span>
+        </div>
+
+        <div style="padding: 24px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <span style="font-size: 13px; color: #a5a5b2;">适用平台：</span>
+              <code class="code-block" style="padding: 2px 6px;">macOS 13.0+ (Apple Silicon arm64)</code>
+            </div>
+            <div>
+              <a href="https://github.com/Atingaii/Vela/releases" class="btn btn-primary btn-sm" target="_blank" rel="noopener noreferrer">
+                前往 GitHub Releases 下载
+              </a>
+            </div>
+          </div>
+
+          <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 10px; color: #fff;">已支持功能特性</h3>
+          <ul style="padding-left: 20px; font-size: 13px; line-height: 1.8; color: #a5a5b2; margin-bottom: 24px;">
+            <li><strong>原生 AppKit 桌面宿主：</strong>采用 WebKit 进程隔离与菜单栏常驻项，提供 ⌘1..6 模块切换与全局 ⌘K 项目上下文检索。</li>
+            <li><strong>Agents 会话索引：</strong>自动捕获本地多智能体日志（Claude Code、Codex，以及处于实验性支持的 Cursor），展示调用时间线、Token 消耗与跨工具 Checkpoint 导出。</li>
+            <li><strong>Workflows 工作流引擎：</strong>组织 Git 检查、测试脚本与写操作；支持文字提示生成本地草稿 (workflows.build)、只读试运行 (Dry Run: 只读 Git 真实执行，写入与测试步骤模拟) 与运行记录 (Run Ledger) 审计重放。</li>
+            <li><strong>Setup 项目配置：</strong>支持 Guidelines 指南维护（静态源快照，未注入执行）与规约安全审计；完整支持 Memory 状态流转（candidate ➔ active ➔ superseded ➔ archived）；通过 CLI/MCP 按保守估算预算显式召回 (Recall)；支持文本、路径与 URL 格式知识库导入。</li>
+            <li><strong>待执行操作把关 (Inbox)：</strong>写操作与测试命令在计算冻结参数哈希后进入待办队列，由工程师显式确认后触发。</li>
+            <li><strong>Improve 调优建议：</strong>执行“同一模式在至少 2 个会话中出现 3 次以上信号”的确定性证据规则，不依赖模型智能打分，提供清晰的 Diff 审查与一键撤销。</li>
+            <li><strong>Lab 对照实验与回归分析：</strong>在相同 Git HEAD 的双独立 Worktree 中分别执行命令，以 deterministic_command 真实退出码与耗时进行客观对比，支持历史回归记录查看。</li>
+            <li><strong>标准 stdio MCP 服务：</strong>内置 <code class="code-block" style="padding: 1px 4px;">vela mcp</code>，为外部智能体提供只读上下文检索，严格隔离私密知识库。</li>
+          </ul>
+
+          <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 10px; color: #fbbf24;">当前已知限制与开发者说明</h3>
+          <ul style="padding-left: 20px; font-size: 13px; line-height: 1.8; color: #a5a5b2;">
+            <li><strong>签名状态：</strong>当前为 Ad-hoc 自签名开发预览版，未配置商业 Developer ID 证书与自动公证。下载后请校验 SHA256 校验和；初次启动请在系统设置“隐私与安全性”中核对并点击“仍要打开 (Open Anyway)”。请勿使用破坏系统安全策略的命令。</li>
+            <li><strong>智能体格式兼容性：</strong>Cursor 私有会话格式解析目前处于实验性/部分支持阶段；Guidelines 规约目前仅作为运行台账快照（snapshot_only_not_injected），尚未注入外部智能体。</li>
+            <li><strong>Lab 评测局限：</strong>当前评测器仅支持确定性命令（deterministic_command）的真实退出码与运行耗时对比，Baseline 与 Candidate 在独立 Worktree 中分批先后执行，暂未提供端到端自主智能体综合评估。</li>
+            <li><strong>记忆召回机制：</strong>Recall 检索采用保守估算预算上限控制，需通过 CLI 或 MCP 显式调用，智能体启动时不会自动检索。</li>
+            <li><strong>更新机制：</strong>当前版本未内置后台自动更新程序，新版本需在 GitHub Releases 手动获取。</li>
+            <li><strong>配额说明：</strong>Token 统计完全来自本地捕获的日志文件。若 Provider 未在日志输出配额，如实展示“额度未提供”。</li>
+            <li><strong>依赖环境：</strong>运行测试工作流或 Lab 实验需要本地系统已安装相应的开发工具链（如 npm、swift 等）。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <strong>Vela</strong> — The engineering layer for coding agents.
+      </div>
+      <div class="footer-links">
+        <a href="docs.html">文档</a>
+        <a href="privacy.html">隐私与安全</a>
+        <a href="releases.html">发行记录</a>
+        <a href="https://github.com/Atingaii/Vela" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="site.js"></script>
+</body>
+</html>

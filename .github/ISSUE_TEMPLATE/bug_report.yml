@@ -1,0 +1,26 @@
+name: Bug report
+description: Report a reproducible problem using sanitized data.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Never include real sessions, tokens or private project source. Use private vulnerability reporting for security issues.
+  - type: input
+    id: version
+    attributes:
+      label: Vela version and macOS version
+      placeholder: 0.1.0-dev, macOS 15, Apple Silicon
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include expected and actual behavior, and sanitized sample data when useful.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized diagnostic output
+      render: text

@@ -1,0 +1,17 @@
+name: Feature request
+description: Describe a concrete engineering workflow Vela should support.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What repeated problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected result and constraints
+      description: Explain the user outcome; implementation suggestions are optional.
+    validations:
+      required: true

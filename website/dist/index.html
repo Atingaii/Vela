@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vela — The Engineering Layer for Coding Agents</title>
+  <meta name="description" content="把 Claude Code、Codex 和 Cursor 的会话、项目记忆与重复工作放在一起。下一次开始时，接着已有的工程经验往前走。">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="brand-link" aria-label="Vela 首页">
+        <span class="brand-mark">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="3 20 12 3 21 20 12 16 3 20"></polygon>
+          </svg>
+        </span>
+        <span>Vela</span>
+      </a>
+
+      <nav class="site-nav" aria-label="主导航">
+        <a href="#product" class="nav-link">产品</a>
+        <a href="#how-it-works" class="nav-link">工作方式</a>
+        <a href="docs.html" class="nav-link">文档</a>
+        <a href="releases.html" class="nav-link">发行记录</a>
+      </nav>
+
+      <div class="header-actions">
+        <a href="https://github.com/Atingaii/Vela" class="btn btn-outline btn-sm" target="_blank" rel="noopener noreferrer">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>GitHub</span>
+        </a>
+        <a href="https://github.com/Atingaii/Vela/releases" class="btn btn-amber btn-sm" target="_blank" rel="noopener noreferrer">获取最新预览版</a>
+        <button class="mobile-menu-toggle" aria-label="展开导航菜单" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <div class="container">
+        <div class="hero-tag">THE ENGINEERING LAYER FOR CODING AGENTS</div>
+        <h1 class="hero-headline">Session 结束。
+工程经验继续。</h1>
+        <p class="hero-subtext">
+          把 Claude Code、Codex 和 Cursor 的会话、项目记忆与重复工作放在一起。下一次开始时，接着已有的工程经验往前走。
+        </p>
+
+        <div class="hero-cta-group">
+          <a href="https://github.com/Atingaii/Vela/releases" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            前往 GitHub Releases 下载
+          </a>
+          <a href="docs.html" class="btn btn-outline">阅读文档</a>
+          <span class="release-note-hint">v0.1.0-preview.1 · macOS 13+ Apple Silicon · 本地预览版</span>
+        </div>
+
+        <!-- Interactive Demonstrator -->
+        <div class="demo-box" id="product">
+          <div class="demo-header">
+            <div class="demo-title-group">
+              <div class="mac-dots">
+                <div class="mac-dot"></div>
+                <div class="mac-dot"></div>
+                <div class="mac-dot"></div>
+              </div>
+              <span class="demo-app-title">Vela 工作台</span>
+            </div>
+            <span class="demo-badge">交互示例 · 虚构数据</span>
+          </div>
+
+          <div class="demo-tabs">
+            <button class="demo-tab-btn active" data-tab="observe">1. 观察 (Observe)</button>
+            <button class="demo-tab-btn" data-tab="remember">2. 沉淀 (Remember)</button>
+            <button class="demo-tab-btn" data-tab="automate">3. 编排 (Automate)</button>
+            <button class="demo-tab-btn" data-tab="verify">4. 实证 (Verify)</button>
+          </div>
+
+          <div class="demo-content" id="demo-scenario-content">
+            <!-- Populated dynamically by site.js -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Principles Section -->
+    <section class="section" id="how-it-works">
+      <div class="container">
+        <div class="section-tag">ENGINEERING APPROACH</div>
+        <h2 class="section-title">让每次工作留下可复用的经验</h2>
+        <p class="section-desc">面向日常开发流程构建。数据完全存放在你的本地设备上，关键写入与执行步骤由人工明确把关。</p>
+
+        <div class="feature-grid">
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            </div>
+            <h3 class="feature-title">本地存储与数据隐私</h3>
+            <p class="feature-desc">没有云端数据库、没有账号系统、没有后台行为上报。会话索引、Memory 记忆与工作流配置均保存在本地目录。</p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            </div>
+            <h3 class="feature-title">命令结果检验</h3>
+            <p class="feature-desc">使用真实的命令退出码与耗时检验工程结果。在相同 Git HEAD 的独立 Worktree 中分别执行命令对照检验，不使用主观模型打分。</p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </div>
+            <h3 class="feature-title">待执行操作把关 (Inbox)</h3>
+            <p class="feature-desc">工作流中的任意代码测试（如 shell.test）、文件修改与对照实验执行，会在计算冻结参数哈希后放入待执行列表，由工程师批准后执行。</p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+            <h3 class="feature-title">常用智能体支持</h3>
+            <p class="feature-desc">提供本地 stdio MCP 接口供外部智能体连接；自动解析 Claude Code 与 Codex 会话（Cursor 格式为实验性支持），支持将阶段性 Checkpoint 导出为交接文件。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Local Assets Directory Tree -->
+    <section class="section">
+      <div class="container">
+        <div class="section-tag">LOCAL ASSETS LAYOUT</div>
+        <h2 class="section-title">本地存储目录结构</h2>
+        <p class="section-desc">所有资产以 Markdown 与 SQLite 文件形式保存在本地（开发预览版默认保存在 <code class="code-block" style="padding: 1px 4px;">~/.vela-dev</code>，正式版使用 <code class="code-block" style="padding: 1px 4px;">~/.vela</code>，支持 <code class="code-block" style="padding: 1px 4px;">VELA_HOME</code> 环境变量覆盖）。</p>
+
+        <div class="tree-card">
+          <div class="tree-node" style="color: #fbbf24; font-weight: 600;">.vela/ <span class="tree-comment">// 本地存储根目录</span></div>
+          <div class="tree-node">├── vela.sqlite3 <span class="tree-comment">// SQLite 数据库：会话索引、运行记录、待审批快照</span></div>
+          <div class="tree-node">└── assets/</div>
+          <div class="tree-node">    ├── memory/ <span class="tree-comment">// 项目记忆条目 (Markdown)</span></div>
+          <div class="tree-node">    ├── workflow/ <span class="tree-comment">// 多步骤工作流定义</span></div>
+          <div class="tree-node">    ├── guideline/ <span class="tree-comment">// 项目开发指南规约</span></div>
+          <div class="tree-node">    ├── library/ <span class="tree-comment">// 本地知识库（私密条目排除在 Agent 检索之外）</span></div>
+          <div class="tree-node">    └── checkpoint/ <span class="tree-comment">// 跨工具交接总结文件</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 Modules Section -->
+    <section class="section">
+      <div class="container">
+        <div class="section-tag">CORE WORKSPACES</div>
+        <h2 class="section-title">六项核心能力</h2>
+        <p class="section-desc">涵盖会话查看、自动工作流、配置沉淀与实验对比，协助日常开发。</p>
+
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h3 class="feature-title">1. Agents 会话</h3>
+            <p class="feature-desc">读取本地智能体日志（Claude Code、Codex，以及处于实验性支持的 Cursor），显示调用时间线与 Token 消耗。可将选定消息保存为 Memory，或导出 Checkpoint 交接总结。</p>
+          </div>
+
+          <div class="feature-card">
+            <h3 class="feature-title">2. Workflows 工作流</h3>
+            <p class="feature-desc">编排常用的 Git 检查、测试命令与文件操作。支持无破坏性的 Dry Run 试运行（只读 Git 真实运行，写入/测试使用模拟结果），并记录运行日志供重放。</p>
+          </div>
+
+          <div class="feature-card">
+            <h3 class="feature-title">3. Setup 项目配置</h3>
+            <p class="feature-desc">管理规则文件、Guidelines 指南快照（未注入执行）、MCP 配置与项目 Memory。支持通过 CLI/MCP 按保守估算预算显式检索记忆，并在知识库中设置对智能体不可见的私密条目。</p>
+          </div>
+
+          <div class="feature-card">
+            <h3 class="feature-title">4. Usage 用量追踪</h3>
+            <p class="feature-desc">从本地会话日志中统计 Token 数量与变化趋势。仅展示日志中可确认的数据，若无云端配额信息则如实显示为未提供。</p>
+          </div>
+
+          <div class="feature-card">
+            <h3 class="feature-title">5. Improve 调优建议</h3>
+            <p class="feature-desc">当同一模式在至少 2 个会话中出现 3 次以上信号时，依据确定性证据规则生成规则调整建议。人工确认 Diff 后方执行文件修改，支持撤销。</p>
+          </div>
+
+          <div class="feature-card">
+            <h3 class="feature-title">6. Lab 对照实验</h3>
+            <p class="feature-desc">在相同 Git 版本的独立 Worktree 中分别挂载不同配置并执行同一测试命令，根据真实退出码与运行时长对比效果。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="section" style="text-align: center; padding: 80px 0;">
+      <div class="container">
+        <h2 style="font-size: 32px; font-weight: 700; margin-bottom: 16px;">获取 Vela 本地预览版</h2>
+        <p style="font-size: 15px; color: var(--text-secondary); max-width: 520px; margin: 0 auto 32px;">
+          适用于 macOS 13+ Apple Silicon 的本地预览构建。无需在线注册，下载后请按照安装说明核对并完成首次打开授权。
+        </p>
+        <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+          <a href="https://github.com/Atingaii/Vela/releases" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            前往 Releases 下载
+          </a>
+          <a href="docs.html" class="btn btn-outline">使用指南</a>
+          <a href="releases.html" class="btn btn-outline">发行说明</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <strong>Vela</strong> — The engineering layer for coding agents.
+        <span style="margin-left: 8px;">本地存储 · 无遥测 · 确定性架构</span>
+      </div>
+      <div class="footer-links">
+        <a href="docs.html">文档</a>
+        <a href="privacy.html">隐私与安全</a>
+        <a href="releases.html">发行记录</a>
+        <a href="https://github.com/Atingaii/Vela" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="site.js"></script>
+</body>
+</html>

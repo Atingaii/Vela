@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Background rounded icon squircle clip -->
+    <clipPath id="squircle">
+      <rect x="64" y="64" width="896" height="896" rx="200" ry="200" />
+    </clipPath>
+    <!-- Deep ink gradient -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#161622" />
+      <stop offset="100%" stop-color="#07070a" />
+    </linearGradient>
+    <!-- Sail warm amber gradient -->
+    <linearGradient id="sailGrad" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="40%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <!-- Secondary mast tone -->
+    <linearGradient id="mastGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e2e8f0" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+  </defs>
+
+  <!-- Base Icon Card -->
+  <g clip-path="url(#squircle)">
+    <rect x="64" y="64" width="896" height="896" fill="url(#bgGrad)" />
+    
+    <!-- Subtle 64px Grid Texture -->
+    <path d="M64 256 H960 M64 512 H960 M64 768 H960 M256 64 V960 M512 64 V960 M768 64 V960"
+          stroke="rgba(255, 255, 255, 0.03)" stroke-width="2" />
+
+    <!-- Outer Card Border -->
+    <rect x="64" y="64" width="896" height="896" rx="200" ry="200"
+          fill="none" stroke="rgba(255, 255, 255, 0.08)" stroke-width="4" />
+
+    <!-- Vela Angular Sail Mark (High contrast & crisp at small sizes) -->
+    <!-- Main Sail (Warm Amber) -->
+    <polygon points="512,192 784,752 512,656"
+             fill="url(#sailGrad)" />
+    
+    <!-- Fore Sail / Counter Sail (Clean Dark-Light Contrast) -->
+    <polygon points="512,192 512,656 240,752"
+             fill="url(#mastGrad)"
+             opacity="0.9" />
+
+    <!-- Keel Cutout Accent -->
+    <polygon points="512,656 784,752 512,716 240,752"
+             fill="#07070a" />
+
+    <!-- Central Precision Dot -->
+    <circle cx="512" cy="716" r="16" fill="#fbbf24" />
+  </g>
+</svg>
