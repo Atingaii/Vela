@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>使用场景与工程任务 — Vela</title>
+  <meta name="description" content="Vela 面向编码智能体的四大核心工程场景：会话回看、项目记忆、审阅工作流、对照与复用。明确读取源、人工审查把关与结果产物。">
+  <link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="../assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="../styles.css">
+
+  <!-- Immediate theme application to prevent flash -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Site Header (62px height, x70-1180 alignment) -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/" class="brand-link" aria-label="Vela 首页">
+          <img src="../assets/mark.svg" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="主导航">
+          <a href="/usecases/" class="nav-link active" aria-current="page">使用场景</a>
+          <a href="/comparisons/" class="nav-link">产品对比</a>
+        </nav>
+      </div>
+
+      <div class="header-actions">
+        <a href="/docs.html" class="header-docs-link">文档</a>
+
+        <!-- Theme Toggle Button -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- GitHub Repository Button -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="展开导航菜单" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单">
+      <a href="/usecases/" class="nav-link active" aria-current="page">使用场景</a>
+      <a href="/comparisons/" class="nav-link">产品对比</a>
+      <a href="/docs.html" class="nav-link">文档</a>
+      <a href="/releases.html" class="nav-link">发行记录</a>
+      <a href="/privacy.html" class="nav-link">数据隐私</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="usecases-hero">
+      <div class="container">
+        <div class="usecases-eyebrow">— THE CATALOGUE</div>
+        <h1 class="usecases-h1">Real engineering tasks.</h1>
+        <p class="usecases-lead">
+          回看会话中的关键决策，保存项目约束，审阅工作流，再比较两组配置的实际结果。四个场景，接续日常开发。
+        </p>
+
+        <!-- Category Filter Buttons (Accessible controls with aria-pressed) -->
+        <div class="catalogue-pills" role="toolbar" aria-label="按类别筛选使用场景">
+          <button type="button" class="catalogue-pill active" data-filter="all" aria-pressed="true">
+            全部任务 <span class="catalogue-pill-count">4</span>
+          </button>
+          <button type="button" class="catalogue-pill" data-filter="sessions" aria-pressed="false">
+            会话与证据 <span class="catalogue-pill-count">1</span>
+          </button>
+          <button type="button" class="catalogue-pill" data-filter="memory" aria-pressed="false">
+            工程记忆 <span class="catalogue-pill-count">1</span>
+          </button>
+          <button type="button" class="catalogue-pill" data-filter="workflows" aria-pressed="false">
+            安全自动化 <span class="catalogue-pill-count">1</span>
+          </button>
+          <button type="button" class="catalogue-pill" data-filter="lab" aria-pressed="false">
+            实验与复用 <span class="catalogue-pill-count">1</span>
+          </button>
+        </div>
+
+        <!-- Filter Live Status -->
+        <div class="filter-status" id="filter-status" role="status" aria-live="polite">
+          显示 4 / 4 个场景
+        </div>
+
+        <!-- Horizontal Scroll Hint (Visible on mobile/overflow via media query) -->
+        <div class="table-scroll-hint" aria-hidden="true">
+          <span>← 左右滑动查看完整任务矩阵 →</span>
+        </div>
+
+        <!-- Usecases Task Table -->
+        <div class="usecases-table-wrapper" tabindex="0" role="region" aria-label="使用场景任务矩阵">
+          <table class="usecases-table">
+            <thead>
+              <tr>
+                <th scope="col" style="width: 34%;">工程任务目标 / What you inspect</th>
+                <th scope="col" style="width: 16%;">读取源 / Reads</th>
+                <th scope="col" style="width: 26%;">审查与结果 / Review &amp; Result</th>
+                <th scope="col" style="width: 12%;">触发时机 / Cadence</th>
+                <th scope="col" style="width: 12%;">版本状态 / Version</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Task 1: 会话回看 -->
+              <tr data-category="sessions">
+                <td>
+                  <a href="/usecases/session-review/" class="usecase-task-link">
+                    <span>会话回看：找到这次改动的来由</span>
+                    <span aria-hidden="true">→</span>
+                  </a>
+                  <div class="usecase-task-desc">从多次智能体对话中定位具体某次改动与工具调用的真实证据。</div>
+                </td>
+                <td>
+                  <span class="tag-badge">Claude / Codex 日志</span>
+                </td>
+                <td>
+                  <div>消息详情与精准来源跳转</div>
+                  <div style="font-size: 11.5px; color: var(--text-faint); margin-top: 2px;">可选导出中立交接 Checkpoint</div>
+                </td>
+                <td>
+                  <span class="tag-badge">按需检索</span>
+                </td>
+                <td>
+                  <span class="version-badge-preview">preview.2 基础功能 · 开发版扩展</span>
+                </td>
+              </tr>
+
+              <!-- Task 2: 项目记忆 -->
+              <tr data-category="memory">
+                <td>
+                  <a href="/usecases/project-memory/" class="usecase-task-link">
+                    <span>项目记忆：保留值得带到下一次的约束</span>
+                    <span aria-hidden="true">→</span>
+                  </a>
+                  <div class="usecase-task-desc">将构建方式、验证要求与架构规约沉淀为可管理的工程记忆。</div>
+                </td>
+                <td>
+                  <span class="tag-badge">日志消息 / 本地资产</span>
+                </td>
+                <td>
+                  <div>Candidate 审查 ➔ 人工激活</div>
+                  <div style="font-size: 11.5px; color: var(--text-faint); margin-top: 2px;">受限 Token 预算召回，支持淘汰旧事实</div>
+                </td>
+                <td>
+                  <span class="tag-badge">日常沉淀</span>
+                </td>
+                <td>
+                  <span class="version-badge-preview">preview.2 基础功能 · 开发版扩展</span>
+                </td>
+              </tr>
+
+              <!-- Task 3: 审阅工作流 -->
+              <tr data-category="workflows">
+                <td>
+                  <a href="/usecases/review-workflows/" class="usecase-task-link">
+                    <span>审阅工作流：先检查，再允许修改</span>
+                    <span aria-hidden="true">→</span>
+                  </a>
+                  <div class="usecase-task-desc">将重复的 Git 检查与验证串联为工作流，在文件写入前清晰把关。</div>
+                </td>
+                <td>
+                  <span class="tag-badge">工作流 Markdown / 脚本</span>
+                </td>
+                <td>
+                  <div>Dry Run 预演 ➔ 参数哈希冻结</div>
+                  <div style="font-size: 11.5px; color: var(--text-faint); margin-top: 2px;">单次明确批准执行，留存真实 Run 输出</div>
+                </td>
+                <td>
+                  <span class="tag-badge">提交前 / 预备发布</span>
+                </td>
+                <td>
+                  <span class="version-badge-preview">preview.2 基础功能 · 开发版扩展</span>
+                </td>
+              </tr>
+
+              <!-- Task 4: 对照与复用 -->
+              <tr data-category="lab">
+                <td>
+                  <a href="/usecases/compare-and-reuse/" class="usecase-task-link">
+                    <span>对照与复用：保留证据，也保留“不确定”</span>
+                    <span aria-hidden="true">→</span>
+                  </a>
+                  <div class="usecase-task-desc">在独立工作区对比同一任务两组配置，验证规约是否真的改善。</div>
+                </td>
+                <td>
+                  <span class="tag-badge">同 Commit 双 Worktree</span>
+                </td>
+                <td>
+                  <div>冻结任务 ➔ Verifier 判定 ➔ Hook 审阅</div>
+                  <div style="font-size: 11.5px; color: var(--text-faint); margin-top: 2px;">支持 Inconclusive 正常判定，SafeApply/Undo</div>
+                </td>
+                <td>
+                  <span class="tag-badge">规约晋升前</span>
+                </td>
+                <td>
+                  <span class="version-badge-dev">当前开发分支</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="/usecases/" class="footer-link">使用场景</a>
+        <a href="/comparisons/" class="footer-link">产品对比</a>
+        <a href="/docs.html" class="footer-link">技术文档</a>
+        <a href="/releases.html" class="footer-link">发行记录</a>
+        <a href="/privacy.html" class="footer-link">数据隐私</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">安全漏洞反馈</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../site.js"></script>
+</body>
+</html>

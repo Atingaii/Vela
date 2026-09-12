@@ -1,22 +1,20 @@
-<img src="Sources/VelaApp/Resources/Design/app-icon.png" width="80" height="80" alt="Vela app icon">
+![Vela — The engineering layer for coding agents](docs/assets/vela-readme-banner.svg)
 
 # Vela
 
-**The engineering layer for coding agents.**
+[简体中文](README.zh-CN.md) · [Website](https://vela-engineering.zzzsssaa.chatgpt.site) · [Download preview (v0.1.0-preview.2)](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2) · [Status](docs/status.md) · [Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md)
 
-[简体中文](README.zh-CN.md) · [Website](https://vela-engineering.zzzsssaa.chatgpt.site) · [Download preview](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2) · [Contributing](CONTRIBUTING.md)
-
-[![CI](https://github.com/Atingaii/Vela/actions/workflows/ci.yml/badge.svg)](https://github.com/Atingaii/Vela/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Platform: macOS](https://img.shields.io/badge/platform-macOS%2013%2B-black)
+[![CI](https://github.com/Atingaii/Vela/actions/workflows/ci.yml/badge.svg)](https://github.com/Atingaii/Vela/actions/workflows/ci.yml) · [MIT License](LICENSE) · macOS 13+ (Apple Silicon)
 
 An agent session ends. Your engineering context should not.
 
 Vela is a local macOS workspace for supported Claude Code, Codex and Cursor session data. It brings conversation evidence, project memory, reviewable workflows and measured Codex comparisons into one place, alongside the agents you already use.
 
-> **Development branch — acceptance redesign, not yet released.** The download still points to preview.2. The 20-step product scenario and six release gates are **not passed**; see [acceptance](docs/ACCEPTANCE.md), [traceability](docs/TRACEABILITY.md) and the [three-project comparison](docs/reference-comparison.md).
-
-> **0.1.0-preview.2 — developer preview.** The core paths are implemented, with substantial compatibility and automation limits. This is not a complete implementation of the product roadmap or a stable release. The development app is ad-hoc signed, has no Developer ID signature and is not Apple-notarized. Read [feature status and limitations](docs/status.md).
+> **Development branch — acceptance redesign, not yet released.**
+>
+> The published download remains [0.1.0-preview.2](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2). The 20-step product scenario and six release gates are **not passed**; see [acceptance](docs/ACCEPTANCE.md), [traceability](docs/TRACEABILITY.md) and the [three-project comparison](docs/reference-comparison.md).
+>
+> Core paths are implemented, with substantial compatibility and automation limits. This is not a complete implementation of the roadmap or a stable release. The development app is ad-hoc signed, has no Developer ID signature and is not Apple-notarized. Read [feature status and limitations](docs/status.md) before use.
 
 ![Vela development workspace showing grouped agent sessions and their source messages](docs/assets/vela-workspace.png)
 
@@ -61,6 +59,8 @@ open releases/Vela.app
 The package script defaults to the `dev` channel and produces `releases/Vela-macOS-arm64.zip` and `releases/SHA256SUMS`. Setting a channel does not sign, notarize or publish a release. The installed application uses Swift, AppKit, the system WKWebView, SQLite and other macOS frameworks; it does not require Electron, Node.js or a Python runtime.
 
 ## First project and CLI
+
+The development client supports Simplified Chinese and English. Choose **Settings → Language** or **Vela → Language** in the macOS menu. The choice is stored locally; switching preserves open drafts and leaves your project content in its original language. This feature is not included in the preview.2 download.
 
 Add a project directory in the desktop, then inspect Sessions and Setup. Registering a project does not approve executing its scripts. Initial discovery reads a bounded set of recent agent logs; it does not import your entire history.
 
@@ -147,4 +147,4 @@ Start with a reproducible problem or a focused improvement. Read [CONTRIBUTING.m
 
 Product direction was informed by user-provided Blume analysis, Walrus Memory/MemWal context-ownership ideas and [px0](https://px0.ai/) workflow design. Vela is an independent implementation, unaffiliated with those projects or agent providers. Their private source, prompts and brand assets are not bundled. The initial desktop and website interfaces were authored through the requested Antigravity CLI Gemini 3.8 Flash (High) workflow.
 
-[MIT](LICENSE) © Vela contributors.
+[MIT License](LICENSE) © Vela contributors.

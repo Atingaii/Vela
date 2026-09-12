@@ -70,6 +70,8 @@ python3 scripts/test-ui-browser.py .task-tmp/ui-browser/fixture.json \
   --browser-executable "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 python3 scripts/test-acceptance-browser.py \
   --browser-executable "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+python3 scripts/test-localization-browser.py \
+  --browser-executable "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 python3 scripts/test-release-resources.py
 ```
 
@@ -77,7 +79,9 @@ Use a new fixture directory for each run. The runner closes its browser and help
 
 The additional acceptance runner verifies Memory lifecycle and exact source navigation, cross-project source isolation, frozen Lab approval, Reuse preview/apply/undo, and missing-versus-zero Usage. Its default fixture is `.task-tmp/acceptance-flow-qa`; use `--fixture` for another new path. A successful run removes its marked fixture after preserving the report, screenshots and RPC transcript under `output/playwright/acceptance-flow-qa`; failures retain the fixture for diagnosis. `--checks` runs a diagnostic subset and never reports a complete suite. These checks do not execute a provider task or establish Codex trust or agent adoption.
 
-CI installs the same pinned Playwright package with installation scripts disabled, explicitly installs Chromium under `.task-tmp/ci-browser`, and runs both renderer suites with the real helper. To use that browser locally, set `PLAYWRIGHT_BROWSERS_PATH="$PWD/.task-tmp/ci-browser"`, run `node .task-tmp/ui-browser-tools/node_modules/playwright/cli.js install chromium`, and omit `--browser-executable`. Browser results and failure captures are retained as CI artifacts; real paid Agent Lab experiments remain explicit maintainer runs.
+The localization runner checks language persistence, old preference compatibility, drafts and selection, real user content, injected native locale events, and fixed English text across primary pages and dialogs. Its helper and database are real; the native-event injection does not verify AppKit menus or system notification delivery. Use new `--fixture` and `--output` paths for each run.
+
+CI installs the same pinned Playwright package with installation scripts disabled, explicitly installs Chromium under `.task-tmp/ci-browser`, and runs all three renderer suites with the real helper. To use that browser locally, set `PLAYWRIGHT_BROWSERS_PATH="$PWD/.task-tmp/ci-browser"`, run `node .task-tmp/ui-browser-tools/node_modules/playwright/cli.js install chromium`, and omit `--browser-executable`. Browser results and failure captures are retained as CI artifacts; real paid Agent Lab experiments remain explicit maintainer runs.
 
 The fixture also supports real-app screenshots. In a non-packaged development build, `VELA_CAPTURE_DIRECTORY` enables a developer capture command only alongside an explicit `VELA_HOME` containing the synthetic fixture marker. Release builds exclude this hook. See [image provenance](docs/assets/README.md) before adding product screenshots.
 

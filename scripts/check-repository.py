@@ -1,10 +1,13 @@
 """Lightweight public-repository and static-site correctness checks."""
 import pathlib, subprocess, re, sys
+from urllib.parse import unquote, urlsplit
 from html.parser import HTMLParser
 
 root = pathlib.Path(__file__).resolve().parents[1]
 required = ['README.md','README.zh-CN.md','LICENSE','CONTRIBUTING.md','SECURITY.md','CODE_OF_CONDUCT.md','CHANGELOG.md','docs/status.md','docs/architecture.md']
 required += ['website/dist/index.html','website/dist/docs.html','website/dist/privacy.html','website/dist/releases.html']
+required += ['website/dist/comparisons/index.html','website/dist/usecases/index.html']
+required += [f'website/dist/usecases/{slug}/index.html' for slug in ['session-review','project-memory','review-workflows','compare-and-reuse']]
 errors = [f'Missing {name}' for name in required if not (root/name).is_file()]
 for directory in ['Sources/VelaApp/Resources','website/dist']:
     for p in (root/directory).rglob('*.js'):
@@ -14,24 +17,40 @@ for directory in ['Sources/VelaApp/Resources','website/dist']:
 
 class References(HTMLParser):
     def __init__(self):
-        super().__init__(); self.refs=[]
+        super().__init__(); self.refs=[]; self.ids=set(); self.duplicate_ids=[]
     def handle_starttag(self, tag, attrs):
         for key,value in attrs:
             if key in ('src','href') and value:
                 self.refs.append(value)
+            if key == 'id' and value:
+                if value in self.ids:
+                    self.duplicate_ids.append(value)
+                self.ids.add(value)
 
 site = root/'website/dist'
+pages = {}
 for p in site.rglob('*.html'):
     parser=References(); parser.feed(p.read_text())
+    pages[p.resolve()] = parser
+    for duplicate in parser.duplicate_ids:
+        errors.append(f'{p.relative_to(root)}: duplicate id {duplicate}')
+for p, parser in pages.items():
     for value in parser.refs:
-        if re.match(r'^(https?:|data:|mailto:|tel:|#|vela:)',value):
+        parts = urlsplit(value)
+        if parts.scheme or parts.netloc:
             continue
-        path=value.split('#',1)[0].split('?',1)[0]
-        if not path:
+        path=unquote(parts.path)
+        target=((site/path.lstrip('/')) if path.startswith('/') else p.parent/path) if path else p
+        target=target.resolve()
+        if not target.is_relative_to(site.resolve()):
+            errors.append(f'{p.relative_to(root)}: reference leaves static site {value}')
             continue
-        target=(site/path.lstrip('/')) if path.startswith('/') else p.parent/path
+        if target.is_dir():
+            target=target/'index.html'
         if not target.exists():
             errors.append(f'{p.relative_to(root)}: broken reference {value}')
+        elif parts.fragment and target in pages and unquote(parts.fragment) not in pages[target].ids:
+            errors.append(f'{p.relative_to(root)}: missing anchor {value}')
 tracked = subprocess.run(['git','ls-files'],cwd=root,capture_output=True,text=True,check=True).stdout.splitlines()
 for name in tracked:
     if any(part in {'.build','node_modules','.task-tmp'} for part in pathlib.PurePosixPath(name).parts) or name.endswith(('.sqlite3','.pem','.key')):

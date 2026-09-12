@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-labelledby="banner-title banner-desc">
+  <title id="banner-title">Vela</title>
+  <desc id="banner-desc">The engineering layer for coding agents. Local-first. Project-scoped. Reviewable.</desc>
+
+  <defs>
+    <!-- Background subtle gradient -->
+    <linearGradient id="banner-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14151d"/>
+      <stop offset="50%" stop-color="#0e0f14"/>
+      <stop offset="100%" stop-color="#0a0a0e"/>
+    </linearGradient>
+
+    <!-- macOS squircle shadow -->
+    <filter id="icon-shadow" x="-20%" y="-20%" width="140%" height="140%" filterUnits="objectBoundingBox">
+      <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#000000" flood-opacity="0.50"/>
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+
+    <!-- Base squircle gradient -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e1e28"/>
+      <stop offset="100%" stop-color="#101016"/>
+    </linearGradient>
+
+    <!-- Top rim highlight -->
+    <linearGradient id="rim-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.20"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.40"/>
+    </linearGradient>
+
+    <!-- Main sail facets -->
+    <linearGradient id="sail-primary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e2e2ea"/>
+    </linearGradient>
+    <linearGradient id="sail-secondary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d4d4de"/>
+      <stop offset="100%" stop-color="#b4b4c2"/>
+    </linearGradient>
+    <linearGradient id="jib-primary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9696a8"/>
+      <stop offset="100%" stop-color="#727282"/>
+    </linearGradient>
+
+    <!-- Navigational accent (quiet amber) -->
+    <linearGradient id="accent-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+
+    <!-- Wordmark text gradient -->
+    <linearGradient id="wordmark-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e6e6f0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Banner canvas container -->
+  <rect width="1280" height="320" rx="16" fill="url(#banner-bg)"/>
+  <rect x="0.5" y="0.5" width="1279" height="319" rx="16" fill="none" stroke="#242533" stroke-width="1"/>
+  <line x1="20" y1="1" x2="1260" y2="1" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1"/>
+
+  <!-- Native macOS App Icon geometry -->
+  <g id="app-icon-tile" transform="translate(78, 68) scale(0.18)">
+    <!-- Background squircle (Apple standard curvature R=204 at 896 width) -->
+    <rect x="64" y="64" width="896" height="896" rx="204" ry="204" fill="url(#bg-grad)" filter="url(#icon-shadow)"/>
+    <rect x="64" y="64" width="896" height="896" rx="204" ry="204" fill="none" stroke="url(#rim-grad)" stroke-width="2.5"/>
+
+    <!-- Instrument hairline reference circle -->
+    <circle cx="512" cy="512" r="300" fill="none" stroke="#2e2e3e" stroke-width="2" stroke-dasharray="8 12" opacity="0.75"/>
+
+    <!-- Original Vela Sail Geometry -->
+    <g id="vela-mark" transform="translate(0, 8)">
+      <!-- Jib / Left Stabilizer Facet -->
+      <polygon points="512,236 324,704 512,612" fill="url(#jib-primary)"/>
+
+      <!-- Mainsail Shadow Facet (Center-Left) -->
+      <polygon points="512,236 512,612 438,728" fill="url(#sail-secondary)"/>
+
+      <!-- Mainsail Body (Center-Right) -->
+      <polygon points="512,236 708,668 512,612" fill="url(#sail-primary)"/>
+
+      <!-- Hull / Keel Base Line (Restrained) -->
+      <polygon points="324,704 438,728 512,612" fill="#5a5a6c" opacity="0.85"/>
+      <polygon points="512,612 438,728 660,700 708,668" fill="#444454" opacity="0.9"/>
+
+      <!-- Navigational Star / Zenith Node -->
+      <circle cx="512" cy="236" r="14" fill="url(#accent-amber)"/>
+      <circle cx="512" cy="236" r="26" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0.45"/>
+    </g>
+  </g>
+
+  <!-- Typography: Wordmark, Positioning, and Supporting Line -->
+  <g id="brand-text">
+    <text x="296" y="138" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="54" font-weight="700" letter-spacing="-0.5" fill="url(#wordmark-grad)">Vela</text>
+    <text x="296" y="185" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="22" font-weight="400" letter-spacing="-0.2" fill="#d2d2dc">The engineering layer for coding agents.</text>
+    <text x="296" y="228" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" font-weight="500" letter-spacing="0.2" fill="#8d8ea0">Local-first<tspan fill="#d97706" font-weight="600"> · </tspan>Project-scoped<tspan fill="#d97706" font-weight="600"> · </tspan>Reviewable</text>
+  </g>
+</svg>

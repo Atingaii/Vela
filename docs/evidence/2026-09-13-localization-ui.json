@@ -1,0 +1,90 @@
+{
+  "format": "vela-localization-ui-v1",
+  "date": "2026-09-13",
+  "scope": "Real helper renderer checks; not native integration or full product Golden Scenario",
+  "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+  "playwrightVersion": "1.62.1",
+  "browser": "Installed Google Chrome 153",
+  "sourceSHA256": {
+    "app.js": "403f3c57910a45ca8e2ba56996ab40f71f707d4518ebc956aa0180a76a8d649a",
+    "i18n.js": "028765c6c9d8d49b884528af68e051d585b7448b5963612c9826bb84797054b4",
+    "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+    "app.css": "49a7594949b0ce55ad59f8eb5e2c8266623d1d21d343ee7ddb17bc9ba8441e69"
+  },
+  "helperSHA256": "9bdfad0ea9d20dda7178f76fa7246184cb7d1996f372b921173681e4bbc6565b",
+  "sourceUnchangedDuringAllSuites": true,
+  "checks": {
+    "regression": {
+      "passed": 12,
+      "total": 12,
+      "names": [
+        "filtering",
+        "setup",
+        "memory",
+        "workflow",
+        "draft",
+        "keyboard",
+        "rapid-navigation",
+        "live-detail",
+        "routing",
+        "routing-failure",
+        "routing-unknown",
+        "routing-aggregate"
+      ]
+    },
+    "acceptance": {
+      "passed": 6,
+      "total": 6,
+      "names": [
+        "memory-lifecycle",
+        "exact-source",
+        "cross-project-source",
+        "lab-frozen-approval",
+        "reuse-apply-undo",
+        "usage-missing"
+      ]
+    },
+    "localization": {
+      "passed": 6,
+      "total": 6,
+      "names": [
+        "core-locale-contract",
+        "settings-switch-preserves-draft",
+        "selected-records-and-user-content",
+        "unsaved-workflow-and-argv",
+        "restart-and-roundtrip",
+        "english-surface-coverage"
+      ],
+      "routes": 9,
+      "principalDialogs": 8,
+      "dictionaryKeysPerLocale": 1128,
+      "missingKeys": [],
+      "pageErrors": [],
+      "rendererRPCRequests": 33,
+      "unexpectedRendererRPCErrors": 0
+    }
+  },
+  "dataPreservation": [
+    "Original Session/Memory text, paths and argv",
+    "Unsaved Settings and Workflow fields, DOM identity, focus and exact selection",
+    "Quoted and literal markup Memory title with no injected nodes",
+    "Same Session row/button/branch nodes and original source/branch values across language changes"
+  ],
+  "history": [
+    "Initial test harness omitted i18n.js; the explicit resource allowlist was updated.",
+    "A drawer-local variable shadowed the translator, a missing fallback key appeared literally, and navigation accessibility text lacked a binding; all corrected.",
+    "Raw JSON in eight HTML translation attributes was escaped, including untrusted Memory titles and project paths.",
+    "The workflow regression now waits for its exact persisted run to complete before checking file bytes.",
+    "Native review found existing Session accessibility/help text retained its previous language. Explicit live bindings and same-node tests were added."
+  ],
+  "realProviderExecuted": false,
+  "hookExecuted": false,
+  "nativeIntegrationTestedByTheseSuites": false,
+  "fullGoldenScenarioPassed": false,
+  "rawReportSHA256": {
+    "regression": "29b3b2c487ee6f97193b94e4675f9a6663546d04cded7504b8884c8a0eab66c2",
+    "regressionMetadata": "517615a57f38d100fefc751d2dbf588e4793b9d8aa9ce95950229e42586f01a3",
+    "acceptance": "63985e68111faae5cbdf65d9abff41ef0398326b0545fe5b3beade9bdd587483",
+    "localization": "78bd83bbe564c491ba8d43d8a15b1a617f520f0db2d49ff7310b28815dbdf5b7"
+  }
+}

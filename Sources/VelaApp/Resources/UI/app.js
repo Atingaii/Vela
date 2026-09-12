@@ -55,12 +55,17 @@
       .replace(/'/g, '&#039;');
   }
 
+  // Safe i18n bridges
+  const t = (key, params) => (window.VelaI18n ? window.VelaI18n.t(key, params) : key);
+  const tHtml = (key, params, tag) => (window.VelaI18n ? window.VelaI18n.tHtml(key, params, tag) : escapeHtml(key));
+
   function formatTime(isoStr) {
     if (!isoStr) return '-';
     try {
       const d = new Date(isoStr);
       if (isNaN(d.getTime())) return '-';
-      return d.toLocaleString('zh-CN', {
+      const loc = (window.VelaI18n && window.VelaI18n.getLocale() === 'en') ? 'en-US' : 'zh-CN';
+      return d.toLocaleString(loc, {
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
@@ -72,12 +77,15 @@
   }
 
   function formatNumber(num) {
-    if (num === null || num === undefined || isNaN(num)) return '0';
-    return Number(num).toLocaleString();
+    if (window.VelaI18n && typeof window.VelaI18n.formatNumber === 'function') {
+      return window.VelaI18n.formatNumber(num);
+    }
+    if (typeof num !== 'number' || !Number.isFinite(num)) return '-';
+    return num.toLocaleString();
   }
 
   function formatProviderName(provider) {
-    if (!provider) return '未知 Provider';
+    if (!provider) return t('provider.unknown');
     const p = String(provider).toLowerCase();
     if (p === 'claude' || p === 'claude-code') return 'Claude Code';
     if (p === 'codex') return 'Codex';
@@ -86,47 +94,168 @@
     return provider;
   }
 
-  function formatMemoryType(t) {
+  function formatMemoryType(tVal) {
     const map = {
-      fact: '事实',
-      decision: '决策',
-      constraint: '约束',
-      preference: '偏好',
-      failure: '避坑',
-      'workflow knowledge': '工作流经验',
-      observation: '观察',
-      hypothesis: '假设',
-      checkpoint: '检查点'
+      fact: 'memory.typeFact',
+      decision: 'memory.typeDecision',
+      constraint: 'memory.typeConstraint',
+      preference: 'memory.typePreference',
+      failure: 'memory.typeFailure',
+      'workflow knowledge': 'memory.typeWorkflowKnowledge',
+      observation: 'memory.typeObservation',
+      hypothesis: 'memory.typeHypothesis',
+      checkpoint: 'memory.typeCheckpoint'
     };
-    return map[(t || '').toLowerCase()] || t || '事实';
+    const key = map[(tVal || '').toLowerCase()];
+    return key ? t(key) : (tVal || t('memory.typeFact'));
+  }
+
+  function renderMemoryTypeBadge(tVal) {
+    const map = {
+      fact: 'memory.typeFact',
+      decision: 'memory.typeDecision',
+      constraint: 'memory.typeConstraint',
+      preference: 'memory.typePreference',
+      failure: 'memory.typeFailure',
+      'workflow knowledge': 'memory.typeWorkflowKnowledge',
+      observation: 'memory.typeObservation',
+      hypothesis: 'memory.typeHypothesis',
+      checkpoint: 'memory.typeCheckpoint'
+    };
+    const key = map[(tVal || '').toLowerCase()];
+    if (key) {
+      return `<span class="memory-type-badge" data-i18n="${key}">${escapeHtml(t(key))}</span>`;
+    }
+    return `<span class="memory-type-badge">${escapeHtml(tVal || t('memory.typeFact'))}</span>`;
+  }
+
+  function renderMemoryTypeInline(tVal) {
+    const map = {
+      fact: 'memory.typeFact',
+      decision: 'memory.typeDecision',
+      constraint: 'memory.typeConstraint',
+      preference: 'memory.typePreference',
+      failure: 'memory.typeFailure',
+      'workflow knowledge': 'memory.typeWorkflowKnowledge',
+      observation: 'memory.typeObservation',
+      hypothesis: 'memory.typeHypothesis',
+      checkpoint: 'memory.typeCheckpoint'
+    };
+    const key = map[(tVal || '').toLowerCase()];
+    if (key) {
+      return `<span data-i18n="${key}">${escapeHtml(t(key))}</span>`;
+    }
+    return `<span>${escapeHtml(tVal || t('memory.typeFact'))}</span>`;
   }
 
   function formatMemoryScope(s) {
     const map = {
-      project: '项目',
-      global: '全局',
-      branch: '分支',
-      worktree: '工作树'
+      project: 'memory.scopeProject',
+      global: 'memory.scopeGlobal',
+      branch: 'memory.scopeBranch',
+      worktree: 'memory.scopeWorktree'
     };
-    return map[(s || '').toLowerCase()] || s || '项目';
+    const key = map[(s || '').toLowerCase()];
+    return key ? t(key) : (s || t('memory.scopeProject'));
+  }
+
+  function renderMemoryScopeBadge(s) {
+    const map = {
+      project: 'memory.scopeProject',
+      global: 'memory.scopeGlobal',
+      branch: 'memory.scopeBranch',
+      worktree: 'memory.scopeWorktree'
+    };
+    const key = map[(s || '').toLowerCase()];
+    if (key) {
+      return `<span class="memory-type-badge" data-i18n="${key}">${escapeHtml(t(key))}</span>`;
+    }
+    return `<span class="memory-type-badge">${escapeHtml(s || t('memory.scopeProject'))}</span>`;
+  }
+
+  function renderMemoryScopeInline(s) {
+    const map = {
+      project: 'memory.scopeProject',
+      global: 'memory.scopeGlobal',
+      branch: 'memory.scopeBranch',
+      worktree: 'memory.scopeWorktree'
+    };
+    const key = map[(s || '').toLowerCase()];
+    if (key) {
+      return `<span data-i18n="${key}">${escapeHtml(t(key))}</span>`;
+    }
+    return `<span>${escapeHtml(s || t('memory.scopeProject'))}</span>`;
   }
 
   function formatDiscoveryKind(kind) {
     if (!kind) return '';
     const k = String(kind).toLowerCase();
-    if (k === 'tool-sequence') return '重复流程';
-    if (k === 'frequency') return '高频模式';
-    if (k === 'rule-conflict') return '规则冲突';
-    if (k === 'error-pattern') return '报错模式';
+    if (k === 'tool-sequence') return t('improve.kindToolSequence');
+    if (k === 'frequency') return t('improve.kindFrequency');
+    if (k === 'rule-conflict') return t('improve.kindRuleConflict');
+    if (k === 'error-pattern') return t('improve.kindErrorPattern');
     return '';
   }
 
-  function showToast(message, type = 'info') {
+  function renderDiscoveryKindBadge(kind) {
+    if (!kind) return '';
+    const k = String(kind).toLowerCase();
+    const map = {
+      'tool-sequence': 'improve.kindToolSequence',
+      'frequency': 'improve.kindFrequency',
+      'rule-conflict': 'improve.kindRuleConflict',
+      'error-pattern': 'improve.kindErrorPattern'
+    };
+    const key = map[k];
+    if (key) {
+      return `<span class="badge-subtle" data-i18n="${key}">${escapeHtml(t(key))}</span>`;
+    }
+    return `<span class="badge-subtle">${escapeHtml(kind)}</span>`;
+  }
+
+  function renderDiscoveryKindInline(kind) {
+    if (!kind) return '';
+    const k = String(kind).toLowerCase();
+    const map = {
+      'tool-sequence': 'improve.kindToolSequence',
+      'frequency': 'improve.kindFrequency',
+      'rule-conflict': 'improve.kindRuleConflict',
+      'error-pattern': 'improve.kindErrorPattern'
+    };
+    const key = map[k];
+    if (key) {
+      return `<span class="font-mono" data-i18n="${key}">${escapeHtml(t(key))}</span>`;
+    }
+    return `<span class="font-mono">${escapeHtml(kind)}</span>`;
+  }
+
+  function setElementDescriptor(el, descriptorOrText) {
+    if (!el) return;
+    if (window.VelaI18n && typeof window.VelaI18n.setElementDescriptor === 'function') {
+      window.VelaI18n.setElementDescriptor(el, descriptorOrText);
+      return;
+    }
+    if (descriptorOrText && typeof descriptorOrText === 'object' && descriptorOrText.key) {
+      el.setAttribute('data-i18n', descriptorOrText.key);
+      if (descriptorOrText.params) {
+        el.setAttribute('data-i18n-params', JSON.stringify(descriptorOrText.params));
+      } else {
+        el.removeAttribute('data-i18n-params');
+      }
+      el.textContent = t(descriptorOrText.key, descriptorOrText.params);
+    } else {
+      el.removeAttribute('data-i18n');
+      el.removeAttribute('data-i18n-params');
+      el.textContent = (descriptorOrText !== null && descriptorOrText !== undefined) ? String(descriptorOrText) : '';
+    }
+  }
+
+  function showToast(messageOrDescriptor, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    toast.textContent = message;
+    setElementDescriptor(toast, messageOrDescriptor);
     container.appendChild(toast);
     setTimeout(() => {
       toast.style.opacity = '0';
@@ -143,13 +272,14 @@
     const textEl = footer.querySelector('.status-text');
     if (textEl) {
       if (message) {
-        textEl.textContent = message;
+        setElementDescriptor(textEl, message);
       } else if (statusState === 'connected') {
-        textEl.textContent = '本地服务就绪 · 无云端遥测';
+        const key = state.isDemoMode ? 'shell.statusDemo' : 'shell.statusConnected';
+        setElementDescriptor(textEl, { key });
       } else if (statusState === 'loading') {
-        textEl.textContent = '正在连接本地服务...';
+        setElementDescriptor(textEl, { key: 'shell.statusConnecting' });
       } else if (statusState === 'error') {
-        textEl.textContent = '本地服务未连接';
+        setElementDescriptor(textEl, { key: 'shell.statusDisconnected' });
       }
     }
   }
@@ -163,7 +293,7 @@
           origRejectAll(reason);
         } catch {}
       }
-      updateFooterStatus('error', reason || '本地服务已断开');
+      updateFooterStatus('error', reason || { key: 'shell.statusDisconnectedReason' });
     };
   }
 
@@ -180,12 +310,23 @@
 
   // Initialization
   async function init() {
-    updateFooterStatus('loading', '正在连接本地服务...');
+    updateFooterStatus('loading');
     setupShortcuts();
     setupEventListeners();
 
     if (window.vela && typeof window.vela.call === 'function') {
       state.isBridgeAvailable = true;
+      try {
+        const initSettings = await callBridge('settings.get');
+        if (initSettings) {
+          state.rawSettings = initSettings;
+          if (initSettings.locale === 'en' || initSettings.locale === 'zh-CN') {
+            if (window.VelaI18n && window.VelaI18n.getLocale() !== initSettings.locale) {
+              window.VelaI18n.setLocale(initSettings.locale);
+            }
+          }
+        }
+      } catch {}
     } else {
       // Browser preview mode ONLY
       state.isDemoMode = true;
@@ -252,13 +393,14 @@
   function renderInitialRetryView(err) {
     const container = document.getElementById('page-container');
     if (!container) return;
+    const hasErrMsg = err && err.message;
     container.innerHTML = `
       <div class="empty-state" style="padding-top: 100px;">
-        <div class="empty-state-title" style="color: var(--status-red); font-size: 14px;">无法连接 Vela 本地工程服务</div>
-        <div class="empty-state-desc" style="font-size: 12px; color: var(--text-secondary); max-width: 440px; margin: 8px auto;">
-          ${escapeHtml(err.message || '辅助服务未就绪或未启动。')}
+        <div class="empty-state-title" data-i18n="shell.initialRetryTitle" style="color: var(--status-red); font-size: 14px;">${escapeHtml(t('shell.initialRetryTitle'))}</div>
+        <div class="empty-state-desc" ${!hasErrMsg ? 'data-i18n="shell.initialRetryDefaultDesc"' : ''} style="font-size: 12px; color: var(--text-secondary); max-width: 440px; margin: 8px auto;">
+          ${escapeHtml(hasErrMsg ? err.message : t('shell.initialRetryDefaultDesc'))}
         </div>
-        <button id="btn-init-retry" class="btn btn-primary btn-sm" style="margin-top: 14px;">重试连接</button>
+        <button id="btn-init-retry" class="btn btn-primary btn-sm" data-i18n="shell.btnRetryConnect" style="margin-top: 14px;">${escapeHtml(t('shell.btnRetryConnect'))}</button>
       </div>
     `;
     const btnRetry = document.getElementById('btn-init-retry');
@@ -270,26 +412,37 @@
   function renderScopeErrorView(container) {
     if (!container) return;
     const targetProject = state.currentProject;
-    const targetLabel = targetProject ? (targetProject.split('/').filter(Boolean).pop() || targetProject) : '全局';
-    const errMessage = (state.scopeError && state.scopeError.project === targetProject && state.scopeError.message)
+    const targetLabel = targetProject ? (targetProject.split('/').filter(Boolean).pop() || targetProject) : '';
+    const customErrMsg = (state.scopeError && state.scopeError.project === targetProject && state.scopeError.message)
       ? state.scopeError.message
-      : '未能拉取该工程数据或本地服务未响应';
+      : null;
     const priorProject = state.scopeError ? state.scopeError.priorProject : (state.priorProject || '');
+
+    const titleAttr = targetLabel
+      ? `data-i18n="shell.scopeErrorTitle" data-i18n-params="${escapeHtml(JSON.stringify({ project: targetLabel }))}"`
+      : `data-i18n="shell.scopeErrorGlobalTitle"`;
+    const titleText = targetLabel
+      ? t('shell.scopeErrorTitle', { project: targetLabel })
+      : t('shell.scopeErrorGlobalTitle');
+
+    const descHtml = customErrMsg
+      ? `<span>${escapeHtml(customErrMsg)}</span><span data-i18n="shell.scopeErrorNotice">${escapeHtml(t('shell.scopeErrorNotice'))}</span>`
+      : `<span data-i18n="shell.scopeErrorDefaultDesc">${escapeHtml(t('shell.scopeErrorDefaultDesc'))}</span><span data-i18n="shell.scopeErrorNotice">${escapeHtml(t('shell.scopeErrorNotice'))}</span>`;
 
     container.innerHTML = `
       <div class="empty-state" style="padding: 60px 24px;">
-        <div class="empty-state-title" style="color: var(--status-red, #dc2626); font-size: 15px;">
-          无法加载工程「${escapeHtml(targetLabel)}」数据
+        <div class="empty-state-title" ${titleAttr} style="color: var(--status-red, #dc2626); font-size: 15px;">
+          ${escapeHtml(titleText)}
         </div>
         <div class="empty-state-desc" style="font-size: 12px; color: var(--text-secondary); max-width: 480px; margin: 8px auto 16px;">
-          ${escapeHtml(errMessage)}。为避免显示其他工程的残留数据，已暂停渲染当前视图。
+          ${descHtml}
         </div>
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-          <button id="btn-retry-scope" class="btn btn-primary btn-sm">重试加载</button>
+          <button id="btn-retry-scope" class="btn btn-primary btn-sm" data-i18n="shell.btnRetryLoad">${escapeHtml(t('shell.btnRetryLoad'))}</button>
           ${priorProject !== undefined && priorProject !== null && priorProject !== targetProject ? `
-            <button id="btn-revert-scope" class="btn btn-secondary btn-sm">返回此前工作空间</button>
+            <button id="btn-revert-scope" class="btn btn-secondary btn-sm" data-i18n="shell.btnRevertScope">${escapeHtml(t('shell.btnRevertScope'))}</button>
           ` : `
-            <button id="btn-revert-global-scope" class="btn btn-secondary btn-sm">切换至全局视图</button>
+            <button id="btn-revert-global-scope" class="btn btn-secondary btn-sm" data-i18n="shell.btnRevertGlobalScope">${escapeHtml(t('shell.btnRevertGlobalScope'))}</button>
           `}
         </div>
       </div>
@@ -345,7 +498,7 @@
           const result = await callBridge('dashboard.get', requestedProject ? { project: requestedProject } : {});
           // Late responses from a prior project or previous epoch must not replace current-project data
           if (thisEpoch === refreshEpoch && state.currentProject === requestedProject && result) {
-            updateFooterStatus('connected', state.isDemoMode ? '演示模式 · 离线快照' : '本地服务就绪 · 无云端遥测');
+            updateFooterStatus('connected');
             state.dashboard = result;
             state.dashboardScope = requestedProject;
             state.scopeError = null;
@@ -355,6 +508,11 @@
             }
             if (result.settings) {
               state.rawSettings = result.settings;
+              if (result.settings.locale === 'en' || result.settings.locale === 'zh-CN') {
+                if (window.VelaI18n && window.VelaI18n.getLocale() !== result.settings.locale) {
+                  window.VelaI18n.setLocale(result.settings.locale);
+                }
+              }
             }
             updateGlobalCounters();
 
@@ -405,9 +563,9 @@
           }
         } catch (err) {
           if (thisEpoch === refreshEpoch && state.currentProject === requestedProject) {
-            updateFooterStatus('error', '本地服务未连接');
+            updateFooterStatus('error');
             if (shouldShowErr) {
-              showGlobalError('获取本地数据失败：' + (err.message || '未知错误'));
+              showGlobalError(`${t('common.fetchLocalDataFailed')}: ${err.message || t('common.unknown')}`);
             }
             // Invalidate/clear old dashboard if actual scope differs from currentProject,
             // refusing to use stale dashboard under mismatched project scope.
@@ -418,7 +576,7 @@
             state.scopeError = {
               project: requestedProject,
               priorProject: state.priorProject || '',
-              message: err.message || '未知错误'
+              message: err.message || t('common.unknown')
             };
             updateGlobalCounters();
             renderCurrentPage();
@@ -490,11 +648,11 @@
     }
     sel.dataset.lastProjectsKey = projectKey;
 
-    sel.innerHTML = '<option value="">所有项目 (全部上下文)</option>';
+    sel.innerHTML = `<option value="" data-i18n="shell.allProjects">${escapeHtml(t('shell.allProjects'))}</option>`;
     for (const proj of projects) {
       const opt = document.createElement('option');
       opt.value = proj.path || proj.id || '';
-      opt.textContent = proj.title || proj.name || proj.path || '未命名项目';
+      opt.textContent = proj.title || proj.name || proj.path || t('common.unnamedProject');
       if (opt.value === curr) opt.selected = true;
       sel.appendChild(opt);
     }
@@ -569,7 +727,7 @@
       const isManual = e.detail && e.detail.source === 'user';
       refreshDashboard(false, isManual);
       if (isManual) {
-        showToast('数据已刷新');
+        showToast({ key: 'shell.dataRefreshed' });
       }
     });
 
@@ -702,31 +860,31 @@
 
     const modalBody = `
       <div class="alert-banner alert-info" style="margin-bottom: 14px;">
-        <span>收到 <strong>${count}</strong> 条跨模块聚合事件，请选择您要查看的工程分类：</span>
+        <span data-i18n="shell.aggregateNotice" data-i18n-params="${escapeHtml(JSON.stringify({ count }))}">${escapeHtml(t('shell.aggregateNotice', { count }))}</span>
       </div>
       <div style="display: flex; flex-direction: column; gap: 10px;">
         ${hasSessions ? `
           <button class="btn btn-secondary btn-choice-agg" data-target="agents" style="justify-content: flex-start; padding: 10px 14px; text-align: left;">
-            <strong style="font-size: 13px;">查看会话</strong>
-            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">智能体交互日志与工具调用</span>
+            <strong style="font-size: 13px;" data-i18n="shell.viewSessions">${escapeHtml(t('shell.viewSessions'))}</strong>
+            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;" data-i18n="shell.viewSessionsDesc">${escapeHtml(t('shell.viewSessionsDesc'))}</span>
           </button>
         ` : ''}
         ${hasRuns ? `
           <button class="btn btn-secondary btn-choice-agg" data-target="workflows" style="justify-content: flex-start; padding: 10px 14px; text-align: left;">
-            <strong style="font-size: 13px;">查看工作流</strong>
-            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">脚本编排与运行记录</span>
+            <strong style="font-size: 13px;" data-i18n="shell.viewWorkflows">${escapeHtml(t('shell.viewWorkflows'))}</strong>
+            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;" data-i18n="shell.viewWorkflowsDesc">${escapeHtml(t('shell.viewWorkflowsDesc'))}</span>
           </button>
         ` : ''}
         ${hasApprovals ? `
           <button class="btn btn-secondary btn-choice-agg" data-target="inbox" style="justify-content: flex-start; padding: 10px 14px; text-align: left;">
-            <strong style="font-size: 13px;">查看待办审批</strong>
-            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">写操作与关键安全门禁</span>
+            <strong style="font-size: 13px;" data-i18n="shell.viewApprovals">${escapeHtml(t('shell.viewApprovals'))}</strong>
+            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;" data-i18n="shell.viewApprovalsDesc">${escapeHtml(t('shell.viewApprovalsDesc'))}</span>
           </button>
         ` : ''}
       </div>
     `;
 
-    openModal('聚合通知分类选择', modalBody, '<button class="btn btn-secondary btn-sm" id="btn-cancel-agg-modal">关闭</button>');
+    openModal({ key: 'shell.aggregateTitle' }, modalBody, `<button class="btn btn-secondary btn-sm" id="btn-cancel-agg-modal" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
     document.getElementById('btn-cancel-agg-modal')?.addEventListener('click', closeModal);
     document.querySelectorAll('.btn-choice-agg').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -770,11 +928,11 @@
           const selectedDir = await callBridge('system.chooseProject');
           if (selectedDir) {
             await callBridge('projects.add', { path: selectedDir });
-            showToast('已连接项目: ' + selectedDir);
+            showToast({ key: 'shell.projectConnected', params: { dir: selectedDir } });
             await refreshDashboard(true, true);
           }
         } catch (err) {
-          showToast('添加项目失败: ' + err.message, 'error');
+          showToast({ key: 'shell.addProjectFailed', params: { error: err.message } }, 'error');
         }
       });
     }
@@ -824,6 +982,20 @@
             }
           };
           document.addEventListener('keydown', drawerTrapHandler, true);
+        }
+      }
+    });
+
+    window.addEventListener('vela:localeChanged', (e) => {
+      const incoming = e && e.detail && e.detail.locale;
+      if (incoming === 'zh-CN' || incoming === 'en') {
+        if (window.VelaI18n) {
+          window.VelaI18n.setLocale(incoming);
+        }
+        state.rawSettings = Object.assign({}, state.rawSettings, { locale: incoming });
+        const localeSel = document.getElementById('setting-locale');
+        if (localeSel && localeSel.value !== incoming) {
+          localeSel.value = incoming;
         }
       }
     });
@@ -896,8 +1068,8 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>工程记忆</h1>
-          <p>跨会话继承的本地上下文与经验沉淀 · 项目隔离与人工流转</p>
+          <h1 data-i18n="memory.title">${t('memory.title')}</h1>
+          <p data-i18n="memory.subtitle">${t('memory.subtitle')}</p>
         </div>
       </div>
       <div id="memory-page-content"></div>
@@ -926,45 +1098,45 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>会话</h1>
-          <p>智能体会话日志、工具调用与上下文证据 · 共 ${filteredSessions.length} 个会话 (${runningCount} 运行中)</p>
+          <h1 data-i18n="sessions.title">${escapeHtml(t('sessions.title'))}</h1>
+          <p data-i18n="sessions.subtitle" data-i18n-params="${escapeHtml(JSON.stringify({ total: filteredSessions.length, running: runningCount }))}">${escapeHtml(t('sessions.subtitle', { total: filteredSessions.length, running: runningCount }))}</p>
         </div>
         <div class="page-actions">
-          <button id="btn-refresh-sessions" class="btn btn-secondary btn-sm">增量刷新</button>
-          <button id="btn-add-project-agents" class="btn btn-primary btn-sm">+ 连接项目</button>
+          <button id="btn-refresh-sessions" class="btn btn-secondary btn-sm" data-i18n="sessions.btnRefresh">${escapeHtml(t('sessions.btnRefresh'))}</button>
+          <button id="btn-add-project-agents" class="btn btn-primary btn-sm" data-i18n="sessions.btnAddProject">${escapeHtml(t('sessions.btnAddProject'))}</button>
         </div>
       </div>
 
       <div class="toolbar-bar">
         <div class="toolbar-filters">
-          <input type="search" id="session-search-input" class="filter-input" placeholder="搜索会话 (Cmd+K)..." title="搜索会话标题、模型或路径（选择列表任意会话可打开详情与 Checkpoint）" style="width: 240px;" value="${escapeHtml(state.sessionFilterQuery)}">
+          <input type="search" id="session-search-input" class="filter-input" data-i18n-placeholder="sessions.searchPlaceholder" placeholder="${escapeHtml(t('sessions.searchPlaceholder'))}" data-i18n-title="sessions.searchTitle" title="${escapeHtml(t('sessions.searchTitle'))}" style="width: 240px;" value="${escapeHtml(state.sessionFilterQuery)}">
           <select id="session-provider-filter" class="filter-select">
-            <option value="">所有 Provider</option>
+            <option value="" data-i18n="sessions.filterAllProviders">${escapeHtml(t('sessions.filterAllProviders'))}</option>
             <option value="claude" ${(state.sessionProviderFilter || '').toLowerCase() === 'claude' ? 'selected' : ''}>Claude Code</option>
             <option value="codex" ${(state.sessionProviderFilter || '').toLowerCase() === 'codex' ? 'selected' : ''}>Codex</option>
             <option value="cursor" ${(state.sessionProviderFilter || '').toLowerCase() === 'cursor' ? 'selected' : ''}>Cursor</option>
             ${hasCopilot ? `<option value="copilot" ${(state.sessionProviderFilter || '').toLowerCase() === 'copilot' ? 'selected' : ''}>GitHub Copilot</option>` : ''}
           </select>
           <select id="session-status-filter" class="filter-select">
-            <option value="">所有状态</option>
-            <option value="running" ${(state.sessionStatusFilter || '').toLowerCase() === 'running' ? 'selected' : ''}>运行中</option>
-            <option value="idle" ${(state.sessionStatusFilter || '').toLowerCase() === 'idle' ? 'selected' : ''}>空闲</option>
-            <option value="completed" ${(state.sessionStatusFilter || '').toLowerCase() === 'completed' ? 'selected' : ''}>已完成</option>
-            <option value="needs approval" ${(state.sessionStatusFilter || '').toLowerCase() === 'needs approval' ? 'selected' : ''}>待审批</option>
-            <option value="error" ${(state.sessionStatusFilter || '').toLowerCase() === 'error' ? 'selected' : ''}>错误</option>
-            <option value="stopped" ${(state.sessionStatusFilter || '').toLowerCase() === 'stopped' ? 'selected' : ''}>已停止</option>
-            <option value="unknown" ${(state.sessionStatusFilter || '').toLowerCase() === 'unknown' ? 'selected' : ''}>未知</option>
+            <option value="" data-i18n="sessions.filterAllStatuses">${escapeHtml(t('sessions.filterAllStatuses'))}</option>
+            <option value="running" ${(state.sessionStatusFilter || '').toLowerCase() === 'running' ? 'selected' : ''} data-i18n="sessions.statusRunning">${escapeHtml(t('sessions.statusRunning'))}</option>
+            <option value="idle" ${(state.sessionStatusFilter || '').toLowerCase() === 'idle' ? 'selected' : ''} data-i18n="sessions.statusIdle">${escapeHtml(t('sessions.statusIdle'))}</option>
+            <option value="completed" ${(state.sessionStatusFilter || '').toLowerCase() === 'completed' ? 'selected' : ''} data-i18n="sessions.statusCompleted">${escapeHtml(t('sessions.statusCompleted'))}</option>
+            <option value="needs approval" ${(state.sessionStatusFilter || '').toLowerCase() === 'needs approval' ? 'selected' : ''} data-i18n="sessions.statusNeedsApproval">${escapeHtml(t('sessions.statusNeedsApproval'))}</option>
+            <option value="error" ${(state.sessionStatusFilter || '').toLowerCase() === 'error' ? 'selected' : ''} data-i18n="sessions.statusError">${escapeHtml(t('sessions.statusError'))}</option>
+            <option value="stopped" ${(state.sessionStatusFilter || '').toLowerCase() === 'stopped' ? 'selected' : ''} data-i18n="sessions.statusStopped">${escapeHtml(t('sessions.statusStopped'))}</option>
+            <option value="unknown" ${(state.sessionStatusFilter || '').toLowerCase() === 'unknown' ? 'selected' : ''} data-i18n="sessions.statusUnknown">${escapeHtml(t('sessions.statusUnknown'))}</option>
           </select>
-          <button id="btn-clear-session-filters" class="btn btn-ghost btn-sm ${(state.sessionFilterQuery || state.sessionProviderFilter || state.sessionStatusFilter) ? '' : 'hidden'}">重置筛选</button>
+          <button id="btn-clear-session-filters" class="btn btn-ghost btn-sm ${(state.sessionFilterQuery || state.sessionProviderFilter || state.sessionStatusFilter) ? '' : 'hidden'}" data-i18n="sessions.btnClearFilters">${escapeHtml(t('sessions.btnClearFilters'))}</button>
         </div>
       </div>
 
       <div class="session-source-note" role="note">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-        <span>会话状态由各 Agent 本地日志推断，非实时常驻进程监视。过久无活动自动判定为空闲或未知。</span>
+        <span data-i18n="sessions.sourceNote">${escapeHtml(t('sessions.sourceNote'))}</span>
       </div>
 
-      <div id="sessions-container" class="sessions-container" role="region" aria-label="智能体会话列表">
+      <div id="sessions-container" class="sessions-container" role="region" data-i18n-aria-label="sessions.containerAria" aria-label="${escapeHtml(t('sessions.containerAria'))}">
         <div id="sessions-grouped-lists"></div>
       </div>
 
@@ -1005,9 +1177,9 @@
       try {
         await callBridge('sessions.refresh');
         await refreshDashboard(true, true);
-        showToast('已扫描并增量刷新会话');
+        showToast({ key: 'sessions.refreshedToast' });
       } catch (err) {
-        showToast('刷新会话失败: ' + err.message, 'error');
+        showToast({ key: 'sessions.refreshFailedToast', params: { error: err.message } }, 'error');
       }
     });
 
@@ -1060,35 +1232,35 @@
         if (state.registeredProjects.length === 0) {
           // State 1: No connected projects
           emptyState.innerHTML = `
-            <div class="empty-state-title">未连接本地项目</div>
-            <div class="empty-state-desc">连接一个本地 Git 仓库或项目目录，Vela 才能观察与捕获智能体会话日志与工程上下文。</div>
-            <button id="btn-empty-connect-proj" class="btn btn-primary btn-sm" style="margin-top: 12px;">+ 连接本地项目</button>
+            <div class="empty-state-title" data-i18n="sessions.emptyNoProjectsTitle">${escapeHtml(t('sessions.emptyNoProjectsTitle'))}</div>
+            <div class="empty-state-desc" data-i18n="sessions.emptyNoProjectsDesc">${escapeHtml(t('sessions.emptyNoProjectsDesc'))}</div>
+            <button id="btn-empty-connect-proj" class="btn btn-primary btn-sm" style="margin-top: 12px;" data-i18n="sessions.emptyBtnConnect">${escapeHtml(t('sessions.emptyBtnConnect'))}</button>
           `;
           const btn = document.getElementById('btn-empty-connect-proj');
           if (btn) btn.addEventListener('click', () => document.getElementById('btn-add-project').click());
         } else if (totalProjectSessions === 0 && !isFilterActive) {
           // State 2: Connected project has 0 logs
           emptyState.innerHTML = `
-            <div class="empty-state-title">未检测到智能体会话日志</div>
-            <div class="empty-state-desc">当前项目尚未发现智能体会话日志。启动 Claude Code、Cursor 或 Codex 进行工程开发，日志将在此自动更新。</div>
-            <button id="btn-empty-refresh-scan" class="btn btn-secondary btn-sm" style="margin-top: 12px;">增量扫描会话日志</button>
+            <div class="empty-state-title" data-i18n="sessions.emptyNoLogsTitle">${escapeHtml(t('sessions.emptyNoLogsTitle'))}</div>
+            <div class="empty-state-desc" data-i18n="sessions.emptyNoLogsDesc">${escapeHtml(t('sessions.emptyNoLogsDesc'))}</div>
+            <button id="btn-empty-refresh-scan" class="btn btn-secondary btn-sm" style="margin-top: 12px;" data-i18n="sessions.emptyBtnRefresh">${escapeHtml(t('sessions.emptyBtnRefresh'))}</button>
           `;
           const btn = document.getElementById('btn-empty-refresh-scan');
           if (btn) btn.addEventListener('click', async () => {
             try {
               await callBridge('sessions.refresh');
               await refreshDashboard(true, true);
-              showToast('已扫描并增量刷新会话');
+              showToast({ key: 'sessions.refreshedToast' });
             } catch (err) {
-              showToast('刷新会话失败: ' + err.message, 'error');
+              showToast({ key: 'sessions.refreshFailedToast', params: { error: err.message } }, 'error');
             }
           });
         } else {
           // State 3: Filter query returned 0 matches
           emptyState.innerHTML = `
-            <div class="empty-state-title">没有匹配的会话</div>
-            <div class="empty-state-desc">没有符合当前搜索词或筛选条件的智能体会话。</div>
-            <button id="btn-empty-clear-filters" class="btn btn-secondary btn-sm" style="margin-top: 12px;">清除筛选条件</button>
+            <div class="empty-state-title" data-i18n="sessions.emptyNoMatchTitle">${escapeHtml(t('sessions.emptyNoMatchTitle'))}</div>
+            <div class="empty-state-desc" data-i18n="sessions.emptyNoMatchDesc">${escapeHtml(t('sessions.emptyNoMatchDesc'))}</div>
+            <button id="btn-empty-clear-filters" class="btn btn-secondary btn-sm" style="margin-top: 12px;" data-i18n="sessions.emptyBtnClear">${escapeHtml(t('sessions.emptyBtnClear'))}</button>
           `;
           const btn = document.getElementById('btn-empty-clear-filters');
           if (btn) btn.addEventListener('click', () => {
@@ -1121,7 +1293,7 @@
     const groups = [
       {
         key: 'attention',
-        label: '需关注',
+        labelKey: 'sessions.groupAttention',
         filter: s => {
           const st = (s.state || '').trim().toLowerCase();
           return st === 'needs approval' || st === 'needs_approval' || st === 'error' || st === 'failed';
@@ -1129,17 +1301,17 @@
       },
       {
         key: 'active',
-        label: '运行中',
+        labelKey: 'sessions.groupActive',
         filter: s => (s.state || '').trim().toLowerCase() === 'running'
       },
       {
         key: 'completed',
-        label: '已完成',
+        labelKey: 'sessions.groupCompleted',
         filter: s => (s.state || '').trim().toLowerCase() === 'completed'
       },
       {
         key: 'idle_or_unknown',
-        label: '空闲与未知',
+        labelKey: 'sessions.groupIdleOrUnknown',
         filter: s => {
           const st = (s.state || '').trim().toLowerCase();
           return st !== 'needs approval' && st !== 'needs_approval' && st !== 'error' && st !== 'failed' && st !== 'running' && st !== 'completed';
@@ -1159,24 +1331,50 @@
 
       const cardsHtml = items.map(s => {
         const stateBadge = getSessionStateBadge(s.state);
-        const tooltipParts = [];
-        if (s.statusSource) tooltipParts.push(`状态来源: ${s.statusSource}`);
-        if (s.statusEvidence) {
-          tooltipParts.push(`状态依据: ${s.statusEvidence}`);
+        let statusTitleKey = null;
+        if (s.statusSource && s.statusEvidence) {
+          statusTitleKey = 'sessions.statusSourceAndEvidence';
+        } else if (s.statusSource && s.statusInferred) {
+          statusTitleKey = 'sessions.statusSourceAndInferred';
+        } else if (s.statusSource) {
+          statusTitleKey = 'sessions.statusSource';
+        } else if (s.statusEvidence) {
+          statusTitleKey = 'sessions.statusEvidence';
         } else if (s.statusInferred) {
-          tooltipParts.push(`状态依据: 由日志推断`);
+          statusTitleKey = 'sessions.statusEvidenceInferred';
         }
-        const cellTooltip = tooltipParts.join(' · ');
+
+        const rawTitle = s.title || '';
+        const rawProvider = s.provider || 'AI';
+        const rawState = s.state || '-';
+
+        const rowParams = {
+          provider: rawProvider,
+          state: rawState
+        };
+        if (rawTitle) rowParams.title = rawTitle;
+        if (s.statusSource) rowParams.source = s.statusSource;
+        if (s.statusEvidence) rowParams.evidence = s.statusEvidence;
+
+        const ariaKey = rawTitle ? 'sessions.viewSessionAria' : 'sessions.viewSessionAriaUnnamed';
+        const ariaParams = rawTitle
+          ? { title: rawTitle, provider: rawProvider, state: rawState }
+          : { provider: rawProvider, state: rawState };
+
+        const viewAria = t(ariaKey, ariaParams);
+        const cellTooltip = statusTitleKey ? t(statusTitleKey, rowParams) : '';
+
         const projectName = s.project ? s.project.split('/').filter(Boolean).pop() : '';
         const providerName = (s.provider || 'ai').toLowerCase();
+        const displayTitle = rawTitle || t('sessions.unnamedSession');
 
         return `
-          <li class="session-card clickable-row ${state.selectedSessionId === s.id ? 'selected' : ''}" role="listitem" data-id="${escapeHtml(s.id)}" tabindex="0" ${cellTooltip ? `title="${escapeHtml(cellTooltip)}"` : ''} aria-label="查看会话: ${escapeHtml(s.title || '未命名会话')} · ${escapeHtml(s.provider || 'AI')} · ${escapeHtml(s.state || '未知')}">
+          <li class="session-card clickable-row ${state.selectedSessionId === s.id ? 'selected' : ''}" role="listitem" data-id="${escapeHtml(s.id)}" tabindex="0"${statusTitleKey ? ` title="${escapeHtml(cellTooltip)}" data-i18n-title="${statusTitleKey}"` : ''} aria-label="${escapeHtml(viewAria)}" data-i18n-aria-label="${ariaKey}" data-i18n-params="${escapeHtml(JSON.stringify(rowParams))}">
             <div class="session-card-main">
               <div class="session-card-header">
-                <span class="provider-badge provider-${escapeHtml(providerName)}">${escapeHtml(formatProviderName(s.provider))}</span>
-                <button type="button" class="session-title-btn" data-id="${escapeHtml(s.id)}" title="${escapeHtml(s.title || '未命名会话')}" aria-label="查看会话: ${escapeHtml(s.title || '未命名会话')}">
-                  ${escapeHtml(s.title || '未命名会话')}
+                <span class="provider-badge provider-${escapeHtml(providerName)}" ${!s.provider ? 'data-i18n="provider.unknown"' : ''}>${escapeHtml(formatProviderName(s.provider))}</span>
+                <button type="button" class="session-title-btn" data-id="${escapeHtml(s.id)}" title="${escapeHtml(displayTitle)}" aria-label="${escapeHtml(viewAria)}"${rawTitle ? '' : ' data-i18n="sessions.unnamedSession" data-i18n-title="sessions.unnamedSession"'} data-i18n-aria-label="${ariaKey}" data-i18n-params="${escapeHtml(JSON.stringify(ariaParams))}">
+                  ${escapeHtml(displayTitle)}
                 </button>
               </div>
               <div class="session-card-meta">
@@ -1187,14 +1385,14 @@
                   </span>
                 ` : ''}
                 ${s.branch ? `
-                  <span class="session-meta-branch" title="分支: ${escapeHtml(s.branch)}">
+                  <span class="session-meta-branch" title="${escapeHtml(t('sessions.branch', { branch: s.branch }))}" data-i18n-title="sessions.branch" data-i18n-params="${escapeHtml(JSON.stringify({ branch: s.branch }))}">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
                     ${escapeHtml(s.branch)}
                   </span>
                 ` : ''}
                 ${s.messageCount != null ? `
-                  <span class="session-meta-messages">
-                    ${s.messageCount} 条消息
+                  <span class="session-meta-messages" data-i18n="sessions.messageCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: s.messageCount }))}">
+                    ${escapeHtml(t('sessions.messageCount', { count: s.messageCount }))}
                   </span>
                 ` : ''}
               </div>
@@ -1208,9 +1406,9 @@
       }).join('');
 
       return `
-        <section class="session-group session-group-${group.key}" aria-label="${group.label}">
+        <section class="session-group session-group-${group.key}" data-i18n-aria-label="${group.labelKey}" aria-label="${escapeHtml(t(group.labelKey))}">
           <div class="session-group-header">
-            <div class="session-group-title">— ${group.label}</div>
+            <div class="session-group-title">— <span data-i18n="${group.labelKey}">${escapeHtml(t(group.labelKey))}</span></div>
             <span class="session-group-count">${items.length}</span>
           </div>
           <ul class="session-card-list" role="list">
@@ -1258,26 +1456,26 @@
     const s = (stateStr || '').toLowerCase();
     switch (s) {
       case 'running':
-        return '<span class="status-badge status-blue"><span class="status-pulse-dot" style="background-color: var(--color-accent);"></span> 运行中</span>';
+        return `<span class="status-badge status-blue"><span class="status-pulse-dot" style="background-color: var(--color-accent);"></span> <span data-i18n="sessions.statusRunning">${escapeHtml(t('sessions.statusRunning'))}</span></span>`;
       case 'completed':
-        return '<span class="status-badge status-sage">✓ 已完成</span>';
+        return `<span class="status-badge status-sage">✓ <span data-i18n="sessions.statusCompleted">${escapeHtml(t('sessions.statusCompleted'))}</span></span>`;
       case 'needs approval':
       case 'needs_approval':
-        return '<span class="status-badge status-amber">待审批</span>';
+        return `<span class="status-badge status-amber" data-i18n="sessions.statusNeedsApproval">${escapeHtml(t('sessions.statusNeedsApproval'))}</span>`;
       case 'error':
-        return '<span class="status-badge status-red">✕ 异常</span>';
+        return `<span class="status-badge status-red">✕ <span data-i18n="sessions.statusError">${escapeHtml(t('sessions.statusError'))}</span></span>`;
       case 'failed':
-        return '<span class="status-badge status-red">✕ 失败</span>';
+        return `<span class="status-badge status-red">✕ <span data-i18n="sessions.statusError">${escapeHtml(t('sessions.statusError'))}</span></span>`;
       case 'idle':
-        return '<span class="status-badge status-neutral">空闲</span>';
+        return `<span class="status-badge status-neutral" data-i18n="sessions.statusIdle">${escapeHtml(t('sessions.statusIdle'))}</span>`;
       case 'stopped':
-        return '<span class="status-badge status-neutral">已停止</span>';
+        return `<span class="status-badge status-neutral" data-i18n="sessions.statusStopped">${escapeHtml(t('sessions.statusStopped'))}</span>`;
       case 'unknown':
       case '未知':
       case '未知（仅日志）':
-        return '<span class="status-badge status-neutral">未知</span>';
+        return `<span class="status-badge status-neutral" data-i18n="sessions.statusUnknown">${escapeHtml(t('sessions.statusUnknown'))}</span>`;
       default:
-        return `<span class="status-badge status-neutral">${escapeHtml(stateStr || '未知')}</span>`;
+        return `<span class="status-badge status-neutral">${escapeHtml(stateStr || t('sessions.statusUnknown'))}</span>`;
     }
   }
 
@@ -1291,12 +1489,12 @@
 
     function formatSessionTokenVal(exactVal, observedVal) {
       if (isSafeCount(exactVal)) {
-        return exactVal.toLocaleString();
+        return formatNumber(exactVal);
       }
       if (isSafeCount(observedVal)) {
-        return `${observedVal.toLocaleString()} <span class="status-badge status-amber" style="font-size: 9px; padding: 1px 4px;">已观测部分</span>`;
+        return `${formatNumber(observedVal)} <span class="status-badge status-amber" style="font-size: 9px; padding: 1px 4px;" data-i18n="sessions.tokenObservedPart">${escapeHtml(t('sessions.tokenObservedPart'))}</span>`;
       }
-      return '未提供';
+      return `<span data-i18n="common.none">${escapeHtml(t('common.none'))}</span>`;
     }
 
     const hasAnyToken = isSafeCount(session.tokenInput) || isSafeCount(session.tokenOutput) ||
@@ -1304,19 +1502,19 @@
 
     const tokenInputDisp = formatSessionTokenVal(session.tokenInput, session.observedTokenInput);
     const tokenOutputDisp = formatSessionTokenVal(session.tokenOutput, session.observedTokenOutput);
-    const tokensDisp = hasAnyToken ? `${tokenInputDisp} / ${tokenOutputDisp}` : '未提供';
+    const tokensDisp = hasAnyToken ? `${tokenInputDisp} / ${tokenOutputDisp}` : `<span data-i18n="common.none">${escapeHtml(t('common.none'))}</span>`;
 
     function formatSessionUsageStatus(st) {
       if (!st) return '';
       switch (st) {
         case 'complete':
-          return '<span class="status-badge status-sage">完整统计</span>';
+          return `<span class="status-badge status-sage" data-i18n="sessions.usageComplete">${escapeHtml(t('sessions.usageComplete'))}</span>`;
         case 'partial':
-          return '<span class="status-badge status-amber">部分已观测</span>';
+          return `<span class="status-badge status-amber" data-i18n="sessions.usagePartial">${escapeHtml(t('sessions.usagePartial'))}</span>`;
         case 'overflow':
-          return '<span class="status-badge status-red">计数溢出</span>';
+          return `<span class="status-badge status-red" data-i18n="sessions.usageOverflow">${escapeHtml(t('sessions.usageOverflow'))}</span>`;
         case 'unavailable':
-          return '<span class="status-badge status-neutral">无可用数据</span>';
+          return `<span class="status-badge status-neutral" data-i18n="sessions.usageUnavailable">${escapeHtml(t('sessions.usageUnavailable'))}</span>`;
         default:
           return `<span class="status-badge status-neutral">${escapeHtml(st)}</span>`;
       }
@@ -1327,8 +1525,8 @@
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
             ${getSessionStateBadge(session.state)}
-            ${session.statusInferred ? '<span class="status-badge status-amber" style="white-space: nowrap;">日志推断</span>' : ''}
-            ${isTruncated ? '<span class="status-badge status-neutral" style="white-space: nowrap;">部分历史截断</span>' : ''}
+            ${session.statusInferred ? `<span class="status-badge status-amber" style="white-space: nowrap;" data-i18n="sessions.badgeInferred">${escapeHtml(t('sessions.badgeInferred'))}</span>` : ''}
+            ${isTruncated ? `<span class="status-badge status-neutral" style="white-space: nowrap;" data-i18n="sessions.badgeTruncated">${escapeHtml(t('sessions.badgeTruncated'))}</span>` : ''}
           </div>
           <div style="font-size: 12px; color: var(--text-secondary); white-space: nowrap;">
             ${escapeHtml(session.provider || 'AI')}${session.model ? ` · ${escapeHtml(session.model)}` : ''}
@@ -1336,24 +1534,24 @@
         </div>
         ${session.statusInferred ? `
           <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">
-            状态依据：${escapeHtml(session.statusEvidence || session.statusSource || '日志记录了完成事件，未附加实时常驻进程')}
+            <span data-i18n="sessions.evidencePrefix">${escapeHtml(t('sessions.evidencePrefix'))}</span>${escapeHtml(session.statusEvidence || session.statusSource || t('sessions.defaultInferredEvidence'))}
           </div>
         ` : ''}
         ${isTruncated ? `
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-            提示：该会话历史记录较长，当前仅加载最新消息快照。
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;" data-i18n="sessions.truncatedNotice">
+            ${escapeHtml(t('sessions.truncatedNotice'))}
           </div>
         ` : ''}
       </div>
 
       <div style="margin-bottom: 20px;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-          <h3 style="font-size: 14px; font-weight: 600;">会话消息与工具调用 (${messages.length})</h3>
-          <span style="font-size: 12px; color: var(--text-secondary);">单条消息可存为工程 Memory</span>
+          <h3 style="font-size: 14px; font-weight: 600;" data-i18n="sessions.messagesTitle" data-i18n-params="${escapeHtml(JSON.stringify({ count: messages.length }))}">${escapeHtml(t('sessions.messagesTitle', { count: messages.length }))}</h3>
+          <span style="font-size: 12px; color: var(--text-secondary);" data-i18n="sessions.saveMsgMemoryHint">${escapeHtml(t('sessions.saveMsgMemoryHint'))}</span>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 12px;">
-          ${messages.length === 0 ? '<div class="text-secondary" style="font-size: 13px; padding: 24px 0; text-align: center;">无详细消息记录（仅捕获会话级统计）</div>' : ''}
+          ${messages.length === 0 ? `<div class="text-secondary" style="font-size: 13px; padding: 24px 0; text-align: center;" data-i18n="sessions.noMessages">${escapeHtml(t('sessions.noMessages'))}</div>` : ''}
           ${messages.map((m, idx) => {
             const msgId = m.id ? String(m.id) : '';
             const msgIdAttr = msgId ? `id="session-msg-${escapeHtml(msgId)}"` : '';
@@ -1365,14 +1563,14 @@
                   <span class="status-badge status-neutral">${escapeHtml(m.role || 'message')}</span>
                   <span style="font-size: 12px; color: var(--text-muted);">${formatTime(m.timestamp)}</span>
                 </div>
-                <button class="btn btn-ghost btn-sm btn-save-msg-memory" data-idx="${idx}" title="保存此消息为 Memory">
-                  + 存为 Memory
+                <button class="btn btn-ghost btn-sm btn-save-msg-memory" data-idx="${idx}" data-i18n-title="sessions.saveMsgMemoryTitle" title="${escapeHtml(t('sessions.saveMsgMemoryTitle'))}" data-i18n="sessions.btnSaveMsgMemory">
+                  ${escapeHtml(t('sessions.btnSaveMsgMemory'))}
                 </button>
               </div>
               <div style="font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: var(--text-main); font-family: var(--font-system);">${escapeHtml(m.content || '')}</div>
               ${m.tool ? `
                 <div style="margin-top: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text-secondary); background: var(--bg-subtle); padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border-color);">
-                  <div style="font-weight: 600; margin-bottom: ${m.input || m.output ? '4px' : '0'};">工具调用: ${escapeHtml(m.tool)}</div>
+                  <div style="font-weight: 600; margin-bottom: ${m.input || m.output ? '4px' : '0'};">${escapeHtml(t('sessions.toolCallHeader', { tool: m.tool }))}</div>
                   ${m.input ? `<div style="font-size: 11px; white-space: pre-wrap; word-break: break-all; color: var(--text-muted);">${escapeHtml(typeof m.input === 'string' ? m.input : JSON.stringify(m.input, null, 2))}</div>` : ''}
                   ${m.output ? `<div style="font-size: 11px; white-space: pre-wrap; word-break: break-all; color: var(--text-secondary); margin-top: 4px; border-top: 1px dashed var(--border-color); padding-top: 4px;">${escapeHtml(typeof m.output === 'string' ? m.output : JSON.stringify(m.output, null, 2))}</div>` : ''}
                 </div>` : ''}
@@ -1383,23 +1581,23 @@
       </div>
 
       <details class="card" style="padding: 12px 14px;" ${messages.length === 0 ? 'open' : ''}>
-        <summary style="cursor: pointer; font-size: 13px; font-weight: 600; user-select: none;">
-          技术元数据与执行环境
+        <summary style="cursor: pointer; font-size: 13px; font-weight: 600; user-select: none;" data-i18n="sessions.techMetadataSummary">
+          ${escapeHtml(t('sessions.techMetadataSummary'))}
         </summary>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; margin-top: 12px;">
-          <div style="grid-column: 1 / -1;"><span class="text-secondary">会话 ID:</span> <span class="font-mono" style="word-break: break-all; user-select: all;">${escapeHtml(session.id || '')}</span></div>
-          <div><span class="text-secondary">Provider:</span> <strong>${escapeHtml(session.provider || '-')}</strong></div>
-          <div><span class="text-secondary">Model:</span> <span class="font-mono">${escapeHtml(session.model || '-')}</span></div>
-          <div><span class="text-secondary">Project:</span> <span class="font-mono">${escapeHtml(session.project || '-')}</span></div>
-          <div><span class="text-secondary">Branch:</span> <span class="font-mono">${escapeHtml(session.branch || '-')}</span></div>
-          <div><span class="text-secondary">Tokens (I/O):</span> <span class="font-mono">${tokensDisp}</span></div>
-          <div><span class="text-secondary">时间:</span> ${formatTime(session.updatedAt)}</div>
-          ${session.statusSource ? `<div><span class="text-secondary">状态来源:</span> <span class="font-mono">${escapeHtml(session.statusSource)}</span></div>` : ''}
-          ${session.statusInferred ? `<div><span class="text-secondary">状态判定:</span> <span style="color: var(--status-amber-text, #f59e0b);" aria-label="状态由日志推断">状态由日志推断</span></div>` : ''}
-          ${session.usageStatus ? `<div><span class="text-secondary">用量状态:</span> ${formatSessionUsageStatus(session.usageStatus)}</div>` : ''}
-          ${session.usageCoverage ? `<div style="grid-column: 1 / -1;"><span class="text-secondary">用量覆盖:</span> <span class="text-muted" style="word-break: break-all;">${escapeHtml(session.usageCoverage)}</span></div>` : ''}
+          <div style="grid-column: 1 / -1;"><span class="text-secondary" data-i18n="sessions.metaSessionId">${escapeHtml(t('sessions.metaSessionId'))}</span> <span class="font-mono" style="word-break: break-all; user-select: all;">${escapeHtml(session.id || '')}</span></div>
+          <div><span class="text-secondary" data-i18n="sessions.metaProvider">${escapeHtml(t('sessions.metaProvider'))}</span> <strong>${escapeHtml(session.provider || '-')}</strong></div>
+          <div><span class="text-secondary" data-i18n="sessions.metaModel">${escapeHtml(t('sessions.metaModel'))}</span> <span class="font-mono">${escapeHtml(session.model || '-')}</span></div>
+          <div><span class="text-secondary" data-i18n="sessions.metaProject">${escapeHtml(t('sessions.metaProject'))}</span> <span class="font-mono">${escapeHtml(session.project || '-')}</span></div>
+          <div><span class="text-secondary" data-i18n="sessions.metaBranch">${escapeHtml(t('sessions.metaBranch'))}</span> <span class="font-mono">${escapeHtml(session.branch || '-')}</span></div>
+          <div><span class="text-secondary" data-i18n="sessions.metaTokens">${escapeHtml(t('sessions.metaTokens'))}</span> <span class="font-mono">${tokensDisp}</span></div>
+          <div><span class="text-secondary" data-i18n="sessions.metaTime">${escapeHtml(t('sessions.metaTime'))}</span> ${formatTime(session.updatedAt)}</div>
+          ${session.statusSource ? `<div><span class="text-secondary" data-i18n="sessions.metaStatusSource">${escapeHtml(t('sessions.metaStatusSource'))}</span> <span class="font-mono">${escapeHtml(session.statusSource)}</span></div>` : ''}
+          ${session.statusInferred ? `<div><span class="text-secondary" data-i18n="sessions.metaStatusVerdict">${escapeHtml(t('sessions.metaStatusVerdict'))}</span> <span style="color: var(--status-amber-text, #f59e0b);" data-i18n="sessions.metaStatusInferredText" data-i18n-aria-label="sessions.metaStatusInferredText" aria-label="${escapeHtml(t('sessions.metaStatusInferredText'))}">${escapeHtml(t('sessions.metaStatusInferredText'))}</span></div>` : ''}
+          ${session.usageStatus ? `<div><span class="text-secondary" data-i18n="sessions.metaUsageStatus">${escapeHtml(t('sessions.metaUsageStatus'))}</span> ${formatSessionUsageStatus(session.usageStatus)}</div>` : ''}
+          ${session.usageCoverage ? `<div style="grid-column: 1 / -1;"><span class="text-secondary" data-i18n="sessions.metaUsageCoverage">${escapeHtml(t('sessions.metaUsageCoverage'))}</span> <span class="text-muted" style="word-break: break-all;">${escapeHtml(session.usageCoverage)}</span></div>` : ''}
         </div>
-        ${session.sourcePath ? `<div style="margin-top: 10px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); word-break: break-all;">日志路径: ${escapeHtml(session.sourcePath)}</div>` : ''}
+        ${session.sourcePath ? `<div style="margin-top: 10px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); word-break: break-all;">${escapeHtml(t('sessions.metaLogPath', { path: session.sourcePath }))}</div>` : ''}
       </details>
     `;
 
@@ -1408,7 +1606,7 @@
         const idx = parseInt(btn.getAttribute('data-idx'), 10);
         const msg = messages[idx];
         openCreateOrEditMemoryModal({
-          title: (session.title || '会话经验') + ` - 摘录`,
+          title: t('sessions.memoryExcerptSuffix', { title: session.title || t('sessions.unnamedSession') }),
           content: msg.content || '',
           type: 'fact',
           scope: 'project',
@@ -1504,7 +1702,7 @@
     const thisSeq = ++sessionDetailSequence;
     const thisProject = state.currentProject;
     state.selectedSessionId = sessionId;
-    openDrawer('正在加载会话详情...', '会话', triggerEl);
+    openDrawer({ key: 'sessions.loadingDetail' }, { key: 'nav.agents' }, triggerEl);
 
     try {
       const session = await callBridge('sessions.get', { id: sessionId });
@@ -1514,7 +1712,11 @@
       if (thisSeq !== sessionDetailSequence || state.selectedSessionId !== sessionId || !isDrawerOpen || state.currentProject !== thisProject) {
         return;
       }
-      if (!session) throw new Error('会话不存在');
+      if (!session) {
+        const e = new Error('sessions.notFound');
+        e.i18nKey = 'sessions.notFound';
+        throw e;
+      }
 
       const fp = computeSessionFingerprint(session);
       state.loadedSessionDetail = {
@@ -1523,14 +1725,14 @@
         rev: fp
       };
 
-      const shortSubtitle = [
-        session.provider || 'AI',
-        session.project ? session.project.split('/').pop() : '全局'
-      ].filter(Boolean).join(' · ');
+      const projName = session.project ? session.project.split('/').pop() : null;
+      const shortSubtitle = projName
+        ? `${session.provider || 'AI'} · ${projName}`
+        : { key: 'sessions.sessionSubtitleGlobal', params: { provider: session.provider || 'AI' } };
 
-      setDrawerTitle(session.title || '会话详情', shortSubtitle);
+      setDrawerTitle(session.title ? session.title : { key: 'sessions.sessionDetail' }, shortSubtitle);
       setDrawerCustomActions(`
-        <button id="btn-save-checkpoint-modal" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">保存 Checkpoint</button>
+        <button id="btn-save-checkpoint-modal" class="btn btn-secondary btn-sm" style="flex-shrink: 0;" data-i18n="sessions.btnSaveCheckpoint">${escapeHtml(t('sessions.btnSaveCheckpoint'))}</button>
       `);
 
       const saveBtn = document.getElementById('btn-save-checkpoint-modal');
@@ -1556,7 +1758,7 @@
             const noticeDiv = document.createElement('div');
             noticeDiv.className = 'alert-banner alert-warning';
             noticeDiv.style.marginBottom = '12px';
-            noticeDiv.textContent = `目标来源消息（ID: ${targetMessageId}）超出当前加载的历史记录范围或未在渲染列表中。`;
+            setElementDescriptor(noticeDiv, { key: 'sessions.targetMsgOutOfRange', params: { id: targetMessageId } });
             drawerBody.insertBefore(noticeDiv, drawerBody.firstChild);
           }
         }
@@ -1567,21 +1769,29 @@
       if (thisSeq !== sessionDetailSequence || state.selectedSessionId !== sessionId || !isDrawerOpen || state.currentProject !== thisProject) {
         return;
       }
-      setDrawerTitle('加载失败', '错误');
+      setDrawerTitle({ key: 'common.loadFailed' }, { key: 'common.error' });
       const drawerBody = document.getElementById('drawer-content');
       if (drawerBody) {
-        drawerBody.innerHTML = `
-          <div class="alert-banner alert-danger">
-            无法获取会话详情：${escapeHtml(err.message)}
-          </div>
-        `;
+        if (err && err.i18nKey) {
+          drawerBody.innerHTML = `
+            <div class="alert-banner alert-danger">
+              <span data-i18n="sessions.fetchDetailFailedPrefix">${escapeHtml(t('sessions.fetchDetailFailedPrefix'))}</span><span data-i18n="${err.i18nKey}">${escapeHtml(t(err.i18nKey))}</span>
+            </div>
+          `;
+        } else {
+          drawerBody.innerHTML = `
+            <div class="alert-banner alert-danger">
+              <span data-i18n="sessions.fetchDetailFailedPrefix">${escapeHtml(t('sessions.fetchDetailFailedPrefix'))}</span><span>${escapeHtml(err ? err.message : String(err))}</span>
+            </div>
+          `;
+        }
       }
     }
   }
 
   async function navigateToSourceMessage(sessionId, messageId = null) {
     if (!sessionId) {
-      showToast('未提供来源会话 ID', 'warning');
+      showToast({ key: 'sessions.noSourceSessionId' }, 'warning');
       return;
     }
 
@@ -1596,7 +1806,7 @@
         }
       });
       if (hasUnsaved) {
-        showToast('当前有未保存的编辑内容，请先保存或取消后再定位来源', 'warning');
+        showToast({ key: 'sessions.unsavedDirtyPrompt' }, 'warning');
         return;
       }
       closeModal();
@@ -1612,7 +1822,7 @@
       if (thisEpoch !== activeRouteEpoch) return;
 
       if (!targetSession) {
-        showToast(`来源会话不存在: ${sessionId}`, 'error');
+        showToast({ key: 'sessions.sourceSessionNotFound', params: { id: sessionId } }, 'error');
         return;
       }
 
@@ -1620,7 +1830,7 @@
       if (targetSession.project && targetSession.project !== state.currentProject) {
         const isRegistered = (state.registeredProjects || []).some(p => (p.path || p.id) === targetSession.project);
         if (!isRegistered) {
-          showToast(`目标会话所属项目未连接到当前工作区: ${targetSession.project}`, 'warning');
+          showToast({ key: 'sessions.projectNotConnected', params: { project: targetSession.project } }, 'warning');
           return;
         }
 
@@ -1645,10 +1855,10 @@
           state.scopeError = {
             project: targetSession.project,
             priorProject: priorProj,
-            message: (refreshRes && refreshRes.error && refreshRes.error.message) || '无法加载目标工程数据'
+            message: (refreshRes && refreshRes.error && refreshRes.error.message) || t('shell.scopeErrorDefaultDesc')
           };
           renderCurrentPage();
-          showToast('切换目标工程范围失败，已保留重试界面', 'error');
+          showToast({ key: 'sessions.switchScopeFailed' }, 'error');
           return;
         }
       }
@@ -1667,7 +1877,7 @@
       await openSessionDetail(sessionId, null, messageId);
     } catch (err) {
       if (thisEpoch === activeRouteEpoch) {
-        showToast('定位来源消息失败: ' + err.message, 'error');
+        showToast({ key: 'sessions.locateSourceFailed', params: { error: err.message } }, 'error');
       }
     }
   }
@@ -1694,19 +1904,19 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>工作流</h1>
-          <p>确定性多步骤自动化编排 · 安全工具门禁 · 运行记录与试运行</p>
+          <h1 data-i18n="workflows.title">${escapeHtml(t('workflows.title'))}</h1>
+          <p data-i18n="workflows.subtitle">${escapeHtml(t('workflows.subtitle'))}</p>
         </div>
         <div class="page-actions">
-          <button id="btn-build-wf-prompt" class="btn btn-secondary btn-sm">描述工作流</button>
-          <button id="btn-new-workflow" class="btn btn-primary btn-sm">+ 新建工作流</button>
+          <button id="btn-build-wf-prompt" class="btn btn-secondary btn-sm" data-i18n="workflows.btnBuildPrompt">${escapeHtml(t('workflows.btnBuildPrompt'))}</button>
+          <button id="btn-new-workflow" class="btn btn-primary btn-sm" data-i18n="workflows.btnNewWorkflow">${escapeHtml(t('workflows.btnNewWorkflow'))}</button>
         </div>
       </div>
 
       <div class="tabs-nav">
-        <button class="tab-btn ${state.workflowsActiveTab === 'list' ? 'active' : ''}" data-wftab="list">工作流列表 (${workflows.length})</button>
-        <button class="tab-btn ${state.workflowsActiveTab === 'runs' ? 'active' : ''}" data-wftab="runs">运行记录 (${runs.length})</button>
-        <button class="tab-btn ${state.workflowsActiveTab === 'health' ? 'active' : ''}" data-wftab="health">健康度检测</button>
+        <button class="tab-btn ${state.workflowsActiveTab === 'list' ? 'active' : ''}" data-wftab="list" data-i18n="workflows.tabList" data-i18n-params="${escapeHtml(JSON.stringify({ count: workflows.length }))}">${escapeHtml(t('workflows.tabList', { count: workflows.length }))}</button>
+        <button class="tab-btn ${state.workflowsActiveTab === 'runs' ? 'active' : ''}" data-wftab="runs" data-i18n="workflows.tabRuns" data-i18n-params="${escapeHtml(JSON.stringify({ count: runs.length }))}">${escapeHtml(t('workflows.tabRuns', { count: runs.length }))}</button>
+        <button class="tab-btn ${state.workflowsActiveTab === 'health' ? 'active' : ''}" data-wftab="health" data-i18n="workflows.tabHealth">${escapeHtml(t('workflows.tabHealth'))}</button>
       </div>
 
       <div id="workflows-tab-content"></div>
@@ -1741,11 +1951,11 @@
       if (workflows.length === 0) {
         target.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-title">未配置工作流</div>
-            <div class="empty-state-desc">创建多步骤自动化工作流，如 Git 检查、类型测试验证等。所有写操作和执行均受安全审查门禁保护。</div>
+            <div class="empty-state-title" data-i18n="workflows.emptyTitle">${escapeHtml(t('workflows.emptyTitle'))}</div>
+            <div class="empty-state-desc" data-i18n="workflows.emptyDesc">${escapeHtml(t('workflows.emptyDesc'))}</div>
             <div style="display: flex; gap: 8px; margin-top: 12px;">
-              <button id="btn-empty-build-wf" class="btn btn-secondary btn-sm">描述生成草稿</button>
-              <button id="btn-empty-create-wf" class="btn btn-primary btn-sm">+ 创建工作流</button>
+              <button id="btn-empty-build-wf" class="btn btn-secondary btn-sm" data-i18n="workflows.btnEmptyBuild">${escapeHtml(t('workflows.btnEmptyBuild'))}</button>
+              <button id="btn-empty-create-wf" class="btn btn-primary btn-sm" data-i18n="workflows.btnEmptyCreate">${escapeHtml(t('workflows.btnEmptyCreate'))}</button>
             </div>
           </div>
         `;
@@ -1759,34 +1969,34 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>工作流名称</th>
-                <th>触发方式 (Trigger)</th>
-                <th>步骤数</th>
-                <th>版本</th>
-                <th>状态</th>
-                <th style="text-align: right; width: 220px;">操作</th>
+                <th data-i18n="workflows.colName">${escapeHtml(t('workflows.colName'))}</th>
+                <th data-i18n="workflows.colTrigger">${escapeHtml(t('workflows.colTrigger'))}</th>
+                <th data-i18n="workflows.colSteps">${escapeHtml(t('workflows.colSteps'))}</th>
+                <th data-i18n="workflows.colVersion">${escapeHtml(t('workflows.colVersion'))}</th>
+                <th data-i18n="workflows.colStatus">${escapeHtml(t('workflows.colStatus'))}</th>
+                <th style="text-align: right; width: 220px;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
               </tr>
             </thead>
             <tbody>
               ${workflows.map(wf => `
                 <tr>
                   <td>
-                    <strong>${escapeHtml(wf.title || '未命名')}</strong>
+                    <strong>${escapeHtml(wf.title || t('common.unnamedSession'))}</strong>
                     <div style="font-size: 12px; color: var(--text-secondary);">${escapeHtml(wf.description || '-')}</div>
                   </td>
                   <td>
                     <span class="code-badge">${escapeHtml(wf.trigger || 'manual')}</span>
                     ${wf.cron ? `<span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); margin-left: 4px;">${escapeHtml(wf.cron)}</span>` : ''}
                   </td>
-                  <td>${(wf.steps && wf.steps.length) || 0} 步</td>
+                  <td data-i18n="workflows.stepsCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: (wf.steps && wf.steps.length) || 0 }))}">${escapeHtml(t('workflows.stepsCount', { count: (wf.steps && wf.steps.length) || 0 }))}</td>
                   <td><span class="font-mono">v${escapeHtml(String(wf.version || 1))}</span></td>
                   <td>
-                    ${wf.enabled !== false ? '<span class="status-badge status-sage">已启用</span>' : '<span class="status-badge status-neutral">已停用</span>'}
+                    ${wf.enabled !== false ? `<span class="status-badge status-sage" data-i18n="workflows.statusEnabled">${escapeHtml(t('workflows.statusEnabled'))}</span>` : `<span class="status-badge status-neutral" data-i18n="workflows.statusDisabled">${escapeHtml(t('workflows.statusDisabled'))}</span>`}
                   </td>
                   <td style="text-align: right;">
-                    <button class="btn btn-secondary btn-sm btn-wf-dryrun" data-id="${escapeHtml(wf.id)}" title="不触发写入的只读试运行">Dry Run</button>
-                    <button class="btn btn-primary btn-sm btn-wf-run" data-id="${escapeHtml(wf.id)}">运行</button>
-                    <button class="btn btn-ghost btn-sm btn-wf-edit" data-id="${escapeHtml(wf.id)}">编辑</button>
+                    <button class="btn btn-secondary btn-sm btn-wf-dryrun" data-id="${escapeHtml(wf.id)}" data-i18n-title="workflows.btnDryRunTitle" title="${escapeHtml(t('workflows.btnDryRunTitle'))}" data-i18n="workflows.btnDryRun">${escapeHtml(t('workflows.btnDryRun'))}</button>
+                    <button class="btn btn-primary btn-sm btn-wf-run" data-id="${escapeHtml(wf.id)}" data-i18n="workflows.btnRun">${escapeHtml(t('workflows.btnRun'))}</button>
+                    <button class="btn btn-ghost btn-sm btn-wf-edit" data-id="${escapeHtml(wf.id)}" data-i18n="common.edit">${escapeHtml(t('common.edit'))}</button>
                   </td>
                 </tr>
               `).join('')}
@@ -1800,11 +2010,11 @@
           const id = btn.getAttribute('data-id');
           try {
             const run = await callBridge('workflows.run', { id, dryRun: false });
-            showToast('已触发工作流运行');
+            showToast({ key: 'workflows.runTriggeredToast' });
             await refreshDashboard(true, true);
             if (run && run.id) openRunDetail(run.id);
           } catch (err) {
-            showToast('运行失败: ' + err.message, 'error');
+            showToast({ key: 'workflows.runFailedToast', params: { error: err.message } }, 'error');
           }
         });
       });
@@ -1814,11 +2024,11 @@
           const id = btn.getAttribute('data-id');
           try {
             const run = await callBridge('workflows.run', { id, dryRun: true });
-            showToast('Dry Run (试运行) 完成');
+            showToast({ key: 'workflows.dryRunCompletedToast' });
             await refreshDashboard(true, true);
             if (run && run.id) openRunDetail(run.id);
           } catch (err) {
-            showToast('Dry Run 失败: ' + err.message, 'error');
+            showToast({ key: 'workflows.dryRunFailedToast', params: { error: err.message } }, 'error');
           }
         });
       });
@@ -1836,8 +2046,8 @@
       if (runs.length === 0) {
         target.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-title">暂无运行记录</div>
-            <div class="empty-state-desc">运行工作流后，所有步骤执行输出、持续耗时与版本快照将在此形成审计账本。</div>
+            <div class="empty-state-title" data-i18n="workflows.runsEmptyTitle">${escapeHtml(t('workflows.runsEmptyTitle'))}</div>
+            <div class="empty-state-desc" data-i18n="workflows.runsEmptyDesc">${escapeHtml(t('workflows.runsEmptyDesc'))}</div>
           </div>
         `;
         return;
@@ -1848,26 +2058,26 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>运行 ID</th>
-                <th>工作流</th>
-                <th>模式</th>
-                <th>状态</th>
-                <th>耗时</th>
-                <th>触发时间</th>
-                <th style="text-align: right; width: 140px;">操作</th>
+                <th data-i18n="workflows.colRunId">${escapeHtml(t('workflows.colRunId'))}</th>
+                <th data-i18n="workflows.colWorkflow">${escapeHtml(t('workflows.colWorkflow'))}</th>
+                <th data-i18n="workflows.colMode">${escapeHtml(t('workflows.colMode'))}</th>
+                <th data-i18n="common.status">${escapeHtml(t('common.status'))}</th>
+                <th data-i18n="workflows.colDuration">${escapeHtml(t('workflows.colDuration'))}</th>
+                <th data-i18n="workflows.colStartTime">${escapeHtml(t('workflows.colStartTime'))}</th>
+                <th style="text-align: right; width: 140px;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
               </tr>
             </thead>
             <tbody>
               ${runs.map(r => `
                 <tr class="clickable-row" data-id="${escapeHtml(r.id)}">
                   <td><span class="code-badge">${escapeHtml(r.id ? r.id.substring(0, 8) : '-')}</span></td>
-                  <td><strong>${escapeHtml(r.title || r.workflowId || '未命名')}</strong></td>
-                  <td>${r.dryRun ? '<span class="status-badge status-neutral">Dry Run</span>' : '<span class="status-badge status-sage">执行</span>'}</td>
+                  <td><strong>${escapeHtml(r.title || r.workflowId || t('common.unnamedSession'))}</strong></td>
+                  <td>${r.dryRun ? `<span class="status-badge status-neutral" data-i18n="workflows.modeDryRun">${escapeHtml(t('workflows.modeDryRun'))}</span>` : `<span class="status-badge status-sage" data-i18n="workflows.modeExecute">${escapeHtml(t('workflows.modeExecute'))}</span>`}</td>
                   <td>${getRunStateBadge(r.state)}</td>
                   <td><span class="font-mono">${r.durationMs ? escapeHtml(String(r.durationMs)) + 'ms' : '-'}</span></td>
                   <td>${formatTime(r.startedAt)}</td>
                   <td style="text-align: right;">
-                    <button class="btn btn-secondary btn-sm btn-replay-run" data-id="${escapeHtml(r.id)}">重放</button>
+                    <button class="btn btn-secondary btn-sm btn-replay-run" data-id="${escapeHtml(r.id)}" data-i18n="workflows.btnReplay">${escapeHtml(t('workflows.btnReplay'))}</button>
                   </td>
                 </tr>
               `).join('')}
@@ -1889,10 +2099,10 @@
           const runId = btn.getAttribute('data-id');
           try {
             await callBridge('workflows.replay', { runId });
-            showToast('已重放工作流');
+            showToast({ key: 'workflows.replayedToast' });
             await refreshDashboard(true, true);
           } catch (err) {
-            showToast('重放失败: ' + err.message, 'error');
+            showToast({ key: 'workflows.replayFailedToast', params: { error: err.message } }, 'error');
           }
         });
       });
@@ -1901,25 +2111,25 @@
       target.innerHTML = `
         <div class="card">
           <div class="card-header">
-            <span class="card-title">工作流健康度统计 (workflows.health)</span>
-            <button id="btn-refresh-health" class="btn btn-ghost btn-sm">刷新健康状态</button>
+            <span class="card-title" data-i18n="workflows.healthCardTitle">${escapeHtml(t('workflows.healthCardTitle'))}</span>
+            <button id="btn-refresh-health" class="btn btn-ghost btn-sm" data-i18n="workflows.btnRefreshHealth">${escapeHtml(t('workflows.btnRefreshHealth'))}</button>
           </div>
           <div id="health-stats-container">
             <div class="stat-grid">
               <div class="stat-card">
-                <div class="stat-label">总运行次数 (runs)</div>
+                <div class="stat-label" data-i18n="workflows.statTotalRuns">${escapeHtml(t('workflows.statTotalRuns'))}</div>
                 <div class="stat-value" id="health-total-runs">-</div>
                 <div class="stat-sub" id="health-success-detail">-</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">执行成功率 (successRate)</div>
+                <div class="stat-label" data-i18n="workflows.statSuccessRate">${escapeHtml(t('workflows.statSuccessRate'))}</div>
                 <div class="stat-value" id="health-success-rate">-</div>
                 <div class="stat-sub" id="health-approval-rejected">-</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">平均耗时 (averageDurationMs)</div>
+                <div class="stat-label" data-i18n="workflows.statAvgDuration">${escapeHtml(t('workflows.statAvgDuration'))}</div>
                 <div class="stat-value" id="health-avg-duration">-</div>
-                <div class="stat-sub" id="health-tokens-stat">Token 消耗: 未提供</div>
+                <div class="stat-sub" id="health-tokens-stat">${escapeHtml(t('workflows.statTokensUnavailable'))}</div>
               </div>
             </div>
           </div>
@@ -1935,26 +2145,63 @@
     try {
       const h = await callBridge('workflows.health', state.currentProject ? { id: undefined, project: state.currentProject } : {});
       if (h) {
-        document.getElementById('health-total-runs').textContent = h.runs !== undefined && h.runs !== null ? formatNumber(h.runs) : '未提供';
-        document.getElementById('health-success-detail').textContent = (h.successes !== undefined && h.failures !== undefined)
-          ? `成功: ${h.successes} · 失败: ${h.failures}` : '';
+        const elRuns = document.getElementById('health-total-runs');
+        const elDetail = document.getElementById('health-success-detail');
+        const elRate = document.getElementById('health-success-rate');
+        const elRej = document.getElementById('health-approval-rejected');
+        const elDur = document.getElementById('health-avg-duration');
+        const elTok = document.getElementById('health-tokens-stat');
 
-        document.getElementById('health-success-rate').textContent = (h.successRate !== null && h.successRate !== undefined)
-          ? (h.successRate * 100).toFixed(1) + '%' : '未提供';
-
-        document.getElementById('health-approval-rejected').textContent = h.approvalRejected !== undefined
-          ? `审批被拒: ${h.approvalRejected} 次` : '';
-
-        document.getElementById('health-avg-duration').textContent = (h.averageDurationMs !== null && h.averageDurationMs !== undefined)
-          ? Math.round(h.averageDurationMs) + 'ms' : '未提供';
-
-        document.getElementById('health-tokens-stat').textContent = h.tokensAvailable && h.tokens !== null
-          ? `Token 消耗: ${formatNumber(h.tokens)}` : 'Token 统计: 未提供';
+        if (elRuns) {
+          if (h.runs !== undefined && h.runs !== null) {
+            setElementDescriptor(elRuns, formatNumber(h.runs));
+          } else {
+            setElementDescriptor(elRuns, { key: 'common.none' });
+          }
+        }
+        if (elDetail) {
+          if (h.successes !== undefined && h.failures !== undefined) {
+            setElementDescriptor(elDetail, { key: 'workflows.statSuccessDetail', params: { successes: h.successes, failures: h.failures } });
+          } else {
+            setElementDescriptor(elDetail, '');
+          }
+        }
+        if (elRate) {
+          if (h.successRate !== null && h.successRate !== undefined) {
+            setElementDescriptor(elRate, (h.successRate * 100).toFixed(1) + '%');
+          } else {
+            setElementDescriptor(elRate, { key: 'common.none' });
+          }
+        }
+        if (elRej) {
+          if (h.approvalRejected !== undefined) {
+            setElementDescriptor(elRej, { key: 'workflows.statApprovalRejected', params: { count: h.approvalRejected } });
+          } else {
+            setElementDescriptor(elRej, '');
+          }
+        }
+        if (elDur) {
+          if (h.averageDurationMs !== null && h.averageDurationMs !== undefined) {
+            setElementDescriptor(elDur, Math.round(h.averageDurationMs) + 'ms');
+          } else {
+            setElementDescriptor(elDur, { key: 'common.none' });
+          }
+        }
+        if (elTok) {
+          if (h.tokensAvailable && h.tokens !== null) {
+            setElementDescriptor(elTok, { key: 'workflows.statTokens', params: { tokens: formatNumber(h.tokens) } });
+          } else {
+            setElementDescriptor(elTok, { key: 'workflows.statTokensUnavailable' });
+          }
+        }
       }
     } catch {
-      document.getElementById('health-total-runs').textContent = '未提供';
-      document.getElementById('health-success-rate').textContent = '未提供';
-      document.getElementById('health-avg-duration').textContent = '未提供';
+      const elRuns = document.getElementById('health-total-runs');
+      const elRate = document.getElementById('health-success-rate');
+      const elDur = document.getElementById('health-avg-duration');
+      if (elRuns) setElementDescriptor(elRuns, { key: 'common.none' });
+      if (elRate) setElementDescriptor(elRate, { key: 'common.none' });
+      if (elDur) setElementDescriptor(elDur, { key: 'common.none' });
     }
   }
 
@@ -1962,40 +2209,45 @@
     switch (st) {
       case 'Completed':
       case 'Success':
-        return '<span class="status-badge status-sage">✓ 成功</span>';
+        return `<span class="status-badge status-sage" data-i18n="workflows.stateSuccess">${escapeHtml(t('workflows.stateSuccess'))}</span>`;
       case 'Running':
-        return '<span class="status-badge status-amber">● 运行中</span>';
+        return `<span class="status-badge status-amber" data-i18n="workflows.stateRunning">${escapeHtml(t('workflows.stateRunning'))}</span>`;
       case 'Failed':
       case 'Error':
-        return '<span class="status-badge status-red">失败</span>';
+        return `<span class="status-badge status-red" data-i18n="workflows.stateFailed">${escapeHtml(t('workflows.stateFailed'))}</span>`;
       case 'Pending Approval':
-        return '<span class="status-badge status-amber">待审批</span>';
+        return `<span class="status-badge status-amber" data-i18n="workflows.statePendingApproval">${escapeHtml(t('workflows.statePendingApproval'))}</span>`;
       default:
-        return `<span class="status-badge status-neutral">${escapeHtml(st || '未知')}</span>`;
+        return `<span class="status-badge status-neutral">${escapeHtml(st || t('common.unknown'))}</span>`;
     }
   }
 
   async function openRunDetail(runId) {
     state.selectedRunId = runId;
-    openDrawer('正在加载运行审计记录...', '运行审计');
+    openDrawer({ key: 'workflows.loadingRunDetail' }, { key: 'workflows.runAudit' });
 
     try {
       const run = await callBridge('runs.get', { id: runId });
-      if (!run) throw new Error('未找到该运行记录');
+      if (!run) {
+        const e = new Error('workflows.runNotFound');
+        e.i18nKey = 'workflows.runNotFound';
+        throw e;
+      }
 
-      setDrawerTitle(run.title || '运行详情', run.id ? `运行 · ${run.id.substring(0, 8)}` : '运行审计');
+      const runSub = run.id ? { key: 'workflows.runSubtitle', params: { id: run.id.substring(0, 8) } } : { key: 'workflows.runAudit' };
+      setDrawerTitle(run.title ? run.title : { key: 'workflows.runDetail' }, runSub);
       setDrawerCustomActions(`
-        <button id="btn-drawer-replay" class="btn btn-secondary btn-sm">重放运行</button>
+        <button id="btn-drawer-replay" class="btn btn-secondary btn-sm" data-i18n="workflows.btnReplayRun">${escapeHtml(t('workflows.btnReplayRun'))}</button>
       `);
 
       document.getElementById('btn-drawer-replay').addEventListener('click', async () => {
         try {
           await callBridge('workflows.replay', { runId: run.id });
-          showToast('已提交重放');
+          showToast({ key: 'workflows.replaySubmittedToast' });
           closeDrawer();
           await refreshDashboard(true, true);
         } catch (e) {
-          showToast('重放失败: ' + e.message, 'error');
+          showToast({ key: 'workflows.replayFailedToast', params: { error: e.message } }, 'error');
         }
       });
 
@@ -2005,25 +2257,25 @@
       drawerBody.innerHTML = `
         <div class="card">
           <div class="card-header">
-            <span class="card-title">基本信息</span>
+            <span class="card-title" data-i18n="workflows.basicInfo">${escapeHtml(t('workflows.basicInfo'))}</span>
             ${getRunStateBadge(run.state)}
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
-            <div><span class="text-secondary">模式:</span> <strong>${run.dryRun ? 'Dry Run (只读试运行)' : '实际执行'}</strong></div>
-            <div><span class="text-secondary">版本:</span> v${escapeHtml(String(run.workflowVersion || 1))}</div>
-            <div><span class="text-secondary">耗时:</span> ${run.durationMs ? escapeHtml(String(run.durationMs)) + 'ms' : '-'}</div>
-            <div><span class="text-secondary">触发:</span> ${formatTime(run.startedAt)}</div>
+            <div><span class="text-secondary" data-i18n="workflows.metaMode">${escapeHtml(t('workflows.metaMode'))}</span> <strong>${run.dryRun ? t('workflows.modeDryRunLabel') : t('workflows.modeActualLabel')}</strong></div>
+            <div><span class="text-secondary" data-i18n="workflows.metaVersion">${escapeHtml(t('workflows.metaVersion'))}</span> v${escapeHtml(String(run.workflowVersion || 1))}</div>
+            <div><span class="text-secondary" data-i18n="workflows.metaDuration">${escapeHtml(t('workflows.metaDuration'))}</span> ${run.durationMs ? escapeHtml(String(run.durationMs)) + 'ms' : '-'}</div>
+            <div><span class="text-secondary" data-i18n="workflows.metaTriggerTime">${escapeHtml(t('workflows.metaTriggerTime'))}</span> ${formatTime(run.startedAt)}</div>
           </div>
         </div>
 
         <div>
-          <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">执行步骤 (${steps.length})</h3>
+          <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;" data-i18n="workflows.executionSteps" data-i18n-params="${escapeHtml(JSON.stringify({ count: steps.length }))}">${escapeHtml(t('workflows.executionSteps', { count: steps.length }))}</h3>
           <div style="display: flex; flex-direction: column; gap: 10px;">
             ${steps.map((step, idx) => `
               <div class="card" style="margin-bottom: 0; padding: 10px 12px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
                   <div>
-                    <strong>${idx + 1}. ${escapeHtml(step.title || '步骤')}</strong>
+                    <strong>${idx + 1}. ${escapeHtml(step.title || t('workflows.defaultStepTitle'))}</strong>
                     <span class="code-badge" style="margin-left: 6px;">${escapeHtml(step.tool || '')}</span>
                   </div>
                   <div style="display: flex; align-items: center; gap: 6px;">
@@ -2033,27 +2285,40 @@
                 </div>
                 ${step.output ? `
                   <div class="code-view" style="max-height: 160px; font-size: 12px;">${escapeHtml(typeof step.output === 'string' ? step.output : JSON.stringify(step.output, null, 2))}</div>
-                ` : '<div style="font-size: 12px; color: var(--text-muted);">（无输出）</div>'}
+                ` : `<div style="font-size: 12px; color: var(--text-muted);" data-i18n="workflows.noOutput">${escapeHtml(t('workflows.noOutput'))}</div>`}
               </div>
             `).join('')}
           </div>
         </div>
       `;
     } catch (err) {
-      setDrawerTitle('加载失败', '错误');
-      document.getElementById('drawer-content').innerHTML = `
-        <div class="alert-banner alert-danger">无法加载运行详情：${escapeHtml(err.message)}</div>
-      `;
+      setDrawerTitle({ key: 'common.loadFailed' }, { key: 'common.error' });
+      const drawerContent = document.getElementById('drawer-content');
+      if (drawerContent) {
+        if (err && err.i18nKey) {
+          drawerContent.innerHTML = `
+            <div class="alert-banner alert-danger">
+              <span data-i18n="workflows.fetchRunFailedPrefix">${escapeHtml(t('workflows.fetchRunFailedPrefix'))}</span><span data-i18n="${err.i18nKey}">${escapeHtml(t(err.i18nKey))}</span>
+            </div>
+          `;
+        } else {
+          drawerContent.innerHTML = `
+            <div class="alert-banner alert-danger">
+              <span data-i18n="workflows.fetchRunFailedPrefix">${escapeHtml(t('workflows.fetchRunFailedPrefix'))}</span><span>${escapeHtml(err ? err.message : String(err))}</span>
+            </div>
+          `;
+        }
+      }
     }
   }
 
   function openWorkflowPromptBuilderModal() {
     const modalBody = `
       <div class="alert-banner alert-info">
-        <span>基于描述由本地确定性模板生成工作流草稿。生成后将载入编辑器供您审查与修改，不会自动保存或执行。</span>
+        <span data-i18n="workflows.builderNotice">${escapeHtml(t('workflows.builderNotice'))}</span>
       </div>
       <div class="form-group">
-        <label class="form-label">目标项目</label>
+        <label class="form-label" data-i18n="workflows.targetProjectLabel">${escapeHtml(t('workflows.targetProjectLabel'))}</label>
         <select id="wf-build-project" class="form-select">
           ${state.registeredProjects.map(p => `
             <option value="${escapeHtml(p.path || p.id)}" ${(state.currentProject === (p.path || p.id)) ? 'selected' : ''}>${escapeHtml(p.title || p.path)}</option>
@@ -2061,14 +2326,14 @@
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">需求描述 (Prompt)</label>
-        <textarea id="wf-build-desc" class="form-textarea" placeholder="例如：每次执行单元测试前先检查 git status，若测试通过则写入 CHANGELOG 更新记录"></textarea>
+        <label class="form-label" data-i18n="workflows.promptDescLabel">${escapeHtml(t('workflows.promptDescLabel'))}</label>
+        <textarea id="wf-build-desc" class="form-textarea" data-i18n-placeholder="workflows.promptDescPlaceholder" placeholder="${escapeHtml(t('workflows.promptDescPlaceholder'))}"></textarea>
       </div>
     `;
 
-    openModal('描述生成工作流草稿 (workflows.build)', modalBody, `
-      <button class="btn btn-secondary" id="btn-cancel-wf-build">取消</button>
-      <button class="btn btn-primary" id="btn-confirm-wf-build">生成草稿</button>
+    openModal({ key: 'workflows.builderModalTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-cancel-wf-build" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-confirm-wf-build" data-i18n="workflows.btnGenerateDraft">${escapeHtml(t('workflows.btnGenerateDraft'))}</button>
     `);
 
     document.getElementById('btn-cancel-wf-build').addEventListener('click', closeModal);
@@ -2077,11 +2342,11 @@
       const description = document.getElementById('wf-build-desc').value.trim();
 
       if (!project) {
-        showToast('请先选择项目', 'error');
+        showToast({ key: 'workflows.selectProjectFirst' }, 'error');
         return;
       }
       if (!description) {
-        showToast('请输入工作流描述', 'error');
+        showToast({ key: 'workflows.enterDescFirst' }, 'error');
         return;
       }
 
@@ -2090,12 +2355,12 @@
         closeModal();
 
         if (res && res.workflow) {
-          showToast(res.message || '工作流草稿生成成功');
+          showToast(res.message || { key: 'workflows.draftGeneratedToast' });
           // Load draft into editor
           openEditWorkflowModal(res.workflow, res.unresolvedInputs || []);
         }
       } catch (err) {
-        showToast('生成草稿失败: ' + err.message, 'error');
+        showToast({ key: 'workflows.buildFailedToast', params: { error: err.message } }, 'error');
       }
     });
   }
@@ -2122,15 +2387,15 @@
     const modalBody = `
       ${unresolvedInputs && unresolvedInputs.length > 0 ? `
         <div class="alert-banner alert-warning">
-          <span>待补全参数：${escapeHtml(unresolvedInputs.join('、'))}</span>
+          <span>${escapeHtml(t('workflows.unresolvedParamsPrefix', { params: unresolvedInputs.join('、') }))}</span>
         </div>
       ` : ''}
       <div class="form-group">
-        <label class="form-label">工作流标题</label>
-        <input type="text" id="wf-modal-title" class="form-input" value="${escapeHtml(wf ? wf.title : '代码变更安全审查')}" placeholder="输入工作流标题">
+        <label class="form-label" data-i18n="workflows.titleLabel">${escapeHtml(t('workflows.titleLabel'))}</label>
+        <input type="text" id="wf-modal-title" class="form-input" value="${escapeHtml(wf ? wf.title : t('workflows.defaultTitle'))}" data-i18n-placeholder="workflows.titlePlaceholder" placeholder="${escapeHtml(t('workflows.titlePlaceholder'))}">
       </div>
       <div class="form-group">
-        <label class="form-label">所属项目</label>
+        <label class="form-label" data-i18n="workflows.projectLabel">${escapeHtml(t('workflows.projectLabel'))}</label>
         <select id="wf-modal-project" class="form-select">
           ${state.registeredProjects.map(p => `
             <option value="${escapeHtml(p.path || p.id)}" ${(wf && wf.project === (p.path || p.id)) ? 'selected' : ''}>${escapeHtml(p.title || p.path)}</option>
@@ -2138,12 +2403,12 @@
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">描述</label>
-        <input type="text" id="wf-modal-desc" class="form-input" value="${escapeHtml(wf ? wf.description || '' : '自动化审查 Git 状态与测试套件')}" placeholder="工作流说明">
+        <label class="form-label" data-i18n="workflows.descLabel">${escapeHtml(t('workflows.descLabel'))}</label>
+        <input type="text" id="wf-modal-desc" class="form-input" value="${escapeHtml(wf ? wf.description || '' : t('workflows.defaultDesc'))}" data-i18n-placeholder="workflows.descPlaceholder" placeholder="${escapeHtml(t('workflows.descPlaceholder'))}">
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
-          <label class="form-label">触发模式</label>
+          <label class="form-label" data-i18n="workflows.triggerLabel">${escapeHtml(t('workflows.triggerLabel'))}</label>
           <select id="wf-modal-trigger" class="form-select">
             <option value="manual" ${(wf && wf.trigger === 'manual') ? 'selected' : ''}>manual (手动运行)</option>
             <option value="cron" ${(wf && wf.trigger === 'cron') ? 'selected' : ''}>cron (定时周期)</option>
@@ -2154,23 +2419,23 @@
           </select>
         </div>
         <div class="form-group" id="wf-cron-group">
-          <label class="form-label">Cron 表达式</label>
+          <label class="form-label" data-i18n="workflows.cronLabel">${escapeHtml(t('workflows.cronLabel'))}</label>
           <input type="text" id="wf-modal-cron" class="form-input" value="${escapeHtml(wf ? wf.cron || '' : '0 * * * *')}" placeholder="*/30 * * * *">
         </div>
       </div>
 
       <div style="margin-top: 6px;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-          <label class="form-label" style="margin-bottom: 0;">执行步骤 (Ordered Steps)</label>
-          <button type="button" id="btn-add-step" class="btn btn-ghost btn-sm">+ 添加步骤</button>
+          <label class="form-label" style="margin-bottom: 0;" data-i18n="workflows.stepsLabel">${escapeHtml(t('workflows.stepsLabel'))}</label>
+          <button type="button" id="btn-add-step" class="btn btn-ghost btn-sm" data-i18n="workflows.btnAddStep">${escapeHtml(t('workflows.btnAddStep'))}</button>
         </div>
         <div id="wf-steps-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto;"></div>
       </div>
     `;
 
-    openModal(isEdit ? '编辑工作流' : '新建工作流', modalBody, `
-      <button class="btn btn-secondary" id="btn-cancel-wf">取消</button>
-      <button class="btn btn-primary" id="btn-save-wf">保存工作流</button>
+    openModal({ key: isEdit ? 'workflows.editModalTitle' : 'workflows.newModalTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-cancel-wf" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-save-wf" data-i18n="workflows.btnSaveWorkflow">${escapeHtml(t('workflows.btnSaveWorkflow'))}</button>
     `);
 
     const renderSteps = () => {
@@ -2179,7 +2444,7 @@
       container.innerHTML = steps.map((s, idx) => `
         <div class="card" style="padding: 8px 10px; margin-bottom: 0; background: var(--bg-subtle);">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-            <input type="text" class="form-input wf-step-title" data-idx="${idx}" value="${escapeHtml(s.title || '')}" placeholder="步骤名称" style="width: 160px; font-size: 11px; padding: 2px 6px;">
+            <input type="text" class="form-input wf-step-title" data-idx="${idx}" value="${escapeHtml(s.title || '')}" data-i18n-placeholder="workflows.stepTitlePlaceholder" placeholder="${escapeHtml(t('workflows.stepTitlePlaceholder'))}" style="width: 160px; font-size: 11px; padding: 2px 6px;">
             <select class="form-select wf-step-tool" data-idx="${idx}" style="font-size: 11px; padding: 2px 6px;">
               <option value="git.status" ${s.tool === 'git.status' ? 'selected' : ''}>git.status (只读)</option>
               <option value="git.diff" ${s.tool === 'git.diff' ? 'selected' : ''}>git.diff (只读)</option>
@@ -2190,14 +2455,14 @@
               <option value="agent.run" ${s.tool === 'agent.run' ? 'selected' : ''}>agent.run (需要审批)</option>
             </select>
             <div style="display: flex; gap: 2px;">
-              <button type="button" class="btn-icon-subtle btn-step-up" data-idx="${idx}" title="上移">↑</button>
-              <button type="button" class="btn-icon-subtle btn-step-down" data-idx="${idx}" title="下移">↓</button>
-              <button type="button" class="btn-icon-subtle btn-step-del" data-idx="${idx}" title="删除" style="color: var(--status-red-text);">×</button>
+              <button type="button" class="btn-icon-subtle btn-step-up" data-idx="${idx}" data-i18n-title="workflows.btnStepUp" title="${escapeHtml(t('workflows.btnStepUp'))}">↑</button>
+              <button type="button" class="btn-icon-subtle btn-step-down" data-idx="${idx}" data-i18n-title="workflows.btnStepDown" title="${escapeHtml(t('workflows.btnStepDown'))}">↓</button>
+              <button type="button" class="btn-icon-subtle btn-step-del" data-idx="${idx}" data-i18n-title="workflows.btnStepDel" title="${escapeHtml(t('workflows.btnStepDel'))}" style="color: var(--status-red-text);">×</button>
             </div>
           </div>
           <div>
-            <textarea class="form-textarea code-editor wf-step-args" data-idx="${idx}" style="min-height: 56px; font-size: 12px; padding: 6px 8px;" placeholder="${s.tool === 'agent.run' ? '请输入已安装的 CLI 可执行文件 (executable) 与参数 (args)...' : '参数 JSON'}">${escapeHtml(typeof s.arguments === 'object' ? JSON.stringify(s.arguments, null, 2) : s.arguments || '{}')}</textarea>
-            ${s.tool === 'agent.run' ? '<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">提示：须填写真实已安装的 CLI 可执行文件 (executable) 与参数数组 (args)。</div>' : ''}
+            <textarea class="form-textarea code-editor wf-step-args" data-idx="${idx}" style="min-height: 56px; font-size: 12px; padding: 6px 8px;" placeholder="${s.tool === 'agent.run' ? escapeHtml(t('workflows.stepArgsAgentPlaceholder')) : escapeHtml(t('workflows.stepArgsPlaceholder'))}">${escapeHtml(typeof s.arguments === 'object' ? JSON.stringify(s.arguments, null, 2) : s.arguments || '{}')}</textarea>
+            ${s.tool === 'agent.run' ? `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;" data-i18n="workflows.agentRunNotice">${escapeHtml(t('workflows.agentRunNotice'))}</div>` : ''}
           </div>
         </div>
       `).join('');
@@ -2277,7 +2542,7 @@
     document.getElementById('btn-add-step').addEventListener('click', () => {
       steps.push({
         id: 'step-' + (steps.length + 1),
-        title: '新步骤',
+        title: t('workflows.newStepDefaultTitle'),
         tool: 'git.status',
         arguments: {}
       });
@@ -2293,11 +2558,11 @@
       const cron = document.getElementById('wf-modal-cron').value.trim();
 
       if (!title) {
-        showToast('请输入工作流标题', 'error');
+        showToast({ key: 'workflows.titleRequired' }, 'error');
         return;
       }
       if (!project) {
-        showToast('请选择所属项目', 'error');
+        showToast({ key: 'workflows.projectRequired' }, 'error');
         return;
       }
 
@@ -2306,22 +2571,22 @@
           try {
             s.arguments = JSON.parse(s.arguments);
           } catch {
-            showToast(`步骤 "${s.title}" 的参数 JSON 格式无效`, 'error');
+            showToast({ key: 'workflows.invalidArgsJson', params: { title: s.title } }, 'error');
             return;
           }
         }
         if (['agent.run', 'shell.test', 'shell.typecheck'].includes(s.tool)) {
           const argsObj = s.arguments;
           if (!argsObj || typeof argsObj !== 'object' || Array.isArray(argsObj)) {
-            showToast(`步骤 "${s.title}" 的参数必须为 JSON 对象`, 'error');
+            showToast({ key: 'workflows.argsMustBeObject', params: { title: s.title } }, 'error');
             return;
           }
           if (typeof argsObj.executable !== 'string' || !argsObj.executable.trim()) {
-            showToast(`步骤 "${s.title}" (${s.tool}) 必须指定有效的 executable 可执行程序`, 'error');
+            showToast({ key: 'workflows.executableRequired', params: { title: s.title, tool: s.tool } }, 'error');
             return;
           }
           if (!Array.isArray(argsObj.args) || !argsObj.args.every(a => typeof a === 'string')) {
-            showToast(`步骤 "${s.title}" (${s.tool}) 的 args 必须为字符串数组`, 'error');
+            showToast({ key: 'workflows.argsMustBeStringArray', params: { title: s.title, tool: s.tool } }, 'error');
             return;
           }
         }
@@ -2341,11 +2606,11 @@
 
       try {
         await callBridge('workflows.save', payload);
-        showToast('工作流已保存');
+        showToast({ key: 'workflows.savedToast' });
         closeModal();
         await refreshDashboard(true, true);
       } catch (err) {
-        showToast('保存工作流失败: ' + err.message, 'error');
+        showToast({ key: 'workflows.saveFailedToast', params: { error: err.message } }, 'error');
       }
     });
   }
@@ -2357,23 +2622,23 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>配置与资产</h1>
-          <p>工程规则、MCP 协议、环境规约、持久 Memory 与本地知识库</p>
+          <h1 data-i18n="setupL.header.title">${escapeHtml(t('setupL.header.title'))}</h1>
+          <p data-i18n="setupL.header.desc">${escapeHtml(t('setupL.header.desc'))}</p>
         </div>
         <div class="page-actions">
-          <button id="btn-scan-setup" class="btn btn-secondary btn-sm">扫描配置</button>
-          <button id="btn-audit-setup" class="btn btn-secondary btn-sm">配置审计</button>
+          <button id="btn-scan-setup" class="btn btn-secondary btn-sm" data-i18n="setupL.actions.scan">${escapeHtml(t('setupL.actions.scan'))}</button>
+          <button id="btn-audit-setup" class="btn btn-secondary btn-sm" data-i18n="setupL.actions.audit">${escapeHtml(t('setupL.actions.audit'))}</button>
         </div>
       </div>
 
       <div class="tabs-nav">
-        <button class="tab-btn ${state.setupActiveTab === 'rules' ? 'active' : ''}" data-setuptab="rules">Rules 规则</button>
-        <button class="tab-btn ${state.setupActiveTab === 'skills' ? 'active' : ''}" data-setuptab="skills">Skills 技能</button>
-        <button class="tab-btn ${state.setupActiveTab === 'hooks' ? 'active' : ''}" data-setuptab="hooks">Hooks 钩子</button>
-        <button class="tab-btn ${state.setupActiveTab === 'mcp' ? 'active' : ''}" data-setuptab="mcp">MCP 协议</button>
-        <button class="tab-btn ${state.setupActiveTab === 'guidelines' ? 'active' : ''}" data-setuptab="guidelines">Guidelines 指南</button>
-        <button class="tab-btn ${state.setupActiveTab === 'memory' ? 'active' : ''}" data-setuptab="memory">Memory 记忆</button>
-        <button class="tab-btn ${state.setupActiveTab === 'library' ? 'active' : ''}" data-setuptab="library">Library 知识库</button>
+        <button class="tab-btn ${state.setupActiveTab === 'rules' ? 'active' : ''}" data-setuptab="rules" data-i18n="setupL.tabs.rules">${escapeHtml(t('setupL.tabs.rules'))}</button>
+        <button class="tab-btn ${state.setupActiveTab === 'skills' ? 'active' : ''}" data-setuptab="skills" data-i18n="setupL.tabs.skills">${escapeHtml(t('setupL.tabs.skills'))}</button>
+        <button class="tab-btn ${state.setupActiveTab === 'hooks' ? 'active' : ''}" data-setuptab="hooks" data-i18n="setupL.tabs.hooks">${escapeHtml(t('setupL.tabs.hooks'))}</button>
+        <button class="tab-btn ${state.setupActiveTab === 'mcp' ? 'active' : ''}" data-setuptab="mcp" data-i18n="setupL.tabs.mcp">${escapeHtml(t('setupL.tabs.mcp'))}</button>
+        <button class="tab-btn ${state.setupActiveTab === 'guidelines' ? 'active' : ''}" data-setuptab="guidelines" data-i18n="setupL.tabs.guidelines">${escapeHtml(t('setupL.tabs.guidelines'))}</button>
+        <button class="tab-btn ${state.setupActiveTab === 'memory' ? 'active' : ''}" data-setuptab="memory" data-i18n="setupL.tabs.memory">${escapeHtml(t('setupL.tabs.memory'))}</button>
+        <button class="tab-btn ${state.setupActiveTab === 'library' ? 'active' : ''}" data-setuptab="library" data-i18n="setupL.tabs.library">${escapeHtml(t('setupL.tabs.library'))}</button>
       </div>
 
       <div id="setup-tab-content"></div>
@@ -2391,10 +2656,10 @@
     document.getElementById('btn-scan-setup').addEventListener('click', async () => {
       try {
         await callBridge('setup.scan', state.currentProject ? { project: state.currentProject } : {});
-        showToast('已扫描配置资产');
+        showToast({ key: 'setupL.toast.scanSuccess' });
         await refreshDashboard(true, true);
       } catch (e) {
-        showToast('扫描失败: ' + e.message, 'error');
+        showToast({ key: 'setupL.toast.scanFailed', params: { error: e.message } }, 'error');
       }
     });
 
@@ -2403,12 +2668,12 @@
         const res = await callBridge('setup.audit', state.currentProject ? { project: state.currentProject } : {});
         const diag = (res && res.diagnostics) || [];
         if (diag.length === 0) {
-          showToast('审计通过：未发现配置问题', 'info');
+          showToast({ key: 'setupL.toast.auditPassed' }, 'info');
         } else {
-          showToast(`审计完成，发现 ${diag.length} 项诊断提示`, 'warning');
+          showToast({ key: 'setupL.toast.auditWarning', params: { count: diag.length } }, 'warning');
         }
       } catch (e) {
-        showToast('审计失败: ' + e.message, 'error');
+        showToast({ key: 'setupL.toast.auditFailed', params: { error: e.message } }, 'error');
       }
     });
 
@@ -2446,25 +2711,25 @@
 
     target.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <span class="text-secondary" style="font-size: 13px;">共 ${filtered.length} 项 ${escapeHtml(typeName)} 资产 · 本地只读预览与定位</span>
+        <span class="text-secondary" style="font-size: 13px;" data-i18n="setupL.artifacts.countSummary" data-i18n-params="${escapeHtml(JSON.stringify({ count: filtered.length, type: typeName }))}">${escapeHtml(t('setupL.artifacts.countSummary', { count: filtered.length, type: typeName }))}</span>
       </div>
 
       ${filtered.length === 0 ? `
         <div class="empty-state">
-          <div class="empty-state-title">未检测到 ${escapeHtml(typeName)} 资产</div>
-          <div class="empty-state-desc">在当前项目根目录或 ~/.vela/ 中放置对应的规约与脚本，Vela 会自动索引并展示诊断信息。</div>
+          <div class="empty-state-title" data-i18n="setupL.artifacts.emptyTitle" data-i18n-params="${escapeHtml(JSON.stringify({ type: typeName }))}">${escapeHtml(t('setupL.artifacts.emptyTitle', { type: typeName }))}</div>
+          <div class="empty-state-desc" data-i18n="setupL.artifacts.emptyDesc">${escapeHtml(t('setupL.artifacts.emptyDesc'))}</div>
         </div>
       ` : `
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>标题 / 标识</th>
-                <th>Provider / 作用域</th>
-                <th>估算 Tokens</th>
-                <th>哈希 (SHA256)</th>
-                <th>诊断</th>
-                <th style="text-align: right; width: 140px;">操作</th>
+                <th data-i18n="setupL.table.titleOrId">${escapeHtml(t('setupL.table.titleOrId'))}</th>
+                <th data-i18n="setupL.table.providerOrScope">${escapeHtml(t('setupL.table.providerOrScope'))}</th>
+                <th data-i18n="setupL.table.estimatedTokens">${escapeHtml(t('setupL.table.estimatedTokens'))}</th>
+                <th data-i18n="setupL.table.hash">${escapeHtml(t('setupL.table.hash'))}</th>
+                <th data-i18n="setupL.table.diagnostics">${escapeHtml(t('setupL.table.diagnostics'))}</th>
+                <th style="text-align: right; width: 140px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
               </tr>
             </thead>
             <tbody>
@@ -2482,12 +2747,12 @@
                   <td><span class="font-mono" style="font-size: 12px;">${a.hash ? escapeHtml(a.hash.substring(0, 10)) : '-'}</span></td>
                   <td>
                     ${a.diagnostics && a.diagnostics.length > 0
-                      ? `<span class="status-badge status-amber">${a.diagnostics.length} 项警告</span>`
-                      : '<span class="status-badge status-sage">✓ 正常</span>'}
+                      ? `<span class="status-badge status-amber" data-i18n="setupL.artifacts.warningCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: a.diagnostics.length }))}">${escapeHtml(t('setupL.artifacts.warningCount', { count: a.diagnostics.length }))}</span>`
+                      : `<span class="status-badge status-sage" data-i18n="setupL.artifacts.statusNormal">${escapeHtml(t('setupL.artifacts.statusNormal'))}</span>`}
                   </td>
                   <td style="text-align: right;">
-                    <button class="btn btn-secondary btn-sm btn-preview-artifact" data-id="${escapeHtml(a.id)}">预览</button>
-                    ${a.path ? `<button class="btn btn-ghost btn-sm btn-reveal-path" data-path="${escapeHtml(a.path)}">定位</button>` : ''}
+                    <button class="btn btn-secondary btn-sm btn-preview-artifact" data-id="${escapeHtml(a.id)}" data-i18n="setupL.artifacts.preview">${escapeHtml(t('setupL.artifacts.preview'))}</button>
+                    ${a.path ? `<button class="btn btn-ghost btn-sm btn-reveal-path" data-path="${escapeHtml(a.path)}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
                   </td>
                 </tr>
               `).join('')}
@@ -2502,21 +2767,21 @@
         const id = btn.getAttribute('data-id');
         const art = filtered.find(a => a.id === id);
         if (art) {
-          openDrawer(art.title || '配置详情', art.path);
+          openDrawer(art.title || { key: 'setupL.artifacts.drawerTitle' }, art.path);
           document.getElementById('drawer-content').innerHTML = `
             <div class="card">
-              <div class="card-header"><span class="card-title">基本信息</span></div>
+              <div class="card-header"><span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span></div>
               <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <div><span class="text-secondary">类型:</span> ${escapeHtml(art.type)}</div>
-                <div><span class="text-secondary">Provider:</span> ${escapeHtml(art.provider)}</div>
-                <div><span class="text-secondary">Token 估算:</span> ${escapeHtml(String(art.tokens || '-'))}</div>
-                <div><span class="text-secondary">Hash:</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
+                <div><span class="text-secondary" data-i18n="setupL.drawer.type">${escapeHtml(t('setupL.drawer.type'))}</span> ${escapeHtml(art.type)}</div>
+                <div><span class="text-secondary" data-i18n="setupL.drawer.provider">${escapeHtml(t('setupL.drawer.provider'))}</span> ${escapeHtml(art.provider)}</div>
+                <div><span class="text-secondary" data-i18n="setupL.drawer.tokens">${escapeHtml(t('setupL.drawer.tokens'))}</span> ${escapeHtml(String(art.tokens || '-'))}</div>
+                <div><span class="text-secondary" data-i18n="setupL.drawer.hash">${escapeHtml(t('setupL.drawer.hash'))}</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
               </div>
-              <div style="margin-top: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">路径: ${escapeHtml(art.path || '-')}</div>
+              <div style="margin-top: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);"><span data-i18n="setupL.drawer.pathPrefix">${escapeHtml(t('setupL.drawer.pathPrefix'))}</span>: ${escapeHtml(art.path || '-')}</div>
             </div>
             <div>
-              <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">只读内容预览</h3>
-              <div class="code-view">${escapeHtml(art.content || '(无内容)')}</div>
+              <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.drawer.readonlyPreview">${escapeHtml(t('setupL.drawer.readonlyPreview'))}</h3>
+              <div class="code-view">${art.content ? escapeHtml(art.content) : tHtml('setupL.drawer.noContent')}</div>
             </div>
           `;
         }
@@ -2529,7 +2794,7 @@
         try {
           await callBridge('system.reveal', { path });
         } catch (e) {
-          showToast('定位失败: ' + e.message, 'error');
+          showToast({ key: 'setupL.toast.revealFailed', params: { error: e.message } }, 'error');
         }
       });
     });
@@ -2543,11 +2808,11 @@
 
     target.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <span class="text-secondary" style="font-size: 12px;">已维护 Guidelines 指南规约 · 支持按项目或全局定义</span>
-        <button id="btn-new-guideline" class="btn btn-primary btn-sm">+ 新建 Guideline</button>
+        <span class="text-secondary" style="font-size: 12px;" data-i18n="setupL.guidelines.headerDesc">${escapeHtml(t('setupL.guidelines.headerDesc'))}</span>
+        <button id="btn-new-guideline" class="btn btn-primary btn-sm" data-i18n="setupL.guidelines.btnNew">${escapeHtml(t('setupL.guidelines.btnNew'))}</button>
       </div>
       <div id="guidelines-list-container">
-        <div class="text-secondary" style="font-size: 12px; padding: 20px 0;">加载中...</div>
+        <div class="text-secondary" style="font-size: 12px; padding: 20px 0;" data-i18n="setupL.common.loading">${escapeHtml(t('setupL.common.loading'))}</div>
       </div>
     `;
 
@@ -2563,9 +2828,9 @@
       if (list.length === 0) {
         cont.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-title">未配置 Guidelines 指南</div>
-            <div class="empty-state-desc">为项目建立编码与架构指南。保留静态源快照归档，不直接修改工程代码。</div>
-            <button id="btn-empty-add-gl" class="btn btn-primary btn-sm" style="margin-top: 12px;">+ 创建指南</button>
+            <div class="empty-state-title" data-i18n="setupL.guidelines.emptyTitle">${escapeHtml(t('setupL.guidelines.emptyTitle'))}</div>
+            <div class="empty-state-desc" data-i18n="setupL.guidelines.emptyDesc">${escapeHtml(t('setupL.guidelines.emptyDesc'))}</div>
+            <button id="btn-empty-add-gl" class="btn btn-primary btn-sm" style="margin-top: 12px;" data-i18n="setupL.guidelines.btnCreate">${escapeHtml(t('setupL.guidelines.btnCreate'))}</button>
           </div>
         `;
         document.getElementById('btn-empty-add-gl').addEventListener('click', () => openCreateOrEditGuidelineModal());
@@ -2577,11 +2842,11 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>标题</th>
-                <th>作用域 (Scope)</th>
-                <th>关联项目</th>
-                <th>最后更新</th>
-                <th style="text-align: right; width: 140px;">操作</th>
+                <th data-i18n="setupL.guidelines.tableTitle">${escapeHtml(t('setupL.guidelines.tableTitle'))}</th>
+                <th data-i18n="setupL.guidelines.tableScope">${escapeHtml(t('setupL.guidelines.tableScope'))}</th>
+                <th data-i18n="setupL.guidelines.tableProject">${escapeHtml(t('setupL.guidelines.tableProject'))}</th>
+                <th data-i18n="setupL.guidelines.tableUpdated">${escapeHtml(t('setupL.guidelines.tableUpdated'))}</th>
+                <th style="text-align: right; width: 140px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
               </tr>
             </thead>
             <tbody>
@@ -2589,11 +2854,11 @@
                 <tr>
                   <td><strong>${escapeHtml(g.title || g.id)}</strong></td>
                   <td><span class="code-badge">${escapeHtml(g.scope || 'project')}</span></td>
-                  <td style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(g.project ? g.project.split('/').pop() : '全局')}</td>
+                  <td style="font-size: 11px; color: var(--text-secondary);">${g.project ? escapeHtml(g.project.split('/').pop()) : tHtml('setupL.scope.global')}</td>
                   <td style="font-size: 11px; color: var(--text-secondary);">${formatTime(g.updatedAt || g.createdAt)}</td>
                   <td style="text-align: right;">
-                    <button class="btn btn-secondary btn-sm btn-view-gl" data-id="${escapeHtml(g.id)}">查看</button>
-                    <button class="btn btn-ghost btn-sm btn-edit-gl" data-id="${escapeHtml(g.id)}">编辑</button>
+                    <button class="btn btn-secondary btn-sm btn-view-gl" data-id="${escapeHtml(g.id)}" data-i18n="setupL.common.view">${escapeHtml(t('setupL.common.view'))}</button>
+                    <button class="btn btn-ghost btn-sm btn-edit-gl" data-id="${escapeHtml(g.id)}" data-i18n="setupL.common.edit">${escapeHtml(t('setupL.common.edit'))}</button>
                   </td>
                 </tr>
               `).join('')}
@@ -2607,22 +2872,22 @@
           const id = btn.getAttribute('data-id');
           const g = list.find(item => item.id === id);
           if (g) {
-            openDrawer(g.title || 'Guideline 指南', g.id);
+            openDrawer(g.title || { key: 'setupL.guidelines.drawerTitle' }, g.id);
             document.getElementById('drawer-content').innerHTML = `
               <div class="card">
                 <div class="card-header">
-                  <span class="card-title">基本信息</span>
-                  <span class="status-badge status-neutral">快照记录 (未注入执行)</span>
+                  <span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span>
+                  <span class="status-badge status-neutral" data-i18n="setupL.guidelines.badgeSnapshot">${escapeHtml(t('setupL.guidelines.badgeSnapshot'))}</span>
                 </div>
                 <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                  <div><span class="text-secondary">作用域:</span> ${escapeHtml(g.scope || 'project')}</div>
-                  <div><span class="text-secondary">项目:</span> ${escapeHtml(g.project || '全局')}</div>
-                  <div><span class="text-secondary">生效模式:</span> 静态快照（未注入上下文）</div>
-                  <div><span class="text-secondary">运行时影响:</span> 仅本地归档，不改变外部智能体运行时</div>
+                  <div><span class="text-secondary" data-i18n="setupL.guidelines.scopeLabel">${escapeHtml(t('setupL.guidelines.scopeLabel'))}</span> ${escapeHtml(g.scope || 'project')}</div>
+                  <div><span class="text-secondary" data-i18n="setupL.guidelines.projectLabel">${escapeHtml(t('setupL.guidelines.projectLabel'))}</span> ${g.project ? escapeHtml(g.project) : tHtml('setupL.scope.global')}</div>
+                  <div><span class="text-secondary" data-i18n="setupL.guidelines.modeLabel">${escapeHtml(t('setupL.guidelines.modeLabel'))}</span> <span data-i18n="setupL.guidelines.modeValue">${escapeHtml(t('setupL.guidelines.modeValue'))}</span></div>
+                  <div><span class="text-secondary" data-i18n="setupL.guidelines.runtimeImpactLabel">${escapeHtml(t('setupL.guidelines.runtimeImpactLabel'))}</span> <span data-i18n="setupL.guidelines.runtimeImpactValue">${escapeHtml(t('setupL.guidelines.runtimeImpactValue'))}</span></div>
                 </div>
               </div>
               <div>
-                <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">指南快照内容</h3>
+                <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.guidelines.contentTitle">${escapeHtml(t('setupL.guidelines.contentTitle'))}</h3>
                 <div class="code-view">${escapeHtml(g.content || '')}</div>
               </div>
             `;
@@ -2643,7 +2908,7 @@
       const cont = document.getElementById('guidelines-list-container');
       if (cont) {
         cont.innerHTML = `
-          <div class="alert-banner alert-danger">加载 Guidelines 失败: ${escapeHtml(err.message)}</div>
+          <div class="alert-banner alert-danger">${tHtml('setupL.guidelines.loadFailed', { error: err.message })}</div>
         `;
       }
     }
@@ -2653,21 +2918,21 @@
     const isEdit = !!(initial && initial.id);
     const modalBody = `
       <div class="form-group">
-        <label class="form-label">指南标题</label>
-        <input type="text" id="gl-title" class="form-input" value="${escapeHtml(initial ? initial.title : '')}" placeholder="例如：API 接口设计原则与命名规范">
+        <label class="form-label" data-i18n="setupL.guidelines.modalTitleLabel">${escapeHtml(t('setupL.guidelines.modalTitleLabel'))}</label>
+        <input type="text" id="gl-title" class="form-input" value="${escapeHtml(initial ? initial.title : '')}" placeholder="${escapeHtml(t('setupL.guidelines.modalTitlePlaceholder'))}" data-i18n-placeholder="setupL.guidelines.modalTitlePlaceholder">
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
-          <label class="form-label">作用域 (Scope)</label>
+          <label class="form-label" data-i18n="setupL.guidelines.modalScopeLabel">${escapeHtml(t('setupL.guidelines.modalScopeLabel'))}</label>
           <select id="gl-scope" class="form-select">
-            <option value="project" ${(initial && initial.scope === 'project') ? 'selected' : ''}>项目作用域</option>
-            <option value="global" ${(initial && initial.scope === 'global') ? 'selected' : ''}>全局作用域</option>
+            <option value="project" ${(initial && initial.scope === 'project') ? 'selected' : ''} data-i18n="setupL.guidelines.scopeProject">${escapeHtml(t('setupL.guidelines.scopeProject'))}</option>
+            <option value="global" ${(initial && initial.scope === 'global') ? 'selected' : ''} data-i18n="setupL.guidelines.scopeGlobal">${escapeHtml(t('setupL.guidelines.scopeGlobal'))}</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">关联项目</label>
+          <label class="form-label" data-i18n="setupL.guidelines.modalProjectLabel">${escapeHtml(t('setupL.guidelines.modalProjectLabel'))}</label>
           <select id="gl-project" class="form-select">
-            <option value="">(无 / 全局)</option>
+            <option value="" data-i18n="setupL.guidelines.projectNone">${escapeHtml(t('setupL.guidelines.projectNone'))}</option>
             ${state.registeredProjects.map(p => `
               <option value="${escapeHtml(p.path || p.id)}" ${(initial && initial.project === (p.path || p.id)) ? 'selected' : ''}>${escapeHtml(p.title || p.path)}</option>
             `).join('')}
@@ -2675,14 +2940,14 @@
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Markdown 内容</label>
-        <textarea id="gl-content" class="form-textarea code-editor" style="min-height: 140px;" placeholder="编写 Markdown 格式规约">${escapeHtml(initial ? initial.content || '' : '')}</textarea>
+        <label class="form-label" data-i18n="setupL.guidelines.modalContentLabel">${escapeHtml(t('setupL.guidelines.modalContentLabel'))}</label>
+        <textarea id="gl-content" class="form-textarea code-editor" style="min-height: 140px;" placeholder="${escapeHtml(t('setupL.guidelines.modalContentPlaceholder'))}" data-i18n-placeholder="setupL.guidelines.modalContentPlaceholder">${escapeHtml(initial ? initial.content || '' : '')}</textarea>
       </div>
     `;
 
-    openModal(isEdit ? '编辑 Guideline' : '新建 Guideline', modalBody, `
-      <button class="btn btn-secondary" id="btn-cancel-gl">取消</button>
-      <button class="btn btn-primary" id="btn-save-gl">保存 Guideline</button>
+    openModal(isEdit ? { key: 'setupL.guidelines.modalEditTitle' } : { key: 'setupL.guidelines.modalCreateTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-cancel-gl" data-i18n="setupL.common.cancel">${escapeHtml(t('setupL.common.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-save-gl" data-i18n="setupL.guidelines.btnSave">${escapeHtml(t('setupL.guidelines.btnSave'))}</button>
     `);
 
     document.getElementById('btn-cancel-gl').addEventListener('click', closeModal);
@@ -2693,7 +2958,7 @@
       const content = document.getElementById('gl-content').value.trim();
 
       if (!title || !content) {
-        showToast('标题与内容不能为空', 'error');
+        showToast({ key: 'setupL.guidelines.toastValidationEmpty' }, 'error');
         return;
       }
 
@@ -2705,11 +2970,11 @@
           project: project || undefined,
           content
         });
-        showToast('Guideline 已保存');
+        showToast({ key: 'setupL.guidelines.toastSaved' });
         closeModal();
         renderGuidelinesSection(document.getElementById('setup-tab-content'));
       } catch (err) {
-        showToast('保存失败: ' + err.message, 'error');
+        showToast({ key: 'setupL.guidelines.toastSaveFailed', params: { error: err.message } }, 'error');
       }
     });
   }
@@ -2758,16 +3023,13 @@
 
   function renderProviderTrustNotice(sugOrPreview, isApplied = false) {
     if (!sugOrPreview || !sugOrPreview.requiresProviderTrust) return '';
-    const stepDescription = isApplied
-      ? '变更已写入。下一步：请在 Codex 中执行 <code>/hooks</code> 命令，审查并显式信任/启用该项目定义的 SessionStart Hook。'
-      : '在审查确认应用 <code>.codex/hooks.json</code> 并在 Codex <code>/hooks</code> 中显式信任/启用后，Hook 方可向后续会话提供生效的工程记忆。';
+    const noticeKey = isApplied ? 'improve.providerTrustNoticeApplied' : 'improve.providerTrustNoticeUnapplied';
 
     return `
       <div class="alert-banner alert-warning" style="margin-top: 8px; font-size: 11px; line-height: 1.5; border-color: var(--status-amber-border); background-color: var(--status-amber-bg); color: var(--status-amber-text);" role="note">
-        <div style="font-weight: 600; margin-bottom: 2px;">需要提供商信任 (Provider Trust)</div>
-        <div>
-          ${stepDescription}
-          Vela 不会自动修改提供商信任或全局配置；Hook 输出仅证明向标准输出提供了上下文，不代表智能体采纳。
+        <div style="font-weight: 600; margin-bottom: 2px;" data-i18n="improve.providerTrustTitle">${t('improve.providerTrustTitle')}</div>
+        <div data-i18n="${noticeKey}">
+          ${tHtml(noticeKey)}
         </div>
       </div>
     `;
@@ -2777,8 +3039,8 @@
     if (!isAlreadyInstalledHook(sugOrPreview)) return '';
     return `
       <div class="alert-banner alert-neutral" style="margin-top: 8px; font-size: 11px; line-height: 1.5; border-color: var(--status-sage-border); background-color: var(--status-sage-bg); color: var(--status-sage-text);" role="note">
-        <div style="font-weight: 600; margin-bottom: 2px;">✓ 已配置完全一致的 Hook 定义</div>
-        <div>该项目 <code>.codex/hooks.json</code> 当前已包含完全一致的 Vela SessionStart Hook，无需重复写入。可在 Codex <code>/hooks</code> 中检查启用与信任状态。</div>
+        <div style="font-weight: 600; margin-bottom: 2px;" data-i18n="improve.alreadyInstalledTitle">✓ ${t('improve.alreadyInstalledTitle')}</div>
+        <div data-i18n="improve.alreadyInstalledDesc">${tHtml('improve.alreadyInstalledDesc')}</div>
       </div>
     `;
   }
@@ -2796,22 +3058,21 @@
     }
 
     const projectOptionsHtml = `
-      <option value="" ${!selectedProj ? 'selected' : ''}>-- 请选择已连接项目 --</option>
+      <option value="" ${!selectedProj ? 'selected' : ''} data-i18n="reuse.selectProjectPlaceholder">${t('reuse.selectProjectPlaceholder')}</option>
       ${registered.map(p => {
         const pPath = p.path || p.id || '';
-        const pDisplayName = p.title || p.name || (pPath ? pPath.split('/').filter(Boolean).pop() : '未命名项目');
+        const pDisplayName = p.title || p.name || (pPath ? pPath.split('/').filter(Boolean).pop() : t('common.unnamedProject'));
         const isSel = pPath === selectedProj;
         return `<option value="${safeEscapeHtml(pPath)}" ${isSel ? 'selected' : ''}>${safeEscapeHtml(pDisplayName)}</option>`;
       }).join('')}
     `;
 
     const bodyHtml = `
-      <p style="font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5;">
-        生成 Codex SessionStart Hook 配置建议（<code>.codex/hooks.json</code>）。在审查确认应用并在 Codex <code>/hooks</code> 中显式信任/启用后，Hook 方可在会话启动时提供已激活的工程记忆。<br>
-        <span style="color: var(--text-secondary); font-size: 11px;">预览配置后可审查变更，确认应用前不会修改文件。</span>
+      <p style="font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5;" data-i18n="reuse.modalNoticeDesc">
+        ${t('reuse.modalNoticeDesc')}
       </p>
       <div class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label" for="reuse-project-select" style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block;">目标项目</label>
+        <label class="form-label" for="reuse-project-select" style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block;" data-i18n="reuse.targetProjectLabel">${t('reuse.targetProjectLabel')}</label>
         <select id="reuse-project-select" class="form-control" style="width: 100%; font-size: 12px; padding: 6px 8px;">
           ${projectOptionsHtml}
         </select>
@@ -2820,11 +3081,11 @@
     `;
 
     const footerHtml = `
-      <button class="btn btn-secondary" id="btn-cancel-reuse">取消</button>
-      <button class="btn btn-primary" id="btn-preview-reuse" ${!selectedProj ? 'disabled' : ''}>预览配置 Diff</button>
+      <button class="btn btn-secondary" id="btn-cancel-reuse" data-i18n="common.cancel">${t('common.cancel')}</button>
+      <button class="btn btn-primary" id="btn-preview-reuse" data-i18n="reuse.btnPreviewDiff" ${!selectedProj ? 'disabled' : ''}>${t('reuse.btnPreviewDiff')}</button>
     `;
 
-    openModal('配置 Codex 工程记忆复用', bodyHtml, footerHtml);
+    openModal({ key: 'reuse.modalTitle' }, bodyHtml, footerHtml);
 
     const sel = document.getElementById('reuse-project-select');
     const btnPreview = document.getElementById('btn-preview-reuse');
@@ -2852,7 +3113,7 @@
         const matchedProj = registeredList.find(p => (p.path || p.id) === chosenProject);
         if (!matchedProj || !matchedProj.path) {
           if (errEl) {
-            errEl.innerHTML = `<div class="alert-banner alert-danger" style="margin-top: 10px; font-size: 11px;">所选项目未在已注册项目中找到或路径无效</div>`;
+            errEl.innerHTML = `<div class="alert-banner alert-danger" style="margin-top: 10px; font-size: 11px;" data-i18n="reuse.unregisteredProjectError">${t('reuse.unregisteredProjectError')}</div>`;
           }
           return;
         }
@@ -2861,7 +3122,7 @@
         btnPreview.disabled = true;
         sel.disabled = true;
         const originalText = btnPreview.textContent;
-        btnPreview.textContent = '正在生成预览...';
+        setElementDescriptor(btnPreview, { key: 'reuse.previewLoading' });
         if (errEl) errEl.innerHTML = '';
 
         const thisSeq = ++reuseModalSequence;
@@ -2882,7 +3143,7 @@
           if (suggestion && suggestion.id) {
             openImprovePreviewDrawer(suggestion.id);
           } else {
-            showToast('生成预览成功，但未返回建议 ID', 'warning');
+            showToast({ key: 'reuse.previewMissingIdToast' }, 'warning');
           }
         } catch (err) {
           const modal = document.getElementById('modal-container');
@@ -2892,12 +3153,12 @@
           }
 
           btnPreview.disabled = false;
-          btnPreview.textContent = originalText;
+          setElementDescriptor(btnPreview, { key: 'reuse.btnSimulatePreview' });
           sel.disabled = false;
           if (errEl) {
             errEl.innerHTML = `
               <div class="alert-banner alert-danger" style="margin-top: 10px; font-size: 11px;">
-                生成预览失败: ${safeEscapeHtml(err.message || String(err))}
+                ${t('reuse.previewFailedError', { error: safeEscapeHtml(err.message || String(err)) })}
               </div>
             `;
           }
@@ -2908,7 +3169,7 @@
 
   async function openReuseOutcomesDrawer(memoryId) {
     if (!memoryId) {
-      showToast('未指定 Memory ID', 'warning');
+      showToast({ key: 'reuse.missingIdToast' }, 'warning');
       return;
     }
 
@@ -2916,26 +3177,26 @@
     const mem = memories.find(m => m.id === memoryId);
 
     if (!mem) {
-      showToast('未在当前工作区中找到对应工程记忆记录', 'warning');
+      showToast({ key: 'reuse.memNotFoundToast' }, 'warning');
       return;
     }
 
     const targetProject = mem.project;
     if (!targetProject || typeof targetProject !== 'string') {
-      showToast('该工程记忆缺少关联注册项目，无法查询复用记录', 'warning');
+      showToast({ key: 'reuse.missingProjectToast' }, 'warning');
       return;
     }
 
     const projObj = (state.registeredProjects || []).find(p => p && p.path === targetProject);
     if (!projObj || !projObj.path) {
-      showToast('该工程记忆所属项目未连接或不在已注册项目中', 'warning');
+      showToast({ key: 'reuse.projectNotConnectedToast' }, 'warning');
       return;
     }
 
-    const projectFriendlyName = projObj.title || projObj.name || (targetProject ? targetProject.split('/').filter(Boolean).pop() : '当前项目');
-    const memTitle = mem.title || 'Memory 条目';
+    const projectFriendlyName = projObj.title || projObj.name || (targetProject ? targetProject.split('/').filter(Boolean).pop() : t('common.currentProject'));
+    const memTitle = mem.title || t('reuse.defaultMemoryTitle');
 
-    openDrawer('复用记录', `${memTitle} · ${projectFriendlyName}`);
+    openDrawer({ key: 'reuse.drawerTitle' }, `${memTitle} · ${projectFriendlyName}`);
 
     const thisSeq = ++reuseOutcomesSequence;
     const thisDrawer = currentDrawerInstance;
@@ -2952,7 +3213,9 @@
       }
 
       if (!outcomes) {
-        throw new Error('未返回复用记录数据');
+        const e = new Error('reuse.noOutcomesData');
+        e.i18nKey = 'reuse.noOutcomesData';
+        throw e;
       }
 
       renderReuseOutcomesDrawerContent(outcomes, mem, targetProject, projectFriendlyName);
@@ -2963,12 +3226,22 @@
         return;
       }
 
-      setDrawerTitle('获取复用记录失败', '错误');
+      setDrawerTitle({ key: 'reuse.fetchFailedDrawerTitle' }, { key: 'reuse.fetchFailedDrawerSubtitle' });
       const drawerBody = document.getElementById('drawer-content');
       if (drawerBody) {
-        drawerBody.innerHTML = `
-          <div class="alert-banner alert-danger">获取复用记录失败: ${safeEscapeHtml(err.message || String(err))}</div>
-        `;
+        if (err && err.i18nKey) {
+          drawerBody.innerHTML = `
+            <div class="alert-banner alert-danger">
+              <span data-i18n="reuse.fetchFailedPrefix">${escapeHtml(t('reuse.fetchFailedPrefix'))}</span><span data-i18n="${err.i18nKey}">${escapeHtml(t(err.i18nKey))}</span>
+            </div>
+          `;
+        } else {
+          drawerBody.innerHTML = `
+            <div class="alert-banner alert-danger">
+              <span data-i18n="reuse.fetchFailedPrefix">${escapeHtml(t('reuse.fetchFailedPrefix'))}</span><span>${safeEscapeHtml(err.message || String(err))}</span>
+            </div>
+          `;
+        }
       }
     }
   }
@@ -2994,32 +3267,32 @@
 
     const displayCorrectionCount = (verificationCorrectionCount !== null && isSafeNonNegativeInteger(verificationCorrectionCount))
       ? verificationCorrectionCount.toLocaleString()
-      : '未提供';
+      : t('common.notProvided');
 
-    const displayReduction = '未提供';
+    const displayReduction = t('common.notProvided');
 
     const displayAdoption = (agentAdoption === 'not_measured' || !agentAdoption)
-      ? '尚未测量'
+      ? t('reuse.notMeasured')
       : safeEscapeHtml(agentAdoption);
 
     const displayCoverage = (analysisCoverage === 'not_established' || !analysisCoverage)
-      ? '尚未建立'
+      ? t('reuse.notEstablished')
       : safeEscapeHtml(analysisCoverage);
 
     drawerBody.innerHTML = `
       <div class="card" style="margin-bottom: 10px; padding: 10px 12px;">
         <div class="card-header" style="margin-bottom: 6px;">
-          <span class="card-title" style="font-size: 12px;">${safeEscapeHtml(mem.title || '工程记忆')}</span>
+          <span class="card-title" style="font-size: 12px;">${safeEscapeHtml(mem.title || t('reuse.defaultMemoryTitle'))}</span>
           ${mem.state && typeof getMemoryStateBadge === 'function' ? getMemoryStateBadge(mem.state) : ''}
         </div>
         <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
-          所属项目：<strong style="color: var(--text-main);">${safeEscapeHtml(projectFriendlyName)}</strong>
+          <span data-i18n="reuse.projectLabel">${t('reuse.projectLabel')}</span><strong style="color: var(--text-main);">${safeEscapeHtml(projectFriendlyName)}</strong>
         </div>
         <details style="font-size: 10.5px; color: var(--text-muted);">
-          <summary style="cursor: pointer; user-select: none;">查看技术标识与绝对路径</summary>
+          <summary style="cursor: pointer; user-select: none;" data-i18n="reuse.techSummary">${t('reuse.techSummary')}</summary>
           <div class="font-mono" style="margin-top: 4px; display: grid; gap: 2px;">
-            <div>Memory ID: <span style="user-select: all;">${safeEscapeHtml(mem.id)}</span></div>
-            <div>项目路径: <span style="user-select: all;">${safeEscapeHtml(targetProject)}</span></div>
+            <div><span data-i18n="reuse.memoryIdLabel">${t('reuse.memoryIdLabel')}</span> <span style="user-select: all;">${safeEscapeHtml(mem.id)}</span></div>
+            <div><span data-i18n="reuse.projectPathLabel">${t('reuse.projectPathLabel')}</span> <span style="user-select: all;">${safeEscapeHtml(targetProject)}</span></div>
           </div>
         </details>
       </div>
@@ -3027,27 +3300,27 @@
       <table class="data-table" style="width: 100%; font-size: 11px; margin-bottom: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); border-collapse: collapse;">
         <tbody>
           <tr style="border-bottom: 1px solid var(--border-subtle);">
-            <td style="color: var(--text-secondary); padding: 5px 8px; width: 35%;">已提供上下文会话</td>
+            <td style="color: var(--text-secondary); padding: 5px 8px; width: 35%;" data-i18n="reuse.tableOfferedSessions">${t('reuse.tableOfferedSessions')}</td>
             <td class="font-mono" style="font-weight: 600; padding: 5px 8px;">${formatSafeCount(offeredSessions)}</td>
-            <td style="color: var(--text-secondary); padding: 5px 8px; width: 35%;">匹配提供商会话</td>
+            <td style="color: var(--text-secondary); padding: 5px 8px; width: 35%;" data-i18n="reuse.tableMatchedSessions">${t('reuse.tableMatchedSessions')}</td>
             <td class="font-mono" style="font-weight: 600; padding: 5px 8px;">${formatSafeCount(matchedSessions)}</td>
           </tr>
           <tr style="border-bottom: 1px solid var(--border-subtle);">
-            <td style="color: var(--text-secondary); padding: 5px 8px;">已索引会话记录</td>
+            <td style="color: var(--text-secondary); padding: 5px 8px;" data-i18n="reuse.tableIndexedRecords">${t('reuse.tableIndexedRecords')}</td>
             <td class="font-mono" style="font-weight: 600; padding: 5px 8px;">${formatSafeCount(indexedSessionRecords)}</td>
-            <td style="color: var(--text-secondary); padding: 5px 8px;">交付回执记录数</td>
+            <td style="color: var(--text-secondary); padding: 5px 8px;" data-i18n="reuse.tableReceiptsCount">${t('reuse.tableReceiptsCount')}</td>
             <td class="font-mono" style="font-weight: 600; padding: 5px 8px;">${receipts.length}</td>
           </tr>
           <tr style="border-bottom: 1px solid var(--border-subtle);">
-            <td style="color: var(--text-secondary); padding: 5px 8px;">分析覆盖度</td>
+            <td style="color: var(--text-secondary); padding: 5px 8px;" data-i18n="reuse.tableCoverage">${t('reuse.tableCoverage')}</td>
             <td style="padding: 5px 8px;"><span class="status-badge status-neutral">${displayCoverage}</span></td>
-            <td style="color: var(--text-secondary); padding: 5px 8px;">智能体采纳状态</td>
+            <td style="color: var(--text-secondary); padding: 5px 8px;" data-i18n="reuse.tableAdoption">${t('reuse.tableAdoption')}</td>
             <td style="padding: 5px 8px;"><span class="status-badge status-neutral">${displayAdoption}</span></td>
           </tr>
           <tr>
-            <td style="color: var(--text-secondary); padding: 5px 8px;">验证纠错记录数</td>
+            <td style="color: var(--text-secondary); padding: 5px 8px;" data-i18n="reuse.tableCorrectionCount">${t('reuse.tableCorrectionCount')}</td>
             <td style="color: var(--text-muted); padding: 5px 8px;">${displayCorrectionCount}</td>
-            <td style="color: var(--text-secondary); padding: 5px 8px;">纠错率变化</td>
+            <td style="color: var(--text-secondary); padding: 5px 8px;" data-i18n="reuse.tableCorrectionRate">${t('reuse.tableCorrectionRate')}</td>
             <td style="color: var(--text-muted); padding: 5px 8px;">${displayReduction}</td>
           </tr>
         </tbody>
@@ -3055,22 +3328,16 @@
 
       <div class="improve-methodology-note" role="note" style="margin-bottom: 12px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-        <span>回执仅证明已向 Hook 标准输出输出了工程记忆（已提供上下文），不代表智能体采纳、任务成功或无纠错。</span>
+        <span data-i18n="reuse.methodologyNote">${t('reuse.methodologyNote')}</span>
       </div>
 
       <div style="margin-bottom: 16px;">
-        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">上下文交付回执 (${receipts.length})</h3>
+        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;" data-i18n="reuse.receiptsTitle" data-i18n-params="${escapeHtml(JSON.stringify({ count: receipts.length }))}">${t('reuse.receiptsTitle', { count: receipts.length })}</h3>
         ${receipts.length === 0 ? `
           <div class="empty-state" style="padding: 16px 14px; margin-bottom: 12px;">
-            <div class="empty-state-title" style="font-size: 12.5px;">暂无记录到的上下文交付证据</div>
-            <div class="empty-state-desc" style="font-size: 11px; line-height: 1.6; text-align: left; margin-top: 8px; max-width: 480px; margin-left: auto; margin-right: auto;">
-              未产生回执仅表示本地未记录到交付证据，不证明外部完全未发生过调用。<br><br>
-              <strong>启用步骤：</strong>
-              <ol style="padding-left: 18px; margin-top: 6px;">
-                <li>在工程记忆页面点击<strong>「配置 Codex 复用」</strong>按钮，生成 <code>.codex/hooks.json</code> 建议；</li>
-                <li>在调优建议页面审查 Diff 并应用变更；</li>
-                <li>在 Codex 界面执行 <code>/hooks</code> 命令，显式信任并启用该 SessionStart Hook。</li>
-              </ol>
+            <div class="empty-state-title" style="font-size: 12.5px;" data-i18n="reuse.emptyReceiptsTitle">${t('reuse.emptyReceiptsTitle')}</div>
+            <div class="empty-state-desc" style="font-size: 11px; line-height: 1.6; text-align: left; margin-top: 8px; max-width: 480px; margin-left: auto; margin-right: auto;" data-i18n="reuse.emptyReceiptsDesc">
+              ${t('reuse.emptyReceiptsDesc')}
             </div>
           </div>
         ` : `
@@ -3085,36 +3352,36 @@
               const isMapped = Boolean(matchedRecord);
               const displayTokens = (r.usedTokens !== null && r.usedTokens !== undefined && isSafeNonNegativeInteger(r.usedTokens))
                 ? r.usedTokens.toLocaleString()
-                : '未提供';
+                : t('common.notProvided');
 
               return `
                 <div class="card" style="margin-bottom: 0; padding: 10px 12px;">
                   <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
                     <div style="display: flex; align-items: center; gap: 6px; font-size: 11px;">
-                      <span class="status-badge status-sage">已提供上下文</span>
+                      <span class="status-badge status-sage" data-i18n="reuse.badgeContextProvided">${t('reuse.badgeContextProvided')}</span>
                       <span style="color: var(--text-secondary);">${formatSafeTime(r.servedAt)}</span>
                       <span class="badge-subtle font-mono">${safeEscapeHtml(r.event || 'SessionStart')}</span>
                     </div>
                     <div>
                       ${isMapped ? `
-                        <button type="button" class="btn-open-source" data-session-id="${safeEscapeHtml(matchedRecord.id)}" title="已索引本地会话: ${safeEscapeHtml(matchedRecord.id)}">
+                        <button type="button" class="btn-open-source" data-session-id="${safeEscapeHtml(matchedRecord.id)}" title="${t('reuse.indexedSessionTitle', { id: safeEscapeHtml(matchedRecord.id) })}">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                          <span>${safeEscapeHtml(matchedRecord.title || '已索引会话')}</span>
+                          <span>${safeEscapeHtml(matchedRecord.title || t('reuse.indexedSessionFallback'))}</span>
                         </button>
                       ` : `
-                        <span style="color: var(--text-secondary); font-size: 11px;">提供商会话 (未匹配本地索引)</span>
+                        <span style="color: var(--text-secondary); font-size: 11px;" data-i18n="reuse.unmatchedProviderSession">${t('reuse.unmatchedProviderSession')}</span>
                       `}
                     </div>
                   </div>
 
                   <details style="margin-top: 6px; font-size: 10px; color: var(--text-muted);">
-                    <summary style="cursor: pointer; user-select: none;">技术凭证与交付标识</summary>
+                    <summary style="cursor: pointer; user-select: none;" data-i18n="reuse.receiptTechSummary">${t('reuse.receiptTechSummary')}</summary>
                     <div class="font-mono" style="margin-top: 4px; display: grid; gap: 2px;">
-                      <div>回执 ID: <span style="user-select: all;">${safeEscapeHtml(r.id || '-')}</span></div>
-                      <div>提供商 Session ID: <span style="user-select: all;">${safeEscapeHtml(r.sourceSessionId || '-')}</span></div>
-                      <div>上下文哈希: <span style="user-select: all;">${safeEscapeHtml(r.contextHash || '-')}</span></div>
-                      <div>交付通道: <span>${safeEscapeHtml(r.delivery || '-')}</span></div>
-                      <div>消耗 Tokens: <span>${displayTokens}</span></div>
+                      <div><span data-i18n="reuse.receiptIdLabel">${t('reuse.receiptIdLabel')}</span> <span style="user-select: all;">${safeEscapeHtml(r.id || '-')}</span></div>
+                      <div><span data-i18n="reuse.providerSessionIdLabel">${t('reuse.providerSessionIdLabel')}</span> <span style="user-select: all;">${safeEscapeHtml(r.sourceSessionId || '-')}</span></div>
+                      <div><span data-i18n="reuse.contextHashLabel">${t('reuse.contextHashLabel')}</span> <span style="user-select: all;">${safeEscapeHtml(r.contextHash || '-')}</span></div>
+                      <div><span data-i18n="reuse.deliveryChannelLabel">${t('reuse.deliveryChannelLabel')}</span> <span>${safeEscapeHtml(r.delivery || '-')}</span></div>
+                      <div><span data-i18n="reuse.usedTokensLabel">${t('reuse.usedTokensLabel')}</span> <span>${displayTokens}</span></div>
                     </div>
                   </details>
                 </div>
@@ -3125,16 +3392,16 @@
       </div>
 
       <div style="margin-bottom: 16px;">
-        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">已观察到的后续信号 (${signals.length})</h3>
-        <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">
-          仅展示与该记忆相关的会话中客观观察到的验证信号。缺失信号不代表零纠错。
+        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 4px;" data-i18n="reuse.subsequentSignalsTitle" data-i18n-params="${escapeHtml(JSON.stringify({ count: signals.length }))}">${t('reuse.subsequentSignalsTitle', { count: signals.length })}</h3>
+        <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;" data-i18n="reuse.subsequentSignalsSubtitle">
+          ${t('reuse.subsequentSignalsSubtitle')}
         </p>
         ${signals.length === 0 ? `
-          <div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;">暂未观察到该记忆对应的后续验证信号。</div>
+          <div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;" data-i18n="reuse.noSignals">${t('reuse.noSignals')}</div>
         ` : `
           <div style="display: flex; flex-direction: column; gap: 6px;">
             ${signals.map(sig => {
-              const quote = sig.quote || sig.summary || sig.content || '已记录验证信号';
+              const quote = sig.quote || sig.summary || sig.content || t('reuse.defaultSignalContent');
               return `
                 <div class="card" style="margin-bottom: 0; padding: 8px 12px;">
                   <div style="font-size: 12px; color: var(--text-main); font-style: italic; line-height: 1.45; margin-bottom: 4px;">
@@ -3143,17 +3410,17 @@
                   <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 11px;">
                     <span class="badge-subtle font-mono">${safeEscapeHtml(sig.clusterKey || 'verification')}</span>
                     ${sig.sourceSession ? `
-                      <button type="button" class="btn-open-source" data-session-id="${safeEscapeHtml(sig.sourceSession)}" ${sig.sourceMessage ? `data-message-id="${safeEscapeHtml(sig.sourceMessage)}"` : ''} title="定位信号来源会话">
+                      <button type="button" class="btn-open-source" data-session-id="${safeEscapeHtml(sig.sourceSession)}" ${sig.sourceMessage ? `data-message-id="${safeEscapeHtml(sig.sourceMessage)}"` : ''} title="${t('reuse.locateSignalSessionTooltip')}" data-i18n-title="reuse.locateSignalSessionTooltip">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                        <span>定位来源消息</span>
+                        <span data-i18n="reuse.locateSourceMsg">${t('reuse.locateSourceMsg')}</span>
                       </button>
                     ` : ''}
                   </div>
                   <details style="margin-top: 4px; font-size: 10px; color: var(--text-muted);">
-                    <summary style="cursor: pointer; user-select: none;">信号技术标识</summary>
+                    <summary style="cursor: pointer; user-select: none;" data-i18n="reuse.signalTechSummary">${t('reuse.signalTechSummary')}</summary>
                     <div class="font-mono" style="margin-top: 2px;">
-                      <div>会话 ID: ${safeEscapeHtml(sig.sourceSession || '-')}</div>
-                      ${sig.sourceMessage ? `<div>消息 ID: ${safeEscapeHtml(sig.sourceMessage)}</div>` : ''}
+                      <div><span data-i18n="reuse.sessionIdLabel">${t('reuse.sessionIdLabel')}</span> ${safeEscapeHtml(sig.sourceSession || '-')}</div>
+                      ${sig.sourceMessage ? `<div><span data-i18n="reuse.messageIdLabel">${t('reuse.messageIdLabel')}</span> ${safeEscapeHtml(sig.sourceMessage)}</div>` : ''}
                     </div>
                   </details>
                 </div>
@@ -3165,7 +3432,7 @@
 
       ${(method || limitations.length > 0) ? `
         <details class="card" style="margin-top: 10px; padding: 8px 12px;">
-          <summary style="font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); user-select: none;">测量方法与评估边界说明</summary>
+          <summary style="font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); user-select: none;" data-i18n="reuse.methodologySummary">${t('reuse.methodologySummary')}</summary>
           ${method ? `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; line-height: 1.5;">${safeEscapeHtml(method)}</div>` : ''}
           ${limitations.length > 0 ? `
             <ul style="padding-left: 18px; font-size: 10.5px; color: var(--text-muted); margin-top: 6px; line-height: 1.5;">
@@ -3183,11 +3450,11 @@
     const activeFilter = state.memoryFilter || 'all';
 
     const filterTabs = [
-      { key: 'all', label: '全部', count: memories.length },
-      { key: 'candidate', label: '待确认', count: memories.filter(m => (m.state || 'candidate').toLowerCase() === 'candidate').length },
-      { key: 'active', label: '生效中', count: memories.filter(m => (m.state || '').toLowerCase() === 'active').length },
-      { key: 'superseded', label: '已替代', count: memories.filter(m => (m.state || '').toLowerCase() === 'superseded').length },
-      { key: 'archived', label: '已归档', count: memories.filter(m => (m.state || '').toLowerCase() === 'archived').length }
+      { key: 'all', labelKey: 'memory.tabAll', label: t('memory.tabAll'), count: memories.length },
+      { key: 'candidate', labelKey: 'memory.tabCandidate', label: t('memory.tabCandidate'), count: memories.filter(m => (m.state || 'candidate').toLowerCase() === 'candidate').length },
+      { key: 'active', labelKey: 'memory.tabActive', label: t('memory.tabActive'), count: memories.filter(m => (m.state || '').toLowerCase() === 'active').length },
+      { key: 'superseded', labelKey: 'memory.tabSuperseded', label: t('memory.tabSuperseded'), count: memories.filter(m => (m.state || '').toLowerCase() === 'superseded').length },
+      { key: 'archived', labelKey: 'memory.tabArchived', label: t('memory.tabArchived'), count: memories.filter(m => (m.state || '').toLowerCase() === 'archived').length }
     ];
 
     const displayedMemories = memories.filter(m => {
@@ -3200,65 +3467,68 @@
       <div class="memory-filter-bar">
         ${filterTabs.map(tab => `
           <button type="button" class="memory-filter-btn ${activeFilter === tab.key ? 'active' : ''}" data-filter="${tab.key}">
-            <span>${tab.label}</span>
+            <span data-i18n="${tab.labelKey}">${tab.label}</span>
             <span class="memory-filter-count">${tab.count}</span>
           </button>
         `).join('')}
         <div style="margin-left: auto; display: flex; gap: 8px;">
-          <button id="btn-configure-reuse" class="btn btn-secondary btn-sm">配置 Codex 复用</button>
-          <button id="btn-recall-tester" class="btn btn-secondary btn-sm">Recall 召回测试</button>
-          <button id="btn-new-memory" class="btn btn-primary btn-sm">+ 新建 Memory</button>
+          <button id="btn-configure-reuse" class="btn btn-secondary btn-sm" data-i18n="memory.btnConfigReuse">${t('memory.btnConfigReuse')}</button>
+          <button id="btn-recall-tester" class="btn btn-secondary btn-sm" data-i18n="memory.btnRecallTester">${t('memory.btnRecallTester')}</button>
+          <button id="btn-new-memory" class="btn btn-primary btn-sm" data-i18n="memory.btnNewMemory">${t('memory.btnNewMemory')}</button>
         </div>
       </div>
 
       <div class="memory-card-list">
         ${memories.length === 0 ? `
           <div class="empty-state">
-            <div class="empty-state-title">未沉淀工程 Memory</div>
-            <div class="empty-state-desc">跨会话经验在此沉淀为可复用的工程规则。所有条目受项目隔离约束。</div>
-            <button id="btn-empty-new-mem" class="btn btn-primary btn-sm" style="margin-top: 12px;">+ 新建 Memory</button>
+            <div class="empty-state-title" data-i18n="memory.emptyTitle">${t('memory.emptyTitle')}</div>
+            <div class="empty-state-desc" data-i18n="memory.emptyDesc">${t('memory.emptyDesc')}</div>
+            <button id="btn-empty-new-mem" class="btn btn-primary btn-sm" style="margin-top: 12px;" data-i18n="memory.btnNewMemory">${t('memory.btnNewMemory')}</button>
           </div>
         ` : (displayedMemories.length === 0 ? `
           <div class="empty-state" style="padding: 32px 16px;">
-            <div class="empty-state-desc">当前分类（${escapeHtml(filterTabs.find(t => t.key === activeFilter)?.label || activeFilter)}）下暂无 Memory 条目。</div>
+            <div class="empty-state-desc" data-i18n="memory.categoryEmptyDesc" data-i18n-params="${escapeHtml(JSON.stringify({ category: filterTabs.find(t => t.key === activeFilter)?.label || activeFilter }))}">${t('memory.categoryEmptyDesc', { category: filterTabs.find(t => t.key === activeFilter)?.label || activeFilter })}</div>
           </div>
         ` : displayedMemories.map(m => {
           const st = (m.state || 'candidate').toLowerCase();
           let provenanceHtml = '';
           if (m.sourceSession) {
             const knownSession = ((state.dashboard && state.dashboard.sessions) || []).find(s => s.id === m.sourceSession);
-            const sessionLabel = (knownSession && knownSession.title) ? knownSession.title : '来源会话';
+            const sessionLabel = (knownSession && knownSession.title) ? knownSession.title : t('memory.sourceSessionDefault');
+            const tooltipTitle = m.sourceMessage
+              ? t('memory.sourceSessionTooltip', { sessionId: m.sourceSession, messageId: m.sourceMessage })
+              : t('memory.sourceSessionTooltipShort', { sessionId: m.sourceSession });
             provenanceHtml = `
-              <span>来源：</span>
-              <button type="button" class="btn-open-source" data-session-id="${escapeHtml(m.sourceSession)}" ${m.sourceMessage ? `data-message-id="${escapeHtml(m.sourceMessage)}"` : ''} title="会话 ID: ${escapeHtml(m.sourceSession)}${m.sourceMessage ? ` · 消息 ID: ${escapeHtml(m.sourceMessage)}` : ''}">
+              <span data-i18n="memory.sourcePrefix">${t('memory.sourcePrefix')}</span>
+              <button type="button" class="btn-open-source" data-session-id="${escapeHtml(m.sourceSession)}" ${m.sourceMessage ? `data-message-id="${escapeHtml(m.sourceMessage)}"` : ''} title="${escapeHtml(tooltipTitle)}">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                 <span>${escapeHtml(sessionLabel)}</span>
               </button>
             `;
           } else if (m.sourceFile) {
-            provenanceHtml = `<span>来源文件：<span class="font-mono">${escapeHtml(m.sourceFile)}</span></span>`;
+            provenanceHtml = `<span><span data-i18n="memory.sourceFilePrefix">${t('memory.sourceFilePrefix')}</span><span class="font-mono">${escapeHtml(m.sourceFile)}</span></span>`;
           } else if (m.sourceCommit) {
-            provenanceHtml = `<span>来源提交：<span class="font-mono">${escapeHtml(m.sourceCommit.slice(0, 7))}</span></span>`;
+            provenanceHtml = `<span><span data-i18n="memory.sourceCommitPrefix">${t('memory.sourceCommitPrefix')}</span><span class="font-mono">${escapeHtml(m.sourceCommit.slice(0, 7))}</span></span>`;
           } else {
-            provenanceHtml = `<span style="color: var(--text-muted);">手工沉淀（无外部会话/提交来源）</span>`;
+            provenanceHtml = `<span style="color: var(--text-muted);" data-i18n="memory.manualOrigin">${t('memory.manualOrigin')}</span>`;
           }
 
           return `
             <div class="memory-card" data-id="${escapeHtml(m.id)}">
               <div class="memory-card-header">
                 <div class="memory-card-title-group">
-                  <strong class="memory-card-title">${escapeHtml(m.title || '未命名 Memory')}</strong>
+                  <strong class="memory-card-title">${escapeHtml(m.title || t('memory.unnamedMemory'))}</strong>
                   ${getMemoryStateBadge(st)}
-                  <span class="memory-type-badge">${escapeHtml(formatMemoryType(m.type))}</span>
-                  <span class="memory-type-badge">${escapeHtml(formatMemoryScope(m.scope))}</span>
+                  ${renderMemoryTypeBadge(m.type)}
+                  ${renderMemoryScopeBadge(m.scope)}
                 </div>
                 <div class="memory-card-actions">
-                  ${st === 'candidate' ? `<button class="btn btn-secondary btn-sm btn-mem-activate" data-id="${escapeHtml(m.id)}">激活</button>` : ''}
-                  ${st === 'active' ? `<button class="btn btn-ghost btn-sm btn-mem-supersede" data-id="${escapeHtml(m.id)}" title="被其它条目替代">替代</button>` : ''}
-                  ${st !== 'archived' ? `<button class="btn btn-ghost btn-sm btn-mem-archive" data-id="${escapeHtml(m.id)}">归档</button>` : ''}
-                  <button class="btn btn-ghost btn-sm btn-memory-outcomes" data-memory-id="${escapeHtml(m.id)}">复用记录</button>
-                  <button class="btn btn-ghost btn-sm btn-mem-edit" data-id="${escapeHtml(m.id)}">编辑</button>
-                  <button class="btn btn-ghost btn-sm btn-mem-view" data-id="${escapeHtml(m.id)}">详情</button>
+                  ${st === 'candidate' ? `<button class="btn btn-secondary btn-sm btn-mem-activate" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnActivate">${t('memory.btnActivate')}</button>` : ''}
+                  ${st === 'active' ? `<button class="btn btn-ghost btn-sm btn-mem-supersede" data-id="${escapeHtml(m.id)}" title="${t('memory.btnSupersedeTitle')}" data-i18n-title="memory.btnSupersedeTitle" data-i18n="memory.btnSupersede">${t('memory.btnSupersede')}</button>` : ''}
+                  ${st !== 'archived' ? `<button class="btn btn-ghost btn-sm btn-mem-archive" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnArchive">${t('memory.btnArchive')}</button>` : ''}
+                  <button class="btn btn-ghost btn-sm btn-memory-outcomes" data-memory-id="${escapeHtml(m.id)}" data-i18n="memory.btnOutcomes">${t('memory.btnOutcomes')}</button>
+                  <button class="btn btn-ghost btn-sm btn-mem-edit" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnEdit">${t('memory.btnEdit')}</button>
+                  <button class="btn btn-ghost btn-sm btn-mem-view" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnViewDetails">${t('memory.btnViewDetails')}</button>
                 </div>
               </div>
 
@@ -3269,16 +3539,16 @@
               </div>
 
               <details class="memory-meta-details">
-                <summary>技术元数据 &amp; 作用域</summary>
+                <summary data-i18n="memory.techMetaSummary">${t('memory.techMetaSummary')}</summary>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px; font-size: 11px; margin-top: 8px; color: var(--text-secondary);">
-                  <div><span class="text-secondary">ID:</span> <span class="font-mono" style="user-select: all;">${escapeHtml(m.id || '-')}</span></div>
-                  <div><span class="text-secondary">作用域:</span> <span class="font-mono">${escapeHtml(m.scope || 'project')}</span></div>
-                  <div><span class="text-secondary">项目:</span> <span class="font-mono">${escapeHtml(m.project || '-')}</span></div>
-                  <div><span class="text-secondary">分支:</span> <span class="font-mono">${escapeHtml(m.branch || '-')}</span></div>
-                  <div><span class="text-secondary">Worktree:</span> <span class="font-mono">${escapeHtml(m.worktree || '-')}</span></div>
-                  <div><span class="text-secondary">任务:</span> <span class="font-mono">${escapeHtml(m.task || '-')}</span></div>
-                  ${(m.checksum || m.hash) ? `<div><span class="text-secondary">校验和:</span> <span class="font-mono">${escapeHtml(m.checksum || m.hash)}</span></div>` : ''}
-                  <div><span class="text-secondary">更新时间:</span> <span>${formatTime(m.updatedAt || m.createdAt)}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaId">${t('memory.metaId')}</span> <span class="font-mono" style="user-select: all;">${escapeHtml(m.id || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaScope">${t('memory.metaScope')}</span> <span class="font-mono">${escapeHtml(m.scope || 'project')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaProject">${t('memory.metaProject')}</span> <span class="font-mono">${escapeHtml(m.project || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaBranch">${t('memory.metaBranch')}</span> <span class="font-mono">${escapeHtml(m.branch || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaWorktree">${t('memory.metaWorktree')}</span> <span class="font-mono">${escapeHtml(m.worktree || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaTask">${t('memory.metaTask')}</span> <span class="font-mono">${escapeHtml(m.task || '-')}</span></div>
+                  ${(m.checksum || m.hash) ? `<div><span class="text-secondary" data-i18n="memory.metaChecksum">${t('memory.metaChecksum')}</span> <span class="font-mono">${escapeHtml(m.checksum || m.hash)}</span></div>` : ''}
+                  <div><span class="text-secondary" data-i18n="memory.metaUpdatedAt">${t('memory.metaUpdatedAt')}</span> <span>${formatTime(m.updatedAt || m.createdAt)}</span></div>
                 </div>
               </details>
             </div>
@@ -3311,10 +3581,10 @@
         const id = btn.getAttribute('data-id');
         try {
           await callBridge('memory.transition', { id, state: 'active' });
-          showToast('已激活 Memory');
+          showToast({ key: 'memory.activatedToast' });
           await refreshDashboard(true, true);
         } catch (e) {
-          showToast('激活失败: ' + e.message, 'error');
+          showToast({ key: 'memory.activateFailedToast', params: { error: e.message } }, 'error');
         }
       });
     });
@@ -3324,10 +3594,10 @@
         const id = btn.getAttribute('data-id');
         try {
           await callBridge('memory.transition', { id, state: 'archived' });
-          showToast('已归档 Memory');
+          showToast({ key: 'memory.archivedToast' });
           await refreshDashboard(true, true);
         } catch (e) {
-          showToast('归档失败: ' + e.message, 'error');
+          showToast({ key: 'memory.archiveFailedToast', params: { error: e.message } }, 'error');
         }
       });
     });
@@ -3359,42 +3629,42 @@
         const id = btn.getAttribute('data-id');
         const m = memories.find(item => item.id === id);
         if (m) {
-          openDrawer(m.title || 'Memory 条目', m.id);
+          openDrawer(m.title || t('memory.unnamedMemory'), m.id);
           const drawerBody = document.getElementById('drawer-content');
           if (drawerBody) {
             drawerBody.innerHTML = `
               <div class="card">
                 <div class="card-header">
-                  <span class="card-title">元数据 &amp; 来源溯源 (Provenance)</span>
+                  <span class="card-title" data-i18n="memory.drawerMetaTitle">${t('memory.drawerMetaTitle')}</span>
                   ${getMemoryStateBadge(m.state)}
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
-                  <div><span class="text-secondary">类型:</span> ${escapeHtml(formatMemoryType(m.type))} (${escapeHtml(m.type || '-')})</div>
-                  <div><span class="text-secondary">作用域:</span> ${escapeHtml(formatMemoryScope(m.scope))} (${escapeHtml(m.scope || '-')})</div>
-                  <div><span class="text-secondary">项目:</span> ${escapeHtml(m.project || '-')}</div>
-                  <div><span class="text-secondary">分支:</span> <span class="font-mono">${escapeHtml(m.branch || '-')}</span></div>
-                  <div><span class="text-secondary">Worktree:</span> <span class="font-mono">${escapeHtml(m.worktree || '-')}</span></div>
-                  <div><span class="text-secondary">Task:</span> ${escapeHtml(m.task || '-')}</div>
-                  <div><span class="text-secondary">Source File:</span> <span class="font-mono">${escapeHtml(m.sourceFile || '-')}</span></div>
-                  <div><span class="text-secondary">Source Commit:</span> <span class="font-mono">${escapeHtml(m.sourceCommit || '-')}</span></div>
-                  <div><span class="text-secondary">Source Session:</span> <span class="font-mono">${escapeHtml(m.sourceSession || '-')}</span></div>
-                  <div><span class="text-secondary">Source Message:</span> <span class="font-mono">${escapeHtml(m.sourceMessage || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaType">${t('memory.metaType')}</span> ${renderMemoryTypeInline(m.type)} (${escapeHtml(m.type || '-')})</div>
+                  <div><span class="text-secondary" data-i18n="memory.metaScope">${t('memory.metaScope')}</span> ${renderMemoryScopeInline(m.scope)} (${escapeHtml(m.scope || '-')})</div>
+                  <div><span class="text-secondary" data-i18n="memory.metaProject">${t('memory.metaProject')}</span> ${escapeHtml(m.project || '-')}</div>
+                  <div><span class="text-secondary" data-i18n="memory.metaBranch">${t('memory.metaBranch')}</span> <span class="font-mono">${escapeHtml(m.branch || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaWorktree">${t('memory.metaWorktree')}</span> <span class="font-mono">${escapeHtml(m.worktree || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaTask">${t('memory.metaTask')}</span> ${escapeHtml(m.task || '-')}</div>
+                  <div><span class="text-secondary" data-i18n="memory.metaSourceFile">${t('memory.metaSourceFile')}</span> <span class="font-mono">${escapeHtml(m.sourceFile || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaSourceCommit">${t('memory.metaSourceCommit')}</span> <span class="font-mono">${escapeHtml(m.sourceCommit || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaSourceSession">${t('memory.metaSourceSession')}</span> <span class="font-mono">${escapeHtml(m.sourceSession || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaSourceMessage">${t('memory.metaSourceMessage')}</span> <span class="font-mono">${escapeHtml(m.sourceMessage || '-')}</span></div>
                 </div>
                 <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border-color); display: flex; gap: 8px; flex-wrap: wrap;">
                   <button type="button" class="btn btn-secondary btn-sm btn-drawer-memory-outcomes" data-memory-id="${escapeHtml(m.id)}">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    <span>查看复用记录</span>
+                    <span data-i18n="memory.btnViewReuseOutcomes">${t('memory.btnViewReuseOutcomes')}</span>
                   </button>
                   ${m.sourceSession ? `
                     <button type="button" class="btn-open-source" data-session-id="${escapeHtml(m.sourceSession)}" ${m.sourceMessage ? `data-message-id="${escapeHtml(m.sourceMessage)}"` : ''}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                      <span>在会话详情中定位来源消息</span>
+                      <span data-i18n="memory.btnLocateSourceMsg">${t('memory.btnLocateSourceMsg')}</span>
                     </button>
                   ` : ''}
                 </div>
               </div>
               <div>
-                <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">经验内容</h3>
+                <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="memory.drawerContentTitle">${t('memory.drawerContentTitle')}</h3>
                 <div class="code-view">${escapeHtml(m.content || '')}</div>
               </div>
             `;
@@ -3414,15 +3684,15 @@
     const s = (stateStr || '').toLowerCase();
     switch (s) {
       case 'active':
-        return '<span class="status-badge status-sage">生效中</span>';
+        return `<span class="status-badge status-sage" data-i18n="memory.stateActive">${t('memory.stateActive')}</span>`;
       case 'candidate':
-        return '<span class="status-badge status-amber">待审候选</span>';
+        return `<span class="status-badge status-amber" data-i18n="memory.stateCandidate">${t('memory.stateCandidate')}</span>`;
       case 'superseded':
-        return '<span class="status-badge status-neutral">已替代</span>';
+        return `<span class="status-badge status-neutral" data-i18n="memory.stateSuperseded">${t('memory.stateSuperseded')}</span>`;
       case 'archived':
-        return '<span class="status-badge status-neutral">已归档</span>';
+        return `<span class="status-badge status-neutral" data-i18n="memory.stateArchived">${t('memory.stateArchived')}</span>`;
       default:
-        return `<span class="status-badge status-neutral">${escapeHtml(stateStr || '未知')}</span>`;
+        return `<span class="status-badge status-neutral">${escapeHtml(stateStr || t('memory.stateUnknown'))}</span>`;
     }
   }
 
@@ -3438,87 +3708,87 @@
 
     const modalBody = `
       <div class="form-group">
-        <label class="form-label">标题</label>
-        <input type="text" id="mem-title" class="form-input" value="${escapeHtml(initial.title || '')}" placeholder="简明工程经验标题">
+        <label class="form-label" data-i18n="memory.formTitle">${t('memory.formTitle')}</label>
+        <input type="text" id="mem-title" class="form-input" value="${escapeHtml(initial.title || '')}" placeholder="${t('memory.formTitlePlaceholder')}" data-i18n-placeholder="memory.formTitlePlaceholder">
       </div>
       <div class="form-group">
-        <label class="form-label">内容</label>
-        <textarea id="mem-content" class="form-textarea" placeholder="详细经验记录、约定或上下文">${escapeHtml(initial.content || '')}</textarea>
+        <label class="form-label" data-i18n="memory.formContent">${t('memory.formContent')}</label>
+        <textarea id="mem-content" class="form-textarea" placeholder="${t('memory.formContentPlaceholder')}" data-i18n-placeholder="memory.formContentPlaceholder">${escapeHtml(initial.content || '')}</textarea>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
-          <label class="form-label">类型</label>
+          <label class="form-label" data-i18n="memory.formType">${t('memory.formType')}</label>
           <select id="mem-type" class="form-select">
-            ${validTypes.map(t => `<option value="${t}" ${((initial.type || 'fact').toLowerCase() === t) ? 'selected' : ''}>${t}</option>`).join('')}
+            ${validTypes.map(typeVal => `<option value="${typeVal}" ${((initial.type || 'fact').toLowerCase() === typeVal) ? 'selected' : ''}>${typeVal}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">作用域</label>
+          <label class="form-label" data-i18n="memory.formScope">${t('memory.formScope')}</label>
           <select id="mem-scope" class="form-select">
-            ${validScopes.map(s => `<option value="${s}" ${((initial.scope || 'project').toLowerCase() === s) ? 'selected' : ''}>${s}</option>`).join('')}
+            ${validScopes.map(scopeVal => `<option value="${scopeVal}" ${((initial.scope || 'project').toLowerCase() === scopeVal) ? 'selected' : ''}>${scopeVal}</option>`).join('')}
           </select>
         </div>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
-          <label class="form-label">关联项目</label>
+          <label class="form-label" data-i18n="memory.formProject">${t('memory.formProject')}</label>
           <select id="mem-project" class="form-select">
-            <option value="">(全局通用)</option>
+            <option value="" data-i18n="memory.formProjectGlobal">${t('memory.formProjectGlobal')}</option>
             ${state.registeredProjects.map(p => `
               <option value="${escapeHtml(p.path || p.id)}" ${(initial.project === (p.path || p.id)) ? 'selected' : ''}>${escapeHtml(p.title || p.path)}</option>
             `).join('')}
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">状态</label>
+          <label class="form-label" data-i18n="memory.formState">${t('memory.formState')}</label>
           <select id="mem-state" class="form-select" ${isEdit ? 'disabled' : ''}>
-            <option value="candidate" ${(initial.state || 'candidate').toLowerCase() === 'candidate' ? 'selected' : ''}>待审候选</option>
-            <option value="active" ${(initial.state || '').toLowerCase() === 'active' ? 'selected' : ''}>生效中</option>
-            <option value="superseded" ${(initial.state || '').toLowerCase() === 'superseded' ? 'selected' : ''}>已替代</option>
-            <option value="archived" ${(initial.state || '').toLowerCase() === 'archived' ? 'selected' : ''}>已归档</option>
+            <option value="candidate" ${(initial.state || 'candidate').toLowerCase() === 'candidate' ? 'selected' : ''} data-i18n="memory.stateCandidate">${t('memory.stateCandidate')}</option>
+            <option value="active" ${(initial.state || '').toLowerCase() === 'active' ? 'selected' : ''} data-i18n="memory.stateActive">${t('memory.stateActive')}</option>
+            <option value="superseded" ${(initial.state || '').toLowerCase() === 'superseded' ? 'selected' : ''} data-i18n="memory.stateSuperseded">${t('memory.stateSuperseded')}</option>
+            <option value="archived" ${(initial.state || '').toLowerCase() === 'archived' ? 'selected' : ''} data-i18n="memory.stateArchived">${t('memory.stateArchived')}</option>
           </select>
-          ${isEdit ? '<div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">编辑已存记录不可直接修改生命周期状态。请在列表中使用「设为生效 / 替代 / 归档」按钮进行状态流转。</div>' : ''}
+          ${isEdit ? `<div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;" data-i18n="memory.formStateEditNotice">${t('memory.formStateEditNotice')}</div>` : ''}
         </div>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
-          <label class="form-label">分支 (Branch)</label>
-          <input type="text" id="mem-branch" class="form-input" value="${escapeHtml(initial.branch || '')}" placeholder="main / feature">
+          <label class="form-label" data-i18n="memory.formBranch">${t('memory.formBranch')}</label>
+          <input type="text" id="mem-branch" class="form-input" value="${escapeHtml(initial.branch || '')}" placeholder="${t('memory.formBranchPlaceholder')}" data-i18n-placeholder="memory.formBranchPlaceholder">
         </div>
         <div class="form-group">
-          <label class="form-label">工作树 (Worktree)</label>
-          <input type="text" id="mem-worktree" class="form-input" value="${escapeHtml(initial.worktree || '')}" placeholder="worktree 路径或名称">
-        </div>
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <div class="form-group">
-          <label class="form-label">任务 (Task)</label>
-          <input type="text" id="mem-task" class="form-input" value="${escapeHtml(initial.task || '')}" placeholder="子任务或工单号">
-        </div>
-        <div class="form-group">
-          <label class="form-label">来源会话 (Source Session)</label>
-          <input type="text" id="mem-src-session" class="form-input" value="${escapeHtml(initial.sourceSession || '')}" placeholder="sess-xxx">
+          <label class="form-label" data-i18n="memory.formWorktree">${t('memory.formWorktree')}</label>
+          <input type="text" id="mem-worktree" class="form-input" value="${escapeHtml(initial.worktree || '')}" placeholder="${t('memory.formWorktreePlaceholder')}" data-i18n-placeholder="memory.formWorktreePlaceholder">
         </div>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
-          <label class="form-label">来源消息 (Source Message)</label>
-          <input type="text" id="mem-src-msg" class="form-input" value="${escapeHtml(initial.sourceMessage || '')}" placeholder="m-xxx">
+          <label class="form-label" data-i18n="memory.formTask">${t('memory.formTask')}</label>
+          <input type="text" id="mem-task" class="form-input" value="${escapeHtml(initial.task || '')}" placeholder="${t('memory.formTaskPlaceholder')}" data-i18n-placeholder="memory.formTaskPlaceholder">
         </div>
         <div class="form-group">
-          <label class="form-label">来源 Commit</label>
-          <input type="text" id="mem-src-commit" class="form-input" value="${escapeHtml(initial.sourceCommit || '')}" placeholder="git commit sha">
+          <label class="form-label" data-i18n="memory.formSrcSession">${t('memory.formSrcSession')}</label>
+          <input type="text" id="mem-src-session" class="form-input" value="${escapeHtml(initial.sourceSession || '')}" placeholder="${t('memory.formSrcSessionPlaceholder')}" data-i18n-placeholder="memory.formSrcSessionPlaceholder">
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label" data-i18n="memory.formSrcMsg">${t('memory.formSrcMsg')}</label>
+          <input type="text" id="mem-src-msg" class="form-input" value="${escapeHtml(initial.sourceMessage || '')}" placeholder="${t('memory.formSrcMsgPlaceholder')}" data-i18n-placeholder="memory.formSrcMsgPlaceholder">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="memory.formSrcCommit">${t('memory.formSrcCommit')}</label>
+          <input type="text" id="mem-src-commit" class="form-input" value="${escapeHtml(initial.sourceCommit || '')}" placeholder="${t('memory.formSrcCommitPlaceholder')}" data-i18n-placeholder="memory.formSrcCommitPlaceholder">
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">来源文件 (Source File)</label>
-        <input type="text" id="mem-src-file" class="form-input" value="${escapeHtml(initial.sourceFile || '')}" placeholder="relative/path/to/file">
+        <label class="form-label" data-i18n="memory.formSrcFile">${t('memory.formSrcFile')}</label>
+        <input type="text" id="mem-src-file" class="form-input" value="${escapeHtml(initial.sourceFile || '')}" placeholder="${t('memory.formSrcFilePlaceholder')}" data-i18n-placeholder="memory.formSrcFilePlaceholder">
       </div>
     `;
 
-    openModal(isEdit ? '编辑工程 Memory' : '创建工程 Memory', modalBody, `
-      <button class="btn btn-secondary" id="btn-cancel-mem">取消</button>
-      <button class="btn btn-primary" id="btn-save-mem">保存 Memory</button>
+    openModal({ key: isEdit ? 'memory.editModalTitle' : 'memory.newModalTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-cancel-mem" data-i18n="common.cancel">${t('common.cancel')}</button>
+      <button class="btn btn-primary" id="btn-save-mem" data-i18n="memory.btnSaveMemory">${t('memory.btnSaveMemory')}</button>
     `);
 
     document.getElementById('btn-cancel-mem').addEventListener('click', closeModal);
@@ -3539,27 +3809,27 @@
       const sourceCommit = document.getElementById('mem-src-commit').value.trim();
 
       if (!title || !content) {
-        showToast('标题与内容不能为空', 'error');
+        showToast({ key: 'memory.validationTitleAndContentRequired' }, 'error');
         return;
       }
       if (scope !== 'global' && !project) {
-        showToast('非全局作用域必须指定所属项目', 'error');
+        showToast({ key: 'memory.validationProjectRequired' }, 'error');
         return;
       }
       if (scope === 'branch' && !branch) {
-        showToast('当作用域为 branch 时，分支 (Branch) 字段必填', 'error');
+        showToast({ key: 'memory.validationBranchRequired' }, 'error');
         return;
       }
       if (scope === 'worktree' && !worktree) {
-        showToast('当作用域为 worktree 时，工作树 (Worktree) 字段必填', 'error');
+        showToast({ key: 'memory.validationWorktreeRequired' }, 'error');
         return;
       }
       if (scope === 'task' && !task) {
-        showToast('当作用域为 task 时，任务 (Task) 字段必填', 'error');
+        showToast({ key: 'memory.validationTaskRequired' }, 'error');
         return;
       }
       if (scope === 'session' && !sourceSession) {
-        showToast('当作用域为 session 时，来源会话 (Source Session) 字段必填', 'error');
+        showToast({ key: 'memory.validationSessionRequired' }, 'error');
         return;
       }
 
@@ -3580,11 +3850,11 @@
           sourceSession: sourceSession || undefined,
           sourceMessage: sourceMessage || undefined
         });
-        showToast('Memory 保存成功');
+        showToast({ key: 'memory.savedToast' });
         closeModal();
         await refreshDashboard(true, true);
       } catch (err) {
-        showToast('保存失败: ' + err.message, 'error');
+        showToast({ key: 'memory.saveFailedToast', params: { error: err.message } }, 'error');
       }
     });
   }
@@ -3603,19 +3873,18 @@
     });
 
     const modalBody = `
-      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.6;">
-        以新条目替代旧条目：旧经验 <strong>${escapeHtml(oldTitle)}</strong> 将被原子标记为 <strong>superseded</strong>，由所选新条目生效 (active) 并继承替代关系。
+      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.6;" data-i18n="memory.supersedeNotice" data-i18n-params="${escapeHtml(JSON.stringify({ title: oldTitle }))}">
+        ${t('memory.supersedeNotice', { title: escapeHtml(oldTitle) })}
       </p>
       ${eligibleReplacements.length === 0 ? `
-        <div class="alert-banner alert-warning" style="margin-bottom: 12px; line-height: 1.6;">
-          同项目内暂无可用的替代条目（需为 candidate 候选或 active 状态）。<br>
-          若无需承接关系，可直接通过右侧抽屉面板将旧条目操作为「归档 (Archive)」。
+        <div class="alert-banner alert-warning" style="margin-bottom: 12px; line-height: 1.6;" data-i18n="memory.noReplacementsNotice">
+          ${t('memory.noReplacementsNotice')}
         </div>
       ` : `
         <div class="form-group">
-          <label class="form-label">选择承接生效的新条目 (Replacement Memory)</label>
+          <label class="form-label" data-i18n="memory.selectReplacementLabel">${t('memory.selectReplacementLabel')}</label>
           <select id="mem-supersede-target" class="form-select">
-            <option value="">-- 请选择同项目新条目 --</option>
+            <option value="" data-i18n="memory.selectReplacementPlaceholder">${t('memory.selectReplacementPlaceholder')}</option>
             ${eligibleReplacements.map(m => `
               <option value="${escapeHtml(m.id)}">${escapeHtml(m.title)} (${escapeHtml(m.id.substring(0, 8))}) [${escapeHtml(m.state || 'active')}]</option>
             `).join('')}
@@ -3624,9 +3893,9 @@
       `}
     `;
 
-    openModal('替代 Memory 条目', modalBody, `
-      <button class="btn btn-secondary" id="btn-cancel-supersede">取消</button>
-      ${eligibleReplacements.length > 0 ? '<button class="btn btn-primary" id="btn-confirm-supersede">确认由新条目替代</button>' : ''}
+    openModal({ key: 'memory.supersedeModalTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-cancel-supersede" data-i18n="common.cancel">${t('common.cancel')}</button>
+      ${eligibleReplacements.length > 0 ? `<button class="btn btn-primary" id="btn-confirm-supersede" data-i18n="memory.btnConfirmSupersede">${t('memory.btnConfirmSupersede')}</button>` : ''}
     `);
 
     document.getElementById('btn-cancel-supersede').addEventListener('click', closeModal);
@@ -3635,7 +3904,7 @@
       confirmBtn.addEventListener('click', async () => {
         const replacementId = document.getElementById('mem-supersede-target').value;
         if (!replacementId) {
-          showToast('请选择替代新条目', 'error');
+          showToast({ key: 'memory.validationSelectReplacement' }, 'error');
           return;
         }
         try {
@@ -3645,11 +3914,11 @@
             state: 'active',
             supersedes: memoryId
           });
-          showToast(`已由新条目成功替代旧经验 [${oldTitle}]`);
+          showToast({ key: 'memory.supersededToast', params: { title: oldTitle } });
           closeModal();
           await refreshDashboard(true, true);
         } catch (err) {
-          showToast('替代操作失败: ' + err.message, 'error');
+          showToast({ key: 'memory.supersedeFailedToast', params: { error: err.message } }, 'error');
         }
       });
     }
@@ -3658,12 +3927,12 @@
   function openRecallModal() {
     const modalBody = `
       <div class="form-group">
-        <label class="form-label">查询关键词 / 任务上下文</label>
-        <input type="text" id="recall-query" class="form-input" placeholder="例如：数据库迁移规范、构建指令、API 安全约定">
+        <label class="form-label" data-i18n="memory.recallQueryLabel">${t('memory.recallQueryLabel')}</label>
+        <input type="text" id="recall-query" class="form-input" placeholder="${t('memory.recallQueryPlaceholder')}" data-i18n-placeholder="memory.recallQueryPlaceholder">
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
-          <label class="form-label">作用域项目</label>
+          <label class="form-label" data-i18n="memory.recallProjectLabel">${t('memory.recallProjectLabel')}</label>
           <select id="recall-project" class="form-select">
             ${state.registeredProjects.map(p => `
               <option value="${escapeHtml(p.path || p.id)}">${escapeHtml(p.title || p.path)}</option>
@@ -3671,42 +3940,42 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Token 预算限制 (保守估算)</label>
+          <label class="form-label" data-i18n="memory.recallBudgetLabel">${t('memory.recallBudgetLabel')}</label>
           <select id="recall-budget" class="form-select">
-            <option value="500">500 Tokens (保守估算)</option>
-            <option value="1000" selected>1,000 Tokens (保守估算)</option>
-            <option value="2000">2,000 Tokens (保守估算)</option>
-            <option value="4000">4,000 Tokens (保守估算)</option>
+            <option value="500" data-i18n="memory.recallBudget500">${t('memory.recallBudget500')}</option>
+            <option value="1000" selected data-i18n="memory.recallBudget1000">${t('memory.recallBudget1000')}</option>
+            <option value="2000" data-i18n="memory.recallBudget2000">${t('memory.recallBudget2000')}</option>
+            <option value="4000" data-i18n="memory.recallBudget4000">${t('memory.recallBudget4000')}</option>
           </select>
         </div>
       </div>
       <details style="margin-top: 8px; margin-bottom: 8px; font-size: 12px; color: var(--text-secondary);">
-        <summary style="cursor: pointer; user-select: none; font-weight: 500;">高级上下文参数 (可选：Branch, Worktree, Task, SessionId)</summary>
+        <summary style="cursor: pointer; user-select: none; font-weight: 500;" data-i18n="memory.recallAdvancedSummary">${t('memory.recallAdvancedSummary')}</summary>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-size: 12px;">Branch 分支</label>
-            <input type="text" id="recall-branch" class="form-input" style="font-size: 12px;" placeholder="例如：main, feature/v2">
+            <label class="form-label" style="font-size: 12px;" data-i18n="memory.recallBranchLabel">${t('memory.recallBranchLabel')}</label>
+            <input type="text" id="recall-branch" class="form-input" style="font-size: 12px;" placeholder="${t('memory.recallBranchPlaceholder')}" data-i18n-placeholder="memory.recallBranchPlaceholder">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-size: 12px;">Worktree 路径</label>
-            <input type="text" id="recall-worktree" class="form-input" style="font-size: 12px;" placeholder="例如：/path/to/worktree">
+            <label class="form-label" style="font-size: 12px;" data-i18n="memory.recallWorktreeLabel">${t('memory.recallWorktreeLabel')}</label>
+            <input type="text" id="recall-worktree" class="form-input" style="font-size: 12px;" placeholder="${t('memory.recallWorktreePlaceholder')}" data-i18n-placeholder="memory.recallWorktreePlaceholder">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-size: 12px;">Task 任务标识</label>
-            <input type="text" id="recall-task" class="form-input" style="font-size: 12px;" placeholder="例如：task-123">
+            <label class="form-label" style="font-size: 12px;" data-i18n="memory.recallTaskLabel">${t('memory.recallTaskLabel')}</label>
+            <input type="text" id="recall-task" class="form-input" style="font-size: 12px;" placeholder="${t('memory.recallTaskPlaceholder')}" data-i18n-placeholder="memory.recallTaskPlaceholder">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-size: 12px;">Session ID 会话标识</label>
-            <input type="text" id="recall-session-id" class="form-input" style="font-size: 12px;" placeholder="例如：sess-uuid">
+            <label class="form-label" style="font-size: 12px;" data-i18n="memory.recallSessionIdLabel">${t('memory.recallSessionIdLabel')}</label>
+            <input type="text" id="recall-session-id" class="form-input" style="font-size: 12px;" placeholder="${t('memory.recallSessionIdPlaceholder')}" data-i18n-placeholder="memory.recallSessionIdPlaceholder">
           </div>
         </div>
       </details>
       <div id="recall-results-area" style="margin-top: 10px; max-height: 200px; overflow-y: auto;"></div>
     `;
 
-    openModal('Recall 预算召回测试', modalBody, `
-      <button class="btn btn-secondary" id="btn-close-recall">关闭</button>
-      <button class="btn btn-primary" id="btn-do-recall">执行 Recall</button>
+    openModal({ key: 'memory.recallModalTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-close-recall" data-i18n="common.close">${t('common.close')}</button>
+      <button class="btn btn-primary" id="btn-do-recall" data-i18n="memory.btnDoRecall">${t('memory.btnDoRecall')}</button>
     `);
 
     document.getElementById('btn-close-recall').addEventListener('click', closeModal);
@@ -3717,7 +3986,7 @@
       const resultsArea = document.getElementById('recall-results-area');
 
       if (!query) {
-        showToast('请输入查询内容', 'error');
+        showToast({ key: 'memory.recallQueryRequired' }, 'error');
         return;
       }
 
@@ -3736,7 +4005,7 @@
       if (taskVal) recallPayload.task = taskVal;
       if (sessionIdVal) recallPayload.sessionId = sessionIdVal;
 
-      resultsArea.innerHTML = '<div class="text-secondary" style="font-size: 11px;">正在召回...</div>';
+      resultsArea.innerHTML = `<div class="text-secondary" style="font-size: 11px;" data-i18n="memory.recalling">${t('memory.recalling')}</div>`;
 
       try {
         const res = await callBridge('recall', recallPayload);
@@ -3745,11 +4014,11 @@
 
         resultsArea.innerHTML = `
           <div style="margin-bottom: 6px; font-size: 11px; display: flex; justify-content: space-between;">
-            <span>匹配到 <strong>${items.length}</strong> 条 Active 记忆</span>
-            <span class="font-mono">已用估算 Token: <strong>${used}</strong> / ${budget}</span>
+            <span data-i18n="memory.recallMatchedCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: items.length }))}">${t('memory.recallMatchedCount', { count: items.length })}</span>
+            <span class="font-mono" data-i18n="memory.recallTokensUsed" data-i18n-params="${escapeHtml(JSON.stringify({ used, budget }))}">${t('memory.recallTokensUsed', { used, budget })}</span>
           </div>
           <div style="display: flex; flex-direction: column; gap: 6px;">
-            ${items.length === 0 ? '<div style="font-size: 11px; color: var(--text-muted);">未召回到符合条件的 Active 条目</div>' : ''}
+            ${items.length === 0 ? `<div style="font-size: 11px; color: var(--text-muted);" data-i18n="memory.recallEmpty">${t('memory.recallEmpty')}</div>` : ''}
             ${items.map(it => `
               <div class="card" style="padding: 6px 10px; margin-bottom: 0;">
                 <div style="font-weight: 600; font-size: 11px;">${escapeHtml(it.title)}</div>
@@ -3770,35 +4039,35 @@
 
     target.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <span class="text-secondary" style="font-size: 12px;">本地知识库文档 (${library.length}) · 支持私密标记（私密条目仅人工搜索可见，排除 Agent 检索）</span>
-        <button id="btn-add-library" class="btn btn-primary btn-sm">+ 添加文档 / 知识</button>
+        <span class="text-secondary" style="font-size: 12px;" data-i18n="setupL.library.headerDesc" data-i18n-params="${escapeHtml(JSON.stringify({ count: library.length }))}">${escapeHtml(t('setupL.library.headerDesc', { count: library.length }))}</span>
+        <button id="btn-add-library" class="btn btn-primary btn-sm" data-i18n="setupL.library.btnAdd">${escapeHtml(t('setupL.library.btnAdd'))}</button>
       </div>
 
       <div class="table-wrapper">
         <table class="data-table">
           <thead>
             <tr>
-              <th>标题 / 名称</th>
-              <th>项目</th>
-              <th>私密属性</th>
-              <th>来源 (Source)</th>
-              <th style="text-align: right; width: 100px;">操作</th>
+              <th data-i18n="setupL.library.tableTitle">${escapeHtml(t('setupL.library.tableTitle'))}</th>
+              <th data-i18n="setupL.library.tableProject">${escapeHtml(t('setupL.library.tableProject'))}</th>
+              <th data-i18n="setupL.library.tablePrivacy">${escapeHtml(t('setupL.library.tablePrivacy'))}</th>
+              <th data-i18n="setupL.library.tableSource">${escapeHtml(t('setupL.library.tableSource'))}</th>
+              <th style="text-align: right; width: 100px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
             </tr>
           </thead>
           <tbody>
-            ${library.length === 0 ? '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">暂无知识库条目</td></tr>' : ''}
+            ${library.length === 0 ? `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;" data-i18n="setupL.library.emptyText">${escapeHtml(t('setupL.library.emptyText'))}</td></tr>` : ''}
             ${library.map(lib => `
               <tr>
                 <td><strong>${escapeHtml(lib.title)}</strong></td>
-                <td><span class="code-badge">${escapeHtml(lib.project ? lib.project.split('/').pop() : '全局')}</span></td>
+                <td><span class="code-badge">${lib.project ? escapeHtml(lib.project.split('/').pop()) : tHtml('setupL.scope.global')}</span></td>
                 <td>
-                  ${lib.private ? '<span class="status-badge status-amber">🔒 私密 (排除 Agent)</span>' : '<span class="status-badge status-neutral">公开 (可检索)</span>'}
+                  ${lib.private ? `<span class="status-badge status-amber" data-i18n="setupL.library.badgePrivate">${escapeHtml(t('setupL.library.badgePrivate'))}</span>` : `<span class="status-badge status-neutral" data-i18n="setupL.library.badgePublic">${escapeHtml(t('setupL.library.badgePublic'))}</span>`}
                 </td>
                 <td style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted);">
                   ${escapeHtml(lib.url || lib.path || (lib.content ? lib.content.substring(0, 40) + '...' : '-'))}
                 </td>
                 <td style="text-align: right;">
-                  <button class="btn btn-secondary btn-sm btn-view-library" data-id="${escapeHtml(lib.id)}">查看</button>
+                  <button class="btn btn-secondary btn-sm btn-view-library" data-id="${escapeHtml(lib.id)}" data-i18n="setupL.common.view">${escapeHtml(t('setupL.common.view'))}</button>
                 </td>
               </tr>
             `).join('')}
@@ -3814,23 +4083,23 @@
         const id = btn.getAttribute('data-id');
         const lib = library.find(item => item.id === id);
         if (lib) {
-          openDrawer(lib.title || '知识库条目', lib.id);
+          openDrawer(lib.title || { key: 'setupL.library.drawerTitle' }, lib.id);
           document.getElementById('drawer-content').innerHTML = `
             <div class="card">
               <div class="card-header">
-                <span class="card-title">基本信息</span>
-                ${lib.private ? '<span class="status-badge status-amber">🔒 私密</span>' : '<span class="status-badge status-neutral">公开</span>'}
+                <span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span>
+                ${lib.private ? `<span class="status-badge status-amber" data-i18n="setupL.library.badgePrivateShort">${escapeHtml(t('setupL.library.badgePrivateShort'))}</span>` : `<span class="status-badge status-neutral" data-i18n="setupL.library.badgePublicShort">${escapeHtml(t('setupL.library.badgePublicShort'))}</span>`}
               </div>
               <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                <div><span class="text-secondary">项目:</span> ${escapeHtml(lib.project || '全局')}</div>
-                <div><span class="text-secondary">创建时间:</span> ${formatTime(lib.createdAt)}</div>
+                <div><span class="text-secondary" data-i18n="setupL.guidelines.projectLabel">${escapeHtml(t('setupL.guidelines.projectLabel'))}</span> ${lib.project ? escapeHtml(lib.project) : tHtml('setupL.scope.global')}</div>
+                <div><span class="text-secondary" data-i18n="setupL.library.createdAtLabel">${escapeHtml(t('setupL.library.createdAtLabel'))}</span> ${formatTime(lib.createdAt)}</div>
               </div>
-              ${lib.path ? `<div style="margin-top: 6px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">文件路径: ${escapeHtml(lib.path)}</div>` : ''}
-              ${lib.url ? `<div style="margin-top: 6px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">URL: ${escapeHtml(lib.url)}</div>` : ''}
+              ${lib.path ? `<div style="margin-top: 6px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);"><span data-i18n="setupL.library.filePathLabel">${escapeHtml(t('setupL.library.filePathLabel'))}</span>: ${escapeHtml(lib.path)}</div>` : ''}
+              ${lib.url ? `<div style="margin-top: 6px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);"><span data-i18n="setupL.library.urlLabel">${escapeHtml(t('setupL.library.urlLabel'))}</span>: ${escapeHtml(lib.url)}</div>` : ''}
             </div>
             <div>
-              <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">文档内容</h3>
-              <div class="code-view">${escapeHtml(lib.content || '(外部文件或 URL 引用)')}</div>
+              <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.library.contentTitle">${escapeHtml(t('setupL.library.contentTitle'))}</h3>
+              <div class="code-view">${lib.content ? escapeHtml(lib.content) : tHtml('setupL.library.externalRef')}</div>
             </div>
           `;
         }
@@ -3841,49 +4110,49 @@
   function openAddLibraryModal() {
     const modalBody = `
       <div class="form-group">
-        <label class="form-label">来源类型 (Source Type)</label>
+        <label class="form-label" data-i18n="setupL.library.modalSourceTypeLabel">${escapeHtml(t('setupL.library.modalSourceTypeLabel'))}</label>
         <select id="lib-source-type" class="form-select">
-          <option value="content">直接输入文本内容 (Text)</option>
-          <option value="path">本地文件路径 (Local File Path)</option>
-          <option value="url">网络文档链接 (Remote URL)</option>
+          <option value="content" data-i18n="setupL.library.sourceTypeContent">${escapeHtml(t('setupL.library.sourceTypeContent'))}</option>
+          <option value="path" data-i18n="setupL.library.sourceTypePath">${escapeHtml(t('setupL.library.sourceTypePath'))}</option>
+          <option value="url" data-i18n="setupL.library.sourceTypeUrl">${escapeHtml(t('setupL.library.sourceTypeUrl'))}</option>
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">文档标题</label>
-        <input type="text" id="lib-title" class="form-input" placeholder="输入知识文档标题">
+        <label class="form-label" data-i18n="setupL.library.modalDocTitleLabel">${escapeHtml(t('setupL.library.modalDocTitleLabel'))}</label>
+        <input type="text" id="lib-title" class="form-input" placeholder="${escapeHtml(t('setupL.library.modalDocTitlePlaceholder'))}" data-i18n-placeholder="setupL.library.modalDocTitlePlaceholder">
       </div>
       <div class="form-group">
-        <label class="form-label">所属项目</label>
+        <label class="form-label" data-i18n="setupL.library.modalProjectLabel">${escapeHtml(t('setupL.library.modalProjectLabel'))}</label>
         <select id="lib-project" class="form-select">
-          <option value="">全局知识库</option>
+          <option value="" data-i18n="setupL.library.modalProjectGlobal">${escapeHtml(t('setupL.library.modalProjectGlobal'))}</option>
           ${state.registeredProjects.map(p => `
             <option value="${escapeHtml(p.path || p.id)}">${escapeHtml(p.title || p.path)}</option>
           `).join('')}
         </select>
       </div>
       <div class="form-group" id="lib-group-content">
-        <label class="form-label">文本内容</label>
-        <textarea id="lib-content" class="form-textarea" placeholder="直接粘贴工程指南、接口说明或架构设计"></textarea>
+        <label class="form-label" data-i18n="setupL.library.modalTextContentLabel">${escapeHtml(t('setupL.library.modalTextContentLabel'))}</label>
+        <textarea id="lib-content" class="form-textarea" placeholder="${escapeHtml(t('setupL.library.modalTextContentPlaceholder'))}" data-i18n-placeholder="setupL.library.modalTextContentPlaceholder"></textarea>
       </div>
       <div class="form-group hidden" id="lib-group-path">
-        <label class="form-label">本地绝对路径</label>
+        <label class="form-label" data-i18n="setupL.library.modalPathLabel">${escapeHtml(t('setupL.library.modalPathLabel'))}</label>
         <input type="text" id="lib-path" class="form-input font-mono" placeholder="/path/to/document.md">
       </div>
       <div class="form-group hidden" id="lib-group-url">
-        <label class="form-label">文档 URL</label>
+        <label class="form-label" data-i18n="setupL.library.modalUrlLabel">${escapeHtml(t('setupL.library.modalUrlLabel'))}</label>
         <input type="url" id="lib-url" class="form-input font-mono" placeholder="https://example.com/docs">
       </div>
       <div class="form-group">
         <label class="form-checkbox-label">
           <input type="checkbox" id="lib-private" checked>
-          <span>设为私密 (Private)：默认勾选。仅人工搜索可见，排除 Agent 自动检索与 MCP 以保护机密</span>
+          <span data-i18n="setupL.library.modalPrivateCheckbox">${escapeHtml(t('setupL.library.modalPrivateCheckbox'))}</span>
         </label>
       </div>
     `;
 
-    openModal('添加知识库条目', modalBody, `
-      <button class="btn btn-secondary" id="btn-cancel-lib">取消</button>
-      <button class="btn btn-primary" id="btn-save-lib">保存知识库</button>
+    openModal({ key: 'setupL.library.modalAddTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-cancel-lib" data-i18n="setupL.common.cancel">${escapeHtml(t('setupL.common.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-save-lib" data-i18n="setupL.library.btnSave">${escapeHtml(t('setupL.library.btnSave'))}</button>
     `);
 
     const selType = document.getElementById('lib-source-type');
@@ -3923,7 +4192,7 @@
       const isPrivate = privCb.checked || privCb.disabled;
 
       if (!title) {
-        showToast('标题不能为空', 'error');
+        showToast({ key: 'setupL.library.toastTitleRequired' }, 'error');
         return;
       }
 
@@ -3943,11 +4212,11 @@
 
       try {
         await callBridge('library.add', payload);
-        showToast('知识库条目已添加');
+        showToast({ key: 'setupL.library.toastAdded' });
         closeModal();
         await refreshDashboard(true, true);
       } catch (e) {
-        showToast('添加失败: ' + e.message, 'error');
+        showToast({ key: 'setupL.library.toastAddFailed', params: { error: e.message } }, 'error');
       }
     });
   }
@@ -3966,13 +4235,15 @@
       const container = document.getElementById('mcp-artifacts-container');
       const countSpan = document.getElementById('mcp-scanned-count');
       if (!container) return;
-      if (countSpan) countSpan.textContent = `共 ${artifacts.length} 项 MCP 配置`;
+      if (countSpan) {
+        VelaI18n.setElementDescriptor(countSpan, { key: 'setupL.mcp.scannedCount', params: { count: artifacts.length } });
+      }
 
       if (artifacts.length === 0) {
         container.innerHTML = `
           <div class="empty-state" style="padding: 24px 0;">
-            <div class="empty-state-title">未检测到 MCP 配置文件</div>
-            <div class="empty-state-desc">在当前项目根目录（如 .mcp.json、.cursor/mcp.json）或全局配置中放置 MCP 配置文件，Vela 会自动扫描并展示。</div>
+            <div class="empty-state-title" data-i18n="setupL.mcp.emptyTitle">${escapeHtml(t('setupL.mcp.emptyTitle'))}</div>
+            <div class="empty-state-desc" data-i18n="setupL.mcp.emptyDesc">${escapeHtml(t('setupL.mcp.emptyDesc'))}</div>
           </div>
         `;
         return;
@@ -3983,12 +4254,12 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>标题 / 标识</th>
-                <th>Provider / 作用域</th>
-                <th>估算 Tokens</th>
-                <th>哈希 (SHA256)</th>
-                <th>诊断</th>
-                <th style="text-align: right; width: 140px;">操作</th>
+                <th data-i18n="setupL.table.titleOrId">${escapeHtml(t('setupL.table.titleOrId'))}</th>
+                <th data-i18n="setupL.table.providerOrScope">${escapeHtml(t('setupL.table.providerOrScope'))}</th>
+                <th data-i18n="setupL.table.estimatedTokens">${escapeHtml(t('setupL.table.estimatedTokens'))}</th>
+                <th data-i18n="setupL.table.hash">${escapeHtml(t('setupL.table.hash'))}</th>
+                <th data-i18n="setupL.table.diagnostics">${escapeHtml(t('setupL.table.diagnostics'))}</th>
+                <th style="text-align: right; width: 140px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
               </tr>
             </thead>
             <tbody>
@@ -4006,12 +4277,12 @@
                   <td><span class="font-mono" style="font-size: 12px;">${a.hash ? escapeHtml(a.hash.substring(0, 10)) : '-'}</span></td>
                   <td>
                     ${a.diagnostics && a.diagnostics.length > 0
-                      ? `<span class="status-badge status-amber">${a.diagnostics.length} 项警告</span>`
-                      : '<span class="status-badge status-sage">✓ 正常</span>'}
+                      ? `<span class="status-badge status-amber" data-i18n="setupL.artifacts.warningCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: a.diagnostics.length }))}">${escapeHtml(t('setupL.artifacts.warningCount', { count: a.diagnostics.length }))}</span>`
+                      : `<span class="status-badge status-sage" data-i18n="setupL.artifacts.statusNormal">${escapeHtml(t('setupL.artifacts.statusNormal'))}</span>`}
                   </td>
                   <td style="text-align: right;">
-                    <button class="btn btn-secondary btn-sm btn-preview-artifact" data-id="${escapeHtml(a.id)}">预览</button>
-                    ${a.path ? `<button class="btn btn-ghost btn-sm btn-reveal-path" data-path="${escapeHtml(a.path)}">定位</button>` : ''}
+                    <button class="btn btn-secondary btn-sm btn-preview-artifact" data-id="${escapeHtml(a.id)}" data-i18n="setupL.artifacts.preview">${escapeHtml(t('setupL.artifacts.preview'))}</button>
+                    ${a.path ? `<button class="btn btn-ghost btn-sm btn-reveal-path" data-path="${escapeHtml(a.path)}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
                   </td>
                 </tr>
               `).join('')}
@@ -4025,23 +4296,23 @@
           const id = btn.getAttribute('data-id');
           const art = artifacts.find(a => a.id === id);
           if (art) {
-            openDrawer(art.title || 'MCP 配置详情', art.path);
+            openDrawer(art.title || { key: 'setupL.mcp.drawerTitle' }, art.path);
             const drawerContent = document.getElementById('drawer-content');
             if (drawerContent) {
               drawerContent.innerHTML = `
                 <div class="card">
-                  <div class="card-header"><span class="card-title">基本信息</span></div>
+                  <div class="card-header"><span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span></div>
                   <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <div><span class="text-secondary">类型:</span> ${escapeHtml(art.type || 'mcp')}</div>
-                    <div><span class="text-secondary">Provider:</span> ${escapeHtml(art.provider || '-')}</div>
-                    <div><span class="text-secondary">Token 估算:</span> ${escapeHtml(String(art.tokens || '-'))}</div>
-                    <div><span class="text-secondary">Hash:</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
+                    <div><span class="text-secondary" data-i18n="setupL.drawer.type">${escapeHtml(t('setupL.drawer.type'))}</span> ${escapeHtml(art.type || 'mcp')}</div>
+                    <div><span class="text-secondary" data-i18n="setupL.drawer.provider">${escapeHtml(t('setupL.drawer.provider'))}</span> ${escapeHtml(art.provider || '-')}</div>
+                    <div><span class="text-secondary" data-i18n="setupL.drawer.tokens">${escapeHtml(t('setupL.drawer.tokens'))}</span> ${escapeHtml(String(art.tokens || '-'))}</div>
+                    <div><span class="text-secondary" data-i18n="setupL.drawer.hash">${escapeHtml(t('setupL.drawer.hash'))}</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
                   </div>
-                  <div style="margin-top: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">路径: ${escapeHtml(art.path || '-')}</div>
+                  <div style="margin-top: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);"><span data-i18n="setupL.drawer.pathPrefix">${escapeHtml(t('setupL.drawer.pathPrefix'))}</span>: ${escapeHtml(art.path || '-')}</div>
                 </div>
                 <div>
-                  <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">只读内容预览</h3>
-                  <div class="code-view">${escapeHtml(art.content || '(无内容)')}</div>
+                  <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.drawer.readonlyPreview">${escapeHtml(t('setupL.drawer.readonlyPreview'))}</h3>
+                  <div class="code-view">${art.content ? escapeHtml(art.content) : tHtml('setupL.drawer.noContent')}</div>
                 </div>
               `;
             }
@@ -4055,7 +4326,7 @@
           try {
             await callBridge('system.reveal', { path });
           } catch (e) {
-            showToast('定位失败: ' + e.message, 'error');
+            showToast({ key: 'setupL.toast.revealFailed', params: { error: e.message } }, 'error');
           }
         });
       });
@@ -4064,20 +4335,18 @@
     target.innerHTML = `
       <div class="card" style="margin-bottom: 20px;">
         <div class="card-header">
-          <span class="card-title">Vela MCP 本地服务 (Model Context Protocol)</span>
-          <span class="status-badge status-sage">stdio 支持</span>
+          <span class="card-title" data-i18n="setupL.mcp.cardTitle">${escapeHtml(t('setupL.mcp.cardTitle'))}</span>
+          <span class="status-badge status-sage" data-i18n="setupL.mcp.badgeStdio">${escapeHtml(t('setupL.mcp.badgeStdio'))}</span>
         </div>
-        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
-          Vela 提供官方标准 stdio MCP 服务，使 Claude Desktop、Cursor、Codex 等编码智能体能够安全、按需检索经过验证的本地工程上下文。
-        </p>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="setupL.mcp.cardDesc">${escapeHtml(t('setupL.mcp.cardDesc'))}</p>
 
         <div class="alert-banner alert-info" style="margin-bottom: 12px;">
           <span>
-            <strong>安全约束：</strong>MCP 协议默认以只读模式运行，严格按项目隔离作用域，并且<strong>始终完全排除私密 (Private) 知识库</strong>。执行写操作与应用变更永不暴露给 MCP。
+            <strong data-i18n="setupL.mcp.securityConstraintLabel">${escapeHtml(t('setupL.mcp.securityConstraintLabel'))}</strong><span data-i18n="setupL.mcp.securityConstraintDesc1">${escapeHtml(t('setupL.mcp.securityConstraintDesc1'))}</span><strong data-i18n="setupL.mcp.securityConstraintDescStrong">${escapeHtml(t('setupL.mcp.securityConstraintDescStrong'))}</strong><span data-i18n="setupL.mcp.securityConstraintDesc2">${escapeHtml(t('setupL.mcp.securityConstraintDesc2'))}</span>
           </span>
         </div>
 
-        <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 6px;">Claude Desktop / Cursor 配置示例</h4>
+        <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.mcp.exampleConfigTitle">${escapeHtml(t('setupL.mcp.exampleConfigTitle'))}</h4>
         <div class="code-view" style="margin-bottom: 12px;">{
   "mcpServers": {
     "vela": {
@@ -4090,12 +4359,10 @@
 
       <div class="section-title-group" style="margin-bottom: 12px;">
         <div style="display: flex; align-items: center; justify-content: space-between;">
-          <h3 style="font-size: 13px; font-weight: 600; margin: 0;">已扫描的 MCP 配置文件</h3>
-          <span id="mcp-scanned-count" class="text-secondary" style="font-size: 12px;">共 ${mcpArtifacts.length} 项 MCP 配置</span>
+          <h3 style="font-size: 13px; font-weight: 600; margin: 0;" data-i18n="setupL.mcp.scannedTitle">${escapeHtml(t('setupL.mcp.scannedTitle'))}</h3>
+          <span id="mcp-scanned-count" class="text-secondary" style="font-size: 12px;" data-i18n="setupL.mcp.scannedCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: mcpArtifacts.length }))}">${escapeHtml(t('setupL.mcp.scannedCount', { count: mcpArtifacts.length }))}</span>
         </div>
-        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
-          项目或全局环境中的 MCP 配置文件 (.mcp.json, .cursor/mcp.json) · 本地只读预览与定位
-        </p>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;" data-i18n="setupL.mcp.scannedDesc">${escapeHtml(t('setupL.mcp.scannedDesc'))}</p>
       </div>
 
       <div id="mcp-artifacts-container"></div>
@@ -4132,7 +4399,7 @@
     }
 
     function formatCount(val) {
-      return isSafeCount(val) ? val.toLocaleString() : '未提供';
+      return isSafeCount(val) ? val.toLocaleString() : t('common.notProvided');
     }
 
     function formatDateLabel(rawDate) {
@@ -4168,7 +4435,7 @@
       if (typeof formatProviderName === 'function') {
         return formatProviderName(provider);
       }
-      if (!provider) return '未知 Provider';
+      if (!provider) return t('usage.unknownProvider');
       const p = String(provider).toLowerCase();
       if (p === 'claude' || p === 'claude-code') return 'Claude Code';
       if (p === 'codex') return 'Codex';
@@ -4184,45 +4451,45 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>用量追踪</h1>
-          <p>本地会话日志观察到的 Token 消耗与分布 · 100% 本地分析</p>
+          <h1 data-i18n="usage.title">${t('usage.title')}</h1>
+          <p data-i18n="usage.subtitle">${t('usage.subtitle')}</p>
         </div>
       </div>
 
       <div class="alert-banner alert-info" style="margin-bottom: 14px;">
-        <span>* 观察声明：本页面展示的 Token 统计源自已索引的本地会话日志（最多 10,000 个已选会话），用量按会话起始日期归属，非云端计费账单；云端配额与计费未提供。</span>
+        <span data-i18n="usage.observationNotice">${t('usage.observationNotice')}</span>
       </div>
 
       <div class="stat-grid" id="usage-stat-grid">
         <div class="stat-card">
-          <div class="stat-label">总 Token 用量</div>
+          <div class="stat-label" data-i18n="usage.statTotalTokens">${t('usage.statTotalTokens')}</div>
           <div style="display: flex; align-items: baseline; gap: 6px;">
             <span class="stat-value" id="usage-total-tokens">-</span>
             <span id="usage-total-tokens-badge"></span>
           </div>
-          <div class="stat-sub" id="usage-total-tokens-sub">完整或已观测 Token</div>
+          <div class="stat-sub" id="usage-total-tokens-sub" data-i18n="usage.statTotalTokensSub">${t('usage.statTotalTokensSub')}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">已索引会话数</div>
+          <div class="stat-label" data-i18n="usage.statTotalSessions">${t('usage.statTotalSessions')}</div>
           <div class="stat-value" id="usage-total-sessions">-</div>
-          <div class="stat-sub" id="usage-total-sessions-sub">本地已收录会话</div>
+          <div class="stat-sub" id="usage-total-sessions-sub" data-i18n="usage.statTotalSessionsSub">${t('usage.statTotalSessionsSub')}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">已索引 Provider</div>
+          <div class="stat-label" data-i18n="usage.statProviderCount">${t('usage.statProviderCount')}</div>
           <div class="stat-value" id="usage-provider-count">-</div>
-          <div class="stat-sub" id="usage-provider-count-sub">日志已收录来源 · 不代表连接或存活</div>
+          <div class="stat-sub" id="usage-provider-count-sub" data-i18n="usage.statProviderCountSub">${t('usage.statProviderCountSub')}</div>
         </div>
       </div>
 
       <div id="usage-coverage-note" class="alert-banner alert-info" style="margin-bottom: 14px; font-size: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <span style="font-weight: 600;">覆盖状态：</span>
-          <span id="usage-coverage-badge" class="status-badge status-neutral">未提供</span>
-          <span id="usage-coverage-text" style="color: var(--text-main);">未提供覆盖信息</span>
+          <span style="font-weight: 600;" data-i18n="usage.coverageStatusLabel">${t('usage.coverageStatusLabel')}</span>
+          <span id="usage-coverage-badge" class="status-badge status-neutral" data-i18n="common.notProvided">${t('common.notProvided')}</span>
+          <span id="usage-coverage-text" style="color: var(--text-main);" data-i18n="usage.noCoverageInfo">${t('usage.noCoverageInfo')}</span>
         </div>
         <div id="usage-coverage-details-wrap" style="display: none;">
           <details style="font-size: 11px;">
-            <summary style="cursor: pointer; color: var(--text-muted); user-select: none;">技术详情</summary>
+            <summary style="cursor: pointer; color: var(--text-muted); user-select: none;" data-i18n="usage.techDetails">${t('usage.techDetails')}</summary>
             <span id="usage-coverage-desc" class="code-badge" style="margin-top: 4px; display: inline-block;"></span>
           </details>
         </div>
@@ -4230,18 +4497,18 @@
 
       <div class="card">
         <div class="card-header">
-          <span class="card-title">Provider 用量分布</span>
+          <span class="card-title" data-i18n="usage.providerDistributionTitle">${t('usage.providerDistributionTitle')}</span>
         </div>
         <div class="table-wrapper" style="margin-bottom: 0;">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Provider</th>
-                <th>输入 Tokens</th>
-                <th>输出 Tokens</th>
-                <th>总 Tokens</th>
-                <th>会话数</th>
-                <th>云端额度状态</th>
+                <th data-i18n="usage.thProvider">${t('usage.thProvider')}</th>
+                <th data-i18n="usage.thInputTokens">${t('usage.thInputTokens')}</th>
+                <th data-i18n="usage.thOutputTokens">${t('usage.thOutputTokens')}</th>
+                <th data-i18n="usage.thTotalTokens">${t('usage.thTotalTokens')}</th>
+                <th data-i18n="usage.thSessions">${t('usage.thSessions')}</th>
+                <th data-i18n="usage.thCloudQuotaStatus">${t('usage.thCloudQuotaStatus')}</th>
               </tr>
             </thead>
             <tbody id="usage-provider-tbody"></tbody>
@@ -4251,7 +4518,7 @@
 
       <div class="card" style="margin-top: 14px;">
         <div class="card-header">
-          <span class="card-title">近期每日 Token 趋势</span>
+          <span class="card-title" data-i18n="usage.dailyTrendTitle">${t('usage.dailyTrendTitle')}</span>
         </div>
         <div id="usage-daily-container"></div>
       </div>
@@ -4268,32 +4535,32 @@
         const totalTokensSubEl = document.getElementById('usage-total-tokens-sub');
 
         if (usage.coverage === 'overflow') {
-          if (totalTokensEl) totalTokensEl.textContent = '超出安全表示范围';
+          if (totalTokensEl) setElementDescriptor(totalTokensEl, { key: 'usage.overflow' });
           if (totalTokensBadgeEl) totalTokensBadgeEl.innerHTML = '';
-          if (totalTokensSubEl) totalTokensSubEl.textContent = 'Token 计数超出安全整数上限 (Overflow)';
+          if (totalTokensSubEl) setElementDescriptor(totalTokensSubEl, { key: 'usage.overflowDesc' });
         } else if (isSafeCount(usage.totalTokens)) {
-          if (totalTokensEl) totalTokensEl.textContent = usage.totalTokens.toLocaleString();
+          if (totalTokensEl) setElementDescriptor(totalTokensEl, usage.totalTokens.toLocaleString());
           if (totalTokensBadgeEl) totalTokensBadgeEl.innerHTML = '';
           if (totalTokensSubEl) {
-            const inStr = isSafeCount(usage.inputTokens) ? usage.inputTokens.toLocaleString() : '未提供';
-            const outStr = isSafeCount(usage.outputTokens) ? usage.outputTokens.toLocaleString() : '未提供';
-            totalTokensSubEl.textContent = `输入 ${inStr} · 输出 ${outStr} (完整统计)`;
+            const inStr = isSafeCount(usage.inputTokens) ? usage.inputTokens.toLocaleString() : '-';
+            const outStr = isSafeCount(usage.outputTokens) ? usage.outputTokens.toLocaleString() : '-';
+            setElementDescriptor(totalTokensSubEl, { key: 'usage.totalTokensFullSub', params: { in: inStr, out: outStr } });
           }
         } else if (isSafeCount(usage.observedTotalTokens)) {
-          if (totalTokensEl) totalTokensEl.textContent = usage.observedTotalTokens.toLocaleString();
+          if (totalTokensEl) setElementDescriptor(totalTokensEl, usage.observedTotalTokens.toLocaleString());
           if (totalTokensBadgeEl) {
-            totalTokensBadgeEl.innerHTML = '<span class="status-badge status-amber" style="font-size: 10px;">已观测部分</span>';
+            totalTokensBadgeEl.innerHTML = `<span class="status-badge status-amber" style="font-size: 10px;" data-i18n="usage.badgeObservedPart">${t('usage.badgeObservedPart')}</span>`;
           }
           if (totalTokensSubEl) {
-            const obsSess = isSafeCount(usage.observedSessionCount) ? usage.observedSessionCount.toLocaleString() : '未提供';
-            const missSess = isSafeCount(usage.missingUsageSessionCount) ? usage.missingUsageSessionCount.toLocaleString() : '未提供';
-            totalTokensSubEl.textContent = `已观测 ${obsSess} 会话 · 缺测 ${missSess} 会话`;
+            const obsS = isSafeCount(usage.observedSessionCount) ? usage.observedSessionCount.toLocaleString() : '-';
+            const missS = isSafeCount(usage.missingUsageSessionCount) ? usage.missingUsageSessionCount.toLocaleString() : '-';
+            setElementDescriptor(totalTokensSubEl, { key: 'usage.observedMissSub', params: { observed: obsS, missing: missS } });
           }
         } else {
-          if (totalTokensEl) totalTokensEl.textContent = '未提供';
+          if (totalTokensEl) setElementDescriptor(totalTokensEl, { key: 'common.notProvided' });
           if (totalTokensBadgeEl) totalTokensBadgeEl.innerHTML = '';
           if (totalTokensSubEl) {
-            totalTokensSubEl.textContent = (usage.coverage === 'unavailable') ? '已选会话无可用 Token 数据' : '未提供完整或部分计数';
+            setElementDescriptor(totalTokensSubEl, { key: (usage.coverage === 'unavailable') ? 'usage.noTokenData' : 'usage.noCountData' });
           }
         }
 
@@ -4301,15 +4568,15 @@
         const sessionsEl = document.getElementById('usage-total-sessions');
         const sessionsSubEl = document.getElementById('usage-total-sessions-sub');
         if (sessionsEl) {
-          sessionsEl.textContent = formatCount(usage.sessionCount);
+          setElementDescriptor(sessionsEl, formatCount(usage.sessionCount));
         }
         if (sessionsSubEl) {
           if (isSafeCount(usage.observedSessionCount) && isSafeCount(usage.missingUsageSessionCount)) {
-            sessionsSubEl.textContent = `已观测 ${usage.observedSessionCount.toLocaleString()} · 缺测 ${usage.missingUsageSessionCount.toLocaleString()} 会话`;
+            setElementDescriptor(sessionsSubEl, { key: 'usage.sessionsObservedMissSub', params: { observed: usage.observedSessionCount.toLocaleString(), missing: usage.missingUsageSessionCount.toLocaleString() } });
           } else if (isSafeCount(usage.observedSessionCount)) {
-            sessionsSubEl.textContent = `已观测 ${usage.observedSessionCount.toLocaleString()} 会话`;
+            setElementDescriptor(sessionsSubEl, { key: 'usage.sessionsObservedSub', params: { observed: usage.observedSessionCount.toLocaleString() } });
           } else {
-            sessionsSubEl.textContent = '本地已收录会话';
+            setElementDescriptor(sessionsSubEl, { key: 'usage.statTotalSessionsSub' });
           }
         }
 
@@ -4318,10 +4585,10 @@
         const provCountEl = document.getElementById('usage-provider-count');
         const provCountSubEl = document.getElementById('usage-provider-count-sub');
         if (provCountEl) {
-          provCountEl.textContent = providers.length.toLocaleString();
+          setElementDescriptor(provCountEl, providers.length.toLocaleString());
         }
         if (provCountSubEl) {
-          provCountSubEl.textContent = '日志已收录来源 · 不代表连接或存活';
+          setElementDescriptor(provCountSubEl, { key: 'usage.statProviderCountSub' });
         }
 
         // 4. Coverage status note
@@ -4333,26 +4600,26 @@
         if (covBadge && covText) {
           if (usage.coverage === 'complete') {
             covBadge.className = 'status-badge status-sage';
-            covBadge.textContent = '完整统计';
-            covText.textContent = '选定范围内会话用量均完整记录';
+            setElementDescriptor(covBadge, { key: 'usage.covComplete' });
+            setElementDescriptor(covText, { key: 'usage.covCompleteText' });
           } else if (usage.coverage === 'partial') {
             covBadge.className = 'status-badge status-amber';
-            covBadge.textContent = '部分已观测';
-            const obs = isSafeCount(usage.observedSessionCount) ? usage.observedSessionCount.toLocaleString() : '未提供';
-            const miss = isSafeCount(usage.missingUsageSessionCount) ? usage.missingUsageSessionCount.toLocaleString() : '未提供';
-            covText.textContent = `仅部分会话存在有效观测值（已观测 ${obs} / 缺测 ${miss} 会话）`;
+            setElementDescriptor(covBadge, { key: 'usage.covPartial' });
+            const obs = isSafeCount(usage.observedSessionCount) ? usage.observedSessionCount.toLocaleString() : '-';
+            const miss = isSafeCount(usage.missingUsageSessionCount) ? usage.missingUsageSessionCount.toLocaleString() : '-';
+            setElementDescriptor(covText, { key: 'usage.covPartialText', params: { observed: obs, missing: miss } });
           } else if (usage.coverage === 'overflow') {
             covBadge.className = 'status-badge status-red';
-            covBadge.textContent = '计数溢出';
-            covText.textContent = 'Token 计数超出安全表示范围';
+            setElementDescriptor(covBadge, { key: 'usage.covOverflow' });
+            setElementDescriptor(covText, { key: 'usage.covOverflowText' });
           } else if (usage.coverage === 'unavailable') {
             covBadge.className = 'status-badge status-neutral';
-            covBadge.textContent = '无可用数据';
-            covText.textContent = '选定范围内会话未记录 Token 数据';
+            setElementDescriptor(covBadge, { key: 'usage.covUnavailable' });
+            setElementDescriptor(covText, { key: 'usage.covUnavailableText' });
           } else {
             covBadge.className = 'status-badge status-neutral';
-            covBadge.textContent = '未提供';
-            covText.textContent = '未提供覆盖状态说明';
+            setElementDescriptor(covBadge, { key: 'common.notProvided' });
+            setElementDescriptor(covText, { key: 'usage.covDefaultText' });
           }
         }
 
@@ -4369,45 +4636,45 @@
         const tbody = document.getElementById('usage-provider-tbody');
         if (tbody) {
           if (providers.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">未发现本地日志 Token 数据</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;" data-i18n="usage.noTableData">${t('usage.noTableData')}</td></tr>`;
           } else {
             tbody.innerHTML = providers.map(p => {
               const rawName = p.provider || '';
               const displayName = safeFormatProvider(rawName);
               const nameHtml = (displayName !== rawName && rawName)
                 ? `<strong>${safeEscapeHtml(displayName)}</strong> <span class="code-badge" style="margin-left:4px; font-weight:normal;">${safeEscapeHtml(rawName)}</span>`
-                : `<strong>${safeEscapeHtml(displayName || '未知 Provider')}</strong>`;
+                : `<strong>${safeEscapeHtml(displayName || t('usage.unknownProvider'))}</strong>`;
 
               // Input tokens: missing count remains '未提供', aggregate overflow does not mark dimension as overflow
-              let inputHtml = '<span style="color:var(--text-muted);">未提供</span>';
+              let inputHtml = `<span style="color:var(--text-muted);" data-i18n="common.notProvided">${t('common.notProvided')}</span>`;
               if (isSafeCount(p.inputTokens)) {
                 inputHtml = p.inputTokens.toLocaleString();
               } else if (isSafeCount(p.observedInputTokens)) {
-                inputHtml = `${p.observedInputTokens.toLocaleString()} <span class="status-badge status-amber" style="font-size:9px; padding:1px 4px;">已观测部分</span>`;
+                inputHtml = `${p.observedInputTokens.toLocaleString()} <span class="status-badge status-amber" style="font-size:9px; padding:1px 4px;" data-i18n="usage.badgeObservedPart">${t('usage.badgeObservedPart')}</span>`;
               }
 
               // Output tokens: missing count remains '未提供', aggregate overflow does not mark dimension as overflow
-              let outputHtml = '<span style="color:var(--text-muted);">未提供</span>';
+              let outputHtml = `<span style="color:var(--text-muted);" data-i18n="common.notProvided">${t('common.notProvided')}</span>`;
               if (isSafeCount(p.outputTokens)) {
                 outputHtml = p.outputTokens.toLocaleString();
               } else if (isSafeCount(p.observedOutputTokens)) {
-                outputHtml = `${p.observedOutputTokens.toLocaleString()} <span class="status-badge status-amber" style="font-size:9px; padding:1px 4px;">已观测部分</span>`;
+                outputHtml = `${p.observedOutputTokens.toLocaleString()} <span class="status-badge status-amber" style="font-size:9px; padding:1px 4px;" data-i18n="usage.badgeObservedPart">${t('usage.badgeObservedPart')}</span>`;
               }
 
               // Total tokens: explains aggregate overflow if applicable
-              let totalHtml = '<span style="color:var(--text-muted);">未提供</span>';
+              let totalHtml = `<span style="color:var(--text-muted);" data-i18n="common.notProvided">${t('common.notProvided')}</span>`;
               if (isSafeCount(p.totalTokens)) {
                 totalHtml = `<strong>${p.totalTokens.toLocaleString()}</strong>`;
               } else if (isSafeCount(p.observedTotalTokens)) {
-                totalHtml = `<strong>${p.observedTotalTokens.toLocaleString()}</strong> <span class="status-badge status-amber" style="font-size:9px; padding:1px 4px;">已观测部分</span>`;
+                totalHtml = `<strong>${p.observedTotalTokens.toLocaleString()}</strong> <span class="status-badge status-amber" style="font-size:9px; padding:1px 4px;" data-i18n="usage.badgeObservedPart">${t('usage.badgeObservedPart')}</span>`;
               } else if (p.coverage === 'overflow') {
-                totalHtml = '<span class="status-badge status-red" style="font-size:9px;">超出范围</span>';
+                totalHtml = `<span class="status-badge status-red" style="font-size:9px;" data-i18n="usage.badgeOutOfRange">${t('usage.badgeOutOfRange')}</span>`;
               }
 
-              let sessionHtml = '<span style="color:var(--text-muted);">未提供</span>';
+              let sessionHtml = `<span style="color:var(--text-muted);" data-i18n="common.notProvided">${t('common.notProvided')}</span>`;
               if (isSafeCount(p.sessionCount)) {
                 if (isSafeCount(p.observedSessionCount) && isSafeCount(p.missingUsageSessionCount)) {
-                  sessionHtml = `${p.sessionCount.toLocaleString()} <div style="font-size:10px; color:var(--text-muted); line-height:1.2;">观测 ${p.observedSessionCount.toLocaleString()} / 缺测 ${p.missingUsageSessionCount.toLocaleString()}</div>`;
+                  sessionHtml = `${p.sessionCount.toLocaleString()} <div style="font-size:10px; color:var(--text-muted); line-height:1.2;">${t('usage.tableSessionObsMiss', { observed: p.observedSessionCount.toLocaleString(), missing: p.missingUsageSessionCount.toLocaleString() })}</div>`;
                 } else {
                   sessionHtml = p.sessionCount.toLocaleString();
                 }
@@ -4415,7 +4682,7 @@
 
               const quotaHtml = (p.quotaAvailable && typeof p.quota === 'string' && p.quota)
                 ? `<span class="status-badge status-neutral">${safeEscapeHtml(p.quota)}</span>`
-                : '<span class="status-badge status-neutral" title="云端配额与计费未提供">未提供</span>';
+                : `<span class="status-badge status-neutral" title="${t('usage.quotaTooltip')}" data-i18n-title="usage.quotaTooltip" data-i18n="common.notProvided">${t('common.notProvided')}</span>`;
 
               return `
                 <tr>
@@ -4436,7 +4703,7 @@
         const dailyCont = document.getElementById('usage-daily-container');
         if (dailyCont) {
           if (daily.length === 0) {
-            dailyCont.innerHTML = '<div style="font-size:11px; color:var(--text-muted); padding:16px 0; text-align:center;">无每日历史数据</div>';
+            dailyCont.innerHTML = `<div style="font-size:11px; color:var(--text-muted); padding:16px 0; text-align:center;" data-i18n="usage.noDailyData">${t('usage.noDailyData')}</div>`;
           } else {
             const recentDays = daily.slice(-14);
             const NUMERIC_PLOT_HEIGHT = 100;
@@ -4451,33 +4718,34 @@
               const hasObservedTokens = isSafeCount(d.observedTokens) || isSafeCount(d.observedTotalTokens);
               const observedVal = isSafeCount(d.observedTokens) ? d.observedTokens : (isSafeCount(d.observedTotalTokens) ? d.observedTotalTokens : null);
 
-              const obsS = isSafeCount(d.observedSessionCount) ? d.observedSessionCount.toLocaleString() : '未提供';
-              const missS = isSafeCount(d.missingUsageSessionCount) ? d.missingUsageSessionCount.toLocaleString() : '未提供';
+              const obsS = isSafeCount(d.observedSessionCount) ? d.observedSessionCount.toLocaleString() : t('common.notProvided');
+              const missS = isSafeCount(d.missingUsageSessionCount) ? d.missingUsageSessionCount.toLocaleString() : t('common.notProvided');
+              const dateText = safeEscapeHtml(d.date || t('common.unknownDate'));
 
               if (d.coverage === 'overflow') {
                 countType = 'overflow';
-                tooltip = `${safeEscapeHtml(d.date || '未知日期')}: 计数超出安全表示范围 (Overflow · 会话起始日)`;
+                tooltip = t('usage.chartOverflowTooltip', { date: dateText });
               } else if (hasCompleteTokens) {
                 plotCount = completeVal;
                 if (plotCount === 0) {
                   countType = 'complete_zero';
-                  tooltip = `${safeEscapeHtml(d.date || '未知日期')}: 0 Tokens (真实 0 · 会话起始日)`;
+                  tooltip = t('usage.chartCompleteZeroTooltip', { date: dateText });
                 } else {
                   countType = 'complete';
-                  tooltip = `${safeEscapeHtml(d.date || '未知日期')}: ${plotCount.toLocaleString()} Tokens (完整统计 · 会话起始日)`;
+                  tooltip = t('usage.chartCompleteTooltip', { date: dateText, tokens: plotCount.toLocaleString() });
                 }
               } else if (hasObservedTokens) {
                 plotCount = observedVal;
                 if (plotCount === 0) {
                   countType = 'observed_zero';
-                  tooltip = `${safeEscapeHtml(d.date || '未知日期')}: 0 Tokens [已观测部分] (覆盖: 已观测 ${obsS} / 缺测 ${missS} 会话 · 会话起始日)`;
+                  tooltip = t('usage.chartObservedZeroTooltip', { date: dateText, observed: obsS, missing: missS });
                 } else {
                   countType = 'observed';
-                  tooltip = `${safeEscapeHtml(d.date || '未知日期')}: ${plotCount.toLocaleString()} Tokens [已观测部分] (覆盖: 已观测 ${obsS} / 缺测 ${missS} 会话 · 会话起始日)`;
+                  tooltip = t('usage.chartObservedTooltip', { date: dateText, tokens: plotCount.toLocaleString(), observed: obsS, missing: missS });
                 }
               } else {
                 countType = 'unknown';
-                tooltip = `${safeEscapeHtml(d.date || '未知日期')}: 未提供用量数据 (会话起始日)`;
+                tooltip = t('usage.chartUnknownTooltip', { date: dateText });
               }
 
               return {
@@ -4507,19 +4775,19 @@
                     barOrMarkerHtml = `<div style="width: 100%; max-width: 32px; height: ${barHeightPx.toFixed(2)}px; background: var(--text-main); border-radius: 2px 2px 0 0;"></div>`;
                   } else if (item.countType === 'observed' && maxTokens > 0) {
                     const barHeightPx = (item.plotCount / maxTokens) * NUMERIC_PLOT_HEIGHT;
-                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--status-amber-text); white-space: nowrap;">已观测</span>`;
+                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--status-amber-text); white-space: nowrap;" data-i18n="usage.chartObservedLabel">${t('usage.chartObservedLabel')}</span>`;
                     barOrMarkerHtml = `<div style="width: 100%; max-width: 32px; height: ${barHeightPx.toFixed(2)}px; background: var(--status-amber-text); border-radius: 2px 2px 0 0; opacity: 0.9;"></div>`;
                   } else if (item.countType === 'complete_zero') {
                     topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted); white-space: nowrap;">0</span>`;
                     barOrMarkerHtml = `<div style="width: 100%; max-width: 32px; height: 2px; background: var(--text-muted); border-radius: 1px;"></div>`;
                   } else if (item.countType === 'observed_zero') {
-                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--status-amber-text); white-space: nowrap;">已观测 0</span>`;
+                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--status-amber-text); white-space: nowrap;" data-i18n="usage.chartObservedZeroLabel">${t('usage.chartObservedZeroLabel')}</span>`;
                     barOrMarkerHtml = `<div style="width: 100%; max-width: 32px; height: 2px; background: var(--status-amber-text); border-radius: 1px;"></div>`;
                   } else if (item.countType === 'overflow') {
-                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--status-red-text); white-space: nowrap;">溢出</span>`;
+                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--status-red-text); white-space: nowrap;" data-i18n="usage.chartOverflowLabel">${t('usage.chartOverflowLabel')}</span>`;
                     barOrMarkerHtml = `<div style="width: 100%; max-width: 24px; height: 1px; border-bottom: 1px dashed var(--status-red-border);"></div>`;
                   } else {
-                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted); white-space: nowrap;">未提供</span>`;
+                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted); white-space: nowrap;" data-i18n="common.notProvided">${t('common.notProvided')}</span>`;
                     barOrMarkerHtml = `<div style="width: 100%; max-width: 24px; height: 1px; border-bottom: 1px dashed var(--border-color);"></div>`;
                   }
 
@@ -4550,26 +4818,26 @@
                 <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                   <span style="display: inline-flex; align-items: center; gap: 4px;">
                     <span style="display: inline-block; width: 10px; height: 10px; background: var(--text-main); border-radius: 2px;"></span>
-                    完整统计柱
+                    <span data-i18n="usage.legendComplete">${t('usage.legendComplete')}</span>
                   </span>
                   <span style="display: inline-flex; align-items: center; gap: 4px;">
                     <span style="display: inline-block; width: 10px; height: 10px; background: var(--status-amber-text); border-radius: 2px; opacity: 0.9;"></span>
-                    已观测部分柱
+                    <span data-i18n="usage.legendObserved">${t('usage.legendObserved')}</span>
                   </span>
                   <span style="display: inline-flex; align-items: center; gap: 4px;">
                     <span style="display: inline-block; width: 10px; height: 2px; background: var(--text-muted);"></span>
-                    完整 0 基线
+                    <span data-i18n="usage.legendZeroComplete">${t('usage.legendZeroComplete')}</span>
                   </span>
                   <span style="display: inline-flex; align-items: center; gap: 4px;">
                     <span style="display: inline-block; width: 10px; height: 2px; background: var(--status-amber-text);"></span>
-                    已观测 0 基线
+                    <span data-i18n="usage.legendZeroObserved">${t('usage.legendZeroObserved')}</span>
                   </span>
                   <span style="display: inline-flex; align-items: center; gap: 4px;">
                     <span style="display: inline-block; width: 10px; height: 0; border-bottom: 1px dashed var(--border-color);"></span>
-                    未提供 / 溢出
+                    <span data-i18n="usage.legendUnavailable">${t('usage.legendUnavailable')}</span>
                   </span>
                 </div>
-                <span>按会话起始日统计 · 最近至多 14 条记录</span>
+                <span data-i18n="usage.chartFooterNote">${t('usage.chartFooterNote')}</span>
               </div>
             `;
           }
@@ -4581,7 +4849,7 @@
       if (grid) {
         grid.innerHTML = `
           <div class="alert-banner alert-danger" style="grid-column: 1 / -1;">
-            无法加载用量数据：${safeEscapeHtml(err && err.message ? err.message : String(err))}
+            ${t('usage.loadError', { error: safeEscapeHtml(err && err.message ? err.message : String(err)) })}
           </div>
         `;
       }
@@ -4597,24 +4865,24 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>调优建议</h1>
-          <p>从反复出现的会话模式中提炼改进方案 · 严格证据阈值与回滚保障</p>
+          <h1 data-i18n="improve.title">${t('improve.title')}</h1>
+          <p data-i18n="improve.subtitle">${t('improve.subtitle')}</p>
         </div>
         <div class="page-actions">
-          <button id="btn-run-analysis" class="btn btn-primary btn-sm">分析工程证据</button>
+          <button id="btn-run-analysis" class="btn btn-primary btn-sm" data-i18n="improve.btnRunAnalysis">${t('improve.btnRunAnalysis')}</button>
         </div>
       </div>
 
       <div class="improve-methodology-note" role="note">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-        <span>基于会话日志记录与工程规则提炼。建议仅在至少 2 个独立会话中出现重复信号时生成，写入前需经 Diff 人工审查并支持回滚。</span>
+        <span data-i18n="improve.methodologyNote">${t('improve.methodologyNote')}</span>
       </div>
 
       <div class="improve-container">
         ${suggestions.length === 0 ? `
           <div class="empty-state">
-            <div class="empty-state-title">暂无达到阈值的调优建议</div>
-            <div class="empty-state-desc">当前项目尚未形成满足 2 个独立会话与重复信号阈值的调优方案。点击“分析工程证据”扫描当前项目会话日志。</div>
+            <div class="empty-state-title" data-i18n="improve.emptyTitle">${t('improve.emptyTitle')}</div>
+            <div class="empty-state-desc" data-i18n="improve.emptyDesc">${t('improve.emptyDesc')}</div>
           </div>
         ` : `
           <ul class="improve-card-list" role="list">
@@ -4623,33 +4891,42 @@
               const evList = sug.evidence || [];
               const distinctSessions = new Set(evList.map(e => e.sessionId).filter(Boolean)).size;
               const evCount = evList.length;
-              const evLabel = distinctSessions > 0 ? `${evCount} 条证据 · ${distinctSessions} 个独立会话` : `${evCount} 条证据信号`;
 
-              let bodyText = sug.description || sug.issue || sug.reason || '';
-              if (!bodyText) {
-                if (evList.length > 0) {
-                  bodyText = '从关联会话工程日志中提炼的改进方案，请审查证据与 Diff。';
-                } else {
-                  bodyText = '待审查的工程调优建议。';
-                }
+              let bodyHtml = '';
+              let rawBodyText = sug.description || sug.issue || sug.reason || '';
+              if (rawBodyText) {
+                bodyHtml = `<div class="improve-card-body">${escapeHtml(rawBodyText)}</div>`;
+              } else if (evList.length > 0) {
+                bodyHtml = `<div class="improve-card-body" data-i18n="improve.fallbackBodyWithEvidence">${t('improve.fallbackBodyWithEvidence')}</div>`;
+              } else {
+                bodyHtml = `<div class="improve-card-body" data-i18n="improve.fallbackBodyDefault">${t('improve.fallbackBodyDefault')}</div>`;
               }
 
-              const dkLabel = formatDiscoveryKind(sug.discoveryKind);
+              const carrierBadge = sug.carrier
+                ? `<span class="carrier-badge">${escapeHtml(sug.carrier)}</span>`
+                : `<span class="carrier-badge" data-i18n="improve.defaultCarrier">${t('improve.defaultCarrier')}</span>`;
+
+              const candidateCount = sug.verificationCandidateMemoryIds ? sug.verificationCandidateMemoryIds.length : 0;
+              const candParams = JSON.stringify({ count: candidateCount });
 
               return `
                 <li class="improve-card" data-id="${escapeHtml(sug.id)}">
                   <div class="improve-card-header">
-                    <div class="improve-card-title">${escapeHtml(sug.title || '调优建议')}</div>
-                    <span class="evidence-count-badge">${escapeHtml(evLabel)}</span>
+                    <div class="improve-card-title">${escapeHtml(sug.title || t('improve.title'))}</div>
+                    ${distinctSessions > 0 ? `
+                      <span class="evidence-count-badge" data-i18n="improve.evidenceLabelWithSessions" data-i18n-params="${escapeHtml(JSON.stringify({ count: evCount, sessions: distinctSessions }))}">${t('improve.evidenceLabelWithSessions', { count: evCount, sessions: distinctSessions })}</span>
+                    ` : `
+                      <span class="evidence-count-badge" data-i18n="improve.evidenceLabel" data-i18n-params="${escapeHtml(JSON.stringify({ count: evCount }))}">${t('improve.evidenceLabel', { count: evCount })}</span>
+                    `}
                   </div>
 
-                  <div class="improve-card-body">${escapeHtml(bodyText)}</div>
+                  ${bodyHtml}
 
                   <div class="improve-card-tags">
-                    <span class="carrier-badge">${escapeHtml(sug.carrier || '项目文件')}</span>
-                    ${dkLabel ? `<span class="badge-subtle">${escapeHtml(dkLabel)}</span>` : ''}
-                    ${isAlreadyInstalledHook(sug) ? `<span class="status-badge status-sage">已配置 Hook</span>` : ''}
-                    ${sug.verificationCandidateMemoryIds && sug.verificationCandidateMemoryIds.length > 0 ? `<span class="badge-subtle" title="包含 ${sug.verificationCandidateMemoryIds.length} 条待验证候选记忆">${sug.verificationCandidateMemoryIds.length} 条候选记忆</span>` : ''}
+                    ${carrierBadge}
+                    ${renderDiscoveryKindBadge(sug.discoveryKind)}
+                    ${isAlreadyInstalledHook(sug) ? `<span class="status-badge status-sage" data-i18n="improve.hookConfigured">${t('improve.hookConfigured')}</span>` : ''}
+                    ${candidateCount > 0 ? `<span class="badge-subtle" data-i18n="improve.candidateMemoriesBadge" data-i18n-params="${escapeHtml(candParams)}" data-i18n-title="improve.candidateMemoriesTooltip" title="${t('improve.candidateMemoriesTooltip', { count: candidateCount })}">${t('improve.candidateMemoriesBadge', { count: candidateCount })}</span>` : ''}
                     ${sug.contextTokens ? `<span class="badge-subtle font-mono">~${escapeHtml(String(sug.contextTokens))} tokens</span>` : ''}
                     ${getImproveStateBadge(st)}
                   </div>
@@ -4659,13 +4936,13 @@
 
                   <div class="improve-card-footer">
                     <div class="improve-footer-left">
-                      ${sug.workflowDraft ? `<button class="btn btn-ghost btn-sm btn-view-workflow-draft" data-id="${escapeHtml(sug.id)}" title="查看/编辑生成的工作流草稿">查看工作流草稿</button>` : ''}
+                      ${sug.workflowDraft ? `<button class="btn btn-ghost btn-sm btn-view-workflow-draft" data-id="${escapeHtml(sug.id)}" data-i18n-title="improve.btnViewWorkflowDraftTitle" title="${t('improve.btnViewWorkflowDraftTitle')}" data-i18n="improve.btnViewWorkflowDraft">${t('improve.btnViewWorkflowDraft')}</button>` : ''}
                     </div>
                     <div class="improve-footer-right">
-                      <button class="btn btn-secondary btn-sm btn-test-sug" data-id="${escapeHtml(sug.id)}" title="基于此建议发起对照实验测试">测试 (Test)</button>
-                      <button class="btn btn-secondary btn-sm btn-preview-diff" data-id="${escapeHtml(sug.id)}">审查 Diff</button>
-                      ${st === 'applied' ? `<button class="btn btn-ghost btn-sm btn-undo-sug" data-id="${escapeHtml(sug.id)}">撤销</button>` : ''}
-                      ${st !== 'applied' && st !== 'dismissed' ? `<button class="btn btn-ghost btn-sm btn-dismiss-sug" data-id="${escapeHtml(sug.id)}">忽略</button>` : ''}
+                      <button class="btn btn-secondary btn-sm btn-test-sug" data-id="${escapeHtml(sug.id)}" data-i18n-title="improve.btnTestSuggestionTitle" title="${t('improve.btnTestSuggestionTitle')}" data-i18n="improve.btnTestSuggestion">${t('improve.btnTestSuggestion')}</button>
+                      <button class="btn btn-secondary btn-sm btn-preview-diff" data-id="${escapeHtml(sug.id)}" data-i18n="improve.btnPreviewDiff">${t('improve.btnPreviewDiff')}</button>
+                      ${st === 'applied' ? `<button class="btn btn-ghost btn-sm btn-undo-sug" data-id="${escapeHtml(sug.id)}" data-i18n="improve.btnUndo">${t('improve.btnUndo')}</button>` : ''}
+                      ${st !== 'applied' && st !== 'dismissed' ? `<button class="btn btn-ghost btn-sm btn-dismiss-sug" data-id="${escapeHtml(sug.id)}" data-i18n="improve.btnDismiss">${t('improve.btnDismiss')}</button>` : ''}
                     </div>
                   </div>
                 </li>
@@ -4678,18 +4955,18 @@
 
     document.getElementById('btn-run-analysis').addEventListener('click', async () => {
       try {
-        showToast('正在分析会话工程证据...');
+        showToast({ key: 'improve.analyzingEvidence' });
         const result = await callBridge('improve.analyze', state.currentProject ? { project: state.currentProject } : {});
         const sugCount = (result && result.suggestions && result.suggestions.length) || 0;
         const candCount = (result && result.candidateMemories && result.candidateMemories.length) || 0;
         if (candCount > 0) {
-          showToast(`分析完成：提炼出 ${sugCount} 条调优建议，发现 ${candCount} 条候选记忆`);
+          showToast({ key: 'improve.analyzeDoneWithCandidates', params: { sugCount, candCount } });
         } else {
-          showToast(`分析完成：提炼出 ${sugCount} 条调优建议`);
+          showToast({ key: 'improve.analyzeDone', params: { sugCount } });
         }
         await refreshDashboard(true, true);
       } catch (e) {
-        showToast('分析失败: ' + e.message, 'error');
+        showToast({ key: 'improve.analyzeFailed', params: { error: e.message } }, 'error');
       }
     });
 
@@ -4720,10 +4997,10 @@
         const id = btn.getAttribute('data-id');
         try {
           await callBridge('improve.undo', { id });
-          showToast('已撤销变更并执行回滚');
+          showToast({ key: 'improve.undoSuccess' });
           await refreshDashboard(true, true);
         } catch (e) {
-          showToast('撤销失败: ' + e.message, 'error');
+          showToast({ key: 'improve.undoFailed', params: { error: e.message } }, 'error');
         }
       });
     });
@@ -4733,10 +5010,10 @@
         const id = btn.getAttribute('data-id');
         try {
           await callBridge('improve.dismiss', { id });
-          showToast('已忽略该建议');
+          showToast({ key: 'improve.dismissSuccess' });
           await refreshDashboard(true, true);
         } catch (e) {
-          showToast('忽略失败: ' + e.message, 'error');
+          showToast({ key: 'improve.dismissFailed', params: { error: e.message } }, 'error');
         }
       });
     });
@@ -4746,14 +5023,14 @@
     const s = (st || '').toLowerCase();
     switch (s) {
       case 'applied':
-        return '<span class="status-badge status-sage">✓ 已应用</span>';
+        return `<span class="status-badge status-sage" data-i18n="improve.stateApplied">✓ ${t('improve.stateApplied')}</span>`;
       case 'pending':
       case 'ready':
-        return '<span class="status-badge status-amber">待审查</span>';
+        return `<span class="status-badge status-amber" data-i18n="improve.statePending">${t('improve.statePending')}</span>`;
       case 'dismissed':
-        return '<span class="status-badge status-neutral">已忽略</span>';
+        return `<span class="status-badge status-neutral" data-i18n="improve.stateDismissed">${t('improve.stateDismissed')}</span>`;
       default:
-        return `<span class="status-badge status-neutral">${escapeHtml(st || '待审查')}</span>`;
+        return `<span class="status-badge status-neutral">${escapeHtml(st || t('improve.statePending'))}</span>`;
     }
   }
 
@@ -4787,11 +5064,11 @@
     let previewObj = preloadedPreviewObj;
     if (!previewObj) {
       try {
-        showToast('正在准备调优建议对照数据...', 'info');
+        showToast({ key: 'improve.testPreparing' }, 'info');
         previewObj = await callBridge('improve.preview', { id: suggestionId });
       } catch (err) {
         if (thisSeq !== testSuggestionSequence || state.currentProject !== thisProject || state.currentPage !== thisPage) return;
-        showToast('无法加载建议详情: ' + err.message, 'error');
+        showToast({ key: 'improve.testLoadFailed', params: { error: err.message } }, 'error');
         return;
       }
     }
@@ -4819,19 +5096,19 @@
       for (const op of ops) {
         if (op.delete) {
           fileCandidateValid = false;
-          fileCandidateUnsupportedReason = '包含文件删除操作（Agent Lab 候选集仅支持文件完整内容写入）';
+          fileCandidateUnsupportedReason = t('improve.unsupportedDelete');
           break;
         }
         const relPath = normalizeToRelativePath(op.path, targetProject);
         if (!relPath) {
           fileCandidateValid = false;
-          fileCandidateUnsupportedReason = `路径不在目标工程范围内或包含非法组件: ${op.path}`;
+          fileCandidateUnsupportedReason = t('improve.unsupportedPath', { path: op.path });
           break;
         }
         const content = op.content !== undefined ? op.content : op.after;
         if (typeof content !== 'string') {
           fileCandidateValid = false;
-          fileCandidateUnsupportedReason = `文件缺少可用文本内容: ${op.path}`;
+          fileCandidateUnsupportedReason = t('improve.unsupportedNoContent', { path: op.path });
           break;
         }
         candidateFiles.push({
@@ -4853,28 +5130,29 @@
       chosenKind = 'memory';
       chosenCandidateMemoryIds = candidateMemoryIds;
       chosenCandidateFiles = [];
-      candidateExplanation = `已默认选用关联的 ${candidateMemoryIds.length} 条候选 Memory 进行对照实验（纯 Memory 候选在独立校验达标后可直接晋升生效）。`;
+      candidateExplanation = t('improve.explanationMemoryCandidate', { count: candidateMemoryIds.length });
       if (fileCandidateValid && candidateFiles.length > 0) {
-        candidateExplanation += ` 该建议亦包含 ${candidateFiles.length} 个文件变更，为避免混合候选导致无法晋升，未预载文件变更。`;
+        candidateExplanation += t('improve.explanationMemoryExtraFiles', { count: candidateFiles.length });
       }
     } else if (fileCandidateValid && candidateFiles.length > 0) {
       chosenKind = 'context';
       chosenCandidateMemoryIds = [];
       chosenCandidateFiles = candidateFiles;
-      candidateExplanation = `已选用该建议包含的全部 ${candidateFiles.length} 个文件完整变更进行对照测试。`;
+      candidateExplanation = t('improve.explanationFiles', { count: candidateFiles.length });
     } else {
       if (fileCandidateUnsupportedReason) {
-        showToast(`该建议暂无法发起对照实验: ${fileCandidateUnsupportedReason}`, 'error');
+        showToast({ key: 'improve.cannotTestReason', params: { reason: fileCandidateUnsupportedReason } }, 'error');
       } else {
-        showToast('该建议既无可验证的文件变更内容，也无关联的候选 Memory，暂无法发起对照实验。', 'error');
+        showToast({ key: 'improve.cannotTestNoContent' }, 'error');
       }
       return;
     }
 
+    const sugTitle = (sug && sug.title) || (previewObj && previewObj.title) || suggestionId.slice(0, 8);
     openCreateLabModal({
       sourceSuggestionId: suggestionId,
       project: targetProject,
-      title: `对建议 "${(sug && sug.title) || (previewObj && previewObj.title) || suggestionId.slice(0, 8)}" 的对照实验`,
+      title: t('improve.labModalTitle', { title: sugTitle }),
       kind: chosenKind,
       mode: 'codex_agent',
       candidateMemoryIds: chosenCandidateMemoryIds,
@@ -4892,7 +5170,7 @@
     const thisProject = state.currentProject;
     const thisPage = state.currentPage;
     state.selectedSuggestionId = suggestionId;
-    openDrawer('加载 Diff 详情...', '调优建议');
+    openDrawer({ key: 'improve.loadingDiff' }, { key: 'improve.title' });
     const thisDrawer = currentDrawerInstance;
 
     try {
@@ -4903,17 +5181,25 @@
         return;
       }
 
-      if (!previewObj) throw new Error('未获取到预览数据');
+      if (!previewObj) {
+        const e = new Error('improve.suggestionNotFound');
+        e.i18nKey = 'improve.suggestionNotFound';
+        throw e;
+      }
 
-      setDrawerTitle(previewObj.title || '建议详情', suggestionId ? `建议 · ${suggestionId.substring(0, 8)}` : '调优建议');
+      const titleDesc = previewObj.title ? previewObj.title : { key: 'improve.suggestionDetail' };
+      const subDesc = suggestionId
+        ? { key: 'improve.suggestionIdSubtitle', params: { id: suggestionId.substring(0, 8) } }
+        : { key: 'improve.title' };
+      setDrawerTitle(titleDesc, subDesc);
+
       const isApplied = (previewObj.state || '').toLowerCase() === 'applied';
-
       const isAlreadyConfigured = isAlreadyInstalledHook(previewObj);
-      let actionButtons = `<button id="btn-drawer-test-sug" class="btn btn-secondary btn-sm">测试 (Test)</button>`;
+      let actionButtons = `<button id="btn-drawer-test-sug" class="btn btn-secondary btn-sm" data-i18n="improve.btnTestSuggestion">${t('improve.btnTestSuggestion')}</button>`;
       if (isApplied) {
-        actionButtons += `<button id="btn-drawer-undo-sug" class="btn btn-danger btn-sm">撤销变更 (Undo)</button>`;
+        actionButtons += `<button id="btn-drawer-undo-sug" class="btn btn-danger btn-sm" data-i18n="improve.btnUndoChanges">${t('improve.btnUndoChanges')}</button>`;
       } else if (!isAlreadyConfigured) {
-        actionButtons += `<button id="btn-drawer-apply-sug" class="btn btn-primary btn-sm">确认应用 (Apply)</button>`;
+        actionButtons += `<button id="btn-drawer-apply-sug" class="btn btn-primary btn-sm" data-i18n="improve.btnConfirmApply">${t('improve.btnConfirmApply')}</button>`;
       }
       setDrawerCustomActions(actionButtons);
 
@@ -4931,11 +5217,11 @@
         document.getElementById('btn-drawer-undo-sug').addEventListener('click', async () => {
           try {
             await callBridge('improve.undo', { id: suggestionId });
-            showToast('已撤销变更并执行回滚');
+            showToast({ key: 'improve.undoSuccess' });
             closeDrawer();
             await refreshDashboard(true, true);
           } catch (e) {
-            showToast('撤销失败: ' + e.message, 'error');
+            showToast({ key: 'improve.undoFailed', params: { error: e.message } }, 'error');
           }
         });
       }
@@ -4945,19 +5231,22 @@
       const evidenceList = previewObj.evidence || [];
       const drawerBody = document.getElementById('drawer-content');
 
+      const candMemCount = (previewObj.verificationCandidateMemoryIds && previewObj.verificationCandidateMemoryIds.length) || 0;
+      const candMemParams = JSON.stringify({ count: candMemCount });
+
       drawerBody.innerHTML = `
         <div class="card">
           <div class="card-header">
-            <span class="card-title">建议元数据</span>
+            <span class="card-title" data-i18n="improve.metaTitle">${t('improve.metaTitle')}</span>
             ${getImproveStateBadge(previewObj.state)}
           </div>
           <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <div><span class="text-secondary">目标载体:</span> <strong>${escapeHtml(previewObj.carrier || '项目文件')}</strong></div>
-            <div><span class="text-secondary">影响 Tokens:</span> ${previewObj.contextTokens ? '~' + escapeHtml(String(previewObj.contextTokens)) : '-'}</div>
-            ${previewObj.discoveryKind ? `<div><span class="text-secondary">发现类型:</span> <span class="font-mono">${escapeHtml(formatDiscoveryKind(previewObj.discoveryKind) || previewObj.discoveryKind)}</span></div>` : ''}
-            ${previewObj.verificationCandidateMemoryIds && previewObj.verificationCandidateMemoryIds.length > 0 ? `
+            <div><span class="text-secondary" data-i18n="improve.targetCarrier">${t('improve.targetCarrier')}:</span> <strong>${escapeHtml(previewObj.carrier || t('improve.defaultCarrier'))}</strong></div>
+            <div><span class="text-secondary" data-i18n="improve.impactTokens">${t('improve.impactTokens')}:</span> ${previewObj.contextTokens ? '~' + escapeHtml(String(previewObj.contextTokens)) : '-'}</div>
+            ${previewObj.discoveryKind ? `<div><span class="text-secondary" data-i18n="improve.discoveryKind">${t('improve.discoveryKind')}:</span> ${renderDiscoveryKindInline(previewObj.discoveryKind)}</div>` : ''}
+            ${candMemCount > 0 ? `
               <details style="grid-column: 1 / -1; margin-top: 4px; font-size: 11px;">
-                <summary style="cursor: pointer; color: var(--text-secondary);">验证候选记忆 (${previewObj.verificationCandidateMemoryIds.length})</summary>
+                <summary style="cursor: pointer; color: var(--text-secondary);" data-i18n="improve.candidateMemoriesSummary" data-i18n-params="${escapeHtml(candMemParams)}">${t('improve.candidateMemoriesSummary', { count: candMemCount })}</summary>
                 <ul style="margin-top: 4px; padding-left: 18px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">
                   ${previewObj.verificationCandidateMemoryIds.map(id => `<li>${escapeHtml(id)}</li>`).join('')}
                 </ul>
@@ -4966,7 +5255,7 @@
           </div>
           ${previewObj.workflowDraft ? `
             <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
-              <button id="btn-drawer-inspect-wf" class="btn btn-ghost btn-sm">查看对应工作流草稿</button>
+              <button id="btn-drawer-inspect-wf" class="btn btn-ghost btn-sm" data-i18n="improve.btnInspectWorkflowDraft">${t('improve.btnInspectWorkflowDraft')}</button>
             </div>
           ` : ''}
         </div>
@@ -4976,51 +5265,57 @@
 
         ${previewObj.description || previewObj.issue || previewObj.reason ? `
           <div class="card" style="padding: 10px 12px;">
-            <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">模式成因与改进说明</div>
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;" data-i18n="improve.reasonTitle">${t('improve.reasonTitle')}</div>
             <div style="font-size: 12px; line-height: 1.5; color: var(--text-main);">${escapeHtml(previewObj.description || previewObj.issue || previewObj.reason)}</div>
           </div>
         ` : ''}
 
         ${evidenceList.length > 0 ? `
           <div>
-            <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">关联会话证据 (${evidenceList.length})</h3>
+            <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;" data-i18n="improve.evidenceHeading" data-i18n-params="${escapeHtml(JSON.stringify({ count: evidenceList.length }))}">${t('improve.evidenceHeading', { count: evidenceList.length })}</h3>
             <div style="display: flex; flex-direction: column; gap: 6px;">
-              ${evidenceList.map(ev => `
-                <div class="card" style="padding: 10px 12px; margin-bottom: 0;">
-                  ${ev.quote ? `<div style="font-size: 12px; margin-bottom: 6px; color: var(--text-main); font-style: italic; line-height: 1.45;">"${escapeHtml(ev.quote)}"</div>` : ''}
-                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--text-secondary);">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      ${ev.task ? `<span>任务: ${escapeHtml(ev.task)}</span>` : ''}
-                      ${ev.timestamp ? `<span>时间: ${formatTime(ev.timestamp)}</span>` : ''}
+              ${evidenceList.map(ev => {
+                const locateTooltip = t('improve.locateSourceTooltip', {
+                  sessionId: ev.sessionId || '-',
+                  messageId: ev.messageId || '-'
+                });
+                return `
+                  <div class="card" style="padding: 10px 12px; margin-bottom: 0;">
+                    ${ev.quote ? `<div style="font-size: 12px; margin-bottom: 6px; color: var(--text-main); font-style: italic; line-height: 1.45;">"${escapeHtml(ev.quote)}"</div>` : ''}
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--text-secondary);">
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        ${ev.task ? `<span><span data-i18n="improve.evidenceTaskLabel">${t('improve.evidenceTaskLabel')}</span>: ${escapeHtml(ev.task)}</span>` : ''}
+                        ${ev.timestamp ? `<span><span data-i18n="improve.evidenceTimeLabel">${t('improve.evidenceTimeLabel')}</span>: ${formatTime(ev.timestamp)}</span>` : ''}
+                      </div>
+                      ${ev.sessionId ? `
+                        <button type="button" class="btn-open-source" data-session-id="${escapeHtml(ev.sessionId)}" ${ev.messageId ? `data-message-id="${escapeHtml(ev.messageId)}"` : ''} title="${escapeHtml(locateTooltip)}">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                          <span data-i18n="improve.locateSourceMsg">${t('improve.locateSourceMsg')}</span>
+                        </button>
+                      ` : ''}
                     </div>
-                    ${ev.sessionId ? `
-                      <button type="button" class="btn-open-source" data-session-id="${escapeHtml(ev.sessionId)}" ${ev.messageId ? `data-message-id="${escapeHtml(ev.messageId)}"` : ''} title="会话 ID: ${escapeHtml(ev.sessionId)}${ev.messageId ? ` · 消息 ID: ${escapeHtml(ev.messageId)}` : ''}">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                        <span>定位来源消息</span>
-                      </button>
-                    ` : ''}
+                    <details style="margin-top: 6px; font-size: 10px; color: var(--text-muted);">
+                      <summary style="cursor: pointer;" data-i18n="improve.techIdSummary">${t('improve.techIdSummary')}</summary>
+                      <div class="font-mono" style="margin-top: 2px;">
+                        <div><span data-i18n="improve.sessionIdLabel">${t('improve.sessionIdLabel')}</span>: ${escapeHtml(ev.sessionId || '-')}</div>
+                        ${ev.messageId ? `<div><span data-i18n="improve.messageIdLabel">${t('improve.messageIdLabel')}</span>: ${escapeHtml(ev.messageId)}</div>` : ''}
+                      </div>
+                    </details>
                   </div>
-                  <details style="margin-top: 6px; font-size: 10px; color: var(--text-muted);">
-                    <summary style="cursor: pointer;">来源技术 ID</summary>
-                    <div class="font-mono" style="margin-top: 2px;">
-                      <div>会话 ID: ${escapeHtml(ev.sessionId || '-')}</div>
-                      ${ev.messageId ? `<div>消息 ID: ${escapeHtml(ev.messageId)}</div>` : ''}
-                    </div>
-                  </details>
-                </div>
-              `).join('')}
+                `;
+              }).join('')}
             </div>
           </div>
         ` : ''}
 
         <div>
-          <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">文件变更 Diff (${previewList.length})</h3>
+          <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;" data-i18n="improve.diffHeading" data-i18n-params="${escapeHtml(JSON.stringify({ count: previewList.length }))}">${t('improve.diffHeading', { count: previewList.length })}</h3>
           <div style="display: flex; flex-direction: column; gap: 10px;">
             ${previewList.map(item => `
               <div class="card" style="margin-bottom: 0; padding: 10px 12px;">
                 <div style="font-size: 11px; font-family: var(--font-mono); font-weight: 600; margin-bottom: 6px;">
-                  ${escapeHtml(item.path || '目标文件')}
-                  ${item.delete ? '<span class="status-badge status-red" style="margin-left: 6px;">删除</span>' : ''}
+                  ${escapeHtml(item.path || t('improve.targetFile'))}
+                  ${item.delete ? `<span class="status-badge status-red" style="margin-left: 6px;" data-i18n="improve.badgeDelete">${t('improve.badgeDelete')}</span>` : ''}
                 </div>
                 ${renderDiffView(item.before || '', item.content || item.after || '')}
               </div>
@@ -5029,7 +5324,7 @@
         </div>
 
         <details class="card" style="margin-top: 10px; padding: 10px 12px;">
-          <summary style="font-size: 11px; cursor: pointer; color: var(--text-muted); user-select: none;">查看原始变更操作 JSON</summary>
+          <summary style="font-size: 11px; cursor: pointer; color: var(--text-muted); user-select: none;" data-i18n="improve.rawJsonSummary">${t('improve.rawJsonSummary')}</summary>
           <div class="code-view font-mono" style="margin-top: 8px; font-size: 11px; max-height: 200px; overflow: auto;">${escapeHtml(JSON.stringify(previewList, null, 2))}</div>
         </details>
       `;
@@ -5046,10 +5341,23 @@
       if (thisSeq !== improvePreviewSequence || thisDrawer !== currentDrawerInstance || state.selectedSuggestionId !== suggestionId || !isDrawerOpen || state.currentProject !== thisProject || state.currentPage !== thisPage) {
         return;
       }
-      setDrawerTitle('加载失败', '错误');
-      document.getElementById('drawer-content').innerHTML = `
-        <div class="alert-banner alert-danger">无法加载预览：${escapeHtml(err.message)}</div>
-      `;
+      setDrawerTitle({ key: 'common.loadFailed' }, { key: 'common.error' });
+      const drawerContent = document.getElementById('drawer-content');
+      if (drawerContent) {
+        if (err && err.i18nKey) {
+          drawerContent.innerHTML = `
+            <div class="alert-banner alert-danger">
+              <span data-i18n="improve.loadPreviewFailedPrefix">${escapeHtml(t('improve.loadPreviewFailedPrefix'))}</span><span data-i18n="${err.i18nKey}">${escapeHtml(t(err.i18nKey))}</span>
+            </div>
+          `;
+        } else {
+          drawerContent.innerHTML = `
+            <div class="alert-banner alert-danger">
+              <span data-i18n="improve.loadPreviewFailedPrefix">${escapeHtml(t('improve.loadPreviewFailedPrefix'))}</span><span>${escapeHtml(err ? err.message : String(err))}</span>
+            </div>
+          `;
+        }
+      }
     }
   }
 
@@ -5079,26 +5387,27 @@
 
   function openConfirmApplyModal(previewObj) {
     if (!previewObj || isAlreadyInstalledHook(previewObj)) {
-      showToast('该 Hook 定义已配置且无待写入操作，无需重复应用', 'info');
+      showToast({ key: 'improve.alreadyInstalledNoop' }, 'info');
       return;
     }
     const previewList = previewObj.preview || previewObj.operations || [];
+    const carrierName = previewObj.carrier || t('improve.defaultCarrier');
     const modalBody = `
       <div class="alert-banner alert-warning">
-        <span>注意：应用操作将写入项目工作区文件。Vela 会在写入前校验基线哈希并执行分步暂存，若发生冲突将终止并尝试回滚。</span>
+        <span data-i18n="improve.confirmApplyWarning">${t('improve.confirmApplyWarning')}</span>
       </div>
       ${renderProviderTrustNotice(previewObj, false)}
       <p style="font-size: 12px; color: var(--text-main); margin-top: 8px;">
-        即将写入以下变更到 <strong>${escapeHtml(previewObj.carrier || '项目文件')}</strong>：
+        <span data-i18n="improve.confirmApplyWillWrite">${t('improve.confirmApplyWillWrite')}</span> <strong>${escapeHtml(carrierName)}</strong>：
       </p>
       <ul style="padding-left: 18px; font-size: 11px; color: var(--text-secondary); margin-top: 6px;">
         ${previewList.map(op => `<li><code class="code-badge">${escapeHtml(op.path || '')}</code></li>`).join('')}
       </ul>
     `;
 
-    openModal('确认应用调优建议', modalBody, `
-      <button class="btn btn-secondary" id="btn-cancel-apply">取消</button>
-      <button class="btn btn-primary" id="btn-confirm-apply">确认写入 (Apply)</button>
+    openModal({ key: 'improve.confirmApplyModalTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-cancel-apply" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-confirm-apply" data-i18n="improve.btnConfirmApplyAction">${escapeHtml(t('improve.btnConfirmApplyAction'))}</button>
     `);
 
     document.getElementById('btn-cancel-apply').addEventListener('click', closeModal);
@@ -5106,14 +5415,13 @@
     if (btnConfirm) {
       btnConfirm.addEventListener('click', async () => {
         if (isAlreadyInstalledHook(previewObj)) {
-          showToast('该 Hook 定义已配置且无待写入操作，无需重复应用', 'info');
+          showToast({ key: 'improve.alreadyInstalledNoop' }, 'info');
           closeModal();
           return;
         }
         if (btnConfirm.disabled) return;
         btnConfirm.disabled = true;
-        const origText = btnConfirm.textContent;
-        btnConfirm.textContent = '正在写入...';
+        setElementDescriptor(btnConfirm, { key: 'improve.btnApplying' });
 
         const thisModal = currentModalInstance;
         const thisPage = state.currentPage;
@@ -5128,7 +5436,7 @@
             return;
           }
 
-          showToast('调优建议已成功应用');
+          showToast({ key: 'improve.applySuccess' });
           closeModal();
           closeDrawer();
           await refreshDashboard(true, true);
@@ -5139,8 +5447,8 @@
             return;
           }
           btnConfirm.disabled = false;
-          btnConfirm.textContent = origText;
-          showToast('应用失败: ' + err.message, 'error');
+          setElementDescriptor(btnConfirm, { key: 'improve.btnConfirmApplyAction' });
+          showToast({ key: 'improve.applyFailed', params: { error: err.message } }, 'error');
         }
       });
     }
@@ -5155,17 +5463,17 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>对照实验</h1>
-          <p>Codex Agent 对照评测与确定性命令验证 · 隔离 Git Worktree 运行 · 冻结审批与客观指标</p>
+          <h1 data-i18n="lab.header.title">${escapeHtml(t('lab.header.title'))}</h1>
+          <p data-i18n="lab.header.desc">${escapeHtml(t('lab.header.desc'))}</p>
         </div>
         <div class="page-actions">
-          <button id="btn-new-lab" class="btn btn-primary btn-sm">+ 新建对照实验</button>
+          <button id="btn-new-lab" class="btn btn-primary btn-sm" data-i18n="lab.actions.newLab">${escapeHtml(t('lab.actions.newLab'))}</button>
         </div>
       </div>
 
       <div class="tabs-nav">
-        <button class="tab-btn ${state.labActiveTab === 'evals' ? 'active' : ''}" data-labtab="evals">实验列表 (${evals.length})</button>
-        <button class="tab-btn ${state.labActiveTab === 'regression' ? 'active' : ''}" data-labtab="regression">回归分析</button>
+        <button class="tab-btn ${state.labActiveTab === 'evals' ? 'active' : ''}" data-labtab="evals" data-i18n="lab.tabs.evalsWithCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: evals.length }))}">${escapeHtml(t('lab.tabs.evalsWithCount', { count: evals.length }))}</button>
+        <button class="tab-btn ${state.labActiveTab === 'regression' ? 'active' : ''}" data-labtab="regression" data-i18n="lab.tabs.regression">${escapeHtml(t('lab.tabs.regression'))}</button>
       </div>
 
       <div id="lab-tab-content"></div>
@@ -5185,45 +5493,45 @@
   }
 
   function formatFinitePassRate(rate, isPending = false) {
-    if (isPending) return '尚未运行';
-    if (rate === null || rate === undefined || typeof rate !== 'number' || isNaN(rate)) return '未提供';
+    if (isPending) return tHtml('lab.metric.notRun');
+    if (rate === null || rate === undefined || typeof rate !== 'number' || isNaN(rate)) return tHtml('lab.metric.notProvided');
     return (rate * 100).toFixed(0) + '%';
   }
 
   function formatFiniteDuration(ms, isPending = false) {
-    if (isPending) return '尚未运行';
-    if (ms === null || ms === undefined || typeof ms !== 'number' || isNaN(ms)) return '未提供';
+    if (isPending) return tHtml('lab.metric.notRun');
+    if (ms === null || ms === undefined || typeof ms !== 'number' || isNaN(ms)) return tHtml('lab.metric.notProvided');
     return Math.round(ms) + 'ms';
   }
 
   function formatFiniteTokens(tok, isPending = false) {
-    if (isPending) return '尚未运行';
-    if (tok === null || tok === undefined || typeof tok !== 'number' || isNaN(tok)) return '未提供';
+    if (isPending) return tHtml('lab.metric.notRun');
+    if (tok === null || tok === undefined || typeof tok !== 'number' || isNaN(tok)) return tHtml('lab.metric.notProvided');
     return Math.round(tok).toLocaleString() + ' tok';
   }
 
   function formatFiniteCount(n, isPending = false) {
-    if (isPending) return '尚未运行';
-    if (n === null || n === undefined || typeof n !== 'number' || isNaN(n)) return '未提供';
+    if (isPending) return tHtml('lab.metric.notRun');
+    if (n === null || n === undefined || typeof n !== 'number' || isNaN(n)) return tHtml('lab.metric.notProvided');
     return String(n);
   }
 
   function getEvalDecisionBadge(decision, state) {
     const st = (state || '').toLowerCase();
     if (st === 'running') {
-      return '<span class="status-badge status-blue" title="实验正在执行中，已采集样本待生成最终决策">进行中 / 待最终结论</span>';
+      return `<span class="status-badge status-blue" data-i18n="lab.decisionBadge.running" data-i18n-title="lab.decisionBadge.runningTitle" title="${escapeHtml(t('lab.decisionBadge.runningTitle'))}">${escapeHtml(t('lab.decisionBadge.running'))}</span>`;
     }
     if (st === 'pending_approval' || st === 'pending approval') {
-      return '<span class="status-badge status-neutral" title="等待 Inbox 授权">尚未运行</span>';
+      return `<span class="status-badge status-neutral" data-i18n="lab.decisionBadge.pendingApproval" data-i18n-title="lab.decisionBadge.pendingApprovalTitle" title="${escapeHtml(t('lab.decisionBadge.pendingApprovalTitle'))}">${escapeHtml(t('lab.decisionBadge.pendingApproval'))}</span>`;
     }
     const d = (decision || '').toLowerCase();
     switch (d) {
       case 'ready_for_review':
-        return '<span class="status-badge status-sage" title="至少各 3 个完整样本、候选独立校验全部通过、指标有提升且 Token 可接受">✓ 待审查 (达标)</span>';
+        return `<span class="status-badge status-sage" data-i18n="lab.decisionBadge.readyForReview" data-i18n-title="lab.decisionBadge.readyForReviewTitle" title="${escapeHtml(t('lab.decisionBadge.readyForReviewTitle'))}">${escapeHtml(t('lab.decisionBadge.readyForReview'))}</span>`;
       case 'inconclusive':
-        return '<span class="status-badge status-amber" title="样本不足、未提供 Token 或无显著收益（包含平局）">○ 结论不显著</span>';
+        return `<span class="status-badge status-amber" data-i18n="lab.decisionBadge.inconclusive" data-i18n-title="lab.decisionBadge.inconclusiveTitle" title="${escapeHtml(t('lab.decisionBadge.inconclusiveTitle'))}">${escapeHtml(t('lab.decisionBadge.inconclusive'))}</span>`;
       case 'reject':
-        return '<span class="status-badge status-red" title="测量到成功率/测试执行倒退，或 Token 增幅超过容差">✕ 不建议采纳</span>';
+        return `<span class="status-badge status-red" data-i18n="lab.decisionBadge.reject" data-i18n-title="lab.decisionBadge.rejectTitle" title="${escapeHtml(t('lab.decisionBadge.rejectTitle'))}">${escapeHtml(t('lab.decisionBadge.reject'))}</span>`;
       default:
         return '<span class="status-badge status-neutral">-</span>';
     }
@@ -5232,45 +5540,78 @@
   function getEvalDecisionTitle(decision) {
     switch ((decision || '').toLowerCase()) {
       case 'ready_for_review':
-        return '✓ 具备晋升审查资格 (Ready for Review)';
+        return t('lab.decisionTitle.readyForReview');
       case 'inconclusive':
-        return '○ 结论不显著 (Inconclusive)';
+        return t('lab.decisionTitle.inconclusive');
       case 'reject':
-        return '✕ 不建议采纳 (Reject)';
+        return t('lab.decisionTitle.reject');
       default:
-        return '评测判定: ' + (decision || '未生成');
+        return decision ? t('lab.decisionTitle.fallback', { decision }) : t('lab.decisionTitle.notGenerated');
+    }
+  }
+
+  function getEvalDecisionTitleNode(decision) {
+    const d = (decision || '').toLowerCase();
+    switch (d) {
+      case 'ready_for_review':
+        return `<strong data-i18n="lab.decisionTitle.readyForReview">${escapeHtml(t('lab.decisionTitle.readyForReview'))}</strong>`;
+      case 'inconclusive':
+        return `<strong data-i18n="lab.decisionTitle.inconclusive">${escapeHtml(t('lab.decisionTitle.inconclusive'))}</strong>`;
+      case 'reject':
+        return `<strong data-i18n="lab.decisionTitle.reject">${escapeHtml(t('lab.decisionTitle.reject'))}</strong>`;
+      default:
+        if (decision) {
+          return `<strong data-i18n="lab.decisionTitle.fallback" data-i18n-params="${escapeHtml(JSON.stringify({ decision }))}">${escapeHtml(t('lab.decisionTitle.fallback', { decision }))}</strong>`;
+        }
+        return `<strong data-i18n="lab.decisionTitle.notGenerated">${escapeHtml(t('lab.decisionTitle.notGenerated'))}</strong>`;
     }
   }
 
   function getEvalDecisionExplanation(decision) {
     switch ((decision || '').toLowerCase()) {
       case 'ready_for_review':
-        return '至少各 3 个完整样本、候选独立校验全部通过、指标有提升且 Token 增幅在允许容差范围内。';
+        return t('lab.decisionExplanation.readyForReview');
       case 'inconclusive':
-        return '样本不足、未提供 Token 或无显著收益（包含平局）。';
+        return t('lab.decisionExplanation.inconclusive');
       case 'reject':
-        return '测量到成功率/测试执行倒退，或 Token 增幅超过容差（20% / 100-token 限制）。';
+        return t('lab.decisionExplanation.reject');
       default:
-        return '评测未完成或缺少决策依据。';
+        return t('lab.decisionExplanation.default');
+    }
+  }
+
+  function getEvalDecisionExplanationKey(decision) {
+    switch ((decision || '').toLowerCase()) {
+      case 'ready_for_review':
+        return 'lab.decisionExplanation.readyForReview';
+      case 'inconclusive':
+        return 'lab.decisionExplanation.inconclusive';
+      case 'reject':
+        return 'lab.decisionExplanation.reject';
+      default:
+        return 'lab.decisionExplanation.default';
     }
   }
 
   function formatVariantSummary(variant) {
-    if (!variant) return '<span class="text-muted">默认配置</span>';
+    if (!variant) return `<span class="text-muted" data-i18n="lab.variant.defaultConfig">${escapeHtml(t('lab.variant.defaultConfig'))}</span>`;
     const parts = [];
     const files = variant.files || [];
     const memories = variant.memories || [];
     if (memories.length > 0) {
-      parts.push(`${memories.length} 条 Memory (${memories.map(m => escapeHtml(m.title || m.id)).join(', ')})`);
+      const memList = memories.map(m => m.title || m.id).join(', ');
+      parts.push(`<span data-i18n="lab.variant.memorySummary" data-i18n-params="${escapeHtml(JSON.stringify({ count: memories.length, list: memList }))}">${escapeHtml(t('lab.variant.memorySummary', { count: memories.length, list: memList }))}</span>`);
     }
     if (files.length > 0) {
-      parts.push(`${files.length} 个文件变更 (${files.map(f => escapeHtml(f.path)).join(', ')})`);
+      const fileList = files.map(f => f.path).join(', ');
+      parts.push(`<span data-i18n="lab.variant.fileSummary" data-i18n-params="${escapeHtml(JSON.stringify({ count: files.length, list: fileList }))}">${escapeHtml(t('lab.variant.fileSummary', { count: files.length, list: fileList }))}</span>`);
     }
     const memoryContext = memories.map(m => `${m.title || ''}\n${m.content || ''}`).join('\n\n');
     if (variant.context && (!memories.length || variant.context !== memoryContext)) {
-      parts.push(`自定义上下文 (~${variant.context.length} 字符)`);
+      const charCount = variant.context.length;
+      parts.push(`<span data-i18n="lab.variant.customContext" data-i18n-params="${escapeHtml(JSON.stringify({ count: charCount }))}">${escapeHtml(t('lab.variant.customContext', { count: charCount }))}</span>`);
     }
-    return parts.length > 0 ? parts.join(' · ') : '<span class="text-muted">无附加文件或 Memory</span>';
+    return parts.length > 0 ? parts.join(' · ') : `<span class="text-muted" data-i18n="lab.variant.noAdditions">${escapeHtml(t('lab.variant.noAdditions'))}</span>`;
   }
 
   function findVelaSessionBySourceId(sourceSessionId, expectedProject = null) {
@@ -5312,8 +5653,8 @@
     target.innerHTML = `
       <div class="card" style="background: var(--bg-subtle); margin-bottom: 14px;">
         <div style="font-size: 12px; line-height: 1.5; color: var(--text-secondary);">
-          <strong>对照实验原则：</strong>
-          Vela 支持 <strong>Codex Agent 对照评测</strong> 与 <strong>确定性命令验证</strong> 两种模式。实验在<strong>相同 Git HEAD</strong> 的隔离 Worktree 中对称执行，需经 <strong>Inbox 显式授权</strong>冻结参数。客观记录独立校验器结果、进程退出码及 Token 开销，杜绝主观打分。
+          <strong data-i18n="lab.principles.title">${escapeHtml(t('lab.principles.title'))}</strong>
+          <span data-i18n="lab.principles.body">${escapeHtml(t('lab.principles.body'))}</span>
         </div>
       </div>
 
@@ -5321,36 +5662,54 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>实验名称</th>
-              <th>评测器</th>
-              <th>类别</th>
-              <th>运行状态</th>
-              <th>判定结论</th>
-              <th>Baseline (通过率 / 耗时 / Tokens)</th>
-              <th>Candidate (通过率 / 耗时 / Tokens)</th>
-              <th style="text-align: right; width: 100px;">操作</th>
+              <th data-i18n="lab.table.name">${escapeHtml(t('lab.table.name'))}</th>
+              <th data-i18n="lab.table.evaluator">${escapeHtml(t('lab.table.evaluator'))}</th>
+              <th data-i18n="lab.table.category">${escapeHtml(t('lab.table.category'))}</th>
+              <th data-i18n="lab.table.state">${escapeHtml(t('lab.table.state'))}</th>
+              <th data-i18n="lab.table.decision">${escapeHtml(t('lab.table.decision'))}</th>
+              <th data-i18n="lab.table.baselineCol">${escapeHtml(t('lab.table.baselineCol'))}</th>
+              <th data-i18n="lab.table.candidateCol">${escapeHtml(t('lab.table.candidateCol'))}</th>
+              <th style="text-align: right; width: 100px;" data-i18n="lab.table.actions">${escapeHtml(t('lab.table.actions'))}</th>
             </tr>
           </thead>
           <tbody>
-            ${evals.length === 0 ? '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">暂无实验记录。点击“新建对照实验”以验证不同规约对构建/测试命令或 Agent 行为的实际影响。</td></tr>' : ''}
+            ${evals.length === 0 ? `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;" data-i18n="lab.table.empty">${escapeHtml(t('lab.table.empty'))}</td></tr>` : ''}
             ${evals.map(ev => {
               const st = (ev.state || 'pending_approval').toLowerCase();
               const isPending = (st === 'pending_approval' || st === 'pending approval');
               const baseSummary = ev.summary && ev.summary.baseline;
               const candSummary = ev.summary && ev.summary.candidate;
 
-              const baseRate = formatFinitePassRate(baseSummary ? baseSummary.passRate : null, isPending);
-              const baseDur = formatFiniteDuration(baseSummary ? baseSummary.averageDurationMs : null, isPending);
-              const baseTokens = formatFiniteTokens(baseSummary ? baseSummary.averageTokens : null, isPending);
-              const baseText = isPending ? '尚未运行' : `${baseRate} · ${baseDur}${baseSummary && baseSummary.averageTokens !== null && baseSummary.averageTokens !== undefined ? ' · ' + baseTokens : ''}`;
+              let baseHtml = '';
+              if (isPending) {
+                baseHtml = tHtml('lab.metric.notRun');
+              } else {
+                const bRate = formatFinitePassRate(baseSummary ? baseSummary.passRate : null);
+                const bDur = formatFiniteDuration(baseSummary ? baseSummary.averageDurationMs : null);
+                const parts = [bRate, bDur];
+                if (baseSummary && baseSummary.averageTokens !== null && baseSummary.averageTokens !== undefined) {
+                  parts.push(formatFiniteTokens(baseSummary.averageTokens));
+                }
+                baseHtml = parts.join(' · ');
+              }
 
-              const candRate = formatFinitePassRate(candSummary ? candSummary.passRate : null, isPending);
-              const candDur = formatFiniteDuration(candSummary ? candSummary.averageDurationMs : null, isPending);
-              const candTokens = formatFiniteTokens(candSummary ? candSummary.averageTokens : null, isPending);
-              const candText = isPending ? '尚未运行' : `${candRate} · ${candDur}${candSummary && candSummary.averageTokens !== null && candSummary.averageTokens !== undefined ? ' · ' + candTokens : ''}`;
+              let candHtml = '';
+              if (isPending) {
+                candHtml = tHtml('lab.metric.notRun');
+              } else {
+                const cRate = formatFinitePassRate(candSummary ? candSummary.passRate : null);
+                const cDur = formatFiniteDuration(candSummary ? candSummary.averageDurationMs : null);
+                const parts = [cRate, cDur];
+                if (candSummary && candSummary.averageTokens !== null && candSummary.averageTokens !== undefined) {
+                  parts.push(formatFiniteTokens(candSummary.averageTokens));
+                }
+                candHtml = parts.join(' · ');
+              }
 
               const isAgent = (ev.evaluator === 'codex_agent');
-              const evaluatorBadge = isAgent ? '<span class="code-badge">Codex Agent</span>' : '<span class="code-badge">确定性命令</span>';
+              const evaluatorBadge = isAgent
+                ? `<span class="code-badge" data-i18n="lab.evaluator.codexAgent">${escapeHtml(t('lab.evaluator.codexAgent'))}</span>`
+                : `<span class="code-badge" data-i18n="lab.evaluator.deterministicCmd">${escapeHtml(t('lab.evaluator.deterministicCmd'))}</span>`;
               const decisionBadge = getEvalDecisionBadge(ev.summary && ev.summary.decision, ev.state);
 
               return `
@@ -5360,10 +5719,10 @@
                   <td><span class="code-badge">${escapeHtml(ev.evaluationKind || ev.kind || 'context')}</span></td>
                   <td>${getEvalStateBadge(st)}</td>
                   <td>${decisionBadge}</td>
-                  <td><span class="font-mono" style="font-size: 11px;">${escapeHtml(baseText)}</span></td>
-                  <td><span class="font-mono" style="font-size: 11px;">${escapeHtml(candText)}</span></td>
+                  <td><span class="font-mono" style="font-size: 11px;">${baseHtml}</span></td>
+                  <td><span class="font-mono" style="font-size: 11px;">${candHtml}</span></td>
                   <td style="text-align: right;">
-                    <button class="btn btn-secondary btn-sm btn-lab-compare" data-id="${escapeHtml(ev.id)}">对照详情</button>
+                    <button class="btn btn-secondary btn-sm btn-lab-compare" data-id="${escapeHtml(ev.id)}" data-i18n="lab.actions.compareDetails">${escapeHtml(t('lab.actions.compareDetails'))}</button>
                   </td>
                 </tr>
               `;
@@ -5392,7 +5751,7 @@
     const thisPage = state.currentPage;
     const thisScope = state.currentProject;
 
-    target.innerHTML = `<div class="text-secondary" style="font-size: 12px; padding: 20px 0;">加载回归分析数据...</div>`;
+    target.innerHTML = `<div class="text-secondary" style="font-size: 12px; padding: 20px 0;" data-i18n="lab.regression.loading">${escapeHtml(t('lab.regression.loading'))}</div>`;
 
     try {
       const reg = await callBridge('regression.list', state.currentProject ? { project: state.currentProject } : {});
@@ -5401,33 +5760,35 @@
       const evaluations = (reg && reg.evaluations) || [];
 
       const formatPerSide = (side) => {
-        if (!side) return '未提供';
-        const runsText = `${side.runs ?? 0} 次运行`;
+        if (!side) return tHtml('lab.metric.notProvided');
+        const runsHtml = tHtml('lab.regression.runsCount', { count: side.runs ?? 0 });
         const successRateText = (side.successRate !== null && side.successRate !== undefined && !isNaN(side.successRate))
           ? `${(side.successRate * 100).toFixed(1)}%`
-          : '未提供';
+          : null;
         const meanRuntimeText = (side.meanRuntimeMs !== null && side.meanRuntimeMs !== undefined && !isNaN(side.meanRuntimeMs))
           ? `${Math.round(side.meanRuntimeMs)}ms`
-          : '未提供';
-        return `${runsText} · 通过率 ${successRateText} · 均耗时 ${meanRuntimeText}`;
+          : null;
+        const rateHtml = successRateText !== null ? escapeHtml(successRateText) : tHtml('lab.metric.notProvided');
+        const durHtml = meanRuntimeText !== null ? escapeHtml(meanRuntimeText) : tHtml('lab.metric.notProvided');
+        return `${runsHtml} · ${tHtml('lab.regression.passRateLabel')} ${rateHtml} · ${tHtml('lab.regression.meanDurationLabel')} ${durHtml}`;
       };
 
       target.innerHTML = `
         <div class="card" style="margin-bottom: 14px;">
           <div class="card-header">
-            <span class="card-title">工作流回归比对 (Workflow Comparisons)</span>
-            <span class="status-badge status-neutral">历史运行的输入与环境可能不同</span>
+            <span class="card-title" data-i18n="lab.regression.workflowTitle">${escapeHtml(t('lab.regression.workflowTitle'))}</span>
+            <span class="status-badge status-neutral" data-i18n="lab.regression.envDisclaimer">${escapeHtml(t('lab.regression.envDisclaimer'))}</span>
           </div>
-          ${comparisons.length === 0 ? '<div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;">暂无工作流回归记录</div>' : `
+          ${comparisons.length === 0 ? `<div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;" data-i18n="lab.regression.emptyWorkflows">${escapeHtml(t('lab.regression.emptyWorkflows'))}</div>` : `
             <div class="table-wrapper" style="margin-bottom: 0;">
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>工作流 ID</th>
-                    <th>基线 vs 候选版本</th>
-                    <th>基线表现 (Baseline)</th>
-                    <th>候选表现 (Candidate)</th>
-                    <th>因果性 (Causality)</th>
+                    <th data-i18n="lab.regression.thWorkflowId">${escapeHtml(t('lab.regression.thWorkflowId'))}</th>
+                    <th data-i18n="lab.regression.thVersions">${escapeHtml(t('lab.regression.thVersions'))}</th>
+                    <th data-i18n="lab.regression.thBaselinePerf">${escapeHtml(t('lab.regression.thBaselinePerf'))}</th>
+                    <th data-i18n="lab.regression.thCandidatePerf">${escapeHtml(t('lab.regression.thCandidatePerf'))}</th>
+                    <th data-i18n="lab.regression.thCausality">${escapeHtml(t('lab.regression.thCausality'))}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -5435,9 +5796,9 @@
                     <tr>
                       <td><strong>${escapeHtml(c.workflowId || '-')}</strong></td>
                       <td><span class="code-badge">v${escapeHtml(String(c.baselineVersion ?? '-'))} vs v${escapeHtml(String(c.candidateVersion ?? '-'))}</span></td>
-                      <td style="font-size: 11px;">${escapeHtml(formatPerSide(c.baseline))}</td>
-                      <td style="font-size: 11px;">${escapeHtml(formatPerSide(c.candidate))}</td>
-                      <td style="font-size: 11px; color: var(--text-muted);">历史运行的输入与环境可能不同</td>
+                      <td style="font-size: 11px;">${formatPerSide(c.baseline)}</td>
+                      <td style="font-size: 11px;">${formatPerSide(c.candidate)}</td>
+                      <td style="font-size: 11px; color: var(--text-muted);" data-i18n="lab.regression.causalityWarning">${escapeHtml(t('lab.regression.causalityWarning'))}</td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -5448,21 +5809,21 @@
 
         <div class="card">
           <div class="card-header">
-            <span class="card-title">历史评测回归汇总 (Evaluations Summary)</span>
-            <span class="text-secondary" style="font-size: 11px;">点击评测行可查看基线与候选对照详情</span>
+            <span class="card-title" data-i18n="lab.regression.evalsTitle">${escapeHtml(t('lab.regression.evalsTitle'))}</span>
+            <span class="text-secondary" style="font-size: 11px;" data-i18n="lab.regression.evalsSubtitle">${escapeHtml(t('lab.regression.evalsSubtitle'))}</span>
           </div>
-          ${evaluations.length === 0 ? '<div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;">暂无实验回归数据</div>' : `
+          ${evaluations.length === 0 ? `<div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;" data-i18n="lab.regression.emptyEvals">${escapeHtml(t('lab.regression.emptyEvals'))}</div>` : `
             <div class="table-wrapper" style="margin-bottom: 0;">
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>评测 ID</th>
-                    <th>标题</th>
-                    <th>类型</th>
-                    <th>状态</th>
-                    <th>耗时差 (runtimeDeltaMs)</th>
-                    <th>成功率差 (successDelta)</th>
-                    <th style="text-align: right; width: 90px;">操作</th>
+                    <th data-i18n="lab.regression.thEvalId">${escapeHtml(t('lab.regression.thEvalId'))}</th>
+                    <th data-i18n="lab.regression.thTitle">${escapeHtml(t('lab.regression.thTitle'))}</th>
+                    <th data-i18n="lab.regression.thKind">${escapeHtml(t('lab.regression.thKind'))}</th>
+                    <th data-i18n="lab.regression.thState">${escapeHtml(t('lab.regression.thState'))}</th>
+                    <th data-i18n="lab.regression.thRuntimeDelta">${escapeHtml(t('lab.regression.thRuntimeDelta'))}</th>
+                    <th data-i18n="lab.regression.thSuccessDelta">${escapeHtml(t('lab.regression.thSuccessDelta'))}</th>
+                    <th style="text-align: right; width: 90px;" data-i18n="lab.regression.thActions">${escapeHtml(t('lab.regression.thActions'))}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -5470,20 +5831,22 @@
                     const sm = e.summary || {};
                     const runtimeDelta = (sm.runtimeDeltaMs !== undefined && sm.runtimeDeltaMs !== null && !isNaN(sm.runtimeDeltaMs))
                       ? `${sm.runtimeDeltaMs > 0 ? '+' : ''}${Math.round(sm.runtimeDeltaMs)}ms`
-                      : '未提供';
+                      : null;
                     const successDelta = (sm.successDelta !== undefined && sm.successDelta !== null && !isNaN(sm.successDelta))
                       ? `${sm.successDelta > 0 ? '+' : ''}${(sm.successDelta * 100).toFixed(1)}%`
-                      : '未提供';
+                      : null;
+                    const runtimeHtml = runtimeDelta !== null ? escapeHtml(runtimeDelta) : tHtml('lab.metric.notProvided');
+                    const successHtml = successDelta !== null ? escapeHtml(successDelta) : tHtml('lab.metric.notProvided');
                     return `
                       <tr class="clickable-row btn-eval-row" data-id="${escapeHtml(e.id)}">
                         <td><span class="code-badge">${escapeHtml(e.id ? e.id.substring(0, 8) : '-')}</span></td>
                         <td><strong>${escapeHtml(e.title || '-')}</strong></td>
                         <td><span class="code-badge">${escapeHtml(e.evaluationKind || e.kind || 'context')}</span></td>
                         <td>${getEvalStateBadge(e.state)}</td>
-                        <td class="font-mono">${escapeHtml(runtimeDelta)}</td>
-                        <td class="font-mono">${escapeHtml(successDelta)}</td>
+                        <td class="font-mono">${runtimeHtml}</td>
+                        <td class="font-mono">${successHtml}</td>
                         <td style="text-align: right;">
-                          <button class="btn btn-secondary btn-sm btn-open-eval-compare" data-id="${escapeHtml(e.id)}">对照详情</button>
+                          <button class="btn btn-secondary btn-sm btn-open-eval-compare" data-id="${escapeHtml(e.id)}" data-i18n="lab.actions.compareDetails">${escapeHtml(t('lab.actions.compareDetails'))}</button>
                         </td>
                       </tr>
                     `;
@@ -5509,7 +5872,7 @@
       });
     } catch (err) {
       if (thisGen !== renderGeneration || state.currentPage !== thisPage || state.currentProject !== thisScope || !document.contains(target)) return;
-      target.innerHTML = `<div class="alert-banner alert-danger">无法获取回归分析数据: ${escapeHtml(err.message)}</div>`;
+      target.innerHTML = `<div class="alert-banner alert-danger"><span data-i18n="lab.regression.fetchErrorPrefix">${escapeHtml(t('lab.regression.fetchErrorPrefix'))}</span>: ${escapeHtml(err.message)}</div>`;
     }
   }
 
@@ -5517,18 +5880,21 @@
     const s = (st || '').toLowerCase();
     switch (s) {
       case 'completed':
-        return '<span class="status-badge status-sage">✓ 已完成</span>';
+        return `<span class="status-badge status-sage" data-i18n="lab.state.completed">${escapeHtml(t('lab.state.completed'))}</span>`;
       case 'pending_approval':
       case 'pending approval':
-        return '<span class="status-badge status-amber">等待审批</span>';
+        return `<span class="status-badge status-amber" data-i18n="lab.state.pendingApproval">${escapeHtml(t('lab.state.pendingApproval'))}</span>`;
       case 'running':
-        return '<span class="status-badge status-amber">● 运行中</span>';
+        return `<span class="status-badge status-amber" data-i18n="lab.state.running">${escapeHtml(t('lab.state.running'))}</span>`;
       case 'failed':
-        return '<span class="status-badge status-red">失败</span>';
+        return `<span class="status-badge status-red" data-i18n="lab.state.failed">${escapeHtml(t('lab.state.failed'))}</span>`;
       case 'rejected':
-        return '<span class="status-badge status-neutral">已拒绝</span>';
+        return `<span class="status-badge status-neutral" data-i18n="lab.state.rejected">${escapeHtml(t('lab.state.rejected'))}</span>`;
       default:
-        return `<span class="status-badge status-neutral">${escapeHtml(st || '就绪')}</span>`;
+        if (st) {
+          return `<span class="status-badge status-neutral">${escapeHtml(st)}</span>`;
+        }
+        return `<span class="status-badge status-neutral" data-i18n="lab.state.ready">${escapeHtml(t('lab.state.ready'))}</span>`;
     }
   }
 
@@ -5561,31 +5927,31 @@
     const candidateExplanation = initialConfig.candidateExplanation || '';
 
     const modalBody = `
-      <div class="mode-switch" role="tablist" aria-label="评测模式选择">
-        <button type="button" role="tab" id="tab-mode-agent" aria-selected="${currentMode === 'codex_agent' ? 'true' : 'false'}" aria-controls="lab-section-agent" class="mode-switch-btn ${currentMode === 'codex_agent' ? 'active' : ''}" data-target-mode="codex_agent">Codex Agent 对照评测</button>
-        <button type="button" role="tab" id="tab-mode-cmd" aria-selected="${currentMode === 'command' ? 'true' : 'false'}" aria-controls="lab-section-cmd" class="mode-switch-btn ${currentMode === 'command' ? 'active' : ''}" data-target-mode="command">确定性命令对照</button>
+      <div class="mode-switch" role="tablist" aria-label="${escapeHtml(t('lab.create.modeSwitchAria'))}" data-i18n-aria-label="lab.create.modeSwitchAria">
+        <button type="button" role="tab" id="tab-mode-agent" aria-selected="${currentMode === 'codex_agent' ? 'true' : 'false'}" aria-controls="lab-section-agent" class="mode-switch-btn ${currentMode === 'codex_agent' ? 'active' : ''}" data-target-mode="codex_agent" data-i18n="lab.create.modeAgent">${escapeHtml(t('lab.create.modeAgent'))}</button>
+        <button type="button" role="tab" id="tab-mode-cmd" aria-selected="${currentMode === 'command' ? 'true' : 'false'}" aria-controls="lab-section-cmd" class="mode-switch-btn ${currentMode === 'command' ? 'active' : ''}" data-target-mode="command" data-i18n="lab.create.modeCmd">${escapeHtml(t('lab.create.modeCmd'))}</button>
       </div>
 
       <!-- Agent Mode Form -->
       <div id="lab-section-agent" class="${currentMode === 'codex_agent' ? '' : 'hidden'}">
         ${sourceSugId ? `
           <div class="card" style="background: var(--bg-subtle); padding: 8px 10px; margin-bottom: 12px; font-size: 11px;">
-            <span class="text-secondary">已关联调优建议:</span>
+            <span class="text-secondary" data-i18n="lab.create.linkedSuggestion">${escapeHtml(t('lab.create.linkedSuggestion'))}</span>:
             <span class="font-mono"><strong>${escapeHtml(sourceSugId)}</strong></span>
             <input type="hidden" id="lab-agent-source-sug" value="${escapeHtml(sourceSugId)}">
           </div>
         ` : ''}
 
         <div class="form-group" style="margin-bottom: 12px;">
-          <label for="lab-agent-title" class="form-label">实验标题</label>
-          <input type="text" id="lab-agent-title" class="form-input" placeholder="输入实验标题" value="${escapeHtml(initialConfig.title || (sourceSugId ? '调优建议验证实验' : 'Codex Agent 对照评测'))}">
+          <label for="lab-agent-title" class="form-label" data-i18n="lab.create.titleLabel">${escapeHtml(t('lab.create.titleLabel'))}</label>
+          <input type="text" id="lab-agent-title" class="form-input" placeholder="${escapeHtml(t('lab.create.titlePlaceholder'))}" data-i18n-placeholder="lab.create.titlePlaceholder" value="${escapeHtml(initialConfig.title || (sourceSugId ? '调优建议验证实验' : 'Codex Agent 对照评测'))}">
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="lab-agent-project" class="form-label">目标项目</label>
+            <label for="lab-agent-project" class="form-label" data-i18n="lab.create.projectLabel">${escapeHtml(t('lab.create.projectLabel'))}</label>
             <select id="lab-agent-project" class="form-select">
-              <option value="" ${!selectedProject ? 'selected' : ''}>请选择项目</option>
+              <option value="" ${!selectedProject ? 'selected' : ''} data-i18n="lab.create.selectProject">${escapeHtml(t('lab.create.selectProject'))}</option>
               ${(state.registeredProjects || []).map(p => {
                 const val = p.path || p.id;
                 return `<option value="${escapeHtml(val)}" ${selectedProject === val ? 'selected' : ''}>${escapeHtml(p.title || p.path)}</option>`;
@@ -5593,26 +5959,26 @@
             </select>
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="lab-agent-kind" class="form-label">实验类型</label>
+            <label for="lab-agent-kind" class="form-label" data-i18n="lab.create.kindLabel">${escapeHtml(t('lab.create.kindLabel'))}</label>
             <select id="lab-agent-kind" class="form-select">
-              <option value="memory" ${initialConfig.kind === 'memory' || (!initialConfig.kind && candidateMemIds.length > 0) ? 'selected' : ''}>memory (规则与工程记忆对比)</option>
-              <option value="context" ${initialConfig.kind === 'context' || (!initialConfig.kind && candidateMemIds.length === 0) ? 'selected' : ''}>context (文件上下文对比)</option>
-              <option value="workflow" ${initialConfig.kind === 'workflow' ? 'selected' : ''}>workflow (工作流对比)</option>
+              <option value="memory" ${initialConfig.kind === 'memory' || (!initialConfig.kind && candidateMemIds.length > 0) ? 'selected' : ''} data-i18n="lab.create.kindMemoryOption">${escapeHtml(t('lab.create.kindMemoryOption'))}</option>
+              <option value="context" ${initialConfig.kind === 'context' || (!initialConfig.kind && candidateMemIds.length === 0) ? 'selected' : ''} data-i18n="lab.create.kindContextOption">${escapeHtml(t('lab.create.kindContextOption'))}</option>
+              <option value="workflow" ${initialConfig.kind === 'workflow' ? 'selected' : ''} data-i18n="lab.create.kindWorkflowOption">${escapeHtml(t('lab.create.kindWorkflowOption'))}</option>
             </select>
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="lab-agent-model" class="form-label">模型标识符</label>
-            <div id="help-agent-model" class="form-help" style="margin-bottom: 4px;">输入当前环境 Codex CLI 支持的显式模型标识符</div>
-            <input type="text" id="lab-agent-model" class="form-input font-mono" placeholder="输入当前环境 Codex 支持的模型标识符" value="${escapeHtml(initialConfig.model || '')}" aria-describedby="help-agent-model">
+            <label for="lab-agent-model" class="form-label" data-i18n="lab.create.modelLabel">${escapeHtml(t('lab.create.modelLabel'))}</label>
+            <div id="help-agent-model" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.modelHelp">${escapeHtml(t('lab.create.modelHelp'))}</div>
+            <input type="text" id="lab-agent-model" class="form-input font-mono" placeholder="${escapeHtml(t('lab.create.modelPlaceholder'))}" data-i18n-placeholder="lab.create.modelPlaceholder" value="${escapeHtml(initialConfig.model || '')}" aria-describedby="help-agent-model">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="lab-agent-effort" class="form-label">推理深度</label>
-            <div id="help-agent-effort" class="form-help" style="margin-bottom: 4px;">推理预算等级</div>
+            <label for="lab-agent-effort" class="form-label" data-i18n="lab.create.effortLabel">${escapeHtml(t('lab.create.effortLabel'))}</label>
+            <div id="help-agent-effort" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.effortHelp">${escapeHtml(t('lab.create.effortHelp'))}</div>
             <select id="lab-agent-effort" class="form-select" aria-describedby="help-agent-effort">
-              <option value="high" selected>high (默认)</option>
+              <option value="high" selected data-i18n="lab.create.effortHigh">${escapeHtml(t('lab.create.effortHigh'))}</option>
               <option value="medium">medium</option>
               <option value="low">low</option>
               <option value="xhigh">xhigh</option>
@@ -5621,64 +5987,64 @@
         </div>
 
         <div class="form-group" style="margin-bottom: 12px;">
-          <label for="lab-agent-task" class="form-label">执行任务</label>
-          <div id="help-agent-task" class="form-help" style="margin-bottom: 4px;">双侧 Agent 将在各自隔离的 Git Worktree 中执行相同的任务描述（上限 32 KB）</div>
-          <textarea id="lab-agent-task" class="form-textarea" style="min-height: 56px;" placeholder="输入双侧 Agent 需执行的任务描述..." aria-describedby="help-agent-task">${escapeHtml(initialConfig.task || '')}</textarea>
+          <label for="lab-agent-task" class="form-label" data-i18n="lab.create.taskLabel">${escapeHtml(t('lab.create.taskLabel'))}</label>
+          <div id="help-agent-task" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.taskHelp">${escapeHtml(t('lab.create.taskHelp'))}</div>
+          <textarea id="lab-agent-task" class="form-textarea" style="min-height: 56px;" placeholder="${escapeHtml(t('lab.create.taskPlaceholder'))}" data-i18n-placeholder="lab.create.taskPlaceholder" aria-describedby="help-agent-task">${escapeHtml(initialConfig.task || '')}</textarea>
         </div>
 
         <div class="form-group" style="margin-bottom: 12px;">
-          <label for="lab-agent-verify-cmd" class="form-label">独立验证命令</label>
-          <div id="help-agent-verify-cmd" class="form-help" style="margin-bottom: 4px;">任务完成后在干净 Worktree 中独立执行的验证命令（JSON 字符串数组格式）</div>
-          <textarea id="lab-agent-verify-cmd" class="form-textarea code-editor" style="min-height: 48px;" placeholder='例如: ["pytest", "tests/"] 或 ["npm", "test"]' aria-describedby="help-agent-verify-cmd">${escapeHtml(defaultVerifyCommand)}</textarea>
+          <label for="lab-agent-verify-cmd" class="form-label" data-i18n="lab.create.verifyCmdLabel">${escapeHtml(t('lab.create.verifyCmdLabel'))}</label>
+          <div id="help-agent-verify-cmd" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.verifyCmdHelp">${escapeHtml(t('lab.create.verifyCmdHelp'))}</div>
+          <textarea id="lab-agent-verify-cmd" class="form-textarea code-editor" style="min-height: 48px;" placeholder='${escapeHtml(t('lab.create.verifyCmdPlaceholder'))}' data-i18n-placeholder="lab.create.verifyCmdPlaceholder" aria-describedby="help-agent-verify-cmd">${escapeHtml(defaultVerifyCommand)}</textarea>
         </div>
 
         <div class="form-group" style="margin-bottom: 12px;">
-          <label for="lab-agent-verify-files" class="form-label">受保护验证文件</label>
-          <div id="help-agent-verify-files" class="form-help" style="margin-bottom: 4px;">相对路径，以逗号分隔，1–32 个已提交文件（测试执行期间受写保护）</div>
-          <input type="text" id="lab-agent-verify-files" class="form-input font-mono" placeholder="例如: tests/test_core.py, tests/verify.py" value="${escapeHtml((initialConfig.verificationFiles || []).map(f => typeof f === 'string' ? f : (f.path || '')).filter(Boolean).join(', '))}" aria-describedby="help-agent-verify-files">
+          <label for="lab-agent-verify-files" class="form-label" data-i18n="lab.create.verifyFilesLabel">${escapeHtml(t('lab.create.verifyFilesLabel'))}</label>
+          <div id="help-agent-verify-files" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.verifyFilesHelp">${escapeHtml(t('lab.create.verifyFilesHelp'))}</div>
+          <input type="text" id="lab-agent-verify-files" class="form-input font-mono" placeholder="tests/test_core.py, tests/verify.py" value="${escapeHtml((initialConfig.verificationFiles || []).map(f => typeof f === 'string' ? f : (f.path || '')).filter(Boolean).join(', '))}" aria-describedby="help-agent-verify-files">
         </div>
 
         <div class="form-group" style="margin-bottom: 12px;">
-          <label for="lab-agent-output-files" class="form-label">任务允许产出文件</label>
-          <div id="help-agent-output-files" class="form-help" style="margin-bottom: 4px;">相对路径，以逗号分隔，由 Vela 复制至独立验证环境中参与验证</div>
-          <input type="text" id="lab-agent-output-files" class="form-input font-mono" placeholder="例如: build/output.py, dist/bundle.js" value="${escapeHtml((initialConfig.outputFiles || []).map(f => typeof f === 'string' ? f : (f.path || '')).filter(Boolean).join(', '))}" aria-describedby="help-agent-output-files">
+          <label for="lab-agent-output-files" class="form-label" data-i18n="lab.create.outputFilesLabel">${escapeHtml(t('lab.create.outputFilesLabel'))}</label>
+          <div id="help-agent-output-files" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.outputFilesHelp">${escapeHtml(t('lab.create.outputFilesHelp'))}</div>
+          <input type="text" id="lab-agent-output-files" class="form-input font-mono" placeholder="build/output.py, dist/bundle.js" value="${escapeHtml((initialConfig.outputFiles || []).map(f => typeof f === 'string' ? f : (f.path || '')).filter(Boolean).join(', '))}" aria-describedby="help-agent-output-files">
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="lab-agent-repetitions" class="form-label">重复执行次数</label>
-            <div id="help-agent-repetitions" class="form-help" style="margin-bottom: 4px;">1–5 次（双侧对称运行，晋升审查需至少 3 次）</div>
+            <label for="lab-agent-repetitions" class="form-label" data-i18n="lab.create.repetitionsLabel">${escapeHtml(t('lab.create.repetitionsLabel'))}</label>
+            <div id="help-agent-repetitions" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.repetitionsHelpAgent">${escapeHtml(t('lab.create.repetitionsHelpAgent'))}</div>
             <input type="number" id="lab-agent-repetitions" class="form-input font-mono" value="${initialConfig.repetitions || 3}" min="1" max="5" aria-describedby="help-agent-repetitions">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="lab-agent-timeout" class="form-label">单次超时限制 (秒)</label>
-            <div id="help-agent-timeout" class="form-help" style="margin-bottom: 4px;">1–600 秒</div>
+            <label for="lab-agent-timeout" class="form-label" data-i18n="lab.create.timeoutLabel">${escapeHtml(t('lab.create.timeoutLabel'))}</label>
+            <div id="help-agent-timeout" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.timeoutHelp">${escapeHtml(t('lab.create.timeoutHelp'))}</div>
             <input type="number" id="lab-agent-timeout" class="form-input font-mono" value="${initialConfig.timeoutSeconds || 240}" min="1" max="600" aria-describedby="help-agent-timeout">
           </div>
         </div>
 
         ${(candidateExplanation || candidateMemIds.length > 0 || candidateFileList.length > 0) ? `
           <div class="card" style="background: var(--bg-subtle); padding: 10px 12px; margin-bottom: 12px;">
-            <div style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">候选组配置说明：</div>
+            <div style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;" data-i18n="lab.create.candidateConfigHeader">${escapeHtml(t('lab.create.candidateConfigHeader'))}</div>
             ${candidateExplanation ? `
               <div style="font-size: 11px; line-height: 1.45; color: var(--text-main); margin-bottom: 6px;">${escapeHtml(candidateExplanation)}</div>
             ` : ''}
             ${candidateMemIds.length > 0 ? `
               <div style="font-size: 11px; margin-bottom: 4px;">
-                <span class="text-secondary">候选 Memory (${candidateMemIds.length}):</span>
+                <span class="text-secondary" data-i18n="lab.create.candidateMemoriesCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: candidateMemIds.length }))}">${escapeHtml(t('lab.create.candidateMemoriesCount', { count: candidateMemIds.length }))}</span>
                 <ul style="padding-left: 18px; margin: 4px 0 0 0; font-size: 11.5px;">
                   ${candidateMemIds.map(id => {
                     const info = resolveMemoryInfo(id);
-                    return `<li><strong>${escapeHtml(info.title)}</strong> <span class="font-mono text-muted" style="font-size: 10px;">(${escapeHtml(id)})</span></li>`;
+                    return `<li><strong>${escapeHtml(info.title)}</strong> <span class="font-mono text-muted" style="font-size: 10px;">(ID: ${escapeHtml(id)})</span></li>`;
                   }).join('')}
                 </ul>
               </div>
             ` : ''}
             ${candidateFileList.length > 0 ? `
               <div style="font-size: 11px; margin-top: 6px;">
-                <span class="text-secondary">候选文件变更 (${candidateFileList.length}):</span>
+                <span class="text-secondary" data-i18n="lab.create.candidateFilesCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: candidateFileList.length }))}">${escapeHtml(t('lab.create.candidateFilesCount', { count: candidateFileList.length }))}</span>
                 <ul style="padding-left: 18px; margin: 4px 0 0 0; font-family: var(--font-mono); font-size: 11px;">
-                  ${candidateFileList.map(f => `<li>${escapeHtml(f.path)} <span class="text-muted" style="font-size: 10px;">(${escapeHtml(String((f.content || '').length))} 字符)</span></li>`).join('')}
+                  ${candidateFileList.map(f => `<li>${escapeHtml(f.path)} <span class="text-muted" style="font-size: 10px;" data-i18n="lab.create.fileChars" data-i18n-params="${escapeHtml(JSON.stringify({ count: (f.content || '').length }))}">${escapeHtml(t('lab.create.fileChars', { count: (f.content || '').length }))}</span></li>`).join('')}
                 </ul>
               </div>
             ` : ''}
@@ -5686,11 +6052,11 @@
         ` : ''}
 
         <details class="card" style="margin-bottom: 12px; padding: 10px 12px;">
-          <summary style="font-size: 11px; cursor: pointer; color: var(--text-muted); user-select: none;">高级设置：执行配置与原始 Variant JSON</summary>
+          <summary style="font-size: 11px; cursor: pointer; color: var(--text-muted); user-select: none;" data-i18n="lab.create.advancedAgentSummary">${escapeHtml(t('lab.create.advancedAgentSummary'))}</summary>
           <div class="form-group" style="margin-top: 10px; margin-bottom: 10px;">
-            <label for="lab-agent-executable" class="form-label">Codex 可执行文件路径</label>
-            <div id="help-agent-exec" class="form-help" style="margin-bottom: 4px;">默认使用系统 PATH 中的 codex，亦可指定绝对路径</div>
-            <input type="text" id="lab-agent-executable" class="form-input font-mono" placeholder="codex 或 /absolute/path/to/codex" value="${escapeHtml(initialConfig.executable || 'codex')}" aria-describedby="help-agent-exec">
+            <label for="lab-agent-executable" class="form-label" data-i18n="lab.create.executableLabel">${escapeHtml(t('lab.create.executableLabel'))}</label>
+            <div id="help-agent-exec" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.executableHelp">${escapeHtml(t('lab.create.executableHelp'))}</div>
+            <input type="text" id="lab-agent-executable" class="form-input font-mono" placeholder="${escapeHtml(t('lab.create.executablePlaceholder'))}" data-i18n-placeholder="lab.create.executablePlaceholder" value="${escapeHtml(initialConfig.executable || 'codex')}" aria-describedby="help-agent-exec">
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
             <div class="form-group" style="margin-bottom: 0;">
@@ -5708,15 +6074,15 @@
       <!-- Command Mode Form -->
       <div id="lab-section-cmd" class="${currentMode === 'command' ? '' : 'hidden'}">
         <div class="form-group" style="margin-bottom: 12px;">
-          <label for="lab-cmd-title" class="form-label">实验标题</label>
-          <input type="text" id="lab-cmd-title" class="form-input" placeholder="例如：确定性构建命令基线对照" value="${escapeHtml(initialConfig.title || '确定性命令对照实验')}">
+          <label for="lab-cmd-title" class="form-label" data-i18n="lab.create.titleLabel">${escapeHtml(t('lab.create.titleLabel'))}</label>
+          <input type="text" id="lab-cmd-title" class="form-input" placeholder="${escapeHtml(t('lab.create.cmdTitlePlaceholder'))}" data-i18n-placeholder="lab.create.cmdTitlePlaceholder" value="${escapeHtml(initialConfig.title || '确定性命令对照实验')}">
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="lab-cmd-project" class="form-label">目标项目</label>
+            <label for="lab-cmd-project" class="form-label" data-i18n="lab.create.projectLabel">${escapeHtml(t('lab.create.projectLabel'))}</label>
             <select id="lab-cmd-project" class="form-select">
-              <option value="" ${!selectedProject ? 'selected' : ''}>请选择项目</option>
+              <option value="" ${!selectedProject ? 'selected' : ''} data-i18n="lab.create.selectProject">${escapeHtml(t('lab.create.selectProject'))}</option>
               ${(state.registeredProjects || []).map(p => {
                 const val = p.path || p.id;
                 return `<option value="${escapeHtml(val)}" ${selectedProject === val ? 'selected' : ''}>${escapeHtml(p.title || p.path)}</option>`;
@@ -5724,36 +6090,36 @@
             </select>
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="lab-cmd-kind" class="form-label">实验类型</label>
+            <label for="lab-cmd-kind" class="form-label" data-i18n="lab.create.kindLabel">${escapeHtml(t('lab.create.kindLabel'))}</label>
             <select id="lab-cmd-kind" class="form-select">
-              <option value="context">context (上下文文件对比)</option>
-              <option value="memory">memory (Memory 规则配置对比)</option>
-              <option value="workflow">workflow (工作流对比)</option>
+              <option value="context" data-i18n="lab.create.kindContextCmdOption">${escapeHtml(t('lab.create.kindContextCmdOption'))}</option>
+              <option value="memory" data-i18n="lab.create.kindMemoryCmdOption">${escapeHtml(t('lab.create.kindMemoryCmdOption'))}</option>
+              <option value="workflow" data-i18n="lab.create.kindWorkflowOption">${escapeHtml(t('lab.create.kindWorkflowOption'))}</option>
             </select>
           </div>
         </div>
 
         <div class="form-group" style="margin-bottom: 12px;">
-          <label for="lab-cmd-command" class="form-label">执行命令</label>
-          <div id="help-cmd-command" class="form-help" style="margin-bottom: 4px;">输入在隔离 Worktree 中执行的命令（JSON 字符串数组格式）</div>
+          <label for="lab-cmd-command" class="form-label" data-i18n="lab.create.cmdCommandLabel">${escapeHtml(t('lab.create.cmdCommandLabel'))}</label>
+          <div id="help-cmd-command" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.cmdCommandHelp">${escapeHtml(t('lab.create.cmdCommandHelp'))}</div>
           <textarea id="lab-cmd-command" class="form-textarea code-editor" style="min-height: 48px;" aria-describedby="help-cmd-command">${escapeHtml(defaultCommand)}</textarea>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="lab-cmd-repetitions" class="form-label">重复执行次数</label>
-            <div id="help-cmd-repetitions" class="form-help" style="margin-bottom: 4px;">1–5 次</div>
+            <label for="lab-cmd-repetitions" class="form-label" data-i18n="lab.create.repetitionsLabel">${escapeHtml(t('lab.create.repetitionsLabel'))}</label>
+            <div id="help-cmd-repetitions" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.repetitionsHelpCmd">${escapeHtml(t('lab.create.repetitionsHelpCmd'))}</div>
             <input type="number" id="lab-cmd-repetitions" class="form-input font-mono" value="${initialConfig.repetitions || 1}" min="1" max="5" aria-describedby="help-cmd-repetitions">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="lab-cmd-timeout" class="form-label">超时限制 (秒)</label>
-            <div id="help-cmd-timeout" class="form-help" style="margin-bottom: 4px;">1–600 秒</div>
+            <label for="lab-cmd-timeout" class="form-label" data-i18n="lab.create.timeoutLabel">${escapeHtml(t('lab.create.timeoutLabel'))}</label>
+            <div id="help-cmd-timeout" class="form-help" style="margin-bottom: 4px;" data-i18n="lab.create.timeoutHelp">${escapeHtml(t('lab.create.timeoutHelp'))}</div>
             <input type="number" id="lab-cmd-timeout" class="form-input font-mono" value="${initialConfig.timeoutSeconds || 60}" min="1" max="600" aria-describedby="help-cmd-timeout">
           </div>
         </div>
 
         <details class="card" style="margin-bottom: 12px; padding: 10px 12px;">
-          <summary style="font-size: 11px; cursor: pointer; color: var(--text-muted); user-select: none;">高级设置：查看 / 编辑原始 Variant JSON</summary>
+          <summary style="font-size: 11px; cursor: pointer; color: var(--text-muted); user-select: none;" data-i18n="lab.create.advancedCmdSummary">${escapeHtml(t('lab.create.advancedCmdSummary'))}</summary>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
             <div class="form-group" style="margin-bottom: 0;">
               <label for="lab-cmd-baseline" class="form-label" style="font-size: 10.5px;">Baseline JSON</label>
@@ -5768,9 +6134,9 @@
       </div>
     `;
 
-    openModal('新建 Worktree 对照实验', modalBody, `
-      <button class="btn btn-secondary" id="btn-cancel-lab">取消</button>
-      <button class="btn btn-primary" id="btn-save-lab">提交实验 (进入待审批)</button>
+    openModal({ key: 'lab.modal.createTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-cancel-lab" data-i18n="lab.actions.cancel">${escapeHtml(t('lab.actions.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-save-lab" data-i18n="lab.actions.submitLab">${escapeHtml(t('lab.actions.submitLab'))}</button>
     `);
 
     const thisModalId = currentModalInstance;
@@ -5810,47 +6176,47 @@
 
         const rawTimeout = document.getElementById('lab-agent-timeout').value.trim();
         if (!rawTimeout || !/^\d+$/.test(rawTimeout)) {
-          showToast('单次超时限制必须为 1 到 600 秒之间的整数', 'error');
+          showToast({ key: 'lab.validation.timeoutRange' }, 'error');
           return;
         }
         const timeoutSeconds = Number(rawTimeout);
         if (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 600) {
-          showToast('单次超时限制必须为 1 到 600 秒之间的整数', 'error');
+          showToast({ key: 'lab.validation.timeoutRange' }, 'error');
           return;
         }
 
         const rawRep = document.getElementById('lab-agent-repetitions').value.trim();
         if (!rawRep || !/^\d+$/.test(rawRep)) {
-          showToast('重复执行次数必须为 1 到 5 之间的整数', 'error');
+          showToast({ key: 'lab.validation.repetitionsRange' }, 'error');
           return;
         }
         const repetitions = Number(rawRep);
         if (!Number.isInteger(repetitions) || repetitions < 1 || repetitions > 5) {
-          showToast('重复执行次数必须为 1 到 5 之间的整数', 'error');
+          showToast({ key: 'lab.validation.repetitionsRange' }, 'error');
           return;
         }
 
         if (!title) {
-          showToast('请输入实验标题', 'error');
+          showToast({ key: 'lab.validation.titleRequired' }, 'error');
           return;
         }
 
         if (!project) {
-          showToast('请选择目标项目', 'error');
+          showToast({ key: 'lab.validation.projectRequired' }, 'error');
           return;
         }
 
         if (!model) {
-          showToast('请输入显式请求的 Agent 模型标识符（必填）', 'error');
+          showToast({ key: 'lab.validation.modelRequired' }, 'error');
           return;
         }
         if (!/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/.test(model)) {
-          showToast('模型标识符格式不合法（应以字母数字开头，仅含 ._:-，长度至多 128 位）', 'error');
+          showToast({ key: 'lab.validation.modelInvalid' }, 'error');
           return;
         }
 
         if (!task) {
-          showToast('请输入双侧 Agent 执行的任务描述 (Task)', 'error');
+          showToast({ key: 'lab.validation.taskRequired' }, 'error');
           return;
         }
 
@@ -5858,46 +6224,56 @@
         try {
           verifyCmdArr = JSON.parse(document.getElementById('lab-agent-verify-cmd').value);
           if (!Array.isArray(verifyCmdArr) || verifyCmdArr.length === 0) {
-            throw new Error('独立验证命令必须为非空 JSON 字符串数组');
+            const err = new Error(t('lab.validation.verifyCmdArray'));
+            err.i18nDescriptor = { key: 'lab.validation.verifyCmdArray' };
+            throw err;
           }
           if (typeof verifyCmdArr[0] !== 'string' || !verifyCmdArr[0].trim()) {
-            throw new Error('独立验证命令的可执行文件必须为非空字符串');
+            const err = new Error(t('lab.validation.verifyCmdExe'));
+            err.i18nDescriptor = { key: 'lab.validation.verifyCmdExe' };
+            throw err;
           }
           for (let idx = 0; idx < verifyCmdArr.length; idx++) {
             if (typeof verifyCmdArr[idx] !== 'string') {
-              throw new Error(`独立验证命令参数第 ${idx + 1} 项必须为字符串`);
+              const err = new Error(t('lab.validation.verifyCmdArgv', { index: idx + 1 }));
+              err.i18nDescriptor = { key: 'lab.validation.verifyCmdArgv', params: { index: idx + 1 } };
+              throw err;
             }
           }
         } catch (err) {
-          showToast('独立验证命令格式错误: ' + err.message, 'error');
+          if (err && err.i18nDescriptor) {
+            showToast(err.i18nDescriptor, 'error');
+          } else {
+            showToast({ key: 'lab.validation.verifyCmdFormat', params: { error: err.message } }, 'error');
+          }
           return;
         }
 
         const rawVerifyFiles = document.getElementById('lab-agent-verify-files').value;
         const verifyFiles = rawVerifyFiles.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
         if (verifyFiles.length === 0 || verifyFiles.length > 32) {
-          showToast('受保护验证文件必须提供 1–32 个相对路径', 'error');
+          showToast({ key: 'lab.validation.verifyFilesCount' }, 'error');
           return;
         }
         if (new Set(verifyFiles).size !== verifyFiles.length) {
-          showToast('受保护验证文件中存在重复路径', 'error');
+          showToast({ key: 'lab.validation.verifyFilesDuplicate' }, 'error');
           return;
         }
 
         const rawOutputFiles = document.getElementById('lab-agent-output-files').value;
         const outputFiles = rawOutputFiles.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
         if (outputFiles.length === 0 || outputFiles.length > 32) {
-          showToast('任务产出白名单必须提供 1–32 个相对路径', 'error');
+          showToast({ key: 'lab.validation.outputFilesCount' }, 'error');
           return;
         }
         if (new Set(outputFiles).size !== outputFiles.length) {
-          showToast('任务产出白名单中存在重复路径', 'error');
+          showToast({ key: 'lab.validation.outputFilesDuplicate' }, 'error');
           return;
         }
 
         const overlap = verifyFiles.filter(p => outputFiles.includes(p));
         if (overlap.length > 0) {
-          showToast('受保护验证文件与任务产出文件不能重叠: ' + overlap.join(', '), 'error');
+          showToast({ key: 'lab.validation.overlapFiles', params: { files: overlap.join(', ') } }, 'error');
           return;
         }
 
@@ -5905,10 +6281,16 @@
         try {
           baselineObj = JSON.parse(document.getElementById('lab-agent-baseline-json').value);
           if (typeof baselineObj !== 'object' || Array.isArray(baselineObj) || baselineObj === null) {
-            throw new Error('Baseline 必须为 JSON 对象');
+            const err = new Error(t('lab.validation.baselineJsonObj'));
+            err.i18nDescriptor = { key: 'lab.validation.baselineJsonObj' };
+            throw err;
           }
         } catch (err) {
-          showToast('Baseline JSON 格式错误: ' + err.message, 'error');
+          if (err && err.i18nDescriptor) {
+            showToast(err.i18nDescriptor, 'error');
+          } else {
+            showToast({ key: 'lab.validation.baselineJsonFormat', params: { error: err.message } }, 'error');
+          }
           return;
         }
 
@@ -5916,10 +6298,16 @@
         try {
           candidateObj = JSON.parse(document.getElementById('lab-agent-candidate-json').value);
           if (typeof candidateObj !== 'object' || Array.isArray(candidateObj) || candidateObj === null) {
-            throw new Error('Candidate 必须为 JSON 对象');
+            const err = new Error(t('lab.validation.candidateJsonObj'));
+            err.i18nDescriptor = { key: 'lab.validation.candidateJsonObj' };
+            throw err;
           }
         } catch (err) {
-          showToast('Candidate JSON 格式错误: ' + err.message, 'error');
+          if (err && err.i18nDescriptor) {
+            showToast(err.i18nDescriptor, 'error');
+          } else {
+            showToast({ key: 'lab.validation.candidateJsonFormat', params: { error: err.message } }, 'error');
+          }
           return;
         }
 
@@ -5948,7 +6336,7 @@
         }
 
         submitBtn.disabled = true;
-        submitBtn.textContent = '正在提交实验...';
+        window.VelaI18n.setElementDescriptor(submitBtn, { key: 'lab.actions.submitting' });
 
         try {
           const res = await callBridge('lab.run', payload);
@@ -5958,9 +6346,9 @@
           await refreshDashboard(true, true);
         } catch (err) {
           if (thisModalId !== currentModalInstance) return;
-          showToast('创建 Agent 实验失败: ' + err.message, 'error');
+          showToast({ key: 'lab.actions.createAgentFailed', params: { error: err.message } }, 'error');
           submitBtn.disabled = false;
-          submitBtn.textContent = '提交实验 (进入待审批)';
+          window.VelaI18n.setElementDescriptor(submitBtn, { key: 'lab.actions.submitLab' });
         }
 
       } else {
@@ -5971,33 +6359,33 @@
 
         const rawTimeout = document.getElementById('lab-cmd-timeout').value.trim();
         if (!rawTimeout || !/^\d+$/.test(rawTimeout)) {
-          showToast('超时限制必须为 1 到 600 秒之间的整数', 'error');
+          showToast({ key: 'lab.validation.timeoutRange' }, 'error');
           return;
         }
         const timeoutSeconds = Number(rawTimeout);
         if (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 600) {
-          showToast('超时限制必须为 1 到 600 秒之间的整数', 'error');
+          showToast({ key: 'lab.validation.timeoutRange' }, 'error');
           return;
         }
 
         const rawRep = document.getElementById('lab-cmd-repetitions').value.trim();
         if (!rawRep || !/^\d+$/.test(rawRep)) {
-          showToast('重复执行次数必须为 1 到 5 之间的整数', 'error');
+          showToast({ key: 'lab.validation.repetitionsRange' }, 'error');
           return;
         }
         const repetitions = Number(rawRep);
         if (!Number.isInteger(repetitions) || repetitions < 1 || repetitions > 5) {
-          showToast('重复执行次数必须为 1 到 5 之间的整数', 'error');
+          showToast({ key: 'lab.validation.repetitionsRange' }, 'error');
           return;
         }
 
         if (!title) {
-          showToast('请输入实验标题', 'error');
+          showToast({ key: 'lab.validation.titleRequired' }, 'error');
           return;
         }
 
         if (!project) {
-          showToast('请选择目标项目', 'error');
+          showToast({ key: 'lab.validation.projectRequired' }, 'error');
           return;
         }
 
@@ -6005,18 +6393,28 @@
         try {
           commandArr = JSON.parse(document.getElementById('lab-cmd-command').value);
           if (!Array.isArray(commandArr) || commandArr.length === 0) {
-            throw new Error('命令必须为非空 JSON 字符串数组');
+            const err = new Error(t('lab.validation.cmdArray'));
+            err.i18nDescriptor = { key: 'lab.validation.cmdArray' };
+            throw err;
           }
           if (typeof commandArr[0] !== 'string' || !commandArr[0].trim()) {
-            throw new Error('命令的可执行文件必须为非空字符串');
+            const err = new Error(t('lab.validation.cmdExe'));
+            err.i18nDescriptor = { key: 'lab.validation.cmdExe' };
+            throw err;
           }
           for (let idx = 0; idx < commandArr.length; idx++) {
             if (typeof commandArr[idx] !== 'string') {
-              throw new Error(`命令参数第 ${idx + 1} 项必须为字符串`);
+              const err = new Error(t('lab.validation.cmdArgv', { index: idx + 1 }));
+              err.i18nDescriptor = { key: 'lab.validation.cmdArgv', params: { index: idx + 1 } };
+              throw err;
             }
           }
         } catch (err) {
-          showToast('验证命令格式错误: ' + err.message, 'error');
+          if (err && err.i18nDescriptor) {
+            showToast(err.i18nDescriptor, 'error');
+          } else {
+            showToast({ key: 'lab.validation.cmdFormat', params: { error: err.message } }, 'error');
+          }
           return;
         }
 
@@ -6024,10 +6422,16 @@
         try {
           baselineObj = JSON.parse(document.getElementById('lab-cmd-baseline').value);
           if (typeof baselineObj !== 'object' || Array.isArray(baselineObj) || baselineObj === null) {
-            throw new Error('Baseline 必须为 JSON 对象');
+            const err = new Error(t('lab.validation.baselineJsonObj'));
+            err.i18nDescriptor = { key: 'lab.validation.baselineJsonObj' };
+            throw err;
           }
         } catch (err) {
-          showToast('Baseline JSON 格式错误: ' + err.message, 'error');
+          if (err && err.i18nDescriptor) {
+            showToast(err.i18nDescriptor, 'error');
+          } else {
+            showToast({ key: 'lab.validation.baselineJsonFormat', params: { error: err.message } }, 'error');
+          }
           return;
         }
 
@@ -6035,15 +6439,21 @@
         try {
           candidateObj = JSON.parse(document.getElementById('lab-cmd-candidate').value);
           if (typeof candidateObj !== 'object' || Array.isArray(candidateObj) || candidateObj === null) {
-            throw new Error('Candidate 必须为 JSON 对象');
+            const err = new Error(t('lab.validation.candidateJsonObj'));
+            err.i18nDescriptor = { key: 'lab.validation.candidateJsonObj' };
+            throw err;
           }
         } catch (err) {
-          showToast('Candidate JSON 格式错误: ' + err.message, 'error');
+          if (err && err.i18nDescriptor) {
+            showToast(err.i18nDescriptor, 'error');
+          } else {
+            showToast({ key: 'lab.validation.candidateJsonFormat', params: { error: err.message } }, 'error');
+          }
           return;
         }
 
         submitBtn.disabled = true;
-        submitBtn.textContent = '正在提交实验...';
+        window.VelaI18n.setElementDescriptor(submitBtn, { key: 'lab.actions.submitting' });
 
         try {
           const res = await callBridge('lab.run', {
@@ -6062,28 +6472,28 @@
           await refreshDashboard(true, true);
         } catch (err) {
           if (thisModalId !== currentModalInstance) return;
-          showToast('创建命令实验失败: ' + err.message, 'error');
+          showToast({ key: 'lab.actions.createCmdFailed', params: { error: err.message } }, 'error');
           submitBtn.disabled = false;
-          submitBtn.textContent = '提交实验 (进入待审批)';
+          window.VelaI18n.setElementDescriptor(submitBtn, { key: 'lab.actions.submitLab' });
         }
       }
     });
   }
 
   function showLabCreatedPendingModal(title, approvalId, project = null) {
-    openModal('实验已创建并进入审批队列', `
+    openModal({ key: 'lab.modal.pendingQueueTitle' }, `
       <div style="font-size: 13px; line-height: 1.6; color: var(--text-secondary);">
-        <p>对照实验 <strong>${escapeHtml(title || '')}</strong> 已成功创建！</p>
+        <p><span data-i18n="lab.pendingModal.createdPrefix">${escapeHtml(t('lab.pendingModal.createdPrefix'))}</span> <strong>${escapeHtml(title || '')}</strong> <span data-i18n="lab.pendingModal.createdSuffix">${escapeHtml(t('lab.pendingModal.createdSuffix'))}</span></p>
         <p style="margin-top: 8px;">
-          当前状态：<span class="status-badge status-amber">等待审批 (Pending Approval)</span>
+          <span data-i18n="lab.pendingModal.currentStatusLabel">${escapeHtml(t('lab.pendingModal.currentStatusLabel'))}</span>: <span class="status-badge status-amber" data-i18n="lab.state.pendingApprovalBadge">${escapeHtml(t('lab.state.pendingApprovalBadge'))}</span>
         </p>
-        <p style="margin-top: 8px;">
-          Vela 坚持本地安全确定性原则。在工程师于 <strong>Inbox</strong> 中显式授权前，不会在隔离 Git Worktree 中执行任何外部命令或 Agent 运行。
+        <p style="margin-top: 8px;" data-i18n="lab.pendingModal.securityNotice">
+          ${escapeHtml(t('lab.pendingModal.securityNotice'))}
         </p>
       </div>
     `, `
-      <button class="btn btn-secondary" id="btn-stay-page">留在当前页面</button>
-      <button class="btn btn-primary" id="btn-route-inbox">前往 Inbox 审批</button>
+      <button class="btn btn-secondary" id="btn-stay-page" data-i18n="lab.actions.stayOnPage">${escapeHtml(t('lab.actions.stayOnPage'))}</button>
+      <button class="btn btn-primary" id="btn-route-inbox" data-i18n="lab.actions.goToInbox">${escapeHtml(t('lab.actions.goToInbox'))}</button>
     `);
 
     document.getElementById('btn-stay-page').addEventListener('click', closeModal);
@@ -6104,7 +6514,7 @@
     const thisPage = state.currentPage;
     const thisProject = state.currentProject;
     state.selectedEvalId = evalId;
-    openDrawer('加载对照评测详情...', '对照实验');
+    openDrawer({ key: 'lab.drawer.loadingTitle' }, { key: 'lab.drawer.subtitle' });
 
     try {
       const cmp = await callBridge('lab.compare', { id: evalId });
@@ -6113,9 +6523,15 @@
       if (thisSeq !== labDetailSequence || state.selectedEvalId !== evalId || !isDrawerOpen || state.currentPage !== thisPage || state.currentProject !== thisProject) {
         return;
       }
-      if (!cmp) throw new Error('未获取到评测对照数据');
+      if (!cmp) {
+        const err = new Error(t('lab.drawer.dataNotFound'));
+        err.i18nKey = 'lab.drawer.dataNotFound';
+        throw err;
+      }
 
-      setDrawerTitle(cmp.title || '实验对照结果', evalId ? `实验 · ${evalId.substring(0, 8)}` : '对照实验');
+      const drawerTitleParam = cmp.title || { key: 'lab.drawer.defaultResultTitle' };
+      const drawerSubtitleParam = evalId ? { key: 'lab.drawer.idSubtitle', params: { id: evalId.substring(0, 8) } } : { key: 'lab.drawer.subtitle' };
+      setDrawerTitle(drawerTitleParam, drawerSubtitleParam);
       const st = (cmp.state || '').toLowerCase();
       const isPending = (st === 'pending_approval' || st === 'pending approval');
       const isCompleted = (st === 'completed');
@@ -6134,12 +6550,12 @@
       const isPromotionEligible = isCompleted && isAgent && isReadyForReview && memoryOnly && !isAlreadyPromoted;
 
       if (isPromotionEligible) {
-        setDrawerCustomActions('<button id="btn-drawer-promote-eval" class="btn btn-primary btn-sm">晋升生效 Memory</button>');
+        setDrawerCustomActions(`<button id="btn-drawer-promote-eval" class="btn btn-primary btn-sm" data-i18n="lab.actions.promoteMemory">${escapeHtml(t('lab.actions.promoteMemory'))}</button>`);
         document.getElementById('btn-drawer-promote-eval').addEventListener('click', () => {
           openConfirmPromoteModal(cmp);
         });
       } else if (isAlreadyPromoted) {
-        setDrawerCustomActions('<span class="status-badge status-sage">✓ 已晋升生效</span>');
+        setDrawerCustomActions(`<span class="status-badge status-sage" data-i18n="lab.state.promotedActive">${escapeHtml(t('lab.state.promotedActive'))}</span>`);
       } else {
         setDrawerCustomActions('');
       }
@@ -6154,37 +6570,37 @@
       drawerBody.innerHTML = `
         <div class="card">
           <div class="card-header">
-            <span class="card-title">基本信息与配置</span>
+            <span class="card-title" data-i18n="lab.drawer.basicInfoTitle">${escapeHtml(t('lab.drawer.basicInfoTitle'))}</span>
             ${getEvalStateBadge(cmp.state)}
           </div>
           <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <div><span class="text-secondary">类型:</span> ${escapeHtml(cmp.evaluationKind || cmp.kind || 'context')}</div>
-            <div><span class="text-secondary">评测器:</span> <span class="code-badge">${isAgent ? 'Codex Agent' : 'deterministic_command'}</span></div>
+            <div><span class="text-secondary" data-i18n="lab.drawer.kindLabel">${escapeHtml(t('lab.drawer.kindLabel'))}</span>: ${escapeHtml(cmp.evaluationKind || cmp.kind || 'context')}</div>
+            <div><span class="text-secondary" data-i18n="lab.drawer.evaluatorLabel">${escapeHtml(t('lab.drawer.evaluatorLabel'))}</span>: <span class="code-badge">${isAgent ? 'Codex Agent' : 'deterministic_command'}</span></div>
             <div><span class="text-secondary">Git Commit:</span> <span class="font-mono">${cmp.commit ? escapeHtml(cmp.commit.substring(0, 8)) : '-'}</span></div>
-            <div><span class="text-secondary">重复次数:</span> <span class="font-mono">${cmp.repetitions !== null && cmp.repetitions !== undefined ? `${cmp.repetitions} 次 (双侧共 ${cmp.repetitions * 2} 次运行)` : '未记录'}</span></div>
-            <div><span class="text-secondary">超时限制:</span> <span class="font-mono">${cmp.timeoutSeconds !== null && cmp.timeoutSeconds !== undefined ? `${cmp.timeoutSeconds}s` : '未记录'}</span></div>
+            <div><span class="text-secondary" data-i18n="lab.drawer.repetitionsLabel">${escapeHtml(t('lab.drawer.repetitionsLabel'))}</span>: <span class="font-mono">${cmp.repetitions !== null && cmp.repetitions !== undefined ? tHtml('lab.drawer.repetitionsSummary', { rep: cmp.repetitions, total: cmp.repetitions * 2 }) : tHtml('lab.metric.notRecorded')}</span></div>
+            <div><span class="text-secondary" data-i18n="lab.drawer.timeoutLabel">${escapeHtml(t('lab.drawer.timeoutLabel'))}</span>: <span class="font-mono">${cmp.timeoutSeconds !== null && cmp.timeoutSeconds !== undefined ? `${cmp.timeoutSeconds}s` : tHtml('lab.metric.notRecorded')}</span></div>
             ${isAgent ? `
-              <div><span class="text-secondary">请求模型:</span> <span class="font-mono"><strong>${escapeHtml(cmp.modelIdentity?.requested || cmp.agent?.model || '未指定')}</strong></span></div>
-              <div style="grid-column: 1 / -1;"><span class="text-secondary">服务端版本:</span> <span class="font-mono text-muted">${cmp.modelIdentity?.providerResolvedVersion ? escapeHtml(cmp.modelIdentity.providerResolvedVersion) : '未提供（Core 仅记录显式请求模型）'}</span></div>
-              <div><span class="text-secondary">推理级别:</span> <span class="font-mono">${cmp.agent?.reasoningEffort ? escapeHtml(cmp.agent.reasoningEffort) : '未记录'}</span></div>
+              <div><span class="text-secondary" data-i18n="lab.drawer.requestedModelLabel">${escapeHtml(t('lab.drawer.requestedModelLabel'))}</span>: <span class="font-mono"><strong>${(cmp.modelIdentity?.requested || cmp.agent?.model) ? escapeHtml(cmp.modelIdentity?.requested || cmp.agent?.model) : tHtml('lab.metric.notSpecified')}</strong></span></div>
+              <div style="grid-column: 1 / -1;"><span class="text-secondary" data-i18n="lab.drawer.serverVersionLabel">${escapeHtml(t('lab.drawer.serverVersionLabel'))}</span>: <span class="font-mono text-muted">${cmp.modelIdentity?.providerResolvedVersion ? escapeHtml(cmp.modelIdentity.providerResolvedVersion) : tHtml('lab.drawer.serverVersionOmitted')}</span></div>
+              <div><span class="text-secondary" data-i18n="lab.drawer.effortLabel">${escapeHtml(t('lab.drawer.effortLabel'))}</span>: <span class="font-mono">${cmp.agent?.reasoningEffort ? escapeHtml(cmp.agent.reasoningEffort) : tHtml('lab.metric.notRecorded')}</span></div>
             ` : ''}
             <div style="grid-column: 1 / -1; margin-top: 4px;">
-              <span class="text-secondary">${isAgent ? '独立验证命令:' : '执行命令:'}</span>
+              <span class="text-secondary">${isAgent ? tHtml('lab.drawer.verifyCmdLabel') : tHtml('lab.drawer.execCmdLabel')}:</span>
               <div class="font-mono" style="font-size: 11px; margin-top: 2px; padding: 4px 6px; background: var(--bg-subtle); border-radius: 4px; border: 1px solid var(--border-color);">
-                <span>程序: <strong>${escapeHtml(cmdExe)}</strong></span> ·
+                <span><span data-i18n="lab.drawer.programLabel">${escapeHtml(t('lab.drawer.programLabel'))}</span>: <strong>${escapeHtml(cmdExe)}</strong></span> ·
                 <span>JSON argv: <code>${escapeHtml(cmdArgvStr)}</code></span>
               </div>
             </div>
             ${isAgent && cmp.task ? `
               <div style="grid-column: 1 / -1; margin-top: 4px;">
-                <span class="text-secondary">执行任务:</span>
+                <span class="text-secondary" data-i18n="lab.drawer.taskLabel">${escapeHtml(t('lab.drawer.taskLabel'))}</span>:
                 <div style="font-size: 12px; line-height: 1.45; color: var(--text-main); margin-top: 2px; padding: 6px 8px; background: var(--bg-subtle); border-radius: 4px; border: 1px solid var(--border-color); white-space: pre-wrap;">${escapeHtml(cmp.task)}</div>
               </div>
             ` : ''}
             ${cmp.verificationFiles && cmp.verificationFiles.length > 0 ? `
               <div style="grid-column: 1 / -1; margin-top: 4px;">
                 <details style="font-size: 11px;">
-                  <summary style="cursor: pointer; color: var(--text-secondary);">受保护的验证文件 (${cmp.verificationFiles.length})</summary>
+                  <summary style="cursor: pointer; color: var(--text-secondary);" data-i18n="lab.drawer.verifyFilesSummary" data-i18n-params="${escapeHtml(JSON.stringify({ count: cmp.verificationFiles.length }))}">${escapeHtml(t('lab.drawer.verifyFilesSummary', { count: cmp.verificationFiles.length }))}</summary>
                   <ul style="margin-top: 4px; padding-left: 18px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">
                     ${cmp.verificationFiles.map(f => `<li>${escapeHtml(typeof f === 'string' ? f : (f.path + (f.hash ? ' (' + f.hash.slice(0, 8) + ')' : '')))}</li>`).join('')}
                   </ul>
@@ -6194,7 +6610,7 @@
             ${cmp.outputFiles && cmp.outputFiles.length > 0 ? `
               <div style="grid-column: 1 / -1; margin-top: 4px;">
                 <details style="font-size: 11px;">
-                  <summary style="cursor: pointer; color: var(--text-secondary);">任务产出白名单 (${cmp.outputFiles.length})</summary>
+                  <summary style="cursor: pointer; color: var(--text-secondary);" data-i18n="lab.drawer.outputFilesSummary" data-i18n-params="${escapeHtml(JSON.stringify({ count: cmp.outputFiles.length }))}">${escapeHtml(t('lab.drawer.outputFilesSummary', { count: cmp.outputFiles.length }))}</summary>
                   <ul style="margin-top: 4px; padding-left: 18px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">
                     ${cmp.outputFiles.map(f => `<li>${escapeHtml(f)}</li>`).join('')}
                   </ul>
@@ -6203,30 +6619,30 @@
             ` : ''}
             ${cmp.sourceSuggestionId ? `
               <div style="grid-column: 1 / -1; margin-top: 4px; font-size: 11px;">
-                <span class="text-secondary">关联调优建议:</span>
+                <span class="text-secondary" data-i18n="lab.drawer.linkedSuggestionLabel">${escapeHtml(t('lab.drawer.linkedSuggestionLabel'))}</span>:
                 <span class="code-badge">${escapeHtml(cmp.sourceSuggestionId.substring(0, 8))}</span>
                 ${cmp.sourceRelationship ? `<span class="badge-subtle">${escapeHtml(cmp.sourceRelationship)}</span>` : ''}
               </div>
             ` : ''}
-            <div style="grid-column: 1 / -1; margin-top: 6px; font-size: 11px; color: var(--text-secondary); border-top: 1px dashed var(--border-color); padding-top: 6px;">
-              未来效果: <strong class="font-mono">未测量 (futureEffect = not_measured)</strong> · 单轮对照评测不代表长期修正率改善
+            <div style="grid-column: 1 / -1; margin-top: 6px; font-size: 11px; color: var(--text-secondary); border-top: 1px dashed var(--border-color); padding-top: 6px;" data-i18n="lab.drawer.futureEffectNotice">
+              ${escapeHtml(t('lab.drawer.futureEffectNotice'))}
             </div>
           </div>
         </div>
 
         ${isPending ? `
           <div class="empty-state">
-            <div class="empty-state-title">实验等待审批 (Pending Approval)</div>
-            <div class="empty-state-desc">该对照实验已进入 Inbox 待办列表。在工程师显式批准前，不会在 Worktree 中执行任何外部命令或 Agent 运行。</div>
+            <div class="empty-state-title" data-i18n="lab.drawer.emptyPendingTitle">${escapeHtml(t('lab.drawer.emptyPendingTitle'))}</div>
+            <div class="empty-state-desc" data-i18n="lab.drawer.emptyPendingDesc">${escapeHtml(t('lab.drawer.emptyPendingDesc'))}</div>
           </div>
         ` : `
           ${decision ? `
             <div class="lab-decision-banner ${isReadyForReview ? 'ready' : (decision === 'reject' ? 'reject' : 'inconclusive')}">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                <strong>${getEvalDecisionTitle(decision)}</strong>
+                ${getEvalDecisionTitleNode(decision)}
                 <span class="font-mono" style="font-size: 11px;">decision: ${escapeHtml(decision)}</span>
               </div>
-              <div style="font-size: 12px; line-height: 1.45;">${getEvalDecisionExplanation(decision)}</div>
+              <div style="font-size: 12px; line-height: 1.45;" data-i18n="${getEvalDecisionExplanationKey(decision)}">${escapeHtml(getEvalDecisionExplanation(decision))}</div>
               ${summary.reasons && summary.reasons.length > 0 ? `
                 <ul style="margin: 6px 0 0 0; padding-left: 18px; font-size: 11.5px;">
                   ${summary.reasons.map(r => `<li>${escapeHtml(r)}</li>`).join('')}
@@ -6241,9 +6657,9 @@
           ${isAlreadyPromoted ? `
             <div class="card" style="background: var(--status-sage-bg); border-color: var(--status-sage-border); padding: 8px 12px; margin-bottom: 12px;">
               <div style="font-size: 12px; color: var(--status-sage-text);">
-                <strong>✓ 候选记忆已晋升生效</strong>
+                <strong data-i18n="lab.drawer.promotedCardTitle">${escapeHtml(t('lab.drawer.promotedCardTitle'))}</strong>
                 <div style="font-size: 11px; margin-top: 2px;">
-                  Promotion ID: <code>${escapeHtml(cmp.promotionId)}</code> · 状态: active · 晋升时间: ${formatTime(cmp.promotedAt)}
+                  Promotion ID: <code>${escapeHtml(cmp.promotionId)}</code> · <span data-i18n="lab.drawer.statusLabel">${escapeHtml(t('lab.drawer.statusLabel'))}</span>: <span data-i18n="lab.state.active">${escapeHtml(t('lab.state.active'))}</span> · <span data-i18n="lab.drawer.promotedAtLabel">${escapeHtml(t('lab.drawer.promotedAtLabel'))}</span>: ${formatTime(cmp.promotedAt)}
                 </div>
               </div>
             </div>
@@ -6252,71 +6668,71 @@
           <div class="lab-compare-grid">
             <div class="lab-variant-card baseline">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <span style="font-weight: 600; font-size: 13px;">Baseline 对照组</span>
+                <span style="font-weight: 600; font-size: 13px;" data-i18n="lab.compare.baselineCardTitle">${escapeHtml(t('lab.compare.baselineCardTitle'))}</span>
                 <span class="status-badge status-neutral">${formatFinitePassRate(summary.baseline?.passRate, isPending)}</span>
               </div>
               <div class="lab-metric-list">
                 ${isAgent ? `
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">通过率 (Pass Rate):</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.passRate">${escapeHtml(t('lab.metric.passRate'))}:</span>
                     <span class="lab-metric-val">${formatFinitePassRate(summary.baseline?.passRate, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">独立校验成功数:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.verifierSuccesses">${escapeHtml(t('lab.metric.verifierSuccesses'))}:</span>
                     <span class="lab-metric-val">${formatFiniteCount(summary.baseline?.successes, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">有效样本数 (Valid):</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.validRuns">${escapeHtml(t('lab.metric.validRuns'))}:</span>
                     <span class="lab-metric-val">${formatFiniteCount(summary.baseline?.validRuns, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">已记录样本数:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.recordedRuns">${escapeHtml(t('lab.metric.recordedRuns'))}:</span>
                     <span class="lab-metric-val">${formatFiniteCount(summary.baseline?.runs, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">观察到测试执行率:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.testExecRate">${escapeHtml(t('lab.metric.testExecRate'))}:</span>
                     <span class="lab-metric-val">${formatFinitePassRate(summary.baseline?.testExecutionRate, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">平均观察 Tokens:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.avgTokens">${escapeHtml(t('lab.metric.avgTokens'))}:</span>
                     <span class="lab-metric-val">${formatFiniteTokens(summary.baseline?.averageTokens, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">平均耗时:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.avgDuration">${escapeHtml(t('lab.metric.avgDuration'))}:</span>
                     <span class="lab-metric-val">${formatFiniteDuration(summary.baseline?.averageDurationMs, isPending)}</span>
                   </div>
                 ` : `
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">通过率 (退出码 0):</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.passRateExit0">${escapeHtml(t('lab.metric.passRateExit0'))}:</span>
                     <span class="lab-metric-val">${formatFinitePassRate(summary.baseline?.passRate, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">成功次数:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.successCount">${escapeHtml(t('lab.metric.successCount'))}:</span>
                     <span class="lab-metric-val">${formatFiniteCount(summary.baseline?.successes, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">已记录样本数:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.recordedRuns">${escapeHtml(t('lab.metric.recordedRuns'))}:</span>
                     <span class="lab-metric-val">${formatFiniteCount(summary.baseline?.runs, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">平均耗时:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.avgDuration">${escapeHtml(t('lab.metric.avgDuration'))}:</span>
                     <span class="lab-metric-val">${formatFiniteDuration(summary.baseline?.averageDurationMs, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">耗时方差:</span>
-                    <span class="lab-metric-val">${summary.baseline?.runtimeVariance !== null && summary.baseline?.runtimeVariance !== undefined ? (Math.round(summary.baseline.runtimeVariance) + ' ms²') : '未提供'}</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.runtimeVariance">${escapeHtml(t('lab.metric.runtimeVariance'))}:</span>
+                    <span class="lab-metric-val">${summary.baseline?.runtimeVariance !== null && summary.baseline?.runtimeVariance !== undefined ? (Math.round(summary.baseline.runtimeVariance) + ' ms²') : tHtml('lab.metric.notProvided')}</span>
                   </div>
                 `}
               </div>
               <div style="margin-top: 10px; padding-top: 6px; border-top: 1px dashed var(--border-color); font-size: 11px;">
-                <div class="text-secondary" style="margin-bottom: 2px;">挂载配置:</div>
+                <div class="text-secondary" style="margin-bottom: 2px;" data-i18n="lab.compare.mountConfig">${escapeHtml(t('lab.compare.mountConfig'))}:</div>
                 <div>${formatVariantSummary(cmp.baseline)}</div>
               </div>
             </div>
 
             <div class="lab-variant-card candidate">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <span style="font-weight: 600; font-size: 13px;">Candidate 候选组</span>
+                <span style="font-weight: 600; font-size: 13px;" data-i18n="lab.compare.candidateCardTitle">${escapeHtml(t('lab.compare.candidateCardTitle'))}</span>
                 <span class="status-badge ${isReadyForReview ? 'status-sage' : (decision === 'reject' ? 'status-red' : 'status-amber')}">
                   ${formatFinitePassRate(summary.candidate?.passRate, isPending)}
                 </span>
@@ -6324,83 +6740,83 @@
               <div class="lab-metric-list">
                 ${isAgent ? `
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">通过率 (Pass Rate):</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.passRate">${escapeHtml(t('lab.metric.passRate'))}:</span>
                     <span class="lab-metric-val">${formatFinitePassRate(summary.candidate?.passRate, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">独立校验成功数:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.verifierSuccesses">${escapeHtml(t('lab.metric.verifierSuccesses'))}:</span>
                     <span class="lab-metric-val">${formatFiniteCount(summary.candidate?.successes, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">有效样本数 (Valid):</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.validRuns">${escapeHtml(t('lab.metric.validRuns'))}:</span>
                     <span class="lab-metric-val">${formatFiniteCount(summary.candidate?.validRuns, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">已记录样本数:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.recordedRuns">${escapeHtml(t('lab.metric.recordedRuns'))}:</span>
                     <span class="lab-metric-val">${formatFiniteCount(summary.candidate?.runs, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">观察到测试执行率:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.testExecRate">${escapeHtml(t('lab.metric.testExecRate'))}:</span>
                     <span class="lab-metric-val">${formatFinitePassRate(summary.candidate?.testExecutionRate, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">平均观察 Tokens:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.avgTokens">${escapeHtml(t('lab.metric.avgTokens'))}:</span>
                     <span class="lab-metric-val">${formatFiniteTokens(summary.candidate?.averageTokens, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">平均耗时:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.avgDuration">${escapeHtml(t('lab.metric.avgDuration'))}:</span>
                     <span class="lab-metric-val">${formatFiniteDuration(summary.candidate?.averageDurationMs, isPending)}</span>
                   </div>
                 ` : `
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">通过率 (退出码 0):</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.passRateExit0">${escapeHtml(t('lab.metric.passRateExit0'))}:</span>
                     <span class="lab-metric-val">${formatFinitePassRate(summary.candidate?.passRate, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">成功次数:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.successCount">${escapeHtml(t('lab.metric.successCount'))}:</span>
                     <span class="lab-metric-val">${formatFiniteCount(summary.candidate?.successes, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">已记录样本数:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.recordedRuns">${escapeHtml(t('lab.metric.recordedRuns'))}:</span>
                     <span class="lab-metric-val">${formatFiniteCount(summary.candidate?.runs, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">平均耗时:</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.avgDuration">${escapeHtml(t('lab.metric.avgDuration'))}:</span>
                     <span class="lab-metric-val">${formatFiniteDuration(summary.candidate?.averageDurationMs, isPending)}</span>
                   </div>
                   <div class="lab-metric-row">
-                    <span class="lab-metric-label">耗时方差:</span>
-                    <span class="lab-metric-val">${summary.candidate?.runtimeVariance !== null && summary.candidate?.runtimeVariance !== undefined ? (Math.round(summary.candidate.runtimeVariance) + ' ms²') : '未提供'}</span>
+                    <span class="lab-metric-label" data-i18n="lab.metric.runtimeVariance">${escapeHtml(t('lab.metric.runtimeVariance'))}:</span>
+                    <span class="lab-metric-val">${summary.candidate?.runtimeVariance !== null && summary.candidate?.runtimeVariance !== undefined ? (Math.round(summary.candidate.runtimeVariance) + ' ms²') : tHtml('lab.metric.notProvided')}</span>
                   </div>
                 `}
               </div>
               <div style="margin-top: 10px; padding-top: 6px; border-top: 1px dashed var(--border-color); font-size: 11px;">
-                <div class="text-secondary" style="margin-bottom: 2px;">挂载配置:</div>
+                <div class="text-secondary" style="margin-bottom: 2px;" data-i18n="lab.compare.mountConfig">${escapeHtml(t('lab.compare.mountConfig'))}:</div>
                 <div>${formatVariantSummary(cmp.candidate)}</div>
               </div>
             </div>
           </div>
 
           <div style="margin-top: 14px;">
-            <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">样本执行明细 (${results.length})</h3>
-            ${results.length === 0 ? '<div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;">暂无运行样本数据。</div>' : `
+            <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;" data-i18n="lab.compare.sampleDetailsHeader" data-i18n-params="${escapeHtml(JSON.stringify({ count: results.length }))}">${escapeHtml(t('lab.compare.sampleDetailsHeader', { count: results.length }))}</h3>
+            ${results.length === 0 ? `<div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;" data-i18n="lab.compare.emptySamples">${escapeHtml(t('lab.compare.emptySamples'))}</div>` : `
               <div class="lab-sample-list">
                 ${results.map((r, i) => {
                   const isCand = r.variant === 'candidate';
-                  const sideLabel = isCand ? 'Candidate 候选组' : 'Baseline 对照组';
-                  const repText = `第 ${r.repetition || (i + 1)} 次`;
+                  const sideKey = isCand ? 'lab.compare.candidateSide' : 'lab.compare.baselineSide';
+                  const repNum = r.repetition || (i + 1);
 
-                  const agentExit = r.exitCode !== null && r.exitCode !== undefined ? String(r.exitCode) : '未提供';
-                  const agentDur = r.durationMs !== null && r.durationMs !== undefined ? `${r.durationMs}ms` : '未提供';
-                  const timedOutTag = r.timedOut ? '<span class="status-badge status-red">超时</span>' : '';
-                  const tokenUsage = r.tokens !== null && r.tokens !== undefined ? `${r.tokens.toLocaleString()} tok` : '未提供';
+                  const agentExit = r.exitCode !== null && r.exitCode !== undefined ? String(r.exitCode) : tHtml('lab.metric.notProvided');
+                  const agentDur = r.durationMs !== null && r.durationMs !== undefined ? `${r.durationMs}ms` : tHtml('lab.metric.notProvided');
+                  const timedOutTag = r.timedOut ? `<span class="status-badge status-red" data-i18n="lab.state.timeout">${escapeHtml(t('lab.state.timeout'))}</span>` : '';
+                  const tokenUsage = r.tokens !== null && r.tokens !== undefined ? `${r.tokens.toLocaleString()} tok` : tHtml('lab.metric.notProvided');
 
-                  const verifierExit = r.verification ? (r.verification.exitCode !== null && r.verification.exitCode !== undefined ? String(r.verification.exitCode) : '未提供') : '未执行';
-                  let intactBadge = '<span class="status-badge status-neutral">未测量</span>';
+                  const verifierExit = r.verification ? (r.verification.exitCode !== null && r.verification.exitCode !== undefined ? String(r.verification.exitCode) : tHtml('lab.metric.notProvided')) : tHtml('lab.metric.notExecuted');
+                  let intactBadge = `<span class="status-badge status-neutral" data-i18n="lab.state.notMeasured">${escapeHtml(t('lab.state.notMeasured'))}</span>`;
                   if (r.verificationIntact === true) {
-                    intactBadge = '<span class="status-badge status-sage">✓ 验证文件未被篡改 (Intact)</span>';
+                    intactBadge = `<span class="status-badge status-sage" data-i18n="lab.state.intactPass">${escapeHtml(t('lab.state.intactPass'))}</span>`;
                   } else if (r.verificationIntact === false) {
-                    intactBadge = '<span class="status-badge status-red">✕ 验证文件被篡改 (违规失效)</span>';
+                    intactBadge = `<span class="status-badge status-red" data-i18n="lab.state.intactTampered">${escapeHtml(t('lab.state.intactTampered'))}</span>`;
                   }
 
                   let sessionLinkHtml = '';
@@ -6409,13 +6825,13 @@
                     const foundSession = findVelaSessionBySourceId(srcSessId, cmp.project);
                     if (foundSession) {
                       sessionLinkHtml = `
-                        <button type="button" class="btn-open-source btn btn-ghost btn-sm" data-session-id="${escapeHtml(foundSession.id)}" title="定位对应会话: ${escapeHtml(foundSession.id)}">
+                        <button type="button" class="btn-open-source btn btn-ghost btn-sm" data-session-id="${escapeHtml(foundSession.id)}" data-i18n-title="lab.compare.sessionLinkTitle" data-i18n-params="${escapeHtml(JSON.stringify({ id: foundSession.id }))}" title="${escapeHtml(t('lab.compare.sessionLinkTitle', { id: foundSession.id }))}">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                          <span>查看关联会话 (${escapeHtml(foundSession.id.slice(0, 8))})</span>
+                          <span data-i18n="lab.compare.viewSession" data-i18n-params="${escapeHtml(JSON.stringify({ id: foundSession.id.slice(0, 8) }))}">${escapeHtml(t('lab.compare.viewSession', { id: foundSession.id.slice(0, 8) }))}</span>
                         </button>
                       `;
                     } else {
-                      sessionLinkHtml = `<span class="text-muted" style="font-size: 10.5px;">Provider 会话 ID: <code>${escapeHtml(srcSessId)}</code> (未在 Vela 会话库中建立索引)</span>`;
+                      sessionLinkHtml = `<span class="text-muted" style="font-size: 10.5px;">Provider <span data-i18n="lab.compare.sessionIdLabel">${escapeHtml(t('lab.compare.sessionIdLabel'))}</span>: <code>${escapeHtml(srcSessId)}</code> (<span data-i18n="lab.compare.sessionNotIndexed">${escapeHtml(t('lab.compare.sessionNotIndexed'))}</span>)</span>`;
                     }
                   }
 
@@ -6427,7 +6843,7 @@
                     <div class="lab-sample-card">
                       <div class="lab-sample-header">
                         <div>
-                          <span class="code-badge" style="${isCand ? 'border-color: var(--color-accent);' : ''}">${escapeHtml(sideLabel)} · ${escapeHtml(repText)}</span>
+                          <span class="code-badge" style="${isCand ? 'border-color: var(--color-accent);' : ''}">${tHtml(sideKey)} · ${tHtml('lab.compare.repetitionItem', { rep: repNum })}</span>
                         </div>
                         <div style="display: flex; gap: 6px; align-items: center;">
                           ${timedOutTag}
@@ -6436,25 +6852,25 @@
                       </div>
 
                       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; margin-bottom: 6px;">
-                        <div><span class="text-secondary">Agent 进程:</span> Exit: <strong>${escapeHtml(agentExit)}</strong> · ${escapeHtml(agentDur)} · ${escapeHtml(tokenUsage)}</div>
-                        <div><span class="text-secondary">${isAgent ? '独立校验器:' : '命令状态:'}</span> Exit: <strong>${escapeHtml(verifierExit)}</strong></div>
+                        <div><span class="text-secondary" data-i18n="lab.compare.agentProcessLabel">${escapeHtml(t('lab.compare.agentProcessLabel'))}</span>: Exit: <strong>${agentExit}</strong> · ${agentDur} · ${tokenUsage}</div>
+                        <div><span class="text-secondary">${isAgent ? tHtml('lab.compare.verifierLabel') : tHtml('lab.compare.cmdStatusLabel')}:</span> Exit: <strong>${verifierExit}</strong></div>
                       </div>
 
                       <div style="font-size: 11px; margin-bottom: 6px;">
-                        <span class="text-secondary">执行命令:</span>
-                        <span class="font-mono">可执行文件: <strong>${escapeHtml(sampleCmdExe)}</strong> · argv: <code>${escapeHtml(sampleCmdArgv)}</code></span>
+                        <span class="text-secondary" data-i18n="lab.compare.execCmdLabel">${escapeHtml(t('lab.compare.execCmdLabel'))}</span>:
+                        <span class="font-mono"><span data-i18n="lab.compare.exeFileLabel">${escapeHtml(t('lab.compare.exeFileLabel'))}</span>: <strong>${escapeHtml(sampleCmdExe)}</strong> · argv: <code>${escapeHtml(sampleCmdArgv)}</code></span>
                       </div>
 
                       ${sessionLinkHtml ? `<div style="margin-bottom: 6px;">${sessionLinkHtml}</div>` : ''}
 
                       <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">
                         <details style="font-size: 11px;">
-                          <summary style="cursor: pointer; color: var(--text-secondary);">查看进程输出 (${(r.output || '').length} 字符)</summary>
-                          <div class="code-view" style="font-size: 11px; margin-top: 4px; max-height: 120px; overflow-y: auto;">${escapeHtml(r.output || '(无输出)')}</div>
+                          <summary style="cursor: pointer; color: var(--text-secondary);" data-i18n="lab.compare.outputSummary" data-i18n-params="${escapeHtml(JSON.stringify({ count: (r.output || '').length }))}">${escapeHtml(t('lab.compare.outputSummary', { count: (r.output || '').length }))}</summary>
+                          <div class="code-view" style="font-size: 11px; margin-top: 4px; max-height: 120px; overflow-y: auto;">${r.output ? escapeHtml(r.output) : tHtml('lab.compare.noOutput')}</div>
                         </details>
                         ${r.verification && r.verification.output ? `
                           <details style="font-size: 11px;">
-                            <summary style="cursor: pointer; color: var(--text-secondary);">查看独立校验器输出 (${(r.verification.output || '').length} 字符)</summary>
+                            <summary style="cursor: pointer; color: var(--text-secondary);" data-i18n="lab.compare.verifierOutputSummary" data-i18n-params="${escapeHtml(JSON.stringify({ count: (r.verification.output || '').length }))}">${escapeHtml(t('lab.compare.verifierOutputSummary', { count: (r.verification.output || '').length }))}</summary>
                             <div class="code-view" style="font-size: 11px; margin-top: 4px; max-height: 120px; overflow-y: auto;">${escapeHtml(r.verification.output)}</div>
                           </details>
                         ` : ''}
@@ -6473,9 +6889,12 @@
       if (thisSeq !== labDetailSequence || state.selectedEvalId !== evalId || !isDrawerOpen || state.currentPage !== thisPage || state.currentProject !== thisProject) {
         return;
       }
-      setDrawerTitle('加载失败', '错误');
+      setDrawerTitle({ key: 'lab.drawer.failedTitle' }, { key: 'lab.drawer.errorSubtitle' });
+      const errHtml = (err && err.i18nKey === 'lab.drawer.dataNotFound')
+        ? tHtml('lab.drawer.dataNotFound')
+        : escapeHtml(err.message);
       document.getElementById('drawer-content').innerHTML = `
-        <div class="alert-banner alert-danger">无法加载对比数据：${escapeHtml(err.message)}</div>
+        <div class="alert-banner alert-danger"><span data-i18n="lab.drawer.compareLoadFailed">${escapeHtml(t('lab.drawer.compareLoadFailed'))}</span>: ${errHtml}</div>
       `;
     }
   }
@@ -6485,18 +6904,17 @@
   function openConfirmPromoteModal(cmp) {
     const mems = (cmp.candidate && cmp.candidate.memories) || [];
     if (mems.length === 0) {
-      showToast('该实验无候选记忆可晋升', 'info');
+      showToast({ key: 'lab.promote.noCandidateMems' }, 'info');
       return;
     }
 
     const modalBody = `
-      <div style="font-size: 13px; line-height: 1.5; color: var(--text-secondary); margin-bottom: 12px;">
-        本次对照实验（ID: <code>${escapeHtml(cmp.id.substring(0, 8))}</code>）已完成并通过晋升审查标准（Ready for Review）。
-        确认将以下 <strong>${mems.length}</strong> 条候选记忆晋升为 <strong>生效中 (Active)</strong> 状态？
+      <div style="font-size: 13px; line-height: 1.5; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="lab.promote.confirmPrompt" data-i18n-params="${escapeHtml(JSON.stringify({ id: cmp.id.substring(0, 8), count: mems.length }))}">
+        ${escapeHtml(t('lab.promote.confirmPrompt', { id: cmp.id.substring(0, 8), count: mems.length }))}
       </div>
 
       <div class="card" style="margin-bottom: 12px; padding: 10px 12px; background: var(--bg-subtle);">
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">将要激活的候选记忆：</div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;" data-i18n="lab.promote.memoriesToActivate">${escapeHtml(t('lab.promote.memoriesToActivate'))}:</div>
         <ul style="padding-left: 18px; margin: 0; font-size: 12px; color: var(--text-main);">
           ${mems.map(m => `
             <li style="margin-bottom: 4px;">
@@ -6508,17 +6926,16 @@
       </div>
 
       <div class="alert-banner alert-neutral" style="font-size: 11px; line-height: 1.45;">
-        <strong>工程说明：</strong>
-        晋升操作将通过安全事务写入，将上述 Memory 的状态更新为 active。
-        未来效果（<code>futureEffect = not_measured</code>）仍未测量；需启用并信任项目的 Codex SessionStart hook 以在后续会话中载入生效记忆。
+        <strong data-i18n="lab.promote.engineeringNoticeTitle">${escapeHtml(t('lab.promote.engineeringNoticeTitle'))}</strong>:
+        <span data-i18n="lab.promote.engineeringNoticeBody">${escapeHtml(t('lab.promote.engineeringNoticeBody'))}</span>
       </div>
 
       <div id="promote-error-container" class="hidden" style="margin-top: 10px;"></div>
     `;
 
-    openModal('晋升候选 Memory 为 生效中 (Active)', modalBody, `
-      <button class="btn btn-secondary" id="btn-cancel-promote">取消</button>
-      <button class="btn btn-primary" id="btn-confirm-promote">确认晋升 (Promote)</button>
+    openModal({ key: 'lab.modal.promoteTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-cancel-promote" data-i18n="lab.actions.cancel">${escapeHtml(t('lab.actions.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-confirm-promote" data-i18n="lab.actions.confirmPromote">${escapeHtml(t('lab.actions.confirmPromote'))}</button>
     `);
 
     document.getElementById('btn-cancel-promote').addEventListener('click', closeModal);
@@ -6527,24 +6944,24 @@
       const errBox = document.getElementById('promote-error-container');
       if (errBox) errBox.classList.add('hidden');
       btn.disabled = true;
-      btn.textContent = '晋升中...';
+      window.VelaI18n.setElementDescriptor(btn, { key: 'lab.actions.promoting' });
 
       try {
         const res = await callBridge('lab.promote', { id: cmp.id });
-        showToast('Memory 晋升成功！已激活 ' + mems.length + ' 条候选记忆。');
+        showToast({ key: 'lab.promote.successToast', params: { count: mems.length } });
         closeModal();
         await refreshDashboard(true, true);
         openLabCompareDrawer(cmp.id);
       } catch (err) {
         if (errBox) {
           errBox.className = 'alert-banner alert-danger';
-          errBox.textContent = '晋升失败: ' + err.message;
+          errBox.innerHTML = '<span data-i18n="lab.promote.failedPrefix">' + escapeHtml(t('lab.promote.failedPrefix')) + '</span>: ' + escapeHtml(err.message);
           errBox.classList.remove('hidden');
         } else {
-          showToast('晋升失败: ' + err.message, 'error');
+          showToast({ key: 'lab.promote.failedToast', params: { error: err.message } }, 'error');
         }
         btn.disabled = false;
-        btn.textContent = '确认晋升 (Promote)';
+        window.VelaI18n.setElementDescriptor(btn, { key: 'lab.actions.confirmPromote' });
       }
     });
   }
@@ -6586,7 +7003,7 @@
     function getApprovalSummary(appr) {
       const args = parseApprovalArgs(appr.arguments);
       const projectPath = (typeof appr.project === 'string') ? appr.project : '';
-      const projectBasename = projectPath ? (projectPath.split('/').filter(Boolean).pop() || projectPath) : '全局';
+      const projectBasename = projectPath ? (projectPath.split('/').filter(Boolean).pop() || projectPath) : t('inbox.globalScope');
 
       let targetDisplay = null;
       let commandDisplay = null;
@@ -6650,7 +7067,7 @@
         previewText = preview;
       }
 
-      const frozenTool = (typeof appr.tool === 'string' && appr.tool.trim()) ? appr.tool.trim() : '操作';
+      const frozenTool = (typeof appr.tool === 'string' && appr.tool.trim()) ? appr.tool.trim() : t('inbox.defaultTool');
       const isFileOp = frozenTool.toLowerCase().includes('file') || frozenTool.toLowerCase().includes('write') || frozenTool.toLowerCase().includes('edit');
 
       let agentDisplay = null;
@@ -6659,7 +7076,11 @@
       let outputFilesDisplay = null;
 
       if (args.agent && typeof args.agent === 'object') {
-        agentDisplay = `${args.agent.provider || 'codex'} (模型: ${args.agent.model || '未指定'}, effort: ${args.agent.reasoningEffort || 'high'})`;
+        agentDisplay = t('inbox.agentDisplay', {
+          provider: args.agent.provider || 'codex',
+          model: args.agent.model || t('common.notSpecified'),
+          effort: args.agent.reasoningEffort || 'high'
+        });
       }
       if (typeof args.task === 'string' && args.task.trim()) {
         taskDisplay = args.task.trim();
@@ -6689,15 +7110,15 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>待办审批</h1>
-          <p>写操作、脚本执行与对照实验的安全审查门禁 · 参数完全冻结，仅运行审批快照</p>
+          <h1 data-i18n="inbox.title">${t('inbox.title')}</h1>
+          <p data-i18n="inbox.subtitle">${t('inbox.subtitle')}</p>
         </div>
       </div>
 
       ${pendingApprovals.length === 0 ? `
         <div class="empty-state">
-          <div class="empty-state-title">当前无待执行操作</div>
-          <div class="empty-state-desc">当工作流包含测试/写入步骤，或创建 Lab 实验时，待办审批将在此出现。审批通过前命令不会被执行。</div>
+          <div class="empty-state-title" data-i18n="inbox.emptyTitle">${t('inbox.emptyTitle')}</div>
+          <div class="empty-state-desc" data-i18n="inbox.emptyDesc">${t('inbox.emptyDesc')}</div>
         </div>
       ` : `
         <div style="display: flex; flex-direction: column; gap: 14px;">
@@ -6707,10 +7128,10 @@
               <div class="card" style="margin-bottom: 0; padding: 16px 18px;">
                 <div class="card-header" style="margin-bottom: 8px;">
                   <div>
-                    <strong style="font-size: 14px;">${escapeHtml(appr.title || '操作执行申请')}</strong>
+                    <strong style="font-size: 14px;">${escapeHtml(appr.title || t('inbox.defaultApprTitle'))}</strong>
                     <span class="code-badge" style="margin-left: 6px;">${escapeHtml(summary.toolName)}</span>
                   </div>
-                  <span class="status-badge status-amber">待审批</span>
+                  <span class="status-badge status-amber" data-i18n="inbox.statusPending">${t('inbox.statusPending')}</span>
                 </div>
 
                 ${appr.intent || appr.description ? `
@@ -6720,50 +7141,50 @@
                 ` : ''}
 
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
-                  <div><strong>所属项目:</strong> <span class="font-mono" title="${escapeHtml(summary.projectPath)}">${escapeHtml(summary.projectBasename)}</span></div>
+                  <div><strong data-i18n="inbox.metaProject">${t('inbox.metaProject')}</strong> <span class="font-mono" title="${escapeHtml(summary.projectPath)}">${escapeHtml(summary.projectBasename)}</span></div>
                   ${summary.agentDisplay ? `
-                    <div><strong>评测 Agent:</strong> <code class="code-badge font-mono">${escapeHtml(summary.agentDisplay)}</code></div>
+                    <div><strong data-i18n="inbox.metaEvalAgent">${t('inbox.metaEvalAgent')}</strong> <code class="code-badge font-mono">${escapeHtml(summary.agentDisplay)}</code></div>
                   ` : ''}
                   ${summary.taskDisplay ? `
-                    <div style="margin-top: 2px;"><strong>评测任务:</strong> <div style="font-size: 11.5px; padding: 4px 6px; background: var(--bg-subtle); border-radius: 4px; margin-top: 2px; white-space: pre-wrap;">${escapeHtml(summary.taskDisplay)}</div></div>
+                    <div style="margin-top: 2px;"><strong data-i18n="inbox.metaEvalTask">${t('inbox.metaEvalTask')}</strong> <div style="font-size: 11.5px; padding: 4px 6px; background: var(--bg-subtle); border-radius: 4px; margin-top: 2px; white-space: pre-wrap;">${escapeHtml(summary.taskDisplay)}</div></div>
                   ` : ''}
                   ${summary.targetDisplay ? `
-                    <div><strong>目标文件:</strong> <code class="code-badge font-mono">${escapeHtml(summary.targetDisplay)}</code></div>
+                    <div><strong data-i18n="inbox.metaTargetFile">${t('inbox.metaTargetFile')}</strong> <code class="code-badge font-mono">${escapeHtml(summary.targetDisplay)}</code></div>
                   ` : (summary.isFileOp ? `
-                    <div><strong>目标文件:</strong> <span class="text-muted">未提供具体路径</span></div>
+                    <div><strong data-i18n="inbox.metaTargetFile">${t('inbox.metaTargetFile')}</strong> <span class="text-muted" data-i18n="inbox.noTargetFile">${t('inbox.noTargetFile')}</span></div>
                   ` : '')}
                   ${summary.commandDisplay ? `
-                    <div><strong>${summary.agentDisplay ? '独立验证命令:' : '执行命令:'}</strong> <code class="code-badge font-mono">${escapeHtml(summary.commandDisplay)}</code></div>
+                    <div><strong>${summary.agentDisplay ? `<span data-i18n="inbox.metaVerifyCommand">${t('inbox.metaVerifyCommand')}</span>` : `<span data-i18n="inbox.metaExecCommand">${t('inbox.metaExecCommand')}</span>`}</strong> <code class="code-badge font-mono">${escapeHtml(summary.commandDisplay)}</code></div>
                   ` : ''}
                   ${summary.protectedFilesDisplay ? `
-                    <div><strong>受保护验证文件:</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml(summary.protectedFilesDisplay)}</span></div>
+                    <div><strong data-i18n="inbox.metaProtectedFiles">${t('inbox.metaProtectedFiles')}</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml(summary.protectedFilesDisplay)}</span></div>
                   ` : ''}
                   ${summary.outputFilesDisplay ? `
-                    <div><strong>任务产出白名单:</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml(summary.outputFilesDisplay)}</span></div>
+                    <div><strong data-i18n="inbox.metaOutputFiles">${t('inbox.metaOutputFiles')}</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml(summary.outputFilesDisplay)}</span></div>
                   ` : ''}
                 </div>
 
                 ${summary.previewText ? `
                   <div style="margin-bottom: 10px;">
-                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 3px;">变更内容预览:</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 3px;" data-i18n="inbox.previewTitle">${t('inbox.previewTitle')}</div>
                     <pre class="code-view" style="font-size: 11px; padding: 6px 8px; max-height: 64px; overflow: hidden; margin: 0; white-space: pre-wrap; word-break: break-all;">${escapeHtml(summary.previewText)}</pre>
                   </div>
                 ` : ''}
 
                 <details style="margin-bottom: 14px;">
-                  <summary style="font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-secondary); user-select: none;">
-                    查看冻结参数与快照哈希
+                  <summary style="font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-secondary); user-select: none;" data-i18n="inbox.detailsSummary">
+                    ${t('inbox.detailsSummary')}
                   </summary>
                   <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 6px;">
-                    ${summary.projectPath ? `项目完整路径: ${escapeHtml(summary.projectPath)}<br>` : ''}
-                    快照哈希: ${appr.snapshotHash ? escapeHtml(appr.snapshotHash) : '无'}
+                    ${summary.projectPath ? `<span data-i18n="inbox.fullProjectPath" data-i18n-params="${escapeHtml(JSON.stringify({ path: summary.projectPath }))}">${t('inbox.fullProjectPath', { path: escapeHtml(summary.projectPath) })}</span><br>` : ''}
+                    <span data-i18n="inbox.snapshotHash" data-i18n-params="${escapeHtml(JSON.stringify({ hash: appr.snapshotHash || t('common.none') }))}">${t('inbox.snapshotHash', { hash: appr.snapshotHash ? escapeHtml(appr.snapshotHash) : t('common.none') })}</span>
                   </div>
                   <div class="code-view" style="font-size: 12px; max-height: 160px; overflow-y: auto;">${escapeHtml(typeof appr.arguments === 'object' ? JSON.stringify(appr.arguments, null, 2) : appr.arguments || '{}')}</div>
                 </details>
 
                 <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                  <button class="btn btn-secondary btn-sm btn-reject-appr" data-id="${escapeHtml(appr.id)}" data-hash="${escapeHtml(appr.snapshotHash || '')}">拒绝</button>
-                  <button class="btn btn-primary btn-sm btn-approve-appr" data-id="${escapeHtml(appr.id)}" data-hash="${escapeHtml(appr.snapshotHash || '')}">批准执行</button>
+                  <button class="btn btn-secondary btn-sm btn-reject-appr" data-id="${escapeHtml(appr.id)}" data-hash="${escapeHtml(appr.snapshotHash || '')}" data-i18n="inbox.btnReject">${t('inbox.btnReject')}</button>
+                  <button class="btn btn-primary btn-sm btn-approve-appr" data-id="${escapeHtml(appr.id)}" data-hash="${escapeHtml(appr.snapshotHash || '')}" data-i18n="inbox.btnApprove">${t('inbox.btnApprove')}</button>
                 </div>
               </div>
             `;
@@ -6787,10 +7208,10 @@
             decision: 'approve',
             snapshotHash
           });
-          showToast('已批准并触发执行');
+          showToast({ key: 'inbox.approvedToast' });
           await refreshDashboard(true, true);
         } catch (err) {
-          showToast('审批失败: ' + err.message, 'error');
+          showToast({ key: 'inbox.approveFailedToast', params: { error: err.message } }, 'error');
           if (card) {
             card.querySelectorAll('button').forEach(b => b.disabled = false);
           }
@@ -6813,10 +7234,10 @@
             decision: 'reject',
             snapshotHash
           });
-          showToast('已拒绝该操作');
+          showToast({ key: 'inbox.rejectedToast' });
           await refreshDashboard(true, true);
         } catch (err) {
-          showToast('操作失败: ' + err.message, 'error');
+          showToast({ key: 'inbox.rejectFailedToast', params: { error: err.message } }, 'error');
           if (card) {
             card.querySelectorAll('button').forEach(b => b.disabled = false);
           }
@@ -6848,23 +7269,39 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>设置</h1>
-          <p>本地偏好设置 · 隐私声明 · 运行环境与存储路径</p>
+          <h1 data-i18n="settings.title">${t('settings.title')}</h1>
+          <p data-i18n="settings.subtitle">${t('settings.subtitle')}</p>
         </div>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <span class="card-title">系统通知</span>
-          ${(state.systemInfo && state.systemInfo.notificationsSupported === false) ? '<span class="status-badge status-neutral">仅 .app 支持</span>' : ''}
+          <span class="card-title" data-i18n="settings.languageTitle">${t('settings.languageTitle')}</span>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          <div>
+            <strong style="font-size: 13px;" data-i18n="settings.languageSelectLabel">${t('settings.languageSelectLabel')}</strong>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.languageSelectDesc">${t('settings.languageSelectDesc')}</div>
+          </div>
+          <select id="setting-locale" class="filter-select" aria-label="界面语言" data-i18n-aria-label="settings.languageAria">
+            <option value="zh-CN">简体中文</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 14px;">
+        <div class="card-header">
+          <span class="card-title" data-i18n="settings.notificationsTitle">${t('settings.notificationsTitle')}</span>
+          ${(state.systemInfo && state.systemInfo.notificationsSupported === false) ? `<span class="status-badge status-neutral" data-i18n="settings.notificationsSupportedAppOnly">${t('settings.notificationsSupportedAppOnly')}</span>` : ''}
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 14px;">
           <label class="form-checkbox-label">
             <input type="checkbox" id="setting-notifications" ${settings.notifications ? 'checked' : ''}>
             <div>
-              <strong style="font-size: 13px;">桌面通知</strong>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">仅在开启后请求系统通知权限。通知由原生统一发布，默认关闭。</div>
+              <strong style="font-size: 13px;" data-i18n="settings.desktopNotifications">${t('settings.desktopNotifications')}</strong>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.desktopNotificationsDesc">${t('settings.desktopNotificationsDesc')}</div>
             </div>
           </label>
 
@@ -6872,45 +7309,45 @@
             <label class="form-checkbox-label">
               <input type="checkbox" id="setting-notif-sound" ${settings.notificationSound !== false ? 'checked' : ''}>
               <div>
-                <span style="font-size: 13px;">播放提示音</span>
-                <div style="font-size: 12px; color: var(--text-secondary);">有新事件或通知时播放提示音</div>
+                <span style="font-size: 13px;" data-i18n="settings.sound">${t('settings.sound')}</span>
+                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.soundDesc">${t('settings.soundDesc')}</div>
               </div>
             </label>
             <label class="form-checkbox-label">
               <input type="checkbox" id="setting-notify-approvals" ${settings.notifyApprovals !== false ? 'checked' : ''}>
               <div>
-                <span style="font-size: 13px;">审批提醒</span>
-                <div style="font-size: 12px; color: var(--text-secondary);">当工作流或会话请求写操作审批时通知</div>
+                <span style="font-size: 13px;" data-i18n="settings.approvals">${t('settings.approvals')}</span>
+                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.approvalsDesc">${t('settings.approvalsDesc')}</div>
               </div>
             </label>
             <label class="form-checkbox-label">
               <input type="checkbox" id="setting-notify-completed" ${settings.notifyCompleted !== false ? 'checked' : ''}>
               <div>
-                <span style="font-size: 13px;">完成提醒</span>
-                <div style="font-size: 12px; color: var(--text-secondary);">当任务成功结束或日志记录完成事件时通知</div>
+                <span style="font-size: 13px;" data-i18n="settings.completed">${t('settings.completed')}</span>
+                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.completedDesc">${t('settings.completedDesc')}</div>
               </div>
             </label>
             <label class="form-checkbox-label">
               <input type="checkbox" id="setting-notify-errors" ${settings.notifyErrors !== false ? 'checked' : ''}>
               <div>
-                <span style="font-size: 13px;">错误与异常提醒</span>
-                <div style="font-size: 12px; color: var(--text-secondary);">当任务失败、超时或日志记录异常中断时通知</div>
+                <span style="font-size: 13px;" data-i18n="settings.errors">${t('settings.errors')}</span>
+                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.errorsDesc">${t('settings.errorsDesc')}</div>
               </div>
             </label>
           </fieldset>
 
           <div class="sound-preview-bar" style="padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
             <div>
-              <strong style="font-size: 13px;">提示音试听</strong>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">原生音效就绪，仅在用户点击时触发试听，不修改通知设置或请求系统权限。</div>
+              <strong style="font-size: 13px;" data-i18n="settings.soundPreview">${t('settings.soundPreview')}</strong>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.soundPreviewDesc">${t('settings.soundPreviewDesc')}</div>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <select id="setting-preview-sound-kind" class="filter-select" aria-label="试听音效事件类型">
-                <option value="approval">待办审批提示音</option>
-                <option value="completed">任务完成提示音</option>
-                <option value="error">错误异常提示音</option>
+              <select id="setting-preview-sound-kind" class="filter-select" aria-label="试听音效事件类型" data-i18n-aria-label="settings.previewSoundAria">
+                <option value="approval" data-i18n="settings.soundKindApproval">${t('settings.soundKindApproval')}</option>
+                <option value="completed" data-i18n="settings.soundKindCompleted">${t('settings.soundKindCompleted')}</option>
+                <option value="error" data-i18n="settings.soundKindError">${t('settings.soundKindError')}</option>
               </select>
-              <button id="btn-preview-notification-sound" class="btn btn-secondary btn-sm">试听提示音</button>
+              <button id="btn-preview-notification-sound" class="btn btn-secondary btn-sm" data-i18n="settings.btnPreviewSound">${t('settings.btnPreviewSound')}</button>
             </div>
           </div>
         </div>
@@ -6918,55 +7355,55 @@
 
       <div class="card" style="margin-top: 14px;">
         <div class="card-header">
-          <span class="card-title">后台运行与启动</span>
+          <span class="card-title" data-i18n="settings.backgroundTitle">${t('settings.backgroundTitle')}</span>
         </div>
         <div style="display: flex; flex-direction: column; gap: 14px;">
           <label class="form-checkbox-label">
             <input type="checkbox" id="setting-launch-at-login" ${settings.launchAtLogin ? 'checked' : ''}>
             <div>
-              <strong style="font-size: 13px;">开机启动</strong>
-              ${(state.systemInfo && (state.systemInfo.launchAtLoginStatus === 'pending_approval' || state.systemInfo.launchAtLoginStatus === 'requiresApproval')) ? '<span class="status-badge status-amber" style="margin-left: 6px;">待系统审批</span>' : ''}
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">登录系统时自动在后台启动 Vela 状态栏驻留。</div>
+              <strong style="font-size: 13px;" data-i18n="settings.launchAtLogin">${t('settings.launchAtLogin')}</strong>
+              ${(state.systemInfo && (state.systemInfo.launchAtLoginStatus === 'pending_approval' || state.systemInfo.launchAtLoginStatus === 'requiresApproval')) ? `<span class="status-badge status-amber" style="margin-left: 6px;" data-i18n="settings.launchPendingApproval">${t('settings.launchPendingApproval')}</span>` : ''}
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.launchAtLoginDesc">${t('settings.launchAtLoginDesc')}</div>
             </div>
           </label>
 
           <label class="form-checkbox-label">
             <input type="checkbox" id="setting-analysis" ${settings.analysisEnabled ? 'checked' : ''}>
             <div>
-              <strong style="font-size: 13px;">后台分析</strong>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">在后台定期检查新增会话，生成调优建议。</div>
+              <strong style="font-size: 13px;" data-i18n="settings.analysis">${t('settings.analysis')}</strong>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.analysisDesc">${t('settings.analysisDesc')}</div>
             </div>
           </label>
         </div>
 
         <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
-          <button id="btn-save-settings" class="btn btn-primary btn-sm">保存设置</button>
+          <button id="btn-save-settings" class="btn btn-primary btn-sm" data-i18n="settings.btnSave">${t('settings.btnSave')}</button>
         </div>
       </div>
 
       <div class="card" style="margin-top: 14px;">
         <div class="card-header">
-          <span class="card-title">本地与隐私声明</span>
-          <span class="status-badge status-sage">无遥测</span>
+          <span class="card-title" data-i18n="settings.privacyTitle">${t('settings.privacyTitle')}</span>
+          <span class="status-badge status-sage" data-i18n="settings.noTelemetry">${t('settings.noTelemetry')}</span>
         </div>
         <ul style="padding-left: 18px; font-size: 12px; line-height: 1.6; color: var(--text-secondary);">
-          <li><strong>当前存储路径：</strong><code class="code-badge">${escapeHtml(state.systemInfo.home)}</code> (Channel: ${escapeHtml(state.systemInfo.channel)})</li>
-          <li><strong>无云端账户：</strong>Vela 不需要登录注册，无需联网认证。</li>
-          <li><strong>本地优先存储：</strong>所有工程数据默认本地留存；用户授权的智能体根据其自身配置联网，Vela 不上传遥测或云端数据。</li>
-          <li><strong>完全禁用遥测：</strong>无用户行为追踪、无崩溃日志上报。</li>
-          <li><strong>私密隔离保护：</strong>标记为私密的 Library 条目严格对 MCP 和自动检索隐藏。</li>
+          <li><strong data-i18n="settings.currentStorePath">${t('settings.currentStorePath')}</strong><code class="code-badge">${escapeHtml(state.systemInfo.home)}</code> (Channel: ${escapeHtml(state.systemInfo.channel)})</li>
+          <li><strong data-i18n="settings.noCloudAccount">${t('settings.noCloudAccount')}</strong><span data-i18n="settings.noCloudAccountDesc">${t('settings.noCloudAccountDesc')}</span></li>
+          <li><strong data-i18n="settings.localFirst">${t('settings.localFirst')}</strong><span data-i18n="settings.localFirstDesc">${t('settings.localFirstDesc')}</span></li>
+          <li><strong data-i18n="settings.disableTelemetry">${t('settings.disableTelemetry')}</strong><span data-i18n="settings.disableTelemetryDesc">${t('settings.disableTelemetryDesc')}</span></li>
+          <li><strong data-i18n="settings.privacyIsolation">${t('settings.privacyIsolation')}</strong><span data-i18n="settings.privacyIsolationDesc">${t('settings.privacyIsolationDesc')}</span></li>
         </ul>
       </div>
 
       <div class="card" style="margin-top: 14px;">
         <div class="card-header">
-          <span class="card-title">外部智能体集成状态</span>
+          <span class="card-title" data-i18n="settings.integrationTitle">${t('settings.integrationTitle')}</span>
         </div>
         <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-          <div>Claude Desktop: <span class="status-badge status-neutral">支持 stdio MCP</span></div>
-          <div>Cursor: <span class="status-badge status-neutral">支持 stdio MCP</span></div>
-          <div>Codex: <span class="status-badge status-neutral">支持 Checkpoint 导出</span></div>
-          <div>自动云端同步: <span class="status-badge status-neutral">不支持（本地优先，不上传云端）</span></div>
+          <div>Claude Desktop: <span class="status-badge status-neutral" data-i18n="settings.supportedStdioMcp">${t('settings.supportedStdioMcp')}</span></div>
+          <div>Cursor: <span class="status-badge status-neutral" data-i18n="settings.supportedStdioMcp">${t('settings.supportedStdioMcp')}</span></div>
+          <div>Codex: <span class="status-badge status-neutral" data-i18n="settings.supportedCheckpointExport">${t('settings.supportedCheckpointExport')}</span></div>
+          <div><span data-i18n="settings.autoCloudSync">${t('settings.autoCloudSync')}</span><span class="status-badge status-neutral" data-i18n="settings.notSupportedCloudSync">${t('settings.notSupportedCloudSync')}</span></div>
         </div>
       </div>
     `;
@@ -7006,20 +7443,49 @@
       const select = document.getElementById('setting-preview-sound-kind');
       const kind = (select && select.value) || 'approval';
       if (!['approval', 'completed', 'error'].includes(kind)) {
-        showToast('无效的音效类型', 'error');
+        showToast({ key: 'settings.invalidSoundKind' }, 'error');
         return;
       }
       const btn = document.getElementById('btn-preview-notification-sound');
       if (btn) btn.disabled = true;
       try {
         await callBridge('system.previewNotificationSound', { kind });
-        showToast(`已播放「${kind === 'approval' ? '审批' : kind === 'completed' ? '完成' : '错误'}」提示音试听`);
+        const kindLabel = kind === 'approval' ? t('settings.previewKindApproval') : kind === 'completed' ? t('settings.previewKindCompleted') : t('settings.previewKindError');
+        showToast({ key: 'settings.soundPreviewPlayed', params: { kind: kindLabel } });
       } catch (err) {
-        showToast('试听提示音失败: ' + (err.message || '原生接口未就绪或当前环境不支持音频播放'), 'error');
+        const defErr = t('settings.soundPreviewDefaultError');
+        showToast({ key: 'settings.soundPreviewFailed', params: { error: err.message || t('settings.soundPreviewDefaultError') } }, 'error');
       } finally {
         if (btn) btn.disabled = false;
       }
     });
+    const localeSelect = document.getElementById('setting-locale');
+    if (localeSelect) {
+      const persistedLoc = (settings && (settings.locale === 'en' || settings.locale === 'zh-CN')) ? settings.locale : (window.VelaI18n ? window.VelaI18n.getLocale() : 'zh-CN');
+      localeSelect.value = persistedLoc;
+      localeSelect.addEventListener('change', async () => {
+        const selectedLocale = localeSelect.value;
+        if (selectedLocale !== 'zh-CN' && selectedLocale !== 'en') return;
+        const previousLocale = window.VelaI18n ? window.VelaI18n.getLocale() : 'zh-CN';
+        localeSelect.disabled = true;
+        try {
+          const res = await callBridge('settings.save', { locale: selectedLocale });
+          const confirmed = (res && res.locale) ? res.locale : selectedLocale;
+          state.rawSettings = Object.assign({}, state.rawSettings, { locale: confirmed });
+          if (window.VelaI18n) {
+            window.VelaI18n.setLocale(confirmed);
+          }
+          showToast({ key: 'settings.localeSaved' });
+        } catch (err) {
+          localeSelect.value = previousLocale;
+          const errorPrefix = t('settings.saveLocaleFailed');
+          showToast(`${errorPrefix}: ${err.message || String(err)}`, 'error');
+        } finally {
+          localeSelect.disabled = false;
+        }
+      });
+    }
+
     notifCb?.addEventListener('change', updateDraft);
     soundCb?.addEventListener('change', updateDraft);
     apprvCb?.addEventListener('change', updateDraft);
@@ -7042,10 +7508,10 @@
       try {
         await callBridge('settings.save', payload);
         state.settingsDraft = null;
-        showToast('设置已保存');
+        showToast({ key: 'settings.saved' });
         await refreshDashboard(true, true);
       } catch (err) {
-        showToast('保存设置失败: ' + err.message, 'error');
+        showToast({ key: 'settings.saveFailed', params: { error: err.message || '' } }, 'error');
       }
     });
   }
@@ -7057,21 +7523,21 @@
     const originalActive = document.activeElement;
     const modalBody = `
       <div class="form-group">
-        <input type="search" id="global-search-input" class="form-input" placeholder="输入搜索关键词（按 Enter 搜索）..." autofocus>
+        <input type="search" id="global-search-input" class="form-input" placeholder="${escapeHtml(t('search.placeholder'))}" data-i18n-placeholder="search.placeholder" autofocus>
       </div>
       <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
         <label class="form-checkbox-label">
           <input type="checkbox" id="search-include-private">
-          <span>包含私密条目 (人工搜索可见)</span>
+          <span data-i18n="search.includePrivate">${escapeHtml(t('search.includePrivate'))}</span>
         </label>
-        <span class="text-secondary">按 Esc 关闭</span>
+        <span class="text-secondary" data-i18n="search.escHint">${escapeHtml(t('search.escHint'))}</span>
       </div>
       <div id="search-results-list" style="margin-top: 10px; max-height: 280px; overflow-y: auto;">
-        <div class="text-secondary" style="font-size: 11px; padding: 12px 0; text-align: center;">输入关键词以检索本地证据</div>
+        <div class="text-secondary" data-i18n="search.enterPrompt" style="font-size: 11px; padding: 12px 0; text-align: center;">${escapeHtml(t('search.enterPrompt'))}</div>
       </div>
     `;
 
-    openModal('搜索工程上下文', modalBody, '');
+    openModal({ key: 'search.title' }, modalBody, '');
 
     const input = document.getElementById('global-search-input');
     const chkPrivate = document.getElementById('search-include-private');
@@ -7080,7 +7546,7 @@
     const doSearch = async () => {
       const query = input.value.trim();
       if (!query) return;
-      resultsList.innerHTML = '<div class="text-secondary" style="font-size: 11px; padding: 10px 0;">搜索中...</div>';
+      resultsList.innerHTML = `<div class="text-secondary" data-i18n="search.searching" style="font-size: 11px; padding: 10px 0;">${escapeHtml(t('search.searching'))}</div>`;
 
       try {
         const results = await callBridge('search', {
@@ -7091,7 +7557,7 @@
 
         const items = Array.isArray(results) ? results : [];
         if (items.length === 0) {
-          resultsList.innerHTML = '<div style="font-size: 11px; color: var(--text-muted); padding: 16px 0; text-align: center;">未找到匹配证据</div>';
+          resultsList.innerHTML = `<div data-i18n="search.noMatch" style="font-size: 11px; color: var(--text-muted); padding: 16px 0; text-align: center;">${escapeHtml(t('search.noMatch'))}</div>`;
           return;
         }
 
@@ -7122,7 +7588,7 @@
             openLabCompareDrawer(item.id);
           } else {
             // Open full detail in drawer with uncropped content and evidence
-            openDrawer(item.title || item.id, item.kind ? `类别: ${item.kind}` : '本地证据详情');
+            openDrawer(item.title || item.id, item.kind ? { key: 'search.evidenceKind', params: { kind: item.kind } } : { key: 'search.evidenceDetail' });
             const drawerBody = document.getElementById('drawer-content');
             if (drawerBody) {
               drawerBody.innerHTML = `
@@ -7133,24 +7599,24 @@
                       <span class="code-badge">${escapeHtml(item.kind || 'evidence')}</span>
                     </div>
                     <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--text-primary);">
-                      ${escapeHtml(item.content || item.description || '(无详细文本)')}
+                      ${escapeHtml(item.content || item.description || t('search.noDetailedText'))}
                     </div>
                   </div>
                   ${item.project ? `
                     <div class="card" style="font-size: 12px;">
-                      <div class="text-secondary" style="margin-bottom: 4px;">所属工程路径:</div>
+                      <div class="text-secondary" data-i18n="search.projectPath" style="margin-bottom: 4px;">${escapeHtml(t('search.projectPath'))}</div>
                       <code class="code-badge">${escapeHtml(item.project)}</code>
                     </div>
                   ` : ''}
                   ${item.sourceFile ? `
                     <div class="card" style="font-size: 12px;">
-                      <div class="text-secondary" style="margin-bottom: 4px;">来源文件:</div>
+                      <div class="text-secondary" data-i18n="search.sourceFile" style="margin-bottom: 4px;">${escapeHtml(t('search.sourceFile'))}</div>
                       <code class="code-badge">${escapeHtml(item.sourceFile)}</code>
                     </div>
                   ` : ''}
                   ${item.metadata ? `
                     <div class="card">
-                      <div class="card-header"><span class="card-title">元数据</span></div>
+                      <div class="card-header"><span class="card-title" data-i18n="search.metadata">${escapeHtml(t('search.metadata'))}</span></div>
                       <div class="code-view" style="font-size: 12px;">${escapeHtml(typeof item.metadata === 'object' ? JSON.stringify(item.metadata, null, 2) : String(item.metadata))}</div>
                     </div>
                   ` : ''}
@@ -7198,36 +7664,40 @@
   }
 
   function openSaveCheckpointModal(session) {
+    const defaultTitle = session.title
+      ? t('checkpoint.defaultTitleSummary', { title: session.title })
+      : t('checkpoint.defaultTitleFallback');
+
     const modalBody = `
       <div class="form-group">
-        <label class="form-label">Checkpoint 标题</label>
-        <input type="text" id="cp-title" class="form-input" value="${escapeHtml(session.title ? session.title + ' - 阶段总结' : '任务进展快照')}" placeholder="输入 Checkpoint 标题">
+        <label class="form-label" data-i18n="checkpoint.titleLabel">${escapeHtml(t('checkpoint.titleLabel'))}</label>
+        <input type="text" id="cp-title" class="form-input" value="${escapeHtml(defaultTitle)}" data-i18n-placeholder="checkpoint.titlePlaceholder" placeholder="${escapeHtml(t('checkpoint.titlePlaceholder'))}">
       </div>
       <div class="form-group">
-        <label class="form-label">核心目标 (Goal)</label>
-        <input type="text" id="cp-goal" class="form-input" placeholder="本次会话或任务的核心目标">
+        <label class="form-label" data-i18n="checkpoint.goalLabel">${escapeHtml(t('checkpoint.goalLabel'))}</label>
+        <input type="text" id="cp-goal" class="form-input" data-i18n-placeholder="checkpoint.goalPlaceholder" placeholder="${escapeHtml(t('checkpoint.goalPlaceholder'))}">
       </div>
       <div class="form-group">
-        <label class="form-label">已完成工作 (Completed)</label>
-        <textarea id="cp-completed" class="form-textarea" placeholder="已实现的功能、已修复的问题"></textarea>
+        <label class="form-label" data-i18n="checkpoint.completedLabel">${escapeHtml(t('checkpoint.completedLabel'))}</label>
+        <textarea id="cp-completed" class="form-textarea" data-i18n-placeholder="checkpoint.completedPlaceholder" placeholder="${escapeHtml(t('checkpoint.completedPlaceholder'))}"></textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">待处理事项 (Pending)</label>
-        <textarea id="cp-pending" class="form-textarea" placeholder="遗留缺陷或未完成的子任务"></textarea>
+        <label class="form-label" data-i18n="checkpoint.pendingLabel">${escapeHtml(t('checkpoint.pendingLabel'))}</label>
+        <textarea id="cp-pending" class="form-textarea" data-i18n-placeholder="checkpoint.pendingPlaceholder" placeholder="${escapeHtml(t('checkpoint.pendingPlaceholder'))}"></textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">测试与验证情况 (Tests)</label>
-        <input type="text" id="cp-tests" class="form-input" placeholder="运行过的测试与验证结果">
+        <label class="form-label" data-i18n="checkpoint.testsLabel">${escapeHtml(t('checkpoint.testsLabel'))}</label>
+        <input type="text" id="cp-tests" class="form-input" data-i18n-placeholder="checkpoint.testsPlaceholder" placeholder="${escapeHtml(t('checkpoint.testsPlaceholder'))}">
       </div>
       <div class="form-group">
-        <label class="form-label">后续行动建议 (Next Actions)</label>
-        <input type="text" id="cp-next" class="form-input" placeholder="下一个会话应当优先进行的操作">
+        <label class="form-label" data-i18n="checkpoint.nextLabel">${escapeHtml(t('checkpoint.nextLabel'))}</label>
+        <input type="text" id="cp-next" class="form-input" data-i18n-placeholder="checkpoint.nextPlaceholder" placeholder="${escapeHtml(t('checkpoint.nextPlaceholder'))}">
       </div>
     `;
 
-    openModal('保存跨智能体 Checkpoint', modalBody, `
-      <button class="btn btn-secondary" id="btn-cancel-cp">取消</button>
-      <button class="btn btn-primary" id="btn-save-cp">保存 Checkpoint</button>
+    openModal({ key: 'checkpoint.saveModalTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-cancel-cp" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-save-cp" data-i18n="sessions.btnSaveCheckpoint">${escapeHtml(t('sessions.btnSaveCheckpoint'))}</button>
     `);
 
     document.getElementById('btn-cancel-cp').addEventListener('click', closeModal);
@@ -7240,7 +7710,7 @@
       const nextActions = document.getElementById('cp-next').value.trim();
 
       if (!goal) {
-        showToast('目标 (Goal) 字段不能为空', 'error');
+        showToast({ key: 'checkpoint.goalRequired' }, 'error');
         return;
       }
 
@@ -7256,14 +7726,14 @@
           nextActions
         });
 
-        showToast('Checkpoint 保存成功');
+        showToast({ key: 'checkpoint.saveSuccess' });
         closeModal();
 
         if (cp && cp.id) {
           openExportCheckpointModal(cp.id);
         }
       } catch (err) {
-        showToast('保存 Checkpoint 失败: ' + err.message, 'error');
+        showToast({ key: 'checkpoint.saveFailed', params: { error: err.message } }, 'error');
       }
     });
   }
@@ -7275,32 +7745,32 @@
       const exp = await callBridge('checkpoint.export', { id: checkpointId, provider: currentProvider });
       return `
         <div class="form-group">
-          <label class="form-label">目标 Provider</label>
-          <select id="cp-exp-prov" class="form-select">
+          <label class="form-label" data-i18n="checkpoint.targetProviderLabel">${escapeHtml(t('checkpoint.targetProviderLabel'))}</label>
+          <select id="cp-exp-prov" class="filter-select">
             <option value="Claude" ${currentProvider === 'Claude' ? 'selected' : ''}>Claude</option>
             <option value="Codex" ${currentProvider === 'Codex' ? 'selected' : ''}>Codex</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">生成的交接规约文件路径</label>
+          <label class="form-label" data-i18n="checkpoint.handoverPathLabel">${escapeHtml(t('checkpoint.handoverPathLabel'))}</label>
           <input type="text" class="form-input font-mono" readonly value="${escapeHtml(exp ? exp.path || '' : '')}">
         </div>
         <div class="form-group">
           <label class="form-label">
-            <span>启动命令 (仅供复制，不自动启动外部工具)</span>
-            <button class="btn btn-ghost btn-sm" id="btn-copy-cp-cmd">复制命令</button>
+            <span data-i18n="checkpoint.launchCmdLabel">${escapeHtml(t('checkpoint.launchCmdLabel'))}</span>
+            <button class="btn btn-ghost btn-sm" id="btn-copy-cp-cmd" data-i18n="checkpoint.btnCopyCmd">${escapeHtml(t('checkpoint.btnCopyCmd'))}</button>
           </label>
           <input type="text" id="cp-exp-cmd" class="form-input font-mono" readonly value="${escapeHtml(exp ? exp.command || '' : '')}">
         </div>
         <div class="form-group">
-          <label class="form-label">交接文件内容预览</label>
+          <label class="form-label" data-i18n="checkpoint.previewLabel">${escapeHtml(t('checkpoint.previewLabel'))}</label>
           <div class="code-view" style="max-height: 140px;">${escapeHtml(exp ? exp.content || '' : '')}</div>
         </div>
       `;
     };
 
-    openModal('导出 Checkpoint 交接', await renderExportBody(), `
-      <button class="btn btn-primary" id="btn-close-cp-exp">完成</button>
+    openModal({ key: 'checkpoint.exportModalTitle' }, await renderExportBody(), `
+      <button class="btn btn-primary" id="btn-close-cp-exp" data-i18n="checkpoint.btnFinish">${escapeHtml(t('checkpoint.btnFinish'))}</button>
     `);
 
     const bindHandlers = () => {
@@ -7318,7 +7788,7 @@
         copyBtn.addEventListener('click', () => {
           const cmd = document.getElementById('cp-exp-cmd').value;
           navigator.clipboard.writeText(cmd).then(() => {
-            showToast('已复制启动命令');
+            showToast({ key: 'checkpoint.copiedCmd' });
           });
         });
       }
@@ -7386,15 +7856,15 @@
     drawerTriggerElement = validTrigger || originalActive;
     const drawer = document.getElementById('detail-drawer');
     const backdrop = document.getElementById('drawer-backdrop');
-    const t = document.getElementById('drawer-title');
+    const titleEl = document.getElementById('drawer-title');
     const s = document.getElementById('drawer-subtitle');
     const content = document.getElementById('drawer-content');
     const customActions = document.getElementById('drawer-custom-actions');
 
-    if (t) t.textContent = title;
-    if (s) s.textContent = subtitle;
+    if (titleEl) setElementDescriptor(titleEl, title || { key: 'shell.drawerTitle' });
+    if (s) setElementDescriptor(s, subtitle);
     if (customActions) customActions.innerHTML = '';
-    if (content) content.innerHTML = '<div class="empty-state"><div class="empty-state-title">正在加载...</div></div>';
+    if (content) content.innerHTML = `<div class="empty-state"><div class="empty-state-title" data-i18n="common.loading">${escapeHtml(t('common.loading'))}</div></div>`;
 
     if (drawer) drawer.classList.remove('hidden');
 
@@ -7446,10 +7916,10 @@
   }
 
   function setDrawerTitle(title, subtitle = '') {
-    const t = document.getElementById('drawer-title');
+    const titleEl = document.getElementById('drawer-title');
     const s = document.getElementById('drawer-subtitle');
-    if (t) t.textContent = title;
-    if (s) s.textContent = subtitle;
+    if (titleEl) setElementDescriptor(titleEl, title);
+    if (s) setElementDescriptor(s, subtitle);
   }
 
   function setDrawerCustomActions(html) {
@@ -7499,7 +7969,7 @@
     const t = document.getElementById('modal-title');
     const b = document.getElementById('modal-body');
     const f = document.getElementById('modal-footer');
-    if (t) t.textContent = title;
+    if (t) setElementDescriptor(t, title || { key: 'shell.modalTitle' });
     if (b) b.innerHTML = bodyHtml;
     if (f) {
       f.innerHTML = footerHtml;

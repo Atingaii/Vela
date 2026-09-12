@@ -8,6 +8,7 @@ website/.sites/
 website/.env*
 ui-output/
 output/playwright/
+output/website-expansion/
 docs/implementation/antigravity-*.md
 !docs/implementation/antigravity-ui.md
 __pycache__/

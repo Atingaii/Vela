@@ -3,17 +3,29 @@ import CoreFoundation
 
 /// Shared preference defaults keep the CLI, dashboard and native host consistent.
 public enum VelaPreferences {
+    public static let supportedLocales: Set<String> = ["zh-CN", "en"]
+    public static let defaultLocale = "zh-CN"
     public static let defaults: JSON = [
         "id": "preferences", "telemetry": false, "notifications": false,
         "notificationSound": true, "notifyApprovals": true,
         "notifyCompleted": true, "notifyErrors": true,
-        "analysisEnabled": false, "launchAtLogin": false
+        "analysisEnabled": false, "launchAtLogin": false,
+        "locale": defaultLocale
     ]
     private static let allowed = Set(defaults.keys).subtracting(["id", "telemetry"])
+    private static let booleanKeys = allowed.subtracting(["locale"])
 
     public static func validate(_ changes: JSON) throws {
         // NSNumber also bridges integer 0/1 to Bool. Require an actual JSON boolean.
-        guard Set(changes.keys).isSubset(of: allowed), changes.values.allSatisfy({ value in
+        guard Set(changes.keys).isSubset(of: allowed) else {
+            throw VelaError("设置包含不支持的字段")
+        }
+        if let locale = changes["locale"] {
+            guard let locale = locale as? String, supportedLocales.contains(locale) else {
+                throw VelaError("Unsupported locale; expected zh-CN or en")
+            }
+        }
+        guard changes.filter({ booleanKeys.contains($0.key) }).values.allSatisfy({ value in
             guard let number = value as? NSNumber else { return false }
             return CFGetTypeID(number) == CFBooleanGetTypeID()
         }) else { throw VelaError("设置包含不支持的字段或非布尔值") }
@@ -23,11 +35,14 @@ public enum VelaPreferences {
         var result = defaults
         if let saved = try store.get("settings", "preferences") {
             result.merge(saved) { _, value in value }
-            for key in allowed {
+            for key in booleanKeys {
                 if let number = saved[key] as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() {
                     result[key] = number.boolValue
                 } else { result[key] = defaults[key] }
             }
+            if let locale = saved["locale"] as? String, supportedLocales.contains(locale) {
+                result["locale"] = locale
+            } else { result["locale"] = defaultLocale }
         }
         result["telemetry"] = false
         return result

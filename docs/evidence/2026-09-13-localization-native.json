@@ -1,0 +1,195 @@
+{
+  "format": "vela-localization-native-v1",
+  "date": "2026-09-13",
+  "source": {
+    "app.js": "5b747ff7dea15170949d77559d611a5fed03cae26f8f35c2734ff31b63bfe3e8",
+    "i18n.js": "cb3db7d30c18b239c00875d6bfbd9aa94c5b29bc4f89b6a967fcd62cc34373df",
+    "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+    "main.swift": "131d6d05a658bee9a298a91b153dc74f0858e7395a9f61b7b147ab9163ea86e4",
+    "nativeDebugBeforeWrapperSign": "92f4ab618afdb756fabfa0197bc99ff444fecc170bfd0473558e15856bfc3f67",
+    "nativeDebugAfterWrapperSign": "eb2dd15d096ec9a2b10734d01fda6c869abcd42ba6de2b1457182a994b56a5a4",
+    "Localization.swift": "4287c7f87d3a5cd90600ab8cbf56a7be0c8e48ba54995de45b615cc48f8799b7"
+  },
+  "scope": {
+    "synthetic": true,
+    "nativeAppKit": true,
+    "nativeWKWebView": true,
+    "launch": "LaunchServices open -n with explicit isolated environment",
+    "productionBundle": false,
+    "agentOrHookExecuted": false,
+    "notificationsPermissionRequested": false,
+    "userClipboardReadOrWritten": false
+  },
+  "checks": [
+    {
+      "name": "native-menu-and-page-language-switch",
+      "status": "PASS",
+      "observedMenus": [
+        "关于 Vela / About Vela",
+        "语言 / Language",
+        "编辑 / Edit",
+        "视图 / View",
+        "窗口 / Window"
+      ],
+      "notes": "Confirmed settings locale changes through real helper; no optimistic language flip."
+    },
+    {
+      "name": "draft-focus-and-exact-selection",
+      "status": "PASS",
+      "draftBefore": "原文 alpha beta 42",
+      "selectedText": "alpha",
+      "typedAfterNativeLanguageSwitch": "REPLACED",
+      "draftAfter": "原文 REPLACED beta 42",
+      "activeElementBeforeAndAfter": "INPUT#mem-title",
+      "saved": false,
+      "evidence": [
+        "vela-memory-4CD27CB2-E949-4EAE-9288-BC2A52CA8508.png",
+        "vela-memory-A86A3729-0299-4241-9B3E-27AA119E493B.png",
+        "vela-memory-211A1AA1-9554-4F56-B0D2-293221E047A3.png"
+      ]
+    },
+    {
+      "name": "wide-and-narrow-native-layout",
+      "status": "PASS",
+      "widths": [
+        1250,
+        900
+      ],
+      "height": 800,
+      "screens": [
+        "English Memory modal",
+        "English Sessions list and detail"
+      ],
+      "notes": "Actual native window screenshots inspected via CUA; archived WK PNGs pair with viewport/activeElement metadata."
+    },
+    {
+      "name": "source-body-and-command-preservation",
+      "status": "PASS",
+      "userMessage": "Cover invalid pagination input",
+      "assistantMessage": "The focused parser assertions pass. No response fields were renamed.",
+      "toolArguments": "{\"cmd\":\"node --test tests/parser.test.mjs\"}"
+    },
+    {
+      "name": "restart-language-persistence",
+      "status": "PASS",
+      "locale": "en",
+      "normalQuitThenLaunchFirstPage": "English Sessions with complete native accessibility tree",
+      "faultRecoveryFirstRelaunch": "Initial CUA window/AX observation showed white/no WebContent before readiness was independently confirmed. Later same-launch WK capture was complete; View > Sessions exposed complete native AX. Root cause is unknown."
+    },
+    {
+      "name": "helper-exit-during-native-language-save",
+      "status": "PASS",
+      "details": {
+        "helperPID": 44761,
+        "parentPID": 44755,
+        "state": "SIGKILL sent while native language save pending",
+        "killedAt": "2026-09-12T19:37:33.990664+00:00",
+        "alertObserved": true,
+        "alertText": "Unable to Change Language — Failed to save language setting: Vela helper service terminated",
+        "alertCountObserved": 1,
+        "localeAfterFailure": "en",
+        "oldProcessesExited": true,
+        "normalQuitAfterFailure": true,
+        "overflowInjected": false
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "session-accessibility-one-shot-labels",
+      "status": "resolved by exact-author final patch; native row/button/status AX recheck PASS",
+      "observed": "Existing row/button aria-label and status/branch help stayed Chinese after native zh-to-en switch; visible row labels did update."
+    },
+    {
+      "id": "one-post-fault-relaunch-white-window",
+      "status": "recorded limitation",
+      "observed": "The first CUA window capture after this relaunch was white and AX omitted WebContent. No JS bridge/app-ready condition had been confirmed before this observation. Later WK capture in the same launch was complete; View > Sessions restored native AX. A subsequent normal quit/relaunch first observation was complete. Root cause remains unknown; no fix claimed.",
+      "launchReturnedAt": "2026-09-12T19:38:18.745970+00:00",
+      "exactWhiteScreenshotTimestamp": null,
+      "whiteObservationTimeBoundsSecondsAfterLaunch": [
+        0,
+        38.31
+      ],
+      "laterWKMetadataWrittenAt": "2026-09-12T19:38:57.056183+00:00",
+      "subsequentNormalLaunchAt": "2026-09-12T19:40:17.901911+00:00",
+      "whiteImageEvidence": "Original CUA getAXStateAndScreenshot tool image in this conversation; tool did not provide a local file path and bytes were not retained locally.",
+      "laterWKImage": "vela-agents-3F6D3F9F-927A-45F2-AEF6-C1E90600284D.png",
+      "laterWKMetadata": "vela-agents-3F6D3F9F-927A-45F2-AEF6-C1E90600284D.json"
+    }
+  ],
+  "limits": [
+    "32 MiB stdout overflow path reviewed in source only; not fault-injected.",
+    "Debug wrapper with strict synthetic capture hook; does not establish production app first-launch reliability or OS notification delivery.",
+    "CUA native screenshots were inspected directly; archived images are actual WKView takeSnapshot PNGs with sidecar metadata.",
+    "Input was set through native accessibility; no system clipboard interaction. An initial keyboard-range trial selected a different substring; final exact alpha selection test above is the acceptance assertion."
+  ],
+  "finalUiAssets": [
+    {
+      "path": "index.html",
+      "sha256": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+      "bytes": 15996
+    },
+    {
+      "path": "app.css",
+      "sha256": "49a7594949b0ce55ad59f8eb5e2c8266623d1d21d343ee7ddb17bc9ba8441e69",
+      "bytes": 41714
+    },
+    {
+      "path": "app-icon.svg",
+      "sha256": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "bytes": 2649
+    },
+    {
+      "path": "i18n.js",
+      "sha256": "028765c6c9d8d49b884528af68e051d585b7448b5963612c9826bb84797054b4",
+      "bytes": 162962
+    },
+    {
+      "path": "app.js",
+      "sha256": "403f3c57910a45ca8e2ba56996ab40f71f707d4518ebc956aa0180a76a8d649a",
+      "bytes": 440255
+    }
+  ],
+  "finalResourceRecheck": {
+    "status": "PASS",
+    "scope": "Final renderer resources only: real native Language menu en → zh-CN → en on an existing Sessions list; row/button accessible labels and status help update without navigation; raw source title/provider/status/branch text unchanged. Source session remains selectable and opens correct content.",
+    "finalLaunchFirstObservation": "Complete English Sessions and native menus; no blank-window observation in final run.",
+    "observedLabels": {
+      "en": "View session: Review the pagination boundary · claude · Needs Approval",
+      "zh-CN": "查看会话: Review the pagination boundary · claude · Needs Approval"
+    },
+    "observedStatusHelp": {
+      "en": "Status source: log evidence; process liveness is not verified · Status basis: approval_requested",
+      "zh-CN": "状态来源: log evidence; process liveness is not verified · 状态依据: approval_requested"
+    },
+    "rawBranch": "main",
+    "branchTitleScope": "The span title attribute is not exposed by this macOS accessibility tree. Its explicit final-source binding and browser DOM assertion are covered separately by the renderer acceptance suite; not claimed as a native AX read.",
+    "nativeSourceUnchanged": true,
+    "earlierChecksRepeated": false,
+    "earlierChecksNote": "Full menu/draft/focus/selection/layout/restart/fault checks were performed against intermediate 5b747ff7… UI with identical native source. Final 403f3c57… UI only changes Session live accessibility bindings and associated dictionary keys."
+  },
+  "finalStoreReadback": {
+    "locale": "en",
+    "notifications": false,
+    "analysisEnabled": false,
+    "launchAtLogin": false,
+    "sessions": 5,
+    "memories": 3,
+    "unsavedDraftCreatedNoRecord": true
+  },
+  "rawReportSHA256": "b91045cef71e3d46def51748999fb0387434730077fd51594ea7d650e46d9e81",
+  "finalCaptureSHA256": {
+    "vela-agents-7EF75572-D20C-4915-A2E8-945524AFC1FD.png": "38633d91adb9ff233e5f94a6afc23278f91b07cd3f4b1c8d9e90712e40ae67f0",
+    "vela-agents-7EF75572-D20C-4915-A2E8-945524AFC1FD.json": "13036491acf14f98dfa4e8409beb88ba7433a265aaf88e0f20ead3bb7b4afcf4",
+    "vela-agents-712D1ADD-D3E2-4136-B186-14B67D7D4D03.png": "e428d0f30ce48c5b18b921abbf78b7cef65bec9a172e23c984a5044c38986284",
+    "vela-agents-712D1ADD-D3E2-4136-B186-14B67D7D4D03.json": "13036491acf14f98dfa4e8409beb88ba7433a265aaf88e0f20ead3bb7b4afcf4",
+    "vela-agents-10CE21E3-E2C4-4C52-98D9-9E3C2CD7BF98.png": "38633d91adb9ff233e5f94a6afc23278f91b07cd3f4b1c8d9e90712e40ae67f0",
+    "vela-agents-10CE21E3-E2C4-4C52-98D9-9E3C2CD7BF98.json": "13036491acf14f98dfa4e8409beb88ba7433a265aaf88e0f20ead3bb7b4afcf4"
+  },
+  "cleanup": {
+    "ownedAppAndHelperStopped": true,
+    "isolatedFixtureAndWrapperRemoved": true,
+    "formalEvidenceRetained": true,
+    "sharedDependenciesOrUserStoreTouched": false
+  }
+}

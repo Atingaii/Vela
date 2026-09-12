@@ -4,12 +4,16 @@ Changes are documented by user-visible behavior. Preview storage formats may cha
 
 ## Unreleased — acceptance and Blume-inspired client refinement
 
+- Add Simplified Chinese and English preferences shared by the desktop interface and native menus. Switch fixed interface text in place while retaining drafts, focus and original project content.
+- Expand the public website with a use-case catalogue, four dedicated guides and a sourced product comparison. Replace anchor-only navigation with consistent page links, responsive controls and accessible filters.
+- Add an original README brand banner with bilingual navigation and separate, captioned native product screenshots.
+- Verify language changes and existing review flows through 24 real-helper renderer checks; cover original text, drafts, exact selection and live accessibility labels. Record packaging and native checks separately.
 - Group sessions by attention/state; show project Memory lifecycle, exact message provenance, reviewable suggestion cards and explicit Lab/Reuse steps. UI implementation remains authored through Antigravity CLI Gemini 3.8 Flash (High).
 - Add strict engineering-constraint candidates and repeated verification-procedure proposals with near-miss and source-identity checks.
 - Add frozen Codex comparisons with protected independent verification, versioned raw-event analysis and guarded memory-only promotion. Preserve inconclusive/regression outcomes and transparent scorer corrections.
 - Add project SessionStart Hook proposals and provider-aware context receipts; require Codex's own hook review. Do not equate delivery with adoption.
 - Make unchanged, already-installed Hook previews read-only and reopen applied transaction Diffs from committed snapshots. Empty Apply remains rejected; Undo still rejects a changed target.
-- Verify the final workspace through 95 hosted XCTest cases, 18 real-helper renderer checks and isolated native Apply/Undo interaction. Run both renderer suites in macOS CI and retain their reports.
+- Verify the original acceptance checkpoint through 95 hosted XCTest cases, 18 real-helper renderer checks and isolated native Apply/Undo interaction. Add the localization suite to macOS CI and retain all renderer reports.
 - Reject existing Library identity replacement, asset-ancestor symlinks and unbounded JSONL frames. Preserve missing/partial usage and reject unsafe token arithmetic.
 - Establish the product constitution, 113-requirement traceability, three-project comparison and six mandatory release gates. Full product acceptance remains No-Go; this is not a new stable or preview release.
 

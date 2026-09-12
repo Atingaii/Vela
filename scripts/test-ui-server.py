@@ -235,7 +235,7 @@ def main():
                     return self.respond(json.dumps({'revision': bridge.events}))
                 if path == '__bridge.js':
                     return self.respond(BRIDGE_JS, 'text/javascript')
-                types = {'index.html': 'text/html; charset=utf-8', 'app.js': 'text/javascript',
+                types = {'index.html': 'text/html; charset=utf-8', 'app.js': 'text/javascript', 'i18n.js': 'text/javascript',
                          'app.css': 'text/css', 'app-icon.svg': 'image/svg+xml'}
                 path = path or 'index.html'
                 if path not in types:

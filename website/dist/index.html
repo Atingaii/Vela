@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vela — The Engineering Layer for Coding Agents</title>
-  <meta name="description" content="把散落在 Claude Code、Codex 和 Cursor 里的会话，留成下一次可以接着用的工程上下文。查看证据、保存项目记忆，先审阅再执行工作流。">
+  <meta name="description" content="macOS 上的 coding-agent 工程支持层。把散落在 Claude Code、Codex 和 Cursor 里的会话，留成下一次可以接着用的工程上下文。查看证据、保存项目记忆，先审阅再执行工作流。">
   <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
 
   <!-- Preload core self-hosted fonts -->
@@ -28,24 +28,22 @@
   </script>
 </head>
 <body>
-  <!-- Site Header (64px, 1172px outer / 1124px content at x158) -->
+  <!-- Site Header (62px height, x70-1180 content alignment) -->
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand-group">
-        <a href="index.html" class="brand-link" aria-label="Vela 首页">
+        <a href="/" class="brand-link" aria-label="Vela 首页">
           <img src="assets/mark.svg" alt="" width="22" height="22" class="brand-mark-img">
           <span>Vela</span>
         </a>
         <nav class="site-nav" aria-label="主导航">
-          <a href="#sessions" class="nav-link">会话上下文</a>
-          <a href="#workflows" class="nav-link">工作流与审批</a>
-          <a href="#ownership" class="nav-link">本地优先</a>
-          <a href="releases.html" class="nav-link">发行记录</a>
+          <a href="/usecases/" class="nav-link">使用场景</a>
+          <a href="/comparisons/" class="nav-link">产品对比</a>
         </nav>
       </div>
 
       <div class="header-actions">
-        <a href="docs.html" class="header-docs-link">技术文档</a>
+        <a href="/docs.html" class="header-docs-link">文档</a>
 
         <!-- Theme Toggle Button (Square) -->
         <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
@@ -66,18 +64,17 @@
 
     <!-- Mobile Navigation Drawer -->
     <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单">
-      <a href="#sessions" class="nav-link">会话上下文</a>
-      <a href="#workflows" class="nav-link">工作流与审批</a>
-      <a href="#ownership" class="nav-link">本地优先</a>
-      <a href="docs.html" class="nav-link">技术文档</a>
-      <a href="releases.html" class="nav-link">发行记录</a>
-      <a href="privacy.html" class="nav-link">数据隐私</a>
+      <a href="/usecases/" class="nav-link">使用场景</a>
+      <a href="/comparisons/" class="nav-link">产品对比</a>
+      <a href="/docs.html" class="nav-link">文档</a>
+      <a href="/releases.html" class="nav-link">发行记录</a>
+      <a href="/privacy.html" class="nav-link">数据隐私</a>
       <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
     </div>
   </header>
 
   <main>
-    <!-- Hero Section (972px outer / 924px content at x258, y156 badge, 118px Space Grotesk) -->
+    <!-- Hero Section (972px outer / 924px content at x258, y156 badge) -->
     <section class="hero-section">
       <div class="hero-container">
         <div class="pill-badge">
@@ -92,7 +89,7 @@
         </h1>
 
         <p class="hero-description">
-          把散落在 Claude Code、Codex 和 Cursor 里的会话，留成下一次可以接着用的工程上下文。查看证据、保存项目记忆，先审阅再执行工作流。数据由你持有，工具保持熟悉。
+          macOS 上的 coding-agent 工程支持层。把散落在 Claude Code、Codex 和 Cursor 里的会话，留成下一次可以接着用的工程上下文。查看证据、保存项目记忆，先审阅再执行工作流。数据由你持有，工具保持熟悉。
         </p>
 
         <!-- Command Box with Working Copy Action -->
@@ -114,7 +111,7 @@
             </a>
           </div>
           <div class="hero-cta-secondary-wrap">
-            <a href="docs.html" class="btn btn-secondary-outline">
+            <a href="/docs.html" class="btn btn-secondary-outline">
               阅读技术文档
             </a>
             <a href="https://github.com/Atingaii/Vela" class="btn-tertiary-link" target="_blank" rel="noopener noreferrer">
@@ -130,9 +127,102 @@
       </div>
     </section>
 
+    <!-- Hero Screenshot Section -->
+    <section style="padding-bottom: 72px;">
+      <div class="container">
+        <div class="product-screenshot-frame">
+          <img
+            src="assets/vela-sessions.png"
+            alt="Vela macOS 原生会话工作台界面：展示会话列表与选中会话详情、日志推断状态及 Memory 沉淀"
+            width="1250"
+            height="800"
+            loading="lazy"
+            class="product-screenshot-img"
+          >
+          <div class="screenshot-caption">
+            <span>实际 macOS 原生界面 (0.1.0-preview.2) · 合成示例数据</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <hr class="section-divider">
 
-    <!-- Section 1: Sessions & Context -->
+    <!-- Section: 4 Use Case Task Entries -->
+    <section class="narrative-section">
+      <div class="container">
+        <div style="max-width: 760px; margin-bottom: 24px;">
+          <div class="section-eyebrow">ENGINEERING TASKS</div>
+          <h2 class="section-h2">
+            为 Coding Agent 提供清晰的工程抓手
+          </h2>
+          <p class="section-lead">
+            面向会话回看、项目记忆沉淀、只读工作流预演及实验对照。无需推翻现有工作习惯，把不可逆修改留在单次审批之后。
+          </p>
+        </div>
+
+        <div class="cards-grid-four">
+          <!-- Task 1 -->
+          <div class="clean-card">
+            <div>
+              <div class="card-eyebrow">01 / 会话回看</div>
+              <h3 class="card-title">找到改动的来由</h3>
+              <p class="card-body">
+                从 Claude Code、Codex 和 Cursor 的会话日志中精准检索关键工具调用与上下文证据，核对决策依据。
+              </p>
+            </div>
+            <a href="/usecases/session-review/" class="card-meta-pill" style="color: var(--accent-amber);">preview.2 基础 · 开发版扩展 · 详情 →</a>
+          </div>
+
+          <!-- Task 2 -->
+          <div class="clean-card">
+            <div>
+              <div class="card-eyebrow">02 / 项目记忆</div>
+              <h3 class="card-title">保留值得复用的约束</h3>
+              <p class="card-body">
+                将构建方式、验证规则等确切工程约束保存为 Candidate 提案，人工激活后按预算词面召回，过时显式归档。
+              </p>
+            </div>
+            <a href="/usecases/project-memory/" class="card-meta-pill" style="color: var(--accent-amber);">preview.2 基础 · 开发版扩展 · 详情 →</a>
+          </div>
+
+          <!-- Task 3 -->
+          <div class="clean-card">
+            <div>
+              <div class="card-eyebrow">03 / 审阅工作流</div>
+              <h3 class="card-title">先检查，再允许修改</h3>
+              <p class="card-body">
+                在执行本地工程操作前通过 Dry Run 预演变更计划，在 Inbox 冻结参数审查后单次批准执行，并保留 Undo 事务日志。
+              </p>
+            </div>
+            <a href="/usecases/review-workflows/" class="card-meta-pill" style="color: var(--accent-amber);">preview.2 基础 · 开发版扩展 · 详情 →</a>
+          </div>
+
+          <!-- Task 4 -->
+          <div class="clean-card">
+            <div>
+              <div class="card-eyebrow">04 / 对照与复用</div>
+              <h3 class="card-title">保留证据与不确定性</h3>
+              <p class="card-body">
+                在配对隔离的 Git Worktree 中执行同任务 Baseline 与 Candidate 对照评估，由独立 Verifier 判定真实边界。
+              </p>
+            </div>
+            <a href="/usecases/compare-and-reuse/" class="card-meta-pill" style="color: var(--badge-dev-text); border-color: var(--badge-dev-border); background-color: var(--badge-dev-bg);">当前开发分支 · 详情 →</a>
+          </div>
+        </div>
+
+        <div style="margin-top: 32px; text-align: center;">
+          <a href="/usecases/" style="font-size: 14.5px; font-weight: 500; color: var(--accent-amber); display: inline-flex; align-items: center; gap: 6px;">
+            <span>浏览全部 4 个使用场景的读取、写入与执行节奏</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Section 1: Sessions & Context (Working Legacy ID: sessions) -->
     <section class="narrative-section" id="sessions">
       <div class="container">
         <div class="two-column-layout">
@@ -149,22 +239,29 @@
               <li class="feature-bullet-item">
                 <span class="feature-bullet-marker"></span>
                 <div>
-                  <strong>多智能体日志捕获：</strong>自动发现 Claude Code 与 Codex 会话日志（Cursor 格式为实验性解析），初次导入采用有界读取以缓解 I/O 与内存开销，不提供全量历史回溯保证。
+                  <strong>多智能体日志捕获：</strong>自动发现 Claude Code 与 Codex 会话日志（Cursor 格式为只读导入），初次导入采用有界读取以缓解 I/O 与内存开销。
                 </div>
               </li>
               <li class="feature-bullet-item">
                 <span class="feature-bullet-marker"></span>
                 <div>
-                  <strong>基于日志推断会话状态：</strong>严格根据支持的本地日志证据推断调用时间线与状态，非后台实时进程存活性证明；缺失存活证据即如实标注为未确认，不臆造进程状态。
+                  <strong>基于日志推断会话状态：</strong>严格根据支持的本地日志证据推断调用时间线与状态，非后台实时进程存活性证明；缺失存活证据即如实标注为未知。
                 </div>
               </li>
               <li class="feature-bullet-item">
                 <span class="feature-bullet-marker"></span>
                 <div>
-                  <strong>单条经验显式保存为 Memory：</strong>点按消息即可沉淀为项目记忆，在 candidate ➔ active 状态流转中受审阅，避免无关碎片污染检索。
+                  <strong>经验沉淀为 Candidate 记忆：</strong>点按消息即可沉淀为项目记忆提案，在 Candidate ➔ Active 流转中经人工审核，避免无关碎片污染检索。
                 </div>
               </li>
             </ul>
+
+            <div class="callout-limits" style="margin-top: 24px;">
+              <div class="callout-limits-title">状态推断与读取限制</div>
+              <div class="callout-limits-content">
+                <p style="margin: 0; font-size: 13.5px;">运行状态由本地日志最新事件推断得出，非独立系统守护进程探针；初次导入限制选取 60 个日志文件并读取 256KB 尾窗，不提供全量历史回溯保证。</p>
+              </div>
+            </div>
           </div>
 
           <!-- Product Screenshot 1: assets/vela-sessions.png -->
@@ -178,7 +275,7 @@
               class="product-screenshot-img"
             >
             <div class="screenshot-caption">
-              <span>实际 macOS 应用 · 合成示例数据</span>
+              <span>实际 macOS 原生界面 (0.1.0-preview.2) · 合成示例数据</span>
             </div>
           </div>
         </div>
@@ -187,7 +284,7 @@
 
     <hr class="section-divider">
 
-    <!-- Section 2: Workflows & Frozen Approvals -->
+    <!-- Section 2: Workflows & Frozen Approvals (Working Legacy ID: workflows) -->
     <section class="narrative-section" id="workflows">
       <div class="container">
         <div class="two-column-layout reverse">
@@ -198,19 +295,19 @@
               <span class="gradient-text">确认后，再执行。</span>
             </h2>
             <p class="section-lead">
-              把日常重复的 Git 检查、环境验证与智能体测试串联成自动化管道。每一步潜在变更都经过严格参数哈希冻结，避免非预期的文件写入与命令调用。
+              把日常重复的 Git 检查、环境验证与本地构建串联成受控管道。每一步潜在变更都经过严格参数哈希冻结，避免非预期的文件写入与命令调用。
             </p>
             <ul class="feature-bullet-list">
               <li class="feature-bullet-item">
                 <span class="feature-bullet-marker"></span>
                 <div>
-                  <strong>Dry Run 安全演练：</strong>只读 Git 命令（status/diff/log）在当前工作区真实执行；写入与测试脚本采用模拟结果，安全演练无破坏性影响。
+                  <strong>Dry Run 安全预演：</strong>只读 Git 命令（status/diff/log）在当前工作区真实执行；写入与测试脚本采用安全 stub 拦截，预演无破坏性副作用。
                 </div>
               </li>
               <li class="feature-bullet-item">
                 <span class="feature-bullet-marker"></span>
                 <div>
-                  <strong>待办把关 (Inbox) 与参数冻结：</strong>工作流中的文件修改与测试命令在计算冻结参数哈希后进入待办列表，由工程师明确批准后方可执行。
+                  <strong>待办把关 (Inbox) 与参数冻结：</strong>工作流中的文件修改与测试命令在计算冻结参数哈希后进入待办列表，由工程师明确单次批准后方可执行。
                 </div>
               </li>
               <li class="feature-bullet-item">
@@ -220,6 +317,13 @@
                 </div>
               </li>
             </ul>
+
+            <div class="callout-limits" style="margin-top: 24px;">
+              <div class="callout-limits-title">预演与执行限制</div>
+              <div class="callout-limits-content">
+                <p style="margin: 0; font-size: 13.5px;">Dry Run 对写操作执行 stub 拦截，预演成功仅代表计划校验通过，不证明底层测试已真实执行；目前仅支持受管本地目录文件与命令，不支持任意未审查的外部 SaaS 自动化。</p>
+              </div>
+            </div>
           </div>
 
           <!-- Product Screenshot 2: assets/vela-approval.png -->
@@ -233,7 +337,7 @@
               class="product-screenshot-img"
             >
             <div class="screenshot-caption">
-              <span>实际 macOS 应用 · 合成示例数据</span>
+              <span>实际 macOS 原生界面 (0.1.0-preview.2) · 合成示例数据</span>
             </div>
           </div>
         </div>
@@ -242,7 +346,7 @@
 
     <hr class="section-divider">
 
-    <!-- Section 3: Local Storage Layout & Privacy -->
+    <!-- Section 3: Local Storage Layout & Privacy (Working Legacy ID: ownership) -->
     <section class="narrative-section" id="ownership">
       <div class="container">
         <div class="two-column-layout">
@@ -253,28 +357,35 @@
               <span class="gradient-text">无需云端账号。</span>
             </h2>
             <p class="section-lead">
-              采用 Swift、AppKit 原生桌面宿主与内置 SQLite 引擎，不捆绑任何 Electron、Chromium 或 Node.js 运行时。资产可读、结构可查、去留完全由你掌控。
+              采用 Swift、AppKit 原生桌面宿主与内置 SQLite 引擎，不捆绑任何 Electron、Chromium 或 Node.js 运行时。资产明文可读、去留完全由你掌控。
             </p>
             <ul class="feature-bullet-list">
               <li class="feature-bullet-item">
                 <span class="feature-bullet-marker"></span>
                 <div>
-                  <strong>明文 Markdown 与本地 SQLite：</strong>长期工程资产采用人类可读的 Markdown 文件存储，快速检索与审计流水由本地 SQLite 驱动。
+                  <strong>明文 Markdown 与本地 SQLite：</strong>长期工程资产采用人类可读的 Markdown 文件存储，快速检索与审计流水由纯本地 SQLite 驱动。
                 </div>
               </li>
               <li class="feature-bullet-item">
                 <span class="feature-bullet-marker"></span>
                 <div>
-                  <strong>私密知识库隔离机制：</strong>在知识库中标记为 Private 的条目被底层强行阻断在 MCP 与智能体上下文检索之外，保护个人敏感笔记。
+                  <strong>私密库严格隔离：</strong>在 Private Library 中的私密条目被底层强行阻断在 MCP 与智能体上下文检索之外，保护个人敏感笔记与凭据。
                 </div>
               </li>
               <li class="feature-bullet-item">
                 <span class="feature-bullet-marker"></span>
                 <div>
-                  <strong>预算召回 (Recall)：</strong>CLI 默认以固定 1000 Token 预算召回生效中的记忆（通用 RPC/MCP 接口支持自定义预算），仅 active 状态记忆参与召回，智能体启动时不自动拉取。
+                  <strong>受限预算词面召回 (Recall)：</strong>CLI 默认以固定 1000 Token 预算召回处于 Active 状态的记忆，智能体启动时不自动拉取，无远程向量服务依赖。
                 </div>
               </li>
             </ul>
+
+            <div class="callout-limits" style="margin-top: 24px;">
+              <div class="callout-limits-title">数据与联网边界</div>
+              <div class="callout-limits-content">
+                <p style="margin: 0; font-size: 13.5px;">Vela 无内置商业遥测；但显式触发的 URL 导入与用户明确批准的远程 CLI 仍可联网，请勿将本地优先误解为物理隔离或绝对防泄露保证。</p>
+              </div>
+            </div>
           </div>
 
           <!-- Directory Tree Structure Box -->
@@ -291,42 +402,6 @@
             <div class="tree-line">    ├── guideline/         <span class="comment">// 项目规约快照 (未注入 Prompt)</span></div>
             <div class="tree-line">    ├── library/           <span class="comment">// 知识库 (Private 条目排除在 Agent 之外)</span></div>
             <div class="tree-line">    └── checkpoint/        <span class="comment">// 跨模型交接总结文件</span></div>
-          </div>
-        </div>
-
-        <!-- 3-Column Text List (Restrained square cards, no big colored bento) -->
-        <div class="cards-grid-three">
-          <div class="clean-card">
-            <div>
-              <div class="card-eyebrow">01 / IMPROVE</div>
-              <h3 class="card-title">确定性证据调优</h3>
-              <p class="card-body">
-                基于确定性规则与记录信号生成调整建议。当同一模式在至少 2 个会话中出现 3 次以上信号时触发规约调整草案，经人工审查 Diff 后确认应用，撤销时根据文件身份与恢复日志校验。
-              </p>
-            </div>
-            <span class="card-meta-pill">≥2 sessions · ≥3 signals · Diff review</span>
-          </div>
-
-          <div class="clean-card">
-            <div>
-              <div class="card-eyebrow">02 / LAB</div>
-              <h3 class="card-title">独立 Worktree 对照实验</h3>
-              <p class="card-body">
-                在处于相同 Git HEAD 的双独立 Worktree 中分别执行命令检验成对变更与输出、退出码证据。Lab 不注入 Prompt，不评估模型任务成功率，保持常规系统执行权限。
-              </p>
-            </div>
-            <span class="card-meta-pill">同一提交 · 两组命令 · 独立工作区</span>
-          </div>
-
-          <div class="clean-card">
-            <div>
-              <div class="card-eyebrow">03 / GUIDELINES</div>
-              <h3 class="card-title">规范快照与审计</h3>
-              <p class="card-body">
-                集中管理项目开发指南与架构约束。Guidelines 规约在当前预览版中作为人工维护的项目文件，未注入到外部智能体 Prompt 中。
-              </p>
-            </div>
-            <span class="card-meta-pill">项目规约 · 手动维护 · 审计留痕</span>
           </div>
         </div>
       </div>
@@ -350,16 +425,16 @@
           <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="btn btn-primary-amber" target="_blank" rel="noopener noreferrer">
             下载 macOS 预览版 →
           </a>
-          <a href="docs.html" class="btn btn-secondary-outline">
+          <a href="/docs.html" class="btn btn-secondary-outline">
             阅读技术文档与安装说明
           </a>
-          <a href="releases.html" class="btn-tertiary-link">
+          <a href="/releases.html" class="btn-tertiary-link">
             查看版本更新日志 ↗
           </a>
         </div>
 
         <p class="download-caveat">
-          安全提示：当前构建为 ad-hoc 签名，尚无 Developer ID 签名和 Apple 公证。首次打开若遇系统安全提示，请前往 macOS「系统设置 ➔ 隐私与安全性」点击“仍要打开”。支持通过官方代码仓库本地源码编译安装。
+          安全提示：当前构建为 ad-hoc 签名，尚无 Developer ID 签名和 Apple 公证。首次打开若遇系统安全提示，请前往 macOS「系统设置 ➔ 隐私与安全性」点击“仍要打开”。亦支持通过官方代码仓库本地源码编译安装。
         </p>
       </div>
     </section>
@@ -374,9 +449,11 @@
       </div>
 
       <div class="footer-links">
-        <a href="docs.html" class="footer-link">技术文档</a>
-        <a href="privacy.html" class="footer-link">数据隐私</a>
-        <a href="releases.html" class="footer-link">发行记录</a>
+        <a href="/usecases/" class="footer-link">使用场景</a>
+        <a href="/comparisons/" class="footer-link">产品对比</a>
+        <a href="/docs.html" class="footer-link">技术文档</a>
+        <a href="/releases.html" class="footer-link">发行记录</a>
+        <a href="/privacy.html" class="footer-link">数据隐私</a>
         <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
         <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">安全漏洞反馈</a>
       </div>

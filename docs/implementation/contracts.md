@@ -40,7 +40,7 @@ Bridge 普通请求超时 180 秒，长操作超时 1,800 秒。客户端超时�
 | 原生方法 | 参数 | 返回与边界 |
 | --- | --- | --- |
 | `system.ready` | `{}` | `true` |
-| `system.info` | `{}` | `{channel,home,version,helperRunning,notificationsStatus,launchAtLoginStatus,launchAtLoginSupported}`；其中壳版本字段与 CLI `system.version` 分开维护，发行版本以打包元信息/CLI为准 |
+| `system.info` | `{}` | `{channel,home,version,helperRunning,notificationsStatus,launchAtLoginStatus,launchAtLoginSupported,locale}`；locale 为已确认的 `zh-CN` / `en`。其中壳版本字段与 CLI `system.version` 分开维护，发行版本以打包元信息/CLI为准 |
 | `system.chooseProject` | `{}` | 所选目录绝对路径字符串；取消为 `null`；选择本身不登记项目 |
 | `system.openExternal` | `{url}` | 仅 HTTPS；成功发起系统打开后返回 `true` |
 | `system.reveal` | `{path}` | 仅已存在且位于 Vela store 或已知项目范围内的文件/目录 |
@@ -49,6 +49,8 @@ Bridge 普通请求超时 180 秒，长操作超时 1,800 秒。客户端超时�
 | `system.version` | `{}` | 转发 helper，返回 `{version,platform:"macOS",home}` |
 
 `settings.save` 经桌面壳调用时会处理通知授权和 `SMAppService` 登录启动登记；经 CLI 直接调用只保存偏好。界面允许清单不包含所有 CLI 内部方法，例如 `signals.record`、`suggestions.draft`、`ask`、`doctor` 不属于当前 WebKit 通用桥接入口。
+
+桌面固定文案的语言以真实偏好响应为准；原生壳通过 `CustomEvent('vela:localeChanged', {detail:{locale}})` 通知 renderer，其中 locale 仅为 `zh-CN` 或 `en`。`system.ready` 后也发送当前确认值。该事件不授予写入权限、不改变项目作用域，不要求 WebKit 重载。设置控件与原生 Language 菜单均仅保存 `{locale}`，纯语言补丁不触发通知授权或登录启动登记，不顺带保存其他未提交草稿。错误时保留旧确认语言。显式绑定仅覆盖固定文案，用户正文、命令、路径、provider 输出和 ID 保持原样；见 [ADR 0005](../adr/0005-desktop-localization.md)。
 
 ## 2. 本地存储与核心服务
 
@@ -294,8 +296,8 @@ vela mcp [--contribute] [--home PATH]
 
 ## 7. Settings、诊断与未完成范围
 
-- `settings.get {}`：默认telemetry=false、notifications=false、analysisEnabled=false、launchAtLogin=false；notificationSound、notifyApprovals、notifyCompleted、notifyErrors默认true。旧偏好自动补齐新字段，保留既有选择；返回preferences对象。`dashboard.get.settings`使用相同默认值。
-- `settings.save {notifications?,analysisEnabled?,launchAtLogin?,notificationSound?,notifyApprovals?,notifyCompleted?,notifyErrors?}`：仅接受这七个布尔字段，拒绝未知键、字符串和数值0/1，telemetry始终false。声音与分类开关受notifications总开关控制。analysisEnabled控制上述后台确定性证据分析；保存本身不立即分析，等待下个Scheduler tick。
+- `settings.get {}`：默认telemetry=false、notifications=false、analysisEnabled=false、launchAtLogin=false；notificationSound、notifyApprovals、notifyCompleted、notifyErrors默认true；locale默认`"zh-CN"`。旧偏好自动补齐新字段，保留既有有效选择，缺失或无效的已存 locale 读取回退`"zh-CN"`；返回preferences对象。`dashboard.get.settings`使用相同默认值，项目筛选不改变全局语言。
+- `settings.save {notifications?,analysisEnabled?,launchAtLogin?,notificationSound?,notifyApprovals?,notifyCompleted?,notifyErrors?,locale?}`：接受七个严格布尔字段及 locale 严格字符串枚举`"zh-CN"`/`"en"`。布尔字符串和数值0/1、未知键、无效 locale 均在保存前拒绝整个补丁，telemetry始终false。locale-only 合并保留其他偏好，重开 helper 后仍生效。声音与分类开关受notifications总开关控制。analysisEnabled控制上述后台确定性证据分析；保存本身不立即分析，等待下个Scheduler tick。
 - `dashboard.get`额外返回`notificationScope`：无项目筛选时为`"*"`，否则为所选项目绝对路径。原生通知策略仅消费全局快照，按集合首次建立静默基线、消费静音期间的转移，同批事件每类最多一条。UI的项目筛选不重置通知基线。
 - 首次观察即完成/失败的 Run，仅在其真实`createdAt`处于静默基线到当前观察时间之间时通知；避免漏掉两次轮询之间完成的快任务。首次见到的会话只考虑待审批，且要求`lastActivitySource`或`startedAtSource`为`provider`、对应日期有效并处于上述区间；旧记录缺来源、历史回填、索引时钟及未来日期均不推断成新待审批。首次导入终态会话保持静默。会话通知始终标记推断性质。
 - `VelaNotificationEvent`提供`kind,source,recordID,project,title,inferred,count,sources,spansProjects,isAggregate`。`sources`为去重排序的`session/run/approval`数组；混合来源时`source="mixed"`。多条聚合的`recordID`为空，跨项目聚合的`project`为空且`spansProjects=true`。原生通知点击透传这些字段，单对象路由先加载其项目，跨项目路由先加载全局；混合来源通过列表级入口选择来源，不能打开代表对象或虚构分来源计数。策略只提供事件数据，实际系统投递、声音和导航由原生壳负责。详见[ADR 0002](../adr/0002-native-notification-policy.md)。

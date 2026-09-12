@@ -1,21 +1,20 @@
-<img src="Sources/VelaApp/Resources/Design/app-icon.png" width="80" height="80" alt="Vela app icon">
+![Vela — 智能体编程的工程工作台](docs/assets/vela-readme-banner.svg)
 
 # Vela
 
-**The engineering layer for coding agents.**
+[English](README.md) · [官方网站](https://vela-engineering.zzzsssaa.chatgpt.site) · [下载预览版 (v0.1.0-preview.2)](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2) · [功能状态](docs/status.md) · [系统架构](docs/architecture.md) · [贡献指南](CONTRIBUTING.md)
 
-[English](README.md) · [官方网站](https://vela-engineering.zzzsssaa.chatgpt.site) · [下载预览版](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2) · [贡献指南](CONTRIBUTING.md)
+[![CI](https://github.com/Atingaii/Vela/actions/workflows/ci.yml/badge.svg)](https://github.com/Atingaii/Vela/actions/workflows/ci.yml) · [MIT 许可证](LICENSE) · macOS 13+ (Apple Silicon)
 
-[![CI](https://github.com/Atingaii/Vela/actions/workflows/ci.yml/badge.svg)](https://github.com/Atingaii/Vela/actions/workflows/ci.yml)
-[![MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-
-**让一次 Agent Session 结束，但工程经验不结束。**
+让一次 Agent Session 结束，但工程经验不结束。
 
 Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Codex 和 Cursor 会话数据，将对话证据、项目 Memory、可审批的 Workflow 和真实 Codex 对照记录放在一起，配合已有 Coding Agent 使用。
 
-> **当前开发分支：验收与界面重构，尚未发布。** 下载链接仍指向 preview.2。20 步产品场景和六项发布门槛**尚未通过**；请阅读[验收框架](docs/ACCEPTANCE.md)、[需求追踪](docs/TRACEABILITY.md)和[三个参考项目对照](docs/reference-comparison.md)。
-
-> **0.1.0-preview.2 · 开发者预览版。** 核心路径已经实现，但适配、自动化和评测仍有明确限制；当前版本不代表完整产品路线图已经交付，也不是稳定版本。开发包使用 ad-hoc 签名，没有 Developer ID 签名，尚未通过 Apple 公证。使用前请阅读[功能状态与限制](docs/status.md)。
+> **当前开发分支：验收与界面重构，尚未发布。**
+>
+> 下载链接仍指向 [0.1.0-preview.2](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2)。20 步产品场景和六项发布门槛**尚未通过**；请阅读[验收框架](docs/ACCEPTANCE.md)、[需求追踪](docs/TRACEABILITY.md)和[三个参考项目对照](docs/reference-comparison.md)。
+>
+> 核心路径已经实现，但适配、自动化和评测仍有明确限制；当前版本不代表完整产品路线图已经交付，也不是稳定版本。开发包使用 ad-hoc 签名，没有 Developer ID 签名，尚未通过 Apple 公证。使用前请阅读[功能状态与限制](docs/status.md)。
 
 ![Vela 开发版工作区展示分组 Agent 会话与原始消息](docs/assets/vela-workspace.png)
 
@@ -60,6 +59,8 @@ open releases/Vela.app
 打包脚本默认使用 `dev` 通道，输出 `releases/Vela-macOS-arm64.zip` 和 `releases/SHA256SUMS`。设置通道本身不会完成 Developer ID 签名、公证或公开发布。安装后的应用使用 Swift、AppKit、系统 WKWebView、SQLite 等 macOS 框架，不依赖 Electron、Node.js 或 Python 运行时。
 
 ## 添加项目与使用 CLI
+
+开发版支持简体中文和 English。在 **设置 → 语言** 或 macOS 菜单 **Vela → 语言** 中切换，选择保存在本地。切换时保留未保存草稿，项目内容保持原文；preview.2 下载暂不包含此功能。
 
 在客户端添加项目目录后，查看 Sessions 和 Setup。登记项目不等于批准运行项目脚本。首次发现只读取有数量与窗口限制的近期日志，不会导入全部历史。
 
@@ -146,4 +147,4 @@ AppKit/WKWebView 界面通过受限 JSONL RPC 与独立 `vela` helper 通信，�
 
 产品方向参考了用户提供的 Blume 分析、Walrus Memory/MemWal 的上下文所有权思想和 [px0](https://px0.ai/) 工作流设计。Vela 是独立实现，与参考项目及 Agent 厂商无隶属关系；不包含它们的私有源码、提示词或品牌素材。初始桌面与官网界面通过指定的 Antigravity CLI Gemini 3.8 Flash（High）工作流实现。
 
-[MIT License](LICENSE) © Vela contributors。
+[MIT 许可证](LICENSE) © Vela contributors。

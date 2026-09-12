@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>审阅工作流：先检查，再允许修改 — Vela 使用场景</title>
+  <meta name="description" content="在执行本地工程操作前通过 Dry Run 预演变更计划，在 Inbox 冻结参数审查后单次批准执行，并保留文件写入 Undo 事务日志。">
+  <link rel="icon" href="../../assets/mark.svg" type="image/svg+xml">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="../../assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../../assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="../../styles.css">
+
+  <!-- Immediate theme application to prevent flash -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Site Header (62px height, x70-1180 alignment) -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/" class="brand-link" aria-label="Vela 首页">
+          <img src="../../assets/mark.svg" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="主导航">
+          <a href="/usecases/" class="nav-link active" aria-current="page">使用场景</a>
+          <a href="/comparisons/" class="nav-link">产品对比</a>
+        </nav>
+      </div>
+
+      <div class="header-actions">
+        <a href="/docs.html" class="header-docs-link">文档</a>
+
+        <!-- Theme Toggle Button -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- GitHub Repository Button -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="展开导航菜单" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单">
+      <a href="/usecases/" class="nav-link active" aria-current="page">使用场景</a>
+      <a href="/comparisons/" class="nav-link">产品对比</a>
+      <a href="/docs.html" class="nav-link">文档</a>
+      <a href="/releases.html" class="nav-link">发行记录</a>
+      <a href="/privacy.html" class="nav-link">数据隐私</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="usecases-hero">
+      <div class="container">
+        <!-- Breadcrumb Navigation -->
+        <div class="breadcrumb-nav">
+          <a href="/usecases/" class="breadcrumb-link">← 返回全部使用场景</a>
+        </div>
+
+        <div class="usecase-detail-header">
+          <div class="usecase-meta-badges">
+            <span class="version-badge-preview">preview.2 基础功能 · 开发版扩展</span>
+            <span class="tag-badge">只读 Dry Run</span>
+            <span class="tag-badge">参数冻结审批</span>
+            <span class="tag-badge">本地文件 Undo</span>
+          </div>
+          <h1 class="usecase-h1">审阅工作流：先检查，再允许修改</h1>
+          <p class="usecase-problem-lead">
+            <strong>工程师常见困扰：</strong>当 Coding Agent 或自动化脚本尝试修改本地文件、执行构建命令时，传统的黑盒运行极易造成文件覆写丢失或产生无法撤销的副作用。工程师需要明确知晓每一步“将要改动什么”，并在每次执行前留出不可跳过的审批卡点。
+          </p>
+        </div>
+
+        <!-- Step-by-Step Flow -->
+        <div class="step-flow">
+          <div class="step-flow-item">
+            <div class="step-flow-num">01</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">配置或选择受管本地工作流草稿</div>
+              <div class="step-flow-desc">
+                在工作流面板中定义或选定本地任务流程（例如规范检查、文档更新或脚手架生成）。所有操作被限定在声明的白名单根目录内，不可接入未经审计的外部未知工具。
+              </div>
+            </div>
+          </div>
+
+          <div class="step-flow-item">
+            <div class="step-flow-num">02</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">触发 Dry Run：零副作用预演计划</div>
+              <div class="step-flow-desc">
+                在发起真实执行前必须先经由 Dry Run 预演。Vela 机制会自动对所有潜在写操作（文件覆写、创建、命令执行）进行安全只读 stub 拦截，生成详细的计划列表与改动 Diff 快照，磁盘文件在此阶段保持完全不变。
+              </div>
+            </div>
+          </div>
+
+          <div class="step-flow-item">
+            <div class="step-flow-num">03</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">Inbox 冻结参数核对与单次批准</div>
+              <div class="step-flow-desc">
+                预演通过后，任务进入审批收件箱（Inbox）。工程师逐一核对操作目标文件、预期内容哈希与严格冻结的命令行参数（argv）。单次审批仅针对当前冻结参数执行一次，严禁自动重试未确认的副作用。
+              </div>
+            </div>
+          </div>
+
+          <div class="step-flow-item">
+            <div class="step-flow-num">04</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">受限真实 Run 与 Undo 恢复日志</div>
+              <div class="step-flow-desc">
+                经批准后执行单次真实 Run。文件写入严格校验允许的根路径与目标哈希，并在本地保留完整的恢复事务日志（Journal）。若需要撤销修改，可通过 Undo 机制安全还原。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real Screenshot Frame -->
+        <div class="product-screenshot-frame" style="margin-bottom: 40px;">
+          <img
+            src="../../assets/vela-approval.png"
+            alt="Vela 审批工作台界面：展示待办收件箱、冻结参数、Dry Run 预演状态与执行确认按钮"
+            width="1250"
+            height="800"
+            loading="lazy"
+            class="product-screenshot-img"
+          >
+          <div class="screenshot-caption">
+            <span>实际 macOS 原生界面 (0.1.0-preview.2) · 合成示例数据</span>
+          </div>
+        </div>
+
+        <!-- Limitations & Boundaries Callout -->
+        <div class="callout-limits">
+          <div class="callout-limits-title">功能边界与已知限制</div>
+          <div class="callout-limits-content">
+            <ul style="padding-left: 18px; margin: 0;">
+              <li><strong>Dry Run 属于 Stub 拦截：</strong>Dry Run 预演阶段会对写文件与可能带来副作用的命令进行拦截，因此“预演成功”仅证明参数校验与计划生成无冲突，并不代表底层测试脚本已被真实执行或环境依赖已完全满足。</li>
+              <li><strong>单次授权防重试：</strong>审批仅对当前完全冻结的一组入参有效。一旦参数被修改或执行产生未知不确定性，系统不会进行静默重试，必须重新回到 Inbox 申请新的独立批准。</li>
+              <li><strong>本地作用域优先：</strong>目前仅支持本地受管目录内的文件操作与受控命令，不承诺支持跨网络 SaaS 服务（如 Slack、Gmail 或云端 CI）的任意远程 Exactly-Once 事务保证。</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Bottom CTA Bar -->
+        <div class="usecase-cta-bar">
+          <a href="/docs.html#workflows" class="usecase-next-doc-link">下一步：阅读工作流与审批机制文档 →</a>
+          <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="btn btn-primary-amber" target="_blank" rel="noopener noreferrer">
+            下载 macOS 预览版 →
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="/usecases/" class="footer-link">使用场景</a>
+        <a href="/comparisons/" class="footer-link">产品对比</a>
+        <a href="/docs.html" class="footer-link">技术文档</a>
+        <a href="/releases.html" class="footer-link">发行记录</a>
+        <a href="/privacy.html" class="footer-link">数据隐私</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">安全漏洞反馈</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../../site.js"></script>
+</body>
+</html>

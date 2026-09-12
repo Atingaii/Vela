@@ -1,0 +1,34 @@
+{
+  "format": "vela-localization-package-v1",
+  "date": "2026-09-13",
+  "channel": "dev",
+  "bundleId": "ai.vela.desktop.dev",
+  "archiveBytes": 1453375,
+  "archiveSHA256": "b00283fde80d30c1cc8138c794465bc00728a48b1aaf750286ae481cbe244167",
+  "architectures": {
+    "VelaDesktop": "arm64",
+    "vela": "arm64"
+  },
+  "uiMatchesSource": true,
+  "uiSHA256": {
+    "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+    "app.css": "49a7594949b0ce55ad59f8eb5e2c8266623d1d21d343ee7ddb17bc9ba8441e69",
+    "app.js": "403f3c57910a45ca8e2ba56996ab40f71f707d4518ebc956aa0180a76a8d649a",
+    "i18n.js": "028765c6c9d8d49b884528af68e051d585b7448b5963612c9826bb84797054b4",
+    "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458"
+  },
+  "assetsSHA256": {
+    "Vela.icns": "deeb9b65a5a5e89f201ecbc9f868d668e4fc27766dd7919f9ffc9dd30a375ebd",
+    "vela-approval.wav": "0c399c3e60bbb5adc4f80fceba4a5bd81c3dbd60c3df6dada46ff75cce9c2635",
+    "vela-completed.wav": "240bdb6816d12423e16dee0eb7128f5cfb8eca38d4cfbc05135fcc55671ed00a",
+    "vela-error.wav": "e8942535396f882bf381d19afe0952f67e30e2620bca4df8005f0ee6903ea374"
+  },
+  "zipCRC": "passed",
+  "strictSignatureCheckExitCode": 0,
+  "signing": "ad-hoc",
+  "notarized": false,
+  "publicRelease": false,
+  "notificationSounds": 3,
+  "resourcesCount": 9,
+  "packageLogSHA256": "dfb2bd1572a30a44709d82b2d8e24f94be0c7cca68d5658f7be27f9a8469f630"
+}

@@ -42,6 +42,7 @@ jobs:
           python3 scripts/create-ui-fixture.py .task-tmp/ci-ui --with-routing-project
           python3 scripts/test-ui-browser.py .task-tmp/ci-ui/fixture.json --driver playwright
           python3 scripts/test-acceptance-browser.py --fixture .task-tmp/ci-acceptance --output output/playwright/ci-acceptance
+          python3 scripts/test-localization-browser.py --fixture .task-tmp/ci-localization --output output/playwright/ci-localization
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -52,6 +53,8 @@ jobs:
             .task-tmp/ci-ui/failure-*.png
             output/playwright/ci-acceptance/results.json
             output/playwright/ci-acceptance/*.png
+            output/playwright/ci-localization/results.json
+            output/playwright/ci-localization/*.png
           if-no-files-found: ignore
           retention-days: 14
       - name: Package and audit macOS application

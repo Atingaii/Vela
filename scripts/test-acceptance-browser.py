@@ -101,7 +101,7 @@ def main():
         'playwrightVersion': json.loads((args.playwright_module.resolve().parent / 'package.json').read_text())['version'],
         'binarySHA256': hashlib.sha256(binary.read_bytes()).hexdigest(),
         'uiSHA256': {name: hashlib.sha256((ROOT / 'Sources/VelaApp/Resources/UI' / name).read_bytes()).hexdigest()
-                     for name in ('app.js', 'app.css', 'index.html')},
+                     for name in ('app.js', 'i18n.js', 'app.css', 'index.html')},
         'realProviderExecuted': False, 'nativeIntegrationTested': False, 'fullGoldenScenarioPassed': False,
         'requestedChecks': [name for name in CHECKS if name in selected], 'completeSuite': False, 'checks': results}
 

@@ -4,6 +4,24 @@ Current development evidence: 13 September 2026. Released baseline: `0.1.0-previ
 
 This record separates executed checks from targets. Synthetic fixtures contain no user sessions or credentials.
 
+## Website expansion and desktop localization — 13 September 2026
+
+The website's independent navigation, use-case catalogue, four detail pages and sourced comparison are publicly deployed. All ten routes passed checks at 320, 390, 768 and 1280 pixels. Filters, detail navigation, expandable definitions, theme persistence and keyboard/mobile controls were exercised. The final privacy-only correction was rechecked locally and after publication. [Website evidence](evidence/2026-09-13-website-expansion.json) identifies the exact saved source and version; [visual QA](../website/design-qa-expansion.md) records the initial defects and matched reference captures.
+
+The README banner is original vector artwork, separately captioned from actual native screenshots. Six English/Chinese, light/dark and wide/narrow GitHub Markdown render checks passed. [Brand provenance](assets/README-brand-provenance.md) records authorship, asset hashes and the boundaries of the local rendering check.
+
+The current unchanged Core passed **99/99 methods** using the portable runner, including four new localization cases. Real RPC/MCP, bounded-input, restart and audio-resource checks also passed. [Core evidence](evidence/2026-09-13-localization-core.json) records source hashes, command results and the distinction from XCTest. This local Command Line Tools environment cannot run XCTest.
+
+The final renderer passed **24/24 checks** against the real helper: twelve regression scenarios, six acceptance flows and six localization groups. The language suite includes nine routes, eight principal dialogs, 1,128 matching bilingual keys, no missing keys or page errors, quoted/markup titles without injected nodes, and existing Session accessibility/help text switching without replacing its DOM nodes. All three suites recorded unchanged final UI hashes. [Renderer evidence](evidence/2026-09-13-localization-ui.json) preserves the exact scope and the initial failures that led to the fixes.
+
+Actual AppKit/WKWebView checks used an isolated development wrapper launched through LaunchServices. Native menus changed language; an unsaved Memory title retained focus and the exact selected substring; the 900px and 1250px windows remained usable; source text and argv were unchanged; and English persisted after normal quit/relaunch. Stopping and then terminating only the fixture's own helper during a pending native language save produced one localized alert and retained English. The full native checks used the preceding renderer checkpoint with identical native code. After the final Session accessibility-only patch, the same native menu round trip confirmed that existing row/button labels and status help update; the branch span's title is covered by browser DOM assertions because this macOS accessibility tree does not expose it. [Native evidence](evidence/2026-09-13-localization-native.json) separates these checkpoints and observations.
+
+One first window observation following fault recovery was white and omitted WebContent before app readiness had been independently confirmed. Its exact capture time is unavailable. A later same-launch WK capture was complete; View → Sessions restored native accessibility, and subsequent normal/final launches first showed the complete interface. This remains an initial-display observation with unknown cause, not a resolved defect or an established startup failure rate. The development wrapper does not establish production first-launch reliability or OS notification delivery.
+
+The rebuilt Apple Silicon development archive is **1,453,375 bytes**, SHA-256 `b00283fde80d30c1cc8138c794465bc00728a48b1aaf750286ae481cbe244167`. [Package evidence](evidence/2026-09-13-localization-package.json) verifies strict ad-hoc signatures, the resource allowlist, exact source/package UI bytes including `i18n.js`, the icon, three WAV files and ZIP CRC. The installed app adds no translation service, framework or runtime process. It remains unsigned by Developer ID and unnotarized, and is not a new public GitHub release.
+
+These website and localization changes do not rerun or pass the overall product Golden Scenario. The earlier No-Go decision and model-comparison limitations remain as recorded below. The public macOS download is still preview.2.
+
 ## Unreleased acceptance redesign — 13 September 2026
 
 The development branch remains **No-Go / Not Scored** under the [new acceptance framework](ACCEPTANCE.md). This section records incremental evidence, separately from the released preview.2 below.

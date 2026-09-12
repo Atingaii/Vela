@@ -175,7 +175,7 @@ def main():
         report = base / ('browser-results-diagnostic.json' if selected_checks else 'browser-results.json')
         metadata_path = base / ('browser-metadata-diagnostic.json' if selected_checks else 'browser-metadata.json')
         def source_hashes():
-            files = {name: ROOT / 'Sources/VelaApp/Resources/UI' / name for name in ('index.html', 'app.js', 'app.css')}
+            files = {name: ROOT / 'Sources/VelaApp/Resources/UI' / name for name in ('index.html', 'app.js', 'i18n.js', 'app.css')}
             files['helper'] = args.binary
             return {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in files.items()}
         source_before = source_hashes()
@@ -250,6 +250,15 @@ def main():
             approval = next(a for a in read('inbox.list') if a['arguments'].get('path', '').endswith('ui-browser-check.md'))
             assert not (project / 'docs/ui-browser-check.md').exists(), 'File was written before approval.'
             click('.btn-approve-appr[data-id="' + approval['id'] + '"]')
+            # A browser click returns before its async approval request completes.
+            # Wait for this exact persisted run, then verify its file bytes independently.
+            deadline = time.monotonic() + 8
+            while True:
+                approved_run = read('runs.get', {'id': approval['runId']})
+                if approved_run.get('state') in ('completed', 'failed') or time.monotonic() >= deadline:
+                    break
+                time.sleep(0.1)
+            assert approved_run.get('state') == 'completed', 'Approved workflow did not complete: ' + str(approved_run.get('state'))
             assert (project / 'docs/ui-browser-check.md').read_text() == 'Written after explicit renderer approval.\n'
             if fixture.get('commandApproval'):
                 command = next(a for a in read('inbox.list') if a['id'] == fixture['commandApproval'])

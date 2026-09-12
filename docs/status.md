@@ -9,6 +9,7 @@
 | 模块 | 当前可用内容 | 预览边界 |
 | --- | --- | --- |
 | macOS 客户端 | AppKit + 系统 WKWebView，独立 `vela` helper；按任务分组的导航、独立工程记忆入口、全局搜索、审批 Inbox、菜单栏与设置入口 | 首发 Apple Silicon、macOS 13+。GUI SwiftPM 产品名为 `VelaDesktop`，安装包为 `Vela.app`；不承诺 Intel、Windows 或 Linux 兼容性 |
+| 界面语言 | 开发版提供简体中文与 English，可从设置和 Vela 原生菜单选择；语言偏好本地持久化，固定界面文案原地切换 | 项目正文、路径、命令和 Agent 输出保留原文。此功能尚未包含在 preview.2 下载中 |
 | Session | Claude Code、Codex JSONL 摄取，支持的消息/工具事件和来源；FSEvents、偏移游标、半行与轮转处理 | 初始每个 provider 最多选择 60 个近期文件，按需读取 256 KB 尾窗及 32 KB 文件头；转录最多保留 1,000 条消息且文本总量最多 1 MB。没有完整历史回填、完整旧会话分页或原生 Session Transfer |
 | Cursor | JSON/JSONL 导出、部分已知 `composerData` SQLite 记录的只读导入 | 私有 schema 随版本变化；拆分 bubble 记录等未适配格式需要导出。支持导入不等于覆盖 Cursor 全部内部数据库 |
 | 运行状态 | 支持明确终止事件；根据最近日志活动推断 Running/Idle/Needs Approval，保留推断来源 | 没有独立进程存活证明。导出记录与历史最后活动不能作为实时运行状态；未知保持 Unknown |
@@ -28,13 +29,15 @@
 | Lab | 同提交命令对照及 Codex Agent 对照；冻结同一任务/模型请求、候选上下文、验证/输出清单，审批后运行；独立干净目录验证 | 首次真实六次任务均成功且测试观察同分，判定 Inconclusive，晋升拒绝。计分缺陷与更正保留；没有未来纠错率改善证据 |
 | Reuse | Memory-only 受测候选显式晋升；项目 SessionStart Hook 提案、SafeApply/Undo、已安装无变更预览、已应用事务 Diff、Active Memory 收据与后续来源关联 | 已应用预览展示提交时快照，Undo 仍校验当前文件 hash。需在 Codex `/hooks` 信任确切定义；没有自动改 provider 信任。收据不证明 Agent 采纳；完整真实下一会话链尚未通过 |
 | 通知 | 审批、完成和错误分类开关；首次历史加载静默、重复事件去重、三个原创短提示音 | 默认关闭；使用 macOS 通知权限与声音策略。推断事件保留标签；应用/helper 停止期间不承诺通知投递 |
-| 官方网站 | 静态 HTML/CSS/JavaScript 产品介绍、开发预览说明和下载入口 | 网站展示不构成实现或测试证据；下载与签名状态以具体发布记录为准 |
+| 官方网站 | 静态 HTML/CSS/JavaScript 首页、场景目录、四个独立场景指南、附来源的产品对比、文档、发行和隐私页面；公开部署 | 网站展示不构成实现或测试证据；下载与签名状态以具体发布记录为准 |
 
 ## 本地验证状态
 
-当前验收分支已有 **95/95 个真实核心测试方法通过** portable runner，覆盖 SQLite、文件系统、增量日志、FSEvents、项目与私有数据边界、文档提取、Git、审批竞争、Workflow、Apply/Undo、配对命令执行及通知分类、静默基线、去重、偏好校验。新增两项回归验证已安装 Hook 的只读预览及已应用事务预览，空 Apply 与冲突 Undo 仍被拒绝。Portable runner 编译真实核心和原同步测试方法，只提供小型断言兼容层，**不是 XCTest**。
+本轮语言切换的最终版本通过 **24/24 组真实 helper 界面检查**，包括旧有 18 组和新增 6 组双语验收；词典、草稿、原文、焦点、选区及存量会话辅助文字切换均已验证。最终开发包为 **1,453,375 bytes**，包含新的翻译资源，仍未公证且未作为新 release 发布。[本轮记录](verification.md#website-expansion-and-desktop-localization--13-september-2026)区分官网、核心、界面、原生与打包证据。
 
-本机为 Command Line Tools 环境，`swift build` 可用；缺少 XCTest 模块，因此不能将本机验证写成“`swift test` 已通过”。完整 Xcode 环境使用 `swift test`。最终源码提交 `91d34e2` 的 [macOS CI](https://github.com/Atingaii/Vela/actions/runs/34709059008)已实际通过 **95 项 XCTest、18 组 renderer 检查**、RPC/MCP、输入边界、重启恢复与打包；[公开记录](evidence/2026-09-13-ci-final.json)保留精确提交和 job。较早提交 `8929967` 的 93 项结果只作为历史检查点。
+当前验收分支已有 **99/99 个真实核心测试方法通过** portable runner，其中包含四项新增语言偏好测试，覆盖 SQLite、文件系统、增量日志、FSEvents、项目与私有数据边界、文档提取、Git、审批竞争、Workflow、Apply/Undo、配对命令执行及通知分类、静默基线、去重、偏好校验。新增两项回归验证已安装 Hook 的只读预览及已应用事务预览，空 Apply 与冲突 Undo 仍被拒绝。Portable runner 编译真实核心和原同步测试方法，只提供小型断言兼容层，**不是 XCTest**。
+
+本机为 Command Line Tools 环境，`swift build` 可用；缺少 XCTest 模块，因此不能将本机验证写成“`swift test` 已通过”。完整 Xcode 环境使用 `swift test`。此前验收阶段提交 `91d34e2` 的 [macOS CI](https://github.com/Atingaii/Vela/actions/runs/34709059008)已实际通过 **95 项 XCTest、18 组 renderer 检查**、RPC/MCP、输入边界、重启恢复与打包；[公开记录](evidence/2026-09-13-ci-final.json)保留精确提交和 job。较早提交 `8929967` 的 93 项结果只作为历史检查点。
 
 JSONL RPC/MCP 黑盒检查已通过，使用编译后的 CLI 和一次性数据目录，验证持久化设置、私有检索、候选贡献与 Dry Run 等边界。相关复验入口：
 

@@ -40,7 +40,7 @@ helper通知只表示摄取更新，未构成覆盖所有写操作的事件总�
 | `Sources/VelaCore/Store.swift` | 系统sqlite3、参数化查询、轻量session summary、Markdown资产、批次补偿、CAS、事件唯一插入与Session变化计数器 |
 | `SessionEngine.swift` | Claude/Codex日志及已知Cursor记录、受限发现、FSEvents、增量偏移、截断/轮转/坏记录诊断 |
 | `FoundationService.swift` | 项目登记、harness检测、dashboard、脱敏Setup扫描、基础审计、日志Usage聚合 |
-| `Preferences.swift` / `NotificationPolicy.swift` | 共享偏好默认值与严格布尔校验；纯逻辑通知分类、基线、有限去重和批量合并，原生壳负责系统投递；决策见 [ADR 0002](adr/0002-native-notification-policy.md) |
+| `Preferences.swift` / `NotificationPolicy.swift` | 共享偏好默认值、严格布尔及语言枚举校验；纯逻辑通知分类、基线、有限去重和批量合并，原生壳负责系统投递；见 [ADR 0002](adr/0002-native-notification-policy.md) 与 [ADR 0005](adr/0005-desktop-localization.md) |
 | `MemoryService.swift` | Memory生命周期与Scope、保守预算Recall、人类Search、Library文本提取、Checkpoint和中立交接 |
 | `ContextService.swift` | Guideline版本、本地规则Workflow Builder、来源绑定Signal贡献、无操作Suggestion草案、观测回归统计 |
 | `AutomationService.swift` | Workflow版本、Markdown定义校验、工具注册表、冻结审批、运行账本、健康统计、Replay和证据引用 |
@@ -53,6 +53,8 @@ helper通知只表示摄取更新，未构成覆盖所有写操作的事件总�
 | `website/dist` | 独立官网静态资源，不连接用户本地Session、Memory或Workflow数据库 |
 
 CLI默认数据目录`~/.vela`，可用`--home`或`VELA_HOME`指定。桌面stable默认`~/.vela`、canary为`~/.vela-canary`、dev为`~/.vela-dev`，并把所选目录传给helper。通道有独立bundle ID、协议和数据目录；CLI连接开发应用时也必须指向同一home，不能假定默认目录相同。
+
+桌面语言以全局 Preferences 的 `locale` 为唯一持久化来源，严格支持 `zh-CN` / `en`，旧值回退中文。原生菜单与 renderer 通过成功偏好响应同步；随包显式词典只翻译固定文案，切换不重建表单或改写工程正文。该边界及迁移验收要求见 [ADR 0005](adr/0005-desktop-localization.md)。
 
 数据库为`vela.sqlite3`，使用WAL与`synchronous=NORMAL`。长期资产保存在`assets/{memory,workflow,guideline,library,checkpoint}/<id>.md`，包含元信息、标题和正文；运行时对象单独存SQLite。存储层会读取人工改过的资产标题/正文；Workflow执行前再校验JSON frontmatter并增版，防止实际运行陈旧的数据库steps。当前支持JSON这一YAML子集，不是任意YAML解释器。
 
