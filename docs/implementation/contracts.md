@@ -44,7 +44,8 @@ Bridge 普通请求超时 180 秒，长操作超时 1,800 秒。客户端超时�
 | `system.chooseProject` | `{}` | 所选目录绝对路径字符串；取消为 `null`；选择本身不登记项目 |
 | `system.openExternal` | `{url}` | 仅 HTTPS；成功发起系统打开后返回 `true` |
 | `system.reveal` | `{path}` | 仅已存在且位于 Vela store 或已知项目范围内的文件/目录 |
-| `system.updateStatus` | `{running?,approvals?}` | 更新菜单栏显示数量，不改变核心任务状态 |
+| `system.updateStatus` | `{running?,approvals?}` | 兼容性确认，不采用 renderer 的项目筛选数量覆盖菜单栏；计数来自原生全局轮询 |
+| `system.previewNotificationSound` | `{kind:"approval"或"completed"或"error"}` | 原生专用主动试听，仅使用随包声音白名单；不请求通知授权、不改变偏好、不接收声音路径。CLI/MCP 不提供该方法；浏览器测试不代表真实发声 |
 | `system.version` | `{}` | 转发 helper，返回 `{version,platform:"macOS",home}` |
 
 `settings.save` 经桌面壳调用时会处理通知授权和 `SMAppService` 登录启动登记；经 CLI 直接调用只保存偏好。界面允许清单不包含所有 CLI 内部方法，例如 `signals.record`、`suggestions.draft`、`ask`、`doctor` 不属于当前 WebKit 通用桥接入口。
@@ -101,6 +102,8 @@ public final class VelaStore {
 | `usage.get` | `{project?}` | 日志用量聚合，结构见下 |
 
 Session 常见字段：`id,provider,title,project,cwd,branch,model,state,startedAt,lastActivity,updatedAt,tokenInput,tokenOutput,sourcePath,messageCount,statusSource,statusInferred,messagesTruncated,historyFullyIndexed`。消息为 `{id,role,content,timestamp,tool?}`，不同 provider 缺失字段不保证存在。状态包含 `Running/Idle/Needs Approval/Completed/Error/Stopped/Unknown`；当前使用日志证据，未验证进程活性。原状态 Running 的最近活动超过 45 秒可推断为 Idle，超过 6 小时为 Unknown，并保留 `statusInferred`。
+
+新摄取记录的 `startedAtSource/lastActivitySource` 为 `provider`（原事件显式提供字符串时间）或 `ingestion_fallback`（缺时间而使用索引时钟）。`provider` 不保证日期有效或进程活跃；通知策略仍解析日期、检查时间范围。旧索引缺少来源字段时保持未知，不能把 `createdAt/updatedAt` 当作源事件发生时间。
 
 初次导入最多 60 个近期文件，初始尾窗 256 KiB，流式单次读取上限 8 MiB，每会话保留最多 1,000 条消息；后续用 FSEvents 处理变更路径，历史截断必须显示。Cursor 仅支持已知 JSON/JSONL 导出和只读 SQLite composerData 记录，未知私有 schema 返回诊断。
 
@@ -280,8 +283,11 @@ vela mcp [--contribute] [--home PATH]
 
 ## 7. Settings、诊断与未完成范围
 
-- `settings.get {}`：默认telemetry=false、notifications=false、analysisEnabled=false、launchAtLogin=false；返回preferences对象。
-- `settings.save {notifications?,analysisEnabled?,launchAtLogin?}`：仅接受这三个布尔字段，拒绝未知键，telemetry始终false。analysisEnabled控制上述后台确定性证据分析；保存本身不立即分析，等待下个Scheduler tick。
+- `settings.get {}`：默认telemetry=false、notifications=false、analysisEnabled=false、launchAtLogin=false；notificationSound、notifyApprovals、notifyCompleted、notifyErrors默认true。旧偏好自动补齐新字段，保留既有选择；返回preferences对象。`dashboard.get.settings`使用相同默认值。
+- `settings.save {notifications?,analysisEnabled?,launchAtLogin?,notificationSound?,notifyApprovals?,notifyCompleted?,notifyErrors?}`：仅接受这七个布尔字段，拒绝未知键、字符串和数值0/1，telemetry始终false。声音与分类开关受notifications总开关控制。analysisEnabled控制上述后台确定性证据分析；保存本身不立即分析，等待下个Scheduler tick。
+- `dashboard.get`额外返回`notificationScope`：无项目筛选时为`"*"`，否则为所选项目绝对路径。原生通知策略仅消费全局快照，按集合首次建立静默基线、消费静音期间的转移，同批事件每类最多一条。UI的项目筛选不重置通知基线。
+- 首次观察即完成/失败的 Run，仅在其真实`createdAt`处于静默基线到当前观察时间之间时通知；避免漏掉两次轮询之间完成的快任务。首次见到的会话只考虑待审批，且要求`lastActivitySource`或`startedAtSource`为`provider`、对应日期有效并处于上述区间；旧记录缺来源、历史回填、索引时钟及未来日期均不推断成新待审批。首次导入终态会话保持静默。会话通知始终标记推断性质。
+- `VelaNotificationEvent`提供`kind,source,recordID,project,title,inferred,count,sources,spansProjects,isAggregate`。`sources`为去重排序的`session/run/approval`数组；混合来源时`source="mixed"`。多条聚合的`recordID`为空，跨项目聚合的`project`为空且`spansProjects=true`。原生通知点击透传这些字段，单对象路由先加载其项目，跨项目路由先加载全局；混合来源通过列表级入口选择来源，不能打开代表对象或虚构分来源计数。策略只提供事件数据，实际系统投递、声音和导航由原生壳负责。详见[ADR 0002](../adr/0002-native-notification-policy.md)。
 - `ask {query,project?}`（CLI）：`{query,items,mode:"local-retrieval",message}`，最多12个本地非private匹配；没有调用外部模型生成回答。
 - `doctor {}`（CLI）：版本、DB/store、隐私与harness检测；不等同完整生产健康检查。
 

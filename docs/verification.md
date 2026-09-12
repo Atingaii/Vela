@@ -1,10 +1,39 @@
 # Verification record
 
-Release candidate: `0.1.0-preview.1`, 12 September 2026.
+Release candidate: `0.1.0-preview.2`, 12 September 2026.
 
 This record separates executed checks from targets. Synthetic fixtures contain no user sessions or credentials.
 
-## Functional checks
+## Preview.2 verification
+
+Checks executed against the redesigned client and current core:
+
+- **54/54 real-core test methods passed** with the portable runner: the previous 38, nine notification/preferences cases, and seven additional cases for fast new runs, trustworthy session timestamps, history suppression and aggregate routing metadata. This is not XCTest.
+- Debug and production Swift builds passed. The production configuration defines `VELA_PACKAGED`; release audit now rejects development-capture markers and the build checkout path in shipped executables.
+- JSONL RPC/MCP integration and notification resource validation passed against the current core. Named sounds contain 84,804 bytes in total, use 44.1 kHz 16-bit mono PCM and require no additional audio process.
+- The actual AppKit/WKWebView app was used with a separate Harbor store. Session table rows and title controls were exposed to native accessibility; selecting a session showed readable messages in the wide inspector without unnecessary table scrollbars.
+- Saving a message through the native interface created a real candidate Memory. A separate CLI read confirmed the exact `sourceSession` and `sourceMessage`; a successful toast alone was not the persistence assertion.
+- Native Setup checks showed real Rules, Skills and Hook assets. The Hook preview retained both synthetic environment values as `[REDACTED]`.
+- **12/12 final real-CLI renderer scenarios passed** in a fresh two-project fixture using the direct Playwright library and installed Chrome. Coverage includes filtering/keyboard access, all Setup categories, Memory creation/activation/recall, write-free Dry Run followed by approved file writing, exact pending command arguments, settings draft/focus preservation across actual FSEvents, delayed navigation, same-second live transcript additions with scroll preservation, and single/aggregate/failure/removed-project notification routes. See [the full scenario record](implementation/ux-review.md). Native delivery is not simulated by these routing checks.
+- Native navigation was checked with paired DOM/computed-style metadata and actual WebKit PNGs. Removing the nonessential sidebar background transition resolved the observed stale highlight. The 1250 × 800 split view and 900 × 620 drawer both expose their key controls; Escape closes the narrow drawer.
+- All three Settings sound previews returned successful `NSSound.play()` responses in the native app. A separate CLI read confirmed that notification preferences and `updatedAt` did not change. This verifies playback initiation, not a subjective listening assessment.
+- The final ad-hoc application passed strict signature verification, the resource allowlist and development-hook/path exclusion audit. Its UI files match source byte-for-byte. The arm64 ZIP is 1,186,764 bytes; the generated `SHA256SUMS` is the authority for the downloadable archive.
+- The final packaged app was relaunched through LaunchServices with the isolated store and loaded all five sessions. Native approval testing verified the file was absent before approval, then matched the exact frozen content afterwards; a separate packaged-CLI read confirmed the run was `completed`.
+- The four-page website passed nine categories of browser checks, all 144 local references, four viewport widths (320/390/768/1440), keyboard navigation, theme persistence, reduced motion, contrast and both native product images. Desktop light/dark and mobile light screenshots were reviewed alongside matching px0 references. See [website design QA](../website/design-qa.md).
+
+### Explicit environment limitation
+
+System notification authorization returned `Notifications are not allowed for this application` for both the isolated debug wrapper and the final ad-hoc app launched through LaunchServices. The UI showed the error and the persisted notification setting remained off. OS banner delivery, notification sound delivery and clicking an actual OS notification therefore **did not pass acceptance on this host**. The policy, renderer routing and explicit sound preview checks above are separate evidence. Developer ID signing/notarization and verification on a supported installation remain required; no claim is made that signing alone has been proven to resolve this denial.
+
+The first LaunchServices inspection briefly exposed a loading accessibility tree; a later focused inspection and a separate relaunch loaded the real data without a code change. This was not established as a reproducible application defect or a measured startup-time result.
+
+The macOS CI job runs full XCTest and independently packages the application. Consult the commit’s required CI check and the release notes for the hosted result and publication links.
+
+## Preview.1 baseline checks
+
+The following describes the previous release and provides historical context; it is not a claim that those checks were all rerun for preview.2.
+
+
 
 - 38 original core test methods passed with `python3 scripts/test-portable.py`. This runner compiles the actual Swift core and executes the test bodies against temporary files, SQLite, local HTTP, and Git. It is a Command Line Tools fallback, not the XCTest framework.
 - Full XCTest is configured in the macOS GitHub Actions job. Consult the CI badge and run history for its result.

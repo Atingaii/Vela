@@ -1,8 +1,10 @@
+<img src="Sources/VelaApp/Resources/Design/app-icon.png" width="80" height="80" alt="Vela app icon">
+
 # Vela
 
 **The engineering layer for coding agents.**
 
-[简体中文](README.zh-CN.md) · [Website](https://vela-engineering.zzzsssaa.chatgpt.site) · [Download preview](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.1) · [Contributing](CONTRIBUTING.md)
+[简体中文](README.zh-CN.md) · [Website](https://vela-engineering.zzzsssaa.chatgpt.site) · [Download preview](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2) · [Contributing](CONTRIBUTING.md)
 
 [![CI](https://github.com/Atingaii/Vela/actions/workflows/ci.yml/badge.svg)](https://github.com/Atingaii/Vela/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -12,7 +14,11 @@ An agent session ends. Your engineering context should not.
 
 Vela is a local macOS workspace for supported Claude Code, Codex and Cursor session data. It brings conversation evidence, project memory, reviewable workflows and command comparisons into one place, alongside the agents you already use.
 
-> **0.1.0-preview.1 — developer preview.** The core paths are implemented, with substantial compatibility and automation limits. This is not a complete implementation of the product roadmap or a stable release. The development app is ad-hoc signed, has no Developer ID signature and is not Apple-notarized. Read [feature status and limitations](docs/status.md).
+> **0.1.0-preview.2 — developer preview.** The core paths are implemented, with substantial compatibility and automation limits. This is not a complete implementation of the product roadmap or a stable release. The development app is ad-hoc signed, has no Developer ID signature and is not Apple-notarized. Read [feature status and limitations](docs/status.md).
+
+![Vela sessions workspace showing a project and its coding-agent activity](docs/assets/vela-sessions.png)
+
+*Actual macOS application with an isolated example project and synthetic session logs. The interface uses the real local helper and database; no personal session data appears here.*
 
 ## What you can use
 
@@ -22,11 +28,13 @@ Vela is a local macOS workspace for supported Claude Code, Codex and Cursor sess
 - **Compare actual outcomes:** inspect deterministic correction-based suggestions, preview and safely apply or undo supported file changes, and run baseline/candidate commands in separate Git worktrees at the same commit.
 - **Own reference material:** import text, HTML, text-based PDF, DOCX or an explicit document URL. Library imports default to private; private references are excluded from agent search and recall.
 
-The desktop has six primary views: **Agents · Workflows · Setup · Usage · Improve · Lab**. Setup contains Memory, Guidelines and Library; Search, Inbox and Settings are global entry points.
+Sessions, Memory and Workflows are directly accessible from the sidebar. Project configuration, observed usage, Improve and Lab remain available alongside global Search, Inbox and Settings. Keyboard shortcuts are discoverable in menus and tooltips.
+
+Notifications are optional and off by default. When enabled, Vela groups new approval, completion and error events, links back to the relevant project, and uses three short original sounds. Sound previews are available in Settings. The current ad-hoc build was refused OS notification authorization on the verification host; banner delivery remains unverified. See [verification](docs/verification.md#explicit-environment-limitation).
 
 ## Install
 
-Get the Apple Silicon archive and `SHA256SUMS` from the [0.1.0-preview.1 release page](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.1), verify the checksum, then move `Vela.app` into Applications. Minimum supported system: **macOS 13**. Intel builds are not part of this preview.
+Get the Apple Silicon archive and `SHA256SUMS` from the [0.1.0-preview.2 release page](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2), verify the checksum, then move `Vela.app` into Applications. Minimum supported system: **macOS 13**. Intel builds are not part of this preview.
 
 The development archive is **ad-hoc signed and not notarized**. macOS may require its per-application “Open Anyway” flow after you inspect the source and release. Do not disable Gatekeeper globally. Preview storage formats may change; keep your own backup of important Vela data.
 
@@ -110,6 +118,8 @@ python3 scripts/check-repository.py
 ```
 
 The portable runner compiles the real core with the same synchronous test bodies and a small assertion compatibility layer. It is **not XCTest**. RPC/MCP tests exercise the compiled CLI with disposable stores. Repository checks require Node.js to validate JavaScript; development tools are not bundled with the app.
+
+For reproducible real-CLI browser interaction checks and synthetic screenshot fixtures, see [Interface checks](CONTRIBUTING.md#interface-checks). Native macOS controls and notifications require a separate app check.
 
 ## Data and architecture
 

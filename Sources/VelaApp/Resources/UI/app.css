@@ -1,27 +1,28 @@
 /* ==========================================================================
    Vela Desktop Workspace Stylesheet
-   Mature professional developer-tool conventions (macOS, Linear, Zed)
+   Calm, high-workmanship developer-tool conventions (Linear, GitHub Desktop)
+   Light default, native system font, fine dividers, purposeful states
    ========================================================================== */
 
 :root {
-  --bg-app: #fbfbfc;
+  --bg-app: #fcfcfd;
   --bg-surface: #ffffff;
-  --bg-sidebar: #f5f5f7;
-  --bg-sidebar-hover: #ececf0;
-  --bg-sidebar-active: #e4e4e9;
-  --bg-subtle: #f7f7f9;
-  --bg-muted: #f0f0f4;
-  --border-color: #e5e5ea;
+  --bg-sidebar: #f7f7f9;
+  --bg-sidebar-hover: #efeff3;
+  --bg-sidebar-active: #e6e6ec;
+  --bg-subtle: #f4f4f7;
+  --bg-muted: #ebebf0;
+  --border-color: #e4e4e9;
   --border-subtle: #eeeeef;
   
-  --text-main: #1d1d1f;
-  --text-secondary: #6e6e73;
-  --text-muted: #8e8e93;
+  --text-main: #0a0a12;
+  --text-secondary: #52525f;
+  --text-muted: #868694;
   --text-light: #ffffff;
   
   --color-accent: #0066cc;
   --color-accent-hover: #0055b3;
-  --color-accent-subtle: #e6f0fa;
+  --color-accent-subtle: #eff6ff;
   
   /* Status markers: restrained sage, amber, red, neutral */
   --status-sage-text: #166534;
@@ -40,14 +41,20 @@
   --status-neutral-bg: #f3f4f6;
   --status-neutral-border: #e5e7eb;
   
+  /* Token aliases & compatibility */
+  --bg-card: var(--bg-surface);
+  --text-primary: var(--text-main);
+  --color-danger: #dc2626;
+  --status-red: #dc2626;
+
   /* Layout */
-  --sidebar-width: 216px;
+  --sidebar-width: 228px;
   --titlebar-height: 38px;
-  --row-height: 34px;
+  --row-height: 36px;
   
   /* Typography */
-  --font-system: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", Menlo, Monaco, Consolas, monospace;
 }
 
 *, *::before, *::after {
@@ -105,7 +112,7 @@ html, body {
   background-color: var(--bg-sidebar);
   border-bottom: 1px solid var(--border-color);
   padding-left: 80px; /* Traffic light clearance */
-  padding-right: 12px;
+  padding-right: 14px;
   -webkit-app-region: drag;
   z-index: 10;
 }
@@ -116,10 +123,21 @@ html, body {
   gap: 8px;
 }
 
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.brand-mark {
+  color: var(--text-main);
+}
+
 .window-title {
   font-weight: 600;
   font-size: 12px;
   color: var(--text-main);
+  letter-spacing: -0.1px;
 }
 
 .channel-badge {
@@ -140,6 +158,31 @@ html, body {
   -webkit-app-region: no-drag;
 }
 
+.titlebar-search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-system);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.titlebar-search-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-main);
+}
+
+.titlebar-search-btn .search-label {
+  display: inline-block;
+  font-size: 11px;
+}
+
 .app-body {
   display: flex;
   flex: 1;
@@ -148,7 +191,7 @@ html, body {
 }
 
 /* ==========================================================================
-   Sidebar (~216px)
+   Sidebar (~228px)
    ========================================================================== */
 
 .sidebar {
@@ -202,8 +245,21 @@ html, body {
 
 .sidebar-nav {
   flex: 1;
-  padding: 8px 6px;
+  padding: 10px 8px;
   overflow-y: auto;
+}
+
+.nav-group {
+  margin-bottom: 14px;
+}
+
+.nav-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 8px 4px 8px;
 }
 
 .nav-list {
@@ -225,7 +281,6 @@ html, body {
   font-size: 13px;
   text-align: left;
   cursor: pointer;
-  transition: background 0.1s ease;
   text-decoration: none;
 }
 
@@ -250,20 +305,7 @@ html, body {
 
 .nav-label {
   font-weight: 500;
-  margin-right: 4px;
-}
-
-.nav-sub {
-  color: var(--text-secondary);
-  font-size: 12px;
   flex: 1;
-}
-
-.nav-shortcut {
-  font-size: 10px;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  margin-left: auto;
 }
 
 .badge-count {
@@ -279,46 +321,53 @@ html, body {
 
 .sidebar-bottom {
   border-top: 1px solid var(--border-color);
-  padding: 8px 6px;
+  padding: 8px 8px 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.local-status-card {
+.local-status-footer {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
+  gap: 6px;
+  padding: 4px 8px;
   font-size: 11px;
-}
-
-.status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background-color: #16a34a;
-  flex-shrink: 0;
-}
-
-.status-info {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.status-primary {
-  font-weight: 500;
-  color: var(--text-main);
-}
-
-.status-secondary {
-  font-family: var(--font-mono);
   color: var(--text-muted);
-  font-size: 10px;
+}
+
+.status-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+}
+
+.local-status-footer[data-state="loading"] .status-pulse-dot {
+  background-color: #d97706;
+  animation: pulse-dot 1.5s infinite ease-in-out;
+}
+
+.local-status-footer[data-state="connected"] .status-pulse-dot {
+  background-color: #16a34a;
+}
+
+.local-status-footer[data-state="error"] .status-pulse-dot {
+  background-color: #dc2626;
+}
+
+.local-status-footer[data-state="error"] {
+  color: var(--color-danger);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.status-text {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -340,7 +389,7 @@ html, body {
 .page-container {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 22px 28px;
   display: flex;
   flex-direction: column;
 }
@@ -349,14 +398,14 @@ html, body {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
   gap: 16px;
 }
 
 .page-title-group h1 {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
   color: var(--text-main);
   display: flex;
   align-items: center;
@@ -366,7 +415,8 @@ html, body {
 .page-title-group p {
   color: var(--text-secondary);
   font-size: 12px;
-  margin-top: 2px;
+  margin-top: 3px;
+  line-height: 1.4;
 }
 
 .page-actions {
@@ -403,7 +453,7 @@ html, body {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 5px 8px;
   font-size: 12px;
   font-family: var(--font-system);
   color: var(--text-main);
@@ -418,7 +468,7 @@ html, body {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 5px 8px;
   font-size: 12px;
   font-family: var(--font-system);
   color: var(--text-main);
@@ -463,7 +513,7 @@ html, body {
 }
 
 /* ==========================================================================
-   Tables (Dense 34px rows)
+   Tables (Clean, readable rows)
    ========================================================================== */
 
 .table-wrapper {
@@ -472,6 +522,7 @@ html, body {
   border-radius: 6px;
   overflow: auto;
   margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .data-table {
@@ -485,17 +536,41 @@ html, body {
   background-color: var(--bg-subtle);
   color: var(--text-secondary);
   font-weight: 600;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
 }
 
 .data-table td {
   height: var(--row-height);
-  padding: 6px 12px;
+  padding: 7px 12px;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-main);
   vertical-align: middle;
+}
+
+.data-table th.col-title,
+.data-table td.col-title {
+  min-width: 0;
+}
+
+.data-table th.col-project,
+.data-table td.col-project {
+  width: 180px;
+}
+
+.data-table th.col-status,
+.data-table td.col-status {
+  white-space: nowrap;
+  width: 165px;
+  min-width: 165px;
+}
+
+.data-table th.col-time,
+.data-table td.col-time {
+  white-space: nowrap;
+  width: 120px;
+  text-align: right;
 }
 
 .data-table tbody tr:last-child td {
@@ -504,10 +579,47 @@ html, body {
 
 .data-table tbody tr.clickable-row {
   cursor: pointer;
+  transition: background 0.08s ease;
 }
 
 .data-table tbody tr.clickable-row:hover {
   background-color: var(--bg-subtle);
+}
+
+.data-table tbody tr.clickable-row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+  background-color: var(--bg-subtle);
+}
+
+.session-title-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-main);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  outline-offset: 2px;
+}
+
+.session-title-btn:hover {
+  color: var(--color-accent);
+}
+
+.session-title-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  border-radius: 2px;
 }
 
 .data-table tbody tr.selected {
@@ -528,6 +640,7 @@ html, body {
   border-radius: 4px;
   border: 1px solid transparent;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .status-sage {
@@ -572,7 +685,7 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 5px 11px;
+  padding: 5px 12px;
   border-radius: 5px;
   font-size: 12px;
   font-weight: 500;
@@ -591,7 +704,7 @@ html, body {
 }
 
 .btn-primary:hover {
-  background-color: #333336;
+  background-color: #27272a;
 }
 
 .btn-secondary {
@@ -658,7 +771,7 @@ html, body {
 }
 
 /* ==========================================================================
-   Cards & Content Boxes
+   Cards & Approvals
    ========================================================================== */
 
 .card {
@@ -680,6 +793,45 @@ html, body {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-main);
+}
+
+.approval-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.approval-intent-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.approval-tool-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.approval-details-disclosure {
+  margin-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+
+.approval-details-summary {
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
 }
 
 .stat-grid {
@@ -790,8 +942,8 @@ html, body {
   top: var(--titlebar-height);
   right: 0;
   bottom: 0;
-  width: 480px;
-  max-width: 90vw;
+  width: 520px;
+  max-width: 92vw;
   background: var(--bg-surface);
   border-left: 1px solid var(--border-color);
   box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
@@ -808,24 +960,43 @@ html, body {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-subtle);
+  gap: 12px;
+  min-width: 0;
 }
 
-.drawer-title-group h2 {
+.drawer-title-group {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.drawer-title-group h2,
+.drawer-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .drawer-subtitle {
   font-size: 11px;
   color: var(--text-secondary);
   font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  min-width: 0;
 }
 
 .drawer-actions {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .drawer-body {
@@ -835,6 +1006,57 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Conversation Thread in Drawer */
+.session-chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.chat-turn.role-user {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.chat-turn.role-assistant {
+  background: #ffffff;
+  border-color: #e5e7eb;
+}
+
+.chat-turn.role-tool {
+  background: #fafafa;
+  border-color: #f0f0f4;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.chat-role-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.chat-body-content {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-main);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+  font-family: var(--font-system);
 }
 
 /* ==========================================================================
@@ -868,7 +1090,7 @@ html, body {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-  width: 540px;
+  width: 560px;
   max-width: 92vw;
   max-height: 85vh;
   display: flex;
@@ -970,6 +1192,51 @@ html, body {
   cursor: pointer;
 }
 
+/* Settings Groups */
+.settings-group {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.settings-group-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 10px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-row:last-child {
+  border-bottom: none;
+}
+
+.settings-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-row-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.settings-row-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
 /* ==========================================================================
    Empty & Error States
    ========================================================================== */
@@ -1002,8 +1269,9 @@ html, body {
 .empty-state-desc {
   font-size: 12px;
   color: var(--text-secondary);
-  max-width: 420px;
+  max-width: 440px;
   margin-bottom: 14px;
+  line-height: 1.5;
 }
 
 .alert-banner {
@@ -1084,6 +1352,70 @@ html, body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .hidden {
   display: none !important;
+}
+
+/* ==========================================================================
+   Wide Window Nonmodal Split Inspector (>=1150px)
+   Master table stays selectable with thin divider, no dimming backdrop.
+   Main content reserves inspector width so content is not hidden.
+   ========================================================================== */
+
+@media (min-width: 1150px) {
+  body.has-inspector-open .drawer-backdrop {
+    display: none !important;
+  }
+
+  body.has-inspector-open .detail-drawer {
+    width: 480px;
+    box-shadow: -1px 0 0 var(--border-color);
+  }
+
+  body.has-inspector-open .content-pane {
+    margin-right: 480px;
+  }
+
+  body.has-inspector-open .table-wrapper {
+    flex-shrink: 0;
+    overflow-x: hidden;
+    min-height: fit-content;
+  }
+
+  body.has-inspector-open .data-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  body.has-inspector-open .data-table th.col-project,
+  body.has-inspector-open .data-table td.col-project,
+  body.has-inspector-open .data-table th.col-time,
+  body.has-inspector-open .data-table td.col-time {
+    display: none !important;
+  }
+
+  body.has-inspector-open .data-table th.col-title,
+  body.has-inspector-open .data-table td.col-title {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    overflow: hidden;
+  }
+
+  body.has-inspector-open .data-table th.col-status,
+  body.has-inspector-open .data-table td.col-status {
+    width: 165px !important;
+    min-width: 165px !important;
+    max-width: 165px !important;
+    white-space: nowrap !important;
+  }
 }

@@ -1,82 +1,143 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>隐私与数据说明 — Vela</title>
-  <meta name="description" content="Vela 本地优先隐私说明：100% 本地存储、无遥测上报、私密文档与外部智能体隔离。">
+  <meta name="description" content="Vela 本地优先隐私说明：工程数据保存在本地目录、无遥测上报、私密文档与外部智能体严格隔离。">
+  <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+
   <link rel="stylesheet" href="styles.css">
+
+  <!-- Immediate theme application -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <!-- Header -->
   <header class="site-header">
     <div class="container header-inner">
-      <a href="index.html" class="brand-link" aria-label="Vela 首页">
-        <span class="brand-mark">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polygon points="3 20 12 3 21 20 12 16 3 20"></polygon>
-          </svg>
-        </span>
-        <span>Vela</span>
-      </a>
-
-      <nav class="site-nav" aria-label="主导航">
-        <a href="index.html#product" class="nav-link">产品</a>
-        <a href="index.html#how-it-works" class="nav-link">工作方式</a>
-        <a href="docs.html" class="nav-link">文档</a>
-        <a href="releases.html" class="nav-link">发行记录</a>
-      </nav>
+      <div class="brand-group">
+        <a href="index.html" class="brand-link" aria-label="Vela 首页">
+          <img src="assets/mark.svg" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="主导航">
+          <a href="index.html#sessions" class="nav-link">会话上下文</a>
+          <a href="index.html#workflows" class="nav-link">工作流与审批</a>
+          <a href="index.html#ownership" class="nav-link">本地优先</a>
+          <a href="docs.html" class="nav-link">技术文档</a>
+          <a href="releases.html" class="nav-link">发行记录</a>
+        </nav>
+      </div>
 
       <div class="header-actions">
-        <a href="https://github.com/Atingaii/Vela" class="btn btn-outline btn-sm" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="https://github.com/Atingaii/Vela/releases" class="btn btn-amber btn-sm" target="_blank" rel="noopener noreferrer">获取最新预览版</a>
-        <button class="mobile-menu-toggle" aria-label="展开导航菜单" aria-expanded="false">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        <a href="docs.html" class="header-docs-link">技术文档</a>
+
+        <!-- Theme Toggle Button -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- GitHub Repository Button -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="展开导航菜单" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
       </div>
     </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单">
+      <a href="index.html#sessions" class="nav-link">会话上下文</a>
+      <a href="index.html#workflows" class="nav-link">工作流与审批</a>
+      <a href="index.html#ownership" class="nav-link">本地优先</a>
+      <a href="docs.html" class="nav-link">技术文档</a>
+      <a href="releases.html" class="nav-link">发行记录</a>
+      <a href="privacy.html" class="nav-link active">数据隐私</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
+    </div>
   </header>
 
-  <main style="padding: 60px 0 80px;">
-    <div class="container" style="max-width: 800px;">
-      <div class="hero-tag">PRIVACY &amp; LOCAL STORAGE</div>
-      <h1 style="font-size: 34px; font-weight: 700; margin-bottom: 16px; letter-spacing: -0.8px;">隐私与本地存储说明</h1>
-      <p style="font-size: 15px; color: var(--text-secondary); margin-bottom: 36px;">
-        Vela 的核心设计是数据本地留存。在此说明数据存放位置、访问范围与网络通信边界。
-      </p>
-
-      <div class="feature-card" style="margin-bottom: 20px;">
-        <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 8px;">1. 100% 数据保存在本地设备</h3>
-        <p class="feature-desc">
-          Vela 的所有数据均保存在本地磁盘（预览版默认位于 <code class="code-block" style="padding: 1px 4px;">~/.vela-dev</code>，正式版位于 <code class="code-block" style="padding: 1px 4px;">~/.vela</code>，包括 SQLite 数据库与 Markdown 文件）。软件不包含云端同步服务，不设置远程服务器备份。
+  <!-- Article Layout -->
+  <main class="article-page-wrapper">
+    <div class="container article-container">
+      <div class="article-header">
+        <div class="section-eyebrow">PRIVACY &amp; LOCAL STORAGE</div>
+        <h1 class="article-h1">隐私与数据存储说明</h1>
+        <p class="article-lead">
+          Vela 的核心架构围绕“本地优先 (Local-First)”原则构建。在此如实说明数据存储位置、访问边界、外部网络交互与数据清理方式。
         </p>
       </div>
 
-      <div class="feature-card" style="margin-bottom: 20px;">
-        <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 8px;">2. 禁用遥测与行为追踪 (Zero Telemetry)</h3>
-        <p class="feature-desc">
-          Vela 未集成任何用户分析、埋点统计或自动崩溃上报组件。不会在后台向任何服务器发送分析网络请求，不会采集用户代码或设备指纹。
+      <div class="docs-section">
+        <h2>1. 工程数据保存在本地目录</h2>
+        <p>
+          Vela 的所有工程资产与索引仅保存在你个人的本地磁盘中（当前开发预览版默认位于 <code class="inline-code">~/.vela-dev/</code>，正式版位于 <code class="inline-code">~/.vela/</code>）。
+        </p>
+        <p>
+          系统内不包含任何中心化云端数据库，不设置云端用户账号体系，也没有静默的后台自动同步服务。工程数据属于你的本地设备，由你自主决定备份与版本归档方式。
         </p>
       </div>
 
-      <div class="feature-card" style="margin-bottom: 20px;">
-        <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 8px;">3. 私密知识库条目排除机制</h3>
-        <p class="feature-desc">
-          在知识库中标记为“私密 (Private)”的文档，仅在当前用户的搜索框中可选展示。在 MCP 接口以及面向智能体的检索函数中，底层均强制将私密内容完全排除，避免敏感信息进入外部模型上下文。
+      <div class="docs-section">
+        <h2>2. 零后台遥测与无行为上报 (Zero Telemetry)</h2>
+        <p>
+          Vela 自身未集成任何商业分析 SDK、使用行为埋点、留存统计或静默崩溃上报模块。
+        </p>
+        <p>
+          系统不会将你的项目代码、本地会话内容或 Prompt 文本发送至 Vela 分析服务器。所有支持的本地日志解析与经验匹配均在本地计算处理。
         </p>
       </div>
 
-      <div class="feature-card" style="margin-bottom: 20px;">
-        <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 8px;">4. 网络通信边界说明</h3>
-        <p class="feature-desc">
-          Vela 不采集任何应用遥测数据。但以下操作会发生网络通信：用户显式通过 Library URL 导入知识库时会向目标网站发起 HTTP 请求；在界面中点击外部链接会在浏览器中打开目标网页；在工作流或实验中经审批批准执行的外部命令行工具（如外部 Agent CLI）可使用网络。此外，本官方展示网站由托管服务商提供，访问网站时的请求日志由托管平台按其网络安全规范处理。
+      <div class="docs-section">
+        <h2>3. 私密知识库绝对隔离机制 (Private Library)</h2>
+        <p>
+          在 Library 知识库中标记为“私密 (Private)”的文档，仅供工程师在本地应用界面中手动检索或阅读。
+        </p>
+        <p>
+          面向外部智能体的 stdio MCP 接口与内部检索函数在底层逻辑上强制过滤私密内容。私密条目不会进入外部智能体检索、工作流或模型 Prompt 上下文中，确保本地敏感工程备忘得到妥善隔离。
         </p>
       </div>
 
-      <div class="feature-card">
-        <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 8px;">5. 数据清理说明</h3>
-        <p class="feature-desc">
-          退出 Vela 并删除本地数据目录 <code class="code-block" style="padding: 1px 4px;">~/.vela</code>（或对应的 <code class="code-block" style="padding: 1px 4px;">~/.vela-dev</code>），将彻底移除 Vela 的 SQLite 数据库与托管的资产文件（Memory、Workflow、Guideline、Library、Checkpoint）。但这不会删除此前已应用到项目工程中的文件修改、外部工具自身留存的日志记录或系统备份，这些内容需由用户自行管理与清理。
+      <div class="docs-section">
+        <h2>4. 明确的网络通信边界说明</h2>
+        <p>
+          Vela 自身不主动产生任何未经请求的后台网络通信，但以下由用户明确触发或批准的操作会产生正常的外部网络流量：
+        </p>
+        <ul>
+          <li><strong>显式网页导入：</strong>当你在 Library 中主动输入外部 URL 要求提取网页知识时，系统会向目标网址发起 HTTP 请求并处理可能发生的重定向。</li>
+          <li><strong>外部链接跳转：</strong>在界面中点击 GitHub 仓库、文档或 Releases 链接时，会在系统默认浏览器中打开对应网页。</li>
+          <li><strong>经批准执行的外部命令：</strong>在 Workflows 工作流或 Lab 实验中，由工程师明确点击批准执行的外部脚本或第三方智能体命令，可能依据其自身逻辑访问网络。</li>
+          <li><strong>官方展示站点：</strong>本展示网站由网络托管平台提供，访问网站时的标准 HTTP 请求日志依照托管服务商的安全与网络规约处理。</li>
+        </ul>
+      </div>
+
+      <div class="docs-section">
+        <h2>5. 数据清理与自主权说明</h2>
+        <p>
+          退出 Vela 应用程序及所有正在使用该存储目录的 CLI/MCP 进程，按需备份文件后，删除选定的本地数据目录 <code class="inline-code">~/.vela-dev</code>（或对应的 <code class="inline-code">~/.vela</code>），即可清除该目录中保存的 SQLite 数据库与托管资产（Memory、Workflow、Guideline、Library、Checkpoint）。
+        </p>
+        <p>
+          需要说明的是，此操作不会撤销此前已经由工作流批准写入到工程代码仓库中的文件修改，亦不会删除原始智能体工具自身的本地日志、系统备份或通知历史。
         </p>
       </div>
     </div>
@@ -85,14 +146,17 @@
   <!-- Footer -->
   <footer class="site-footer">
     <div class="container footer-inner">
-      <div>
-        <strong>Vela</strong> — The engineering layer for coding agents.
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
       </div>
+
       <div class="footer-links">
-        <a href="docs.html">文档</a>
-        <a href="privacy.html">隐私与安全</a>
-        <a href="releases.html">发行记录</a>
-        <a href="https://github.com/Atingaii/Vela" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="docs.html" class="footer-link">技术文档</a>
+        <a href="privacy.html" class="footer-link">数据隐私</a>
+        <a href="releases.html" class="footer-link">发行记录</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">安全漏洞反馈</a>
       </div>
     </div>
   </footer>

@@ -11,7 +11,10 @@
   const state = {
     currentPage: 'agents',
     currentProject: '',
+    priorProject: '',
     dashboard: null,
+    dashboardScope: null,
+    scopeError: null,
     registeredProjects: [],
     selectedSessionId: null,
     selectedRunId: null,
@@ -33,9 +36,11 @@
     sessionFilterQuery: '',
     sessionProviderFilter: '',
     sessionStatusFilter: '',
-    // Settings draft and snapshot cache
+    // Settings draft, snapshot cache, and live session tracking
     settingsDraft: null,
-    lastSnapshotJson: null
+    lastRenderedSnapshotJson: null,
+    hasPendingSnapshot: false,
+    loadedSessionDetail: null
   };
 
   // Utilities & Strict HTML Escaping
@@ -84,6 +89,38 @@
     }, 3200);
   }
 
+  // Local Status Footer Management
+  function updateFooterStatus(statusState, message) {
+    const footer = document.getElementById('local-status');
+    if (!footer) return;
+    footer.dataset.state = statusState;
+    const textEl = footer.querySelector('.status-text');
+    if (textEl) {
+      if (message) {
+        textEl.textContent = message;
+      } else if (statusState === 'connected') {
+        textEl.textContent = '本地服务就绪 · 无云端遥测';
+      } else if (statusState === 'loading') {
+        textEl.textContent = '正在连接本地服务...';
+      } else if (statusState === 'error') {
+        textEl.textContent = '本地服务未连接';
+      }
+    }
+  }
+
+  // Hook native __velaRejectAll to update footer status immediately on helper disconnect/overflow
+  if (typeof window !== 'undefined') {
+    const origRejectAll = window.__velaRejectAll;
+    window.__velaRejectAll = function(reason) {
+      if (typeof origRejectAll === 'function') {
+        try {
+          origRejectAll(reason);
+        } catch {}
+      }
+      updateFooterStatus('error', reason || '本地服务已断开');
+    };
+  }
+
   // Bridge Gateway
   async function callBridge(method, params = {}) {
     if (window.vela && typeof window.vela.call === 'function') {
@@ -97,23 +134,12 @@
 
   // Initialization
   async function init() {
+    updateFooterStatus('loading', '正在连接本地服务...');
     setupShortcuts();
     setupEventListeners();
 
     if (window.vela && typeof window.vela.call === 'function') {
       state.isBridgeAvailable = true;
-      try {
-        await callBridge('system.ready');
-      } catch (err) {
-        console.warn('system.ready returned error:', err);
-      }
-      try {
-        const info = await callBridge('system.info');
-        if (info) {
-          state.systemInfo = info;
-          updateSystemInfoDisplay();
-        }
-      } catch {}
     } else {
       // Browser preview mode ONLY
       state.isDemoMode = true;
@@ -122,7 +148,27 @@
       await loadDemoScript();
     }
 
+    // First load dashboard data and perform initial render
     await refreshDashboard(true, true);
+
+    if (state.isBridgeAvailable) {
+      try {
+        const info = await callBridge('system.info');
+        if (info) {
+          state.systemInfo = info;
+          updateSystemInfoDisplay();
+        }
+      } catch {}
+
+      // Move system.ready until AFTER first completed refreshDashboard and render
+      // to prevent pending notification routes from being overwritten by initial state load
+      try {
+        await callBridge('system.ready');
+      } catch (err) {
+        console.warn('system.ready returned error:', err);
+      }
+    }
+
     setupPolling();
   }
 
@@ -149,101 +195,216 @@
     });
   }
 
-  let isRefreshing = false;
+  let activeRefreshPromise = null;
+  let queuedRefreshResolvers = [];
+  let refreshEpoch = 0;
+  let renderGeneration = 0;
   let hasQueuedRefresh = false;
   let queuedForceRedraw = false;
   let queuedShowErrorBanner = false;
 
-  // Dashboard Sync with Safe Polling (Doesn't destroy forms or settings drafts)
-  async function refreshDashboard(showErrorBanner = true, forceRedraw = false) {
-    if (isRefreshing) {
-      hasQueuedRefresh = true;
-      if (forceRedraw) queuedForceRedraw = true;
-      if (showErrorBanner) queuedShowErrorBanner = true;
-      return;
+  function renderInitialRetryView(err) {
+    const container = document.getElementById('page-container');
+    if (!container) return;
+    container.innerHTML = `
+      <div class="empty-state" style="padding-top: 100px;">
+        <div class="empty-state-title" style="color: var(--status-red); font-size: 14px;">无法连接 Vela 本地工程服务</div>
+        <div class="empty-state-desc" style="font-size: 12px; color: var(--text-secondary); max-width: 440px; margin: 8px auto;">
+          ${escapeHtml(err.message || '辅助服务未就绪或未启动。')}
+        </div>
+        <button id="btn-init-retry" class="btn btn-primary btn-sm" style="margin-top: 14px;">重试连接</button>
+      </div>
+    `;
+    const btnRetry = document.getElementById('btn-init-retry');
+    if (btnRetry) {
+      btnRetry.addEventListener('click', () => refreshDashboard(true, true));
     }
-    isRefreshing = true;
-    try {
-      const result = await callBridge('dashboard.get', state.currentProject ? { project: state.currentProject } : {});
-      if (result) {
-        state.dashboard = result;
-        if (Array.isArray(result.projects)) {
-          state.registeredProjects = result.projects;
-          updateProjectSelector();
-        }
-        if (result.settings) {
-          state.rawSettings = result.settings;
-        }
-        updateGlobalCounters();
+  }
 
-        // Check if user has an unsaved settings draft
-        const hasSettingsDraft = (state.currentPage === 'settings' && state.settingsDraft !== null);
+  function renderScopeErrorView(container) {
+    if (!container) return;
+    const targetProject = state.currentProject;
+    const targetLabel = targetProject ? (targetProject.split('/').filter(Boolean).pop() || targetProject) : '全局';
+    const errMessage = (state.scopeError && state.scopeError.project === targetProject && state.scopeError.message)
+      ? state.scopeError.message
+      : '未能拉取该工程数据或本地服务未响应';
+    const priorProject = state.scopeError ? state.scopeError.priorProject : (state.priorProject || '');
 
-        // Check if user is actively typing or a modal/drawer is open
-        const activeEl = document.activeElement;
-        const isEditing = activeEl && (
-          activeEl.tagName === 'INPUT' ||
-          activeEl.tagName === 'TEXTAREA' ||
-          activeEl.tagName === 'SELECT' ||
-          activeEl.isContentEditable
-        );
-        const isModalOpen = !document.getElementById('modal-container').classList.contains('hidden');
-        const isDrawerOpen = !document.getElementById('detail-drawer').classList.contains('hidden');
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 60px 24px;">
+        <div class="empty-state-title" style="color: var(--status-red, #dc2626); font-size: 15px;">
+          无法加载工程「${escapeHtml(targetLabel)}」数据
+        </div>
+        <div class="empty-state-desc" style="font-size: 12px; color: var(--text-secondary); max-width: 480px; margin: 8px auto 16px;">
+          ${escapeHtml(errMessage)}。为避免显示其他工程的残留数据，已暂停渲染当前视图。
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <button id="btn-retry-scope" class="btn btn-primary btn-sm">重试加载</button>
+          ${priorProject !== undefined && priorProject !== null && priorProject !== targetProject ? `
+            <button id="btn-revert-scope" class="btn btn-secondary btn-sm">返回此前工作空间</button>
+          ` : `
+            <button id="btn-revert-global-scope" class="btn btn-secondary btn-sm">切换至全局视图</button>
+          `}
+        </div>
+      </div>
+    `;
 
-        // Compare real change-bearing data: serialize actual result data, current page, and project
-        const snapshotKey = JSON.stringify({
-          page: state.currentPage,
-          project: state.currentProject,
-          data: result
-        });
-        const isIdentical = state.lastSnapshotJson === snapshotKey;
-        state.lastSnapshotJson = snapshotKey;
+    document.getElementById('btn-retry-scope')?.addEventListener('click', () => {
+      refreshDashboard(true, true);
+    });
 
-        if (forceRedraw || (!isEditing && !isModalOpen && !isDrawerOpen && !hasSettingsDraft && !isIdentical)) {
-          renderCurrentPage();
-        }
-        hideGlobalError();
-      }
-    } catch (err) {
-      if (showErrorBanner) {
-        showGlobalError('获取本地数据失败：' + (err.message || '未知错误'));
-      }
-      // If initial load failed and no dashboard data exists, show clear retry view
-      if (!state.dashboard) {
-        const container = document.getElementById('page-container');
-        if (container) {
-          container.innerHTML = `
-            <div class="empty-state" style="padding-top: 100px;">
-              <div class="empty-state-title" style="color: var(--status-red); font-size: 14px;">无法连接 Vela 本地工程服务</div>
-              <div class="empty-state-desc" style="font-size: 12px; color: var(--text-secondary); max-width: 440px; margin: 8px auto;">
-                ${escapeHtml(err.message || '辅助服务未就绪或未启动。')}
-              </div>
-              <button id="btn-init-retry" class="btn btn-primary btn-sm" style="margin-top: 14px;">重试连接</button>
-            </div>
-          `;
-          const btnRetry = document.getElementById('btn-init-retry');
-          if (btnRetry) {
-            btnRetry.addEventListener('click', () => refreshDashboard(true, true));
-          }
-        }
-      }
-    } finally {
-      isRefreshing = false;
-      if (hasQueuedRefresh) {
-        hasQueuedRefresh = false;
-        const nextForce = queuedForceRedraw;
-        const nextShowError = queuedShowErrorBanner;
+    document.getElementById('btn-revert-scope')?.addEventListener('click', () => {
+      const revertTarget = priorProject || '';
+      state.currentProject = revertTarget;
+      const projSel = document.getElementById('project-selector');
+      if (projSel) projSel.value = revertTarget;
+      state.scopeError = null;
+      refreshDashboard(true, true);
+    });
+
+    document.getElementById('btn-revert-global-scope')?.addEventListener('click', () => {
+      state.currentProject = '';
+      const projSel = document.getElementById('project-selector');
+      if (projSel) projSel.value = '';
+      state.scopeError = null;
+      refreshDashboard(true, true);
+    });
+  }
+
+  // Dashboard Sync with Safe Polling & Promise Coalescing
+  async function refreshDashboard(showErrorBanner = true, forceRedraw = false) {
+    if (forceRedraw) queuedForceRedraw = true;
+    if (showErrorBanner) queuedShowErrorBanner = true;
+
+    if (activeRefreshPromise) {
+      hasQueuedRefresh = true;
+      return new Promise((resolve) => {
+        queuedRefreshResolvers.push({ resolve });
+      });
+    }
+
+    let finalOutcome = { success: false };
+
+    activeRefreshPromise = (async () => {
+      while (true) {
+        const thisEpoch = ++refreshEpoch;
+        const requestedProject = state.currentProject;
+        const shouldForce = forceRedraw || queuedForceRedraw;
+        const shouldShowErr = showErrorBanner || queuedShowErrorBanner;
         queuedForceRedraw = false;
         queuedShowErrorBanner = false;
-        setTimeout(() => {
-          refreshDashboard(nextShowError, nextForce);
-        }, 0);
+        hasQueuedRefresh = false;
+
+        try {
+          const result = await callBridge('dashboard.get', requestedProject ? { project: requestedProject } : {});
+          // Late responses from a prior project or previous epoch must not replace current-project data
+          if (thisEpoch === refreshEpoch && state.currentProject === requestedProject && result) {
+            updateFooterStatus('connected', state.isDemoMode ? '演示模式 · 离线快照' : '本地服务就绪 · 无云端遥测');
+            state.dashboard = result;
+            state.dashboardScope = requestedProject;
+            state.scopeError = null;
+            if (Array.isArray(result.projects)) {
+              state.registeredProjects = result.projects;
+              updateProjectSelector();
+            }
+            if (result.settings) {
+              state.rawSettings = result.settings;
+            }
+            updateGlobalCounters();
+
+            // Check if user has an unsaved settings draft
+            const hasSettingsDraft = (state.currentPage === 'settings' && state.settingsDraft !== null);
+
+            // Check if user is actively typing or a modal/drawer is open
+            const activeEl = document.activeElement;
+            const isEditing = activeEl && (
+              activeEl.tagName === 'INPUT' ||
+              activeEl.tagName === 'TEXTAREA' ||
+              activeEl.tagName === 'SELECT' ||
+              activeEl.isContentEditable
+            );
+            const isModalOpen = !document.getElementById('modal-container').classList.contains('hidden');
+            const isDrawerOpen = !document.getElementById('detail-drawer').classList.contains('hidden');
+
+            const snapshotKey = JSON.stringify({
+              page: state.currentPage,
+              project: state.currentProject,
+              data: result
+            });
+            const isIdentical = state.lastRenderedSnapshotJson === snapshotKey;
+
+            const canRender = shouldForce || (!isEditing && !isModalOpen && !isDrawerOpen && !hasSettingsDraft);
+            if (canRender) {
+              if (shouldForce || !isIdentical) {
+                renderCurrentPage();
+                state.lastRenderedSnapshotJson = snapshotKey;
+                state.hasPendingSnapshot = false;
+              }
+            } else {
+              if (!isIdentical) {
+                state.hasPendingSnapshot = true;
+              }
+            }
+
+            // If session detail drawer is open, check if selected session has newly ingested messages
+            if (isDrawerOpen && state.selectedSessionId && !isModalOpen) {
+              checkAndTriggerLiveSessionUpdate(result.sessions);
+            }
+
+            hideGlobalError();
+            finalOutcome = { success: true, data: result };
+          } else {
+            // Discarded obsolete epoch/project result
+            finalOutcome = { success: false, discarded: true };
+          }
+        } catch (err) {
+          if (thisEpoch === refreshEpoch && state.currentProject === requestedProject) {
+            updateFooterStatus('error', '本地服务未连接');
+            if (shouldShowErr) {
+              showGlobalError('获取本地数据失败：' + (err.message || '未知错误'));
+            }
+            // Invalidate/clear old dashboard if actual scope differs from currentProject,
+            // refusing to use stale dashboard under mismatched project scope.
+            if (state.dashboardScope !== requestedProject) {
+              state.dashboard = null;
+              state.dashboardScope = null;
+            }
+            state.scopeError = {
+              project: requestedProject,
+              priorProject: state.priorProject || '',
+              message: err.message || '未知错误'
+            };
+            updateGlobalCounters();
+            renderCurrentPage();
+          }
+          finalOutcome = { success: false, error: err };
+        }
+
+        if (!hasQueuedRefresh) {
+          break;
+        }
       }
+      return finalOutcome;
+    })();
+
+    try {
+      const outcome = await activeRefreshPromise;
+      const resolvers = queuedRefreshResolvers;
+      queuedRefreshResolvers = [];
+      resolvers.forEach(r => r.resolve(outcome));
+      return outcome;
+    } finally {
+      activeRefreshPromise = null;
     }
   }
 
   function updateGlobalCounters() {
-    if (!state.dashboard) return;
+    const hasValidScope = Boolean(state.dashboard && state.dashboardScope === state.currentProject);
+    const badge = document.getElementById('badge-inbox-count');
+    if (!hasValidScope) {
+      if (badge) badge.classList.add('hidden');
+      return;
+    }
     const approvals = state.dashboard.approvals || [];
     // Only pending approvals count towards badge
     const pendingCount = approvals.filter(a => {
@@ -251,7 +412,6 @@
       return st === 'pending' || st === 'pending approval' || st === '';
     }).length;
 
-    const badge = document.getElementById('badge-inbox-count');
     if (badge) {
       badge.textContent = pendingCount;
       if (pendingCount > 0) badge.classList.remove('hidden');
@@ -273,14 +433,26 @@
     const sel = document.getElementById('project-selector');
     if (!sel) return;
     const curr = state.currentProject;
-    sel.innerHTML = '<option value="">所有项目 (All Projects)</option>';
-    for (const proj of state.registeredProjects) {
+    const projects = state.registeredProjects || [];
+
+    const projectKey = JSON.stringify(projects.map(p => ({ v: p.path || p.id, t: p.title || p.name || p.path })));
+    if (sel.dataset.lastProjectsKey === projectKey) {
+      if (sel.value !== curr) {
+        sel.value = curr;
+      }
+      return;
+    }
+    sel.dataset.lastProjectsKey = projectKey;
+
+    sel.innerHTML = '<option value="">所有项目 (全部上下文)</option>';
+    for (const proj of projects) {
       const opt = document.createElement('option');
       opt.value = proj.path || proj.id || '';
       opt.textContent = proj.title || proj.name || proj.path || '未命名项目';
       if (opt.value === curr) opt.selected = true;
       sel.appendChild(opt);
     }
+    sel.value = curr;
   }
 
   function showGlobalError(msg) {
@@ -311,9 +483,16 @@
     window.addEventListener('keydown', (e) => {
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
       if (e.key === 'Escape') {
-        closeDrawer();
-        closeModal();
-        return;
+        const modalContainer = document.getElementById('modal-container');
+        if (modalContainer && !modalContainer.classList.contains('hidden')) {
+          closeModal();
+          return;
+        }
+        const detailDrawer = document.getElementById('detail-drawer');
+        if (detailDrawer && !detailDrawer.classList.contains('hidden')) {
+          closeDrawer();
+          return;
+        }
       }
       if (isCmdOrCtrl) {
         if (e.key === 'k' || e.key === 'K') {
@@ -340,13 +519,175 @@
       if (e.detail && e.detail.page) navigateTo(e.detail.page);
     });
 
-    window.addEventListener('vela:refresh', () => {
-      refreshDashboard(true, true);
-      showToast('数据已刷新');
+    window.addEventListener('vela:refresh', (e) => {
+      const isManual = e.detail && e.detail.source === 'user';
+      refreshDashboard(false, isManual);
+      if (isManual) {
+        showToast('数据已刷新');
+      }
+    });
+
+    window.addEventListener('vela:notificationRoute', (e) => {
+      if (e.detail) {
+        handleNotificationRoute(e.detail);
+      }
     });
 
     window.addEventListener('vela:search', () => {
       openSearchModal();
+    });
+  }
+
+  let activeRouteEpoch = 0;
+
+  async function handleNotificationRoute(detail) {
+    if (!detail) return;
+    const thisEpoch = ++activeRouteEpoch;
+
+    // 1. Notification click closes stale drawer and modal immediately
+    closeDrawer();
+    closeModal();
+
+    const source = (detail.source || '').toLowerCase();
+    const recordID = detail.recordID || '';
+    const rawProject = detail.project || '';
+    const kind = (detail.kind || '').toLowerCase();
+    const count = Number(detail.count) || 1;
+    const sources = Array.isArray(detail.sources) ? detail.sources.map(s => String(s).toLowerCase()) : [];
+    const spansProjects = Boolean(detail.spansProjects);
+    const isAggregate = Boolean(detail.isAggregate) || (count > 1);
+
+    // 2. Resolve project against known registered projects or explicit global fallback
+    // Core explicitly preserves project for a same-project aggregate: honor it, entering the scoped list.
+    // Only spansProjects=true or project empty forces global. Unknown/removed project => global.
+    let resolvedProject = '';
+    if (spansProjects || !rawProject) {
+      resolvedProject = '';
+    } else {
+      const known = (state.registeredProjects || []).find(p => p.path === rawProject || p.id === rawProject);
+      if (known) {
+        resolvedProject = known.path || known.id || '';
+      } else {
+        resolvedProject = '';
+      }
+    }
+
+    const priorProject = state.currentProject;
+    state.priorProject = priorProject;
+    state.currentProject = resolvedProject;
+    const projSel = document.getElementById('project-selector');
+    if (projSel) projSel.value = resolvedProject;
+
+    // Invalidate old dashboard immediately if scope differs so prior project data is never reused
+    if (state.dashboardScope !== resolvedProject) {
+      state.dashboard = null;
+      state.dashboardScope = null;
+    }
+
+    // 3. Await fresh project data BEFORE rendering category/detail
+    const refreshRes = await refreshDashboard(true, true);
+    if (thisEpoch !== activeRouteEpoch) return; // Later click/navigation won
+
+    if (!refreshRes || !refreshRes.success) {
+      state.dashboard = null;
+      state.dashboardScope = null;
+      state.scopeError = {
+        project: resolvedProject,
+        priorProject: priorProject,
+        message: (refreshRes && refreshRes.error && refreshRes.error.message) || '无法加载目标工程数据'
+      };
+      renderCurrentPage();
+      return;
+    }
+
+    // Require currentProject === resolvedProject and active epoch before proceeding
+    if (state.currentProject !== resolvedProject || thisEpoch !== activeRouteEpoch) {
+      return;
+    }
+
+    // 4. Mixed-source aggregates: concise list-choice modal with real total count and actual categories
+    const isMixedSource = (sources.length > 1) || (source === 'mixed');
+    if (isMixedSource) {
+      openMixedAggregateModal({
+        count,
+        sources: sources.length > 0 ? sources : ['session', 'run', 'approval'],
+        project: resolvedProject
+      });
+      return;
+    }
+
+    // 5. Single-source aggregate or single event
+    const effectiveSource = (sources.length === 1 ? sources[0] : source) || (kind === 'approval' ? 'approval' : 'session');
+
+    if (isAggregate) {
+      // Single-source aggregate opens the corresponding list in the correctly resolved scope
+      if (effectiveSource === 'approval' || kind === 'approval') {
+        navigateTo('inbox');
+      } else if (effectiveSource === 'run') {
+        navigateTo('workflows');
+      } else {
+        navigateTo('agents');
+      }
+      return;
+    }
+
+    // Single event with recordID
+    if (effectiveSource === 'approval' || kind === 'approval') {
+      navigateTo('inbox');
+    } else if (effectiveSource === 'run') {
+      navigateTo('workflows');
+      if (recordID) {
+        openRunDetail(recordID);
+      }
+    } else if (effectiveSource === 'session') {
+      navigateTo('agents');
+      if (recordID) {
+        openSessionDetail(recordID);
+      }
+    } else {
+      navigateTo('agents');
+    }
+  }
+
+  function openMixedAggregateModal({ count, sources, project }) {
+    const hasSessions = sources.includes('session');
+    const hasRuns = sources.includes('run');
+    const hasApprovals = sources.includes('approval');
+
+    const modalBody = `
+      <div class="alert-banner alert-info" style="margin-bottom: 14px;">
+        <span>收到 <strong>${count}</strong> 条跨模块聚合事件，请选择您要查看的工程分类：</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        ${hasSessions ? `
+          <button class="btn btn-secondary btn-choice-agg" data-target="agents" style="justify-content: flex-start; padding: 10px 14px; text-align: left;">
+            <strong style="font-size: 13px;">查看会话</strong>
+            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">智能体交互日志与工具调用</span>
+          </button>
+        ` : ''}
+        ${hasRuns ? `
+          <button class="btn btn-secondary btn-choice-agg" data-target="workflows" style="justify-content: flex-start; padding: 10px 14px; text-align: left;">
+            <strong style="font-size: 13px;">查看工作流</strong>
+            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">脚本编排与运行记录</span>
+          </button>
+        ` : ''}
+        ${hasApprovals ? `
+          <button class="btn btn-secondary btn-choice-agg" data-target="inbox" style="justify-content: flex-start; padding: 10px 14px; text-align: left;">
+            <strong style="font-size: 13px;">查看待办审批</strong>
+            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">写操作与关键安全门禁</span>
+          </button>
+        ` : ''}
+      </div>
+    `;
+
+    openModal('聚合通知分类选择', modalBody, '<button class="btn btn-secondary btn-sm" id="btn-cancel-agg-modal">关闭</button>');
+    document.getElementById('btn-cancel-agg-modal')?.addEventListener('click', closeModal);
+    document.querySelectorAll('.btn-choice-agg').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const page = btn.getAttribute('data-target');
+        closeModal();
+        if (page) navigateTo(page);
+      });
     });
   }
 
@@ -361,7 +702,17 @@
     const projSel = document.getElementById('project-selector');
     if (projSel) {
       projSel.addEventListener('change', (e) => {
+        activeRouteEpoch++; // User project change invalidates pending notification routes
+        renderGeneration++;
+        closeDrawer(); // Explicit project selector change should close stale detail
+        const priorProj = state.currentProject;
+        state.priorProject = priorProj;
         state.currentProject = e.target.value;
+        if (state.dashboardScope !== state.currentProject) {
+          state.dashboard = null;
+          state.dashboardScope = null;
+        }
+        renderCurrentPage();
         refreshDashboard(true, true);
       });
     }
@@ -401,20 +752,59 @@
     const modalBackdrop = document.getElementById('modal-backdrop');
     if (btnCloseModal) btnCloseModal.addEventListener('click', closeModal);
     if (modalBackdrop) modalBackdrop.addEventListener('click', closeModal);
+
+    window.addEventListener('resize', () => {
+      const drawer = document.getElementById('detail-drawer');
+      if (drawer && !drawer.classList.contains('hidden')) {
+        const isWide = window.innerWidth >= 1150;
+        document.body.classList.toggle('has-inspector-open', isWide);
+        const backdrop = document.getElementById('drawer-backdrop');
+        if (backdrop) {
+          if (isWide) {
+            backdrop.classList.add('hidden');
+          } else {
+            backdrop.classList.remove('hidden');
+          }
+        }
+        if (isWide && drawerTrapHandler) {
+          document.removeEventListener('keydown', drawerTrapHandler, true);
+          drawerTrapHandler = null;
+        } else if (!isWide && !drawerTrapHandler) {
+          drawerTrapHandler = function(e) {
+            const modal = document.getElementById('modal-container');
+            const isModalOpen = modal && !modal.classList.contains('hidden');
+            if (!isModalOpen && drawer && !drawer.classList.contains('hidden')) {
+              trapFocus(drawer, e);
+            }
+          };
+          document.addEventListener('keydown', drawerTrapHandler, true);
+        }
+      }
+    });
   }
 
-  function navigateTo(page) {
-    state.currentPage = page;
-    state.settingsDraft = null;
+  function syncNavLinks() {
     document.querySelectorAll('.nav-link').forEach(link => {
-      if (link.getAttribute('data-page') === page) {
-        link.classList.add('active');
+      const isCurrent = link.getAttribute('data-page') === state.currentPage;
+      link.classList.toggle('active', isCurrent);
+      if (isCurrent) {
         link.setAttribute('aria-current', 'page');
       } else {
-        link.classList.remove('active');
         link.removeAttribute('aria-current');
       }
     });
+  }
+
+  function navigateTo(page) {
+    if (!page) return;
+    activeRouteEpoch++; // User navigation invalidates pending notification routes
+    renderGeneration++;
+    if (state.currentPage !== page) {
+      closeDrawer();
+    }
+    state.currentPage = page;
+    state.settingsDraft = null;
+    syncNavLinks();
     renderCurrentPage();
   }
 
@@ -425,18 +815,49 @@
   function renderCurrentPage() {
     const container = document.getElementById('page-container');
     if (!container) return;
+    document.body.dataset.page = state.currentPage;
+    const hasValidScopeDashboard = (state.dashboard !== null && state.dashboardScope === state.currentProject);
+    document.body.dataset.ready = hasValidScopeDashboard ? 'true' : 'false';
+    syncNavLinks();
+
+    // Settings view does not depend on project-scoped dashboard and can always render with preserved rawSettings
+    if (state.currentPage === 'settings') {
+      renderSettingsView(container);
+      return;
+    }
+
+    // For all project-scoped views: if dashboard is missing or its actual scope differs from currentProject,
+    // refuse to render stale data from another project and display the honest target-scope error/retry view!
+    if (!hasValidScopeDashboard) {
+      renderScopeErrorView(container);
+      return;
+    }
 
     switch (state.currentPage) {
       case 'agents': renderAgentsView(container); break;
       case 'workflows': renderWorkflowsView(container); break;
       case 'setup': renderSetupView(container); break;
+      case 'memory': renderMemoryView(container); break;
       case 'usage': renderUsageView(container); break;
       case 'improve': renderImproveView(container); break;
       case 'lab': renderLabView(container); break;
       case 'inbox': renderInboxView(container); break;
-      case 'settings': renderSettingsView(container); break;
       default: renderAgentsView(container);
     }
+  }
+
+  function renderMemoryView(container) {
+    container.innerHTML = `
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1>工程记忆</h1>
+          <p>跨会话继承的本地上下文与经验沉淀 · 项目隔离与人工流转</p>
+        </div>
+      </div>
+      <div id="memory-page-content"></div>
+    `;
+    const target = document.getElementById('memory-page-content');
+    if (target) renderMemorySection(target);
   }
 
   // -------------------------------------------------------------------------
@@ -449,15 +870,18 @@
       return true;
     });
 
-    const runningCount = filteredSessions.filter(s => s.state === 'Running').length;
+    const runningCount = filteredSessions.filter(s => {
+      const st = (s.state || '').trim().toLowerCase();
+      return st === 'running';
+    }).length;
 
     const hasCopilot = filteredSessions.some(s => (s.provider || '').toLowerCase() === 'copilot');
 
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>Agents 会话</h1>
-          <p>观察多智能体会话日志、工具调用与上下文证据 · 共 ${filteredSessions.length} 个会话 (${runningCount} 运行中)</p>
+          <h1>会话</h1>
+          <p>观察智能体会话日志、工具调用与上下文证据 · 共 ${filteredSessions.length} 个会话 (${runningCount} 运行中)</p>
         </div>
         <div class="page-actions">
           <button id="btn-refresh-sessions" class="btn btn-secondary btn-sm">增量刷新</button>
@@ -467,7 +891,7 @@
 
       <div class="toolbar-bar">
         <div class="toolbar-filters">
-          <input type="search" id="session-search-input" class="filter-input" placeholder="搜索会话标题、模型或路径..." style="width: 240px;" value="${escapeHtml(state.sessionFilterQuery)}">
+          <input type="search" id="session-search-input" class="filter-input" placeholder="搜索会话标题、模型或路径..." title="搜索会话标题、模型或路径（点击表格任意行可打开详情与 Checkpoint）" style="width: 240px;" value="${escapeHtml(state.sessionFilterQuery)}">
           <select id="session-provider-filter" class="filter-select">
             <option value="">所有 Provider</option>
             <option value="claude" ${(state.sessionProviderFilter || '').toLowerCase() === 'claude' ? 'selected' : ''}>claude</option>
@@ -477,40 +901,33 @@
           </select>
           <select id="session-status-filter" class="filter-select">
             <option value="">所有状态</option>
-            <option value="running" ${(state.sessionStatusFilter || '').toLowerCase() === 'running' ? 'selected' : ''}>Running (运行中)</option>
-            <option value="idle" ${(state.sessionStatusFilter || '').toLowerCase() === 'idle' ? 'selected' : ''}>Idle (空闲)</option>
-            <option value="completed" ${(state.sessionStatusFilter || '').toLowerCase() === 'completed' ? 'selected' : ''}>Completed (已完成)</option>
-            <option value="needs approval" ${(state.sessionStatusFilter || '').toLowerCase() === 'needs approval' ? 'selected' : ''}>Needs Approval (待审批)</option>
-            <option value="error" ${(state.sessionStatusFilter || '').toLowerCase() === 'error' ? 'selected' : ''}>Error (错误)</option>
-            <option value="stopped" ${(state.sessionStatusFilter || '').toLowerCase() === 'stopped' ? 'selected' : ''}>Stopped (已停止)</option>
-            <option value="unknown" ${(state.sessionStatusFilter || '').toLowerCase() === 'unknown' ? 'selected' : ''}>未知（仅日志）</option>
+            <option value="running" ${(state.sessionStatusFilter || '').toLowerCase() === 'running' ? 'selected' : ''}>运行中</option>
+            <option value="idle" ${(state.sessionStatusFilter || '').toLowerCase() === 'idle' ? 'selected' : ''}>空闲</option>
+            <option value="completed" ${(state.sessionStatusFilter || '').toLowerCase() === 'completed' ? 'selected' : ''}>已完成</option>
+            <option value="needs approval" ${(state.sessionStatusFilter || '').toLowerCase() === 'needs approval' ? 'selected' : ''}>待审批</option>
+            <option value="error" ${(state.sessionStatusFilter || '').toLowerCase() === 'error' ? 'selected' : ''}>错误</option>
+            <option value="stopped" ${(state.sessionStatusFilter || '').toLowerCase() === 'stopped' ? 'selected' : ''}>已停止</option>
+            <option value="unknown" ${(state.sessionStatusFilter || '').toLowerCase() === 'unknown' ? 'selected' : ''}>未知</option>
           </select>
+          <button id="btn-clear-session-filters" class="btn btn-ghost btn-sm ${(state.sessionFilterQuery || state.sessionProviderFilter || state.sessionStatusFilter) ? '' : 'hidden'}">重置筛选</button>
         </div>
-        <span class="text-secondary" style="font-size: 11px;">点击行打开详情与 Checkpoint</span>
       </div>
 
-      <div class="table-wrapper">
+      <div class="table-wrapper" title="点击行打开详情与 Checkpoint">
         <table class="data-table" id="sessions-table">
           <thead>
             <tr>
-              <th style="width: 100px;">Provider</th>
-              <th>标题 / 任务</th>
-              <th>项目 / 分支</th>
-              <th style="width: 130px;">模型</th>
-              <th style="width: 120px;">状态</th>
-              <th style="width: 110px;">Token (I/O)</th>
-              <th style="width: 120px;">最后更新</th>
+              <th class="col-title">会话 / 任务</th>
+              <th class="col-project" style="width: 180px;">项目</th>
+              <th class="col-status" style="width: 165px;">状态</th>
+              <th class="col-time" style="width: 120px; text-align: right;">最后更新</th>
             </tr>
           </thead>
           <tbody id="sessions-table-body"></tbody>
         </table>
       </div>
 
-      <div id="sessions-empty-state" class="empty-state ${filteredSessions.length === 0 ? '' : 'hidden'}">
-        <div class="empty-state-title">未检测到会话日志</div>
-        <div class="empty-state-desc">Vela 会自动监听已连接项目的编码智能体日志目录（如 Claude Desktop、Cursor、Codex）。连接本地项目后，会话日志将在此自动更新。</div>
-        <button id="btn-empty-add-proj" class="btn btn-primary btn-sm">+ 添加项目</button>
-      </div>
+      <div id="sessions-empty-state" class="empty-state hidden"></div>
     `;
 
     applySessionFilters(filteredSessions);
@@ -518,6 +935,7 @@
     const searchInput = document.getElementById('session-search-input');
     const provFilter = document.getElementById('session-provider-filter');
     const statusFilter = document.getElementById('session-status-filter');
+    const clearFiltersBtn = document.getElementById('btn-clear-session-filters');
 
     const filterHandler = () => {
       state.sessionFilterQuery = (searchInput.value || '').trim();
@@ -529,6 +947,18 @@
     searchInput.addEventListener('input', filterHandler);
     provFilter.addEventListener('change', filterHandler);
     statusFilter.addEventListener('change', filterHandler);
+
+    if (clearFiltersBtn) {
+      clearFiltersBtn.addEventListener('click', () => {
+        state.sessionFilterQuery = '';
+        state.sessionProviderFilter = '';
+        state.sessionStatusFilter = '';
+        if (searchInput) searchInput.value = '';
+        if (provFilter) provFilter.value = '';
+        if (statusFilter) statusFilter.value = '';
+        applySessionFilters(filteredSessions);
+      });
+    }
 
     document.getElementById('btn-refresh-sessions').addEventListener('click', async () => {
       try {
@@ -543,15 +973,18 @@
     document.getElementById('btn-add-project-agents').addEventListener('click', () => {
       document.getElementById('btn-add-project').click();
     });
-
-    const emptyBtn = document.getElementById('btn-empty-add-proj');
-    if (emptyBtn) emptyBtn.addEventListener('click', () => document.getElementById('btn-add-project').click());
   }
 
   function applySessionFilters(filteredSessions) {
     const q = (state.sessionFilterQuery || '').toLowerCase();
     const prov = (state.sessionProviderFilter || '').trim().toLowerCase();
     const st = (state.sessionStatusFilter || '').trim().toLowerCase();
+
+    const isFilterActive = !!(q || prov || st);
+    const clearFiltersBtn = document.getElementById('btn-clear-session-filters');
+    if (clearFiltersBtn) {
+      clearFiltersBtn.classList.toggle('hidden', !isFilterActive);
+    }
 
     const res = filteredSessions.filter(s => {
       const sProv = (s.provider || '').trim().toLowerCase();
@@ -567,170 +1000,398 @@
       return true;
     });
 
-    renderSessionRows(res);
+    renderSessionRows(res, filteredSessions.length, isFilterActive);
   }
 
-  function renderSessionRows(sessionsList) {
+  function renderSessionRows(sessionsList, totalProjectSessions, isFilterActive) {
     const tbody = document.getElementById('sessions-table-body');
     const emptyState = document.getElementById('sessions-empty-state');
+    const tableWrapper = document.querySelector('.table-wrapper');
     if (!tbody) return;
 
     if (sessionsList.length === 0) {
       tbody.innerHTML = '';
-      if (emptyState) emptyState.classList.remove('hidden');
+      if (tableWrapper) tableWrapper.classList.add('hidden');
+      if (emptyState) {
+        emptyState.classList.remove('hidden');
+        if (state.registeredProjects.length === 0) {
+          // State 1: No connected projects
+          emptyState.innerHTML = `
+            <div class="empty-state-title">未连接本地项目</div>
+            <div class="empty-state-desc">连接一个本地 Git 仓库或项目目录，Vela 才能观察与捕获智能体会话日志与工程上下文。</div>
+            <button id="btn-empty-connect-proj" class="btn btn-primary btn-sm" style="margin-top: 12px;">+ 连接本地项目</button>
+          `;
+          const btn = document.getElementById('btn-empty-connect-proj');
+          if (btn) btn.addEventListener('click', () => document.getElementById('btn-add-project').click());
+        } else if (totalProjectSessions === 0 && !isFilterActive) {
+          // State 2: Connected project has 0 logs
+          emptyState.innerHTML = `
+            <div class="empty-state-title">未检测到智能体会话日志</div>
+            <div class="empty-state-desc">当前项目尚未发现智能体会话日志。启动 Claude Code、Cursor 或 Codex 进行工程开发，日志将在此自动更新。</div>
+            <button id="btn-empty-refresh-scan" class="btn btn-secondary btn-sm" style="margin-top: 12px;">增量扫描会话日志</button>
+          `;
+          const btn = document.getElementById('btn-empty-refresh-scan');
+          if (btn) btn.addEventListener('click', async () => {
+            try {
+              await callBridge('sessions.refresh');
+              await refreshDashboard(true, true);
+              showToast('已扫描并增量刷新会话');
+            } catch (err) {
+              showToast('刷新会话失败: ' + err.message, 'error');
+            }
+          });
+        } else {
+          // State 3: Filter query returned 0 matches
+          emptyState.innerHTML = `
+            <div class="empty-state-title">没有匹配的会话</div>
+            <div class="empty-state-desc">没有符合当前搜索词或筛选条件的智能体会话。</div>
+            <button id="btn-empty-clear-filters" class="btn btn-secondary btn-sm" style="margin-top: 12px;">清除筛选条件</button>
+          `;
+          const btn = document.getElementById('btn-empty-clear-filters');
+          if (btn) btn.addEventListener('click', () => {
+            state.sessionFilterQuery = '';
+            state.sessionProviderFilter = '';
+            state.sessionStatusFilter = '';
+            const searchInput = document.getElementById('session-search-input');
+            const provFilter = document.getElementById('session-provider-filter');
+            const statusFilter = document.getElementById('session-status-filter');
+            if (searchInput) searchInput.value = '';
+            if (provFilter) provFilter.value = '';
+            if (statusFilter) statusFilter.value = '';
+            const clearFiltersBtn = document.getElementById('btn-clear-session-filters');
+            if (clearFiltersBtn) clearFiltersBtn.classList.add('hidden');
+            const projSessions = ((state.dashboard && state.dashboard.sessions) || []).filter(s => {
+              if (state.currentProject && s.project !== state.currentProject) return false;
+              return true;
+            });
+            applySessionFilters(projSessions);
+          });
+        }
+      }
       return;
     }
+
+    if (tableWrapper) tableWrapper.classList.remove('hidden');
     if (emptyState) emptyState.classList.add('hidden');
 
     tbody.innerHTML = sessionsList.map(s => {
       const stateBadge = getSessionStateBadge(s.state);
-      const totalTokens = (s.tokenInput || 0) + (s.tokenOutput || 0);
-      const tokensDisplay = totalTokens > 0 ? `${s.tokenInput || 0} / ${s.tokenOutput || 0}` : '-';
       const tooltipParts = [];
       if (s.statusSource) tooltipParts.push(`状态来源: ${s.statusSource}`);
-      if (s.statusInferred) tooltipParts.push('状态由日志推断（非实时进程状态）');
+      if (s.statusInferred) tooltipParts.push(`状态依据: ${s.statusEvidence || '由日志推断，未附加实时常驻进程'}`);
       const cellTooltip = tooltipParts.join(' · ');
       return `
         <tr class="clickable-row ${state.selectedSessionId === s.id ? 'selected' : ''}" data-id="${escapeHtml(s.id)}">
-          <td><span class="code-badge">${escapeHtml(s.provider || 'AI')}</span></td>
-          <td style="font-weight: 500;">${escapeHtml(s.title || '未命名会话')}</td>
-          <td>
-            <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(s.project ? s.project.split('/').pop() : '-')}</div>
-            <div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(s.branch || '-')}</div>
-          </td>
-          <td><span style="font-size: 11px; font-family: var(--font-mono);">${escapeHtml(s.model || '-')}</span></td>
-          <td>
-            <div ${cellTooltip ? `title="${escapeHtml(cellTooltip)}"` : ''} style="display: inline-flex; flex-direction: column; gap: 2px;">
-              ${stateBadge}
-              ${s.statusInferred ? `<span class="text-muted" style="font-size: 10px;" aria-label="状态由日志推断">状态由日志推断</span>` : ''}
+          <td class="col-title" style="min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+              <span class="code-badge" style="flex-shrink: 0;">${escapeHtml(s.provider || 'AI')}</span>
+              <button type="button" class="session-title-btn" data-id="${escapeHtml(s.id)}" title="${escapeHtml(s.title || '未命名会话')}" aria-label="查看会话: ${escapeHtml(s.title || '未命名会话')}">
+                ${escapeHtml(s.title || '未命名会话')}
+              </button>
             </div>
           </td>
-          <td><span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(tokensDisplay)}</span></td>
-          <td style="font-size: 11px; color: var(--text-secondary);">${formatTime(s.updatedAt || s.lastActivity)}</td>
+          <td class="col-project">
+            <div style="font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(s.project || '-')}">${escapeHtml(s.project ? s.project.split('/').pop() : '-')}</div>
+          </td>
+          <td class="col-status" style="white-space: nowrap; width: 165px;">
+            <div ${cellTooltip ? `title="${escapeHtml(cellTooltip)}"` : ''} style="display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
+              ${stateBadge}
+              ${s.statusInferred ? `<span class="status-badge status-amber" style="font-size: 10px; padding: 1px 5px; white-space: nowrap;" aria-label="状态由日志推断">日志推断</span>` : ''}
+            </div>
+          </td>
+          <td class="col-time" style="font-size: 12px; color: var(--text-secondary); text-align: right; white-space: nowrap; width: 120px;">${formatTime(s.updatedAt || s.lastActivity)}</td>
         </tr>
       `;
     }).join('');
 
     tbody.querySelectorAll('tr.clickable-row').forEach(row => {
-      row.addEventListener('click', () => {
+      const openRow = (triggerEl) => {
         const id = row.getAttribute('data-id');
-        openSessionDetail(id);
+        tbody.querySelectorAll('tr').forEach(r => r.classList.toggle('selected', r.getAttribute('data-id') === id));
+        openSessionDetail(id, triggerEl || row.querySelector('.session-title-btn') || row);
+      };
+
+      row.addEventListener('click', () => {
+        const trigger = row.querySelector('.session-title-btn') || row;
+        openRow(trigger);
       });
+
+      const titleBtn = row.querySelector('.session-title-btn');
+      if (titleBtn) {
+        titleBtn.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openRow(titleBtn);
+          }
+        });
+      }
     });
   }
 
   function getSessionStateBadge(stateStr) {
-    switch (stateStr) {
-      case 'Running':
+    const s = (stateStr || '').toLowerCase();
+    switch (s) {
+      case 'running':
         return '<span class="status-badge status-amber">● 运行中</span>';
-      case 'Completed':
+      case 'completed':
         return '<span class="status-badge status-sage">✓ 已完成</span>';
-      case 'Needs Approval':
+      case 'needs approval':
+      case 'needs_approval':
         return '<span class="status-badge status-amber">待审批</span>';
-      case 'Error':
-        return '<span class="status-badge status-red">错误</span>';
-      case 'Stopped':
-        return '<span class="status-badge status-neutral">已停止</span>';
-      case 'Idle':
+      case 'error':
+        return '<span class="status-badge status-red">✕ 异常</span>';
+      case 'failed':
+        return '<span class="status-badge status-red">✕ 失败</span>';
+      case 'idle':
         return '<span class="status-badge status-neutral">空闲</span>';
+      case 'stopped':
+        return '<span class="status-badge status-neutral">已停止</span>';
+      case 'unknown':
+      case '未知':
+      case '未知（仅日志）':
+        return '<span class="status-badge status-neutral">未知</span>';
       default:
-        return '<span class="status-badge status-neutral">未知（仅日志）</span>';
+        return `<span class="status-badge status-neutral">${escapeHtml(stateStr || '未知')}</span>`;
     }
   }
 
-  async function openSessionDetail(sessionId) {
+  function renderSessionDetailContent(session, drawerBody) {
+    const messages = session.messages || [];
+    const isTruncated = Boolean(session.messagesTruncated || session.isPartial || session.partial);
+    const tokenInputDisp = (session.tokenInput !== undefined && session.tokenInput !== null) ? formatNumber(session.tokenInput) : '未提供';
+    const tokenOutputDisp = (session.tokenOutput !== undefined && session.tokenOutput !== null) ? formatNumber(session.tokenOutput) : '未提供';
+    const tokensDisp = (session.tokenInput != null || session.tokenOutput != null) ? `${tokenInputDisp} / ${tokenOutputDisp}` : '未提供';
+
+    drawerBody.innerHTML = `
+      <div class="session-status-banner card" style="padding: 10px 14px; margin-bottom: 16px; background: var(--bg-subtle);">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+            ${getSessionStateBadge(session.state)}
+            ${session.statusInferred ? '<span class="status-badge status-amber" style="white-space: nowrap;">日志推断</span>' : ''}
+            ${isTruncated ? '<span class="status-badge status-neutral" style="white-space: nowrap;">部分历史截断</span>' : ''}
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); white-space: nowrap;">
+            ${escapeHtml(session.provider || 'AI')}${session.model ? ` · ${escapeHtml(session.model)}` : ''}
+          </div>
+        </div>
+        ${session.statusInferred ? `
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">
+            状态依据：${escapeHtml(session.statusEvidence || session.statusSource || '日志记录了完成事件，未附加实时常驻进程')}
+          </div>
+        ` : ''}
+        ${isTruncated ? `
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+            提示：该会话历史记录较长，当前仅加载最新消息快照。
+          </div>
+        ` : ''}
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <h3 style="font-size: 14px; font-weight: 600;">会话消息与工具调用 (${messages.length})</h3>
+          <span style="font-size: 12px; color: var(--text-secondary);">单条消息可存为工程 Memory</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          ${messages.length === 0 ? '<div class="text-secondary" style="font-size: 13px; padding: 24px 0; text-align: center;">无详细消息记录（仅捕获会话级统计）</div>' : ''}
+          ${messages.map((m, idx) => `
+            <div class="card" style="margin-bottom: 0; padding: 12px 14px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="status-badge status-neutral">${escapeHtml(m.role || 'message')}</span>
+                  <span style="font-size: 12px; color: var(--text-muted);">${formatTime(m.timestamp)}</span>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-save-msg-memory" data-idx="${idx}" title="保存此消息为 Memory">
+                  + 存为 Memory
+                </button>
+              </div>
+              <div style="font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: var(--text-main); font-family: var(--font-system);">${escapeHtml(m.content || '')}</div>
+              ${m.tool ? `
+                <div style="margin-top: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text-secondary); background: var(--bg-subtle); padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border-color);">
+                  <div style="font-weight: 600; margin-bottom: ${m.input || m.output ? '4px' : '0'};">工具调用: ${escapeHtml(m.tool)}</div>
+                  ${m.input ? `<div style="font-size: 11px; white-space: pre-wrap; word-break: break-all; color: var(--text-muted);">${escapeHtml(typeof m.input === 'string' ? m.input : JSON.stringify(m.input, null, 2))}</div>` : ''}
+                  ${m.output ? `<div style="font-size: 11px; white-space: pre-wrap; word-break: break-all; color: var(--text-secondary); margin-top: 4px; border-top: 1px dashed var(--border-color); padding-top: 4px;">${escapeHtml(typeof m.output === 'string' ? m.output : JSON.stringify(m.output, null, 2))}</div>` : ''}
+                </div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <details class="card" style="padding: 12px 14px;" ${messages.length === 0 ? 'open' : ''}>
+        <summary style="cursor: pointer; font-size: 13px; font-weight: 600; user-select: none;">
+          技术元数据与执行环境
+        </summary>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; margin-top: 12px;">
+          <div style="grid-column: 1 / -1;"><span class="text-secondary">会话 ID:</span> <span class="font-mono" style="word-break: break-all; user-select: all;">${escapeHtml(session.id || '')}</span></div>
+          <div><span class="text-secondary">Provider:</span> <strong>${escapeHtml(session.provider || '-')}</strong></div>
+          <div><span class="text-secondary">Model:</span> <span class="font-mono">${escapeHtml(session.model || '-')}</span></div>
+          <div><span class="text-secondary">Project:</span> <span class="font-mono">${escapeHtml(session.project || '-')}</span></div>
+          <div><span class="text-secondary">Branch:</span> <span class="font-mono">${escapeHtml(session.branch || '-')}</span></div>
+          <div><span class="text-secondary">Tokens (I/O):</span> <span class="font-mono">${tokensDisp}</span></div>
+          <div><span class="text-secondary">时间:</span> ${formatTime(session.updatedAt)}</div>
+          ${session.statusSource ? `<div><span class="text-secondary">状态来源:</span> <span class="font-mono">${escapeHtml(session.statusSource)}</span></div>` : ''}
+          ${session.statusInferred ? `<div><span class="text-secondary">状态判定:</span> <span style="color: var(--status-amber-text, #f59e0b);" aria-label="状态由日志推断">状态由日志推断</span></div>` : ''}
+        </div>
+        ${session.sourcePath ? `<div style="margin-top: 10px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); word-break: break-all;">日志路径: ${escapeHtml(session.sourcePath)}</div>` : ''}
+      </details>
+    `;
+
+    drawerBody.querySelectorAll('.btn-save-msg-memory').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        const msg = messages[idx];
+        openCreateOrEditMemoryModal({
+          title: (session.title || '会话经验') + ` - 摘录`,
+          content: msg.content || '',
+          type: 'fact',
+          scope: 'project',
+          project: session.project || '',
+          branch: session.branch || '',
+          sourceSession: session.id,
+          sourceMessage: msg.id || String(idx)
+        });
+      });
+    });
+  }
+
+  let sessionDetailSequence = 0;
+  let liveSessionFetchInProgress = false;
+
+  function computeSessionFingerprint(s) {
+    if (!s || typeof s !== 'object') return '';
+    const id = s.id || '';
+    const rev = s.revision || '';
+    const updated = s.updatedAt || '';
+    const lastAct = s.lastActivity || '';
+    const count = (s.messageCount !== undefined && s.messageCount !== null)
+      ? s.messageCount
+      : (Array.isArray(s.messages) ? s.messages.length : 0);
+    const idxBytes = s.indexedBytes != null ? s.indexedBytes : 0;
+    const srcBytes = s.sourceBytes != null ? s.sourceBytes : 0;
+    const stateVal = s.state || '';
+    const sourcePath = s.sourcePath || '';
+    return `${id}:${rev}:${updated}:${lastAct}:${count}:${idxBytes}:${srcBytes}:${stateVal}:${sourcePath}`;
+  }
+
+  async function checkAndTriggerLiveSessionUpdate(sessions) {
+    if (!state.selectedSessionId || liveSessionFetchInProgress) return;
+    const isModalOpen = !document.getElementById('modal-container').classList.contains('hidden');
+    if (isModalOpen) return;
+
+    const targetSessionId = state.selectedSessionId;
+    const summary = (sessions || []).find(s => s.id === targetSessionId);
+    if (!summary) return;
+
+    const summaryFp = computeSessionFingerprint(summary);
+    if (!summaryFp) return;
+
+    if (state.loadedSessionDetail && state.loadedSessionDetail.id === targetSessionId) {
+      if (state.loadedSessionDetail.fingerprint === summaryFp || state.loadedSessionDetail.rev === summaryFp) {
+        return;
+      }
+    }
+
+    const thisSeq = sessionDetailSequence;
+    const thisProject = state.currentProject;
+    liveSessionFetchInProgress = true;
+
+    try {
+      const session = await callBridge('sessions.get', { id: targetSessionId });
+      const drawer = document.getElementById('detail-drawer');
+      const drawerBody = document.getElementById('drawer-content');
+      const modalNowOpen = !document.getElementById('modal-container').classList.contains('hidden');
+
+      if (thisSeq !== sessionDetailSequence || state.selectedSessionId !== targetSessionId || state.currentProject !== thisProject) {
+        return;
+      }
+      if (!drawer || drawer.classList.contains('hidden') || !drawerBody || modalNowOpen) {
+        return;
+      }
+      if (!session || session.id !== targetSessionId) return;
+
+      const isAtBottom = (drawerBody.scrollHeight - drawerBody.scrollTop - drawerBody.clientHeight) < 35;
+      const prevScrollTop = drawerBody.scrollTop;
+
+      const fp = computeSessionFingerprint(session);
+      state.loadedSessionDetail = {
+        id: session.id,
+        fingerprint: fp,
+        rev: fp
+      };
+
+      renderSessionDetailContent(session, drawerBody);
+
+      if (isAtBottom) {
+        drawerBody.scrollTop = drawerBody.scrollHeight;
+      } else {
+        drawerBody.scrollTop = prevScrollTop;
+      }
+    } catch (err) {
+      console.warn('Live session detail update skipped:', err);
+    } finally {
+      liveSessionFetchInProgress = false;
+    }
+  }
+
+  async function openSessionDetail(sessionId, triggerEl = null) {
+    const thisSeq = ++sessionDetailSequence;
+    const thisProject = state.currentProject;
     state.selectedSessionId = sessionId;
-    openDrawer('正在加载会话详情...', sessionId);
+    openDrawer('正在加载会话详情...', '会话', triggerEl);
 
     try {
       const session = await callBridge('sessions.get', { id: sessionId });
+      const drawer = document.getElementById('detail-drawer');
+      const isDrawerOpen = drawer && !drawer.classList.contains('hidden');
+
+      if (thisSeq !== sessionDetailSequence || state.selectedSessionId !== sessionId || !isDrawerOpen || state.currentProject !== thisProject) {
+        return;
+      }
       if (!session) throw new Error('会话不存在');
 
-      setDrawerTitle(session.title || '会话详情', sessionId);
+      const fp = computeSessionFingerprint(session);
+      state.loadedSessionDetail = {
+        id: session.id,
+        fingerprint: fp,
+        rev: fp
+      };
+
+      const shortSubtitle = [
+        session.provider || 'AI',
+        session.project ? session.project.split('/').pop() : '全局'
+      ].filter(Boolean).join(' · ');
+
+      setDrawerTitle(session.title || '会话详情', shortSubtitle);
       setDrawerCustomActions(`
-        <button id="btn-save-checkpoint-modal" class="btn btn-secondary btn-sm">保存 Checkpoint</button>
+        <button id="btn-save-checkpoint-modal" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">保存 Checkpoint</button>
       `);
 
-      document.getElementById('btn-save-checkpoint-modal').addEventListener('click', () => {
-        openSaveCheckpointModal(session);
-      });
+      const saveBtn = document.getElementById('btn-save-checkpoint-modal');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          openSaveCheckpointModal(session);
+        });
+      }
 
       const drawerBody = document.getElementById('drawer-content');
-      const messages = session.messages || [];
-
-      drawerBody.innerHTML = `
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">元数据</span>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              ${session.statusInferred ? '<span class="status-badge status-neutral" style="font-size: 10px;" aria-label="状态由日志推断">状态由日志推断</span>' : ''}
-              ${getSessionStateBadge(session.state)}
-            </div>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
-            <div><span class="text-secondary">Provider:</span> <strong>${escapeHtml(session.provider)}</strong></div>
-            <div><span class="text-secondary">Model:</span> <span class="font-mono">${escapeHtml(session.model || '-')}</span></div>
-            <div><span class="text-secondary">Project:</span> <span class="font-mono">${escapeHtml(session.project || '-')}</span></div>
-            <div><span class="text-secondary">Branch:</span> <span class="font-mono">${escapeHtml(session.branch || '-')}</span></div>
-            <div><span class="text-secondary">Tokens:</span> <span class="font-mono">${(session.tokenInput || 0) + (session.tokenOutput || 0)}</span></div>
-            <div><span class="text-secondary">时间:</span> ${formatTime(session.updatedAt)}</div>
-            ${session.statusSource ? `<div><span class="text-secondary">状态来源:</span> <span class="font-mono">${escapeHtml(session.statusSource)}</span></div>` : ''}
-            ${session.statusInferred ? `<div><span class="text-secondary">状态判定:</span> <span style="color: var(--status-amber-text, #f59e0b);" aria-label="状态由日志推断">状态由日志推断</span></div>` : ''}
-          </div>
-          ${session.sourcePath ? `<div style="margin-top: 8px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">日志: ${escapeHtml(session.sourcePath)}</div>` : ''}
-        </div>
-
-        <div>
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <h3 style="font-size: 13px; font-weight: 600;">消息流 (${messages.length})</h3>
-            <span style="font-size: 11px; color: var(--text-secondary);">单条消息可存为候选 Memory</span>
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            ${messages.length === 0 ? '<div class="text-secondary" style="font-size: 12px; padding: 12px 0;">无详细消息记录（仅捕获会话级统计）</div>' : ''}
-            ${messages.map((m, idx) => `
-              <div class="card" style="margin-bottom: 0; padding: 10px 12px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                  <div style="display: flex; align-items: center; gap: 6px;">
-                    <span class="status-badge status-neutral" style="font-size: 10px;">${escapeHtml(m.role || 'message')}</span>
-                    <span style="font-size: 10px; color: var(--text-muted);">${formatTime(m.timestamp)}</span>
-                  </div>
-                  <button class="btn btn-ghost btn-sm btn-save-msg-memory" data-idx="${idx}" title="保存此消息为 Memory">
-                    + 存为 Memory
-                  </button>
-                </div>
-                <div class="code-view" style="font-size: 11px; max-height: 180px;">${escapeHtml(m.content || '')}</div>
-                ${m.tool ? `<div style="margin-top: 6px; font-size: 10px; font-family: var(--font-mono); color: var(--text-secondary);">工具调用: <strong>${escapeHtml(m.tool)}</strong></div>` : ''}
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `;
-
-      drawerBody.querySelectorAll('.btn-save-msg-memory').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const idx = parseInt(btn.getAttribute('data-idx'), 10);
-          const msg = messages[idx];
-          openCreateOrEditMemoryModal({
-            title: (session.title || '会话经验') + ` - 摘录`,
-            content: msg.content || '',
-            type: 'fact',
-            scope: 'project',
-            project: session.project || '',
-            branch: session.branch || '',
-            sourceSession: session.id,
-            sourceMessage: msg.id || String(idx)
-          });
-        });
-      });
-
+      if (drawerBody) {
+        renderSessionDetailContent(session, drawerBody);
+      }
     } catch (err) {
-      setDrawerTitle('加载失败', sessionId);
-      document.getElementById('drawer-content').innerHTML = `
-        <div class="alert-banner alert-danger">
-          无法获取会话详情：${escapeHtml(err.message)}
-        </div>
-      `;
+      const drawer = document.getElementById('detail-drawer');
+      const isDrawerOpen = drawer && !drawer.classList.contains('hidden');
+      if (thisSeq !== sessionDetailSequence || state.selectedSessionId !== sessionId || !isDrawerOpen || state.currentProject !== thisProject) {
+        return;
+      }
+      setDrawerTitle('加载失败', '错误');
+      const drawerBody = document.getElementById('drawer-content');
+      if (drawerBody) {
+        drawerBody.innerHTML = `
+          <div class="alert-banner alert-danger">
+            无法获取会话详情：${escapeHtml(err.message)}
+          </div>
+        `;
+      }
     }
   }
 
@@ -744,19 +1405,19 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>Workflows 工作流</h1>
+          <h1>工作流</h1>
           <p>确定性多步骤自动化编排 · 安全工具门禁 · 运行记录与试运行</p>
         </div>
         <div class="page-actions">
-          <button id="btn-build-wf-prompt" class="btn btn-secondary btn-sm">描述工作流 (Draft)</button>
+          <button id="btn-build-wf-prompt" class="btn btn-secondary btn-sm">描述工作流</button>
           <button id="btn-new-workflow" class="btn btn-primary btn-sm">+ 新建工作流</button>
         </div>
       </div>
 
       <div class="tabs-nav">
         <button class="tab-btn ${state.workflowsActiveTab === 'list' ? 'active' : ''}" data-wftab="list">工作流列表 (${workflows.length})</button>
-        <button class="tab-btn ${state.workflowsActiveTab === 'runs' ? 'active' : ''}" data-wftab="runs">运行记录 (Run Ledger) (${runs.length})</button>
-        <button class="tab-btn ${state.workflowsActiveTab === 'health' ? 'active' : ''}" data-wftab="health">健康度 (Health)</button>
+        <button class="tab-btn ${state.workflowsActiveTab === 'runs' ? 'active' : ''}" data-wftab="runs">运行记录 (${runs.length})</button>
+        <button class="tab-btn ${state.workflowsActiveTab === 'health' ? 'active' : ''}" data-wftab="health">健康度检测</button>
       </div>
 
       <div id="workflows-tab-content"></div>
@@ -822,11 +1483,11 @@
                 <tr>
                   <td>
                     <strong>${escapeHtml(wf.title || '未命名')}</strong>
-                    <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(wf.description || '-')}</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">${escapeHtml(wf.description || '-')}</div>
                   </td>
                   <td>
                     <span class="code-badge">${escapeHtml(wf.trigger || 'manual')}</span>
-                    ${wf.cron ? `<span style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); margin-left: 4px;">${escapeHtml(wf.cron)}</span>` : ''}
+                    ${wf.cron ? `<span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); margin-left: 4px;">${escapeHtml(wf.cron)}</span>` : ''}
                   </td>
                   <td>${(wf.steps && wf.steps.length) || 0} 步</td>
                   <td><span class="font-mono">v${escapeHtml(String(wf.version || 1))}</span></td>
@@ -1027,13 +1688,13 @@
 
   async function openRunDetail(runId) {
     state.selectedRunId = runId;
-    openDrawer('正在加载运行审计记录...', runId);
+    openDrawer('正在加载运行审计记录...', '运行审计');
 
     try {
       const run = await callBridge('runs.get', { id: runId });
       if (!run) throw new Error('未找到该运行记录');
 
-      setDrawerTitle(run.title || '运行详情', run.id);
+      setDrawerTitle(run.title || '运行详情', run.id ? `运行 · ${run.id.substring(0, 8)}` : '运行审计');
       setDrawerCustomActions(`
         <button id="btn-drawer-replay" class="btn btn-secondary btn-sm">重放运行</button>
       `);
@@ -1077,20 +1738,20 @@
                     <span class="code-badge" style="margin-left: 6px;">${escapeHtml(step.tool || '')}</span>
                   </div>
                   <div style="display: flex; align-items: center; gap: 6px;">
-                    ${step.durationMs ? `<span style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(String(step.durationMs))}ms</span>` : ''}
+                    ${step.durationMs ? `<span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(String(step.durationMs))}ms</span>` : ''}
                     ${getRunStateBadge(step.state)}
                   </div>
                 </div>
                 ${step.output ? `
-                  <div class="code-view" style="max-height: 160px; font-size: 11px;">${escapeHtml(typeof step.output === 'string' ? step.output : JSON.stringify(step.output, null, 2))}</div>
-                ` : '<div style="font-size: 11px; color: var(--text-muted);">（无输出）</div>'}
+                  <div class="code-view" style="max-height: 160px; font-size: 12px;">${escapeHtml(typeof step.output === 'string' ? step.output : JSON.stringify(step.output, null, 2))}</div>
+                ` : '<div style="font-size: 12px; color: var(--text-muted);">（无输出）</div>'}
               </div>
             `).join('')}
           </div>
         </div>
       `;
     } catch (err) {
-      setDrawerTitle('加载失败', runId);
+      setDrawerTitle('加载失败', '错误');
       document.getElementById('drawer-content').innerHTML = `
         <div class="alert-banner alert-danger">无法加载运行详情：${escapeHtml(err.message)}</div>
       `;
@@ -1246,8 +1907,8 @@
             </div>
           </div>
           <div>
-            <textarea class="form-textarea code-editor wf-step-args" data-idx="${idx}" style="min-height: 48px; font-size: 10px; padding: 4px 6px;" placeholder="${s.tool === 'agent.run' ? '请输入已安装的 CLI 可执行文件 (executable) 与参数 (args)...' : '参数 JSON'}">${escapeHtml(typeof s.arguments === 'object' ? JSON.stringify(s.arguments, null, 2) : s.arguments || '{}')}</textarea>
-            ${s.tool === 'agent.run' ? '<div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">提示：须填写真实已安装的 CLI 可执行文件 (executable) 与参数数组 (args)。</div>' : ''}
+            <textarea class="form-textarea code-editor wf-step-args" data-idx="${idx}" style="min-height: 56px; font-size: 12px; padding: 6px 8px;" placeholder="${s.tool === 'agent.run' ? '请输入已安装的 CLI 可执行文件 (executable) 与参数 (args)...' : '参数 JSON'}">${escapeHtml(typeof s.arguments === 'object' ? JSON.stringify(s.arguments, null, 2) : s.arguments || '{}')}</textarea>
+            ${s.tool === 'agent.run' ? '<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">提示：须填写真实已安装的 CLI 可执行文件 (executable) 与参数数组 (args)。</div>' : ''}
           </div>
         </div>
       `).join('');
@@ -1407,12 +2068,12 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>Setup 项目配置与资产</h1>
+          <h1>配置与资产</h1>
           <p>工程规则、MCP 协议、环境规约、持久 Memory 与本地知识库</p>
         </div>
         <div class="page-actions">
-          <button id="btn-scan-setup" class="btn btn-secondary btn-sm">扫描配置 (Scan)</button>
-          <button id="btn-audit-setup" class="btn btn-secondary btn-sm">配置审计 (Audit)</button>
+          <button id="btn-scan-setup" class="btn btn-secondary btn-sm">扫描配置</button>
+          <button id="btn-audit-setup" class="btn btn-secondary btn-sm">配置审计</button>
         </div>
       </div>
 
@@ -1484,11 +2145,19 @@
 
   function renderArtifactsSection(target, typeName) {
     const artifacts = (state.dashboard && state.dashboard.artifacts) || [];
-    const filtered = artifacts.filter(a => (a.type || '').toLowerCase() === typeName.toLowerCase());
+    const filtered = artifacts.filter(a => {
+      const t = (a.type || '').toLowerCase();
+      if (typeName === 'rules') return t === 'instruction' || t === 'rule';
+      if (typeName === 'skills') return t === 'skill' || t === 'command';
+      if (typeName === 'hooks') return a.containsHooks === true || t === 'hook';
+      if (typeName === 'mcp') return t === 'mcp' || a.containsMCP === true;
+      if (typeName === 'configurations') return t === 'configuration';
+      return t === typeName.toLowerCase();
+    });
 
     target.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <span class="text-secondary" style="font-size: 12px;">共 ${filtered.length} 项 ${escapeHtml(typeName)} 资产 · 本地只读预览与定位</span>
+        <span class="text-secondary" style="font-size: 13px;">共 ${filtered.length} 项 ${escapeHtml(typeName)} 资产 · 本地只读预览与定位</span>
       </div>
 
       ${filtered.length === 0 ? `
@@ -1514,14 +2183,14 @@
                 <tr>
                   <td>
                     <strong>${escapeHtml(a.title || a.id)}</strong>
-                    <div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(a.path || '')}</div>
+                    <div style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(a.path || '')}</div>
                   </td>
                   <td>
                     <span class="code-badge">${escapeHtml(a.provider || 'generic')}</span>
-                    <span style="font-size: 11px; color: var(--text-secondary); margin-left: 4px;">${escapeHtml(a.scope || 'project')}</span>
+                    <span style="font-size: 12px; color: var(--text-secondary); margin-left: 4px;">${escapeHtml(a.scope || 'project')}</span>
                   </td>
                   <td><span class="font-mono">${escapeHtml(String(a.tokens || '-'))}</span></td>
-                  <td><span class="font-mono" style="font-size: 10px;">${a.hash ? escapeHtml(a.hash.substring(0, 10)) : '-'}</span></td>
+                  <td><span class="font-mono" style="font-size: 12px;">${a.hash ? escapeHtml(a.hash.substring(0, 10)) : '-'}</span></td>
                   <td>
                     ${a.diagnostics && a.diagnostics.length > 0
                       ? `<span class="status-badge status-amber">${a.diagnostics.length} 项警告</span>`
@@ -1548,13 +2217,13 @@
           document.getElementById('drawer-content').innerHTML = `
             <div class="card">
               <div class="card-header"><span class="card-title">基本信息</span></div>
-              <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+              <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                 <div><span class="text-secondary">类型:</span> ${escapeHtml(art.type)}</div>
                 <div><span class="text-secondary">Provider:</span> ${escapeHtml(art.provider)}</div>
                 <div><span class="text-secondary">Token 估算:</span> ${escapeHtml(String(art.tokens || '-'))}</div>
                 <div><span class="text-secondary">Hash:</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
               </div>
-              <div style="margin-top: 8px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">路径: ${escapeHtml(art.path || '-')}</div>
+              <div style="margin-top: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">路径: ${escapeHtml(art.path || '-')}</div>
             </div>
             <div>
               <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">只读内容预览</h3>
@@ -1579,6 +2248,10 @@
 
   // --- Real Guidelines Management (guidelines.list, guidelines.save) ---
   async function renderGuidelinesSection(target) {
+    const thisGen = renderGeneration;
+    const thisPage = state.currentPage;
+    const thisScope = state.currentProject;
+
     target.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
         <span class="text-secondary" style="font-size: 12px;">已维护 Guidelines 指南规约 · 支持按项目或全局定义</span>
@@ -1593,6 +2266,7 @@
 
     try {
       const guidelines = await callBridge('guidelines.list', state.currentProject ? { project: state.currentProject } : {});
+      if (thisGen !== renderGeneration || state.currentPage !== thisPage || state.currentProject !== thisScope || !document.contains(target)) return;
       const list = Array.isArray(guidelines) ? guidelines : [];
       const cont = document.getElementById('guidelines-list-container');
       if (!cont) return;
@@ -1601,7 +2275,7 @@
         cont.innerHTML = `
           <div class="empty-state">
             <div class="empty-state-title">未配置 Guidelines 指南</div>
-            <div class="empty-state-desc">为项目建立编码与架构指南。记录静态源快照（mode: snapshot_only_not_injected），未注入智能体执行上下文。</div>
+            <div class="empty-state-desc">为项目建立编码与架构指南。保留静态源快照归档，不直接修改工程代码。</div>
             <button id="btn-empty-add-gl" class="btn btn-primary btn-sm" style="margin-top: 12px;">+ 创建指南</button>
           </div>
         `;
@@ -1654,12 +2328,12 @@
                 <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
                   <div><span class="text-secondary">作用域:</span> ${escapeHtml(g.scope || 'project')}</div>
                   <div><span class="text-secondary">项目:</span> ${escapeHtml(g.project || '全局')}</div>
-                  <div><span class="text-secondary">生效模式:</span> <span class="font-mono">snapshot_only_not_injected</span></div>
-                  <div><span class="text-secondary">运行时影响:</span> 静态快照 · 未注入智能体执行上下文</div>
+                  <div><span class="text-secondary">生效模式:</span> 静态快照（未注入上下文）</div>
+                  <div><span class="text-secondary">运行时影响:</span> 仅本地归档，不改变外部智能体运行时</div>
                 </div>
               </div>
               <div>
-                <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">源快照内容 (Source Snapshot)</h3>
+                <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">指南快照内容</h3>
                 <div class="code-view">${escapeHtml(g.content || '')}</div>
               </div>
             `;
@@ -1676,9 +2350,13 @@
       });
 
     } catch (err) {
-      document.getElementById('guidelines-list-container').innerHTML = `
-        <div class="alert-banner alert-danger">加载 Guidelines 失败: ${escapeHtml(err.message)}</div>
-      `;
+      if (thisGen !== renderGeneration || state.currentPage !== thisPage || state.currentProject !== thisScope || !document.contains(target)) return;
+      const cont = document.getElementById('guidelines-list-container');
+      if (cont) {
+        cont.innerHTML = `
+          <div class="alert-banner alert-danger">加载 Guidelines 失败: ${escapeHtml(err.message)}</div>
+        `;
+      }
     }
   }
 
@@ -1693,8 +2371,8 @@
         <div class="form-group">
           <label class="form-label">作用域 (Scope)</label>
           <select id="gl-scope" class="form-select">
-            <option value="project" ${(initial && initial.scope === 'project') ? 'selected' : ''}>project (指定项目)</option>
-            <option value="global" ${(initial && initial.scope === 'global') ? 'selected' : ''}>global (全局通用)</option>
+            <option value="project" ${(initial && initial.scope === 'project') ? 'selected' : ''}>项目作用域</option>
+            <option value="global" ${(initial && initial.scope === 'global') ? 'selected' : ''}>全局作用域</option>
           </select>
         </div>
         <div class="form-group">
@@ -1788,9 +2466,9 @@
                     <div style="font-size: 11px; color: var(--text-secondary); max-width: 260px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHtml(m.content || '')}</div>
                   </td>
                   <td><span class="code-badge">${escapeHtml(m.scope || 'project')}</span></td>
-                  <td><span style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(m.type || 'fact')}</span></td>
+                  <td><span style="font-size: 12px; color: var(--text-secondary);">${escapeHtml(m.type || 'fact')}</span></td>
                   <td>${getMemoryStateBadge(st)}</td>
-                  <td style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">${provenance}</td>
+                  <td style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">${provenance}</td>
                   <td style="text-align: right;">
                     ${st === 'candidate' ? `<button class="btn btn-secondary btn-sm btn-mem-activate" data-id="${escapeHtml(m.id)}">激活</button>` : ''}
                     ${st === 'active' ? `<button class="btn btn-ghost btn-sm btn-mem-supersede" data-id="${escapeHtml(m.id)}" title="被其它条目替代">替代</button>` : ''}
@@ -1889,13 +2567,13 @@
     const s = (stateStr || '').toLowerCase();
     switch (s) {
       case 'active':
-        return '<span class="status-badge status-sage">Active (生效中)</span>';
+        return '<span class="status-badge status-sage">生效中</span>';
       case 'candidate':
-        return '<span class="status-badge status-amber">Candidate (待审)</span>';
+        return '<span class="status-badge status-amber">待审候选</span>';
       case 'superseded':
-        return '<span class="status-badge status-neutral">Superseded (已替代)</span>';
+        return '<span class="status-badge status-neutral">已替代</span>';
       case 'archived':
-        return '<span class="status-badge status-neutral">Archived (已归档)</span>';
+        return '<span class="status-badge status-neutral">已归档</span>';
       default:
         return `<span class="status-badge status-neutral">${escapeHtml(stateStr || '未知')}</span>`;
     }
@@ -1922,13 +2600,13 @@
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
-          <label class="form-label">类型 (Type)</label>
+          <label class="form-label">类型</label>
           <select id="mem-type" class="form-select">
             ${validTypes.map(t => `<option value="${t}" ${((initial.type || 'fact').toLowerCase() === t) ? 'selected' : ''}>${t}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">作用域 (Scope)</label>
+          <label class="form-label">作用域</label>
           <select id="mem-scope" class="form-select">
             ${validScopes.map(s => `<option value="${s}" ${((initial.scope || 'project').toLowerCase() === s) ? 'selected' : ''}>${s}</option>`).join('')}
           </select>
@@ -1936,21 +2614,21 @@
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
-          <label class="form-label">项目 (Project)</label>
+          <label class="form-label">关联项目</label>
           <select id="mem-project" class="form-select">
-            <option value="">(全局 Global)</option>
+            <option value="">(全局通用)</option>
             ${state.registeredProjects.map(p => `
               <option value="${escapeHtml(p.path || p.id)}" ${(initial.project === (p.path || p.id)) ? 'selected' : ''}>${escapeHtml(p.title || p.path)}</option>
             `).join('')}
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">状态 (State)</label>
+          <label class="form-label">状态</label>
           <select id="mem-state" class="form-select" ${isEdit ? 'disabled' : ''}>
-            <option value="candidate" ${(initial.state || 'candidate').toLowerCase() === 'candidate' ? 'selected' : ''}>candidate (候选)</option>
-            <option value="active" ${(initial.state || '').toLowerCase() === 'active' ? 'selected' : ''}>active (生效中)</option>
-            <option value="superseded" ${(initial.state || '').toLowerCase() === 'superseded' ? 'selected' : ''}>superseded (已替代)</option>
-            <option value="archived" ${(initial.state || '').toLowerCase() === 'archived' ? 'selected' : ''}>archived (已归档)</option>
+            <option value="candidate" ${(initial.state || 'candidate').toLowerCase() === 'candidate' ? 'selected' : ''}>待审候选</option>
+            <option value="active" ${(initial.state || '').toLowerCase() === 'active' ? 'selected' : ''}>生效中</option>
+            <option value="superseded" ${(initial.state || '').toLowerCase() === 'superseded' ? 'selected' : ''}>已替代</option>
+            <option value="archived" ${(initial.state || '').toLowerCase() === 'archived' ? 'selected' : ''}>已归档</option>
           </select>
           ${isEdit ? '<div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">编辑已存记录不可直接修改生命周期状态。请在列表中使用「设为生效 / 替代 / 归档」按钮进行状态流转。</div>' : ''}
         </div>
@@ -2155,24 +2833,24 @@
           </select>
         </div>
       </div>
-      <details style="margin-top: 8px; margin-bottom: 8px; font-size: 11px; color: var(--text-secondary);">
+      <details style="margin-top: 8px; margin-bottom: 8px; font-size: 12px; color: var(--text-secondary);">
         <summary style="cursor: pointer; user-select: none; font-weight: 500;">高级上下文参数 (可选：Branch, Worktree, Task, SessionId)</summary>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-size: 10px;">Branch 分支</label>
-            <input type="text" id="recall-branch" class="form-input" style="font-size: 11px;" placeholder="例如：main, feature/v2">
+            <label class="form-label" style="font-size: 12px;">Branch 分支</label>
+            <input type="text" id="recall-branch" class="form-input" style="font-size: 12px;" placeholder="例如：main, feature/v2">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-size: 10px;">Worktree 路径</label>
-            <input type="text" id="recall-worktree" class="form-input" style="font-size: 11px;" placeholder="例如：/path/to/worktree">
+            <label class="form-label" style="font-size: 12px;">Worktree 路径</label>
+            <input type="text" id="recall-worktree" class="form-input" style="font-size: 12px;" placeholder="例如：/path/to/worktree">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-size: 10px;">Task 任务标识</label>
-            <input type="text" id="recall-task" class="form-input" style="font-size: 11px;" placeholder="例如：task-123">
+            <label class="form-label" style="font-size: 12px;">Task 任务标识</label>
+            <input type="text" id="recall-task" class="form-input" style="font-size: 12px;" placeholder="例如：task-123">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-size: 10px;">Session ID 会话标识</label>
-            <input type="text" id="recall-session-id" class="form-input" style="font-size: 11px;" placeholder="例如：sess-uuid">
+            <label class="form-label" style="font-size: 12px;">Session ID 会话标识</label>
+            <input type="text" id="recall-session-id" class="form-input" style="font-size: 12px;" placeholder="例如：sess-uuid">
           </div>
         </div>
       </details>
@@ -2427,9 +3105,117 @@
     });
   }
 
-  function renderMcpSection(target) {
+  async function renderMcpSection(target) {
+    const thisGen = renderGeneration;
+    const thisPage = state.currentPage;
+    const thisScope = state.currentProject;
+
+    let mcpArtifacts = ((state.dashboard && state.dashboard.artifacts) || []).filter(a => {
+      const t = (a.type || '').toLowerCase();
+      return t === 'mcp' || a.containsMCP === true;
+    });
+
+    function renderMcpArtifactsTable(artifacts) {
+      const container = document.getElementById('mcp-artifacts-container');
+      const countSpan = document.getElementById('mcp-scanned-count');
+      if (!container) return;
+      if (countSpan) countSpan.textContent = `共 ${artifacts.length} 项 MCP 配置`;
+
+      if (artifacts.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="padding: 24px 0;">
+            <div class="empty-state-title">未检测到 MCP 配置文件</div>
+            <div class="empty-state-desc">在当前项目根目录（如 .mcp.json、.cursor/mcp.json）或全局配置中放置 MCP 配置文件，Vela 会自动扫描并展示。</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>标题 / 标识</th>
+                <th>Provider / 作用域</th>
+                <th>估算 Tokens</th>
+                <th>哈希 (SHA256)</th>
+                <th>诊断</th>
+                <th style="text-align: right; width: 140px;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${artifacts.map(a => `
+                <tr>
+                  <td>
+                    <strong>${escapeHtml(a.title || a.id)}</strong>
+                    <div style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(a.path || '')}</div>
+                  </td>
+                  <td>
+                    <span class="code-badge">${escapeHtml(a.provider || 'generic')}</span>
+                    <span style="font-size: 12px; color: var(--text-secondary); margin-left: 4px;">${escapeHtml(a.scope || 'project')}</span>
+                  </td>
+                  <td><span class="font-mono">${escapeHtml(String(a.tokens || '-'))}</span></td>
+                  <td><span class="font-mono" style="font-size: 12px;">${a.hash ? escapeHtml(a.hash.substring(0, 10)) : '-'}</span></td>
+                  <td>
+                    ${a.diagnostics && a.diagnostics.length > 0
+                      ? `<span class="status-badge status-amber">${a.diagnostics.length} 项警告</span>`
+                      : '<span class="status-badge status-sage">✓ 正常</span>'}
+                  </td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-secondary btn-sm btn-preview-artifact" data-id="${escapeHtml(a.id)}">预览</button>
+                    ${a.path ? `<button class="btn btn-ghost btn-sm btn-reveal-path" data-path="${escapeHtml(a.path)}">定位</button>` : ''}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      container.querySelectorAll('.btn-preview-artifact').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const art = artifacts.find(a => a.id === id);
+          if (art) {
+            openDrawer(art.title || 'MCP 配置详情', art.path);
+            const drawerContent = document.getElementById('drawer-content');
+            if (drawerContent) {
+              drawerContent.innerHTML = `
+                <div class="card">
+                  <div class="card-header"><span class="card-title">基本信息</span></div>
+                  <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div><span class="text-secondary">类型:</span> ${escapeHtml(art.type || 'mcp')}</div>
+                    <div><span class="text-secondary">Provider:</span> ${escapeHtml(art.provider || '-')}</div>
+                    <div><span class="text-secondary">Token 估算:</span> ${escapeHtml(String(art.tokens || '-'))}</div>
+                    <div><span class="text-secondary">Hash:</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
+                  </div>
+                  <div style="margin-top: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">路径: ${escapeHtml(art.path || '-')}</div>
+                </div>
+                <div>
+                  <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">只读内容预览</h3>
+                  <div class="code-view">${escapeHtml(art.content || '(无内容)')}</div>
+                </div>
+              `;
+            }
+          }
+        });
+      });
+
+      container.querySelectorAll('.btn-reveal-path').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const path = btn.getAttribute('data-path');
+          try {
+            await callBridge('system.reveal', { path });
+          } catch (e) {
+            showToast('定位失败: ' + e.message, 'error');
+          }
+        });
+      });
+    }
+
     target.innerHTML = `
-      <div class="card">
+      <div class="card" style="margin-bottom: 20px;">
         <div class="card-header">
           <span class="card-title">Vela MCP 本地服务 (Model Context Protocol)</span>
           <span class="status-badge status-sage">stdio 支持</span>
@@ -2454,17 +3240,53 @@
   }
 }</div>
       </div>
+
+      <div class="section-title-group" style="margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <h3 style="font-size: 13px; font-weight: 600; margin: 0;">已扫描的 MCP 配置文件</h3>
+          <span id="mcp-scanned-count" class="text-secondary" style="font-size: 12px;">共 ${mcpArtifacts.length} 项 MCP 配置</span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+          项目或全局环境中的 MCP 配置文件 (.mcp.json, .cursor/mcp.json) · 本地只读预览与定位
+        </p>
+      </div>
+
+      <div id="mcp-artifacts-container"></div>
     `;
+
+    renderMcpArtifactsTable(mcpArtifacts);
+
+    try {
+      const res = await callBridge('setup.list', state.currentProject ? { project: state.currentProject } : {});
+      if (thisGen !== renderGeneration || state.currentPage !== thisPage || state.currentProject !== thisScope || !document.contains(target)) return;
+      if (Array.isArray(res)) {
+        const fetchedMcp = res.filter(a => {
+          const t = (a.type || '').toLowerCase();
+          return t === 'mcp' || a.containsMCP === true;
+        });
+        const mergedMap = new Map();
+        mcpArtifacts.forEach(a => mergedMap.set(a.id || a.path, a));
+        fetchedMcp.forEach(a => mergedMap.set(a.id || a.path, a));
+        const mergedList = Array.from(mergedMap.values());
+        renderMcpArtifactsTable(mergedList);
+      }
+    } catch (e) {
+      // Keep existing rendered dashboard artifacts silently
+    }
   }
 
   // -------------------------------------------------------------------------
   // 4. USAGE VIEW
   // -------------------------------------------------------------------------
   async function renderUsageView(container) {
+    const thisGen = renderGeneration;
+    const thisPage = state.currentPage;
+    const thisScope = state.currentProject;
+
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>Usage 用量追踪</h1>
+          <h1>用量追踪</h1>
           <p>本地会话日志观察到的 Token 消耗与模型调用分布 · 100% 本地分析</p>
         </div>
       </div>
@@ -2475,7 +3297,7 @@
 
       <div class="stat-grid" id="usage-stat-grid">
         <div class="stat-card">
-          <div class="stat-label">总观察 Token (Observed)</div>
+          <div class="stat-label">总观察 Token</div>
           <div class="stat-value" id="usage-total-tokens">-</div>
           <div class="stat-sub">Input + Output</div>
         </div>
@@ -2504,7 +3326,7 @@
                 <th>输出 Tokens</th>
                 <th>总 Tokens</th>
                 <th>会话数</th>
-                <th>云端额度状态 (Quota)</th>
+                <th>云端额度状态</th>
               </tr>
             </thead>
             <tbody id="usage-provider-tbody"></tbody>
@@ -2522,9 +3344,11 @@
 
     try {
       const usage = await callBridge('usage.get', state.currentProject ? { project: state.currentProject } : {});
+      if (thisGen !== renderGeneration || state.currentPage !== thisPage || state.currentProject !== thisScope || !document.contains(container)) return;
+
       if (usage) {
-        document.getElementById('usage-total-tokens').textContent = formatNumber(usage.totalTokens || 0);
-        document.getElementById('usage-total-sessions').textContent = formatNumber(usage.sessionCount || 0);
+        document.getElementById('usage-total-tokens').textContent = (usage.totalTokens != null) ? formatNumber(usage.totalTokens) : '未提供';
+        document.getElementById('usage-total-sessions').textContent = (usage.sessionCount != null) ? formatNumber(usage.sessionCount) : '未提供';
 
         const providers = usage.providers || [];
         document.getElementById('usage-provider-count').textContent = providers.length;
@@ -2536,12 +3360,12 @@
           tbody.innerHTML = providers.map(p => `
             <tr>
               <td><strong>${escapeHtml(p.provider)}</strong></td>
-              <td class="font-mono">${formatNumber(p.inputTokens || 0)}</td>
-              <td class="font-mono">${formatNumber(p.outputTokens || 0)}</td>
-              <td class="font-mono"><strong>${formatNumber(p.totalTokens || 0)}</strong></td>
-              <td>${formatNumber(p.sessionCount || 0)}</td>
+              <td class="font-mono">${(p.inputTokens != null) ? formatNumber(p.inputTokens) : '未提供'}</td>
+              <td class="font-mono">${(p.outputTokens != null) ? formatNumber(p.outputTokens) : '未提供'}</td>
+              <td class="font-mono"><strong>${(p.totalTokens != null) ? formatNumber(p.totalTokens) : '未提供'}</strong></td>
+              <td>${(p.sessionCount != null) ? formatNumber(p.sessionCount) : '未提供'}</td>
               <td>
-                <span class="status-badge status-neutral">${p.quotaAvailable ? escapeHtml(p.quota) : '额度未提供'}</span>
+                <span class="status-badge status-neutral">${p.quotaAvailable ? escapeHtml(p.quota) : '未提供'}</span>
               </td>
             </tr>
           `).join('');
@@ -2569,9 +3393,13 @@
         }
       }
     } catch (err) {
-      document.getElementById('usage-stat-grid').innerHTML = `
-        <div class="alert-banner alert-danger">无法加载用量数据：${escapeHtml(err.message)}</div>
-      `;
+      if (thisGen !== renderGeneration || state.currentPage !== thisPage || state.currentProject !== thisScope || !document.contains(container)) return;
+      const grid = document.getElementById('usage-stat-grid');
+      if (grid) {
+        grid.innerHTML = `
+          <div class="alert-banner alert-danger">无法加载用量数据：${escapeHtml(err.message)}</div>
+        `;
+      }
     }
   }
 
@@ -2584,11 +3412,11 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>Improve 调优建议</h1>
-          <p>从反复出现的会话模式中提炼确定性改进方案 · 严格证据阈值与原子回滚</p>
+          <h1>调优建议</h1>
+          <p>从反复出现的会话模式中提炼改进方案 · 严格证据阈值与原子回滚</p>
         </div>
         <div class="page-actions">
-          <button id="btn-run-analysis" class="btn btn-primary btn-sm">分析工程证据 (Analyze)</button>
+          <button id="btn-run-analysis" class="btn btn-primary btn-sm">分析工程证据</button>
         </div>
       </div>
 
@@ -2698,13 +3526,13 @@
 
   async function openImprovePreviewDrawer(suggestionId) {
     state.selectedSuggestionId = suggestionId;
-    openDrawer('加载 Diff 详情...', suggestionId);
+    openDrawer('加载 Diff 详情...', '调优建议');
 
     try {
       const previewObj = await callBridge('improve.preview', { id: suggestionId });
       if (!previewObj) throw new Error('未获取到预览数据');
 
-      setDrawerTitle(previewObj.title || '建议详情', suggestionId);
+      setDrawerTitle(previewObj.title || '建议详情', suggestionId ? `建议 · ${suggestionId.substring(0, 8)}` : '调优建议');
       const isApplied = (previewObj.state || '').toLowerCase() === 'applied';
 
       setDrawerCustomActions(`
@@ -2778,7 +3606,7 @@
         ` : ''}
       `;
     } catch (err) {
-      setDrawerTitle('加载失败', suggestionId);
+      setDrawerTitle('加载失败', '错误');
       document.getElementById('drawer-content').innerHTML = `
         <div class="alert-banner alert-danger">无法加载预览：${escapeHtml(err.message)}</div>
       `;
@@ -2851,8 +3679,8 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>Lab 对照实验</h1>
-          <p>确定性命令对照评测 (deterministic_command) · 独立 Git Worktree 运行 · 真实退出状态与耗时</p>
+          <h1>对照实验</h1>
+          <p>确定性命令对照评测 · 独立 Git Worktree 运行 · 真实退出状态与耗时</p>
         </div>
         <div class="page-actions">
           <button id="btn-new-lab" class="btn btn-primary btn-sm">+ 新建对照实验</button>
@@ -2861,7 +3689,7 @@
 
       <div class="tabs-nav">
         <button class="tab-btn ${state.labActiveTab === 'evals' ? 'active' : ''}" data-labtab="evals">实验列表 (${evals.length})</button>
-        <button class="tab-btn ${state.labActiveTab === 'regression' ? 'active' : ''}" data-labtab="regression">回归分析 (Regression)</button>
+        <button class="tab-btn ${state.labActiveTab === 'regression' ? 'active' : ''}" data-labtab="regression">回归分析</button>
       </div>
 
       <div id="lab-tab-content"></div>
@@ -2958,10 +3786,15 @@
   }
 
   async function renderLabRegressionSection(target) {
+    const thisGen = renderGeneration;
+    const thisPage = state.currentPage;
+    const thisScope = state.currentProject;
+
     target.innerHTML = `<div class="text-secondary" style="font-size: 12px; padding: 20px 0;">加载回归分析数据...</div>`;
 
     try {
       const reg = await callBridge('regression.list', state.currentProject ? { project: state.currentProject } : {});
+      if (thisGen !== renderGeneration || state.currentPage !== thisPage || state.currentProject !== thisScope || !document.contains(target)) return;
       const comparisons = (reg && reg.workflowComparisons) || [];
       const evaluations = (reg && reg.evaluations) || [];
 
@@ -3073,6 +3906,7 @@
         });
       });
     } catch (err) {
+      if (thisGen !== renderGeneration || state.currentPage !== thisPage || state.currentProject !== thisScope || !document.contains(target)) return;
       target.innerHTML = `<div class="alert-banner alert-danger">无法获取回归分析数据: ${escapeHtml(err.message)}</div>`;
     }
   }
@@ -3230,13 +4064,13 @@
 
   async function openLabCompareDrawer(evalId) {
     state.selectedEvalId = evalId;
-    openDrawer('加载对照评测详情...', evalId);
+    openDrawer('加载对照评测详情...', '对照实验');
 
     try {
       const cmp = await callBridge('lab.compare', { id: evalId });
       if (!cmp) throw new Error('未获取到评测对照数据');
 
-      setDrawerTitle(cmp.title || '实验对照结果', evalId);
+      setDrawerTitle(cmp.title || '实验对照结果', evalId ? `实验 · ${evalId.substring(0, 8)}` : '对照实验');
       const isPending = ((cmp.state || '').toLowerCase() === 'pending_approval');
       const results = cmp.results || [];
       const baselineRuns = results.filter(r => r.variant === 'baseline');
@@ -3273,14 +4107,14 @@
                   ${summary.baseline ? `Pass: ${(summary.baseline.passRate * 100).toFixed(0)}%` : '-'}
                 </span>
               </div>
-              <div style="font-size: 11px; margin-bottom: 6px;">
+              <div style="font-size: 12px; margin-bottom: 8px;">
                 平均耗时: <strong>${summary.baseline ? Math.round(summary.baseline.averageDurationMs || 0) + 'ms' : '-'}</strong>
               </div>
-              <div style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto;">
+              <div style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
                 ${baselineRuns.map((r, i) => `
-                  <div style="background: var(--bg-subtle); padding: 6px; border-radius: 4px; font-size: 10px;">
+                  <div style="background: var(--bg-subtle); padding: 8px; border-radius: 4px; font-size: 12px;">
                     <div><strong>第 ${i + 1} 次</strong> · Exit: ${escapeHtml(String(r.exitCode))} · ${r.durationMs || 0}ms ${r.timedOut ? '(超时)' : ''}</div>
-                    <div class="code-view" style="font-size: 10px; margin-top: 4px; max-height: 80px;">${escapeHtml(r.output || '(无输出)')}</div>
+                    <div class="code-view" style="font-size: 12px; margin-top: 4px; max-height: 80px;">${escapeHtml(r.output || '(无输出)')}</div>
                   </div>
                 `).join('')}
               </div>
@@ -3293,14 +4127,14 @@
                   ${summary.candidate ? `Pass: ${(summary.candidate.passRate * 100).toFixed(0)}%` : '-'}
                 </span>
               </div>
-              <div style="font-size: 11px; margin-bottom: 6px;">
+              <div style="font-size: 12px; margin-bottom: 8px;">
                 平均耗时: <strong>${summary.candidate ? Math.round(summary.candidate.averageDurationMs || 0) + 'ms' : '-'}</strong>
               </div>
-              <div style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto;">
+              <div style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
                 ${candidateRuns.map((r, i) => `
-                  <div style="background: var(--bg-subtle); padding: 6px; border-radius: 4px; font-size: 10px;">
+                  <div style="background: var(--bg-subtle); padding: 8px; border-radius: 4px; font-size: 12px;">
                     <div><strong>第 ${i + 1} 次</strong> · Exit: ${escapeHtml(String(r.exitCode))} · ${r.durationMs || 0}ms ${r.timedOut ? '(超时)' : ''}</div>
-                    <div class="code-view" style="font-size: 10px; margin-top: 4px; max-height: 80px;">${escapeHtml(r.output || '(无输出)')}</div>
+                    <div class="code-view" style="font-size: 12px; margin-top: 4px; max-height: 80px;">${escapeHtml(r.output || '(无输出)')}</div>
                   </div>
                 `).join('')}
               </div>
@@ -3310,7 +4144,7 @@
           ${(summary.runtimeDeltaMs !== undefined || summary.successDelta !== undefined) ? `
             <div class="card" style="margin-top: 10px;">
               <div class="card-header"><span class="card-title">对照结论统计 (Summary Deltas)</span></div>
-              <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                 <div>耗时差异: <strong>${summary.runtimeDeltaMs !== undefined ? escapeHtml(String(summary.runtimeDeltaMs)) + 'ms' : '-'}</strong></div>
                 <div>成功率变化: <strong>${summary.successDelta !== undefined ? escapeHtml(String(summary.successDelta)) : '-'}</strong></div>
               </div>
@@ -3319,7 +4153,7 @@
         `}
       `;
     } catch (err) {
-      setDrawerTitle('加载失败', evalId);
+      setDrawerTitle('加载失败', '错误');
       document.getElementById('drawer-content').innerHTML = `
         <div class="alert-banner alert-danger">无法加载对比数据：${escapeHtml(err.message)}</div>
       `;
@@ -3336,11 +4170,116 @@
       return st === 'pending' || st === 'pending approval' || st === '';
     });
 
+    function parseApprovalArgs(rawArgs) {
+      if (rawArgs && typeof rawArgs === 'object') return rawArgs;
+      if (typeof rawArgs === 'string') {
+        try {
+          return JSON.parse(rawArgs);
+        } catch {
+          return {};
+        }
+      }
+      return {};
+    }
+
+    function formatRelativePath(fullPath, basePath) {
+      if (typeof fullPath !== 'string' || !fullPath) return null;
+      if (typeof basePath === 'string' && basePath) {
+        if (fullPath === basePath) return './';
+        const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/';
+        if (fullPath.startsWith(normalizedBase)) {
+          return fullPath.slice(normalizedBase.length) || './';
+        }
+      }
+      return fullPath;
+    }
+
+    function getApprovalSummary(appr) {
+      const args = parseApprovalArgs(appr.arguments);
+      const projectPath = (typeof appr.project === 'string') ? appr.project : '';
+      const projectBasename = projectPath ? (projectPath.split('/').filter(Boolean).pop() || projectPath) : '全局';
+
+      let targetDisplay = null;
+      let commandDisplay = null;
+      let previewText = null;
+
+      const rawTargetCandidates = [args.path, args.targetFile, args.file, args.target, args.filePath];
+      const rawTarget = rawTargetCandidates.find(t => typeof t === 'string' && t.trim().length > 0) || null;
+      if (rawTarget) {
+        targetDisplay = formatRelativePath(rawTarget, projectPath);
+      }
+
+      let executable = null;
+      let rawArgv = null;
+
+      // 1. Lab schema: args.command is an array where first element is executable and rest are argv
+      if (Array.isArray(args.command) && args.command.length > 0) {
+        executable = (typeof args.command[0] === 'string') ? args.command[0] : String(args.command[0]);
+        rawArgv = args.command.slice(1);
+      }
+      // 2. Automation workflow schema: args.executable is a string, args.args is [String]
+      else if (typeof args.executable === 'string') {
+        executable = args.executable;
+        rawArgv = Array.isArray(args.args) ? args.args :
+                  (Array.isArray(args.arguments) ? args.arguments :
+                  (Array.isArray(args.argv) ? args.argv : null));
+      }
+      // 3. Fallback schemas: command / cmd / CommandLine as string
+      else {
+        const rawCmd = (typeof args.command === 'string') ? args.command :
+                       (typeof args.cmd === 'string') ? args.cmd :
+                       (typeof args.CommandLine === 'string') ? args.CommandLine : null;
+        if (rawCmd !== null) {
+          executable = rawCmd;
+        }
+        rawArgv = Array.isArray(args.args) ? args.args :
+                  (Array.isArray(args.arguments) ? args.arguments :
+                  (Array.isArray(args.argv) ? args.argv : null));
+      }
+
+      if (executable !== null && executable !== undefined) {
+        if (rawArgv && rawArgv.length > 0) {
+          commandDisplay = `${executable}  [argv: ${JSON.stringify(rawArgv)}]`;
+        } else {
+          commandDisplay = executable;
+        }
+      } else if (rawArgv && rawArgv.length > 0) {
+        commandDisplay = `[argv: ${JSON.stringify(rawArgv)}]`;
+      }
+
+      const rawContent = (typeof args.content === 'string') ? args.content :
+                         (typeof args.CodeContent === 'string') ? args.CodeContent :
+                         (typeof args.patch === 'string') ? args.patch : null;
+      if (rawContent && rawContent.trim()) {
+        const lines = rawContent.trim().split('\n').slice(0, 3);
+        let preview = lines.join('\n');
+        if (preview.length > 180) {
+          preview = preview.slice(0, 180) + '...';
+        } else if (rawContent.trim().split('\n').length > 3) {
+          preview += '\n...';
+        }
+        previewText = preview;
+      }
+
+      const frozenTool = (typeof appr.tool === 'string' && appr.tool.trim()) ? appr.tool.trim() : '操作';
+      const isFileOp = frozenTool.toLowerCase().includes('file') || frozenTool.toLowerCase().includes('write') || frozenTool.toLowerCase().includes('edit');
+
+      return {
+        projectBasename,
+        projectPath,
+        targetDisplay,
+        commandDisplay,
+        previewText,
+        isFileOp,
+        toolName: frozenTool
+      };
+    }
+
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>Inbox 待执行操作与审批</h1>
-          <p>所有写操作、脚本执行与对照实验的安全审查门禁 · 参数完全冻结，只运行审批快照</p>
+          <h1>待办审批</h1>
+          <p>写操作、脚本执行与对照实验的安全审查门禁 · 参数完全冻结，仅运行审批快照</p>
         </div>
       </div>
 
@@ -3350,39 +4289,73 @@
           <div class="empty-state-desc">当工作流包含测试/写入步骤，或创建 Lab 实验时，待办审批将在此出现。审批通过前命令不会被执行。</div>
         </div>
       ` : `
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          ${pendingApprovals.map(appr => `
-            <div class="card" style="margin-bottom: 0;">
-              <div class="card-header">
-                <div>
-                  <strong style="font-size: 14px;">${escapeHtml(appr.title || '操作执行申请')}</strong>
-                  <span class="code-badge" style="margin-left: 6px;">${escapeHtml(appr.tool || 'command')}</span>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          ${pendingApprovals.map(appr => {
+            const summary = getApprovalSummary(appr);
+            return `
+              <div class="card" style="margin-bottom: 0; padding: 16px 18px;">
+                <div class="card-header" style="margin-bottom: 8px;">
+                  <div>
+                    <strong style="font-size: 14px;">${escapeHtml(appr.title || '操作执行申请')}</strong>
+                    <span class="code-badge" style="margin-left: 6px;">${escapeHtml(summary.toolName)}</span>
+                  </div>
+                  <span class="status-badge status-amber">待审批</span>
                 </div>
-                <span class="status-badge status-amber">待审批</span>
-              </div>
 
-              <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">
-                项目: <span class="font-mono">${escapeHtml(appr.project || '-')}</span> ·
-                快照哈希: <span class="font-mono" style="font-size: 10px;">${appr.snapshotHash ? escapeHtml(appr.snapshotHash.substring(0, 12)) : '-'}</span>
-              </div>
+                ${appr.intent || appr.description ? `
+                  <div style="font-size: 13px; color: var(--text-main); margin-bottom: 10px; line-height: 1.5;">
+                    ${escapeHtml(appr.intent || appr.description)}
+                  </div>
+                ` : ''}
 
-              <div style="margin-bottom: 12px;">
-                <div style="font-size: 11px; font-weight: 600; margin-bottom: 4px;">冻结参数 (Frozen Arguments)</div>
-                <div class="code-view" style="font-size: 11px; max-height: 120px;">${escapeHtml(typeof appr.arguments === 'object' ? JSON.stringify(appr.arguments, null, 2) : appr.arguments || '{}')}</div>
-              </div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
+                  <div><strong>所属项目:</strong> <span class="font-mono" title="${escapeHtml(summary.projectPath)}">${escapeHtml(summary.projectBasename)}</span></div>
+                  ${summary.targetDisplay ? `
+                    <div><strong>目标文件:</strong> <code class="code-badge font-mono">${escapeHtml(summary.targetDisplay)}</code></div>
+                  ` : (summary.isFileOp ? `
+                    <div><strong>目标文件:</strong> <span class="text-muted">未提供具体路径</span></div>
+                  ` : '')}
+                  ${summary.commandDisplay ? `
+                    <div><strong>执行命令:</strong> <code class="code-badge font-mono">${escapeHtml(summary.commandDisplay)}</code></div>
+                  ` : ''}
+                </div>
 
-              <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                <button class="btn btn-secondary btn-sm btn-reject-appr" data-id="${escapeHtml(appr.id)}" data-hash="${escapeHtml(appr.snapshotHash || '')}">拒绝 (Reject)</button>
-                <button class="btn btn-primary btn-sm btn-approve-appr" data-id="${escapeHtml(appr.id)}" data-hash="${escapeHtml(appr.snapshotHash || '')}">批准并执行 (Approve)</button>
+                ${summary.previewText ? `
+                  <div style="margin-bottom: 10px;">
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 3px;">变更内容预览:</div>
+                    <pre class="code-view" style="font-size: 11px; padding: 6px 8px; max-height: 64px; overflow: hidden; margin: 0; white-space: pre-wrap; word-break: break-all;">${escapeHtml(summary.previewText)}</pre>
+                  </div>
+                ` : ''}
+
+                <details style="margin-bottom: 14px;">
+                  <summary style="font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-secondary); user-select: none;">
+                    查看冻结参数与快照哈希
+                  </summary>
+                  <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 6px;">
+                    ${summary.projectPath ? `项目完整路径: ${escapeHtml(summary.projectPath)}<br>` : ''}
+                    快照哈希: ${appr.snapshotHash ? escapeHtml(appr.snapshotHash) : '无'}
+                  </div>
+                  <div class="code-view" style="font-size: 12px; max-height: 160px; overflow-y: auto;">${escapeHtml(typeof appr.arguments === 'object' ? JSON.stringify(appr.arguments, null, 2) : appr.arguments || '{}')}</div>
+                </details>
+
+                <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                  <button class="btn btn-secondary btn-sm btn-reject-appr" data-id="${escapeHtml(appr.id)}" data-hash="${escapeHtml(appr.snapshotHash || '')}">拒绝</button>
+                  <button class="btn btn-primary btn-sm btn-approve-appr" data-id="${escapeHtml(appr.id)}" data-hash="${escapeHtml(appr.snapshotHash || '')}">批准执行</button>
+                </div>
               </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       `}
     `;
 
     container.querySelectorAll('.btn-approve-appr').forEach(btn => {
       btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const card = btn.closest('.card');
+        if (card) {
+          card.querySelectorAll('button').forEach(b => b.disabled = true);
+        }
         const id = btn.getAttribute('data-id');
         const snapshotHash = btn.getAttribute('data-hash');
         try {
@@ -3395,12 +4368,20 @@
           await refreshDashboard(true, true);
         } catch (err) {
           showToast('审批失败: ' + err.message, 'error');
+          if (card) {
+            card.querySelectorAll('button').forEach(b => b.disabled = false);
+          }
         }
       });
     });
 
     container.querySelectorAll('.btn-reject-appr').forEach(btn => {
       btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const card = btn.closest('.card');
+        if (card) {
+          card.querySelectorAll('button').forEach(b => b.disabled = true);
+        }
         const id = btn.getAttribute('data-id');
         const snapshotHash = btn.getAttribute('data-hash');
         try {
@@ -3413,6 +4394,9 @@
           await refreshDashboard(true, true);
         } catch (err) {
           showToast('操作失败: ' + err.message, 'error');
+          if (card) {
+            card.querySelectorAll('button').forEach(b => b.disabled = false);
+          }
         }
       });
     });
@@ -3422,11 +4406,16 @@
   // 8. SETTINGS VIEW
   // -------------------------------------------------------------------------
   async function renderSettingsView(container) {
+    const thisGen = renderGeneration;
+    const thisPage = state.currentPage;
+
     let settings = state.rawSettings || {};
     try {
       const s = await callBridge('settings.get');
       if (s) settings = s;
     } catch {}
+
+    if (thisGen !== renderGeneration || state.currentPage !== thisPage || !document.contains(container)) return;
 
     // Merge in-progress user draft so background polls or label clicks don't revert inputs
     if (state.settingsDraft) {
@@ -3436,58 +4425,111 @@
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
-          <h1>Settings 设置</h1>
+          <h1>设置</h1>
           <p>本地偏好设置 · 隐私声明 · 运行环境与存储路径</p>
         </div>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <span class="card-title">系统偏好</span>
+          <span class="card-title">系统通知</span>
+          ${(state.systemInfo && state.systemInfo.notificationsSupported === false) ? '<span class="status-badge status-neutral">仅 .app 支持</span>' : ''}
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
           <label class="form-checkbox-label">
             <input type="checkbox" id="setting-notifications" ${settings.notifications ? 'checked' : ''}>
             <div>
-              <strong>桌面系统通知 (Notifications)</strong>
-              ${(state.systemInfo && state.systemInfo.notificationsSupported === false) ? '<span class="status-badge status-neutral" style="margin-left: 6px; font-size: 10px;">仅 .app 支持</span>' : ''}
-              <div style="font-size: 11px; color: var(--text-secondary);">仅在重要待办或错误时通知。仅在勾选开启后请求 macOS 通知权限。默认关闭。</div>
+              <strong style="font-size: 13px;">桌面通知</strong>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">仅在开启后请求系统通知权限。通知由原生统一发布，默认关闭。</div>
             </div>
           </label>
 
+          <fieldset id="sub-notifications-group" ${settings.notifications ? '' : 'disabled'} style="border: none; margin: 0; padding: 0 0 0 24px; display: flex; flex-direction: column; gap: 10px; ${settings.notifications ? '' : 'opacity: 0.5;'}">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="setting-notif-sound" ${settings.notificationSound !== false ? 'checked' : ''}>
+              <div>
+                <span style="font-size: 13px;">播放提示音</span>
+                <div style="font-size: 12px; color: var(--text-secondary);">有新事件或通知时播放提示音</div>
+              </div>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="setting-notify-approvals" ${settings.notifyApprovals !== false ? 'checked' : ''}>
+              <div>
+                <span style="font-size: 13px;">审批提醒</span>
+                <div style="font-size: 12px; color: var(--text-secondary);">当工作流或会话请求写操作审批时通知</div>
+              </div>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="setting-notify-completed" ${settings.notifyCompleted !== false ? 'checked' : ''}>
+              <div>
+                <span style="font-size: 13px;">完成提醒</span>
+                <div style="font-size: 12px; color: var(--text-secondary);">当任务成功结束或日志记录完成事件时通知</div>
+              </div>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="setting-notify-errors" ${settings.notifyErrors !== false ? 'checked' : ''}>
+              <div>
+                <span style="font-size: 13px;">错误与异常提醒</span>
+                <div style="font-size: 12px; color: var(--text-secondary);">当任务失败、超时或日志记录异常中断时通知</div>
+              </div>
+            </label>
+          </fieldset>
+
+          <div class="sound-preview-bar" style="padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <div>
+              <strong style="font-size: 13px;">提示音试听</strong>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">原生音效就绪，仅在用户点击时触发试听，不修改通知设置或请求系统权限。</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <select id="setting-preview-sound-kind" class="filter-select" aria-label="试听音效事件类型">
+                <option value="approval">待办审批提示音</option>
+                <option value="completed">任务完成提示音</option>
+                <option value="error">错误异常提示音</option>
+              </select>
+              <button id="btn-preview-notification-sound" class="btn btn-secondary btn-sm">试听提示音</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 14px;">
+        <div class="card-header">
+          <span class="card-title">后台运行与启动</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
           <label class="form-checkbox-label">
             <input type="checkbox" id="setting-launch-at-login" ${settings.launchAtLogin ? 'checked' : ''}>
             <div>
-              <strong>开机启动 (Launch at Login)</strong>
-              ${(state.systemInfo && (state.systemInfo.launchAtLoginStatus === 'pending_approval' || state.systemInfo.launchAtLoginStatus === 'requiresApproval')) ? '<span class="status-badge status-amber" style="margin-left: 6px; font-size: 10px;">待系统审批</span>' : ''}
-              <div style="font-size: 11px; color: var(--text-secondary);">登录系统时在后台启动状态栏驻留。需 macOS 13+ ServiceManagement 支持。${(state.systemInfo && (state.systemInfo.launchAtLoginStatus === 'pending_approval' || state.systemInfo.launchAtLoginStatus === 'requiresApproval')) ? '（已向系统申请，请在 macOS 系统设置 -> 通用 -> 登录项中允许）' : ''}</div>
+              <strong style="font-size: 13px;">开机启动</strong>
+              ${(state.systemInfo && (state.systemInfo.launchAtLoginStatus === 'pending_approval' || state.systemInfo.launchAtLoginStatus === 'requiresApproval')) ? '<span class="status-badge status-amber" style="margin-left: 6px;">待系统审批</span>' : ''}
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">登录系统时自动在后台启动 Vela 状态栏驻留。</div>
             </div>
           </label>
 
           <label class="form-checkbox-label">
             <input type="checkbox" id="setting-analysis" ${settings.analysisEnabled ? 'checked' : ''}>
             <div>
-              <strong>后台证据分析 (Continuous Analysis)</strong>
-              <div style="font-size: 11px; color: var(--text-secondary);">在后台定期检查新增会话，进行确定性证据分析。</div>
+              <strong style="font-size: 13px;">后台分析</strong>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">在后台定期检查新增会话，生成调优建议。</div>
             </div>
           </label>
         </div>
 
-        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
+        <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
           <button id="btn-save-settings" class="btn btn-primary btn-sm">保存设置</button>
         </div>
       </div>
 
       <div class="card" style="margin-top: 14px;">
         <div class="card-header">
-          <span class="card-title">本地优先与隐私声明 (Local-first)</span>
-          <span class="status-badge status-sage">无遥测 (Zero Telemetry)</span>
+          <span class="card-title">本地与隐私声明</span>
+          <span class="status-badge status-sage">无遥测</span>
         </div>
         <ul style="padding-left: 18px; font-size: 12px; line-height: 1.6; color: var(--text-secondary);">
           <li><strong>当前存储路径：</strong><code class="code-badge">${escapeHtml(state.systemInfo.home)}</code> (Channel: ${escapeHtml(state.systemInfo.channel)})</li>
           <li><strong>无云端账户：</strong>Vela 不需要登录注册，无需联网认证。</li>
-          <li><strong>数据本地留存：</strong>所有会话索引、Memory、工作流与运行记录存放在本地设备。</li>
+          <li><strong>本地优先存储：</strong>所有工程数据默认本地留存；用户授权的智能体根据其自身配置联网，Vela 不上传遥测或云端数据。</li>
           <li><strong>完全禁用遥测：</strong>无用户行为追踪、无崩溃日志上报。</li>
           <li><strong>私密隔离保护：</strong>标记为私密的 Library 条目严格对 MCP 和自动检索隐藏。</li>
         </ul>
@@ -3501,37 +4543,81 @@
           <div>Claude Desktop: <span class="status-badge status-neutral">支持 stdio MCP</span></div>
           <div>Cursor: <span class="status-badge status-neutral">支持 stdio MCP</span></div>
           <div>Codex: <span class="status-badge status-neutral">支持 Checkpoint 导出</span></div>
-          <div>自动云端同步: <span class="status-badge status-neutral">不支持（完全离线）</span></div>
+          <div>自动云端同步: <span class="status-badge status-neutral">不支持（本地优先，不上传云端）</span></div>
         </div>
       </div>
     `;
 
     const notifCb = document.getElementById('setting-notifications');
+    const soundCb = document.getElementById('setting-notif-sound');
+    const apprvCb = document.getElementById('setting-notify-approvals');
+    const compCb = document.getElementById('setting-notify-completed');
+    const errCb = document.getElementById('setting-notify-errors');
     const loginCb = document.getElementById('setting-launch-at-login');
     const analysisCb = document.getElementById('setting-analysis');
+    const subGroup = document.getElementById('sub-notifications-group');
 
     const updateDraft = () => {
+      const notifEnabled = Boolean(notifCb && notifCb.checked);
+      if (subGroup) {
+        subGroup.disabled = !notifEnabled;
+        subGroup.style.opacity = notifEnabled ? '1' : '0.5';
+        subGroup.querySelectorAll('input').forEach(inp => inp.disabled = !notifEnabled);
+      }
       state.settingsDraft = {
-        notifications: notifCb.checked,
-        launchAtLogin: loginCb.checked,
-        analysisEnabled: analysisCb.checked
+        notifications: notifEnabled,
+        notificationSound: Boolean(soundCb && soundCb.checked),
+        notifyApprovals: Boolean(apprvCb && apprvCb.checked),
+        notifyCompleted: Boolean(compCb && compCb.checked),
+        notifyErrors: Boolean(errCb && errCb.checked),
+        launchAtLogin: Boolean(loginCb && loginCb.checked),
+        analysisEnabled: Boolean(analysisCb && analysisCb.checked)
       };
     };
-    notifCb.addEventListener('change', updateDraft);
-    loginCb.addEventListener('change', updateDraft);
-    analysisCb.addEventListener('change', updateDraft);
+
+    if (subGroup && !settings.notifications) {
+      subGroup.querySelectorAll('input').forEach(inp => inp.disabled = true);
+    }
+
+    document.getElementById('btn-preview-notification-sound')?.addEventListener('click', async () => {
+      const select = document.getElementById('setting-preview-sound-kind');
+      const kind = (select && select.value) || 'approval';
+      if (!['approval', 'completed', 'error'].includes(kind)) {
+        showToast('无效的音效类型', 'error');
+        return;
+      }
+      const btn = document.getElementById('btn-preview-notification-sound');
+      if (btn) btn.disabled = true;
+      try {
+        await callBridge('system.previewNotificationSound', { kind });
+        showToast(`已播放「${kind === 'approval' ? '审批' : kind === 'completed' ? '完成' : '错误'}」提示音试听`);
+      } catch (err) {
+        showToast('试听提示音失败: ' + (err.message || '原生接口未就绪或当前环境不支持音频播放'), 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+    notifCb?.addEventListener('change', updateDraft);
+    soundCb?.addEventListener('change', updateDraft);
+    apprvCb?.addEventListener('change', updateDraft);
+    compCb?.addEventListener('change', updateDraft);
+    errCb?.addEventListener('change', updateDraft);
+    loginCb?.addEventListener('change', updateDraft);
+    analysisCb?.addEventListener('change', updateDraft);
 
     document.getElementById('btn-save-settings').addEventListener('click', async () => {
-      const notifications = notifCb.checked;
-      const launchAtLogin = loginCb.checked;
-      const analysisEnabled = analysisCb.checked;
+      const payload = {
+        notifications: Boolean(notifCb && notifCb.checked),
+        notificationSound: Boolean(soundCb && soundCb.checked),
+        notifyApprovals: Boolean(apprvCb && apprvCb.checked),
+        notifyCompleted: Boolean(compCb && compCb.checked),
+        notifyErrors: Boolean(errCb && errCb.checked),
+        launchAtLogin: Boolean(loginCb && loginCb.checked),
+        analysisEnabled: Boolean(analysisCb && analysisCb.checked)
+      };
 
       try {
-        await callBridge('settings.save', {
-          notifications,
-          launchAtLogin,
-          analysisEnabled
-        });
+        await callBridge('settings.save', payload);
         state.settingsDraft = null;
         showToast('设置已保存');
         await refreshDashboard(true, true);
@@ -3561,7 +4647,7 @@
       </div>
     `;
 
-    openModal('搜索本地项目上下文 (Search)', modalBody, '');
+    openModal('搜索工程上下文', modalBody, '');
 
     const input = document.getElementById('global-search-input');
     const chkPrivate = document.getElementById('search-include-private');
@@ -3590,11 +4676,11 @@
             ${items.map((item, idx) => `
               <div class="card clickable-card search-result-card" tabindex="0" role="button" data-index="${idx}" style="padding: 10px 12px; margin-bottom: 0; cursor: pointer; text-align: left; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card);">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                  <strong style="font-size: 12px; color: var(--text-primary);">${escapeHtml(item.title || item.id)}</strong>
+                  <strong style="font-size: 13px; color: var(--text-primary);">${escapeHtml(item.title || item.id)}</strong>
                   <span class="code-badge">${escapeHtml(item.kind || 'evidence')}</span>
                 </div>
-                <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.5; word-break: break-word;">${escapeHtml(item.content || item.description || '')}</div>
-                ${item.project ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 4px; font-family: var(--font-mono);">${escapeHtml(item.project)}</div>` : ''}
+                <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; word-break: break-word;">${escapeHtml(item.content || item.description || '')}</div>
+                ${item.project ? `<div style="font-size: 12px; color: var(--text-muted); margin-top: 4px; font-family: var(--font-mono);">${escapeHtml(item.project)}</div>` : ''}
               </div>
             `).join('')}
           </div>
@@ -3622,18 +4708,18 @@
                       <span class="card-title">${escapeHtml(item.title || item.id)}</span>
                       <span class="code-badge">${escapeHtml(item.kind || 'evidence')}</span>
                     </div>
-                    <div style="font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--text-primary);">
+                    <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--text-primary);">
                       ${escapeHtml(item.content || item.description || '(无详细文本)')}
                     </div>
                   </div>
                   ${item.project ? `
-                    <div class="card" style="font-size: 11px;">
+                    <div class="card" style="font-size: 12px;">
                       <div class="text-secondary" style="margin-bottom: 4px;">所属工程路径:</div>
                       <code class="code-badge">${escapeHtml(item.project)}</code>
                     </div>
                   ` : ''}
                   ${item.sourceFile ? `
-                    <div class="card" style="font-size: 11px;">
+                    <div class="card" style="font-size: 12px;">
                       <div class="text-secondary" style="margin-bottom: 4px;">来源文件:</div>
                       <code class="code-badge">${escapeHtml(item.sourceFile)}</code>
                     </div>
@@ -3641,7 +4727,7 @@
                   ${item.metadata ? `
                     <div class="card">
                       <div class="card-header"><span class="card-title">元数据</span></div>
-                      <div class="code-view" style="font-size: 10px;">${escapeHtml(typeof item.metadata === 'object' ? JSON.stringify(item.metadata, null, 2) : String(item.metadata))}</div>
+                      <div class="code-view" style="font-size: 12px;">${escapeHtml(typeof item.metadata === 'object' ? JSON.stringify(item.metadata, null, 2) : String(item.metadata))}</div>
                     </div>
                   ` : ''}
                 </div>
@@ -3810,15 +4896,86 @@
   }
 
   // -------------------------------------------------------------------------
-  // DRAWER & MODAL HELPERS
+  // DRAWER & MODAL HELPERS WITH FOCUS TRAP AND RESTORATION
   // -------------------------------------------------------------------------
-  function openDrawer(title, subtitle = '') {
+  let modalTriggerElement = null;
+  let modalTrapHandler = null;
+  let drawerTriggerElement = null;
+  let drawerTrapHandler = null;
+
+  function trapFocus(container, e) {
+    if (e.key !== 'Tab') return;
+    const focusables = Array.from(container.querySelectorAll(
+      'button:not([disabled]):not([aria-hidden="true"]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter(el => (el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0));
+
+    if (focusables.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+
+    if (e.shiftKey) {
+      if (document.activeElement === first || !container.contains(document.activeElement)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last || !container.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+
+  function openDrawer(title, subtitle = '', triggerEl = null) {
+    drawerTriggerElement = triggerEl || document.activeElement;
     const drawer = document.getElementById('detail-drawer');
     const backdrop = document.getElementById('drawer-backdrop');
     setDrawerTitle(title, subtitle);
     setDrawerCustomActions('');
+
+    const isWide = window.innerWidth >= 1150;
+    document.body.classList.toggle('has-inspector-open', isWide);
+
     if (drawer) drawer.classList.remove('hidden');
-    if (backdrop) backdrop.classList.remove('hidden');
+    if (backdrop) {
+      if (isWide) {
+        backdrop.classList.add('hidden');
+      } else {
+        backdrop.classList.remove('hidden');
+      }
+    }
+
+    if (drawerTrapHandler) {
+      document.removeEventListener('keydown', drawerTrapHandler, true);
+      drawerTrapHandler = null;
+    }
+
+    // Only trap focus in drawer if in narrow modal overlay mode (<1150px)
+    if (!isWide) {
+      drawerTrapHandler = function(e) {
+        const modal = document.getElementById('modal-container');
+        const isModalOpen = modal && !modal.classList.contains('hidden');
+        if (!isModalOpen && drawer && !drawer.classList.contains('hidden')) {
+          trapFocus(drawer, e);
+        }
+      };
+      document.addEventListener('keydown', drawerTrapHandler, true);
+    }
+
+    setTimeout(() => {
+      if (drawer && !drawer.classList.contains('hidden')) {
+        const closeBtn = document.getElementById('btn-close-drawer');
+        const firstFocusable = drawer.querySelector('button:not([disabled]):not(#btn-close-drawer), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]');
+        if (firstFocusable) {
+          firstFocusable.focus();
+        } else if (closeBtn) {
+          closeBtn.focus();
+        }
+      }
+    }, 20);
   }
 
   function setDrawerTitle(title, subtitle = '') {
@@ -3838,14 +4995,35 @@
     const backdrop = document.getElementById('drawer-backdrop');
     if (drawer) drawer.classList.add('hidden');
     if (backdrop) backdrop.classList.add('hidden');
+    document.body.classList.remove('has-inspector-open');
     state.selectedSessionId = null;
     state.selectedRunId = null;
     state.selectedSuggestionId = null;
     state.selectedEvalId = null;
+    sessionDetailSequence++;
+    state.loadedSessionDetail = null;
+
+    if (drawerTrapHandler) {
+      document.removeEventListener('keydown', drawerTrapHandler, true);
+      drawerTrapHandler = null;
+    }
+
+    if (drawerTriggerElement && typeof drawerTriggerElement.focus === 'function') {
+      try {
+        drawerTriggerElement.focus();
+      } catch {}
+    }
+    drawerTriggerElement = null;
+
+    if (state.hasPendingSnapshot) {
+      refreshDashboard(false, false);
+    }
   }
 
-  function openModal(title, bodyHtml, footerHtml = '') {
+  function openModal(title, bodyHtml, footerHtml = '', triggerEl = null) {
+    modalTriggerElement = triggerEl || document.activeElement;
     const modal = document.getElementById('modal-container');
+    const dialog = document.getElementById('modal-dialog');
     const t = document.getElementById('modal-title');
     const b = document.getElementById('modal-body');
     const f = document.getElementById('modal-footer');
@@ -3857,11 +5035,51 @@
       else f.classList.remove('hidden');
     }
     if (modal) modal.classList.remove('hidden');
+
+    if (modalTrapHandler) {
+      document.removeEventListener('keydown', modalTrapHandler, true);
+      modalTrapHandler = null;
+    }
+
+    modalTrapHandler = function(e) {
+      if (modal && !modal.classList.contains('hidden')) {
+        trapFocus(dialog || modal, e);
+      }
+    };
+    document.addEventListener('keydown', modalTrapHandler, true);
+
+    setTimeout(() => {
+      if (modal && !modal.classList.contains('hidden')) {
+        const firstInput = modal.querySelector('input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not(#btn-close-modal)');
+        if (firstInput) {
+          firstInput.focus();
+        } else {
+          const closeBtn = document.getElementById('btn-close-modal');
+          if (closeBtn) closeBtn.focus();
+        }
+      }
+    }, 20);
   }
 
   function closeModal() {
     const modal = document.getElementById('modal-container');
     if (modal) modal.classList.add('hidden');
+
+    if (modalTrapHandler) {
+      document.removeEventListener('keydown', modalTrapHandler, true);
+      modalTrapHandler = null;
+    }
+
+    if (modalTriggerElement && typeof modalTriggerElement.focus === 'function') {
+      try {
+        modalTriggerElement.focus();
+      } catch {}
+    }
+    modalTriggerElement = null;
+
+    if (state.hasPendingSnapshot) {
+      refreshDashboard(false, false);
+    }
   }
 
   if (document.readyState === 'loading') {

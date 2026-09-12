@@ -1,8 +1,10 @@
+<img src="Sources/VelaApp/Resources/Design/app-icon.png" width="80" height="80" alt="Vela app icon">
+
 # Vela
 
 **The engineering layer for coding agents.**
 
-[English](README.md) · [官方网站](https://vela-engineering.zzzsssaa.chatgpt.site) · [下载预览版](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.1) · [贡献指南](CONTRIBUTING.md)
+[English](README.md) · [官方网站](https://vela-engineering.zzzsssaa.chatgpt.site) · [下载预览版](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2) · [贡献指南](CONTRIBUTING.md)
 
 [![CI](https://github.com/Atingaii/Vela/actions/workflows/ci.yml/badge.svg)](https://github.com/Atingaii/Vela/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -11,7 +13,11 @@
 
 Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Codex 和 Cursor 会话数据，将对话证据、项目 Memory、可审批的 Workflow 和命令对照记录放在一起，配合已有 Coding Agent 使用。
 
-> **0.1.0-preview.1 · 开发者预览版。** 核心路径已经实现，但适配、自动化和评测仍有明确限制；当前版本不代表完整产品路线图已经交付，也不是稳定版本。开发包使用 ad-hoc 签名，没有 Developer ID 签名，尚未通过 Apple 公证。使用前请阅读[功能状态与限制](docs/status.md)。
+> **0.1.0-preview.2 · 开发者预览版。** 核心路径已经实现，但适配、自动化和评测仍有明确限制；当前版本不代表完整产品路线图已经交付，也不是稳定版本。开发包使用 ad-hoc 签名，没有 Developer ID 签名，尚未通过 Apple 公证。使用前请阅读[功能状态与限制](docs/status.md)。
+
+![Vela 原生客户端展示项目会话与 Coding Agent 活动](docs/assets/vela-sessions.png)
+
+*真实 macOS 应用截图，使用隔离的示例工程与合成会话日志，通过真实本地 helper 和数据库渲染；不含个人会话数据。*
 
 ## 当前可用能力
 
@@ -21,11 +27,13 @@ Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Co
 - **比较实际结果**：检查确定性规则提取的纠错建议，预览并安全应用/撤销受支持的文件变更，在同一 Git 提交的独立 worktree 中运行 baseline/candidate 命令。
 - **管理资料**：导入文本、HTML、可提取文字的 PDF、DOCX 或明确指定的文档 URL。Library 默认私有；私有资料不进入 Agent Search 或 Recall。
 
-客户端包含 **Agents、Workflows、Setup、Usage、Improve、Lab** 六个一级页面。Memory、Guidelines、Library 位于 Setup；Search、Inbox 和 Settings 是全局入口。
+会话、记忆与工作流可从侧栏直接进入。项目配置、日志用量、改进和 Lab 保留各自入口，搜索、审批收件箱与设置作为全局功能。快捷键可在菜单与悬停提示中发现。
+
+通知默认关闭。启用后，Vela 会合并新的审批、完成与失败事件，点击可返回对应项目，并使用三种简短的原创提示音；设置中可单独试听。 当前 ad-hoc 包在验收机器上被 macOS 拒绝通知授权，系统横幅投递尚未通过验收，详见[验收边界](docs/verification.md#explicit-environment-limitation)。
 
 ## 安装
 
-在 [0.1.0-preview.1 发布页](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.1)下载 Apple Silicon 压缩包和 `SHA256SUMS`，核对校验值后，将 `Vela.app` 移入 Applications。最低系统要求为 **macOS 13**；本预览版不提供 Intel 构建。
+在 [0.1.0-preview.2 发布页](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2)下载 Apple Silicon 压缩包和 `SHA256SUMS`，核对校验值后，将 `Vela.app` 移入 Applications。最低系统要求为 **macOS 13**；本预览版不提供 Intel 构建。
 
 开发包为 **ad-hoc 签名、未公证**应用。审阅源码与发布说明后，macOS 可能要求通过针对单个应用的“仍要打开”流程放行；不要关闭全局 Gatekeeper。预览期间存储格式可能调整，请自行备份重要的 Vela 数据。
 
@@ -109,6 +117,8 @@ python3 scripts/check-repository.py
 ```
 
 Portable runner 将真实核心与原有同步测试方法一起编译，仅提供小型断言兼容层，**不等同于 XCTest**。RPC/MCP 黑盒测试会调用已编译的 CLI，并使用一次性数据目录。仓库检查需要 Node.js 校验 JavaScript；这些开发工具不进入安装包。
+
+真实 CLI 驱动的浏览器交互测试与合成截图 fixture 见[界面验证说明](CONTRIBUTING.md#interface-checks)。macOS 原生控件、声音和系统通知仍需单独验证。
 
 ## 数据与架构
 

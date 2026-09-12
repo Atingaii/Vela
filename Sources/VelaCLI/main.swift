@@ -1,7 +1,7 @@
 import Foundation
 import VelaCore
 
-let version = "0.1.0-preview.1"
+let version = "0.1.0-preview.2"
 let arguments = Array(CommandLine.arguments.dropFirst())
 func option(_ name: String) -> String? {
     guard let i = arguments.firstIndex(of: name), arguments.indices.contains(i + 1) else { return nil }
@@ -39,14 +39,9 @@ final class Router {
         switch method {
         case "system.version": return ["version": version, "platform": "macOS", "home": store.root.path]
         case "settings.get":
-            return try store.get("settings", "preferences") ?? ["id":"preferences", "telemetry":false,"notifications":false,"analysisEnabled":false,"launchAtLogin":false]
+            return try VelaPreferences.read(from: store)
         case "settings.save":
-            let allowed = Set(["notifications", "analysisEnabled", "launchAtLogin"])
-            guard Set(params.keys).isSubset(of: allowed), params.values.allSatisfy({ $0 is Bool }) else { throw VelaError("设置包含不支持的字段") }
-            var settings = try store.get("settings", "preferences") ?? ["id":"preferences"]
-            params.forEach { settings[$0.key] = $0.value }
-            settings["telemetry"] = false
-            return try store.put("settings", settings)
+            return try VelaPreferences.save(params, in: store)
         case "ask":
             let query = params["query"] as? String ?? ""
             guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw VelaError("请输入要查找的工程问题") }

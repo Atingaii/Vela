@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <!-- Left facet -->
+  <polygon points="16,4 7,24 16,20" fill="#71717a"/>
+  <!-- Center shadow facet -->
+  <polygon points="16,4 16,20 13,25" fill="#a1a1aa"/>
+  <!-- Right main facet -->
+  <polygon points="16,4 25,23 16,20" fill="currentColor"/>
+  <!-- Keel / base trim -->
+  <polygon points="7,24 13,25 16,20" fill="#52525b"/>
+  <polygon points="16,20 13,25 23,24 25,23" fill="#3f3f46"/>
+  <!-- Zenith amber node -->
+  <circle cx="16" cy="4" r="1.5" fill="#f59e0b"/>
+</svg>

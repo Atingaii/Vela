@@ -1,6 +1,6 @@
 # 当前架构
 
-Vela `0.1.0-preview.1` 是一个以本地数据为中心的macOS开发预览：Swift核心、独立CLI/helper、AppKit壳与系统WKWebView，附独立静态官网。它已建立观察、工程资产、审批执行和真实命令对照的基础闭环，未实现完整P0–P2产品范围。功能状态见 [status.md](status.md)，API见 [implementation/contracts.md](implementation/contracts.md)，选型依据见 [ADR 0001](adr/0001-native-macos-core.md)。
+Vela `0.1.0-preview.2` 是一个以本地数据为中心的macOS开发预览：Swift核心、独立CLI/helper、AppKit壳与系统WKWebView，附独立静态官网。它已建立观察、工程资产、审批执行和真实命令对照的基础闭环，未实现完整P0–P2产品范围。功能状态见 [status.md](status.md)，API见 [implementation/contracts.md](implementation/contracts.md)，选型依据见 [ADR 0001](adr/0001-native-macos-core.md)。
 
 ## 进程与请求路径
 
@@ -27,7 +27,7 @@ FSEvents专用队列 → 变更路径 + 文件游标 → provider解析 → Sess
 
 两条RPC队列可并行，响应允许乱序并按ID对应，最多32个已排队请求。长自动化不占用Foundation请求队列，但二者共享数据库和helper进程，并非完全隔离的故障域。SessionEngine另有FSEvents队列和锁；初次摄取在后台开始。当前没有九个常驻worker，也没有额外Node/Chromium运行时。
 
-helper通知只表示摄取更新，未构成覆盖所有写操作的事件总线。WebKit对普通/长操作采用180秒/1,800秒超时；超时不会授权重复执行，也不等同取消核心任务。窗口隐藏后菜单栏每5秒轮询dashboard。关闭窗口保留sidecar，退出应用终止helper；实际退出和重启行为以原生壳实现为准。
+helper通知只表示摄取更新，未构成覆盖所有写操作的事件总线。WebKit对普通/长操作采用180秒/1,800秒超时；超时不会授权重复执行，也不等同取消核心任务。原生壳每5秒轮询全局dashboard，包括窗口可见期间，以维护跨项目计数和通知基线。通知区分本次新建的快速Run与历史导入，会话首次待审批仅采用带provider来源的源时间；聚合显式区分混合来源与跨项目范围，详见 [ADR 0002](adr/0002-native-notification-policy.md)。关闭窗口保留sidecar，退出应用终止helper；实际退出和重启行为以原生壳实现为准。
 
 `vela mcp`是独立启动模式，使用同一核心与store，但不启动watcher或Scheduler；当前MCP请求按Foundation队列处理。CLI一次性`call`适合明确操作和集成验证。多个进程可访问同一数据库，因此审批和事件领取不能只依赖Swift实例锁。
 
@@ -40,6 +40,7 @@ helper通知只表示摄取更新，未构成覆盖所有写操作的事件总�
 | `Sources/VelaCore/Store.swift` | 系统sqlite3、参数化查询、轻量session summary、Markdown资产、批次补偿、CAS、事件唯一插入与Session变化计数器 |
 | `SessionEngine.swift` | Claude/Codex日志及已知Cursor记录、受限发现、FSEvents、增量偏移、截断/轮转/坏记录诊断 |
 | `FoundationService.swift` | 项目登记、harness检测、dashboard、脱敏Setup扫描、基础审计、日志Usage聚合 |
+| `Preferences.swift` / `NotificationPolicy.swift` | 共享偏好默认值与严格布尔校验；纯逻辑通知分类、基线、有限去重和批量合并，原生壳负责系统投递；决策见 [ADR 0002](adr/0002-native-notification-policy.md) |
 | `MemoryService.swift` | Memory生命周期与Scope、保守预算Recall、人类Search、Library文本提取、Checkpoint和中立交接 |
 | `ContextService.swift` | Guideline版本、本地规则Workflow Builder、来源绑定Signal贡献、无操作Suggestion草案、观测回归统计 |
 | `AutomationService.swift` | Workflow版本、Markdown定义校验、工具注册表、冻结审批、运行账本、健康统计、Replay和证据引用 |
