@@ -13,7 +13,10 @@ final class ImproveAcceptanceTests: XCTestCase {
     }
 
     private func analyze(_ service: AutomationService, project: URL) throws -> JSON {
-        try XCTUnwrap(try service.handle("improve.analyze",["project":project.path]) as? JSON)
+        // Expected service errors must reach XCTAssertThrowsError directly;
+        // XCTUnwrap records an extra failure if its expression itself throws.
+        let response = try service.handle("improve.analyze",["project":project.path])
+        return try XCTUnwrap(response as? JSON)
     }
 
     private func session(_ store: VelaStore, project: URL, id: String, texts: [String], internalRun: Bool = false) throws {
