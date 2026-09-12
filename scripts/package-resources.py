@@ -1,5 +1,6 @@
 """Package only explicitly allowed UI resources and release metadata."""
 import pathlib, plistlib, shutil, sys
+from release_resources import NOTIFICATION_SOUNDS, validate_notification_sound
 
 bundle = pathlib.Path(sys.argv[1]).resolve()
 channel = sys.argv[2]
@@ -18,12 +19,17 @@ for path in source.rglob('*'):
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(path, dest)
 shutil.copy2(source.parent / 'Vela.icns', bundle / 'Contents/Resources/Vela.icns')
+for name in NOTIFICATION_SOUNDS:
+    sound = source.parent / 'Sounds' / name
+    validate_notification_sound(sound)
+    # UNNotificationSound(named:) resolves named files in the main app bundle.
+    shutil.copy2(sound, bundle / 'Contents/Resources' / name)
 info = {
     'CFBundleName': 'Vela', 'CFBundleDisplayName': 'Vela',
     'CFBundleIdentifier': 'ai.vela.desktop' + ('' if channel == 'stable' else '.' + channel),
     'CFBundleExecutable': 'VelaDesktop', 'CFBundlePackageType': 'APPL',
     'CFBundleIconFile': 'Vela',
-    'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '1',
+    'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '2',
     'LSMinimumSystemVersion': '13.0', 'NSHighResolutionCapable': True,
     'LSApplicationCategoryType': 'public.app-category.developer-tools',
     'VelaChannel': channel,

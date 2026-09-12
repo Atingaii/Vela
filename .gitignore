@@ -7,5 +7,7 @@ releases/*
 website/.sites/
 website/.env*
 ui-output/
+output/playwright/
 docs/implementation/antigravity-*.md
 !docs/implementation/antigravity-ui.md
+__pycache__/

@@ -20,11 +20,19 @@ with tempfile.TemporaryDirectory(prefix='vela-rpc-') as tmp:
     base=pathlib.Path(tmp); home=base/'store'; project=base/'project'; project.mkdir()
     added=invoke(home,'projects.add',{'path':str(project)})
     result=exchange(home,'rpc',[
-        {'id':1,'method':'settings.save','params':{'notifications':False}},
+        {'id':1,'method':'settings.save','params':{'notifications':False,'notificationSound':False,'notifyCompleted':False}},
         {'id':2,'method':'settings.get','params':{}},
         {'id':3,'method':'arbitrary.exec','params':{'command':'touch should-not-exist'}},
+        {'id':4,'method':'settings.save','params':{'notifications':1}},
+        {'id':5,'method':'dashboard.get','params':{}},
     ])
     assert result[2]['result']['telemetry'] is False
+    assert result[2]['result']['notificationSound'] is False
+    assert result[2]['result']['notifyCompleted'] is False
+    assert result[2]['result']['notifyApprovals'] is True
+    assert result[5]['result']['notificationScope'] == '*'
+    assert result[5]['result']['settings']['notificationSound'] is False
+    assert 'error' in result[4], 'Numeric 1 must not authorize notifications'
     assert 'error' in result[3]
     memory=invoke(home,'memory.save',{'title':'Synthetic safety constraint','content':'velatestactive evidence','type':'Constraint','scope':'Project','project':str(project),'state':'Active'})
     hidden=invoke(home,'memory.save',{'title':'Private memory','content':'velatestprivatememory evidence','type':'Fact','scope':'Project','project':str(project),'private':True})

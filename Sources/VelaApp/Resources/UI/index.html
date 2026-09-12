@@ -11,122 +11,138 @@
   <!-- Demo banner in browser preview -->
   <div id="demo-banner" class="demo-banner hidden" role="alert">
     <span class="demo-indicator">●</span>
-    <span class="demo-text">示例模式 · 数据仅用于预览（未连接本地 Vela 原生服务）</span>
+    <span class="demo-text">示例模式 · 数据仅用于静态预览（未连接本地 Vela 原生服务）</span>
   </div>
 
   <div class="app-container">
-    <!-- Drag bar for macOS window -->
+    <!-- Window titlebar for macOS window drag and quick search -->
     <header class="window-titlebar" aria-label="窗口标题栏">
       <div class="titlebar-drag-region">
-        <span class="window-title">Vela</span>
+        <div class="titlebar-brand">
+          <svg class="brand-mark" width="15" height="15" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <polygon points="16,4 7,24 16,20" fill="#71717a"/>
+            <polygon points="16,4 16,20 13,25" fill="#a1a1aa"/>
+            <polygon points="16,4 25,23 16,20" fill="currentColor"/>
+            <polygon points="7,24 13,25 16,20" fill="#52525b"/>
+            <polygon points="16,20 13,25 23,24 25,23" fill="#3f3f46"/>
+            <circle cx="16" cy="4" r="1.5" fill="#f59e0b"/>
+          </svg>
+          <span class="window-title">Vela</span>
+        </div>
         <span id="channel-badge" class="channel-badge">dev</span>
       </div>
       <div class="titlebar-actions">
-        <button id="btn-quick-search" class="btn-ghost btn-sm" title="全局搜索 (⌘K)">
+        <button id="btn-quick-search" class="titlebar-search-btn" title="搜索本地工程上下文 (⌘K)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <span class="key-hint">⌘K</span>
+          <span class="search-label">搜索工程上下文...</span>
+          <kbd class="key-hint">⌘K</kbd>
         </button>
       </div>
     </header>
 
     <div class="app-body">
-      <!-- Fixed Sidebar ~216px -->
+      <!-- Calm, Linear-inspired sidebar (~228px) -->
       <aside class="sidebar" aria-label="工作台侧边栏">
-        <!-- Workspace Switcher -->
+        <!-- Project Context Switcher -->
         <div class="workspace-switcher">
-          <label for="project-selector" class="sr-only">当前工程上下文</label>
           <div class="workspace-select-wrapper">
-            <svg class="workspace-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-            <select id="project-selector" class="workspace-select" aria-label="选择项目">
-              <option value="">所有项目 (All Projects)</option>
+            <svg class="workspace-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <select id="project-selector" class="workspace-select" aria-label="选择工作空间项目">
+              <option value="">所有项目 (全部上下文)</option>
             </select>
           </div>
-          <button id="btn-add-project" class="btn-icon-subtle" title="添加项目..." aria-label="添加项目">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <button id="btn-add-project" class="btn-icon-subtle" title="连接本地项目..." aria-label="连接本地项目">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           </button>
         </div>
 
-        <!-- Main Navigation (6 Core Modules) -->
-        <nav class="sidebar-nav" aria-label="主要功能模块">
-          <ul class="nav-list">
-            <li class="nav-item">
-              <button class="nav-link active" data-page="agents" aria-current="page">
-                <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                <span class="nav-label">Agents</span>
-                <span class="nav-sub">会话</span>
-                <span class="nav-shortcut">⌘1</span>
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link" data-page="workflows">
-                <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                <span class="nav-label">Workflows</span>
-                <span class="nav-sub">工作流</span>
-                <span class="nav-shortcut">⌘2</span>
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link" data-page="setup">
-                <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-                <span class="nav-label">Setup</span>
-                <span class="nav-sub">配置</span>
-                <span class="nav-shortcut">⌘3</span>
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link" data-page="usage">
-                <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                <span class="nav-label">Usage</span>
-                <span class="nav-sub">用量</span>
-                <span class="nav-shortcut">⌘4</span>
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link" data-page="improve">
-                <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
-                <span class="nav-label">Improve</span>
-                <span class="nav-sub">调优</span>
-                <span class="nav-shortcut">⌘5</span>
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link" data-page="lab">
-                <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v7.31L4.65 18.5a2 2 0 0 0 1.7 3.5h11.3a2 2 0 0 0 1.7-3.5L14 9.31V2"></path><line x1="8.5" y1="2" x2="15.5" y2="2"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
-                <span class="nav-label">Lab</span>
-                <span class="nav-sub">实验室</span>
-                <span class="nav-shortcut">⌘6</span>
-              </button>
-            </li>
-          </ul>
+        <!-- Grouped Navigation -->
+        <nav class="sidebar-nav" aria-label="主要功能导航">
+          <!-- Group 1: Daily Engineering Work -->
+          <div class="nav-group">
+            <div class="nav-group-title">日常工程</div>
+            <ul class="nav-list">
+              <li class="nav-item">
+                <button class="nav-link active" data-page="agents" aria-current="page" title="智能体会话日志与工具调用 (⌘1)">
+                  <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  <span class="nav-label">会话</span>
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link" data-page="workflows" title="工程工作流与脚本编排 (⌘2)">
+                  <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                  <span class="nav-label">工作流</span>
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link" data-page="inbox" title="操作授权与安全审批">
+                  <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
+                  <span class="nav-label">待办审批</span>
+                  <span id="badge-inbox-count" class="badge-count hidden">0</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Group 2: Context & Memory -->
+          <div class="nav-group">
+            <div class="nav-group-title">工程上下文</div>
+            <ul class="nav-list">
+              <li class="nav-item">
+                <button class="nav-link" data-page="memory" title="结构化记忆、生命周期与上下文召回">
+                  <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                  <span class="nav-label">工程记忆</span>
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link" data-page="setup" title="规约、技能、Hook与工程配置 (⌘3)">
+                  <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                  <span class="nav-label">配置与资产</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Group 3: Evaluation & Insights -->
+          <div class="nav-group">
+            <div class="nav-group-title">洞察与评测</div>
+            <ul class="nav-list">
+              <li class="nav-item">
+                <button class="nav-link" data-page="usage" title="日志 Token 统计与用量追踪 (⌘4)">
+                  <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                  <span class="nav-label">用量追踪</span>
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link" data-page="improve" title="会话纠错信号与安全变更建议 (⌘5)">
+                  <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                  <span class="nav-label">调优建议</span>
+                </button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link" data-page="lab" title="配对命令对照与变更评测 (⌘6)">
+                  <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v7.31L4.65 18.5a2 2 0 0 0 1.7 3.5h11.3a2 2 0 0 0 1.7-3.5L14 9.31V2"></path><line x1="8.5" y1="2" x2="15.5" y2="2"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
+                  <span class="nav-label">对照实验</span>
+                </button>
+              </li>
+            </ul>
+          </div>
         </nav>
 
-        <!-- Bottom Status & Actions -->
+        <!-- Sidebar Bottom Footer -->
         <div class="sidebar-bottom">
           <ul class="nav-list">
             <li class="nav-item">
-              <button class="nav-link nav-inbox" data-page="inbox">
-                <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
-                <span class="nav-label">Inbox</span>
-                <span class="nav-sub">待办审批</span>
-                <span id="badge-inbox-count" class="badge-count hidden">0</span>
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link" data-page="settings">
+              <button class="nav-link" data-page="settings" title="首选项、通知与环境设置 (⌘,)">
                 <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                <span class="nav-label">Settings</span>
-                <span class="nav-sub">设置</span>
-                <span class="nav-shortcut">⌘,</span>
+                <span class="nav-label">设置</span>
               </button>
             </li>
           </ul>
 
-          <div class="local-status-card" id="local-status">
-            <div class="status-dot"></div>
-            <div class="status-info">
-              <div class="status-primary">本地优先 · 无遥测</div>
-              <div class="status-secondary" id="store-path-display">~/.vela</div>
-            </div>
+          <div class="local-status-footer" id="local-status" data-state="loading">
+            <span class="status-pulse-dot" aria-hidden="true"></span>
+            <span class="status-text">正在连接本地服务...</span>
           </div>
         </div>
       </aside>
@@ -141,9 +157,12 @@
 
         <!-- Dynamic Page Container -->
         <div id="page-container" class="page-container">
-          <div id="initial-loading-view" class="empty-state" style="padding-top: 120px;">
-            <div class="empty-state-title" style="color: var(--text-primary); font-size: 14px;">正在连接 Vela 本地工程服务...</div>
-            <div class="empty-state-desc" style="font-size: 12px; color: var(--text-secondary);">正在加载本地工程上下文、会话索引与运行记录</div>
+          <div id="initial-loading-view" class="empty-state" style="padding-top: 140px;">
+            <div class="empty-state-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+            </div>
+            <div class="empty-state-title">正在连接 Vela 本地工程服务</div>
+            <div class="empty-state-desc">正在加载本地会话索引、工程规约与运行快照...</div>
           </div>
         </div>
       </main>
@@ -152,7 +171,7 @@
 
   <!-- Detail Split Drawer (Slide-over for inspections) -->
   <div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
-  <aside id="detail-drawer" class="detail-drawer hidden" aria-label="详情面板">
+  <aside id="detail-drawer" class="detail-drawer hidden" aria-label="详情检查面板" role="region">
     <header class="drawer-header">
       <div class="drawer-title-group">
         <h2 id="drawer-title" class="drawer-title">详情</h2>
@@ -160,8 +179,8 @@
       </div>
       <div class="drawer-actions">
         <div id="drawer-custom-actions"></div>
-        <button id="btn-close-drawer" class="btn-icon-subtle" title="关闭 (Esc)" aria-label="关闭面板">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <button id="btn-close-drawer" class="btn-icon-subtle" title="关闭详情面板 (Esc)" aria-label="关闭详情面板">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
     </header>
@@ -169,13 +188,13 @@
   </aside>
 
   <!-- Global Modal Dialog Container -->
-  <div id="modal-container" class="modal-container hidden" role="dialog" aria-modal="true">
+  <div id="modal-container" class="modal-container hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="modal-backdrop" id="modal-backdrop"></div>
-    <div class="modal-dialog" id="modal-dialog">
+    <div class="modal-dialog" id="modal-dialog" role="document">
       <header class="modal-header">
         <h3 id="modal-title" class="modal-title">标题</h3>
-        <button id="btn-close-modal" class="btn-icon-subtle" title="关闭 (Esc)" aria-label="关闭对话框">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <button id="btn-close-modal" class="btn-icon-subtle" title="关闭对话框 (Esc)" aria-label="关闭对话框">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </header>
       <div id="modal-body" class="modal-body"></div>

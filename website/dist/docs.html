@@ -1,221 +1,451 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>使用指南与技术文档 — Vela</title>
-  <meta name="description" content="Vela 官方文档：快速入门、六大模块架构、本地存储规约与 CLI 参考。">
+  <title>技术文档与使用指南 — Vela</title>
+  <meta name="description" content="Vela 官方使用文档：系统要求、源码构建、首个项目接入、本地存储规约、MCP 智能体配置与命令行参考。">
+  <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+
   <link rel="stylesheet" href="styles.css">
+
+  <!-- Immediate theme application -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <!-- Header -->
   <header class="site-header">
     <div class="container header-inner">
-      <a href="index.html" class="brand-link" aria-label="Vela 首页">
-        <span class="brand-mark">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polygon points="3 20 12 3 21 20 12 16 3 20"></polygon>
-          </svg>
-        </span>
-        <span>Vela</span>
-      </a>
-
-      <nav class="site-nav" aria-label="主导航">
-        <a href="index.html#product" class="nav-link">产品</a>
-        <a href="index.html#how-it-works" class="nav-link">工作方式</a>
-        <a href="docs.html" class="nav-link active">文档</a>
-        <a href="releases.html" class="nav-link">发行记录</a>
-      </nav>
+      <div class="brand-group">
+        <a href="index.html" class="brand-link" aria-label="Vela 首页">
+          <img src="assets/mark.svg" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="主导航">
+          <a href="index.html#sessions" class="nav-link">会话上下文</a>
+          <a href="index.html#workflows" class="nav-link">工作流与审批</a>
+          <a href="index.html#ownership" class="nav-link">本地优先</a>
+          <a href="docs.html" class="nav-link active">技术文档</a>
+          <a href="releases.html" class="nav-link">发行记录</a>
+        </nav>
+      </div>
 
       <div class="header-actions">
-        <a href="https://github.com/Atingaii/Vela" class="btn btn-outline btn-sm" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="https://github.com/Atingaii/Vela/releases" class="btn btn-amber btn-sm" target="_blank" rel="noopener noreferrer">获取最新预览版</a>
-        <button class="mobile-menu-toggle" aria-label="展开导航菜单" aria-expanded="false">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="header-docs-link" target="_blank" rel="noopener noreferrer">最新预览版</a>
+
+        <!-- Theme Toggle Button -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- GitHub Repository Button -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="展开导航菜单" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
       </div>
     </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单">
+      <a href="index.html#sessions" class="nav-link">会话上下文</a>
+      <a href="index.html#workflows" class="nav-link">工作流与审批</a>
+      <a href="index.html#ownership" class="nav-link">本地优先</a>
+      <a href="docs.html" class="nav-link active">技术文档</a>
+      <a href="releases.html" class="nav-link">发行记录</a>
+      <a href="privacy.html" class="nav-link">数据隐私</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
+    </div>
   </header>
 
-  <div class="container docs-layout">
-    <aside class="docs-sidebar" aria-label="文档目录">
-      <div class="docs-nav-group-title">快速入门</div>
-      <a href="#system-requirements" class="docs-nav-link">系统要求与签名</a>
-      <a href="#install" class="docs-nav-link">下载与安装</a>
-      <a href="#connect-project" class="docs-nav-link">连接首个项目</a>
+  <!-- Docs Main Content Layout -->
+  <main class="docs-wrapper">
+    <div class="container docs-grid">
+      <!-- Sticky Sidebar Navigation (Collapsible on mobile) -->
+      <aside class="docs-sidebar" aria-label="文档目录">
+        <button type="button" class="docs-toc-toggle" aria-expanded="false" aria-controls="docs-toc-content">
+          <span class="docs-toc-toggle-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            <span>文档导航目录</span>
+          </span>
+          <span class="docs-toc-toggle-hint">展开 ▾</span>
+        </button>
 
-      <div class="docs-nav-group-title">六大核心模块</div>
-      <a href="#module-agents" class="docs-nav-link">1. Agents 会话观察</a>
-      <a href="#module-workflows" class="docs-nav-link">2. Workflows 编排与 Dry Run</a>
-      <a href="#module-setup" class="docs-nav-link">3. Setup 配置与 Memory 召回</a>
-      <a href="#module-usage" class="docs-nav-link">4. Usage 用量观察</a>
-      <a href="#module-improve" class="docs-nav-link">5. Improve 调优建议</a>
-      <a href="#module-lab" class="docs-nav-link">6. Lab 对照实验</a>
+        <div class="docs-nav-content" id="docs-toc-content">
+          <div>
+            <div class="docs-nav-category">起步与安装</div>
+            <div class="docs-nav-links">
+              <a href="#system-reqs" class="docs-nav-link">系统要求与安全签名</a>
+              <a href="#installation" class="docs-nav-link">下载与安装</a>
+              <a href="#build-from-source" class="docs-nav-link">从源码构建运行</a>
+              <a href="#connect-project" class="docs-nav-link">接入首个工程</a>
+            </div>
+          </div>
 
-      <div class="docs-nav-group-title">安全与命令行</div>
-      <a href="#inbox-approvals" class="docs-nav-link">待执行操作把关 (Inbox)</a>
-      <a href="#local-first" class="docs-nav-link">本地存储布局</a>
-      <a href="#cli-reference" class="docs-nav-link">CLI 接口参考</a>
-    </aside>
+          <div>
+            <div class="docs-nav-category">核心架构与模块</div>
+            <div class="docs-nav-links">
+              <a href="#module-agents" class="docs-nav-link">1. Agents 会话观察</a>
+              <a href="#module-workflows" class="docs-nav-link">2. Workflows 编排与试运行</a>
+              <a href="#module-setup" class="docs-nav-link">3. Setup 配置与 Memory 召回</a>
+              <a href="#module-usage" class="docs-nav-link">4. Usage 用量追踪</a>
+              <a href="#module-improve" class="docs-nav-link">5. Improve 确定性调优</a>
+              <a href="#module-lab" class="docs-nav-link">6. Lab 独立 Worktree 实验</a>
+            </div>
+          </div>
 
-    <article class="docs-article">
-      <h1>Vela 使用指南与技术文档</h1>
-      <p>
-        Vela 是运行在本地的工程沉淀与实证层。本文档涵盖从安装配置、项目连接到各模块使用的主要细节。
-      </p>
+          <div>
+            <div class="docs-nav-category">本地管理与集成</div>
+            <div class="docs-nav-links">
+              <a href="#inbox-approvals" class="docs-nav-link">待办把关与参数冻结</a>
+              <a href="#storage-layout" class="docs-nav-link">本地存储路径规约</a>
+              <a href="#mcp-config" class="docs-nav-link">stdio MCP 智能体连接</a>
+              <a href="#cli-reference" class="docs-nav-link">CLI 命令行接口参考</a>
+            </div>
+          </div>
 
-      <section id="system-requirements">
-        <h2>系统要求与签名说明</h2>
-        <ul>
-          <li><strong>操作系统：</strong>macOS 13.0 (Ventura) 及更高版本。</li>
-          <li><strong>硬件架构：</strong>Apple Silicon (M1 / M2 / M3 / M4) 原生构建。</li>
-          <li><strong>运行时依赖：</strong>采用 Swift/AppKit/WebKit 原生架构与内置 SQLite 引擎，无需预装 Node.js 或额外外部运行时。</li>
-        </ul>
-
-        <div class="docs-callout">
-          <p>
-            <strong>开发者预览版启动与安全校验：</strong>当前 0.1.0-preview.1 构建为 Ad-hoc 本地自签名预览版，未配置商业 Developer ID 证书与苹果公证。建议在下载后校对 Release 发布页面提供的 SHA256 校验和。初次打开时若系统提示未验证开发者：
-          </p>
-          <ul style="margin-top: 8px; margin-bottom: 0;">
-            <li>打开 macOS <strong>系统设置 ➔ 隐私与安全性</strong>，在安全性区域核对应用来源后点击 <strong>“仍要打开 (Open Anyway)”</strong> 即可正常运行。请勿使用全局清除隔离属性等绕过系统安全策略的命令。</li>
-          </ul>
+          <div>
+            <div class="docs-nav-category">参考规范</div>
+            <div class="docs-nav-links">
+              <a href="https://github.com/Atingaii/Vela/blob/main/docs/architecture.md" class="docs-nav-link" target="_blank" rel="noopener noreferrer">系统架构设计 (ADR) ↗</a>
+              <a href="https://github.com/Atingaii/Vela/blob/main/docs/status.md" class="docs-nav-link" target="_blank" rel="noopener noreferrer">功能状态与验证保证 ↗</a>
+              <a href="privacy.html" class="docs-nav-link">隐私与本地存储规约</a>
+            </div>
+          </div>
         </div>
-      </section>
+      </aside>
 
-      <section id="install">
-        <h2>下载与安装</h2>
-        <ol>
-          <li>从官方 <a href="https://github.com/Atingaii/Vela/releases" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">GitHub Releases</a> 获取最新的 macOS arm64 安装包并校验 SHA256。</li>
-          <li>解压后将 <code class="code-block" style="padding: 1px 4px;">Vela.app</code> 拖入 <code class="code-block" style="padding: 1px 4px;">/Applications</code> 目录。</li>
-          <li>打开应用，在系统设置中确认“仍要打开”后，Vela 会在菜单栏常驻并自动初始化本地存储。</li>
-        </ol>
-      </section>
+      <!-- Documentation Article -->
+      <article class="docs-article">
+        <h1>Vela 使用指南与技术文档</h1>
+        <p class="docs-intro">
+          Vela 是专为 coding agents 打造的本地工程沉淀与实证层。本文档涵盖从系统环境、安装运行、六大核心工作台到本地 MCP 服务配置的全部技术说明。
+        </p>
 
-      <section id="connect-project">
-        <h2>连接首个本地工程</h2>
-        <p>
-          Vela 依据已连接的项目路径，自动发现并监听智能体产生的会话日志。可通过以下方式添加工程：
-        </p>
-        <ul>
-          <li><strong>图形界面：</strong>点击窗口左上角工作区切换器旁的 <strong>+</strong> 按钮，通过系统目录选择器选取你的代码仓库。</li>
-          <li><strong>CLI 指令：</strong>
-            <div class="code-block">vela call projects.add '{"path":"/Users/yourname/Projects/my-project"}'</div>
-          </li>
-        </ul>
-      </section>
+        <!-- System Requirements -->
+        <section class="docs-section" id="system-reqs">
+          <h2>系统要求与安全签名说明</h2>
+          <p>
+            Vela 遵循本地优先（local-first）与系统原生技术栈设计，以 Swift、AppKit 原生宿主配合 WebKit 隔离，由内置 SQLite 提供存储支撑，不依赖 Node.js 或 Chromium 运行时。
+          </p>
+          <ul>
+            <li><strong>操作系统支持：</strong>macOS 13.0 (Ventura) 或更高版本。</li>
+            <li><strong>硬件架构：</strong>Apple Silicon (arm64) 原生架构。</li>
+            <li><strong>系统权限：</strong>标准用户权限运行。连接工程时需要对目标项目目录具备常规读写权限。</li>
+          </ul>
 
-      <section id="module-agents">
-        <h2>1. Agents 会话观察与 Checkpoint</h2>
-        <p>
-          Agents 模块汇总所有已发现的本地智能体会话（如 Claude Code、Codex，以及处于实验性支持阶段的 Cursor 等）。
-        </p>
-        <ul>
-          <li><strong>状态显示：</strong>状态根据本地日志文件判定。若无法确定当前是否活跃，状态标注为“未知（仅日志）”，不作多余猜测。</li>
-          <li><strong>经验摘录：</strong>点击会话可查看具体消息流，单条消息可点击“+ 存为 Memory”直接发起保存。</li>
-          <li><strong>跨智能体 Checkpoint：</strong>点击“保存 Checkpoint”录入任务目标、已完成事项与测试结果，并可导出为适合 Claude 或 Codex 的交接文件。</li>
-        </ul>
-      </section>
+          <div class="callout-box">
+            <strong>安全签名与放行指引：</strong>当前开发者预览版采用 <strong>ad-hoc 签名，尚无 Developer ID 签名和 Apple 公证</strong>。首次在 macOS 上启动时，系统 Gatekeeper 会弹出安全提示。<br><br>
+            <strong>正确放行方式：</strong>打开 macOS <strong>「系统设置 ➔ 隐私与安全性」</strong>，滑动到底部安全性区域，核对应用名称后点击 <strong>“仍要打开 (Open Anyway)”</strong> 即可完成针对本应用的单次系统授权。<strong>切勿使用全局禁用 Gatekeeper（如 spctl 禁用）等破坏系统安全防护的指令。</strong>
+          </div>
+        </section>
 
-      <section id="module-workflows">
-        <h2>2. Workflows 编排与 Dry Run</h2>
-        <p>
-          用于组织日常重复的自动化检查与执行步骤。
-        </p>
-        <ul>
-          <li><strong>步骤工具：</strong>包括只读工具（<code class="code-badge">git.status</code>, <code class="code-badge">git.diff</code>, <code class="code-badge">git.log</code>）与需审批工具（<code class="code-badge">shell.test</code>, <code class="code-badge">shell.typecheck</code>, <code class="code-badge">file.write</code>, <code class="code-badge">agent.run</code>）。</li>
-          <li><strong>描述工作流 (Draft)：</strong>点击“描述工作流”可通过简短文字提示生成本地步骤草稿，载入编辑器供人工审查调整后再保存。</li>
-          <li><strong>Dry Run 试运行：</strong>只读 Git 命令真实执行；写入与测试步骤使用模拟结果，在不产生破坏性副作用的前提下完成环境检查与流程演练。</li>
-          <li><strong>运行记录 (Run Ledger)：</strong>记录各步骤耗时与输出，并支持一键重放 (Replay)。</li>
-        </ul>
-      </section>
+        <!-- Installation & Packaging -->
+        <section class="docs-section" id="installation">
+          <h2>下载与安装</h2>
+          <p>
+            推荐从官方代码仓库 Release 页面获取已编译的应用压缩包并核对 SHA256 校验和：
+          </p>
+          <ol>
+            <li>前往 <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">GitHub Releases (v0.1.0-preview.2)</a>，将安装包 <code class="inline-code">Vela-macOS-arm64.zip</code> 与校验文件 <code class="inline-code">SHA256SUMS</code> 下载至同一目录。</li>
+            <li>在终端该目录下运行校验命令：<code class="inline-code">shasum -a 256 -c SHA256SUMS</code>，确认校验输出为 OK。</li>
+            <li>解压后将 <code class="inline-code">Vela.app</code> 拖拽至系统的 <code class="inline-code">/Applications</code> 应用程序文件夹中。</li>
+            <li>打开应用，在「系统设置」中核对并点击“仍要打开”后，应用即初始化本地运行环境。</li>
+          </ol>
+        </section>
 
-      <section id="module-setup">
-        <h2>3. Setup 项目配置与 Memory 召回</h2>
-        <p>
-          集中查看与编辑工程规约文件、Guidelines 指南、Memory 与知识库。
-        </p>
-        <ul>
-          <li><strong>Memory 状态流转：</strong>新经验默认为 <code class="code-badge">candidate</code> 状态，确认后可变更为 <code class="code-badge">active</code>；已被新方案取代的内容可转为 <code class="code-badge">superseded</code> 或 <code class="code-badge">archived</code>。</li>
-          <li><strong>保守估算预算召回 (Recall)：</strong>支持通过 CLI 或 MCP 按 500 / 1000 / 2000 / 4000 等保守估算预算上限显式检索项目记忆，避免占用过多上下文。记忆不会在智能体启动时自动检索，需显式调用。</li>
-          <li><strong>Guidelines 指南：</strong>直接在界面中新建或编辑 Markdown 规约，按项目或全局范围组织。指南仅作为静态快照记录于运行日志台账中（snapshot_only_not_injected），尚未注入智能体执行命令。</li>
-          <li><strong>知识库私密隔离：</strong>在 Library 中可选择文本输入、本地文件路径或远程 URL 导入。标记为私密的条目对智能体不可见，仅供人工搜索。</li>
-        </ul>
-      </section>
+        <!-- Build from Source -->
+        <section class="docs-section" id="build-from-source">
+          <h2>从源码构建运行</h2>
+          <p>
+            Vela 项目完全开源，支持直接使用 Xcode 命令行工具链进行本地编译、测试与调试：
+          </p>
 
-      <section id="module-usage">
-        <h2>4. Usage 用量观察</h2>
-        <p>
-          从本地会话日志中提取 Token 输入输出统计与每日趋势。若日志中未提供配额信息，如实显示“额度未提供”，不推算账单金额。
-        </p>
-      </section>
+          <div class="code-block-wrapper">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-build" aria-label="复制代码">复制</button>
+            <pre id="code-build"># 1. 克隆代码仓库
+git clone https://github.com/Atingaii/Vela.git
+cd Vela
 
-      <section id="module-improve">
-        <h2>5. Improve 调优建议 (确定性规则)</h2>
-        <p>
-          当同一模式在<strong>至少 2 个会话中出现 3 次以上信号</strong>时，系统依据确定性证据规则提炼出规则调整建议，而非依赖大模型的“主观推断”或不可靠智能假设。
-          用户在界面中清晰审查文件 Diff 并点击确认后，才进行文件更新，支持一键撤销。
-        </p>
-      </section>
+# 2. 编译项目 (Swift Package Manager)
+swift build
 
-      <section id="module-lab">
-        <h2>6. Lab 对照实验 (deterministic_command)</h2>
-        <p>
-          在同一 Git HEAD 的独立 Worktree 中分别执行 Baseline 与 Candidate 配置，运行完全相同的测试命令（如 <code class="code-badge">["npm", "test"]</code>），以真实命令退出码与耗时作为客观指标。
-        </p>
-        <p style="font-size: 13px; color: var(--text-secondary); margin-top: 8px;">
-          <strong>当前评测局限与说明：</strong>当前评测器仅为确定性外部命令退出码与耗时比对（deterministic_command），而非端到端的全自主智能体评估；Baseline 与 Candidate 采用独立 Worktree 分批执行而非并发执行，杜绝模型主观打分偏差。
-        </p>
-      </section>
+# 3. 本地直接运行桌面宿主
+swift run VelaDesktop
 
-      <section id="inbox-approvals">
-        <h2>待执行操作把关 (Inbox)</h2>
-        <p>
-          工作流中的写入操作、测试脚本执行以及 Lab 实验任务，会在计算冻结参数哈希后进入待办列表。工程师核对具体参数后，可选择批准执行或直接拒绝。系统通过路径范围校验与审批快照进行防护，不包含 OS 级别的沙盒隔离。
-        </p>
-      </section>
+# 4. 打包生成独立的 macOS 应用程序包
+bash scripts/package-macos.sh</pre>
+          </div>
 
-      <section id="local-first">
-        <h2>本地存储布局</h2>
-        <p>
-          开发预览构建默认使用 <code class="code-block" style="padding: 1px 4px;">~/.vela-dev</code>，正式版使用 <code class="code-block" style="padding: 1px 4px;">~/.vela</code>，可通过环境变量 <code class="code-block" style="padding: 1px 4px;">VELA_HOME</code> 自定义。
-        </p>
-        <div class="code-block">.vela/
-├── vela.sqlite3
+          <p>
+            打包脚本执行完毕后，生成的产物将放置于 <code class="inline-code">releases/Vela.app</code>、<code class="inline-code">releases/Vela-macOS-arm64.zip</code> 与 <code class="inline-code">releases/SHA256SUMS</code>，包含完整的 AppKit 原生宿主程序与嵌入式命令行工具。
+          </p>
+        </section>
+
+        <!-- Connect First Project -->
+        <section class="docs-section" id="connect-project">
+          <h2>接入首个工程</h2>
+          <p>
+            Vela 围绕具体代码仓库组织经验数据。当前开发者预览版默认使用 <code class="inline-code">dev</code> 通道及数据目录 <code class="inline-code">~/.vela-dev</code>。接入项目后，系统将自动发现该项目关联的本地智能体会话日志：
+          </p>
+          <ul>
+            <li><strong>图形界面操作：</strong>点击桌面窗口左上角项目切换器旁的 <strong>+</strong> 号图标，在系统目录对话框中选择你的本地代码仓库根目录。</li>
+            <li><strong>CLI 命令行添加：</strong>通过内嵌命令行向预览版数据目录注册工程：
+              <div class="code-block-wrapper" style="margin-top: 8px;">
+                <button type="button" class="code-block-copy-btn" data-copy-target="#code-project-add" aria-label="复制代码">复制</button>
+                <pre id="code-project-add">/Applications/Vela.app/Contents/MacOS/vela call projects.add '{"path":"/Users/yourname/Projects/my-app"}' --home "$HOME/.vela-dev"</pre>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Module 1: Agents -->
+        <section class="docs-section" id="module-agents">
+          <h2>1. Agents 会话观察与经验沉淀</h2>
+          <p>
+            Agents 工作台用于汇总所有已接入项目的智能体调用记录（支持 Claude Code、Codex 会话日志，以及处于实验性解析阶段的 Cursor 记录）。
+          </p>
+          <ul>
+            <li><strong>有界回溯保护：</strong>初次扫描日志时限制回溯范围以缓解 I/O 与内存开销。会话状态完全依据支持的本地日志实证推断，非后台运行进程存活性证明；未捕获的历史会话不提供全量追溯保证。</li>
+            <li><strong>实证状态呈现：</strong>严格根据本地捕获的日志证据标注调用时间线与状态；若日志中无明确结果记录，如实显示为未确认，不臆造虚假状态。</li>
+            <li><strong>单条经验提取为 Memory：</strong>在审查消息流时，可针对特定技术结论保存为 Memory 候选（candidate）；经人工审查标记为 <code class="inline-code">active</code> 生效后方可参与 Recall 召回。</li>
+            <li><strong>导出 Checkpoint：</strong>支持跨会话导出包含目标、已完成事项与测试结果的阶段性交接总结文件。</li>
+          </ul>
+        </section>
+
+        <!-- Module 2: Workflows -->
+        <section class="docs-section" id="module-workflows">
+          <h2>2. Workflows 编排与 Dry Run</h2>
+          <p>
+            用于编排软件工程中频繁出现的自动化检查与验证步骤。工作流文件采用 Markdown 格式组织（带 YAML/JSON frontmatter 规范头，<code class="inline-code">*.md</code>）。
+          </p>
+          <ul>
+            <li><strong>只读工具与变更工具分离：</strong>内置工具区分为无害只读项（<code class="inline-code">git.status</code>, <code class="inline-code">git.diff</code>, <code class="inline-code">git.log</code>）与需审批项（<code class="inline-code">shell.test</code>, <code class="inline-code">shell.typecheck</code>, <code class="inline-code">file.write</code>, <code class="inline-code">agent.run</code>）。</li>
+            <li><strong>Dry Run 试运行：</strong>只读 Git 指令在当前工作区真实执行；写入和测试步骤使用模拟结果，帮助你在不改变任何工作区文件的前提下验证环境与参数。</li>
+            <li><strong>运行记录台账 (Run Ledger)：</strong>完整记录每个步骤的真实输出与耗时，并支持一键重新重放 (Replay)。</li>
+          </ul>
+        </section>
+
+        <!-- Module 3: Setup -->
+        <section class="docs-section" id="module-setup">
+          <h2>3. Setup 项目配置与 Memory 召回</h2>
+          <p>
+            集中维护工程规范、知识库、MCP 配置与已沉淀的项目经验。
+          </p>
+          <ul>
+            <li><strong>Memory 状态流转：</strong>新经验默认进入 <code class="inline-code">candidate</code>（候选）状态；经人工审查确认后晋升为 <code class="inline-code">active</code>（生效中）；当方案随项目演进而陈旧时，可标记为 <code class="inline-code">superseded</code> 或 <code class="inline-code">archived</code>。<strong>仅处于 <code class="inline-code">active</code> 状态的记忆会参与 Recall 召回</strong>，人工在界面中检索时仍可查阅全部状态条目。</li>
+            <li><strong>固定预算显式召回 (Recall)：</strong>记忆不会在智能体启动时自动拉取。支持通过命令行或 MCP 接口按固定预算上限（当前为 1000 tokens）进行显式检索。</li>
+            <li><strong>Guidelines 规约文件：</strong>编写与维护 Markdown 格式的架构规范源文件。规约在当前预览版中作为人工维护的项目文件，未注入到外部模型 Prompt 中。</li>
+            <li><strong>知识库私密隔离 (Private Library)：</strong>在知识库中标记为私密的条目对智能体完全不可见，底层机制严格将其排除在 Agent 检索、工作流与模型 Prompt 之外，仅供工程师在桌面中人工查阅。</li>
+          </ul>
+        </section>
+
+        <!-- Module 4: Usage -->
+        <section class="docs-section" id="module-usage">
+          <h2>4. Usage 用量追踪</h2>
+          <p>
+            从本地捕获的日志中如实提取 Token 输入输出统计与趋势图表。若 Provider 日志中未包含配额或费用数据，界面如实显示“额度未提供”，绝不进行主观账单估算。
+          </p>
+        </section>
+
+        <!-- Module 5: Improve -->
+        <section class="docs-section" id="module-improve">
+          <h2>5. Improve 调优建议 (确定性规则)</h2>
+          <p>
+            Improve 模块基于确定性规则与记录信号生成调整草案：
+          </p>
+          <div class="callout-box">
+            <strong>触发条件：</strong>当同一异常模式在<strong>至少 2 个会话中出现 3 次以上记录信号</strong>时，系统依据规则库生成针对性的规约配置调整草案。必须在界面中完整审查文件 Diff 并由人工确认后方执行写入，撤销时根据文件身份与恢复日志校验。
+          </div>
+        </section>
+
+        <!-- Module 6: Lab -->
+        <section class="docs-section" id="module-lab">
+          <h2>6. Lab 对照实验 (deterministic_command)</h2>
+          <p>
+            用于客观检验不同工程配置对测试结果的影响：
+          </p>
+          <ul>
+            <li>在处于相同 Git HEAD 的双独立 Worktree 中分别执行 Baseline 与 Candidate 配置，运行成对命令（如 <code class="inline-code">["npm", "test"]</code> 或 <code class="inline-code">["swift", "test"]</code>）。</li>
+            <li>分批先后执行而非并发争用，记录真实退出码（0/1）、输出内容与运行时长作为对比证据。</li>
+          </ul>
+          <div class="callout-box" style="margin-top: 14px;">
+            <strong>边界说明：</strong>Lab 对照实验不向外部模型注入 Prompt，不自动应用或修改 Memory/Guideline/Workflow 标签，不评估模型任务成功率或 Token 节省，也不是操作系统级别的安全沙盒（经批准的外部命令保持常规系统执行权限）。
+          </div>
+        </section>
+
+        <!-- Inbox & Approvals -->
+        <section class="docs-section" id="inbox-approvals">
+          <h2>待办把关 (Inbox) 与参数冻结</h2>
+          <p>
+            工作流中的任何写操作（<code class="inline-code">file.write</code>）、测试执行（<code class="inline-code">shell.test</code>）与 Lab 实验均受到 Inbox 把关保护：
+          </p>
+          <ul>
+            <li>进入队列时立即计算冻结参数哈希（Frozen Argument Hash）。</li>
+            <li>工程师批准该操作仅对已核对的具体参数生效一次，不适用于未预期的重试或参数漂移。</li>
+            <li>所有写操作在写入前校验允许的根路径与文件系统标识，并保留恢复日志以备回滚。</li>
+          </ul>
+        </section>
+
+        <!-- Local Storage Layout -->
+        <section class="docs-section" id="storage-layout">
+          <h2>本地存储路径规约</h2>
+          <p>
+            当前开发者预览版桌面端使用 <code class="inline-code">dev</code> 分支通道，默认存储在用户主目录的 <code class="inline-code">~/.vela-dev/</code>（未来稳定版使用 <code class="inline-code">~/.vela/</code>，canary 通道使用 <code class="inline-code">~/.vela-canary/</code>）。
+          </p>
+          <p>
+            由于独立命令行工具默认指向 <code class="inline-code">~/.vela</code>，与当前桌面预览版协同使用时，CLI 及 MCP 调用需显式附加 <code class="inline-code">--home "$HOME/.vela-dev"</code> 或对应的绝对路径（亦可通过环境变量 <code class="inline-code">VELA_HOME=/path/to/custom</code> 进行显式覆盖）。
+          </p>
+
+          <div class="code-block-wrapper">
+            <pre>~/.vela-dev/
+├── vela.sqlite3           # SQLite 数据库（会话索引、运行台账、审批快照）
 └── assets/
-    ├── memory/
-    ├── workflow/
-    ├── guideline/
-    ├── library/
-    └── checkpoint/</div>
-      </section>
+    ├── memory/            # 项目记忆文件 (*.md)
+    ├── workflow/          # 工作流定义 (*.md，含 YAML/JSON 规范头)
+    ├── guideline/         # 规约规范文件 (*.md)
+    ├── library/           # 本地知识库文档 (Private 条目排除在 Agent 之外)
+    └── checkpoint/        # 跨模型交接总结文件</pre>
+          </div>
+        </section>
 
-      <section id="cli-reference">
-        <h2>CLI 接口参考</h2>
-        <p style="margin-bottom: 12px; color: var(--text-secondary); font-size: 14px;">
-          安装应用后，用户可直接调用可执行文件 <code class="code-block" style="padding: 1px 4px;">/Applications/Vela.app/Contents/MacOS/vela</code>，或将其目录加入环境变量 <code class="code-block" style="padding: 1px 4px;">$PATH</code> 后直接运行下方简写 <code class="code-block" style="padding: 1px 4px;">vela</code> 指令。
-        </p>
-        <ul>
-          <li><code class="code-block" style="padding: 2px 6px;">vela rpc --home PATH</code>：启动原生宿主通信进程。</li>
-          <li><code class="code-block" style="padding: 2px 6px;">vela mcp [--home PATH]</code>：启动只读 stdio MCP 服务。</li>
-          <li><code class="code-block" style="padding: 2px 6px;">vela doctor</code>：检查本地数据库与智能体检测状态。</li>
-          <li><code class="code-block" style="padding: 2px 6px;">vela recall QUERY --project PATH</code>：按 1000 tokens 保守估算预算上限显式召回记忆。</li>
-          <li><code class="code-block" style="padding: 2px 6px;">vela search QUERY [--project PATH]</code>：搜索本地证据库。</li>
-        </ul>
-      </section>
-    </article>
-  </div>
+        <!-- MCP Configuration -->
+        <section class="docs-section" id="mcp-config">
+          <h2>stdio MCP 智能体连接配置</h2>
+          <p>
+            Vela 内置只读 stdio MCP（Model Context Protocol）服务，供外部智能体（如 Claude Desktop、Claude Code、Cursor 等）安全检索当前项目的上下文与已生效的 Memory。
+          </p>
+          <p>
+            MCP 辅助程序内置于已安装的应用程序包中：<code class="inline-code">/Applications/Vela.app/Contents/MacOS/vela</code>。在你的智能体 MCP 配置文件（如 <code class="inline-code">claude_desktop_config.json</code>）中添加如下配置。<strong>注意：JSON 参数不支持 Shell 变量展开，请将 <code class="inline-code">/Users/YOUR_USERNAME/.vela-dev</code> 替换为你实际的用户主目录绝对路径：</strong>
+          </p>
 
-  <!-- Footer -->
+          <div class="code-block-wrapper">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-mcp" aria-label="复制代码">复制</button>
+            <pre id="code-mcp">{
+  "mcpServers": {
+    "vela": {
+      "command": "/Applications/Vela.app/Contents/MacOS/vela",
+      "args": [
+        "mcp",
+        "--home",
+        "/Users/YOUR_USERNAME/.vela-dev"
+      ]
+    }
+  }
+}</pre>
+          </div>
+        </section>
+
+        <!-- CLI Reference -->
+        <section class="docs-section" id="cli-reference">
+          <h2>CLI 命令行接口参考</h2>
+          <p>
+            安装应用后，可直接调用内嵌的可执行文件，并显式传入预览版存储路径 <code class="inline-code">--home "$HOME/.vela-dev"</code>。
+          </p>
+
+          <h3>长驻 stdio 交互服务</h3>
+          <p>
+            <code class="inline-code">rpc</code> 与 <code class="inline-code">mcp</code> 为独立的持续运行 stdio 服务进程（持续监听标准输入输出，可通过键盘输入 <code class="inline-code">Ctrl-D</code> 发送 EOF 退出）。请在独立终端窗口中单独启动，避免与其他单次命令混在同一代码块中粘贴执行：
+          </p>
+
+          <p style="margin-bottom: 6px; font-size: 14px; font-weight: 500; color: var(--text-primary);">
+            1. 运行原生宿主通信进程 (RPC 服务)：
+          </p>
+          <div class="code-block-wrapper" style="margin-top: 4px; margin-bottom: 20px;">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-cli-rpc" aria-label="复制 RPC 命令">复制</button>
+            <pre id="code-cli-rpc">/Applications/Vela.app/Contents/MacOS/vela rpc --home "$HOME/.vela-dev"</pre>
+          </div>
+
+          <p style="margin-bottom: 6px; font-size: 14px; font-weight: 500; color: var(--text-primary);">
+            2. 启动只读 stdio MCP 服务 (供外部 Agent 接入)：
+          </p>
+          <div class="code-block-wrapper" style="margin-top: 4px; margin-bottom: 24px;">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-cli-mcp" aria-label="复制 MCP 命令">复制</button>
+            <pre id="code-cli-mcp">/Applications/Vela.app/Contents/MacOS/vela mcp --home "$HOME/.vela-dev"</pre>
+          </div>
+
+          <h3>单次执行管理与检索指令</h3>
+          <p>
+            以下常规管理与检索指令执行完毕后立即返回退出码，均支持独立单次复制执行：
+          </p>
+
+          <p style="margin-bottom: 6px; font-size: 14px; font-weight: 500; color: var(--text-primary);">
+            3. 检查环境与本地存储健康状态：
+          </p>
+          <div class="code-block-wrapper" style="margin-top: 4px; margin-bottom: 20px;">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-cli-doctor" aria-label="复制 doctor 命令">复制</button>
+            <pre id="code-cli-doctor">/Applications/Vela.app/Contents/MacOS/vela doctor --home "$HOME/.vela-dev"</pre>
+          </div>
+
+          <p style="margin-bottom: 6px; font-size: 14px; font-weight: 500; color: var(--text-primary);">
+            4. 扫描并导入支持的本地智能体会话日志 (独立指令)：
+          </p>
+          <div class="code-block-wrapper" style="margin-top: 4px; margin-bottom: 20px;">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-cli-refresh" aria-label="复制 refresh 命令">复制</button>
+            <pre id="code-cli-refresh">/Applications/Vela.app/Contents/MacOS/vela refresh --home "$HOME/.vela-dev"</pre>
+          </div>
+
+          <p style="margin-bottom: 6px; font-size: 14px; font-weight: 500; color: var(--text-primary);">
+            5. 按固定预算 (1000 tokens) 显式召回已生效的项目记忆：
+          </p>
+          <div class="code-block-wrapper" style="margin-top: 4px; margin-bottom: 20px;">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-cli-recall" aria-label="复制 recall 命令">复制</button>
+            <pre id="code-cli-recall">/Applications/Vela.app/Contents/MacOS/vela recall "SQLite 并发" --project /path/to/project --home "$HOME/.vela-dev"</pre>
+          </div>
+
+          <p style="margin-bottom: 6px; font-size: 14px; font-weight: 500; color: var(--text-primary);">
+            6. 自定义 Token 预算显式召回 (通过通用 RPC 接口)：
+          </p>
+          <div class="code-block-wrapper" style="margin-top: 4px; margin-bottom: 20px;">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-cli-call-recall" aria-label="复制通用 RPC recall 命令">复制</button>
+            <pre id="code-cli-call-recall">/Applications/Vela.app/Contents/MacOS/vela call recall '{"query":"SQLite 并发","project":"/path/to/project","budget":2000}' --home "$HOME/.vela-dev"</pre>
+          </div>
+
+          <p style="margin-bottom: 6px; font-size: 14px; font-weight: 500; color: var(--text-primary);">
+            7. 检索本地工程证据库：
+          </p>
+          <div class="code-block-wrapper" style="margin-top: 4px; margin-bottom: 24px;">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-cli-search" aria-label="复制 search 命令">复制</button>
+            <pre id="code-cli-search">/Applications/Vela.app/Contents/MacOS/vela search "worktree 清理" --project /path/to/project --home "$HOME/.vela-dev"</pre>
+          </div>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <!-- Site Footer -->
   <footer class="site-footer">
     <div class="container footer-inner">
-      <div>
-        <strong>Vela</strong> — The engineering layer for coding agents.
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
       </div>
+
       <div class="footer-links">
-        <a href="docs.html">文档</a>
-        <a href="privacy.html">隐私与安全</a>
-        <a href="releases.html">发行记录</a>
-        <a href="https://github.com/Atingaii/Vela" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="docs.html" class="footer-link">技术文档</a>
+        <a href="privacy.html" class="footer-link">数据隐私</a>
+        <a href="releases.html" class="footer-link">发行记录</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">安全漏洞反馈</a>
       </div>
     </div>
   </footer>

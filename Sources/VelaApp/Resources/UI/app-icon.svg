@@ -1,54 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <!-- Background rounded icon squircle clip -->
-    <clipPath id="squircle">
-      <rect x="64" y="64" width="896" height="896" rx="200" ry="200" />
-    </clipPath>
-    <!-- Deep ink gradient -->
-    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#161622" />
-      <stop offset="100%" stop-color="#07070a" />
+    <filter id="icon-shadow" x="-8%" y="-8%" width="120%" height="124%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="24" stdDeviation="32" flood-color="#000000" flood-opacity="0.38"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.22"/>
+    </filter>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1c1c24"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
     </linearGradient>
-    <!-- Sail warm amber gradient -->
-    <linearGradient id="sailGrad" x1="0.2" y1="0" x2="0.8" y2="1">
-      <stop offset="0%" stop-color="#fef08a" />
-      <stop offset="40%" stop-color="#fbbf24" />
-      <stop offset="100%" stop-color="#d97706" />
+    <linearGradient id="rim-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.4"/>
     </linearGradient>
-    <!-- Secondary mast tone -->
-    <linearGradient id="mastGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#e2e8f0" />
-      <stop offset="100%" stop-color="#64748b" />
+    <linearGradient id="sail-primary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e2e2ea"/>
+    </linearGradient>
+    <linearGradient id="sail-secondary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d4d4de"/>
+      <stop offset="100%" stop-color="#b4b4c2"/>
+    </linearGradient>
+    <linearGradient id="jib-primary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9696a8"/>
+      <stop offset="100%" stop-color="#727282"/>
+    </linearGradient>
+    <linearGradient id="accent-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
     </linearGradient>
   </defs>
-
-  <!-- Base Icon Card -->
-  <g clip-path="url(#squircle)">
-    <rect x="64" y="64" width="896" height="896" fill="url(#bgGrad)" />
-    
-    <!-- Subtle 64px Grid Texture -->
-    <path d="M64 256 H960 M64 512 H960 M64 768 H960 M256 64 V960 M512 64 V960 M768 64 V960"
-          stroke="rgba(255, 255, 255, 0.03)" stroke-width="2" />
-
-    <!-- Outer Card Border -->
-    <rect x="64" y="64" width="896" height="896" rx="200" ry="200"
-          fill="none" stroke="rgba(255, 255, 255, 0.08)" stroke-width="4" />
-
-    <!-- Vela Angular Sail Mark (High contrast & crisp at small sizes) -->
-    <!-- Main Sail (Warm Amber) -->
-    <polygon points="512,192 784,752 512,656"
-             fill="url(#sailGrad)" />
-    
-    <!-- Fore Sail / Counter Sail (Clean Dark-Light Contrast) -->
-    <polygon points="512,192 512,656 240,752"
-             fill="url(#mastGrad)"
-             opacity="0.9" />
-
-    <!-- Keel Cutout Accent -->
-    <polygon points="512,656 784,752 512,716 240,752"
-             fill="#07070a" />
-
-    <!-- Central Precision Dot -->
-    <circle cx="512" cy="716" r="16" fill="#fbbf24" />
+  <rect x="64" y="64" width="896" height="896" rx="204" ry="204" fill="url(#bg-grad)" filter="url(#icon-shadow)"/>
+  <rect x="64" y="64" width="896" height="896" rx="204" ry="204" fill="none" stroke="url(#rim-grad)" stroke-width="2.5"/>
+  <circle cx="512" cy="512" r="300" fill="none" stroke="#2b2b38" stroke-width="1.5" stroke-dasharray="6 10" opacity="0.6"/>
+  <g id="vela-mark" transform="translate(0, 8)">
+    <polygon points="512,236 324,704 512,612" fill="url(#jib-primary)"/>
+    <polygon points="512,236 512,612 438,728" fill="url(#sail-secondary)"/>
+    <polygon points="512,236 708,668 512,612" fill="url(#sail-primary)"/>
+    <polygon points="324,704 438,728 512,612" fill="#5a5a6c" opacity="0.85"/>
+    <polygon points="512,612 438,728 660,700 708,668" fill="#444454" opacity="0.9"/>
+    <circle cx="512" cy="236" r="14" fill="url(#accent-amber)"/>
+    <circle cx="512" cy="236" r="24" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0.4"/>
   </g>
 </svg>

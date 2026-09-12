@@ -56,6 +56,25 @@ open releases/Vela.app
 
 Inspect the bundle and release audit, then verify the actual packaged app. The default developer package is ad-hoc signed. Developer ID signing and Apple notarization require the maintainer's own credentials and explicit release configuration; a successful local build does not provide either.
 
+## Interface checks
+
+The recommended browser regression runner uses the Playwright library (validated with version 1.62.1), Node.js 22+, Python 3.9+ and an installed Google Chrome. It serves the actual client resources against the compiled local CLI, using an isolated project under `.task-tmp`; it does not load the browser demo. Browser dependencies are development tools and are not bundled with the macOS app.
+
+```sh
+npm install --prefix .task-tmp/ui-browser-tools --registry=https://registry.npmjs.org --save-exact playwright@1.62.1
+swift build
+python3 scripts/create-ui-fixture.py .task-tmp/ui-browser --with-routing-project
+python3 scripts/test-ui-browser.py .task-tmp/ui-browser/fixture.json \
+  --driver playwright \
+  --playwright-module "$PWD/.task-tmp/ui-browser-tools/node_modules/playwright/index.js" \
+  --browser-executable "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+python3 scripts/test-release-resources.py
+```
+
+Use a new fixture directory for each run. The runner closes its browser and helper processes and leaves `browser-results.json` and any failure screenshots in the fixture for inspection. Remove only that disposable directory after review. Native file pickers, menu behavior, notification permission, sound and WebKit-specific rendering still require the actual macOS app.
+
+The fixture also supports real-app screenshots. In a non-packaged development build, `VELA_CAPTURE_DIRECTORY` enables a developer capture command only alongside an explicit `VELA_HOME` containing the synthetic fixture marker. Release builds exclude this hook. See [image provenance](docs/assets/README.md) before adding product screenshots.
+
 ## Pull requests
 
 1. Discuss changes to product scope, public APIs, storage formats or major dependencies in an issue. A focused bug fix can go directly to a pull request.

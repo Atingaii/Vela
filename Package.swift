@@ -8,7 +8,7 @@ let package = Package(
         .systemLibrary(name: "CSQLite"),
         .target(name: "VelaCore", dependencies: ["CSQLite"]),
         .executableTarget(name: "VelaCLI", dependencies: ["VelaCore"]),
-        .executableTarget(name: "VelaApp", resources: [.copy("Resources")]),
+        .executableTarget(name: "VelaApp", dependencies: ["VelaCore"], resources: [.copy("Resources")]),
         .testTarget(name: "VelaCoreTests", dependencies: ["VelaCore"])
     ]
 )

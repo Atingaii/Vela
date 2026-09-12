@@ -150,7 +150,9 @@ final class SessionEngine {
                     if let cwd = row["cwd"] as? String, cwd.hasPrefix("/") { session["cwd"] = cwd; session["project"] = canonicalProject(cwd) }
                     if let branch = row["gitBranch"] { session["branch"] = branch }
                     if let sessionId = row["sessionId"] { session["sourceSessionId"] = sessionId }
-                    if let timestamp = row["timestamp"],session["startedAt"] == nil { session["startedAt"] = timestamp }
+                    if let timestamp = row["timestamp"] as? String,session["startedAt"] == nil {
+                        session["startedAt"] = timestamp; session["startedAtSource"] = "provider"
+                    }
                 }
             }
         }
@@ -187,7 +189,8 @@ final class SessionEngine {
         session["historyFullyIndexed"] = session["historyTruncated"] as? Bool != true && offset + consumed >= size
         session["indexedBytes"] = offset + consumed; session["sourceBytes"] = size
         session["title"] = session["title"] ?? url.deletingPathExtension().lastPathComponent
-        session["project"] = session["project"] ?? ""; session["startedAt"] = session["startedAt"] ?? isoNow()
+        session["project"] = session["project"] ?? ""
+        if session["startedAt"] == nil { session["startedAt"] = isoNow(); session["startedAtSource"] = "ingestion_fallback" }
         let messages = session["messages"] as? [JSON] ?? []
         session["messageCount"] = messages.count; session["content"] = messages.map { string($0,"content") }.joined(separator:"\n")
         if malformed > 0 { session["parseWarning"] = "Skipped \(malformed) malformed records" }
@@ -231,7 +234,9 @@ final class SessionEngine {
     }
     private func mergeEvent(_ row: JSON, provider: String, session: inout JSON) {
         let timestamp = string(row,"timestamp",isoNow()); let type = string(row,"type")
-        session["startedAt"] = session["startedAt"] ?? timestamp; session["lastActivity"] = timestamp
+        let timestampSource = row["timestamp"] is String ? "provider" : "ingestion_fallback"
+        if session["startedAt"] == nil { session["startedAt"] = timestamp; session["startedAtSource"] = timestampSource }
+        session["lastActivity"] = timestamp; session["lastActivitySource"] = timestampSource
         if let cwd = row["cwd"] as? String, cwd.hasPrefix("/") { session["cwd"] = cwd; session["project"] = canonicalProject(cwd) }
         if let branch = row["gitBranch"] as? String { session["branch"] = branch }
         if let sourceId = row["sessionId"] as? String { session["sourceSessionId"] = sourceId }

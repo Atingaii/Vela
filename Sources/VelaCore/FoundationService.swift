@@ -31,7 +31,8 @@ public final class FoundationService {
                 let items = try kind == "session" ? store.sessionSummaries(project:selectedProject) : store.list(kind,project:kind == "project" || kind == "harness" ? nil : selectedProject); dashboard[key] = kind == "session" ? items.map(sessionSummary) : items
             }
             dashboard["harnesses"] = agentList()
-            dashboard["usage"] = try usage(params); dashboard["settings"] = try store.get("settings","preferences") ?? ["telemetry":false]
+            dashboard["usage"] = try usage(params); dashboard["settings"] = try VelaPreferences.read(from: store)
+            dashboard["notificationScope"] = selectedProject ?? "*"
             let sessionRows = dashboard["sessions"] as? [JSON] ?? []
             let memories = dashboard["memories"] as? [JSON] ?? []
             let workflows = dashboard["workflows"] as? [JSON] ?? []

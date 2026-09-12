@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- macOS squircle shadow -->
+    <filter id="icon-shadow" x="-8%" y="-8%" width="120%" height="124%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="24" stdDeviation="32" flood-color="#000000" flood-opacity="0.38"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.22"/>
+    </filter>
+
+    <!-- Base squircle gradient (rich graphite) -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1c1c24"/>
+      <stop offset="100%" stop-color="#0f0f14"/>
+    </linearGradient>
+
+    <!-- Top rim highlight -->
+    <linearGradient id="rim-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.4"/>
+    </linearGradient>
+
+    <!-- Main sail facets -->
+    <linearGradient id="sail-primary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e2e2ea"/>
+    </linearGradient>
+    <linearGradient id="sail-secondary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d4d4de"/>
+      <stop offset="100%" stop-color="#b4b4c2"/>
+    </linearGradient>
+    <linearGradient id="jib-primary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9696a8"/>
+      <stop offset="100%" stop-color="#727282"/>
+    </linearGradient>
+
+    <!-- Navigational accent (quiet amber) -->
+    <linearGradient id="accent-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background squircle (Apple standard curvature R=204 at 896 width) -->
+  <rect x="64" y="64" width="896" height="896" rx="204" ry="204" fill="url(#bg-grad)" filter="url(#icon-shadow)"/>
+  <rect x="64" y="64" width="896" height="896" rx="204" ry="204" fill="none" stroke="url(#rim-grad)" stroke-width="2.5"/>
+
+  <!-- Instrument hairline reference circle -->
+  <circle cx="512" cy="512" r="300" fill="none" stroke="#2b2b38" stroke-width="1.5" stroke-dasharray="6 10" opacity="0.6"/>
+
+  <!-- Vela Sail Geometry -->
+  <g id="vela-mark" transform="translate(0, 8)">
+    <!-- Jib / Left Stabilizer Facet -->
+    <polygon points="512,236 324,704 512,612" fill="url(#jib-primary)"/>
+
+    <!-- Mainsail Shadow Facet (Center-Left) -->
+    <polygon points="512,236 512,612 438,728" fill="url(#sail-secondary)"/>
+
+    <!-- Mainsail Body (Center-Right) -->
+    <polygon points="512,236 708,668 512,612" fill="url(#sail-primary)"/>
+
+    <!-- Hull / Keel Base Line (Restrained) -->
+    <polygon points="324,704 438,728 512,612" fill="#5a5a6c" opacity="0.85"/>
+    <polygon points="512,612 438,728 660,700 708,668" fill="#444454" opacity="0.9"/>
+
+    <!-- Navigational Star / Zenith Node -->
+    <circle cx="512" cy="236" r="14" fill="url(#accent-amber)"/>
+    <circle cx="512" cy="236" r="24" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0.4"/>
+  </g>
+</svg>
