@@ -1140,7 +1140,8 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             "guidelines.list", "guidelines.save", "regression.list",
             "inbox.list", "approvals.decide",
             "improve.analyze", "improve.list", "improve.preview", "improve.apply", "improve.undo", "improve.dismiss",
-            "lab.list", "lab.run", "lab.compare",
+            "lab.list", "lab.run", "lab.compare", "lab.promote",
+            "reuse.preview", "reuse.outcomes",
             "evidence.get", "settings.get"
         ]
 

@@ -36,6 +36,7 @@
     sessionFilterQuery: '',
     sessionProviderFilter: '',
     sessionStatusFilter: '',
+    memoryFilter: 'all',
     // Settings draft, snapshot cache, and live session tracking
     settingsDraft: null,
     lastRenderedSnapshotJson: null,
@@ -73,6 +74,51 @@
   function formatNumber(num) {
     if (num === null || num === undefined || isNaN(num)) return '0';
     return Number(num).toLocaleString();
+  }
+
+  function formatProviderName(provider) {
+    if (!provider) return '未知 Provider';
+    const p = String(provider).toLowerCase();
+    if (p === 'claude' || p === 'claude-code') return 'Claude Code';
+    if (p === 'codex') return 'Codex';
+    if (p === 'cursor') return 'Cursor';
+    if (p === 'copilot') return 'GitHub Copilot';
+    return provider;
+  }
+
+  function formatMemoryType(t) {
+    const map = {
+      fact: '事实',
+      decision: '决策',
+      constraint: '约束',
+      preference: '偏好',
+      failure: '避坑',
+      'workflow knowledge': '工作流经验',
+      observation: '观察',
+      hypothesis: '假设',
+      checkpoint: '检查点'
+    };
+    return map[(t || '').toLowerCase()] || t || '事实';
+  }
+
+  function formatMemoryScope(s) {
+    const map = {
+      project: '项目',
+      global: '全局',
+      branch: '分支',
+      worktree: '工作树'
+    };
+    return map[(s || '').toLowerCase()] || s || '项目';
+  }
+
+  function formatDiscoveryKind(kind) {
+    if (!kind) return '';
+    const k = String(kind).toLowerCase();
+    if (k === 'tool-sequence') return '重复流程';
+    if (k === 'frequency') return '高频模式';
+    if (k === 'rule-conflict') return '规则冲突';
+    if (k === 'error-pattern') return '报错模式';
+    return '';
   }
 
   function showToast(message, type = 'info') {
@@ -881,7 +927,7 @@
       <div class="page-header">
         <div class="page-title-group">
           <h1>会话</h1>
-          <p>观察智能体会话日志、工具调用与上下文证据 · 共 ${filteredSessions.length} 个会话 (${runningCount} 运行中)</p>
+          <p>智能体会话日志、工具调用与上下文证据 · 共 ${filteredSessions.length} 个会话 (${runningCount} 运行中)</p>
         </div>
         <div class="page-actions">
           <button id="btn-refresh-sessions" class="btn btn-secondary btn-sm">增量刷新</button>
@@ -891,13 +937,13 @@
 
       <div class="toolbar-bar">
         <div class="toolbar-filters">
-          <input type="search" id="session-search-input" class="filter-input" placeholder="搜索会话标题、模型或路径..." title="搜索会话标题、模型或路径（点击表格任意行可打开详情与 Checkpoint）" style="width: 240px;" value="${escapeHtml(state.sessionFilterQuery)}">
+          <input type="search" id="session-search-input" class="filter-input" placeholder="搜索会话 (Cmd+K)..." title="搜索会话标题、模型或路径（选择列表任意会话可打开详情与 Checkpoint）" style="width: 240px;" value="${escapeHtml(state.sessionFilterQuery)}">
           <select id="session-provider-filter" class="filter-select">
             <option value="">所有 Provider</option>
-            <option value="claude" ${(state.sessionProviderFilter || '').toLowerCase() === 'claude' ? 'selected' : ''}>claude</option>
-            <option value="codex" ${(state.sessionProviderFilter || '').toLowerCase() === 'codex' ? 'selected' : ''}>codex</option>
-            <option value="cursor" ${(state.sessionProviderFilter || '').toLowerCase() === 'cursor' ? 'selected' : ''}>cursor</option>
-            ${hasCopilot ? `<option value="copilot" ${(state.sessionProviderFilter || '').toLowerCase() === 'copilot' ? 'selected' : ''}>copilot</option>` : ''}
+            <option value="claude" ${(state.sessionProviderFilter || '').toLowerCase() === 'claude' ? 'selected' : ''}>Claude Code</option>
+            <option value="codex" ${(state.sessionProviderFilter || '').toLowerCase() === 'codex' ? 'selected' : ''}>Codex</option>
+            <option value="cursor" ${(state.sessionProviderFilter || '').toLowerCase() === 'cursor' ? 'selected' : ''}>Cursor</option>
+            ${hasCopilot ? `<option value="copilot" ${(state.sessionProviderFilter || '').toLowerCase() === 'copilot' ? 'selected' : ''}>GitHub Copilot</option>` : ''}
           </select>
           <select id="session-status-filter" class="filter-select">
             <option value="">所有状态</option>
@@ -913,18 +959,13 @@
         </div>
       </div>
 
-      <div class="table-wrapper" title="点击行打开详情与 Checkpoint">
-        <table class="data-table" id="sessions-table">
-          <thead>
-            <tr>
-              <th class="col-title">会话 / 任务</th>
-              <th class="col-project" style="width: 180px;">项目</th>
-              <th class="col-status" style="width: 165px;">状态</th>
-              <th class="col-time" style="width: 120px; text-align: right;">最后更新</th>
-            </tr>
-          </thead>
-          <tbody id="sessions-table-body"></tbody>
-        </table>
+      <div class="session-source-note" role="note">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <span>会话状态由各 Agent 本地日志推断，非实时常驻进程监视。过久无活动自动判定为空闲或未知。</span>
+      </div>
+
+      <div id="sessions-container" class="sessions-container" role="region" aria-label="智能体会话列表">
+        <div id="sessions-grouped-lists"></div>
       </div>
 
       <div id="sessions-empty-state" class="empty-state hidden"></div>
@@ -1004,14 +1045,16 @@
   }
 
   function renderSessionRows(sessionsList, totalProjectSessions, isFilterActive) {
-    const tbody = document.getElementById('sessions-table-body');
+    const container = document.getElementById('sessions-container');
+    const groupedListEl = document.getElementById('sessions-grouped-lists');
     const emptyState = document.getElementById('sessions-empty-state');
-    const tableWrapper = document.querySelector('.table-wrapper');
-    if (!tbody) return;
+    const noteEl = document.querySelector('.session-source-note');
+    if (!container || !groupedListEl) return;
 
     if (sessionsList.length === 0) {
-      tbody.innerHTML = '';
-      if (tableWrapper) tableWrapper.classList.add('hidden');
+      groupedListEl.innerHTML = '';
+      container.classList.add('hidden');
+      if (noteEl) noteEl.classList.add('hidden');
       if (emptyState) {
         emptyState.classList.remove('hidden');
         if (state.registeredProjects.length === 0) {
@@ -1071,57 +1114,140 @@
       return;
     }
 
-    if (tableWrapper) tableWrapper.classList.remove('hidden');
+    container.classList.remove('hidden');
+    if (noteEl) noteEl.classList.remove('hidden');
     if (emptyState) emptyState.classList.add('hidden');
 
-    tbody.innerHTML = sessionsList.map(s => {
-      const stateBadge = getSessionStateBadge(s.state);
-      const tooltipParts = [];
-      if (s.statusSource) tooltipParts.push(`状态来源: ${s.statusSource}`);
-      if (s.statusInferred) tooltipParts.push(`状态依据: ${s.statusEvidence || '由日志推断，未附加实时常驻进程'}`);
-      const cellTooltip = tooltipParts.join(' · ');
-      return `
-        <tr class="clickable-row ${state.selectedSessionId === s.id ? 'selected' : ''}" data-id="${escapeHtml(s.id)}">
-          <td class="col-title" style="min-width: 0;">
-            <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
-              <span class="code-badge" style="flex-shrink: 0;">${escapeHtml(s.provider || 'AI')}</span>
-              <button type="button" class="session-title-btn" data-id="${escapeHtml(s.id)}" title="${escapeHtml(s.title || '未命名会话')}" aria-label="查看会话: ${escapeHtml(s.title || '未命名会话')}">
-                ${escapeHtml(s.title || '未命名会话')}
-              </button>
+    const groups = [
+      {
+        key: 'attention',
+        label: '需关注',
+        filter: s => {
+          const st = (s.state || '').trim().toLowerCase();
+          return st === 'needs approval' || st === 'needs_approval' || st === 'error' || st === 'failed';
+        }
+      },
+      {
+        key: 'active',
+        label: '运行中',
+        filter: s => (s.state || '').trim().toLowerCase() === 'running'
+      },
+      {
+        key: 'completed',
+        label: '已完成',
+        filter: s => (s.state || '').trim().toLowerCase() === 'completed'
+      },
+      {
+        key: 'idle_or_unknown',
+        label: '空闲与未知',
+        filter: s => {
+          const st = (s.state || '').trim().toLowerCase();
+          return st !== 'needs approval' && st !== 'needs_approval' && st !== 'error' && st !== 'failed' && st !== 'running' && st !== 'completed';
+        }
+      }
+    ];
+
+    const groupHtml = groups.map(group => {
+      const items = sessionsList.filter(group.filter);
+      if (items.length === 0) return '';
+
+      items.sort((a, b) => {
+        const ta = new Date(a.updatedAt || a.lastActivity || a.startedAt || 0).getTime();
+        const tb = new Date(b.updatedAt || b.lastActivity || b.startedAt || 0).getTime();
+        return tb - ta;
+      });
+
+      const cardsHtml = items.map(s => {
+        const stateBadge = getSessionStateBadge(s.state);
+        const tooltipParts = [];
+        if (s.statusSource) tooltipParts.push(`状态来源: ${s.statusSource}`);
+        if (s.statusEvidence) {
+          tooltipParts.push(`状态依据: ${s.statusEvidence}`);
+        } else if (s.statusInferred) {
+          tooltipParts.push(`状态依据: 由日志推断`);
+        }
+        const cellTooltip = tooltipParts.join(' · ');
+        const projectName = s.project ? s.project.split('/').filter(Boolean).pop() : '';
+        const providerName = (s.provider || 'ai').toLowerCase();
+
+        return `
+          <li class="session-card clickable-row ${state.selectedSessionId === s.id ? 'selected' : ''}" role="listitem" data-id="${escapeHtml(s.id)}" tabindex="0" ${cellTooltip ? `title="${escapeHtml(cellTooltip)}"` : ''} aria-label="查看会话: ${escapeHtml(s.title || '未命名会话')} · ${escapeHtml(s.provider || 'AI')} · ${escapeHtml(s.state || '未知')}">
+            <div class="session-card-main">
+              <div class="session-card-header">
+                <span class="provider-badge provider-${escapeHtml(providerName)}">${escapeHtml(formatProviderName(s.provider))}</span>
+                <button type="button" class="session-title-btn" data-id="${escapeHtml(s.id)}" title="${escapeHtml(s.title || '未命名会话')}" aria-label="查看会话: ${escapeHtml(s.title || '未命名会话')}">
+                  ${escapeHtml(s.title || '未命名会话')}
+                </button>
+              </div>
+              <div class="session-card-meta">
+                ${projectName ? `
+                  <span class="session-meta-project" title="${escapeHtml(s.project || '')}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    ${escapeHtml(projectName)}
+                  </span>
+                ` : ''}
+                ${s.branch ? `
+                  <span class="session-meta-branch" title="分支: ${escapeHtml(s.branch)}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
+                    ${escapeHtml(s.branch)}
+                  </span>
+                ` : ''}
+                ${s.messageCount != null ? `
+                  <span class="session-meta-messages">
+                    ${s.messageCount} 条消息
+                  </span>
+                ` : ''}
+              </div>
             </div>
-          </td>
-          <td class="col-project">
-            <div style="font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(s.project || '-')}">${escapeHtml(s.project ? s.project.split('/').pop() : '-')}</div>
-          </td>
-          <td class="col-status" style="white-space: nowrap; width: 165px;">
-            <div ${cellTooltip ? `title="${escapeHtml(cellTooltip)}"` : ''} style="display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
+            <div class="session-card-status">
               ${stateBadge}
-              ${s.statusInferred ? `<span class="status-badge status-amber" style="font-size: 10px; padding: 1px 5px; white-space: nowrap;" aria-label="状态由日志推断">日志推断</span>` : ''}
+              <span class="session-card-time">${formatTime(s.updatedAt || s.lastActivity)}</span>
             </div>
-          </td>
-          <td class="col-time" style="font-size: 12px; color: var(--text-secondary); text-align: right; white-space: nowrap; width: 120px;">${formatTime(s.updatedAt || s.lastActivity)}</td>
-        </tr>
+          </li>
+        `;
+      }).join('');
+
+      return `
+        <section class="session-group session-group-${group.key}" aria-label="${group.label}">
+          <div class="session-group-header">
+            <div class="session-group-title">— ${group.label}</div>
+            <span class="session-group-count">${items.length}</span>
+          </div>
+          <ul class="session-card-list" role="list">
+            ${cardsHtml}
+          </ul>
+        </section>
       `;
     }).join('');
 
-    tbody.querySelectorAll('tr.clickable-row').forEach(row => {
-      const openRow = (triggerEl) => {
-        const id = row.getAttribute('data-id');
-        tbody.querySelectorAll('tr').forEach(r => r.classList.toggle('selected', r.getAttribute('data-id') === id));
-        openSessionDetail(id, triggerEl || row.querySelector('.session-title-btn') || row);
+    groupedListEl.innerHTML = groupHtml;
+
+    groupedListEl.querySelectorAll('.session-card').forEach(card => {
+      const openCard = (triggerEl) => {
+        const id = card.getAttribute('data-id');
+        groupedListEl.querySelectorAll('.session-card').forEach(c => c.classList.toggle('selected', c.getAttribute('data-id') === id));
+        openSessionDetail(id, triggerEl || card.querySelector('.session-title-btn') || card);
       };
 
-      row.addEventListener('click', () => {
-        const trigger = row.querySelector('.session-title-btn') || row;
-        openRow(trigger);
+      card.addEventListener('click', () => {
+        const trigger = card.querySelector('.session-title-btn') || card;
+        openCard(trigger);
       });
 
-      const titleBtn = row.querySelector('.session-title-btn');
+      card.addEventListener('keydown', (e) => {
+        if (e.target === card && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          openCard(card.querySelector('.session-title-btn') || card);
+        }
+      });
+
+      const titleBtn = card.querySelector('.session-title-btn');
       if (titleBtn) {
         titleBtn.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            openRow(titleBtn);
+            e.stopPropagation();
+            openCard(titleBtn);
           }
         });
       }
@@ -1132,7 +1258,7 @@
     const s = (stateStr || '').toLowerCase();
     switch (s) {
       case 'running':
-        return '<span class="status-badge status-amber">● 运行中</span>';
+        return '<span class="status-badge status-blue"><span class="status-pulse-dot" style="background-color: var(--color-accent);"></span> 运行中</span>';
       case 'completed':
         return '<span class="status-badge status-sage">✓ 已完成</span>';
       case 'needs approval':
@@ -1158,9 +1284,43 @@
   function renderSessionDetailContent(session, drawerBody) {
     const messages = session.messages || [];
     const isTruncated = Boolean(session.messagesTruncated || session.isPartial || session.partial);
-    const tokenInputDisp = (session.tokenInput !== undefined && session.tokenInput !== null) ? formatNumber(session.tokenInput) : '未提供';
-    const tokenOutputDisp = (session.tokenOutput !== undefined && session.tokenOutput !== null) ? formatNumber(session.tokenOutput) : '未提供';
-    const tokensDisp = (session.tokenInput != null || session.tokenOutput != null) ? `${tokenInputDisp} / ${tokenOutputDisp}` : '未提供';
+
+    function isSafeCount(val) {
+      return typeof val === 'number' && Number.isSafeInteger(val) && val >= 0;
+    }
+
+    function formatSessionTokenVal(exactVal, observedVal) {
+      if (isSafeCount(exactVal)) {
+        return exactVal.toLocaleString();
+      }
+      if (isSafeCount(observedVal)) {
+        return `${observedVal.toLocaleString()} <span class="status-badge status-amber" style="font-size: 9px; padding: 1px 4px;">已观测部分</span>`;
+      }
+      return '未提供';
+    }
+
+    const hasAnyToken = isSafeCount(session.tokenInput) || isSafeCount(session.tokenOutput) ||
+                        isSafeCount(session.observedTokenInput) || isSafeCount(session.observedTokenOutput);
+
+    const tokenInputDisp = formatSessionTokenVal(session.tokenInput, session.observedTokenInput);
+    const tokenOutputDisp = formatSessionTokenVal(session.tokenOutput, session.observedTokenOutput);
+    const tokensDisp = hasAnyToken ? `${tokenInputDisp} / ${tokenOutputDisp}` : '未提供';
+
+    function formatSessionUsageStatus(st) {
+      if (!st) return '';
+      switch (st) {
+        case 'complete':
+          return '<span class="status-badge status-sage">完整统计</span>';
+        case 'partial':
+          return '<span class="status-badge status-amber">部分已观测</span>';
+        case 'overflow':
+          return '<span class="status-badge status-red">计数溢出</span>';
+        case 'unavailable':
+          return '<span class="status-badge status-neutral">无可用数据</span>';
+        default:
+          return `<span class="status-badge status-neutral">${escapeHtml(st)}</span>`;
+      }
+    }
 
     drawerBody.innerHTML = `
       <div class="session-status-banner card" style="padding: 10px 14px; margin-bottom: 16px; background: var(--bg-subtle);">
@@ -1194,8 +1354,12 @@
 
         <div style="display: flex; flex-direction: column; gap: 12px;">
           ${messages.length === 0 ? '<div class="text-secondary" style="font-size: 13px; padding: 24px 0; text-align: center;">无详细消息记录（仅捕获会话级统计）</div>' : ''}
-          ${messages.map((m, idx) => `
-            <div class="card" style="margin-bottom: 0; padding: 12px 14px;">
+          ${messages.map((m, idx) => {
+            const msgId = m.id ? String(m.id) : '';
+            const msgIdAttr = msgId ? `id="session-msg-${escapeHtml(msgId)}"` : '';
+            const msgDataAttr = msgId ? `data-message-id="${escapeHtml(msgId)}"` : `data-message-index="${idx}"`;
+            return `
+            <div class="card session-message-card" ${msgIdAttr} ${msgDataAttr} tabindex="-1" style="margin-bottom: 0; padding: 12px 14px;">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span class="status-badge status-neutral">${escapeHtml(m.role || 'message')}</span>
@@ -1213,7 +1377,8 @@
                   ${m.output ? `<div style="font-size: 11px; white-space: pre-wrap; word-break: break-all; color: var(--text-secondary); margin-top: 4px; border-top: 1px dashed var(--border-color); padding-top: 4px;">${escapeHtml(typeof m.output === 'string' ? m.output : JSON.stringify(m.output, null, 2))}</div>` : ''}
                 </div>` : ''}
             </div>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
       </div>
 
@@ -1231,6 +1396,8 @@
           <div><span class="text-secondary">时间:</span> ${formatTime(session.updatedAt)}</div>
           ${session.statusSource ? `<div><span class="text-secondary">状态来源:</span> <span class="font-mono">${escapeHtml(session.statusSource)}</span></div>` : ''}
           ${session.statusInferred ? `<div><span class="text-secondary">状态判定:</span> <span style="color: var(--status-amber-text, #f59e0b);" aria-label="状态由日志推断">状态由日志推断</span></div>` : ''}
+          ${session.usageStatus ? `<div><span class="text-secondary">用量状态:</span> ${formatSessionUsageStatus(session.usageStatus)}</div>` : ''}
+          ${session.usageCoverage ? `<div style="grid-column: 1 / -1;"><span class="text-secondary">用量覆盖:</span> <span class="text-muted" style="word-break: break-all;">${escapeHtml(session.usageCoverage)}</span></div>` : ''}
         </div>
         ${session.sourcePath ? `<div style="margin-top: 10px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); word-break: break-all;">日志路径: ${escapeHtml(session.sourcePath)}</div>` : ''}
       </details>
@@ -1248,7 +1415,7 @@
           project: session.project || '',
           branch: session.branch || '',
           sourceSession: session.id,
-          sourceMessage: msg.id || String(idx)
+          sourceMessage: msg.id ? String(msg.id) : ''
         });
       });
     });
@@ -1333,7 +1500,7 @@
     }
   }
 
-  async function openSessionDetail(sessionId, triggerEl = null) {
+  async function openSessionDetail(sessionId, triggerEl = null, targetMessageId = null) {
     const thisSeq = ++sessionDetailSequence;
     const thisProject = state.currentProject;
     state.selectedSessionId = sessionId;
@@ -1376,6 +1543,23 @@
       const drawerBody = document.getElementById('drawer-content');
       if (drawerBody) {
         renderSessionDetailContent(session, drawerBody);
+
+        if (targetMessageId) {
+          const escapedId = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(targetMessageId) : targetMessageId;
+          const targetEl = drawerBody.querySelector(`[data-message-id="${escapedId}"]`) ||
+                           drawerBody.querySelector(`#session-msg-${escapedId}`);
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'auto', block: 'center' });
+            targetEl.classList.add('message-highlight');
+            try { targetEl.focus(); } catch (_) {}
+          } else {
+            const noticeDiv = document.createElement('div');
+            noticeDiv.className = 'alert-banner alert-warning';
+            noticeDiv.style.marginBottom = '12px';
+            noticeDiv.textContent = `目标来源消息（ID: ${targetMessageId}）超出当前加载的历史记录范围或未在渲染列表中。`;
+            drawerBody.insertBefore(noticeDiv, drawerBody.firstChild);
+          }
+        }
       }
     } catch (err) {
       const drawer = document.getElementById('detail-drawer');
@@ -1394,6 +1578,111 @@
       }
     }
   }
+
+  async function navigateToSourceMessage(sessionId, messageId = null) {
+    if (!sessionId) {
+      showToast('未提供来源会话 ID', 'warning');
+      return;
+    }
+
+    // Preserve dirty forms: do not silently discard unsaved user edits
+    const modalContainer = document.getElementById('modal-container');
+    if (modalContainer && !modalContainer.classList.contains('hidden')) {
+      const inputs = modalContainer.querySelectorAll('input:not([readonly]):not([type="hidden"]), textarea:not([readonly])');
+      let hasUnsaved = false;
+      inputs.forEach(el => {
+        if (el.value && el.value.trim() !== (el.defaultValue || '').trim()) {
+          hasUnsaved = true;
+        }
+      });
+      if (hasUnsaved) {
+        showToast('当前有未保存的编辑内容，请先保存或取消后再定位来源', 'warning');
+        return;
+      }
+      closeModal();
+    }
+
+    const thisEpoch = ++activeRouteEpoch;
+
+    try {
+      let targetSession = ((state.dashboard && state.dashboard.sessions) || []).find(s => s.id === sessionId);
+      if (!targetSession) {
+        targetSession = await callBridge('sessions.get', { id: sessionId });
+      }
+      if (thisEpoch !== activeRouteEpoch) return;
+
+      if (!targetSession) {
+        showToast(`来源会话不存在: ${sessionId}`, 'error');
+        return;
+      }
+
+      // Check project scope
+      if (targetSession.project && targetSession.project !== state.currentProject) {
+        const isRegistered = (state.registeredProjects || []).some(p => (p.path || p.id) === targetSession.project);
+        if (!isRegistered) {
+          showToast(`目标会话所属项目未连接到当前工作区: ${targetSession.project}`, 'warning');
+          return;
+        }
+
+        // Close prior read-only drawer before changing scope
+        closeDrawer();
+
+        const priorProj = state.currentProject;
+        state.priorProject = priorProj;
+        state.currentProject = targetSession.project;
+        const projSel = document.getElementById('project-selector');
+        if (projSel) projSel.value = targetSession.project;
+
+        if (state.dashboardScope !== targetSession.project) {
+          state.dashboard = null;
+          state.dashboardScope = null;
+        }
+
+        const refreshRes = await refreshDashboard(true, true);
+        if (thisEpoch !== activeRouteEpoch) return;
+
+        if (!refreshRes || !refreshRes.success || state.dashboardScope !== targetSession.project) {
+          state.scopeError = {
+            project: targetSession.project,
+            priorProject: priorProj,
+            message: (refreshRes && refreshRes.error && refreshRes.error.message) || '无法加载目标工程数据'
+          };
+          renderCurrentPage();
+          showToast('切换目标工程范围失败，已保留重试界面', 'error');
+          return;
+        }
+      }
+
+      if (state.currentPage !== 'agents') {
+        // Direct page switch aligned with thisEpoch (avoiding epoch self-invalidation)
+        state.currentPage = 'agents';
+        state.settingsDraft = null;
+        renderGeneration++;
+        syncNavLinks();
+        renderCurrentPage();
+      }
+
+      if (thisEpoch !== activeRouteEpoch) return;
+
+      await openSessionDetail(sessionId, null, messageId);
+    } catch (err) {
+      if (thisEpoch === activeRouteEpoch) {
+        showToast('定位来源消息失败: ' + err.message, 'error');
+      }
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-open-source');
+    if (btn) {
+      e.preventDefault();
+      const sessionId = btn.getAttribute('data-session-id');
+      const messageId = btn.getAttribute('data-message-id');
+      if (sessionId) {
+        navigateToSourceMessage(sessionId, messageId);
+      }
+    }
+  });
 
   // -------------------------------------------------------------------------
   // 2. WORKFLOWS VIEW (With deterministic workflow builder draft)
@@ -1649,10 +1938,10 @@
         document.getElementById('health-total-runs').textContent = h.runs !== undefined && h.runs !== null ? formatNumber(h.runs) : '未提供';
         document.getElementById('health-success-detail').textContent = (h.successes !== undefined && h.failures !== undefined)
           ? `成功: ${h.successes} · 失败: ${h.failures}` : '';
-        
+
         document.getElementById('health-success-rate').textContent = (h.successRate !== null && h.successRate !== undefined)
           ? (h.successRate * 100).toFixed(1) + '%' : '未提供';
-        
+
         document.getElementById('health-approval-rejected').textContent = h.approvalRejected !== undefined
           ? `审批被拒: ${h.approvalRejected} 次` : '';
 
@@ -2425,67 +2714,597 @@
     });
   }
 
-  // --- Complete Memory Management (Normalized lowercase, provenance, edit, supersede) ---
+  // ===========================================================================
+  // REUSE FRAGMENT: Codex Memory Reuse, Provider Trust & Outcomes
+  // ===========================================================================
+  function isSafeNonNegativeInteger(val) {
+    return typeof val === 'number' && Number.isSafeInteger(val) && val >= 0;
+  }
+
+  function formatSafeCount(val) {
+    return isSafeNonNegativeInteger(val) ? val.toLocaleString() : '未提供';
+  }
+
+  function safeEscapeHtml(str) {
+    if (typeof escapeHtml === 'function') {
+      return escapeHtml(str);
+    }
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function formatSafeTime(isoStr) {
+    if (typeof formatTime === 'function') {
+      return formatTime(isoStr);
+    }
+    if (!isoStr) return '-';
+    try {
+      const d = new Date(isoStr);
+      if (!isNaN(d.getTime())) return d.toLocaleString();
+    } catch {}
+    return String(isoStr);
+  }
+
+  function isAlreadyInstalledHook(sugOrPreview) {
+    if (!sugOrPreview) return false;
+    const ops = sugOrPreview.operations || sugOrPreview.preview || [];
+    return sugOrPreview.alreadyInstalled === true && Array.isArray(ops) && ops.length === 0;
+  }
+
+  function renderProviderTrustNotice(sugOrPreview, isApplied = false) {
+    if (!sugOrPreview || !sugOrPreview.requiresProviderTrust) return '';
+    const stepDescription = isApplied
+      ? '变更已写入。下一步：请在 Codex 中执行 <code>/hooks</code> 命令，审查并显式信任/启用该项目定义的 SessionStart Hook。'
+      : '在审查确认应用 <code>.codex/hooks.json</code> 并在 Codex <code>/hooks</code> 中显式信任/启用后，Hook 方可向后续会话提供生效的工程记忆。';
+
+    return `
+      <div class="alert-banner alert-warning" style="margin-top: 8px; font-size: 11px; line-height: 1.5; border-color: var(--status-amber-border); background-color: var(--status-amber-bg); color: var(--status-amber-text);" role="note">
+        <div style="font-weight: 600; margin-bottom: 2px;">需要提供商信任 (Provider Trust)</div>
+        <div>
+          ${stepDescription}
+          Vela 不会自动修改提供商信任或全局配置；Hook 输出仅证明向标准输出提供了上下文，不代表智能体采纳。
+        </div>
+      </div>
+    `;
+  }
+
+  function renderAlreadyInstalledNotice(sugOrPreview) {
+    if (!isAlreadyInstalledHook(sugOrPreview)) return '';
+    return `
+      <div class="alert-banner alert-neutral" style="margin-top: 8px; font-size: 11px; line-height: 1.5; border-color: var(--status-sage-border); background-color: var(--status-sage-bg); color: var(--status-sage-text);" role="note">
+        <div style="font-weight: 600; margin-bottom: 2px;">✓ 已配置完全一致的 Hook 定义</div>
+        <div>该项目 <code>.codex/hooks.json</code> 当前已包含完全一致的 Vela SessionStart Hook，无需重复写入。可在 Codex <code>/hooks</code> 中检查启用与信任状态。</div>
+      </div>
+    `;
+  }
+
+  let reuseModalSequence = 0;
+  let reuseOutcomesSequence = 0;
+
+  function openConfigureReuseModal() {
+    const registered = (state.registeredProjects || []);
+    const scopedProject = state.currentProject;
+
+    let selectedProj = '';
+    if (scopedProject && registered.some(p => (p.path || p.id) === scopedProject)) {
+      selectedProj = scopedProject;
+    }
+
+    const projectOptionsHtml = `
+      <option value="" ${!selectedProj ? 'selected' : ''}>-- 请选择已连接项目 --</option>
+      ${registered.map(p => {
+        const pPath = p.path || p.id || '';
+        const pDisplayName = p.title || p.name || (pPath ? pPath.split('/').filter(Boolean).pop() : '未命名项目');
+        const isSel = pPath === selectedProj;
+        return `<option value="${safeEscapeHtml(pPath)}" ${isSel ? 'selected' : ''}>${safeEscapeHtml(pDisplayName)}</option>`;
+      }).join('')}
+    `;
+
+    const bodyHtml = `
+      <p style="font-size: 12px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5;">
+        生成 Codex SessionStart Hook 配置建议（<code>.codex/hooks.json</code>）。在审查确认应用并在 Codex <code>/hooks</code> 中显式信任/启用后，Hook 方可在会话启动时提供已激活的工程记忆。<br>
+        <span style="color: var(--text-secondary); font-size: 11px;">预览配置后可审查变更，确认应用前不会修改文件。</span>
+      </p>
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label class="form-label" for="reuse-project-select" style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block;">目标项目</label>
+        <select id="reuse-project-select" class="form-control" style="width: 100%; font-size: 12px; padding: 6px 8px;">
+          ${projectOptionsHtml}
+        </select>
+      </div>
+      <div id="reuse-dialog-error" role="alert" aria-live="polite"></div>
+    `;
+
+    const footerHtml = `
+      <button class="btn btn-secondary" id="btn-cancel-reuse">取消</button>
+      <button class="btn btn-primary" id="btn-preview-reuse" ${!selectedProj ? 'disabled' : ''}>预览配置 Diff</button>
+    `;
+
+    openModal('配置 Codex 工程记忆复用', bodyHtml, footerHtml);
+
+    const sel = document.getElementById('reuse-project-select');
+    const btnPreview = document.getElementById('btn-preview-reuse');
+    const btnCancel = document.getElementById('btn-cancel-reuse');
+    const errEl = document.getElementById('reuse-dialog-error');
+
+    if (btnCancel) {
+      btnCancel.addEventListener('click', closeModal);
+    }
+
+    if (sel && btnPreview) {
+      sel.addEventListener('change', () => {
+        const val = (sel.value || '').trim();
+        btnPreview.disabled = !val;
+        if (errEl) errEl.innerHTML = '';
+      });
+    }
+
+    if (btnPreview && sel) {
+      btnPreview.addEventListener('click', async () => {
+        const chosenProject = (sel.value || '').trim();
+        if (!chosenProject) return;
+
+        const registeredList = state.registeredProjects || [];
+        const matchedProj = registeredList.find(p => (p.path || p.id) === chosenProject);
+        if (!matchedProj || !matchedProj.path) {
+          if (errEl) {
+            errEl.innerHTML = `<div class="alert-banner alert-danger" style="margin-top: 10px; font-size: 11px;">所选项目未在已注册项目中找到或路径无效</div>`;
+          }
+          return;
+        }
+        const verifiedProject = matchedProj.path;
+
+        btnPreview.disabled = true;
+        sel.disabled = true;
+        const originalText = btnPreview.textContent;
+        btnPreview.textContent = '正在生成预览...';
+        if (errEl) errEl.innerHTML = '';
+
+        const thisSeq = ++reuseModalSequence;
+        const thisModal = currentModalInstance;
+        const thisPage = state.currentPage;
+        const thisProject = state.currentProject;
+
+        try {
+          const suggestion = await callBridge('reuse.preview', { project: verifiedProject });
+
+          const modal = document.getElementById('modal-container');
+          const isModalOpen = modal && !modal.classList.contains('hidden');
+          if (thisSeq !== reuseModalSequence || thisModal !== currentModalInstance || !isModalOpen || !document.contains(modal) || state.currentPage !== thisPage || state.currentProject !== thisProject) {
+            return;
+          }
+
+          closeModal();
+          if (suggestion && suggestion.id) {
+            openImprovePreviewDrawer(suggestion.id);
+          } else {
+            showToast('生成预览成功，但未返回建议 ID', 'warning');
+          }
+        } catch (err) {
+          const modal = document.getElementById('modal-container');
+          const isModalOpen = modal && !modal.classList.contains('hidden');
+          if (thisSeq !== reuseModalSequence || thisModal !== currentModalInstance || !isModalOpen || !document.contains(modal) || state.currentPage !== thisPage || state.currentProject !== thisProject) {
+            return;
+          }
+
+          btnPreview.disabled = false;
+          btnPreview.textContent = originalText;
+          sel.disabled = false;
+          if (errEl) {
+            errEl.innerHTML = `
+              <div class="alert-banner alert-danger" style="margin-top: 10px; font-size: 11px;">
+                生成预览失败: ${safeEscapeHtml(err.message || String(err))}
+              </div>
+            `;
+          }
+        }
+      });
+    }
+  }
+
+  async function openReuseOutcomesDrawer(memoryId) {
+    if (!memoryId) {
+      showToast('未指定 Memory ID', 'warning');
+      return;
+    }
+
+    const memories = (state.dashboard && state.dashboard.memories) || [];
+    const mem = memories.find(m => m.id === memoryId);
+
+    if (!mem) {
+      showToast('未在当前工作区中找到对应工程记忆记录', 'warning');
+      return;
+    }
+
+    const targetProject = mem.project;
+    if (!targetProject || typeof targetProject !== 'string') {
+      showToast('该工程记忆缺少关联注册项目，无法查询复用记录', 'warning');
+      return;
+    }
+
+    const projObj = (state.registeredProjects || []).find(p => p && p.path === targetProject);
+    if (!projObj || !projObj.path) {
+      showToast('该工程记忆所属项目未连接或不在已注册项目中', 'warning');
+      return;
+    }
+
+    const projectFriendlyName = projObj.title || projObj.name || (targetProject ? targetProject.split('/').filter(Boolean).pop() : '当前项目');
+    const memTitle = mem.title || 'Memory 条目';
+
+    openDrawer('复用记录', `${memTitle} · ${projectFriendlyName}`);
+
+    const thisSeq = ++reuseOutcomesSequence;
+    const thisDrawer = currentDrawerInstance;
+    const thisPage = state.currentPage;
+    const thisProject = state.currentProject;
+
+    try {
+      const outcomes = await callBridge('reuse.outcomes', { project: targetProject, id: memoryId });
+
+      const drawer = document.getElementById('detail-drawer');
+      const isDrawerOpen = drawer && !drawer.classList.contains('hidden');
+      if (thisSeq !== reuseOutcomesSequence || thisDrawer !== currentDrawerInstance || !isDrawerOpen || !document.contains(drawer) || state.currentPage !== thisPage || state.currentProject !== thisProject) {
+        return;
+      }
+
+      if (!outcomes) {
+        throw new Error('未返回复用记录数据');
+      }
+
+      renderReuseOutcomesDrawerContent(outcomes, mem, targetProject, projectFriendlyName);
+    } catch (err) {
+      const drawer = document.getElementById('detail-drawer');
+      const isDrawerOpen = drawer && !drawer.classList.contains('hidden');
+      if (thisSeq !== reuseOutcomesSequence || thisDrawer !== currentDrawerInstance || !isDrawerOpen || !document.contains(drawer) || state.currentPage !== thisPage || state.currentProject !== thisProject) {
+        return;
+      }
+
+      setDrawerTitle('获取复用记录失败', '错误');
+      const drawerBody = document.getElementById('drawer-content');
+      if (drawerBody) {
+        drawerBody.innerHTML = `
+          <div class="alert-banner alert-danger">获取复用记录失败: ${safeEscapeHtml(err.message || String(err))}</div>
+        `;
+      }
+    }
+  }
+
+  function renderReuseOutcomesDrawerContent(outcomes, mem, targetProject, projectFriendlyName) {
+    const drawerBody = document.getElementById('drawer-content');
+    if (!drawerBody) return;
+
+    const receipts = Array.isArray(outcomes.receipts) ? outcomes.receipts : [];
+    const offeredSessions = outcomes.offeredSessions;
+    const matchedSessions = outcomes.matchedSessions;
+    const indexedSessionRecords = outcomes.indexedSessionRecords;
+    const sessionIds = Array.isArray(outcomes.sessionIds) ? outcomes.sessionIds : [];
+    const signals = Array.isArray(outcomes.observedVerificationSignals) ? outcomes.observedVerificationSignals : [];
+
+    const verificationCorrectionCount = outcomes.verificationCorrectionCount;
+    const agentAdoption = outcomes.agentAdoption;
+    const analysisCoverage = outcomes.analysisCoverage;
+
+    const limitations = Array.isArray(outcomes.limitations) ? outcomes.limitations : [];
+    const method = outcomes.method || '';
+    const knownSessions = (state.dashboard && state.dashboard.sessions) || [];
+
+    const displayCorrectionCount = (verificationCorrectionCount !== null && isSafeNonNegativeInteger(verificationCorrectionCount))
+      ? verificationCorrectionCount.toLocaleString()
+      : '未提供';
+
+    const displayReduction = '未提供';
+
+    const displayAdoption = (agentAdoption === 'not_measured' || !agentAdoption)
+      ? '尚未测量'
+      : safeEscapeHtml(agentAdoption);
+
+    const displayCoverage = (analysisCoverage === 'not_established' || !analysisCoverage)
+      ? '尚未建立'
+      : safeEscapeHtml(analysisCoverage);
+
+    drawerBody.innerHTML = `
+      <div class="card" style="margin-bottom: 10px; padding: 10px 12px;">
+        <div class="card-header" style="margin-bottom: 6px;">
+          <span class="card-title" style="font-size: 12px;">${safeEscapeHtml(mem.title || '工程记忆')}</span>
+          ${mem.state && typeof getMemoryStateBadge === 'function' ? getMemoryStateBadge(mem.state) : ''}
+        </div>
+        <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
+          所属项目：<strong style="color: var(--text-main);">${safeEscapeHtml(projectFriendlyName)}</strong>
+        </div>
+        <details style="font-size: 10.5px; color: var(--text-muted);">
+          <summary style="cursor: pointer; user-select: none;">查看技术标识与绝对路径</summary>
+          <div class="font-mono" style="margin-top: 4px; display: grid; gap: 2px;">
+            <div>Memory ID: <span style="user-select: all;">${safeEscapeHtml(mem.id)}</span></div>
+            <div>项目路径: <span style="user-select: all;">${safeEscapeHtml(targetProject)}</span></div>
+          </div>
+        </details>
+      </div>
+
+      <table class="data-table" style="width: 100%; font-size: 11px; margin-bottom: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); border-collapse: collapse;">
+        <tbody>
+          <tr style="border-bottom: 1px solid var(--border-subtle);">
+            <td style="color: var(--text-secondary); padding: 5px 8px; width: 35%;">已提供上下文会话</td>
+            <td class="font-mono" style="font-weight: 600; padding: 5px 8px;">${formatSafeCount(offeredSessions)}</td>
+            <td style="color: var(--text-secondary); padding: 5px 8px; width: 35%;">匹配提供商会话</td>
+            <td class="font-mono" style="font-weight: 600; padding: 5px 8px;">${formatSafeCount(matchedSessions)}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid var(--border-subtle);">
+            <td style="color: var(--text-secondary); padding: 5px 8px;">已索引会话记录</td>
+            <td class="font-mono" style="font-weight: 600; padding: 5px 8px;">${formatSafeCount(indexedSessionRecords)}</td>
+            <td style="color: var(--text-secondary); padding: 5px 8px;">交付回执记录数</td>
+            <td class="font-mono" style="font-weight: 600; padding: 5px 8px;">${receipts.length}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid var(--border-subtle);">
+            <td style="color: var(--text-secondary); padding: 5px 8px;">分析覆盖度</td>
+            <td style="padding: 5px 8px;"><span class="status-badge status-neutral">${displayCoverage}</span></td>
+            <td style="color: var(--text-secondary); padding: 5px 8px;">智能体采纳状态</td>
+            <td style="padding: 5px 8px;"><span class="status-badge status-neutral">${displayAdoption}</span></td>
+          </tr>
+          <tr>
+            <td style="color: var(--text-secondary); padding: 5px 8px;">验证纠错记录数</td>
+            <td style="color: var(--text-muted); padding: 5px 8px;">${displayCorrectionCount}</td>
+            <td style="color: var(--text-secondary); padding: 5px 8px;">纠错率变化</td>
+            <td style="color: var(--text-muted); padding: 5px 8px;">${displayReduction}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="improve-methodology-note" role="note" style="margin-bottom: 12px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <span>回执仅证明已向 Hook 标准输出输出了工程记忆（已提供上下文），不代表智能体采纳、任务成功或无纠错。</span>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">上下文交付回执 (${receipts.length})</h3>
+        ${receipts.length === 0 ? `
+          <div class="empty-state" style="padding: 16px 14px; margin-bottom: 12px;">
+            <div class="empty-state-title" style="font-size: 12.5px;">暂无记录到的上下文交付证据</div>
+            <div class="empty-state-desc" style="font-size: 11px; line-height: 1.6; text-align: left; margin-top: 8px; max-width: 480px; margin-left: auto; margin-right: auto;">
+              未产生回执仅表示本地未记录到交付证据，不证明外部完全未发生过调用。<br><br>
+              <strong>启用步骤：</strong>
+              <ol style="padding-left: 18px; margin-top: 6px;">
+                <li>在工程记忆页面点击<strong>「配置 Codex 复用」</strong>按钮，生成 <code>.codex/hooks.json</code> 建议；</li>
+                <li>在调优建议页面审查 Diff 并应用变更；</li>
+                <li>在 Codex 界面执行 <code>/hooks</code> 命令，显式信任并启用该 SessionStart Hook。</li>
+              </ol>
+            </div>
+          </div>
+        ` : `
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${receipts.map(r => {
+              const matchedRecord = knownSessions.find(s =>
+                s.project === targetProject &&
+                String(s.provider || '').toLowerCase() === 'codex' &&
+                Boolean(s.sourceSessionId && s.sourceSessionId === r.sourceSessionId) &&
+                sessionIds.includes(s.id)
+              );
+              const isMapped = Boolean(matchedRecord);
+              const displayTokens = (r.usedTokens !== null && r.usedTokens !== undefined && isSafeNonNegativeInteger(r.usedTokens))
+                ? r.usedTokens.toLocaleString()
+                : '未提供';
+
+              return `
+                <div class="card" style="margin-bottom: 0; padding: 10px 12px;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 11px;">
+                      <span class="status-badge status-sage">已提供上下文</span>
+                      <span style="color: var(--text-secondary);">${formatSafeTime(r.servedAt)}</span>
+                      <span class="badge-subtle font-mono">${safeEscapeHtml(r.event || 'SessionStart')}</span>
+                    </div>
+                    <div>
+                      ${isMapped ? `
+                        <button type="button" class="btn-open-source" data-session-id="${safeEscapeHtml(matchedRecord.id)}" title="已索引本地会话: ${safeEscapeHtml(matchedRecord.id)}">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                          <span>${safeEscapeHtml(matchedRecord.title || '已索引会话')}</span>
+                        </button>
+                      ` : `
+                        <span style="color: var(--text-secondary); font-size: 11px;">提供商会话 (未匹配本地索引)</span>
+                      `}
+                    </div>
+                  </div>
+
+                  <details style="margin-top: 6px; font-size: 10px; color: var(--text-muted);">
+                    <summary style="cursor: pointer; user-select: none;">技术凭证与交付标识</summary>
+                    <div class="font-mono" style="margin-top: 4px; display: grid; gap: 2px;">
+                      <div>回执 ID: <span style="user-select: all;">${safeEscapeHtml(r.id || '-')}</span></div>
+                      <div>提供商 Session ID: <span style="user-select: all;">${safeEscapeHtml(r.sourceSessionId || '-')}</span></div>
+                      <div>上下文哈希: <span style="user-select: all;">${safeEscapeHtml(r.contextHash || '-')}</span></div>
+                      <div>交付通道: <span>${safeEscapeHtml(r.delivery || '-')}</span></div>
+                      <div>消耗 Tokens: <span>${displayTokens}</span></div>
+                    </div>
+                  </details>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">已观察到的后续信号 (${signals.length})</h3>
+        <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">
+          仅展示与该记忆相关的会话中客观观察到的验证信号。缺失信号不代表零纠错。
+        </p>
+        ${signals.length === 0 ? `
+          <div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;">暂未观察到该记忆对应的后续验证信号。</div>
+        ` : `
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            ${signals.map(sig => {
+              const quote = sig.quote || sig.summary || sig.content || '已记录验证信号';
+              return `
+                <div class="card" style="margin-bottom: 0; padding: 8px 12px;">
+                  <div style="font-size: 12px; color: var(--text-main); font-style: italic; line-height: 1.45; margin-bottom: 4px;">
+                    "${safeEscapeHtml(quote)}"
+                  </div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 11px;">
+                    <span class="badge-subtle font-mono">${safeEscapeHtml(sig.clusterKey || 'verification')}</span>
+                    ${sig.sourceSession ? `
+                      <button type="button" class="btn-open-source" data-session-id="${safeEscapeHtml(sig.sourceSession)}" ${sig.sourceMessage ? `data-message-id="${safeEscapeHtml(sig.sourceMessage)}"` : ''} title="定位信号来源会话">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        <span>定位来源消息</span>
+                      </button>
+                    ` : ''}
+                  </div>
+                  <details style="margin-top: 4px; font-size: 10px; color: var(--text-muted);">
+                    <summary style="cursor: pointer; user-select: none;">信号技术标识</summary>
+                    <div class="font-mono" style="margin-top: 2px;">
+                      <div>会话 ID: ${safeEscapeHtml(sig.sourceSession || '-')}</div>
+                      ${sig.sourceMessage ? `<div>消息 ID: ${safeEscapeHtml(sig.sourceMessage)}</div>` : ''}
+                    </div>
+                  </details>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+
+      ${(method || limitations.length > 0) ? `
+        <details class="card" style="margin-top: 10px; padding: 8px 12px;">
+          <summary style="font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); user-select: none;">测量方法与评估边界说明</summary>
+          ${method ? `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; line-height: 1.5;">${safeEscapeHtml(method)}</div>` : ''}
+          ${limitations.length > 0 ? `
+            <ul style="padding-left: 18px; font-size: 10.5px; color: var(--text-muted); margin-top: 6px; line-height: 1.5;">
+              ${limitations.map(lim => `<li>${safeEscapeHtml(lim)}</li>`).join('')}
+            </ul>
+          ` : ''}
+        </details>
+      ` : ''}
+    `;
+  }
+
+  // --- Complete Memory Management (Lifecycle tabs, Blume content-first cards, provenance) ---
   function renderMemorySection(target) {
     const memories = (state.dashboard && state.dashboard.memories) || [];
+    const activeFilter = state.memoryFilter || 'all';
+
+    const filterTabs = [
+      { key: 'all', label: '全部', count: memories.length },
+      { key: 'candidate', label: '待确认', count: memories.filter(m => (m.state || 'candidate').toLowerCase() === 'candidate').length },
+      { key: 'active', label: '生效中', count: memories.filter(m => (m.state || '').toLowerCase() === 'active').length },
+      { key: 'superseded', label: '已替代', count: memories.filter(m => (m.state || '').toLowerCase() === 'superseded').length },
+      { key: 'archived', label: '已归档', count: memories.filter(m => (m.state || '').toLowerCase() === 'archived').length }
+    ];
+
+    const displayedMemories = memories.filter(m => {
+      if (activeFilter === 'all') return true;
+      const st = (m.state || 'candidate').toLowerCase();
+      return st === activeFilter;
+    });
 
     target.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <span class="text-secondary" style="font-size: 12px;">
-          已沉淀 Memory 条目 (${memories.length}) · 状态流转：Candidate ➔ Active ➔ Superseded ➔ Archived
-        </span>
-        <div style="display: flex; gap: 8px;">
+      <div class="memory-filter-bar">
+        ${filterTabs.map(tab => `
+          <button type="button" class="memory-filter-btn ${activeFilter === tab.key ? 'active' : ''}" data-filter="${tab.key}">
+            <span>${tab.label}</span>
+            <span class="memory-filter-count">${tab.count}</span>
+          </button>
+        `).join('')}
+        <div style="margin-left: auto; display: flex; gap: 8px;">
+          <button id="btn-configure-reuse" class="btn btn-secondary btn-sm">配置 Codex 复用</button>
           <button id="btn-recall-tester" class="btn btn-secondary btn-sm">Recall 召回测试</button>
           <button id="btn-new-memory" class="btn btn-primary btn-sm">+ 新建 Memory</button>
         </div>
       </div>
 
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>标题</th>
-              <th>作用域 (Scope)</th>
-              <th>类型</th>
-              <th>状态</th>
-              <th>关联来源 (Provenance)</th>
-              <th style="text-align: right; width: 240px;">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${memories.length === 0 ? '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">暂无 Memory 条目</td></tr>' : ''}
-            ${memories.map(m => {
-              const st = (m.state || 'candidate').toLowerCase();
-              const provenance = m.sourceSession ? ('会话: ' + escapeHtml(m.sourceSession.substring(0, 8))) :
-                                 (m.sourceFile ? ('文件: ' + escapeHtml(m.sourceFile)) :
-                                 (m.sourceCommit ? ('提交: ' + escapeHtml(m.sourceCommit.substring(0, 7))) : '-'));
-              return `
-                <tr>
-                  <td>
-                    <strong>${escapeHtml(m.title || '未命名')}</strong>
-                    <div style="font-size: 11px; color: var(--text-secondary); max-width: 260px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHtml(m.content || '')}</div>
-                  </td>
-                  <td><span class="code-badge">${escapeHtml(m.scope || 'project')}</span></td>
-                  <td><span style="font-size: 12px; color: var(--text-secondary);">${escapeHtml(m.type || 'fact')}</span></td>
-                  <td>${getMemoryStateBadge(st)}</td>
-                  <td style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">${provenance}</td>
-                  <td style="text-align: right;">
-                    ${st === 'candidate' ? `<button class="btn btn-secondary btn-sm btn-mem-activate" data-id="${escapeHtml(m.id)}">激活</button>` : ''}
-                    ${st === 'active' ? `<button class="btn btn-ghost btn-sm btn-mem-supersede" data-id="${escapeHtml(m.id)}" title="被其它条目替代">替代</button>` : ''}
-                    ${st !== 'archived' ? `<button class="btn btn-ghost btn-sm btn-mem-archive" data-id="${escapeHtml(m.id)}">归档</button>` : ''}
-                    <button class="btn btn-ghost btn-sm btn-mem-edit" data-id="${escapeHtml(m.id)}">编辑</button>
-                    <button class="btn btn-ghost btn-sm btn-mem-view" data-id="${escapeHtml(m.id)}">详情</button>
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
+      <div class="memory-card-list">
+        ${memories.length === 0 ? `
+          <div class="empty-state">
+            <div class="empty-state-title">未沉淀工程 Memory</div>
+            <div class="empty-state-desc">跨会话经验在此沉淀为可复用的工程规则。所有条目受项目隔离约束。</div>
+            <button id="btn-empty-new-mem" class="btn btn-primary btn-sm" style="margin-top: 12px;">+ 新建 Memory</button>
+          </div>
+        ` : (displayedMemories.length === 0 ? `
+          <div class="empty-state" style="padding: 32px 16px;">
+            <div class="empty-state-desc">当前分类（${escapeHtml(filterTabs.find(t => t.key === activeFilter)?.label || activeFilter)}）下暂无 Memory 条目。</div>
+          </div>
+        ` : displayedMemories.map(m => {
+          const st = (m.state || 'candidate').toLowerCase();
+          let provenanceHtml = '';
+          if (m.sourceSession) {
+            const knownSession = ((state.dashboard && state.dashboard.sessions) || []).find(s => s.id === m.sourceSession);
+            const sessionLabel = (knownSession && knownSession.title) ? knownSession.title : '来源会话';
+            provenanceHtml = `
+              <span>来源：</span>
+              <button type="button" class="btn-open-source" data-session-id="${escapeHtml(m.sourceSession)}" ${m.sourceMessage ? `data-message-id="${escapeHtml(m.sourceMessage)}"` : ''} title="会话 ID: ${escapeHtml(m.sourceSession)}${m.sourceMessage ? ` · 消息 ID: ${escapeHtml(m.sourceMessage)}` : ''}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                <span>${escapeHtml(sessionLabel)}</span>
+              </button>
+            `;
+          } else if (m.sourceFile) {
+            provenanceHtml = `<span>来源文件：<span class="font-mono">${escapeHtml(m.sourceFile)}</span></span>`;
+          } else if (m.sourceCommit) {
+            provenanceHtml = `<span>来源提交：<span class="font-mono">${escapeHtml(m.sourceCommit.slice(0, 7))}</span></span>`;
+          } else {
+            provenanceHtml = `<span style="color: var(--text-muted);">手工沉淀（无外部会话/提交来源）</span>`;
+          }
+
+          return `
+            <div class="memory-card" data-id="${escapeHtml(m.id)}">
+              <div class="memory-card-header">
+                <div class="memory-card-title-group">
+                  <strong class="memory-card-title">${escapeHtml(m.title || '未命名 Memory')}</strong>
+                  ${getMemoryStateBadge(st)}
+                  <span class="memory-type-badge">${escapeHtml(formatMemoryType(m.type))}</span>
+                  <span class="memory-type-badge">${escapeHtml(formatMemoryScope(m.scope))}</span>
+                </div>
+                <div class="memory-card-actions">
+                  ${st === 'candidate' ? `<button class="btn btn-secondary btn-sm btn-mem-activate" data-id="${escapeHtml(m.id)}">激活</button>` : ''}
+                  ${st === 'active' ? `<button class="btn btn-ghost btn-sm btn-mem-supersede" data-id="${escapeHtml(m.id)}" title="被其它条目替代">替代</button>` : ''}
+                  ${st !== 'archived' ? `<button class="btn btn-ghost btn-sm btn-mem-archive" data-id="${escapeHtml(m.id)}">归档</button>` : ''}
+                  <button class="btn btn-ghost btn-sm btn-memory-outcomes" data-memory-id="${escapeHtml(m.id)}">复用记录</button>
+                  <button class="btn btn-ghost btn-sm btn-mem-edit" data-id="${escapeHtml(m.id)}">编辑</button>
+                  <button class="btn btn-ghost btn-sm btn-mem-view" data-id="${escapeHtml(m.id)}">详情</button>
+                </div>
+              </div>
+
+              <div class="memory-content">${escapeHtml(m.content || '')}</div>
+
+              <div class="memory-provenance">
+                ${provenanceHtml}
+              </div>
+
+              <details class="memory-meta-details">
+                <summary>技术元数据 &amp; 作用域</summary>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px; font-size: 11px; margin-top: 8px; color: var(--text-secondary);">
+                  <div><span class="text-secondary">ID:</span> <span class="font-mono" style="user-select: all;">${escapeHtml(m.id || '-')}</span></div>
+                  <div><span class="text-secondary">作用域:</span> <span class="font-mono">${escapeHtml(m.scope || 'project')}</span></div>
+                  <div><span class="text-secondary">项目:</span> <span class="font-mono">${escapeHtml(m.project || '-')}</span></div>
+                  <div><span class="text-secondary">分支:</span> <span class="font-mono">${escapeHtml(m.branch || '-')}</span></div>
+                  <div><span class="text-secondary">Worktree:</span> <span class="font-mono">${escapeHtml(m.worktree || '-')}</span></div>
+                  <div><span class="text-secondary">任务:</span> <span class="font-mono">${escapeHtml(m.task || '-')}</span></div>
+                  ${(m.checksum || m.hash) ? `<div><span class="text-secondary">校验和:</span> <span class="font-mono">${escapeHtml(m.checksum || m.hash)}</span></div>` : ''}
+                  <div><span class="text-secondary">更新时间:</span> <span>${formatTime(m.updatedAt || m.createdAt)}</span></div>
+                </div>
+              </details>
+            </div>
+          `;
+        }).join(''))}
       </div>
     `;
 
-    document.getElementById('btn-new-memory').addEventListener('click', () => openCreateOrEditMemoryModal());
-    document.getElementById('btn-recall-tester').addEventListener('click', openRecallModal);
+    target.querySelectorAll('.memory-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.memoryFilter = btn.getAttribute('data-filter') || 'all';
+        renderMemorySection(target);
+      });
+    });
+
+    const btnNew = document.getElementById('btn-new-memory');
+    if (btnNew) btnNew.addEventListener('click', () => openCreateOrEditMemoryModal());
+
+    const btnEmptyNew = document.getElementById('btn-empty-new-mem');
+    if (btnEmptyNew) btnEmptyNew.addEventListener('click', () => openCreateOrEditMemoryModal());
+
+    const btnConfigReuse = document.getElementById('btn-configure-reuse');
+    if (btnConfigReuse) btnConfigReuse.addEventListener('click', openConfigureReuseModal);
+
+    const btnRecall = document.getElementById('btn-recall-tester');
+    if (btnRecall) btnRecall.addEventListener('click', openRecallModal);
 
     target.querySelectorAll('.btn-mem-activate').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -2528,36 +3347,64 @@
       });
     });
 
+    target.querySelectorAll('.btn-memory-outcomes').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const memId = btn.getAttribute('data-memory-id');
+        openReuseOutcomesDrawer(memId);
+      });
+    });
+
     target.querySelectorAll('.btn-mem-view').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
         const m = memories.find(item => item.id === id);
         if (m) {
           openDrawer(m.title || 'Memory 条目', m.id);
-          document.getElementById('drawer-content').innerHTML = `
-            <div class="card">
-              <div class="card-header">
-                <span class="card-title">元数据 &amp; 来源溯源 (Provenance)</span>
-                ${getMemoryStateBadge(m.state)}
+          const drawerBody = document.getElementById('drawer-content');
+          if (drawerBody) {
+            drawerBody.innerHTML = `
+              <div class="card">
+                <div class="card-header">
+                  <span class="card-title">元数据 &amp; 来源溯源 (Provenance)</span>
+                  ${getMemoryStateBadge(m.state)}
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
+                  <div><span class="text-secondary">类型:</span> ${escapeHtml(formatMemoryType(m.type))} (${escapeHtml(m.type || '-')})</div>
+                  <div><span class="text-secondary">作用域:</span> ${escapeHtml(formatMemoryScope(m.scope))} (${escapeHtml(m.scope || '-')})</div>
+                  <div><span class="text-secondary">项目:</span> ${escapeHtml(m.project || '-')}</div>
+                  <div><span class="text-secondary">分支:</span> <span class="font-mono">${escapeHtml(m.branch || '-')}</span></div>
+                  <div><span class="text-secondary">Worktree:</span> <span class="font-mono">${escapeHtml(m.worktree || '-')}</span></div>
+                  <div><span class="text-secondary">Task:</span> ${escapeHtml(m.task || '-')}</div>
+                  <div><span class="text-secondary">Source File:</span> <span class="font-mono">${escapeHtml(m.sourceFile || '-')}</span></div>
+                  <div><span class="text-secondary">Source Commit:</span> <span class="font-mono">${escapeHtml(m.sourceCommit || '-')}</span></div>
+                  <div><span class="text-secondary">Source Session:</span> <span class="font-mono">${escapeHtml(m.sourceSession || '-')}</span></div>
+                  <div><span class="text-secondary">Source Message:</span> <span class="font-mono">${escapeHtml(m.sourceMessage || '-')}</span></div>
+                </div>
+                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border-color); display: flex; gap: 8px; flex-wrap: wrap;">
+                  <button type="button" class="btn btn-secondary btn-sm btn-drawer-memory-outcomes" data-memory-id="${escapeHtml(m.id)}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <span>查看复用记录</span>
+                  </button>
+                  ${m.sourceSession ? `
+                    <button type="button" class="btn-open-source" data-session-id="${escapeHtml(m.sourceSession)}" ${m.sourceMessage ? `data-message-id="${escapeHtml(m.sourceMessage)}"` : ''}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                      <span>在会话详情中定位来源消息</span>
+                    </button>
+                  ` : ''}
+                </div>
               </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
-                <div><span class="text-secondary">类型:</span> ${escapeHtml(m.type)}</div>
-                <div><span class="text-secondary">作用域:</span> ${escapeHtml(m.scope)}</div>
-                <div><span class="text-secondary">项目:</span> ${escapeHtml(m.project || '-')}</div>
-                <div><span class="text-secondary">分支:</span> <span class="font-mono">${escapeHtml(m.branch || '-')}</span></div>
-                <div><span class="text-secondary">Worktree:</span> <span class="font-mono">${escapeHtml(m.worktree || '-')}</span></div>
-                <div><span class="text-secondary">Task:</span> ${escapeHtml(m.task || '-')}</div>
-                <div><span class="text-secondary">Source File:</span> <span class="font-mono">${escapeHtml(m.sourceFile || '-')}</span></div>
-                <div><span class="text-secondary">Source Commit:</span> <span class="font-mono">${escapeHtml(m.sourceCommit || '-')}</span></div>
-                <div><span class="text-secondary">Source Session:</span> <span class="font-mono">${escapeHtml(m.sourceSession || '-')}</span></div>
-                <div><span class="text-secondary">Source Message:</span> <span class="font-mono">${escapeHtml(m.sourceMessage || '-')}</span></div>
+              <div>
+                <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">经验内容</h3>
+                <div class="code-view">${escapeHtml(m.content || '')}</div>
               </div>
-            </div>
-            <div>
-              <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">经验内容</h3>
-              <div class="code-view">${escapeHtml(m.content || '')}</div>
-            </div>
-          `;
+            `;
+            const outcomesBtn = drawerBody.querySelector('.btn-drawer-memory-outcomes');
+            if (outcomesBtn) {
+              outcomesBtn.addEventListener('click', () => {
+                openReuseOutcomesDrawer(m.id);
+              });
+            }
+          }
         }
       });
     });
@@ -3279,6 +4126,57 @@
   // 4. USAGE VIEW
   // -------------------------------------------------------------------------
   async function renderUsageView(container) {
+    // Local helpers to avoid outer closure namespace expansion
+    function isSafeCount(val) {
+      return typeof val === 'number' && Number.isSafeInteger(val) && val >= 0;
+    }
+
+    function formatCount(val) {
+      return isSafeCount(val) ? val.toLocaleString() : '未提供';
+    }
+
+    function formatDateLabel(rawDate) {
+      if (!rawDate || typeof rawDate !== 'string') return '-';
+      try {
+        if (rawDate.length >= 10 && rawDate.charAt(4) === '-' && rawDate.charAt(7) === '-') {
+          return rawDate.substring(5, 10);
+        }
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${m}-${day}`;
+        }
+      } catch {}
+      return String(rawDate).substring(0, 10);
+    }
+
+    function safeEscapeHtml(str) {
+      if (typeof escapeHtml === 'function') {
+        return escapeHtml(str);
+      }
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function safeFormatProvider(provider) {
+      if (typeof formatProviderName === 'function') {
+        return formatProviderName(provider);
+      }
+      if (!provider) return '未知 Provider';
+      const p = String(provider).toLowerCase();
+      if (p === 'claude' || p === 'claude-code') return 'Claude Code';
+      if (p === 'codex') return 'Codex';
+      if (p === 'cursor') return 'Cursor';
+      if (p === 'copilot') return 'GitHub Copilot';
+      return provider;
+    }
+
     const thisGen = renderGeneration;
     const thisPage = state.currentPage;
     const thisScope = state.currentProject;
@@ -3287,29 +4185,46 @@
       <div class="page-header">
         <div class="page-title-group">
           <h1>用量追踪</h1>
-          <p>本地会话日志观察到的 Token 消耗与模型调用分布 · 100% 本地分析</p>
+          <p>本地会话日志观察到的 Token 消耗与分布 · 100% 本地分析</p>
         </div>
       </div>
 
       <div class="alert-banner alert-info" style="margin-bottom: 14px;">
-        <span>* 观察声明：本页面展示的 Token 统计源自本地会话日志观察值，仅供工程参考，非云端计费账单。</span>
+        <span>* 观察声明：本页面展示的 Token 统计源自已索引的本地会话日志（最多 10,000 个已选会话），用量按会话起始日期归属，非云端计费账单；云端配额与计费未提供。</span>
       </div>
 
       <div class="stat-grid" id="usage-stat-grid">
         <div class="stat-card">
-          <div class="stat-label">总观察 Token</div>
-          <div class="stat-value" id="usage-total-tokens">-</div>
-          <div class="stat-sub">Input + Output</div>
+          <div class="stat-label">总 Token 用量</div>
+          <div style="display: flex; align-items: baseline; gap: 6px;">
+            <span class="stat-value" id="usage-total-tokens">-</span>
+            <span id="usage-total-tokens-badge"></span>
+          </div>
+          <div class="stat-sub" id="usage-total-tokens-sub">完整或已观测 Token</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">总观察会话数</div>
+          <div class="stat-label">已索引会话数</div>
           <div class="stat-value" id="usage-total-sessions">-</div>
-          <div class="stat-sub">本地已收录会话</div>
+          <div class="stat-sub" id="usage-total-sessions-sub">本地已收录会话</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">活跃 Provider</div>
+          <div class="stat-label">已索引 Provider</div>
           <div class="stat-value" id="usage-provider-count">-</div>
-          <div class="stat-sub">已连接智能体工具</div>
+          <div class="stat-sub" id="usage-provider-count-sub">日志已收录来源 · 不代表连接或存活</div>
+        </div>
+      </div>
+
+      <div id="usage-coverage-note" class="alert-banner alert-info" style="margin-bottom: 14px; font-size: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="font-weight: 600;">覆盖状态：</span>
+          <span id="usage-coverage-badge" class="status-badge status-neutral">未提供</span>
+          <span id="usage-coverage-text" style="color: var(--text-main);">未提供覆盖信息</span>
+        </div>
+        <div id="usage-coverage-details-wrap" style="display: none;">
+          <details style="font-size: 11px;">
+            <summary style="cursor: pointer; color: var(--text-muted); user-select: none;">技术详情</summary>
+            <span id="usage-coverage-desc" class="code-badge" style="margin-top: 4px; display: inline-block;"></span>
+          </details>
         </div>
       </div>
 
@@ -3347,49 +4262,317 @@
       if (thisGen !== renderGeneration || state.currentPage !== thisPage || state.currentProject !== thisScope || !document.contains(container)) return;
 
       if (usage) {
-        document.getElementById('usage-total-tokens').textContent = (usage.totalTokens != null) ? formatNumber(usage.totalTokens) : '未提供';
-        document.getElementById('usage-total-sessions').textContent = (usage.sessionCount != null) ? formatNumber(usage.sessionCount) : '未提供';
+        // 1. Total tokens stat card: preserves clean textContent for tests
+        const totalTokensEl = document.getElementById('usage-total-tokens');
+        const totalTokensBadgeEl = document.getElementById('usage-total-tokens-badge');
+        const totalTokensSubEl = document.getElementById('usage-total-tokens-sub');
 
-        const providers = usage.providers || [];
-        document.getElementById('usage-provider-count').textContent = providers.length;
-
-        const tbody = document.getElementById('usage-provider-tbody');
-        if (providers.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">未发现本地日志 Token 数据</td></tr>';
+        if (usage.coverage === 'overflow') {
+          if (totalTokensEl) totalTokensEl.textContent = '超出安全表示范围';
+          if (totalTokensBadgeEl) totalTokensBadgeEl.innerHTML = '';
+          if (totalTokensSubEl) totalTokensSubEl.textContent = 'Token 计数超出安全整数上限 (Overflow)';
+        } else if (isSafeCount(usage.totalTokens)) {
+          if (totalTokensEl) totalTokensEl.textContent = usage.totalTokens.toLocaleString();
+          if (totalTokensBadgeEl) totalTokensBadgeEl.innerHTML = '';
+          if (totalTokensSubEl) {
+            const inStr = isSafeCount(usage.inputTokens) ? usage.inputTokens.toLocaleString() : '未提供';
+            const outStr = isSafeCount(usage.outputTokens) ? usage.outputTokens.toLocaleString() : '未提供';
+            totalTokensSubEl.textContent = `输入 ${inStr} · 输出 ${outStr} (完整统计)`;
+          }
+        } else if (isSafeCount(usage.observedTotalTokens)) {
+          if (totalTokensEl) totalTokensEl.textContent = usage.observedTotalTokens.toLocaleString();
+          if (totalTokensBadgeEl) {
+            totalTokensBadgeEl.innerHTML = '<span class="status-badge status-amber" style="font-size: 10px;">已观测部分</span>';
+          }
+          if (totalTokensSubEl) {
+            const obsSess = isSafeCount(usage.observedSessionCount) ? usage.observedSessionCount.toLocaleString() : '未提供';
+            const missSess = isSafeCount(usage.missingUsageSessionCount) ? usage.missingUsageSessionCount.toLocaleString() : '未提供';
+            totalTokensSubEl.textContent = `已观测 ${obsSess} 会话 · 缺测 ${missSess} 会话`;
+          }
         } else {
-          tbody.innerHTML = providers.map(p => `
-            <tr>
-              <td><strong>${escapeHtml(p.provider)}</strong></td>
-              <td class="font-mono">${(p.inputTokens != null) ? formatNumber(p.inputTokens) : '未提供'}</td>
-              <td class="font-mono">${(p.outputTokens != null) ? formatNumber(p.outputTokens) : '未提供'}</td>
-              <td class="font-mono"><strong>${(p.totalTokens != null) ? formatNumber(p.totalTokens) : '未提供'}</strong></td>
-              <td>${(p.sessionCount != null) ? formatNumber(p.sessionCount) : '未提供'}</td>
-              <td>
-                <span class="status-badge status-neutral">${p.quotaAvailable ? escapeHtml(p.quota) : '未提供'}</span>
-              </td>
-            </tr>
-          `).join('');
+          if (totalTokensEl) totalTokensEl.textContent = '未提供';
+          if (totalTokensBadgeEl) totalTokensBadgeEl.innerHTML = '';
+          if (totalTokensSubEl) {
+            totalTokensSubEl.textContent = (usage.coverage === 'unavailable') ? '已选会话无可用 Token 数据' : '未提供完整或部分计数';
+          }
         }
 
-        const daily = usage.daily || [];
+        // 2. Session count stat card
+        const sessionsEl = document.getElementById('usage-total-sessions');
+        const sessionsSubEl = document.getElementById('usage-total-sessions-sub');
+        if (sessionsEl) {
+          sessionsEl.textContent = formatCount(usage.sessionCount);
+        }
+        if (sessionsSubEl) {
+          if (isSafeCount(usage.observedSessionCount) && isSafeCount(usage.missingUsageSessionCount)) {
+            sessionsSubEl.textContent = `已观测 ${usage.observedSessionCount.toLocaleString()} · 缺测 ${usage.missingUsageSessionCount.toLocaleString()} 会话`;
+          } else if (isSafeCount(usage.observedSessionCount)) {
+            sessionsSubEl.textContent = `已观测 ${usage.observedSessionCount.toLocaleString()} 会话`;
+          } else {
+            sessionsSubEl.textContent = '本地已收录会话';
+          }
+        }
+
+        // 3. Provider count stat card
+        const providers = Array.isArray(usage.providers) ? usage.providers : [];
+        const provCountEl = document.getElementById('usage-provider-count');
+        const provCountSubEl = document.getElementById('usage-provider-count-sub');
+        if (provCountEl) {
+          provCountEl.textContent = providers.length.toLocaleString();
+        }
+        if (provCountSubEl) {
+          provCountSubEl.textContent = '日志已收录来源 · 不代表连接或存活';
+        }
+
+        // 4. Coverage status note
+        const covBadge = document.getElementById('usage-coverage-badge');
+        const covText = document.getElementById('usage-coverage-text');
+        const covDetailsWrap = document.getElementById('usage-coverage-details-wrap');
+        const covDesc = document.getElementById('usage-coverage-desc');
+
+        if (covBadge && covText) {
+          if (usage.coverage === 'complete') {
+            covBadge.className = 'status-badge status-sage';
+            covBadge.textContent = '完整统计';
+            covText.textContent = '选定范围内会话用量均完整记录';
+          } else if (usage.coverage === 'partial') {
+            covBadge.className = 'status-badge status-amber';
+            covBadge.textContent = '部分已观测';
+            const obs = isSafeCount(usage.observedSessionCount) ? usage.observedSessionCount.toLocaleString() : '未提供';
+            const miss = isSafeCount(usage.missingUsageSessionCount) ? usage.missingUsageSessionCount.toLocaleString() : '未提供';
+            covText.textContent = `仅部分会话存在有效观测值（已观测 ${obs} / 缺测 ${miss} 会话）`;
+          } else if (usage.coverage === 'overflow') {
+            covBadge.className = 'status-badge status-red';
+            covBadge.textContent = '计数溢出';
+            covText.textContent = 'Token 计数超出安全表示范围';
+          } else if (usage.coverage === 'unavailable') {
+            covBadge.className = 'status-badge status-neutral';
+            covBadge.textContent = '无可用数据';
+            covText.textContent = '选定范围内会话未记录 Token 数据';
+          } else {
+            covBadge.className = 'status-badge status-neutral';
+            covBadge.textContent = '未提供';
+            covText.textContent = '未提供覆盖状态说明';
+          }
+        }
+
+        if (covDetailsWrap && covDesc) {
+          if (usage.coverageDescription && typeof usage.coverageDescription === 'string') {
+            covDesc.textContent = usage.coverageDescription;
+            covDetailsWrap.style.display = 'block';
+          } else {
+            covDetailsWrap.style.display = 'none';
+          }
+        }
+
+        // 5. Provider distribution table
+        const tbody = document.getElementById('usage-provider-tbody');
+        if (tbody) {
+          if (providers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">未发现本地日志 Token 数据</td></tr>';
+          } else {
+            tbody.innerHTML = providers.map(p => {
+              const rawName = p.provider || '';
+              const displayName = safeFormatProvider(rawName);
+              const nameHtml = (displayName !== rawName && rawName)
+                ? `<strong>${safeEscapeHtml(displayName)}</strong> <span class="code-badge" style="margin-left:4px; font-weight:normal;">${safeEscapeHtml(rawName)}</span>`
+                : `<strong>${safeEscapeHtml(displayName || '未知 Provider')}</strong>`;
+
+              // Input tokens: missing count remains '未提供', aggregate overflow does not mark dimension as overflow
+              let inputHtml = '<span style="color:var(--text-muted);">未提供</span>';
+              if (isSafeCount(p.inputTokens)) {
+                inputHtml = p.inputTokens.toLocaleString();
+              } else if (isSafeCount(p.observedInputTokens)) {
+                inputHtml = `${p.observedInputTokens.toLocaleString()} <span class="status-badge status-amber" style="font-size:9px; padding:1px 4px;">已观测部分</span>`;
+              }
+
+              // Output tokens: missing count remains '未提供', aggregate overflow does not mark dimension as overflow
+              let outputHtml = '<span style="color:var(--text-muted);">未提供</span>';
+              if (isSafeCount(p.outputTokens)) {
+                outputHtml = p.outputTokens.toLocaleString();
+              } else if (isSafeCount(p.observedOutputTokens)) {
+                outputHtml = `${p.observedOutputTokens.toLocaleString()} <span class="status-badge status-amber" style="font-size:9px; padding:1px 4px;">已观测部分</span>`;
+              }
+
+              // Total tokens: explains aggregate overflow if applicable
+              let totalHtml = '<span style="color:var(--text-muted);">未提供</span>';
+              if (isSafeCount(p.totalTokens)) {
+                totalHtml = `<strong>${p.totalTokens.toLocaleString()}</strong>`;
+              } else if (isSafeCount(p.observedTotalTokens)) {
+                totalHtml = `<strong>${p.observedTotalTokens.toLocaleString()}</strong> <span class="status-badge status-amber" style="font-size:9px; padding:1px 4px;">已观测部分</span>`;
+              } else if (p.coverage === 'overflow') {
+                totalHtml = '<span class="status-badge status-red" style="font-size:9px;">超出范围</span>';
+              }
+
+              let sessionHtml = '<span style="color:var(--text-muted);">未提供</span>';
+              if (isSafeCount(p.sessionCount)) {
+                if (isSafeCount(p.observedSessionCount) && isSafeCount(p.missingUsageSessionCount)) {
+                  sessionHtml = `${p.sessionCount.toLocaleString()} <div style="font-size:10px; color:var(--text-muted); line-height:1.2;">观测 ${p.observedSessionCount.toLocaleString()} / 缺测 ${p.missingUsageSessionCount.toLocaleString()}</div>`;
+                } else {
+                  sessionHtml = p.sessionCount.toLocaleString();
+                }
+              }
+
+              const quotaHtml = (p.quotaAvailable && typeof p.quota === 'string' && p.quota)
+                ? `<span class="status-badge status-neutral">${safeEscapeHtml(p.quota)}</span>`
+                : '<span class="status-badge status-neutral" title="云端配额与计费未提供">未提供</span>';
+
+              return `
+                <tr>
+                  <td>${nameHtml}</td>
+                  <td class="font-mono">${inputHtml}</td>
+                  <td class="font-mono">${outputHtml}</td>
+                  <td class="font-mono">${totalHtml}</td>
+                  <td>${sessionHtml}</td>
+                  <td>${quotaHtml}</td>
+                </tr>
+              `;
+            }).join('');
+          }
+        }
+
+        // 6. Daily trend chart
+        const daily = Array.isArray(usage.daily) ? usage.daily : [];
         const dailyCont = document.getElementById('usage-daily-container');
-        if (daily.length === 0) {
-          dailyCont.innerHTML = '<div style="font-size:11px; color:var(--text-muted); padding:10px 0;">无每日历史数据</div>';
-        } else {
-          const maxTokens = Math.max(...daily.map(d => d.tokens || 0), 1);
-          dailyCont.innerHTML = `
-            <div style="display: flex; align-items: flex-end; gap: 8px; height: 100px; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-              ${daily.slice(-14).map(d => {
-                const heightPct = Math.min(100, Math.max(10, Math.round(((d.tokens || 0) / maxTokens) * 100)));
-                return `
-                  <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;" title="${escapeHtml(d.date)}: ${formatNumber(d.tokens)} Tokens">
-                    <div style="width: 100%; height: ${heightPct}%; background: var(--text-main); border-radius: 2px 2px 0 0;"></div>
-                    <span style="font-size: 9px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(d.date.substring(5))}</span>
+        if (dailyCont) {
+          if (daily.length === 0) {
+            dailyCont.innerHTML = '<div style="font-size:11px; color:var(--text-muted); padding:16px 0; text-align:center;">无每日历史数据</div>';
+          } else {
+            const recentDays = daily.slice(-14);
+            const NUMERIC_PLOT_HEIGHT = 100;
+
+            const dayMetrics = recentDays.map(d => {
+              let countType = 'unknown'; // 'complete' | 'observed' | 'complete_zero' | 'observed_zero' | 'unknown' | 'overflow'
+              let plotCount = null;
+              let tooltip = '';
+
+              const hasCompleteTokens = isSafeCount(d.tokens) || isSafeCount(d.totalTokens);
+              const completeVal = isSafeCount(d.tokens) ? d.tokens : (isSafeCount(d.totalTokens) ? d.totalTokens : null);
+              const hasObservedTokens = isSafeCount(d.observedTokens) || isSafeCount(d.observedTotalTokens);
+              const observedVal = isSafeCount(d.observedTokens) ? d.observedTokens : (isSafeCount(d.observedTotalTokens) ? d.observedTotalTokens : null);
+
+              const obsS = isSafeCount(d.observedSessionCount) ? d.observedSessionCount.toLocaleString() : '未提供';
+              const missS = isSafeCount(d.missingUsageSessionCount) ? d.missingUsageSessionCount.toLocaleString() : '未提供';
+
+              if (d.coverage === 'overflow') {
+                countType = 'overflow';
+                tooltip = `${safeEscapeHtml(d.date || '未知日期')}: 计数超出安全表示范围 (Overflow · 会话起始日)`;
+              } else if (hasCompleteTokens) {
+                plotCount = completeVal;
+                if (plotCount === 0) {
+                  countType = 'complete_zero';
+                  tooltip = `${safeEscapeHtml(d.date || '未知日期')}: 0 Tokens (真实 0 · 会话起始日)`;
+                } else {
+                  countType = 'complete';
+                  tooltip = `${safeEscapeHtml(d.date || '未知日期')}: ${plotCount.toLocaleString()} Tokens (完整统计 · 会话起始日)`;
+                }
+              } else if (hasObservedTokens) {
+                plotCount = observedVal;
+                if (plotCount === 0) {
+                  countType = 'observed_zero';
+                  tooltip = `${safeEscapeHtml(d.date || '未知日期')}: 0 Tokens [已观测部分] (覆盖: 已观测 ${obsS} / 缺测 ${missS} 会话 · 会话起始日)`;
+                } else {
+                  countType = 'observed';
+                  tooltip = `${safeEscapeHtml(d.date || '未知日期')}: ${plotCount.toLocaleString()} Tokens [已观测部分] (覆盖: 已观测 ${obsS} / 缺测 ${missS} 会话 · 会话起始日)`;
+                }
+              } else {
+                countType = 'unknown';
+                tooltip = `${safeEscapeHtml(d.date || '未知日期')}: 未提供用量数据 (会话起始日)`;
+              }
+
+              return {
+                rawDate: d.date || '',
+                dateLabel: formatDateLabel(d.date),
+                countType,
+                plotCount,
+                tooltip
+              };
+            });
+
+            let maxTokens = 0;
+            for (const item of dayMetrics) {
+              if (item.plotCount !== null && item.plotCount > maxTokens) {
+                maxTokens = item.plotCount;
+              }
+            }
+
+            dailyCont.innerHTML = `
+              <div style="display: flex; align-items: flex-end; gap: 8px; padding-bottom: 2px; border-bottom: 1px solid var(--border-color); box-sizing: border-box;">
+                ${dayMetrics.map(item => {
+                  let topLabelHtml = '';
+                  let barOrMarkerHtml = '';
+
+                  if (item.countType === 'complete' && maxTokens > 0) {
+                    const barHeightPx = (item.plotCount / maxTokens) * NUMERIC_PLOT_HEIGHT;
+                    barOrMarkerHtml = `<div style="width: 100%; max-width: 32px; height: ${barHeightPx.toFixed(2)}px; background: var(--text-main); border-radius: 2px 2px 0 0;"></div>`;
+                  } else if (item.countType === 'observed' && maxTokens > 0) {
+                    const barHeightPx = (item.plotCount / maxTokens) * NUMERIC_PLOT_HEIGHT;
+                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--status-amber-text); white-space: nowrap;">已观测</span>`;
+                    barOrMarkerHtml = `<div style="width: 100%; max-width: 32px; height: ${barHeightPx.toFixed(2)}px; background: var(--status-amber-text); border-radius: 2px 2px 0 0; opacity: 0.9;"></div>`;
+                  } else if (item.countType === 'complete_zero') {
+                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted); white-space: nowrap;">0</span>`;
+                    barOrMarkerHtml = `<div style="width: 100%; max-width: 32px; height: 2px; background: var(--text-muted); border-radius: 1px;"></div>`;
+                  } else if (item.countType === 'observed_zero') {
+                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--status-amber-text); white-space: nowrap;">已观测 0</span>`;
+                    barOrMarkerHtml = `<div style="width: 100%; max-width: 32px; height: 2px; background: var(--status-amber-text); border-radius: 1px;"></div>`;
+                  } else if (item.countType === 'overflow') {
+                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--status-red-text); white-space: nowrap;">溢出</span>`;
+                    barOrMarkerHtml = `<div style="width: 100%; max-width: 24px; height: 1px; border-bottom: 1px dashed var(--status-red-border);"></div>`;
+                  } else {
+                    topLabelHtml = `<span style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted); white-space: nowrap;">未提供</span>`;
+                    barOrMarkerHtml = `<div style="width: 100%; max-width: 24px; height: 1px; border-bottom: 1px dashed var(--border-color);"></div>`;
+                  }
+
+                  return `
+                    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; box-sizing: border-box;" title="${item.tooltip}">
+                      <div style="height: 16px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 2px; width: 100%;">
+                        ${topLabelHtml}
+                      </div>
+                      <div style="height: ${NUMERIC_PLOT_HEIGHT}px; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;">
+                        ${barOrMarkerHtml}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+
+              <div style="display: flex; gap: 8px; padding-top: 6px;">
+                ${dayMetrics.map(item => `
+                  <div style="flex: 1; min-width: 0; text-align: center;">
+                    <span style="font-size: 9px; font-family: var(--font-mono); color: var(--text-muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${safeEscapeHtml(item.rawDate)}">
+                      ${safeEscapeHtml(item.dateLabel)}
+                    </span>
                   </div>
-                `;
-              }).join('')}
-            </div>
-          `;
+                `).join('')}
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle); font-size: 11px; color: var(--text-muted);">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                  <span style="display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="display: inline-block; width: 10px; height: 10px; background: var(--text-main); border-radius: 2px;"></span>
+                    完整统计柱
+                  </span>
+                  <span style="display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="display: inline-block; width: 10px; height: 10px; background: var(--status-amber-text); border-radius: 2px; opacity: 0.9;"></span>
+                    已观测部分柱
+                  </span>
+                  <span style="display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="display: inline-block; width: 10px; height: 2px; background: var(--text-muted);"></span>
+                    完整 0 基线
+                  </span>
+                  <span style="display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="display: inline-block; width: 10px; height: 2px; background: var(--status-amber-text);"></span>
+                    已观测 0 基线
+                  </span>
+                  <span style="display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="display: inline-block; width: 10px; height: 0; border-bottom: 1px dashed var(--border-color);"></span>
+                    未提供 / 溢出
+                  </span>
+                </div>
+                <span>按会话起始日统计 · 最近至多 14 条记录</span>
+              </div>
+            `;
+          }
         }
       }
     } catch (err) {
@@ -3397,7 +4580,9 @@
       const grid = document.getElementById('usage-stat-grid');
       if (grid) {
         grid.innerHTML = `
-          <div class="alert-banner alert-danger">无法加载用量数据：${escapeHtml(err.message)}</div>
+          <div class="alert-banner alert-danger" style="grid-column: 1 / -1;">
+            无法加载用量数据：${safeEscapeHtml(err && err.message ? err.message : String(err))}
+          </div>
         `;
       }
     }
@@ -3413,54 +4598,81 @@
       <div class="page-header">
         <div class="page-title-group">
           <h1>调优建议</h1>
-          <p>从反复出现的会话模式中提炼改进方案 · 严格证据阈值与原子回滚</p>
+          <p>从反复出现的会话模式中提炼改进方案 · 严格证据阈值与回滚保障</p>
         </div>
         <div class="page-actions">
           <button id="btn-run-analysis" class="btn btn-primary btn-sm">分析工程证据</button>
         </div>
       </div>
 
-      <div class="card" style="background: var(--bg-subtle);">
-        <div style="font-size: 12px; line-height: 1.5; color: var(--text-secondary);">
-          <strong>确定性提升规则：</strong>
-          Vela 仅在同一模式于<strong>至少 2 个独立会话中出现 3 次以上信号</strong>时才形成建议。
-          没有虚假 AI 评分；所有调优建议必须在本地人工审查 Diff 并显式确认后，方可原子写入项目。
-        </div>
+      <div class="improve-methodology-note" role="note">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <span>基于会话日志记录与工程规则提炼。建议仅在至少 2 个独立会话中出现重复信号时生成，写入前需经 Diff 人工审查并支持回滚。</span>
       </div>
 
-      <div class="table-wrapper" style="margin-top: 14px;">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>建议标题</th>
-              <th>载体 (Carrier)</th>
-              <th>证据信号 (Evidence)</th>
-              <th>影响 Context</th>
-              <th>状态</th>
-              <th style="text-align: right; width: 220px;">操作</th>
-            </tr>
-          </thead>
-          <tbody id="improve-table-tbody">
-            ${suggestions.length === 0 ? '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 32px;">暂无达到阈值的调优建议。点击“分析工程证据”扫描当前项目日志。</td></tr>' : ''}
+      <div class="improve-container">
+        ${suggestions.length === 0 ? `
+          <div class="empty-state">
+            <div class="empty-state-title">暂无达到阈值的调优建议</div>
+            <div class="empty-state-desc">当前项目尚未形成满足 2 个独立会话与重复信号阈值的调优方案。点击“分析工程证据”扫描当前项目会话日志。</div>
+          </div>
+        ` : `
+          <ul class="improve-card-list" role="list">
             ${suggestions.map(sug => {
               const st = (sug.state || 'pending').toLowerCase();
+              const evList = sug.evidence || [];
+              const distinctSessions = new Set(evList.map(e => e.sessionId).filter(Boolean)).size;
+              const evCount = evList.length;
+              const evLabel = distinctSessions > 0 ? `${evCount} 条证据 · ${distinctSessions} 个独立会话` : `${evCount} 条证据信号`;
+
+              let bodyText = sug.description || sug.issue || sug.reason || '';
+              if (!bodyText) {
+                if (evList.length > 0) {
+                  bodyText = '从关联会话工程日志中提炼的改进方案，请审查证据与 Diff。';
+                } else {
+                  bodyText = '待审查的工程调优建议。';
+                }
+              }
+
+              const dkLabel = formatDiscoveryKind(sug.discoveryKind);
+
               return `
-                <tr>
-                  <td><strong>${escapeHtml(sug.title)}</strong></td>
-                  <td><span class="code-badge">${escapeHtml(sug.carrier || 'AGENTS.md')}</span></td>
-                  <td><span class="font-mono">${sug.evidence ? sug.evidence.length : 0} 次信号</span></td>
-                  <td><span class="font-mono">${sug.contextTokens ? '~' + escapeHtml(String(sug.contextTokens)) + ' tokens' : '-'}</span></td>
-                  <td>${getImproveStateBadge(st)}</td>
-                  <td style="text-align: right;">
-                    <button class="btn btn-secondary btn-sm btn-preview-diff" data-id="${escapeHtml(sug.id)}">审查 Diff</button>
-                    ${st === 'applied' ? `<button class="btn btn-ghost btn-sm btn-undo-sug" data-id="${escapeHtml(sug.id)}">撤销</button>` : ''}
-                    ${st !== 'applied' && st !== 'dismissed' ? `<button class="btn btn-ghost btn-sm btn-dismiss-sug" data-id="${escapeHtml(sug.id)}">忽略</button>` : ''}
-                  </td>
-                </tr>
+                <li class="improve-card" data-id="${escapeHtml(sug.id)}">
+                  <div class="improve-card-header">
+                    <div class="improve-card-title">${escapeHtml(sug.title || '调优建议')}</div>
+                    <span class="evidence-count-badge">${escapeHtml(evLabel)}</span>
+                  </div>
+
+                  <div class="improve-card-body">${escapeHtml(bodyText)}</div>
+
+                  <div class="improve-card-tags">
+                    <span class="carrier-badge">${escapeHtml(sug.carrier || '项目文件')}</span>
+                    ${dkLabel ? `<span class="badge-subtle">${escapeHtml(dkLabel)}</span>` : ''}
+                    ${isAlreadyInstalledHook(sug) ? `<span class="status-badge status-sage">已配置 Hook</span>` : ''}
+                    ${sug.verificationCandidateMemoryIds && sug.verificationCandidateMemoryIds.length > 0 ? `<span class="badge-subtle" title="包含 ${sug.verificationCandidateMemoryIds.length} 条待验证候选记忆">${sug.verificationCandidateMemoryIds.length} 条候选记忆</span>` : ''}
+                    ${sug.contextTokens ? `<span class="badge-subtle font-mono">~${escapeHtml(String(sug.contextTokens))} tokens</span>` : ''}
+                    ${getImproveStateBadge(st)}
+                  </div>
+
+                  ${renderAlreadyInstalledNotice(sug)}
+                  ${renderProviderTrustNotice(sug, st === 'applied')}
+
+                  <div class="improve-card-footer">
+                    <div class="improve-footer-left">
+                      ${sug.workflowDraft ? `<button class="btn btn-ghost btn-sm btn-view-workflow-draft" data-id="${escapeHtml(sug.id)}" title="查看/编辑生成的工作流草稿">查看工作流草稿</button>` : ''}
+                    </div>
+                    <div class="improve-footer-right">
+                      <button class="btn btn-secondary btn-sm btn-test-sug" data-id="${escapeHtml(sug.id)}" title="基于此建议发起对照实验测试">测试 (Test)</button>
+                      <button class="btn btn-secondary btn-sm btn-preview-diff" data-id="${escapeHtml(sug.id)}">审查 Diff</button>
+                      ${st === 'applied' ? `<button class="btn btn-ghost btn-sm btn-undo-sug" data-id="${escapeHtml(sug.id)}">撤销</button>` : ''}
+                      ${st !== 'applied' && st !== 'dismissed' ? `<button class="btn btn-ghost btn-sm btn-dismiss-sug" data-id="${escapeHtml(sug.id)}">忽略</button>` : ''}
+                    </div>
+                  </div>
+                </li>
               `;
             }).join('')}
-          </tbody>
-        </table>
+          </ul>
+        `}
       </div>
     `;
 
@@ -3468,12 +4680,33 @@
       try {
         showToast('正在分析会话工程证据...');
         const result = await callBridge('improve.analyze', state.currentProject ? { project: state.currentProject } : {});
-        const count = (result && result.suggestions && result.suggestions.length) || 0;
-        showToast(`分析完成，提炼出 ${count} 条达到阈值的建议`);
+        const sugCount = (result && result.suggestions && result.suggestions.length) || 0;
+        const candCount = (result && result.candidateMemories && result.candidateMemories.length) || 0;
+        if (candCount > 0) {
+          showToast(`分析完成：提炼出 ${sugCount} 条调优建议，发现 ${candCount} 条候选记忆`);
+        } else {
+          showToast(`分析完成：提炼出 ${sugCount} 条调优建议`);
+        }
         await refreshDashboard(true, true);
       } catch (e) {
         showToast('分析失败: ' + e.message, 'error');
       }
+    });
+
+    container.querySelectorAll('.btn-test-sug').forEach(btn => {
+      btn.addEventListener('click', () => {
+        handleTestSuggestion(btn.getAttribute('data-id'));
+      });
+    });
+
+    container.querySelectorAll('.btn-view-workflow-draft').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const sug = suggestions.find(s => s.id === id);
+        if (sug && sug.workflowDraft) {
+          openEditWorkflowModal(sug.workflowDraft);
+        }
+      });
     });
 
     container.querySelectorAll('.btn-preview-diff').forEach(btn => {
@@ -3487,7 +4720,7 @@
         const id = btn.getAttribute('data-id');
         try {
           await callBridge('improve.undo', { id });
-          showToast('已原子回滚建议变更');
+          showToast('已撤销变更并执行回滚');
           await refreshDashboard(true, true);
         } catch (e) {
           showToast('撤销失败: ' + e.message, 'error');
@@ -3524,21 +4757,171 @@
     }
   }
 
+  let testSuggestionSequence = 0;
+
+  function normalizeToRelativePath(filePath, projectRoot) {
+    if (!filePath || typeof filePath !== 'string' || !projectRoot) return null;
+    const normRoot = projectRoot.endsWith('/') ? projectRoot : (projectRoot + '/');
+    let rel = filePath;
+    if (filePath.startsWith('/')) {
+      if (!filePath.startsWith(normRoot)) {
+        return null;
+      }
+      rel = filePath.slice(normRoot.length);
+    }
+    while (rel.startsWith('/')) rel = rel.slice(1);
+    if (!rel) return null;
+    const parts = rel.split('/');
+    if (parts.includes('..') || parts.includes('.')) {
+      return null;
+    }
+    return rel;
+  }
+
+  async function handleTestSuggestion(suggestionId, preloadedPreviewObj = null) {
+    const thisSeq = ++testSuggestionSequence;
+    const thisProject = state.currentProject;
+    const thisPage = state.currentPage;
+    const initialModalInstance = currentModalInstance;
+
+    let previewObj = preloadedPreviewObj;
+    if (!previewObj) {
+      try {
+        showToast('正在准备调优建议对照数据...', 'info');
+        previewObj = await callBridge('improve.preview', { id: suggestionId });
+      } catch (err) {
+        if (thisSeq !== testSuggestionSequence || state.currentProject !== thisProject || state.currentPage !== thisPage) return;
+        showToast('无法加载建议详情: ' + err.message, 'error');
+        return;
+      }
+    }
+
+    if (thisSeq !== testSuggestionSequence || state.currentProject !== thisProject || state.currentPage !== thisPage) {
+      return;
+    }
+    const modal = document.getElementById('modal-container');
+    const isModalOpen = modal && !modal.classList.contains('hidden');
+    if (isModalOpen && currentModalInstance !== initialModalInstance) {
+      return;
+    }
+
+    const suggestions = (state.dashboard && state.dashboard.suggestions) || [];
+    const sug = suggestions.find(s => s.id === suggestionId);
+    const targetProject = (sug && sug.project) || (previewObj && previewObj.project) || state.currentProject;
+    const candidateMemoryIds = (sug && sug.verificationCandidateMemoryIds) || (previewObj && previewObj.verificationCandidateMemoryIds) || [];
+    const ops = (previewObj && (previewObj.preview || previewObj.operations)) || (sug && sug.operations) || [];
+
+    let fileCandidateValid = true;
+    let fileCandidateUnsupportedReason = '';
+    const candidateFiles = [];
+
+    if (ops.length > 0) {
+      for (const op of ops) {
+        if (op.delete) {
+          fileCandidateValid = false;
+          fileCandidateUnsupportedReason = '包含文件删除操作（Agent Lab 候选集仅支持文件完整内容写入）';
+          break;
+        }
+        const relPath = normalizeToRelativePath(op.path, targetProject);
+        if (!relPath) {
+          fileCandidateValid = false;
+          fileCandidateUnsupportedReason = `路径不在目标工程范围内或包含非法组件: ${op.path}`;
+          break;
+        }
+        const content = op.content !== undefined ? op.content : op.after;
+        if (typeof content !== 'string') {
+          fileCandidateValid = false;
+          fileCandidateUnsupportedReason = `文件缺少可用文本内容: ${op.path}`;
+          break;
+        }
+        candidateFiles.push({
+          path: relPath,
+          content: content
+        });
+      }
+    } else {
+      fileCandidateValid = false;
+    }
+
+    const hasLinkedMemories = candidateMemoryIds.length > 0;
+    let chosenKind = 'context';
+    let chosenCandidateMemoryIds = [];
+    let chosenCandidateFiles = [];
+    let candidateExplanation = '';
+
+    if (hasLinkedMemories) {
+      chosenKind = 'memory';
+      chosenCandidateMemoryIds = candidateMemoryIds;
+      chosenCandidateFiles = [];
+      candidateExplanation = `已默认选用关联的 ${candidateMemoryIds.length} 条候选 Memory 进行对照实验（纯 Memory 候选在独立校验达标后可直接晋升生效）。`;
+      if (fileCandidateValid && candidateFiles.length > 0) {
+        candidateExplanation += ` 该建议亦包含 ${candidateFiles.length} 个文件变更，为避免混合候选导致无法晋升，未预载文件变更。`;
+      }
+    } else if (fileCandidateValid && candidateFiles.length > 0) {
+      chosenKind = 'context';
+      chosenCandidateMemoryIds = [];
+      chosenCandidateFiles = candidateFiles;
+      candidateExplanation = `已选用该建议包含的全部 ${candidateFiles.length} 个文件完整变更进行对照测试。`;
+    } else {
+      if (fileCandidateUnsupportedReason) {
+        showToast(`该建议暂无法发起对照实验: ${fileCandidateUnsupportedReason}`, 'error');
+      } else {
+        showToast('该建议既无可验证的文件变更内容，也无关联的候选 Memory，暂无法发起对照实验。', 'error');
+      }
+      return;
+    }
+
+    openCreateLabModal({
+      sourceSuggestionId: suggestionId,
+      project: targetProject,
+      title: `对建议 "${(sug && sug.title) || (previewObj && previewObj.title) || suggestionId.slice(0, 8)}" 的对照实验`,
+      kind: chosenKind,
+      mode: 'codex_agent',
+      candidateMemoryIds: chosenCandidateMemoryIds,
+      candidateFiles: chosenCandidateFiles,
+      candidateExplanation: candidateExplanation,
+      baselineFiles: [],
+      baselineMemoryIds: []
+    });
+  }
+
+  let improvePreviewSequence = 0;
+
   async function openImprovePreviewDrawer(suggestionId) {
+    const thisSeq = ++improvePreviewSequence;
+    const thisProject = state.currentProject;
+    const thisPage = state.currentPage;
     state.selectedSuggestionId = suggestionId;
     openDrawer('加载 Diff 详情...', '调优建议');
+    const thisDrawer = currentDrawerInstance;
 
     try {
       const previewObj = await callBridge('improve.preview', { id: suggestionId });
+      const drawer = document.getElementById('detail-drawer');
+      const isDrawerOpen = drawer && !drawer.classList.contains('hidden');
+      if (thisSeq !== improvePreviewSequence || thisDrawer !== currentDrawerInstance || state.selectedSuggestionId !== suggestionId || !isDrawerOpen || state.currentProject !== thisProject || state.currentPage !== thisPage) {
+        return;
+      }
+
       if (!previewObj) throw new Error('未获取到预览数据');
 
       setDrawerTitle(previewObj.title || '建议详情', suggestionId ? `建议 · ${suggestionId.substring(0, 8)}` : '调优建议');
       const isApplied = (previewObj.state || '').toLowerCase() === 'applied';
 
-      setDrawerCustomActions(`
-        ${!isApplied ? `<button id="btn-drawer-apply-sug" class="btn btn-primary btn-sm">确认应用 (Apply)</button>` : `<button id="btn-drawer-undo-sug" class="btn btn-danger btn-sm">撤销应用 (Undo)</button>`}
-      `);
+      const isAlreadyConfigured = isAlreadyInstalledHook(previewObj);
+      let actionButtons = `<button id="btn-drawer-test-sug" class="btn btn-secondary btn-sm">测试 (Test)</button>`;
+      if (isApplied) {
+        actionButtons += `<button id="btn-drawer-undo-sug" class="btn btn-danger btn-sm">撤销变更 (Undo)</button>`;
+      } else if (!isAlreadyConfigured) {
+        actionButtons += `<button id="btn-drawer-apply-sug" class="btn btn-primary btn-sm">确认应用 (Apply)</button>`;
+      }
+      setDrawerCustomActions(actionButtons);
 
+      if (document.getElementById('btn-drawer-test-sug')) {
+        document.getElementById('btn-drawer-test-sug').addEventListener('click', () => {
+          handleTestSuggestion(suggestionId, previewObj);
+        });
+      }
       if (document.getElementById('btn-drawer-apply-sug')) {
         document.getElementById('btn-drawer-apply-sug').addEventListener('click', () => {
           openConfirmApplyModal(previewObj);
@@ -3548,7 +4931,7 @@
         document.getElementById('btn-drawer-undo-sug').addEventListener('click', async () => {
           try {
             await callBridge('improve.undo', { id: suggestionId });
-            showToast('已原子回滚变更');
+            showToast('已撤销变更并执行回滚');
             closeDrawer();
             await refreshDashboard(true, true);
           } catch (e) {
@@ -3565,14 +4948,70 @@
       drawerBody.innerHTML = `
         <div class="card">
           <div class="card-header">
-            <span class="card-title">元数据</span>
+            <span class="card-title">建议元数据</span>
             ${getImproveStateBadge(previewObj.state)}
           </div>
           <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <div><span class="text-secondary">目标载体:</span> <strong>${escapeHtml(previewObj.carrier || 'AGENTS.md')}</strong></div>
+            <div><span class="text-secondary">目标载体:</span> <strong>${escapeHtml(previewObj.carrier || '项目文件')}</strong></div>
             <div><span class="text-secondary">影响 Tokens:</span> ${previewObj.contextTokens ? '~' + escapeHtml(String(previewObj.contextTokens)) : '-'}</div>
+            ${previewObj.discoveryKind ? `<div><span class="text-secondary">发现类型:</span> <span class="font-mono">${escapeHtml(formatDiscoveryKind(previewObj.discoveryKind) || previewObj.discoveryKind)}</span></div>` : ''}
+            ${previewObj.verificationCandidateMemoryIds && previewObj.verificationCandidateMemoryIds.length > 0 ? `
+              <details style="grid-column: 1 / -1; margin-top: 4px; font-size: 11px;">
+                <summary style="cursor: pointer; color: var(--text-secondary);">验证候选记忆 (${previewObj.verificationCandidateMemoryIds.length})</summary>
+                <ul style="margin-top: 4px; padding-left: 18px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">
+                  ${previewObj.verificationCandidateMemoryIds.map(id => `<li>${escapeHtml(id)}</li>`).join('')}
+                </ul>
+              </details>
+            ` : ''}
           </div>
+          ${previewObj.workflowDraft ? `
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+              <button id="btn-drawer-inspect-wf" class="btn btn-ghost btn-sm">查看对应工作流草稿</button>
+            </div>
+          ` : ''}
         </div>
+
+        ${renderAlreadyInstalledNotice(previewObj)}
+        ${renderProviderTrustNotice(previewObj, isApplied)}
+
+        ${previewObj.description || previewObj.issue || previewObj.reason ? `
+          <div class="card" style="padding: 10px 12px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">模式成因与改进说明</div>
+            <div style="font-size: 12px; line-height: 1.5; color: var(--text-main);">${escapeHtml(previewObj.description || previewObj.issue || previewObj.reason)}</div>
+          </div>
+        ` : ''}
+
+        ${evidenceList.length > 0 ? `
+          <div>
+            <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">关联会话证据 (${evidenceList.length})</h3>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              ${evidenceList.map(ev => `
+                <div class="card" style="padding: 10px 12px; margin-bottom: 0;">
+                  ${ev.quote ? `<div style="font-size: 12px; margin-bottom: 6px; color: var(--text-main); font-style: italic; line-height: 1.45;">"${escapeHtml(ev.quote)}"</div>` : ''}
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--text-secondary);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      ${ev.task ? `<span>任务: ${escapeHtml(ev.task)}</span>` : ''}
+                      ${ev.timestamp ? `<span>时间: ${formatTime(ev.timestamp)}</span>` : ''}
+                    </div>
+                    ${ev.sessionId ? `
+                      <button type="button" class="btn-open-source" data-session-id="${escapeHtml(ev.sessionId)}" ${ev.messageId ? `data-message-id="${escapeHtml(ev.messageId)}"` : ''} title="会话 ID: ${escapeHtml(ev.sessionId)}${ev.messageId ? ` · 消息 ID: ${escapeHtml(ev.messageId)}` : ''}">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        <span>定位来源消息</span>
+                      </button>
+                    ` : ''}
+                  </div>
+                  <details style="margin-top: 6px; font-size: 10px; color: var(--text-muted);">
+                    <summary style="cursor: pointer;">来源技术 ID</summary>
+                    <div class="font-mono" style="margin-top: 2px;">
+                      <div>会话 ID: ${escapeHtml(ev.sessionId || '-')}</div>
+                      ${ev.messageId ? `<div>消息 ID: ${escapeHtml(ev.messageId)}</div>` : ''}
+                    </div>
+                  </details>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
 
         <div>
           <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">文件变更 Diff (${previewList.length})</h3>
@@ -3589,23 +5028,24 @@
           </div>
         </div>
 
-        ${evidenceList.length > 0 ? `
-          <div>
-            <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">关联会话证据 (${evidenceList.length})</h3>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-              ${evidenceList.map(ev => `
-                <div class="card" style="padding: 8px 10px; margin-bottom: 0;">
-                  <div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">
-                    会话: ${escapeHtml(ev.sessionId || '-')} · 消息: ${escapeHtml(ev.messageId || '-')}
-                  </div>
-                  ${ev.quote ? `<div style="font-size: 11px; margin-top: 4px; color: var(--text-secondary); font-style: italic;">"${escapeHtml(ev.quote)}"</div>` : ''}
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        ` : ''}
+        <details class="card" style="margin-top: 10px; padding: 10px 12px;">
+          <summary style="font-size: 11px; cursor: pointer; color: var(--text-muted); user-select: none;">查看原始变更操作 JSON</summary>
+          <div class="code-view font-mono" style="margin-top: 8px; font-size: 11px; max-height: 200px; overflow: auto;">${escapeHtml(JSON.stringify(previewList, null, 2))}</div>
+        </details>
       `;
+
+      const inspectWfBtn = document.getElementById('btn-drawer-inspect-wf');
+      if (inspectWfBtn && previewObj.workflowDraft) {
+        inspectWfBtn.addEventListener('click', () => {
+          openEditWorkflowModal(previewObj.workflowDraft);
+        });
+      }
     } catch (err) {
+      const drawer = document.getElementById('detail-drawer');
+      const isDrawerOpen = drawer && !drawer.classList.contains('hidden');
+      if (thisSeq !== improvePreviewSequence || thisDrawer !== currentDrawerInstance || state.selectedSuggestionId !== suggestionId || !isDrawerOpen || state.currentProject !== thisProject || state.currentPage !== thisPage) {
+        return;
+      }
       setDrawerTitle('加载失败', '错误');
       document.getElementById('drawer-content').innerHTML = `
         <div class="alert-banner alert-danger">无法加载预览：${escapeHtml(err.message)}</div>
@@ -3638,12 +5078,17 @@
   }
 
   function openConfirmApplyModal(previewObj) {
+    if (!previewObj || isAlreadyInstalledHook(previewObj)) {
+      showToast('该 Hook 定义已配置且无待写入操作，无需重复应用', 'info');
+      return;
+    }
     const previewList = previewObj.preview || previewObj.operations || [];
     const modalBody = `
       <div class="alert-banner alert-warning">
-        <span>注意：应用操作将对项目工作区文件执行原子写入。Vela 会在写入前校验基线哈希，并记录原子回滚日志。</span>
+        <span>注意：应用操作将写入项目工作区文件。Vela 会在写入前校验基线哈希并执行分步暂存，若发生冲突将终止并尝试回滚。</span>
       </div>
-      <p style="font-size: 12px; color: var(--text-main);">
+      ${renderProviderTrustNotice(previewObj, false)}
+      <p style="font-size: 12px; color: var(--text-main); margin-top: 8px;">
         即将写入以下变更到 <strong>${escapeHtml(previewObj.carrier || '项目文件')}</strong>：
       </p>
       <ul style="padding-left: 18px; font-size: 11px; color: var(--text-secondary); margin-top: 6px;">
@@ -3653,21 +5098,52 @@
 
     openModal('确认应用调优建议', modalBody, `
       <button class="btn btn-secondary" id="btn-cancel-apply">取消</button>
-      <button class="btn btn-primary" id="btn-confirm-apply">确认原子写入</button>
+      <button class="btn btn-primary" id="btn-confirm-apply">确认写入 (Apply)</button>
     `);
 
     document.getElementById('btn-cancel-apply').addEventListener('click', closeModal);
-    document.getElementById('btn-confirm-apply').addEventListener('click', async () => {
-      try {
-        await callBridge('improve.apply', { id: previewObj.id });
-        showToast('调优建议已成功应用');
-        closeModal();
-        closeDrawer();
-        await refreshDashboard(true, true);
-      } catch (err) {
-        showToast('应用失败: ' + err.message, 'error');
-      }
-    });
+    const btnConfirm = document.getElementById('btn-confirm-apply');
+    if (btnConfirm) {
+      btnConfirm.addEventListener('click', async () => {
+        if (isAlreadyInstalledHook(previewObj)) {
+          showToast('该 Hook 定义已配置且无待写入操作，无需重复应用', 'info');
+          closeModal();
+          return;
+        }
+        if (btnConfirm.disabled) return;
+        btnConfirm.disabled = true;
+        const origText = btnConfirm.textContent;
+        btnConfirm.textContent = '正在写入...';
+
+        const thisModal = currentModalInstance;
+        const thisPage = state.currentPage;
+        const thisProject = state.currentProject;
+
+        try {
+          await callBridge('improve.apply', { id: previewObj.id });
+
+          const modal = document.getElementById('modal-container');
+          const isModalOpen = modal && !modal.classList.contains('hidden');
+          if (thisModal !== currentModalInstance || !isModalOpen || !document.contains(modal) || state.currentPage !== thisPage || state.currentProject !== thisProject) {
+            return;
+          }
+
+          showToast('调优建议已成功应用');
+          closeModal();
+          closeDrawer();
+          await refreshDashboard(true, true);
+        } catch (err) {
+          const modal = document.getElementById('modal-container');
+          const isModalOpen = modal && !modal.classList.contains('hidden');
+          if (thisModal !== currentModalInstance || !isModalOpen || !document.contains(modal) || state.currentPage !== thisPage || state.currentProject !== thisProject) {
+            return;
+          }
+          btnConfirm.disabled = false;
+          btnConfirm.textContent = origText;
+          showToast('应用失败: ' + err.message, 'error');
+        }
+      });
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -3680,7 +5156,7 @@
       <div class="page-header">
         <div class="page-title-group">
           <h1>对照实验</h1>
-          <p>确定性命令对照评测 · 独立 Git Worktree 运行 · 真实退出状态与耗时</p>
+          <p>Codex Agent 对照评测与确定性命令验证 · 隔离 Git Worktree 运行 · 冻结审批与客观指标</p>
         </div>
         <div class="page-actions">
           <button id="btn-new-lab" class="btn btn-primary btn-sm">+ 新建对照实验</button>
@@ -3708,6 +5184,120 @@
     renderLabTabContent();
   }
 
+  function formatFinitePassRate(rate, isPending = false) {
+    if (isPending) return '尚未运行';
+    if (rate === null || rate === undefined || typeof rate !== 'number' || isNaN(rate)) return '未提供';
+    return (rate * 100).toFixed(0) + '%';
+  }
+
+  function formatFiniteDuration(ms, isPending = false) {
+    if (isPending) return '尚未运行';
+    if (ms === null || ms === undefined || typeof ms !== 'number' || isNaN(ms)) return '未提供';
+    return Math.round(ms) + 'ms';
+  }
+
+  function formatFiniteTokens(tok, isPending = false) {
+    if (isPending) return '尚未运行';
+    if (tok === null || tok === undefined || typeof tok !== 'number' || isNaN(tok)) return '未提供';
+    return Math.round(tok).toLocaleString() + ' tok';
+  }
+
+  function formatFiniteCount(n, isPending = false) {
+    if (isPending) return '尚未运行';
+    if (n === null || n === undefined || typeof n !== 'number' || isNaN(n)) return '未提供';
+    return String(n);
+  }
+
+  function getEvalDecisionBadge(decision, state) {
+    const st = (state || '').toLowerCase();
+    if (st === 'running') {
+      return '<span class="status-badge status-blue" title="实验正在执行中，已采集样本待生成最终决策">进行中 / 待最终结论</span>';
+    }
+    if (st === 'pending_approval' || st === 'pending approval') {
+      return '<span class="status-badge status-neutral" title="等待 Inbox 授权">尚未运行</span>';
+    }
+    const d = (decision || '').toLowerCase();
+    switch (d) {
+      case 'ready_for_review':
+        return '<span class="status-badge status-sage" title="至少各 3 个完整样本、候选独立校验全部通过、指标有提升且 Token 可接受">✓ 待审查 (达标)</span>';
+      case 'inconclusive':
+        return '<span class="status-badge status-amber" title="样本不足、未提供 Token 或无显著收益（包含平局）">○ 结论不显著</span>';
+      case 'reject':
+        return '<span class="status-badge status-red" title="测量到成功率/测试执行倒退，或 Token 增幅超过容差">✕ 不建议采纳</span>';
+      default:
+        return '<span class="status-badge status-neutral">-</span>';
+    }
+  }
+
+  function getEvalDecisionTitle(decision) {
+    switch ((decision || '').toLowerCase()) {
+      case 'ready_for_review':
+        return '✓ 具备晋升审查资格 (Ready for Review)';
+      case 'inconclusive':
+        return '○ 结论不显著 (Inconclusive)';
+      case 'reject':
+        return '✕ 不建议采纳 (Reject)';
+      default:
+        return '评测判定: ' + (decision || '未生成');
+    }
+  }
+
+  function getEvalDecisionExplanation(decision) {
+    switch ((decision || '').toLowerCase()) {
+      case 'ready_for_review':
+        return '至少各 3 个完整样本、候选独立校验全部通过、指标有提升且 Token 增幅在允许容差范围内。';
+      case 'inconclusive':
+        return '样本不足、未提供 Token 或无显著收益（包含平局）。';
+      case 'reject':
+        return '测量到成功率/测试执行倒退，或 Token 增幅超过容差（20% / 100-token 限制）。';
+      default:
+        return '评测未完成或缺少决策依据。';
+    }
+  }
+
+  function formatVariantSummary(variant) {
+    if (!variant) return '<span class="text-muted">默认配置</span>';
+    const parts = [];
+    const files = variant.files || [];
+    const memories = variant.memories || [];
+    if (memories.length > 0) {
+      parts.push(`${memories.length} 条 Memory (${memories.map(m => escapeHtml(m.title || m.id)).join(', ')})`);
+    }
+    if (files.length > 0) {
+      parts.push(`${files.length} 个文件变更 (${files.map(f => escapeHtml(f.path)).join(', ')})`);
+    }
+    const memoryContext = memories.map(m => `${m.title || ''}\n${m.content || ''}`).join('\n\n');
+    if (variant.context && (!memories.length || variant.context !== memoryContext)) {
+      parts.push(`自定义上下文 (~${variant.context.length} 字符)`);
+    }
+    return parts.length > 0 ? parts.join(' · ') : '<span class="text-muted">无附加文件或 Memory</span>';
+  }
+
+  function findVelaSessionBySourceId(sourceSessionId, expectedProject = null) {
+    if (!sourceSessionId) return null;
+    const sessions = (state.dashboard && state.dashboard.sessions) || [];
+    return sessions.find(s => {
+      const isCodex = (s.provider || '').toLowerCase() === 'codex';
+      if (!isCodex) return false;
+      if (expectedProject) {
+        const sProj = s.project || s.path || '';
+        if (sProj !== expectedProject) return false;
+      }
+      return s.sourceSessionId === sourceSessionId || s.id === sourceSessionId;
+    }) || null;
+  }
+
+  function resolveMemoryInfo(memId) {
+    const memories = (state.dashboard && state.dashboard.memories) || [];
+    const found = memories.find(m => m.id === memId);
+    return {
+      id: memId,
+      title: found ? (found.title || found.id) : memId,
+      content: found ? found.content : '',
+      found: !!found
+    };
+  }
+
   function renderLabTabContent() {
     const target = document.getElementById('lab-tab-content');
     if (!target) return;
@@ -3723,8 +5313,7 @@
       <div class="card" style="background: var(--bg-subtle); margin-bottom: 14px;">
         <div style="font-size: 12px; line-height: 1.5; color: var(--text-secondary);">
           <strong>对照实验原则：</strong>
-          Vela 实验在<strong>相同 Git HEAD</strong> 的独立 Worktree 中，分别挂载 Baseline 与 Candidate 配置，并执行完全相同的验证命令。
-          命令执行需要经过 <strong>Inbox 审批</strong>后运行。评测器为真实退出码与执行耗时，杜绝主观模型打分。
+          Vela 支持 <strong>Codex Agent 对照评测</strong> 与 <strong>确定性命令验证</strong> 两种模式。实验在<strong>相同 Git HEAD</strong> 的隔离 Worktree 中对称执行，需经 <strong>Inbox 显式授权</strong>冻结参数。客观记录独立校验器结果、进程退出码及 Token 开销，杜绝主观打分。
         </div>
       </div>
 
@@ -3733,33 +5322,46 @@
           <thead>
             <tr>
               <th>实验名称</th>
-              <th>类别 (Kind)</th>
-              <th>Baseline 通过率 / 耗时</th>
-              <th>Candidate 通过率 / 耗时</th>
               <th>评测器</th>
+              <th>类别</th>
               <th>运行状态</th>
-              <th style="text-align: right; width: 140px;">操作</th>
+              <th>判定结论</th>
+              <th>Baseline (通过率 / 耗时 / Tokens)</th>
+              <th>Candidate (通过率 / 耗时 / Tokens)</th>
+              <th style="text-align: right; width: 100px;">操作</th>
             </tr>
           </thead>
           <tbody>
-            ${evals.length === 0 ? '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 32px;">暂无实验记录。点击“新建对照实验”以验证不同规约对构建/测试命令的实际影响。</td></tr>' : ''}
+            ${evals.length === 0 ? '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">暂无实验记录。点击“新建对照实验”以验证不同规约对构建/测试命令或 Agent 行为的实际影响。</td></tr>' : ''}
             ${evals.map(ev => {
               const st = (ev.state || 'pending_approval').toLowerCase();
-              const isPending = (st === 'pending_approval');
+              const isPending = (st === 'pending_approval' || st === 'pending approval');
               const baseSummary = ev.summary && ev.summary.baseline;
               const candSummary = ev.summary && ev.summary.candidate;
 
-              const baseText = isPending ? '尚未运行' : (baseSummary ? `${(baseSummary.passRate * 100).toFixed(0)}% · ${Math.round(baseSummary.averageDurationMs || 0)}ms` : '-');
-              const candText = isPending ? '尚未运行' : (candSummary ? `${(candSummary.passRate * 100).toFixed(0)}% · ${Math.round(candSummary.averageDurationMs || 0)}ms` : '-');
+              const baseRate = formatFinitePassRate(baseSummary ? baseSummary.passRate : null, isPending);
+              const baseDur = formatFiniteDuration(baseSummary ? baseSummary.averageDurationMs : null, isPending);
+              const baseTokens = formatFiniteTokens(baseSummary ? baseSummary.averageTokens : null, isPending);
+              const baseText = isPending ? '尚未运行' : `${baseRate} · ${baseDur}${baseSummary && baseSummary.averageTokens !== null && baseSummary.averageTokens !== undefined ? ' · ' + baseTokens : ''}`;
+
+              const candRate = formatFinitePassRate(candSummary ? candSummary.passRate : null, isPending);
+              const candDur = formatFiniteDuration(candSummary ? candSummary.averageDurationMs : null, isPending);
+              const candTokens = formatFiniteTokens(candSummary ? candSummary.averageTokens : null, isPending);
+              const candText = isPending ? '尚未运行' : `${candRate} · ${candDur}${candSummary && candSummary.averageTokens !== null && candSummary.averageTokens !== undefined ? ' · ' + candTokens : ''}`;
+
+              const isAgent = (ev.evaluator === 'codex_agent');
+              const evaluatorBadge = isAgent ? '<span class="code-badge">Codex Agent</span>' : '<span class="code-badge">确定性命令</span>';
+              const decisionBadge = getEvalDecisionBadge(ev.summary && ev.summary.decision, ev.state);
 
               return `
                 <tr class="clickable-row" data-id="${escapeHtml(ev.id)}">
-                  <td><strong>${escapeHtml(ev.title)}</strong></td>
+                  <td><strong>${escapeHtml(ev.title || '-')}</strong></td>
+                  <td>${evaluatorBadge}</td>
                   <td><span class="code-badge">${escapeHtml(ev.evaluationKind || ev.kind || 'context')}</span></td>
+                  <td>${getEvalStateBadge(st)}</td>
+                  <td>${decisionBadge}</td>
                   <td><span class="font-mono" style="font-size: 11px;">${escapeHtml(baseText)}</span></td>
                   <td><span class="font-mono" style="font-size: 11px;">${escapeHtml(candText)}</span></td>
-                  <td><span class="font-mono" style="font-size: 11px;">deterministic_command</span></td>
-                  <td>${getEvalStateBadge(st)}</td>
                   <td style="text-align: right;">
                     <button class="btn btn-secondary btn-sm btn-lab-compare" data-id="${escapeHtml(ev.id)}">对照详情</button>
                   </td>
@@ -3801,10 +5403,10 @@
       const formatPerSide = (side) => {
         if (!side) return '未提供';
         const runsText = `${side.runs ?? 0} 次运行`;
-        const successRateText = (side.successRate !== null && side.successRate !== undefined)
+        const successRateText = (side.successRate !== null && side.successRate !== undefined && !isNaN(side.successRate))
           ? `${(side.successRate * 100).toFixed(1)}%`
           : '未提供';
-        const meanRuntimeText = (side.meanRuntimeMs !== null && side.meanRuntimeMs !== undefined)
+        const meanRuntimeText = (side.meanRuntimeMs !== null && side.meanRuntimeMs !== undefined && !isNaN(side.meanRuntimeMs))
           ? `${Math.round(side.meanRuntimeMs)}ms`
           : '未提供';
         return `${runsText} · 通过率 ${successRateText} · 均耗时 ${meanRuntimeText}`;
@@ -3866,10 +5468,10 @@
                 <tbody>
                   ${evaluations.map(e => {
                     const sm = e.summary || {};
-                    const runtimeDelta = (sm.runtimeDeltaMs !== undefined && sm.runtimeDeltaMs !== null)
-                      ? `${sm.runtimeDeltaMs > 0 ? '+' : ''}${sm.runtimeDeltaMs}ms`
+                    const runtimeDelta = (sm.runtimeDeltaMs !== undefined && sm.runtimeDeltaMs !== null && !isNaN(sm.runtimeDeltaMs))
+                      ? `${sm.runtimeDeltaMs > 0 ? '+' : ''}${Math.round(sm.runtimeDeltaMs)}ms`
                       : '未提供';
-                    const successDelta = (sm.successDelta !== undefined && sm.successDelta !== null)
+                    const successDelta = (sm.successDelta !== undefined && sm.successDelta !== null && !isNaN(sm.successDelta))
                       ? `${sm.successDelta > 0 ? '+' : ''}${(sm.successDelta * 100).toFixed(1)}%`
                       : '未提供';
                     return `
@@ -3930,71 +5532,239 @@
     }
   }
 
-  function openCreateLabModal() {
-    const defaultBaseline = JSON.stringify({}, null, 2);
-    const defaultCandidate = JSON.stringify({
-      files: [
-        {
-          path: "AGENTS.md",
-          content: "# Project Engineering Context\n- Run tests with npm test\n- Follow strict linting rules"
-        }
-      ]
-    }, null, 2);
+  function openCreateLabModal(initialConfig = {}) {
+    const defaultBaseline = JSON.stringify(initialConfig.baseline || {}, null, 2);
 
-    const defaultCommand = JSON.stringify(["npm", "test"], null, 2);
+    let defaultCandidateObj = initialConfig.candidate || {};
+    if (!initialConfig.candidate) {
+      if (initialConfig.candidateFiles && initialConfig.candidateFiles.length > 0) {
+        defaultCandidateObj.files = initialConfig.candidateFiles;
+      }
+      if (initialConfig.candidateMemoryIds && initialConfig.candidateMemoryIds.length > 0) {
+        defaultCandidateObj.memoryIds = initialConfig.candidateMemoryIds;
+      }
+    }
+    const defaultCandidate = JSON.stringify(defaultCandidateObj, null, 2);
+
+    const candidateProject = (initialConfig.project || state.currentProject || '').trim();
+    const matchedProject = (state.registeredProjects || []).find(p => (p.path && p.path === candidateProject) || (p.id && p.id === candidateProject));
+    const selectedProject = matchedProject ? (matchedProject.path || matchedProject.id) : '';
+
+    let currentMode = initialConfig.mode || (initialConfig.sourceSuggestionId ? 'codex_agent' : 'codex_agent');
+
+    const defaultCommand = JSON.stringify(initialConfig.command || ["npm", "test"], null, 2);
+    const defaultVerifyCommand = initialConfig.verificationCommand ? JSON.stringify(initialConfig.verificationCommand, null, 2) : '';
+
+    const sourceSugId = initialConfig.sourceSuggestionId || '';
+    const candidateMemIds = initialConfig.candidateMemoryIds || (defaultCandidateObj.memoryIds || []);
+    const candidateFileList = initialConfig.candidateFiles || (defaultCandidateObj.files || []);
+    const candidateExplanation = initialConfig.candidateExplanation || '';
 
     const modalBody = `
-      <div class="form-group">
-        <label class="form-label">实验标题</label>
-        <input type="text" id="lab-title" class="form-input" placeholder="例如：添加 AGENTS.md 规约对单元测试通过率的影响" value="AGENTS.md 规约验证实验">
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <div class="form-group">
-          <label class="form-label">目标项目</label>
-          <select id="lab-project" class="form-select">
-            ${state.registeredProjects.map(p => `
-              <option value="${escapeHtml(p.path || p.id)}">${escapeHtml(p.title || p.path)}</option>
-            `).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">实验类型 (Kind)</label>
-          <select id="lab-kind" class="form-select">
-            <option value="context">context (上下文文件对比)</option>
-            <option value="memory">memory (Memory 规则配置对比)</option>
-            <option value="workflow">workflow (工作流对比)</option>
-          </select>
-        </div>
+      <div class="mode-switch" role="tablist" aria-label="评测模式选择">
+        <button type="button" role="tab" id="tab-mode-agent" aria-selected="${currentMode === 'codex_agent' ? 'true' : 'false'}" aria-controls="lab-section-agent" class="mode-switch-btn ${currentMode === 'codex_agent' ? 'active' : ''}" data-target-mode="codex_agent">Codex Agent 对照评测</button>
+        <button type="button" role="tab" id="tab-mode-cmd" aria-selected="${currentMode === 'command' ? 'true' : 'false'}" aria-controls="lab-section-cmd" class="mode-switch-btn ${currentMode === 'command' ? 'active' : ''}" data-target-mode="command">确定性命令对照</button>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">
-          <span>验证命令 (JSON 字符串数组)</span>
-          <span class="form-help">例如 ["npm", "test"] 或 ["swift", "test"]</span>
-        </label>
-        <textarea id="lab-command" class="form-textarea code-editor" style="min-height: 48px;">${escapeHtml(defaultCommand)}</textarea>
+      <!-- Agent Mode Form -->
+      <div id="lab-section-agent" class="${currentMode === 'codex_agent' ? '' : 'hidden'}">
+        ${sourceSugId ? `
+          <div class="card" style="background: var(--bg-subtle); padding: 8px 10px; margin-bottom: 12px; font-size: 11px;">
+            <span class="text-secondary">已关联调优建议:</span>
+            <span class="font-mono"><strong>${escapeHtml(sourceSugId)}</strong></span>
+            <input type="hidden" id="lab-agent-source-sug" value="${escapeHtml(sourceSugId)}">
+          </div>
+        ` : ''}
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="lab-agent-title" class="form-label">实验标题</label>
+          <input type="text" id="lab-agent-title" class="form-input" placeholder="输入实验标题" value="${escapeHtml(initialConfig.title || (sourceSugId ? '调优建议验证实验' : 'Codex Agent 对照评测'))}">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="lab-agent-project" class="form-label">目标项目</label>
+            <select id="lab-agent-project" class="form-select">
+              <option value="" ${!selectedProject ? 'selected' : ''}>请选择项目</option>
+              ${(state.registeredProjects || []).map(p => {
+                const val = p.path || p.id;
+                return `<option value="${escapeHtml(val)}" ${selectedProject === val ? 'selected' : ''}>${escapeHtml(p.title || p.path)}</option>`;
+              }).join('')}
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="lab-agent-kind" class="form-label">实验类型</label>
+            <select id="lab-agent-kind" class="form-select">
+              <option value="memory" ${initialConfig.kind === 'memory' || (!initialConfig.kind && candidateMemIds.length > 0) ? 'selected' : ''}>memory (规则与工程记忆对比)</option>
+              <option value="context" ${initialConfig.kind === 'context' || (!initialConfig.kind && candidateMemIds.length === 0) ? 'selected' : ''}>context (文件上下文对比)</option>
+              <option value="workflow" ${initialConfig.kind === 'workflow' ? 'selected' : ''}>workflow (工作流对比)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="lab-agent-model" class="form-label">模型标识符</label>
+            <div id="help-agent-model" class="form-help" style="margin-bottom: 4px;">输入当前环境 Codex CLI 支持的显式模型标识符</div>
+            <input type="text" id="lab-agent-model" class="form-input font-mono" placeholder="输入当前环境 Codex 支持的模型标识符" value="${escapeHtml(initialConfig.model || '')}" aria-describedby="help-agent-model">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="lab-agent-effort" class="form-label">推理深度</label>
+            <div id="help-agent-effort" class="form-help" style="margin-bottom: 4px;">推理预算等级</div>
+            <select id="lab-agent-effort" class="form-select" aria-describedby="help-agent-effort">
+              <option value="high" selected>high (默认)</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+              <option value="xhigh">xhigh</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="lab-agent-task" class="form-label">执行任务</label>
+          <div id="help-agent-task" class="form-help" style="margin-bottom: 4px;">双侧 Agent 将在各自隔离的 Git Worktree 中执行相同的任务描述（上限 32 KB）</div>
+          <textarea id="lab-agent-task" class="form-textarea" style="min-height: 56px;" placeholder="输入双侧 Agent 需执行的任务描述..." aria-describedby="help-agent-task">${escapeHtml(initialConfig.task || '')}</textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="lab-agent-verify-cmd" class="form-label">独立验证命令</label>
+          <div id="help-agent-verify-cmd" class="form-help" style="margin-bottom: 4px;">任务完成后在干净 Worktree 中独立执行的验证命令（JSON 字符串数组格式）</div>
+          <textarea id="lab-agent-verify-cmd" class="form-textarea code-editor" style="min-height: 48px;" placeholder='例如: ["pytest", "tests/"] 或 ["npm", "test"]' aria-describedby="help-agent-verify-cmd">${escapeHtml(defaultVerifyCommand)}</textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="lab-agent-verify-files" class="form-label">受保护验证文件</label>
+          <div id="help-agent-verify-files" class="form-help" style="margin-bottom: 4px;">相对路径，以逗号分隔，1–32 个已提交文件（测试执行期间受写保护）</div>
+          <input type="text" id="lab-agent-verify-files" class="form-input font-mono" placeholder="例如: tests/test_core.py, tests/verify.py" value="${escapeHtml((initialConfig.verificationFiles || []).map(f => typeof f === 'string' ? f : (f.path || '')).filter(Boolean).join(', '))}" aria-describedby="help-agent-verify-files">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="lab-agent-output-files" class="form-label">任务允许产出文件</label>
+          <div id="help-agent-output-files" class="form-help" style="margin-bottom: 4px;">相对路径，以逗号分隔，由 Vela 复制至独立验证环境中参与验证</div>
+          <input type="text" id="lab-agent-output-files" class="form-input font-mono" placeholder="例如: build/output.py, dist/bundle.js" value="${escapeHtml((initialConfig.outputFiles || []).map(f => typeof f === 'string' ? f : (f.path || '')).filter(Boolean).join(', '))}" aria-describedby="help-agent-output-files">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="lab-agent-repetitions" class="form-label">重复执行次数</label>
+            <div id="help-agent-repetitions" class="form-help" style="margin-bottom: 4px;">1–5 次（双侧对称运行，晋升审查需至少 3 次）</div>
+            <input type="number" id="lab-agent-repetitions" class="form-input font-mono" value="${initialConfig.repetitions || 3}" min="1" max="5" aria-describedby="help-agent-repetitions">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="lab-agent-timeout" class="form-label">单次超时限制 (秒)</label>
+            <div id="help-agent-timeout" class="form-help" style="margin-bottom: 4px;">1–600 秒</div>
+            <input type="number" id="lab-agent-timeout" class="form-input font-mono" value="${initialConfig.timeoutSeconds || 240}" min="1" max="600" aria-describedby="help-agent-timeout">
+          </div>
+        </div>
+
+        ${(candidateExplanation || candidateMemIds.length > 0 || candidateFileList.length > 0) ? `
+          <div class="card" style="background: var(--bg-subtle); padding: 10px 12px; margin-bottom: 12px;">
+            <div style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">候选组配置说明：</div>
+            ${candidateExplanation ? `
+              <div style="font-size: 11px; line-height: 1.45; color: var(--text-main); margin-bottom: 6px;">${escapeHtml(candidateExplanation)}</div>
+            ` : ''}
+            ${candidateMemIds.length > 0 ? `
+              <div style="font-size: 11px; margin-bottom: 4px;">
+                <span class="text-secondary">候选 Memory (${candidateMemIds.length}):</span>
+                <ul style="padding-left: 18px; margin: 4px 0 0 0; font-size: 11.5px;">
+                  ${candidateMemIds.map(id => {
+                    const info = resolveMemoryInfo(id);
+                    return `<li><strong>${escapeHtml(info.title)}</strong> <span class="font-mono text-muted" style="font-size: 10px;">(${escapeHtml(id)})</span></li>`;
+                  }).join('')}
+                </ul>
+              </div>
+            ` : ''}
+            ${candidateFileList.length > 0 ? `
+              <div style="font-size: 11px; margin-top: 6px;">
+                <span class="text-secondary">候选文件变更 (${candidateFileList.length}):</span>
+                <ul style="padding-left: 18px; margin: 4px 0 0 0; font-family: var(--font-mono); font-size: 11px;">
+                  ${candidateFileList.map(f => `<li>${escapeHtml(f.path)} <span class="text-muted" style="font-size: 10px;">(${escapeHtml(String((f.content || '').length))} 字符)</span></li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+
+        <details class="card" style="margin-bottom: 12px; padding: 10px 12px;">
+          <summary style="font-size: 11px; cursor: pointer; color: var(--text-muted); user-select: none;">高级设置：执行配置与原始 Variant JSON</summary>
+          <div class="form-group" style="margin-top: 10px; margin-bottom: 10px;">
+            <label for="lab-agent-executable" class="form-label">Codex 可执行文件路径</label>
+            <div id="help-agent-exec" class="form-help" style="margin-bottom: 4px;">默认使用系统 PATH 中的 codex，亦可指定绝对路径</div>
+            <input type="text" id="lab-agent-executable" class="form-input font-mono" placeholder="codex 或 /absolute/path/to/codex" value="${escapeHtml(initialConfig.executable || 'codex')}" aria-describedby="help-agent-exec">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="lab-agent-baseline-json" class="form-label" style="font-size: 10.5px;">Baseline JSON</label>
+              <textarea id="lab-agent-baseline-json" class="form-textarea code-editor" style="min-height: 70px;">${escapeHtml(defaultBaseline)}</textarea>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="lab-agent-candidate-json" class="form-label" style="font-size: 10.5px;">Candidate JSON</label>
+              <textarea id="lab-agent-candidate-json" class="form-textarea code-editor" style="min-height: 70px;">${escapeHtml(defaultCandidate)}</textarea>
+            </div>
+          </div>
+        </details>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <div class="form-group">
-          <label class="form-label">Baseline 配置 (JSON 对象)</label>
-          <textarea id="lab-baseline" class="form-textarea code-editor" style="min-height: 80px;">${escapeHtml(defaultBaseline)}</textarea>
+      <!-- Command Mode Form -->
+      <div id="lab-section-cmd" class="${currentMode === 'command' ? '' : 'hidden'}">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="lab-cmd-title" class="form-label">实验标题</label>
+          <input type="text" id="lab-cmd-title" class="form-input" placeholder="例如：确定性构建命令基线对照" value="${escapeHtml(initialConfig.title || '确定性命令对照实验')}">
         </div>
-        <div class="form-group">
-          <label class="form-label">Candidate 配置 (JSON 对象)</label>
-          <textarea id="lab-candidate" class="form-textarea code-editor" style="min-height: 80px;">${escapeHtml(defaultCandidate)}</textarea>
-        </div>
-      </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <div class="form-group">
-          <label class="form-label">超时限制 (秒)</label>
-          <input type="number" id="lab-timeout" class="form-input" value="60" min="5" max="600">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="lab-cmd-project" class="form-label">目标项目</label>
+            <select id="lab-cmd-project" class="form-select">
+              <option value="" ${!selectedProject ? 'selected' : ''}>请选择项目</option>
+              ${(state.registeredProjects || []).map(p => {
+                const val = p.path || p.id;
+                return `<option value="${escapeHtml(val)}" ${selectedProject === val ? 'selected' : ''}>${escapeHtml(p.title || p.path)}</option>`;
+              }).join('')}
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="lab-cmd-kind" class="form-label">实验类型</label>
+            <select id="lab-cmd-kind" class="form-select">
+              <option value="context">context (上下文文件对比)</option>
+              <option value="memory">memory (Memory 规则配置对比)</option>
+              <option value="workflow">workflow (工作流对比)</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">重复执行次数</label>
-          <input type="number" id="lab-repetitions" class="form-input" value="1" min="1" max="5">
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="lab-cmd-command" class="form-label">执行命令</label>
+          <div id="help-cmd-command" class="form-help" style="margin-bottom: 4px;">输入在隔离 Worktree 中执行的命令（JSON 字符串数组格式）</div>
+          <textarea id="lab-cmd-command" class="form-textarea code-editor" style="min-height: 48px;" aria-describedby="help-cmd-command">${escapeHtml(defaultCommand)}</textarea>
         </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="lab-cmd-repetitions" class="form-label">重复执行次数</label>
+            <div id="help-cmd-repetitions" class="form-help" style="margin-bottom: 4px;">1–5 次</div>
+            <input type="number" id="lab-cmd-repetitions" class="form-input font-mono" value="${initialConfig.repetitions || 1}" min="1" max="5" aria-describedby="help-cmd-repetitions">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="lab-cmd-timeout" class="form-label">超时限制 (秒)</label>
+            <div id="help-cmd-timeout" class="form-help" style="margin-bottom: 4px;">1–600 秒</div>
+            <input type="number" id="lab-cmd-timeout" class="form-input font-mono" value="${initialConfig.timeoutSeconds || 60}" min="1" max="600" aria-describedby="help-cmd-timeout">
+          </div>
+        </div>
+
+        <details class="card" style="margin-bottom: 12px; padding: 10px 12px;">
+          <summary style="font-size: 11px; cursor: pointer; color: var(--text-muted); user-select: none;">高级设置：查看 / 编辑原始 Variant JSON</summary>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="lab-cmd-baseline" class="form-label" style="font-size: 10.5px;">Baseline JSON</label>
+              <textarea id="lab-cmd-baseline" class="form-textarea code-editor" style="min-height: 70px;">${escapeHtml(defaultBaseline)}</textarea>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="lab-cmd-candidate" class="form-label" style="font-size: 10.5px;">Candidate JSON</label>
+              <textarea id="lab-cmd-candidate" class="form-textarea code-editor" style="min-height: 70px;">${escapeHtml(defaultCandidate)}</textarea>
+            </div>
+          </div>
+        </details>
       </div>
     `;
 
@@ -4003,161 +5773,780 @@
       <button class="btn btn-primary" id="btn-save-lab">提交实验 (进入待审批)</button>
     `);
 
+    const thisModalId = currentModalInstance;
+
+    document.querySelectorAll('.mode-switch-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-target-mode');
+        currentMode = mode;
+        document.querySelectorAll('.mode-switch-btn').forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        if (mode === 'codex_agent') {
+          document.getElementById('lab-section-agent').classList.remove('hidden');
+          document.getElementById('lab-section-cmd').classList.add('hidden');
+        } else {
+          document.getElementById('lab-section-agent').classList.add('hidden');
+          document.getElementById('lab-section-cmd').classList.remove('hidden');
+        }
+      });
+    });
+
     document.getElementById('btn-cancel-lab').addEventListener('click', closeModal);
     document.getElementById('btn-save-lab').addEventListener('click', async () => {
-      const title = document.getElementById('lab-title').value.trim();
-      const project = document.getElementById('lab-project').value;
-      const kind = document.getElementById('lab-kind').value;
-      const timeoutSeconds = parseInt(document.getElementById('lab-timeout').value, 10) || 60;
-      const repetitions = parseInt(document.getElementById('lab-repetitions').value, 10) || 1;
+      const submitBtn = document.getElementById('btn-save-lab');
 
-      let commandArr = [];
-      try {
-        commandArr = JSON.parse(document.getElementById('lab-command').value);
-        if (!Array.isArray(commandArr)) throw new Error('命令必须为 JSON 字符串数组');
-      } catch (err) {
-        showToast('验证命令格式错误: ' + err.message, 'error');
-        return;
-      }
+      if (currentMode === 'codex_agent') {
+        const title = document.getElementById('lab-agent-title').value.trim();
+        const project = (document.getElementById('lab-agent-project')?.value || '').trim();
+        const kind = document.getElementById('lab-agent-kind').value;
+        const model = document.getElementById('lab-agent-model').value.trim();
+        const reasoningEffort = document.getElementById('lab-agent-effort').value;
+        const task = document.getElementById('lab-agent-task').value.trim();
+        const executable = (document.getElementById('lab-agent-executable')?.value.trim()) || 'codex';
 
-      let baselineObj = {};
-      try {
-        baselineObj = JSON.parse(document.getElementById('lab-baseline').value);
-        if (typeof baselineObj !== 'object' || Array.isArray(baselineObj) || baselineObj === null) {
-          throw new Error('Baseline 必须为 JSON 对象');
+        const rawTimeout = document.getElementById('lab-agent-timeout').value.trim();
+        if (!rawTimeout || !/^\d+$/.test(rawTimeout)) {
+          showToast('单次超时限制必须为 1 到 600 秒之间的整数', 'error');
+          return;
         }
-      } catch (err) {
-        showToast('Baseline JSON 格式错误: ' + err.message, 'error');
-        return;
-      }
-
-      let candidateObj = {};
-      try {
-        candidateObj = JSON.parse(document.getElementById('lab-candidate').value);
-        if (typeof candidateObj !== 'object' || Array.isArray(candidateObj) || candidateObj === null) {
-          throw new Error('Candidate 必须为 JSON 对象');
+        const timeoutSeconds = Number(rawTimeout);
+        if (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 600) {
+          showToast('单次超时限制必须为 1 到 600 秒之间的整数', 'error');
+          return;
         }
-      } catch (err) {
-        showToast('Candidate JSON 格式错误: ' + err.message, 'error');
-        return;
-      }
 
-      try {
-        await callBridge('lab.run', {
+        const rawRep = document.getElementById('lab-agent-repetitions').value.trim();
+        if (!rawRep || !/^\d+$/.test(rawRep)) {
+          showToast('重复执行次数必须为 1 到 5 之间的整数', 'error');
+          return;
+        }
+        const repetitions = Number(rawRep);
+        if (!Number.isInteger(repetitions) || repetitions < 1 || repetitions > 5) {
+          showToast('重复执行次数必须为 1 到 5 之间的整数', 'error');
+          return;
+        }
+
+        if (!title) {
+          showToast('请输入实验标题', 'error');
+          return;
+        }
+
+        if (!project) {
+          showToast('请选择目标项目', 'error');
+          return;
+        }
+
+        if (!model) {
+          showToast('请输入显式请求的 Agent 模型标识符（必填）', 'error');
+          return;
+        }
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/.test(model)) {
+          showToast('模型标识符格式不合法（应以字母数字开头，仅含 ._:-，长度至多 128 位）', 'error');
+          return;
+        }
+
+        if (!task) {
+          showToast('请输入双侧 Agent 执行的任务描述 (Task)', 'error');
+          return;
+        }
+
+        let verifyCmdArr = [];
+        try {
+          verifyCmdArr = JSON.parse(document.getElementById('lab-agent-verify-cmd').value);
+          if (!Array.isArray(verifyCmdArr) || verifyCmdArr.length === 0) {
+            throw new Error('独立验证命令必须为非空 JSON 字符串数组');
+          }
+          if (typeof verifyCmdArr[0] !== 'string' || !verifyCmdArr[0].trim()) {
+            throw new Error('独立验证命令的可执行文件必须为非空字符串');
+          }
+          for (let idx = 0; idx < verifyCmdArr.length; idx++) {
+            if (typeof verifyCmdArr[idx] !== 'string') {
+              throw new Error(`独立验证命令参数第 ${idx + 1} 项必须为字符串`);
+            }
+          }
+        } catch (err) {
+          showToast('独立验证命令格式错误: ' + err.message, 'error');
+          return;
+        }
+
+        const rawVerifyFiles = document.getElementById('lab-agent-verify-files').value;
+        const verifyFiles = rawVerifyFiles.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+        if (verifyFiles.length === 0 || verifyFiles.length > 32) {
+          showToast('受保护验证文件必须提供 1–32 个相对路径', 'error');
+          return;
+        }
+        if (new Set(verifyFiles).size !== verifyFiles.length) {
+          showToast('受保护验证文件中存在重复路径', 'error');
+          return;
+        }
+
+        const rawOutputFiles = document.getElementById('lab-agent-output-files').value;
+        const outputFiles = rawOutputFiles.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+        if (outputFiles.length === 0 || outputFiles.length > 32) {
+          showToast('任务产出白名单必须提供 1–32 个相对路径', 'error');
+          return;
+        }
+        if (new Set(outputFiles).size !== outputFiles.length) {
+          showToast('任务产出白名单中存在重复路径', 'error');
+          return;
+        }
+
+        const overlap = verifyFiles.filter(p => outputFiles.includes(p));
+        if (overlap.length > 0) {
+          showToast('受保护验证文件与任务产出文件不能重叠: ' + overlap.join(', '), 'error');
+          return;
+        }
+
+        let baselineObj = {};
+        try {
+          baselineObj = JSON.parse(document.getElementById('lab-agent-baseline-json').value);
+          if (typeof baselineObj !== 'object' || Array.isArray(baselineObj) || baselineObj === null) {
+            throw new Error('Baseline 必须为 JSON 对象');
+          }
+        } catch (err) {
+          showToast('Baseline JSON 格式错误: ' + err.message, 'error');
+          return;
+        }
+
+        let candidateObj = {};
+        try {
+          candidateObj = JSON.parse(document.getElementById('lab-agent-candidate-json').value);
+          if (typeof candidateObj !== 'object' || Array.isArray(candidateObj) || candidateObj === null) {
+            throw new Error('Candidate 必须为 JSON 对象');
+          }
+        } catch (err) {
+          showToast('Candidate JSON 格式错误: ' + err.message, 'error');
+          return;
+        }
+
+        const payload = {
           title,
           project,
           kind,
-          command: commandArr,
-          baseline: baselineObj,
-          candidate: candidateObj,
+          agent: {
+            provider: 'codex',
+            executable: executable,
+            model,
+            reasoningEffort
+          },
+          task,
+          verificationCommand: verifyCmdArr,
+          verificationFiles: verifyFiles,
+          outputFiles: outputFiles,
           timeoutSeconds,
-          repetitions
-        });
-        showToast('实验已创建并进入 Inbox 审批队列');
-        closeModal();
-        await refreshDashboard(true, true);
-      } catch (err) {
-        showToast('创建实验失败: ' + err.message, 'error');
+          repetitions,
+          baseline: baselineObj,
+          candidate: candidateObj
+        };
+
+        if (sourceSugId) {
+          payload.sourceSuggestionId = sourceSugId;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = '正在提交实验...';
+
+        try {
+          const res = await callBridge('lab.run', payload);
+          if (thisModalId !== currentModalInstance) return;
+          closeModal();
+          showLabCreatedPendingModal(payload.title, res && res.approvalId, project);
+          await refreshDashboard(true, true);
+        } catch (err) {
+          if (thisModalId !== currentModalInstance) return;
+          showToast('创建 Agent 实验失败: ' + err.message, 'error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = '提交实验 (进入待审批)';
+        }
+
+      } else {
+        // Command Mode
+        const title = document.getElementById('lab-cmd-title').value.trim();
+        const project = (document.getElementById('lab-cmd-project')?.value || '').trim();
+        const kind = document.getElementById('lab-cmd-kind').value;
+
+        const rawTimeout = document.getElementById('lab-cmd-timeout').value.trim();
+        if (!rawTimeout || !/^\d+$/.test(rawTimeout)) {
+          showToast('超时限制必须为 1 到 600 秒之间的整数', 'error');
+          return;
+        }
+        const timeoutSeconds = Number(rawTimeout);
+        if (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 600) {
+          showToast('超时限制必须为 1 到 600 秒之间的整数', 'error');
+          return;
+        }
+
+        const rawRep = document.getElementById('lab-cmd-repetitions').value.trim();
+        if (!rawRep || !/^\d+$/.test(rawRep)) {
+          showToast('重复执行次数必须为 1 到 5 之间的整数', 'error');
+          return;
+        }
+        const repetitions = Number(rawRep);
+        if (!Number.isInteger(repetitions) || repetitions < 1 || repetitions > 5) {
+          showToast('重复执行次数必须为 1 到 5 之间的整数', 'error');
+          return;
+        }
+
+        if (!title) {
+          showToast('请输入实验标题', 'error');
+          return;
+        }
+
+        if (!project) {
+          showToast('请选择目标项目', 'error');
+          return;
+        }
+
+        let commandArr = [];
+        try {
+          commandArr = JSON.parse(document.getElementById('lab-cmd-command').value);
+          if (!Array.isArray(commandArr) || commandArr.length === 0) {
+            throw new Error('命令必须为非空 JSON 字符串数组');
+          }
+          if (typeof commandArr[0] !== 'string' || !commandArr[0].trim()) {
+            throw new Error('命令的可执行文件必须为非空字符串');
+          }
+          for (let idx = 0; idx < commandArr.length; idx++) {
+            if (typeof commandArr[idx] !== 'string') {
+              throw new Error(`命令参数第 ${idx + 1} 项必须为字符串`);
+            }
+          }
+        } catch (err) {
+          showToast('验证命令格式错误: ' + err.message, 'error');
+          return;
+        }
+
+        let baselineObj = {};
+        try {
+          baselineObj = JSON.parse(document.getElementById('lab-cmd-baseline').value);
+          if (typeof baselineObj !== 'object' || Array.isArray(baselineObj) || baselineObj === null) {
+            throw new Error('Baseline 必须为 JSON 对象');
+          }
+        } catch (err) {
+          showToast('Baseline JSON 格式错误: ' + err.message, 'error');
+          return;
+        }
+
+        let candidateObj = {};
+        try {
+          candidateObj = JSON.parse(document.getElementById('lab-cmd-candidate').value);
+          if (typeof candidateObj !== 'object' || Array.isArray(candidateObj) || candidateObj === null) {
+            throw new Error('Candidate 必须为 JSON 对象');
+          }
+        } catch (err) {
+          showToast('Candidate JSON 格式错误: ' + err.message, 'error');
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = '正在提交实验...';
+
+        try {
+          const res = await callBridge('lab.run', {
+            title,
+            project,
+            kind,
+            command: commandArr,
+            baseline: baselineObj,
+            candidate: candidateObj,
+            timeoutSeconds,
+            repetitions
+          });
+          if (thisModalId !== currentModalInstance) return;
+          closeModal();
+          showLabCreatedPendingModal(title, res && res.approvalId, project);
+          await refreshDashboard(true, true);
+        } catch (err) {
+          if (thisModalId !== currentModalInstance) return;
+          showToast('创建命令实验失败: ' + err.message, 'error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = '提交实验 (进入待审批)';
+        }
       }
     });
   }
 
+  function showLabCreatedPendingModal(title, approvalId, project = null) {
+    openModal('实验已创建并进入审批队列', `
+      <div style="font-size: 13px; line-height: 1.6; color: var(--text-secondary);">
+        <p>对照实验 <strong>${escapeHtml(title || '')}</strong> 已成功创建！</p>
+        <p style="margin-top: 8px;">
+          当前状态：<span class="status-badge status-amber">等待审批 (Pending Approval)</span>
+        </p>
+        <p style="margin-top: 8px;">
+          Vela 坚持本地安全确定性原则。在工程师于 <strong>Inbox</strong> 中显式授权前，不会在隔离 Git Worktree 中执行任何外部命令或 Agent 运行。
+        </p>
+      </div>
+    `, `
+      <button class="btn btn-secondary" id="btn-stay-page">留在当前页面</button>
+      <button class="btn btn-primary" id="btn-route-inbox">前往 Inbox 审批</button>
+    `);
+
+    document.getElementById('btn-stay-page').addEventListener('click', closeModal);
+    document.getElementById('btn-route-inbox').addEventListener('click', async () => {
+      closeModal();
+      if (project && state.currentProject !== project) {
+        state.currentProject = project;
+      }
+      navigateTo('inbox');
+      await refreshDashboard(true, true);
+    });
+  }
+
+  let labDetailSequence = 0;
+
   async function openLabCompareDrawer(evalId) {
+    const thisSeq = ++labDetailSequence;
+    const thisPage = state.currentPage;
+    const thisProject = state.currentProject;
     state.selectedEvalId = evalId;
     openDrawer('加载对照评测详情...', '对照实验');
 
     try {
       const cmp = await callBridge('lab.compare', { id: evalId });
+      const drawer = document.getElementById('detail-drawer');
+      const isDrawerOpen = drawer && !drawer.classList.contains('hidden');
+      if (thisSeq !== labDetailSequence || state.selectedEvalId !== evalId || !isDrawerOpen || state.currentPage !== thisPage || state.currentProject !== thisProject) {
+        return;
+      }
       if (!cmp) throw new Error('未获取到评测对照数据');
 
       setDrawerTitle(cmp.title || '实验对照结果', evalId ? `实验 · ${evalId.substring(0, 8)}` : '对照实验');
-      const isPending = ((cmp.state || '').toLowerCase() === 'pending_approval');
+      const st = (cmp.state || '').toLowerCase();
+      const isPending = (st === 'pending_approval' || st === 'pending approval');
+      const isCompleted = (st === 'completed');
+      const isAgent = (cmp.evaluator === 'codex_agent');
       const results = cmp.results || [];
-      const baselineRuns = results.filter(r => r.variant === 'baseline');
-      const candidateRuns = results.filter(r => r.variant === 'candidate');
       const summary = cmp.summary || {};
+      const decision = summary.decision;
+      const isReadyForReview = (decision === 'ready_for_review');
+      const candidateSnapshots = (cmp.candidate && cmp.candidate.memories) || [];
+      const candidateFiles = (cmp.candidate && cmp.candidate.files) || [];
+      const candidateContext = (cmp.candidate && cmp.candidate.context) || '';
+      const memoryContext = candidateSnapshots.map(m => `${m.title || ''}\n${m.content || ''}`).join('\n\n');
+      const memoryOnly = candidateSnapshots.length > 0 && candidateFiles.length === 0 && (!candidateContext || candidateContext === memoryContext);
+      const isAlreadyPromoted = !!cmp.promotionId;
+
+      const isPromotionEligible = isCompleted && isAgent && isReadyForReview && memoryOnly && !isAlreadyPromoted;
+
+      if (isPromotionEligible) {
+        setDrawerCustomActions('<button id="btn-drawer-promote-eval" class="btn btn-primary btn-sm">晋升生效 Memory</button>');
+        document.getElementById('btn-drawer-promote-eval').addEventListener('click', () => {
+          openConfirmPromoteModal(cmp);
+        });
+      } else if (isAlreadyPromoted) {
+        setDrawerCustomActions('<span class="status-badge status-sage">✓ 已晋升生效</span>');
+      } else {
+        setDrawerCustomActions('');
+      }
+
+      // Verification command display
+      const cmdArr = Array.isArray(cmp.verificationCommand) ? cmp.verificationCommand : (Array.isArray(cmp.command) ? cmp.command : []);
+      const cmdExe = cmdArr.length > 0 ? cmdArr[0] : '-';
+      const cmdArgvStr = JSON.stringify(cmdArr.slice(1));
 
       const drawerBody = document.getElementById('drawer-content');
 
       drawerBody.innerHTML = `
         <div class="card">
           <div class="card-header">
-            <span class="card-title">基本信息</span>
+            <span class="card-title">基本信息与配置</span>
             ${getEvalStateBadge(cmp.state)}
           </div>
           <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
             <div><span class="text-secondary">类型:</span> ${escapeHtml(cmp.evaluationKind || cmp.kind || 'context')}</div>
-            <div><span class="text-secondary">评测器:</span> <span class="font-mono">deterministic_command</span></div>
-            <div><span class="text-secondary">执行命令:</span> <span class="font-mono">${escapeHtml(Array.isArray(cmp.command) ? cmp.command.join(' ') : cmp.command || '-')}</span></div>
-            <div><span class="text-secondary">Commit:</span> <span class="font-mono">${cmp.commit ? escapeHtml(cmp.commit.substring(0, 8)) : '-'}</span></div>
+            <div><span class="text-secondary">评测器:</span> <span class="code-badge">${isAgent ? 'Codex Agent' : 'deterministic_command'}</span></div>
+            <div><span class="text-secondary">Git Commit:</span> <span class="font-mono">${cmp.commit ? escapeHtml(cmp.commit.substring(0, 8)) : '-'}</span></div>
+            <div><span class="text-secondary">重复次数:</span> <span class="font-mono">${cmp.repetitions !== null && cmp.repetitions !== undefined ? `${cmp.repetitions} 次 (双侧共 ${cmp.repetitions * 2} 次运行)` : '未记录'}</span></div>
+            <div><span class="text-secondary">超时限制:</span> <span class="font-mono">${cmp.timeoutSeconds !== null && cmp.timeoutSeconds !== undefined ? `${cmp.timeoutSeconds}s` : '未记录'}</span></div>
+            ${isAgent ? `
+              <div><span class="text-secondary">请求模型:</span> <span class="font-mono"><strong>${escapeHtml(cmp.modelIdentity?.requested || cmp.agent?.model || '未指定')}</strong></span></div>
+              <div style="grid-column: 1 / -1;"><span class="text-secondary">服务端版本:</span> <span class="font-mono text-muted">${cmp.modelIdentity?.providerResolvedVersion ? escapeHtml(cmp.modelIdentity.providerResolvedVersion) : '未提供（Core 仅记录显式请求模型）'}</span></div>
+              <div><span class="text-secondary">推理级别:</span> <span class="font-mono">${cmp.agent?.reasoningEffort ? escapeHtml(cmp.agent.reasoningEffort) : '未记录'}</span></div>
+            ` : ''}
+            <div style="grid-column: 1 / -1; margin-top: 4px;">
+              <span class="text-secondary">${isAgent ? '独立验证命令:' : '执行命令:'}</span>
+              <div class="font-mono" style="font-size: 11px; margin-top: 2px; padding: 4px 6px; background: var(--bg-subtle); border-radius: 4px; border: 1px solid var(--border-color);">
+                <span>程序: <strong>${escapeHtml(cmdExe)}</strong></span> ·
+                <span>JSON argv: <code>${escapeHtml(cmdArgvStr)}</code></span>
+              </div>
+            </div>
+            ${isAgent && cmp.task ? `
+              <div style="grid-column: 1 / -1; margin-top: 4px;">
+                <span class="text-secondary">执行任务:</span>
+                <div style="font-size: 12px; line-height: 1.45; color: var(--text-main); margin-top: 2px; padding: 6px 8px; background: var(--bg-subtle); border-radius: 4px; border: 1px solid var(--border-color); white-space: pre-wrap;">${escapeHtml(cmp.task)}</div>
+              </div>
+            ` : ''}
+            ${cmp.verificationFiles && cmp.verificationFiles.length > 0 ? `
+              <div style="grid-column: 1 / -1; margin-top: 4px;">
+                <details style="font-size: 11px;">
+                  <summary style="cursor: pointer; color: var(--text-secondary);">受保护的验证文件 (${cmp.verificationFiles.length})</summary>
+                  <ul style="margin-top: 4px; padding-left: 18px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">
+                    ${cmp.verificationFiles.map(f => `<li>${escapeHtml(typeof f === 'string' ? f : (f.path + (f.hash ? ' (' + f.hash.slice(0, 8) + ')' : '')))}</li>`).join('')}
+                  </ul>
+                </details>
+              </div>
+            ` : ''}
+            ${cmp.outputFiles && cmp.outputFiles.length > 0 ? `
+              <div style="grid-column: 1 / -1; margin-top: 4px;">
+                <details style="font-size: 11px;">
+                  <summary style="cursor: pointer; color: var(--text-secondary);">任务产出白名单 (${cmp.outputFiles.length})</summary>
+                  <ul style="margin-top: 4px; padding-left: 18px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">
+                    ${cmp.outputFiles.map(f => `<li>${escapeHtml(f)}</li>`).join('')}
+                  </ul>
+                </details>
+              </div>
+            ` : ''}
+            ${cmp.sourceSuggestionId ? `
+              <div style="grid-column: 1 / -1; margin-top: 4px; font-size: 11px;">
+                <span class="text-secondary">关联调优建议:</span>
+                <span class="code-badge">${escapeHtml(cmp.sourceSuggestionId.substring(0, 8))}</span>
+                ${cmp.sourceRelationship ? `<span class="badge-subtle">${escapeHtml(cmp.sourceRelationship)}</span>` : ''}
+              </div>
+            ` : ''}
+            <div style="grid-column: 1 / -1; margin-top: 6px; font-size: 11px; color: var(--text-secondary); border-top: 1px dashed var(--border-color); padding-top: 6px;">
+              未来效果: <strong class="font-mono">未测量 (futureEffect = not_measured)</strong> · 单轮对照评测不代表长期修正率改善
+            </div>
           </div>
         </div>
 
         ${isPending ? `
           <div class="empty-state">
             <div class="empty-state-title">实验等待审批 (Pending Approval)</div>
-            <div class="empty-state-desc">该命令实验已进入 Inbox 待办列表。在工程师显式批准前，不会在 Worktree 中执行任何外部命令。</div>
+            <div class="empty-state-desc">该对照实验已进入 Inbox 待办列表。在工程师显式批准前，不会在 Worktree 中执行任何外部命令或 Agent 运行。</div>
           </div>
         ` : `
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <div class="card" style="margin-bottom: 0;">
-              <div class="card-header">
-                <span class="card-title">Baseline 对照组</span>
-                <span class="status-badge status-neutral">
-                  ${summary.baseline ? `Pass: ${(summary.baseline.passRate * 100).toFixed(0)}%` : '-'}
-                </span>
+          ${decision ? `
+            <div class="lab-decision-banner ${isReadyForReview ? 'ready' : (decision === 'reject' ? 'reject' : 'inconclusive')}">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                <strong>${getEvalDecisionTitle(decision)}</strong>
+                <span class="font-mono" style="font-size: 11px;">decision: ${escapeHtml(decision)}</span>
               </div>
-              <div style="font-size: 12px; margin-bottom: 8px;">
-                平均耗时: <strong>${summary.baseline ? Math.round(summary.baseline.averageDurationMs || 0) + 'ms' : '-'}</strong>
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
-                ${baselineRuns.map((r, i) => `
-                  <div style="background: var(--bg-subtle); padding: 8px; border-radius: 4px; font-size: 12px;">
-                    <div><strong>第 ${i + 1} 次</strong> · Exit: ${escapeHtml(String(r.exitCode))} · ${r.durationMs || 0}ms ${r.timedOut ? '(超时)' : ''}</div>
-                    <div class="code-view" style="font-size: 12px; margin-top: 4px; max-height: 80px;">${escapeHtml(r.output || '(无输出)')}</div>
-                  </div>
-                `).join('')}
-              </div>
+              <div style="font-size: 12px; line-height: 1.45;">${getEvalDecisionExplanation(decision)}</div>
+              ${summary.reasons && summary.reasons.length > 0 ? `
+                <ul style="margin: 6px 0 0 0; padding-left: 18px; font-size: 11.5px;">
+                  ${summary.reasons.map(r => `<li>${escapeHtml(r)}</li>`).join('')}
+                </ul>
+              ` : ''}
+              ${summary.interpretation ? `
+                <div style="font-size: 11px; margin-top: 6px; opacity: 0.85;">${escapeHtml(summary.interpretation)}</div>
+              ` : ''}
             </div>
+          ` : ''}
 
-            <div class="card" style="margin-bottom: 0;">
-              <div class="card-header">
-                <span class="card-title">Candidate 候选组</span>
-                <span class="status-badge status-sage">
-                  ${summary.candidate ? `Pass: ${(summary.candidate.passRate * 100).toFixed(0)}%` : '-'}
-                </span>
-              </div>
-              <div style="font-size: 12px; margin-bottom: 8px;">
-                平均耗时: <strong>${summary.candidate ? Math.round(summary.candidate.averageDurationMs || 0) + 'ms' : '-'}</strong>
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
-                ${candidateRuns.map((r, i) => `
-                  <div style="background: var(--bg-subtle); padding: 8px; border-radius: 4px; font-size: 12px;">
-                    <div><strong>第 ${i + 1} 次</strong> · Exit: ${escapeHtml(String(r.exitCode))} · ${r.durationMs || 0}ms ${r.timedOut ? '(超时)' : ''}</div>
-                    <div class="code-view" style="font-size: 12px; margin-top: 4px; max-height: 80px;">${escapeHtml(r.output || '(无输出)')}</div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          </div>
-
-          ${(summary.runtimeDeltaMs !== undefined || summary.successDelta !== undefined) ? `
-            <div class="card" style="margin-top: 10px;">
-              <div class="card-header"><span class="card-title">对照结论统计 (Summary Deltas)</span></div>
-              <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <div>耗时差异: <strong>${summary.runtimeDeltaMs !== undefined ? escapeHtml(String(summary.runtimeDeltaMs)) + 'ms' : '-'}</strong></div>
-                <div>成功率变化: <strong>${summary.successDelta !== undefined ? escapeHtml(String(summary.successDelta)) : '-'}</strong></div>
+          ${isAlreadyPromoted ? `
+            <div class="card" style="background: var(--status-sage-bg); border-color: var(--status-sage-border); padding: 8px 12px; margin-bottom: 12px;">
+              <div style="font-size: 12px; color: var(--status-sage-text);">
+                <strong>✓ 候选记忆已晋升生效</strong>
+                <div style="font-size: 11px; margin-top: 2px;">
+                  Promotion ID: <code>${escapeHtml(cmp.promotionId)}</code> · 状态: active · 晋升时间: ${formatTime(cmp.promotedAt)}
+                </div>
               </div>
             </div>
           ` : ''}
+
+          <div class="lab-compare-grid">
+            <div class="lab-variant-card baseline">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 600; font-size: 13px;">Baseline 对照组</span>
+                <span class="status-badge status-neutral">${formatFinitePassRate(summary.baseline?.passRate, isPending)}</span>
+              </div>
+              <div class="lab-metric-list">
+                ${isAgent ? `
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">通过率 (Pass Rate):</span>
+                    <span class="lab-metric-val">${formatFinitePassRate(summary.baseline?.passRate, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">独立校验成功数:</span>
+                    <span class="lab-metric-val">${formatFiniteCount(summary.baseline?.successes, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">有效样本数 (Valid):</span>
+                    <span class="lab-metric-val">${formatFiniteCount(summary.baseline?.validRuns, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">已记录样本数:</span>
+                    <span class="lab-metric-val">${formatFiniteCount(summary.baseline?.runs, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">观察到测试执行率:</span>
+                    <span class="lab-metric-val">${formatFinitePassRate(summary.baseline?.testExecutionRate, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">平均观察 Tokens:</span>
+                    <span class="lab-metric-val">${formatFiniteTokens(summary.baseline?.averageTokens, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">平均耗时:</span>
+                    <span class="lab-metric-val">${formatFiniteDuration(summary.baseline?.averageDurationMs, isPending)}</span>
+                  </div>
+                ` : `
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">通过率 (退出码 0):</span>
+                    <span class="lab-metric-val">${formatFinitePassRate(summary.baseline?.passRate, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">成功次数:</span>
+                    <span class="lab-metric-val">${formatFiniteCount(summary.baseline?.successes, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">已记录样本数:</span>
+                    <span class="lab-metric-val">${formatFiniteCount(summary.baseline?.runs, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">平均耗时:</span>
+                    <span class="lab-metric-val">${formatFiniteDuration(summary.baseline?.averageDurationMs, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">耗时方差:</span>
+                    <span class="lab-metric-val">${summary.baseline?.runtimeVariance !== null && summary.baseline?.runtimeVariance !== undefined ? (Math.round(summary.baseline.runtimeVariance) + ' ms²') : '未提供'}</span>
+                  </div>
+                `}
+              </div>
+              <div style="margin-top: 10px; padding-top: 6px; border-top: 1px dashed var(--border-color); font-size: 11px;">
+                <div class="text-secondary" style="margin-bottom: 2px;">挂载配置:</div>
+                <div>${formatVariantSummary(cmp.baseline)}</div>
+              </div>
+            </div>
+
+            <div class="lab-variant-card candidate">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 600; font-size: 13px;">Candidate 候选组</span>
+                <span class="status-badge ${isReadyForReview ? 'status-sage' : (decision === 'reject' ? 'status-red' : 'status-amber')}">
+                  ${formatFinitePassRate(summary.candidate?.passRate, isPending)}
+                </span>
+              </div>
+              <div class="lab-metric-list">
+                ${isAgent ? `
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">通过率 (Pass Rate):</span>
+                    <span class="lab-metric-val">${formatFinitePassRate(summary.candidate?.passRate, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">独立校验成功数:</span>
+                    <span class="lab-metric-val">${formatFiniteCount(summary.candidate?.successes, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">有效样本数 (Valid):</span>
+                    <span class="lab-metric-val">${formatFiniteCount(summary.candidate?.validRuns, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">已记录样本数:</span>
+                    <span class="lab-metric-val">${formatFiniteCount(summary.candidate?.runs, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">观察到测试执行率:</span>
+                    <span class="lab-metric-val">${formatFinitePassRate(summary.candidate?.testExecutionRate, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">平均观察 Tokens:</span>
+                    <span class="lab-metric-val">${formatFiniteTokens(summary.candidate?.averageTokens, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">平均耗时:</span>
+                    <span class="lab-metric-val">${formatFiniteDuration(summary.candidate?.averageDurationMs, isPending)}</span>
+                  </div>
+                ` : `
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">通过率 (退出码 0):</span>
+                    <span class="lab-metric-val">${formatFinitePassRate(summary.candidate?.passRate, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">成功次数:</span>
+                    <span class="lab-metric-val">${formatFiniteCount(summary.candidate?.successes, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">已记录样本数:</span>
+                    <span class="lab-metric-val">${formatFiniteCount(summary.candidate?.runs, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">平均耗时:</span>
+                    <span class="lab-metric-val">${formatFiniteDuration(summary.candidate?.averageDurationMs, isPending)}</span>
+                  </div>
+                  <div class="lab-metric-row">
+                    <span class="lab-metric-label">耗时方差:</span>
+                    <span class="lab-metric-val">${summary.candidate?.runtimeVariance !== null && summary.candidate?.runtimeVariance !== undefined ? (Math.round(summary.candidate.runtimeVariance) + ' ms²') : '未提供'}</span>
+                  </div>
+                `}
+              </div>
+              <div style="margin-top: 10px; padding-top: 6px; border-top: 1px dashed var(--border-color); font-size: 11px;">
+                <div class="text-secondary" style="margin-bottom: 2px;">挂载配置:</div>
+                <div>${formatVariantSummary(cmp.candidate)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 14px;">
+            <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">样本执行明细 (${results.length})</h3>
+            ${results.length === 0 ? '<div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;">暂无运行样本数据。</div>' : `
+              <div class="lab-sample-list">
+                ${results.map((r, i) => {
+                  const isCand = r.variant === 'candidate';
+                  const sideLabel = isCand ? 'Candidate 候选组' : 'Baseline 对照组';
+                  const repText = `第 ${r.repetition || (i + 1)} 次`;
+
+                  const agentExit = r.exitCode !== null && r.exitCode !== undefined ? String(r.exitCode) : '未提供';
+                  const agentDur = r.durationMs !== null && r.durationMs !== undefined ? `${r.durationMs}ms` : '未提供';
+                  const timedOutTag = r.timedOut ? '<span class="status-badge status-red">超时</span>' : '';
+                  const tokenUsage = r.tokens !== null && r.tokens !== undefined ? `${r.tokens.toLocaleString()} tok` : '未提供';
+
+                  const verifierExit = r.verification ? (r.verification.exitCode !== null && r.verification.exitCode !== undefined ? String(r.verification.exitCode) : '未提供') : '未执行';
+                  let intactBadge = '<span class="status-badge status-neutral">未测量</span>';
+                  if (r.verificationIntact === true) {
+                    intactBadge = '<span class="status-badge status-sage">✓ 验证文件未被篡改 (Intact)</span>';
+                  } else if (r.verificationIntact === false) {
+                    intactBadge = '<span class="status-badge status-red">✕ 验证文件被篡改 (违规失效)</span>';
+                  }
+
+                  let sessionLinkHtml = '';
+                  const srcSessId = r.agentMetrics && r.agentMetrics.sourceSessionId;
+                  if (srcSessId) {
+                    const foundSession = findVelaSessionBySourceId(srcSessId, cmp.project);
+                    if (foundSession) {
+                      sessionLinkHtml = `
+                        <button type="button" class="btn-open-source btn btn-ghost btn-sm" data-session-id="${escapeHtml(foundSession.id)}" title="定位对应会话: ${escapeHtml(foundSession.id)}">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                          <span>查看关联会话 (${escapeHtml(foundSession.id.slice(0, 8))})</span>
+                        </button>
+                      `;
+                    } else {
+                      sessionLinkHtml = `<span class="text-muted" style="font-size: 10.5px;">Provider 会话 ID: <code>${escapeHtml(srcSessId)}</code> (未在 Vela 会话库中建立索引)</span>`;
+                    }
+                  }
+
+                  const rawCmd = r.agentCommand || r.command || [];
+                  const sampleCmdExe = Array.isArray(rawCmd) && rawCmd.length > 0 ? rawCmd[0] : '-';
+                  const sampleCmdArgv = Array.isArray(rawCmd) ? JSON.stringify(rawCmd.slice(1)) : '[]';
+
+                  return `
+                    <div class="lab-sample-card">
+                      <div class="lab-sample-header">
+                        <div>
+                          <span class="code-badge" style="${isCand ? 'border-color: var(--color-accent);' : ''}">${escapeHtml(sideLabel)} · ${escapeHtml(repText)}</span>
+                        </div>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                          ${timedOutTag}
+                          ${intactBadge}
+                        </div>
+                      </div>
+
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; margin-bottom: 6px;">
+                        <div><span class="text-secondary">Agent 进程:</span> Exit: <strong>${escapeHtml(agentExit)}</strong> · ${escapeHtml(agentDur)} · ${escapeHtml(tokenUsage)}</div>
+                        <div><span class="text-secondary">${isAgent ? '独立校验器:' : '命令状态:'}</span> Exit: <strong>${escapeHtml(verifierExit)}</strong></div>
+                      </div>
+
+                      <div style="font-size: 11px; margin-bottom: 6px;">
+                        <span class="text-secondary">执行命令:</span>
+                        <span class="font-mono">可执行文件: <strong>${escapeHtml(sampleCmdExe)}</strong> · argv: <code>${escapeHtml(sampleCmdArgv)}</code></span>
+                      </div>
+
+                      ${sessionLinkHtml ? `<div style="margin-bottom: 6px;">${sessionLinkHtml}</div>` : ''}
+
+                      <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">
+                        <details style="font-size: 11px;">
+                          <summary style="cursor: pointer; color: var(--text-secondary);">查看进程输出 (${(r.output || '').length} 字符)</summary>
+                          <div class="code-view" style="font-size: 11px; margin-top: 4px; max-height: 120px; overflow-y: auto;">${escapeHtml(r.output || '(无输出)')}</div>
+                        </details>
+                        ${r.verification && r.verification.output ? `
+                          <details style="font-size: 11px;">
+                            <summary style="cursor: pointer; color: var(--text-secondary);">查看独立校验器输出 (${(r.verification.output || '').length} 字符)</summary>
+                            <div class="code-view" style="font-size: 11px; margin-top: 4px; max-height: 120px; overflow-y: auto;">${escapeHtml(r.verification.output)}</div>
+                          </details>
+                        ` : ''}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            `}
+          </div>
         `}
       `;
     } catch (err) {
+      const drawer = document.getElementById('detail-drawer');
+      const isDrawerOpen = drawer && !drawer.classList.contains('hidden');
+      if (thisSeq !== labDetailSequence || state.selectedEvalId !== evalId || !isDrawerOpen || state.currentPage !== thisPage || state.currentProject !== thisProject) {
+        return;
+      }
       setDrawerTitle('加载失败', '错误');
       document.getElementById('drawer-content').innerHTML = `
         <div class="alert-banner alert-danger">无法加载对比数据：${escapeHtml(err.message)}</div>
       `;
     }
+  }
+
+  const openLabDetail = openLabCompareDrawer;
+
+  function openConfirmPromoteModal(cmp) {
+    const mems = (cmp.candidate && cmp.candidate.memories) || [];
+    if (mems.length === 0) {
+      showToast('该实验无候选记忆可晋升', 'info');
+      return;
+    }
+
+    const modalBody = `
+      <div style="font-size: 13px; line-height: 1.5; color: var(--text-secondary); margin-bottom: 12px;">
+        本次对照实验（ID: <code>${escapeHtml(cmp.id.substring(0, 8))}</code>）已完成并通过晋升审查标准（Ready for Review）。
+        确认将以下 <strong>${mems.length}</strong> 条候选记忆晋升为 <strong>生效中 (Active)</strong> 状态？
+      </div>
+
+      <div class="card" style="margin-bottom: 12px; padding: 10px 12px; background: var(--bg-subtle);">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">将要激活的候选记忆：</div>
+        <ul style="padding-left: 18px; margin: 0; font-size: 12px; color: var(--text-main);">
+          ${mems.map(m => `
+            <li style="margin-bottom: 4px;">
+              <strong>${escapeHtml(m.title || m.id)}</strong>
+              <span class="font-mono text-muted" style="font-size: 10.5px;">(ID: ${escapeHtml(m.id)})</span>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+
+      <div class="alert-banner alert-neutral" style="font-size: 11px; line-height: 1.45;">
+        <strong>工程说明：</strong>
+        晋升操作将通过安全事务写入，将上述 Memory 的状态更新为 active。
+        未来效果（<code>futureEffect = not_measured</code>）仍未测量；需启用并信任项目的 Codex SessionStart hook 以在后续会话中载入生效记忆。
+      </div>
+
+      <div id="promote-error-container" class="hidden" style="margin-top: 10px;"></div>
+    `;
+
+    openModal('晋升候选 Memory 为 生效中 (Active)', modalBody, `
+      <button class="btn btn-secondary" id="btn-cancel-promote">取消</button>
+      <button class="btn btn-primary" id="btn-confirm-promote">确认晋升 (Promote)</button>
+    `);
+
+    document.getElementById('btn-cancel-promote').addEventListener('click', closeModal);
+    document.getElementById('btn-confirm-promote').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-confirm-promote');
+      const errBox = document.getElementById('promote-error-container');
+      if (errBox) errBox.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = '晋升中...';
+
+      try {
+        const res = await callBridge('lab.promote', { id: cmp.id });
+        showToast('Memory 晋升成功！已激活 ' + mems.length + ' 条候选记忆。');
+        closeModal();
+        await refreshDashboard(true, true);
+        openLabCompareDrawer(cmp.id);
+      } catch (err) {
+        if (errBox) {
+          errBox.className = 'alert-banner alert-danger';
+          errBox.textContent = '晋升失败: ' + err.message;
+          errBox.classList.remove('hidden');
+        } else {
+          showToast('晋升失败: ' + err.message, 'error');
+        }
+        btn.disabled = false;
+        btn.textContent = '确认晋升 (Promote)';
+      }
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -4264,11 +6653,33 @@
       const frozenTool = (typeof appr.tool === 'string' && appr.tool.trim()) ? appr.tool.trim() : '操作';
       const isFileOp = frozenTool.toLowerCase().includes('file') || frozenTool.toLowerCase().includes('write') || frozenTool.toLowerCase().includes('edit');
 
+      let agentDisplay = null;
+      let taskDisplay = null;
+      let protectedFilesDisplay = null;
+      let outputFilesDisplay = null;
+
+      if (args.agent && typeof args.agent === 'object') {
+        agentDisplay = `${args.agent.provider || 'codex'} (模型: ${args.agent.model || '未指定'}, effort: ${args.agent.reasoningEffort || 'high'})`;
+      }
+      if (typeof args.task === 'string' && args.task.trim()) {
+        taskDisplay = args.task.trim();
+      }
+      if (Array.isArray(args.verificationFiles) && args.verificationFiles.length > 0) {
+        protectedFilesDisplay = args.verificationFiles.map(f => typeof f === 'string' ? f : (f.path + (f.hash ? ' (' + f.hash.slice(0, 8) + ')' : ''))).join(', ');
+      }
+      if (Array.isArray(args.outputFiles) && args.outputFiles.length > 0) {
+        outputFilesDisplay = args.outputFiles.join(', ');
+      }
+
       return {
         projectBasename,
         projectPath,
         targetDisplay,
         commandDisplay,
+        agentDisplay,
+        taskDisplay,
+        protectedFilesDisplay,
+        outputFilesDisplay,
         previewText,
         isFileOp,
         toolName: frozenTool
@@ -4310,13 +6721,25 @@
 
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
                   <div><strong>所属项目:</strong> <span class="font-mono" title="${escapeHtml(summary.projectPath)}">${escapeHtml(summary.projectBasename)}</span></div>
+                  ${summary.agentDisplay ? `
+                    <div><strong>评测 Agent:</strong> <code class="code-badge font-mono">${escapeHtml(summary.agentDisplay)}</code></div>
+                  ` : ''}
+                  ${summary.taskDisplay ? `
+                    <div style="margin-top: 2px;"><strong>评测任务:</strong> <div style="font-size: 11.5px; padding: 4px 6px; background: var(--bg-subtle); border-radius: 4px; margin-top: 2px; white-space: pre-wrap;">${escapeHtml(summary.taskDisplay)}</div></div>
+                  ` : ''}
                   ${summary.targetDisplay ? `
                     <div><strong>目标文件:</strong> <code class="code-badge font-mono">${escapeHtml(summary.targetDisplay)}</code></div>
                   ` : (summary.isFileOp ? `
                     <div><strong>目标文件:</strong> <span class="text-muted">未提供具体路径</span></div>
                   ` : '')}
                   ${summary.commandDisplay ? `
-                    <div><strong>执行命令:</strong> <code class="code-badge font-mono">${escapeHtml(summary.commandDisplay)}</code></div>
+                    <div><strong>${summary.agentDisplay ? '独立验证命令:' : '执行命令:'}</strong> <code class="code-badge font-mono">${escapeHtml(summary.commandDisplay)}</code></div>
+                  ` : ''}
+                  ${summary.protectedFilesDisplay ? `
+                    <div><strong>受保护验证文件:</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml(summary.protectedFilesDisplay)}</span></div>
+                  ` : ''}
+                  ${summary.outputFilesDisplay ? `
+                    <div><strong>任务产出白名单:</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml(summary.outputFilesDisplay)}</span></div>
                   ` : ''}
                 </div>
 
@@ -4631,6 +7054,7 @@
   // GLOBAL MODALS (Cmd-K Search, Checkpoints)
   // -------------------------------------------------------------------------
   function openSearchModal() {
+    const originalActive = document.activeElement;
     const modalBody = `
       <div class="form-group">
         <input type="search" id="global-search-input" class="form-input" placeholder="输入搜索关键词（按 Enter 搜索）..." autofocus>
@@ -4760,7 +7184,17 @@
       if (input.value.trim()) doSearch();
     });
 
-    setTimeout(() => input.focus(), 50);
+    const thisSearchModalInstance = currentModalInstance;
+    setTimeout(() => {
+      if (currentModalInstance !== thisSearchModalInstance) return;
+      const modal = document.getElementById('modal-container');
+      if (!modal || modal.classList.contains('hidden')) return;
+      const active = document.activeElement;
+      if (active && active !== originalActive && active !== document.body && active !== document.documentElement) {
+        return;
+      }
+      input.focus();
+    }, 20);
   }
 
   function openSaveCheckpointModal(session) {
@@ -4902,6 +7336,10 @@
   let modalTrapHandler = null;
   let drawerTriggerElement = null;
   let drawerTrapHandler = null;
+  let modalInstanceCounter = 0;
+  let currentModalInstance = 0;
+  let drawerInstanceCounter = 0;
+  let currentDrawerInstance = 0;
 
   function trapFocus(container, e) {
     if (e.key !== 'Tab') return;
@@ -4913,39 +7351,58 @@
       e.preventDefault();
       return;
     }
+
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
 
-    if (e.shiftKey) {
-      if (document.activeElement === first || !container.contains(document.activeElement)) {
-        e.preventDefault();
+    if (!container.contains(document.activeElement)) {
+      if (e.shiftKey) {
         last.focus();
+      } else {
+        first.focus();
+      }
+      e.preventDefault();
+      return;
+    }
+
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        last.focus();
+        e.preventDefault();
       }
     } else {
-      if (document.activeElement === last || !container.contains(document.activeElement)) {
-        e.preventDefault();
+      if (document.activeElement === last) {
         first.focus();
+        e.preventDefault();
       }
     }
   }
 
-  function openDrawer(title, subtitle = '', triggerEl = null) {
-    drawerTriggerElement = triggerEl || document.activeElement;
+  function openDrawer(title = '', subtitle = '', triggerEl = null) {
+    const thisDrawerInstance = ++drawerInstanceCounter;
+    currentDrawerInstance = thisDrawerInstance;
+    const originalActive = document.activeElement;
+    const validTrigger = (triggerEl && typeof triggerEl === 'object' && triggerEl.nodeType === 1) ? triggerEl : null;
+    drawerTriggerElement = validTrigger || originalActive;
     const drawer = document.getElementById('detail-drawer');
     const backdrop = document.getElementById('drawer-backdrop');
-    setDrawerTitle(title, subtitle);
-    setDrawerCustomActions('');
+    const t = document.getElementById('drawer-title');
+    const s = document.getElementById('drawer-subtitle');
+    const content = document.getElementById('drawer-content');
+    const customActions = document.getElementById('drawer-custom-actions');
+
+    if (t) t.textContent = title;
+    if (s) s.textContent = subtitle;
+    if (customActions) customActions.innerHTML = '';
+    if (content) content.innerHTML = '<div class="empty-state"><div class="empty-state-title">正在加载...</div></div>';
+
+    if (drawer) drawer.classList.remove('hidden');
 
     const isWide = window.innerWidth >= 1150;
     document.body.classList.toggle('has-inspector-open', isWide);
 
-    if (drawer) drawer.classList.remove('hidden');
     if (backdrop) {
-      if (isWide) {
-        backdrop.classList.add('hidden');
-      } else {
-        backdrop.classList.remove('hidden');
-      }
+      backdrop.classList.toggle('hidden', isWide);
     }
 
     if (drawerTrapHandler) {
@@ -4966,14 +7423,24 @@
     }
 
     setTimeout(() => {
-      if (drawer && !drawer.classList.contains('hidden')) {
-        const closeBtn = document.getElementById('btn-close-drawer');
-        const firstFocusable = drawer.querySelector('button:not([disabled]):not(#btn-close-drawer), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]');
-        if (firstFocusable) {
-          firstFocusable.focus();
-        } else if (closeBtn) {
-          closeBtn.focus();
-        }
+      if (currentDrawerInstance !== thisDrawerInstance) return;
+      const modal = document.getElementById('modal-container');
+      if (modal && !modal.classList.contains('hidden')) return;
+
+      const currentDrawer = document.getElementById('detail-drawer');
+      if (!currentDrawer || currentDrawer.classList.contains('hidden')) return;
+
+      const active = document.activeElement;
+      if (active && active !== originalActive && active !== document.body && active !== document.documentElement) {
+        return;
+      }
+
+      const closeBtn = document.getElementById('btn-close-drawer');
+      const firstFocusable = currentDrawer.querySelector('button:not([disabled]):not(#btn-close-drawer), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]');
+      if (firstFocusable) {
+        firstFocusable.focus();
+      } else if (closeBtn) {
+        closeBtn.focus();
       }
     }, 20);
   }
@@ -4991,6 +7458,7 @@
   }
 
   function closeDrawer() {
+    currentDrawerInstance = ++drawerInstanceCounter;
     const drawer = document.getElementById('detail-drawer');
     const backdrop = document.getElementById('drawer-backdrop');
     if (drawer) drawer.classList.add('hidden');
@@ -5021,7 +7489,11 @@
   }
 
   function openModal(title, bodyHtml, footerHtml = '', triggerEl = null) {
-    modalTriggerElement = triggerEl || document.activeElement;
+    const thisModalInstance = ++modalInstanceCounter;
+    currentModalInstance = thisModalInstance;
+    const originalActive = document.activeElement;
+    const validTrigger = (triggerEl && typeof triggerEl === 'object' && triggerEl.nodeType === 1) ? triggerEl : null;
+    modalTriggerElement = validTrigger || originalActive;
     const modal = document.getElementById('modal-container');
     const dialog = document.getElementById('modal-dialog');
     const t = document.getElementById('modal-title');
@@ -5049,19 +7521,26 @@
     document.addEventListener('keydown', modalTrapHandler, true);
 
     setTimeout(() => {
-      if (modal && !modal.classList.contains('hidden')) {
-        const firstInput = modal.querySelector('input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not(#btn-close-modal)');
-        if (firstInput) {
-          firstInput.focus();
-        } else {
-          const closeBtn = document.getElementById('btn-close-modal');
-          if (closeBtn) closeBtn.focus();
-        }
+      if (currentModalInstance !== thisModalInstance) return;
+      if (!modal || modal.classList.contains('hidden')) return;
+
+      const active = document.activeElement;
+      if (active && active !== originalActive && active !== document.body && active !== document.documentElement) {
+        return;
+      }
+
+      const firstInput = modal.querySelector('input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not(#btn-close-modal)');
+      if (firstInput) {
+        firstInput.focus();
+      } else {
+        const closeBtn = document.getElementById('btn-close-modal');
+        if (closeBtn) closeBtn.focus();
       }
     }, 20);
   }
 
   function closeModal() {
+    currentModalInstance = ++modalInstanceCounter;
     const modal = document.getElementById('modal-container');
     if (modal) modal.classList.add('hidden');
 

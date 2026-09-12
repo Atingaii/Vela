@@ -21,8 +21,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / 'Sources/VelaApp/Resources/UI'
-READ = set('dashboard.get projects.list agents.list sessions.refresh sessions.list sessions.get setup.list setup.scan setup.audit usage.get memory.list recall search guidelines.list library.list checkpoint.list checkpoint.export workflows.list workflows.health runs.list runs.get inbox.list improve.list lab.list lab.compare regression.list evidence.get settings.get system.version'.split())
-WRITE = set('projects.add memory.save memory.transition guidelines.save library.add checkpoint.save workflows.build workflows.save workflows.run approvals.decide settings.save'.split())
+READ = set('dashboard.get projects.list agents.list sessions.refresh sessions.list sessions.get setup.list setup.scan setup.audit usage.get memory.list recall search guidelines.list library.list checkpoint.list checkpoint.export workflows.list workflows.health runs.list runs.get inbox.list improve.list improve.preview lab.list lab.compare regression.list evidence.get reuse.outcomes settings.get system.version'.split())
+WRITE = set('projects.add memory.save memory.transition guidelines.save library.add checkpoint.save workflows.build workflows.save workflows.run approvals.decide improve.analyze improve.apply improve.undo lab.run lab.promote reuse.preview settings.save'.split())
 BRIDGE_JS = """
 window.__velaUITest={refreshReceived:0,dashboardResolved:0,dashboardEvent:0,dashboardProject:null,nextRead:null,controlledReads:0};
 window.addEventListener('vela:refresh',()=>window.__velaUITest.refreshReceived++);
@@ -163,6 +163,18 @@ class Bridge:
                 if not isinstance(step, dict):
                     raise ValueError('Workflow steps must be objects.')
                 self.tool(step.get('tool'), step.get('arguments', {}), workflow['project'])
+        if method in ('improve.preview', 'improve.apply', 'improve.undo'):
+            suggestion = next((s for s in self.rpc('improve.list', {}) if s['id'] == params.get('id')), None)
+            if not suggestion or suggestion.get('project') not in self.fixture['projects']:
+                raise ValueError('Only a generated fixture suggestion can be reviewed or applied.')
+            for operation in suggestion.get('operations', []):
+                self.local_path(operation.get('path', ''), suggestion['project'])
+        if method in ('lab.run', 'reuse.preview', 'improve.analyze') and params.get('project') not in self.fixture['projects']:
+            raise ValueError('Select an isolated fixture project explicitly.')
+        if method == 'lab.promote':
+            evaluation = self.rpc('lab.compare', {'id': params.get('id')})
+            if evaluation.get('project') not in self.fixture['projects']:
+                raise ValueError('Only a fixture evaluation may be reviewed.')
         if method == 'approvals.decide':
             approval = next((a for a in self.rpc('inbox.list', {}) if a['id'] == params.get('id')), None)
             if not approval or approval.get('project') not in self.fixture['projects']:

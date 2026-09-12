@@ -15,6 +15,7 @@ Failing screenshots are test evidence, not product artwork.
 Route events and bounded read faults are injected; business data is always real CLI output.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -23,6 +24,7 @@ import shutil
 import signal
 import subprocess
 import time
+import traceback
 import urllib.request
 import uuid
 
@@ -154,7 +156,7 @@ def main():
             action()
             results.append({'check': name, 'passed': True, 'driver': args.driver})
         except Exception as error:
-            results.append({'check': name, 'passed': False, 'error': str(error), 'driver': args.driver})
+            results.append({'check': name, 'passed': False, 'error': str(error), 'traceback': traceback.format_exc(limit=3), 'driver': args.driver})
             try:
                 results[-1]['url'] = browser('get', 'url')
                 browser('screenshot', str(base / ('failure-' + name + '.png')))
@@ -171,6 +173,14 @@ def main():
         ready = json.loads(server.stdout.readline())
         url, base = ready['url'], Path(ready['fixture'])
         report = base / ('browser-results-diagnostic.json' if selected_checks else 'browser-results.json')
+        metadata_path = base / ('browser-metadata-diagnostic.json' if selected_checks else 'browser-metadata.json')
+        def source_hashes():
+            files = {name: ROOT / 'Sources/VelaApp/Resources/UI' / name for name in ('index.html', 'app.js', 'app.css')}
+            files['helper'] = args.binary
+            return {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in files.items()}
+        source_before = source_hashes()
+        metadata = {'sourceBefore': source_before, 'completeSuite': False, 'sourceUnchanged': None}
+        metadata_path.write_text(json.dumps(metadata, indent=2) + '\n')
         fixture = json.loads(args.manifest.read_text())
         project = Path(fixture['project'])
         browser('open', url)
@@ -187,9 +197,9 @@ def main():
             assert clear, 'No visible clear-filter action.'
             click('#' + clear)
             assert value('document.querySelector("#session-search-input").value') == '', 'Clear filters did not reset search.'
-            snapshot = browser('snapshot', '-s', '#sessions-table')
-            assert 'row ' in snapshot and 'Validate request limits' in snapshot, 'Session rows are absent from the accessibility tree.'
-            session_button = '#sessions-table-body tr:first-child button'
+            snapshot = browser('snapshot', '-s', '#sessions-grouped-lists')
+            assert 'listitem' in snapshot and 'Validate request limits' in snapshot, 'Session groups are absent from the accessibility tree.'
+            session_button = '#sessions-grouped-lists .session-group:first-child .session-card:first-child .session-title-btn'
             browser('focus', session_button)
             browser('press', 'Enter')
             wait_for('!document.querySelector("#detail-drawer").classList.contains("hidden")', 'Session row button did not open its detail with Enter.')
@@ -415,6 +425,13 @@ def main():
             for name, action in [('routing', routing), ('routing-failure', routing_failure), ('routing-unknown', routing_unknown), ('routing-aggregate', routing_aggregate)]:
                 check(name, action)
         report.write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n')
+        source_after = source_hashes()
+        unchanged = source_before == source_after
+        metadata.update(sourceAfter=source_after, sourceUnchanged=unchanged,
+                        completeSuite=not selected_checks and len(results) == 12 and unchanged and all(result['passed'] for result in results))
+        metadata_path.write_text(json.dumps(metadata, indent=2) + '\n')
+        if not unchanged:
+            raise RuntimeError('UI or helper changed during the run; this is not a single-version acceptance result.')
         if not results:
             raise RuntimeError('No checks ran. Routing checks require --with-routing-project when creating the fixture.')
         if not all(result['passed'] for result in results):

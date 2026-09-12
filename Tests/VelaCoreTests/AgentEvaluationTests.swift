@@ -107,6 +107,48 @@ final class AgentEvaluationTests: XCTestCase {
             XCTAssertEqual(try String(contentsOf:path),"manual edit")
         }
     }
+    func testInstalledHookPreviewIsReadOnlyAndRejectsStaleOrUnverifiedNoOps() throws {
+        try fixture { root,store,service in
+            let draft = try service.previewReuseHook(["project":root.path,"helperExecutable":"/usr/bin/true"])
+            _ = try service.applySuggestion(["id":draft["id"]!])
+            let path = root.appendingPathComponent(".codex/hooks.json")
+            let before = try Data(contentsOf:path)
+            let installed = try service.previewReuseHook(["project":root.path,"helperExecutable":"/usr/bin/true"])
+            XCTAssertEqual(installed["alreadyInstalled"] as? Bool,true)
+            let preview = try service.previewSuggestion(["id":installed["id"]!])
+            XCTAssertEqual((preview["preview"] as? [JSON])?.count,0)
+            XCTAssertEqual(try Data(contentsOf:path),before)
+            XCTAssertThrowsError(try service.applySuggestion(["id":installed["id"]!]))
+            XCTAssertEqual(try Data(contentsOf:path),before)
+            let arbitrary = try store.put("suggestion",["project":root.path,"state":"draft","operations":[JSON]()])
+            XCTAssertThrowsError(try service.previewSuggestion(["id":arbitrary["id"]!]))
+            try Data("manual change".utf8).write(to:path)
+            XCTAssertThrowsError(try service.previewSuggestion(["id":installed["id"]!]))
+            XCTAssertEqual(try String(contentsOf:path),"manual change")
+        }
+    }
+    func testAppliedSuggestionPreviewUsesJournalAndUndoStillChecksCurrentHash() throws {
+        try fixture { root,_,service in
+            let path = root.appendingPathComponent(".codex/hooks.json")
+            try FileManager.default.createDirectory(at:path.deletingLastPathComponent(),withIntermediateDirectories:true)
+            let before = "{\"hooks\":{\"Stop\":[]}}"
+            try Data(before.utf8).write(to:path)
+            let draft = try service.previewReuseHook(["project":root.path,"helperExecutable":"/usr/bin/true"])
+            _ = try service.applySuggestion(["id":draft["id"]!])
+            let appliedBytes = try Data(contentsOf:path)
+            let preview = try service.previewSuggestion(["id":draft["id"]!])
+            XCTAssertEqual(string(preview,"previewSource"),"applied_journal")
+            XCTAssertEqual((preview["preview"] as? [JSON])?.first?["before"] as? String,before)
+            XCTAssertEqual(try Data(contentsOf:path),appliedBytes)
+            try Data("manual change".utf8).write(to:path)
+            XCTAssertEqual(string(try service.previewSuggestion(["id":draft["id"]!]),"state"),"applied")
+            XCTAssertThrowsError(try service.undoSuggestion(["id":draft["id"]!]))
+            XCTAssertEqual(try String(contentsOf:path),"manual change")
+            try appliedBytes.write(to:path)
+            _ = try service.undoSuggestion(["id":draft["id"]!])
+            XCTAssertEqual(try String(contentsOf:path),before)
+        }
+    }
     func testReuseJoinRequiresCodexProviderAndCountsCopiedLogsOnce() throws {
         try fixture { root,store,service in
             let memory = try store.put("memory",["title":"Verification","content":"Run tests before handoff.","scope":"project","project":root.path,"state":"active"])

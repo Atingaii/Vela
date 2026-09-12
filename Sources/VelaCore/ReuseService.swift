@@ -26,7 +26,7 @@ extension AutomationService {
         hooks["SessionStart"] = groups; configuration["hooks"] = hooks
         let data = try JSONSerialization.data(withJSONObject:configuration,options:[.prettyPrinted,.sortedKeys,.withoutEscapingSlashes])
         let content = String(decoding:data,as:UTF8.self) + "\n"
-        let suggestion: JSON = ["title":"Recall reviewed project context when Codex starts","project":root,"state":"draft","carrier":"Hook","generator":"vela-codex-hook-v1","operations":alreadyInstalled ? [] : [["path":path,"baseHash":before.map(stableHash) ?? "absent","content":content]],"alreadyInstalled":alreadyInstalled,"evidence":[],"requiresProviderTrust":true,"limitations":"Preview and apply this project-only change, then review the exact hook in Codex /hooks. Vela does not bypass provider trust. A hook receipt proves context was offered, not that the agent followed it."]
+        let suggestion: JSON = ["title":"Recall reviewed project context when Codex starts","project":root,"state":"draft","carrier":"Hook","generator":"vela-codex-hook-v1","operations":alreadyInstalled ? [] : [["path":path,"baseHash":before.map(stableHash) ?? "absent","content":content]],"alreadyInstalled":alreadyInstalled,"observedHookPath":path,"observedHookHash":before.map(stableHash) ?? "absent","evidence":[],"requiresProviderTrust":true,"limitations":"Preview and apply this project-only change, then review the exact hook in Codex /hooks. Vela does not bypass provider trust. A hook receipt proves context was offered, not that the agent followed it."]
         return try store.put("suggestion",suggestion)
     }
 

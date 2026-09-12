@@ -29,6 +29,31 @@ jobs:
           python3 scripts/test-rpc.py
           python3 scripts/test-rpc-limits.py
           python3 scripts/test-restart.py
+      - name: Install isolated browser test dependencies
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.task-tmp/ci-browser
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund --prefix .task-tmp/ui-browser-tools --save-exact playwright@1.62.1
+          node .task-tmp/ui-browser-tools/node_modules/playwright/cli.js install chromium
+      - name: Real-helper renderer acceptance
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.task-tmp/ci-browser
+        run: |
+          python3 scripts/create-ui-fixture.py .task-tmp/ci-ui --with-routing-project
+          python3 scripts/test-ui-browser.py .task-tmp/ci-ui/fixture.json --driver playwright
+          python3 scripts/test-acceptance-browser.py --fixture .task-tmp/ci-acceptance --output output/playwright/ci-acceptance
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Vela-renderer-acceptance
+          path: |
+            .task-tmp/ci-ui/browser-results.json
+            .task-tmp/ci-ui/browser-metadata.json
+            .task-tmp/ci-ui/failure-*.png
+            output/playwright/ci-acceptance/results.json
+            output/playwright/ci-acceptance/*.png
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Package and audit macOS application
         run: bash scripts/package-macos.sh
       - uses: actions/upload-artifact@v4

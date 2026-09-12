@@ -177,6 +177,32 @@ extension AutomationService {
         var suggestion = try object("suggestion",requireString(params,"id"))
         let root = try project(requireString(suggestion,"project"))
         let operations = suggestion["operations"] as? [JSON] ?? []
+        if string(suggestion,"state") == "applied" {
+            let journal = try object("apply_journal",requireString(suggestion,"journalId"))
+            let committed = journal["operations"] as? [JSON] ?? []
+            guard string(journal,"project") == root, string(journal,"state") == "applied",
+                  !committed.isEmpty, committed.count <= 32 else { throw VelaError("Applied suggestion has no matching committed journal") }
+            try validateSuggestionTargets(committed,project:root)
+            // An applied proposal displays its committed before/after snapshot. Undo still
+            // checks the current file against the journal's afterHash before any mutation.
+            suggestion["preview"] = committed
+            suggestion["previewSource"] = "applied_journal"
+            return suggestion
+        }
+        if operations.isEmpty {
+            guard string(suggestion,"generator") == "vela-codex-hook-v1",
+                  suggestion["alreadyInstalled"] as? Bool == true,
+                  string(suggestion,"observedHookPath") == root + "/.codex/hooks.json" else {
+                throw VelaError("An empty preview requires a verified, already-installed Vela hook")
+            }
+            let snapshot = try files.readSnapshot(project:root,path:root + "/.codex/hooks.json")
+            guard snapshot["exists"] as? Bool == true,
+                  string(snapshot,"hash") == string(suggestion,"observedHookHash") else {
+                throw VelaError("Hook configuration changed; generate a new reuse preview")
+            }
+            suggestion["preview"] = [JSON]()
+            return suggestion
+        }
         suggestion["preview"] = try files.preview(project:root,operations:operations)
         return suggestion
     }
