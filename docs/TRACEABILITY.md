@@ -49,11 +49,12 @@
 | T-NOTIFY | [NotificationTests](../Tests/VelaCoreTests/NotificationTests.swift) | 偏好、可信时间、历史静默、去重、快速 Run 与聚合范围；不测 OS delivery |
 | T-MCP | [test-rpc.py](../scripts/test-rpc.py) | 编译 CLI、持久偏好、project 必填、private 排除、Candidate-only 贡献及 Dry Run |
 | T-UI | [test-ui-browser.py](../scripts/test-ui-browser.py)；12 项见 [UX review](implementation/ux-review.md#最终-renderer-复验2026-09-12-1416-utc) | renderer→真实 CLI；原生通知注入/native stub 已明确；不运行完整 Golden |
+| T-UI2（增量） | [test-acceptance-browser.py](../scripts/test-acceptance-browser.py) | 六组真实 CLI：Memory 生命周期/确切来源/跨项目、Lab pending 冻结、Reuse Apply/Undo、缺失→真实零；拒绝 Agent approval，不执行 Hook |
 | T-PKG | [test-release-resources.py](../scripts/test-release-resources.py)、[release-audit.py](../scripts/release-audit.py) | 原创资源与实际包排除；不等 notarization/update |
 | T-PERF | [benchmark-read.py](../scripts/benchmark-read.py) | 100k synthetic records 的 warm RPC 搜索；不含 UI/冷启动/大日志 |
 | T-IMP2（增量） | [ImproveAcceptanceTests](../Tests/VelaCoreTests/ImproveAcceptanceTests.swift)：`testFeatureSpecificationsQuotedExamplesAndAgainDoNotCreateSignals`、`testThreeParsedCodexToolSequencesCreateDisabledWorkflowDraftWithoutExecution`、`testCopiedProviderLogsDoNotMultiplySessionsOrCandidateMemories`，共九项专项方法 | 受控确切来源、near-miss 与有界读取；不是泛化 precision 或未来改善 |
 | T-AGENT（增量） | [AgentEvaluationTests](../Tests/VelaCoreTests/AgentEvaluationTests.swift)、[AgentLabIntegrityTests](../Tests/VelaCoreTests/AgentLabIntegrityTests.swift)：`testWorseMissingAndTiedCandidatesCannotBecomePromotionReady`、`testFakeProtocolNoopLauncherCannotGameIndependentVerification`、`testFakeProtocolModifiedProtectedVerifierInvalidatesComparison` | synthetic protocol 实际走审批/Git/独立 verifier；不是真模型实验；最新 scorer 负例须随最终执行补证 |
-| T-REUSE（增量） | 同 AgentEvaluationTests：`testHookSupersessionProjectPrivacyAndReceipts`、`testHookInstallPreservesOtherHooksAndRejectsStaleEdits`、`testReuseJoinRequiresCodexProviderAndCountsCopiedLogsOnce` | Hook 返回、范围/私有过滤、复制去重；不能把 Context 提供等同 Codex 信任、消费或遵循 |
+| T-REUSE（增量） | 同 AgentEvaluationTests：`testHookSupersessionProjectPrivacyAndReceipts`、`testHookInstallPreservesOtherHooksAndRejectsStaleEdits`、`testReuseJoinRequiresCodexProviderAndCountsCopiedLogsOnce`、`testInstalledHookPreviewIsReadOnlyAndRejectsStaleOrUnverifiedNoOps`、`testAppliedSuggestionPreviewUsesJournalAndUndoStillChecksCurrentHash` | Hook 返回、范围/私有过滤、复制去重、只读无变更/已应用预览与 Undo 冲突拒绝；不能把 Context 提供等同 Codex 信任、消费或遵循 |
 | T-USAGE（增量） | [UsageIntegrityTests](../Tests/VelaCoreTests/UsageIntegrityTests.swift) 与本轮真实 helper 黑盒记录 | 缺失/真实零/部分 usage/整数溢出；不证明真实订阅额度或可归因成本 |
 
 ### Executed evidence
@@ -70,6 +71,9 @@
 | E-LIVE（增量） | [ACCEPTANCE：真实 Agent 实验与更正](ACCEPTANCE.md#真实-agent-实验保留失败计分与更正)、[公开 v3 脱敏记录](evidence/2026-09-13-agent-lab.json)，Eval `938a7aa2-0bc7-416a-9437-e08b1240d9c4` | 真 Codex 六次、独立 verifier、同分不可晋升；更正旧 scorer 错误；六 raw 输出 hash 与 task hash 已核对；不是完整 Golden 或纵向质量结果 |
 | E-PERF2（增量） | [本轮性能矩阵](reference-comparison.md#performance-matrix-to-run-before-a-hard-gate-decision) | release 100k 六类 warm 搜索均 <120 ms、有界摄取矩阵；不能提升整个 HG-1 为 Pass |
 | E-USAGE（增量） | [本轮 Usage 反例与修复](reference-comparison.md#concrete-review-findings-and-follow-up)，本地 `acceptance-usage-integrity.json` | 缺失与两个历史 SIGTRAP 反例、修后六类 helper 行为及持续响应；不是所有 usage 来源完整 |
+| E-CORE2（增量） | [本轮验证记录](verification.md#unreleased-acceptance-redesign--13-september-2026)、[最终源码 CI](evidence/2026-09-13-ci-final.json) | 当前 95/95 portable；最终提交 `91d34e2` hosted 95 项 XCTest 与 18 组 renderer 全过；此前 93 项保留为历史检查点 |
+| E-UI2（增量） | [六组 UI/CLI 验收记录](verification.md#six-renderer-to-cli-acceptance-checks)，最终本地 `output/playwright/acceptance-flow-final` | 17:37:16 UTC 同次 fresh fixture 6/6、56 次 Core RPC 无错误；最终 UI `01104e7f…ee3af0b` / helper `bbeb97c8…e14d24483`，完整 hash 见验证记录；未执行真实 Agent、Hook 或 OS 通知，非完整 Golden |
+| E-NATIVE2（增量） | [UI 与原生证据](evidence/2026-09-13-ui.json)、[开发包审核](evidence/2026-09-13-package.json) | 开发 wrapper 两尺寸实际交互、Reuse Apply/Undo 独立落库确认；最终包静态检查通过。没有正式包安装/公证/OS 通知或完整 Golden 证明 |
 
 一次性旧 UI fixture 的 raw `browser-results.json` 不作为公开仓库长期工件；本次只核对到持久化报告与复验脚本，不假称原始文件仍保留。CI 配置存在不等于本次托管 CI 已通过；新候选应固定 run URL/commit 和工件哈希。E-CORE/E-RPC/E-UI 的合成数据不能作为真实用户长期改善样本。
 
@@ -241,19 +245,25 @@ R 编号对应 PRD 同号 D 约束及其 Goal；代码/测试覆盖的是“已�
 
 对应 `FR-22/43/46/47/52` 的窄项实现已补入 `ImproveService.swift`，`FR-49/NFR-16/17` 增加 internal `SafeApplyService.readSnapshot` 的读取边界。尚未建立总体 precision、三个 provider 的完整 procedure 支持或真实用户未来改善。该次 **81 方法中的三个新 Lab 执行场景失败**，暴露 Agent 配置标量 JSON 构造错误；只有 78 项通过，不将其记成一次完整成功套件。后续 [AgentLabIntegrityTests](../Tests/VelaCoreTests/AgentLabIntegrityTests.swift) 增加构造测试，统一复验结果待补。
 
-2026-09-13 更新：上述配置编码错误修正后，已有 **90 方法的中间 portable 快照通过**；之后新增 Reuse provider/复制关联反例、复合命令计量与旧结果刷新检查。最终套件结果尚待补，不用中间总数替代当前工作树验收。
+2026-09-13 更新：上述配置编码错误修正后，**90 方法的中间 portable 快照通过**；之后新增 Reuse provider/复制关联反例、复合命令计量与旧结果刷新检查，达到后述 93 方法检查点；再加入本次两项预览回归后，当前 **95/95 通过**。各次范围分别保留，不用中间总数替代当前工作树验收。
 
 | 本轮 Goal → Req / Design | Code → Test → Evidence | 实现和验收边界 |
 | --- | --- | --- |
 | G-MEM/G-IMP → R-05/09/10，D-05/09/10 | C-IMP/C-MEM → T-IMP2 → 九项已执行专项记录 | 明确约束提 Candidate 与严格工程纠错/程序检测已补窄项；GS07–10 整链仍 Not Run |
 | G-VER → R-15/16，D-15/16；FR-70–75 | C-AGENT → T-AGENT → E-LIVE | Codex Agent 对照已执行；计分更正后 Inconclusive，task/test 指标未改善，Corrections 未测；不能继续写成“完全没有 Agent Lab”，也不能称 Verify 产品完成 |
 | G-VER/G-MEM → R-17，D-17；FR-76/78 | C-REUSE → T-AGENT/T-REUSE → E-LIVE（拒绝晋升） | 仅可将评估的同项目 Memory-only Context 以事务激活；实际同分候选被拒绝；正向真实 Promote→后续采用仍缺证 |
-| G-MEM → R-07/17，D-07/17；FR-30/78 | C-REUSE → T-REUSE → 当前核心测试 support | 项目 Codex Hook 预览、受审写入与 provenance receipt 已有；provider+ID 关联补丁待最终测试；Hook stdout 不证明 Agent 采用 |
+| G-MEM → R-07/17，D-07/17；FR-30/78 | C-REUSE → T-REUSE/T-UI2 → E-CORE2/E-UI2 | 项目 Codex Hook 预览、受审写入/精确 Undo 与 provenance receipt 已有；provider+ID 关联核心回归通过；Hook stdout 不证明 Agent 采用 |
+| G-MEM/G-IMP/G-VER → R-03/06/10/15，D-03/06/10/15；FR-25/27/48/70 | C-UI/C-IMP/C-AGENT → T-UI2 → E-UI2 | 生命周期过滤、真实激活、精确/跨项目来源和源 Suggestion→关联 Memory 的 Lab pending 冻结通过；这次没有执行真实 Agent，整链仍 Not Run |
+| G-IMP/G-MEM → R-11/17，D-11/17；FR-49/50 | C-IMP/C-REUSE/C-SAFE → T-REUSE/T-UI2 → E-CORE2/E-UI2 | 修复空草稿 preview 拒绝及已应用 preview 旧 baseHash 冲突；无变更预览需确切项目/观测 hash，提交历史只读；空 Apply 和受外部编辑的 Undo 仍拒绝 |
 | G-OBS → R-08/18，D-08/18；FR-37/NFR-14 | C-OBS → T-USAGE → E-USAGE | nullable total 与可证 observed 子集、整数溢出拒绝已补；账户 quota/成本仍 Missing |
 | G-OBS → R-19，D-19；NFR-01–06 | C-STORE/C-OBS → T-PERF → E-PERF2 | 旧搜索超标场景已修；未测冷启动/长期/五 Agent 并发/事件显示分布，完整 Performance Gate 仍 Not Run |
 
-源记录、候选与实验之间有新增边，不代表已经存在同一次 `Session → Candidate → Suggestion → Eval → Promotion → New Session → Outcome` 完整证据。当前可定位的下一步是最终 scorer/旧结果/范围反例、真实 Codex Hook 信任与消费、适用未来 Session 覆盖与 RFR；没有这些数据时 Scorecard 保持 Not Scored。
+源记录、候选与实验之间有新增边，不代表已经存在同一次 `Session → Candidate → Suggestion → Eval → Promotion → New Session → Outcome` 完整证据。scorer/旧结果/范围反例已获得当前核心回归；仍需真实 Codex Hook 信任与消费、适用未来 Session 覆盖与 RFR。没有这些数据时 Scorecard 保持 Not Scored。
 
-### 最终核心回归快照（2026-09-13）
+### 当前核心与六组界面回归快照（2026-09-13）
 
-`swift build` 与 portable runner **93/93 方法通过**，包含 Reuse provider/复制索引关联、复合脚本语法失败未知值、旧评测所有读接口重算及拒绝晋升。核心使用 `codex-test-observation-v3`；`originalGitStatusUnchanged` 只声明 Git 状态相同，文件内容等价未测。真实 RPC/MCP 与无换行巨帧恢复通过。UI、原生包和 hosted XCTest 结果独立记录，整体 Golden/Hard Gate 仍未通过。
+`swift build` 与 portable runner **95/95 方法通过**，包含 Reuse provider/复制索引关联、复合脚本语法失败未知值、旧评测所有读接口重算及拒绝晋升，以及两项只读 Hook 预览/Undo 冲突回归。核心使用 `codex-test-observation-v3`；`originalGitStatusUnchanged` 只声明 Git 状态相同，文件内容等价未测。真实 RPC/MCP 与无换行巨帧恢复通过；新增六组 renderer→CLI 同次 fresh fixture 通过且 UI hash 不变，见 E-UI2。其 Lab 和 Hook 未执行真实 provider 动作；原生与最终 hosted CI 证据见 E-NATIVE2/E-CORE2，整体 Golden/Hard Gate 仍未通过。
+
+[提交 8929967 的 macOS CI](https://github.com/Atingaii/Vela/actions/runs/34705822040)此前已通过 93 项 XCTest 及集成/打包检查，保持为独立历史检查点；最终提交 `91d34e2` 另有实际通过的 95 项 XCTest 与 18 组 renderer CI 记录，见 E-CORE2。
+
+最后一行 Reuse 文案调整后，E-UI2 已指向新 fixture 的最终全量通过。先前 `acceptance-flow-qa` 的中间六组通过和 `acceptance-flow-reuse-diagnostic-2` 的失败/修复证据保留；其临时 fixture 与最终 fixture 均已清理，未删除本地报告或可复用测试依赖。

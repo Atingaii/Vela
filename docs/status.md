@@ -13,7 +13,7 @@
 | Cursor | JSON/JSONL 导出、部分已知 `composerData` SQLite 记录的只读导入 | 私有 schema 随版本变化；拆分 bubble 记录等未适配格式需要导出。支持导入不等于覆盖 Cursor 全部内部数据库 |
 | 运行状态 | 支持明确终止事件；根据最近日志活动推断 Running/Idle/Needs Approval，保留推断来源 | 没有独立进程存活证明。导出记录与历史最后活动不能作为实时运行状态；未知保持 Unknown |
 | Setup | 明确项目及已知全局配置扫描；指令、Rules、Skills、Hooks/MCP 配置清单；敏感字段脱敏 | 审计检查包括格式、重复内容与保守上下文大小，不是完整语义冲突、Skill 有效性或 MCP 漂移分析；不会自动修复用户配置 |
-| Memory / Recall | 九类 Memory、七类作用域、Candidate → Active → Superseded → Archived 生命周期；来源字段与手动编辑 Markdown；Active-only Recall | 使用确定性文本匹配与作用域筛选，未实现语义检索或模型判断。Token 为保守估算；Recall 上限 4,000，来源不明不会自动补造 |
+| Memory / Recall | 九类 Memory、七类作用域、Candidate → Active → Superseded → Archived 生命周期；五类过滤、精确来源消息导航与手动编辑 Markdown；Active-only Recall | 使用确定性文本匹配与作用域筛选，未实现语义检索或模型判断。Token 为保守估算；Recall 上限 4,000，来源不明不会自动补造 |
 | Checkpoint | Goal、Completed、Pending、Tests、Next Actions 等用户记录，加上实际读取的 Git branch/commit/status；中立 Markdown 交接文件 | 用户填写的完成事项与测试描述不等于执行验证；导出不会启动 Agent，也不改写 provider 私有历史 |
 | Guidelines | 项目/全局 Guideline 保存、版本记录，以及 Workflow Run 中冻结的关联快照 | 当前模式是 `snapshot_only_not_injected`：尚未将 Guideline 注入 Agent 提示词，不能据此声称它影响了结果 |
 | Library | UTF-8 文本、HTML、可提取文字的 PDF、DOCX，以及显式 HTTP/HTTPS 文档 URL；保留来源 | 导入与提取有 2 MB 上限；PDF 不做 OCR，URL 不递归抓取。默认 private；用户资料目录中的 `private/`、`.private/` 强制作为私有资料，排除于 Agent 检索 |
@@ -24,17 +24,17 @@
 | 后台证据分析 | 默认关闭；开启后按持久化会话变更计数触发确定性分析，成功才记录处理水位，失败可重试 | 与 RPC helper 同生命周期；没有 OS 空闲检测；当前分析窗口最多 500 条会话，不保证完整历史回填；只生成建议，不自动 Apply |
 | 审批与写入 | 冻结动作参数、持久化 Inbox、跨进程原子状态抢占；受支持文件写入有路径与 hash 校验，Apply/Undo 记录前后状态 | 原子抢占避免同一待审批动作被两个进程同时启动，不代表任意外部命令都具备端到端 exactly-once 语义。崩溃后的外部副作用仍需结合记录核对 |
 | Scheduler | 已实现的 cron、启动、会话完成及 Git 事件使用持久化标识去重 | 只在应用或 RPC helper 运行时检查；没有独立系统 daemon，休眠/关机错过的时机不补跑。`usage_reset` 不可用，不制造重置事件 |
-| Usage | 从已索引日志汇总 provider/project/session token，处理支持的累计/重复事件 | 不是账户订阅额度。价格、配额、重置时间及分析精确成本不可用；历史未完整索引。按日统计归属会话开始日期，不是逐事件消耗的完整重建 |
+| Usage | 从已索引日志汇总 provider/project/session token，处理支持的累计/重复事件；界面区分缺失、已观测子集和真实零值 | 不是账户订阅额度。价格、配额、重置时间及分析精确成本不可用；历史未完整索引。按日统计归属会话开始日期，不是逐事件消耗的完整重建 |
 | Lab | 同提交命令对照及 Codex Agent 对照；冻结同一任务/模型请求、候选上下文、验证/输出清单，审批后运行；独立干净目录验证 | 首次真实六次任务均成功且测试观察同分，判定 Inconclusive，晋升拒绝。计分缺陷与更正保留；没有未来纠错率改善证据 |
-| Reuse | Memory-only 受测候选显式晋升；项目 SessionStart Hook 提案、SafeApply/Undo、Active Memory 收据与后续来源关联 | 需在 Codex `/hooks` 信任确切定义；没有自动改 provider 信任。收据不证明 Agent 采纳；完整真实下一会话链尚未通过 |
+| Reuse | Memory-only 受测候选显式晋升；项目 SessionStart Hook 提案、SafeApply/Undo、已安装无变更预览、已应用事务 Diff、Active Memory 收据与后续来源关联 | 已应用预览展示提交时快照，Undo 仍校验当前文件 hash。需在 Codex `/hooks` 信任确切定义；没有自动改 provider 信任。收据不证明 Agent 采纳；完整真实下一会话链尚未通过 |
 | 通知 | 审批、完成和错误分类开关；首次历史加载静默、重复事件去重、三个原创短提示音 | 默认关闭；使用 macOS 通知权限与声音策略。推断事件保留标签；应用/helper 停止期间不承诺通知投递 |
 | 官方网站 | 静态 HTML/CSS/JavaScript 产品介绍、开发预览说明和下载入口 | 网站展示不构成实现或测试证据；下载与签名状态以具体发布记录为准 |
 
 ## 本地验证状态
 
-当前验收分支已有 **93/93 个真实核心测试方法通过** portable runner，覆盖 SQLite、文件系统、增量日志、FSEvents、项目与私有数据边界、文档提取、Git、审批竞争、Workflow、Apply/Undo、配对命令执行及通知分类、静默基线、去重、偏好校验。Portable runner 编译真实核心和原同步测试方法，只提供小型断言兼容层，**不是 XCTest**。
+当前验收分支已有 **95/95 个真实核心测试方法通过** portable runner，覆盖 SQLite、文件系统、增量日志、FSEvents、项目与私有数据边界、文档提取、Git、审批竞争、Workflow、Apply/Undo、配对命令执行及通知分类、静默基线、去重、偏好校验。新增两项回归验证已安装 Hook 的只读预览及已应用事务预览，空 Apply 与冲突 Undo 仍被拒绝。Portable runner 编译真实核心和原同步测试方法，只提供小型断言兼容层，**不是 XCTest**。
 
-本机为 Command Line Tools 环境，`swift build` 可用；缺少 XCTest 模块，因此不能将本机验证写成“`swift test` 已通过”。完整 Xcode 环境使用 `swift test`。本轮[macOS CI](https://github.com/Atingaii/Vela/actions/runs/34705822040)已在核心提交 `8929967` 实际通过 **93 项 XCTest**、RPC/MCP、重启恢复与打包；最终 UI 提交仍单独复验。
+本机为 Command Line Tools 环境，`swift build` 可用；缺少 XCTest 模块，因此不能将本机验证写成“`swift test` 已通过”。完整 Xcode 环境使用 `swift test`。最终源码提交 `91d34e2` 的 [macOS CI](https://github.com/Atingaii/Vela/actions/runs/34709059008)已实际通过 **95 项 XCTest、18 组 renderer 检查**、RPC/MCP、输入边界、重启恢复与打包；[公开记录](evidence/2026-09-13-ci-final.json)保留精确提交和 job。较早提交 `8929967` 的 93 项结果只作为历史检查点。
 
 JSONL RPC/MCP 黑盒检查已通过，使用编译后的 CLI 和一次性数据目录，验证持久化设置、私有检索、候选贡献与 Dry Run 等边界。相关复验入口：
 
@@ -46,6 +46,10 @@ python3 scripts/check-repository.py
 ```
 
 新增测试覆盖 Improve 明确纠错/重复程序及近似负例、Library 身份和符号链接、Agent 独立 verifier 防篡改、旧结果重算与拒绝晋升、跨 provider Recall 关联、缺失用量和整数溢出。六次真实 Codex 比较单独记录在[公开证据](evidence/2026-09-13-agent-lab.json)，没有用受控协议 fixture 代替模型实验。
+
+新增[六组 renderer→真实 CLI 验收](verification.md#six-renderer-to-cli-acceptance-checks)在同一次全新隔离 fixture 中 **6/6 通过**：Memory 生命周期、精确来源、跨项目同 provider ID 导航、源 Suggestion→Lab 冻结待审批、Reuse 预览/Apply/重复预览/Undo、用量缺失→真实零。实际修复了空操作预览报错与已应用记录无法重开预览两项缺陷；56 次 Core RPC 无错误，UI 文件前后哈希一致。最后一行 Reuse 文案调整后已全量再验，最终本地记录为 `output/playwright/acceptance-flow-final/results.json`，UI `app.js` hash 为 `01104e7f…ee3af0b`；之前失败与中间通过记录保留。该套件没有执行真实 Agent、Hook 或 OS 通知，不代表整条 Golden Scenario 完成；原生、开发包和 CI 证据见下方记录。
+
+最终原生开发 wrapper 已通过 LaunchServices 启动，在 1250 × 800 和 900 × 623 窗口检查分栏、抽屉及 Escape。原生 Reuse 的预览不写、Apply 精确写入、重开事务 Diff、Undo 还原均经独立 CLI 确认。[UI 证据](evidence/2026-09-13-ui.json)和[开发包静态审查](evidence/2026-09-13-package.json)分别记录验证范围；1,370,679 bytes 的本地 ZIP 未作为新 release 发布。
 
 这些结果验证的是相应 fixture 和测试边界，不代表任意 provider 版本、任意项目或全部需求已经覆盖。性能目标与实际测量分开记录；小规模本地样本不能外推为大历史、并发任务或长期稳定性保证。
 

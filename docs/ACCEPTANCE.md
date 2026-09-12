@@ -19,7 +19,7 @@
 | 涉及步骤 | 新增实现或证据 | 当前仍缺什么 |
 | --- | --- | --- |
 | GS07/09/10 | 明确长期 verification 约束可自动产生 Candidate；严格工程纠错、near-miss 与复制日志去重已有九项专项回归；三个不同 Codex provider Session 的真实工具事件顺序可产生未启用 Workflow draft | 仅受限确定性 detector；不能证明泛化 precision、所有 provider、完整自然语言规划；不是同次真实 Golden 来源链 |
-| GS13–15 | `sourceSuggestionId` 与精确文件或关联 Memory 绑定；Agent Lab 冻结 task、requested model/reasoning、commit、超时、两组上下文、受保护 verifier 与输出 allowlist；两边各三次真实 Codex 运行已执行 | 新界面路径仍需最终复验；provider resolved model version 为 null；实验候选是专门准备的 fixture，不是 GS06 自动提取后一路生成 |
+| GS13–15 | `sourceSuggestionId` 与精确文件或关联 Memory 绑定；Agent Lab 冻结 task、requested model/reasoning、commit、超时、两组上下文、受保护 verifier 与输出 allowlist；两边各三次真实 Codex 运行已执行；新界面 Suggestion→Lab→真实 pending approval 已在六组套件通过 | 新 UI 测试止于冻结待审批，没有执行 Agent；provider resolved model version 为 null；六次真实实验候选是专门准备的 fixture，不是 GS06 自动提取后一路生成 |
 | GS16/17 | 本次真实运行两边各 3/3 独立任务检查通过；计分修正后两边各 3/3 观察到测试调用，结果 **Inconclusive**；实际 `lab.promote` 拒绝，Memory 仍 Candidate | 此结果证明同分不应晋升，未证明 tests 增加、corrections 减少或有效候选的 Promote 正向主线 |
 | GS18–20 | Codex 项目 SessionStart Hook 可预览、经受审 Apply 安装，active Recall 可记录 provider Session 与 Context hash；后续关联提供来源记录 | Hook 的 stdout 仅证明提供上下文；真实 Codex trust/自动消费/行为遵循与未来 RFR 均未验收；一次 hook fixture 不能补齐三步 |
 
@@ -34,6 +34,8 @@ Eval `938a7aa2-0bc7-416a-9437-e08b1240d9c4` 于 **2026-09-12 15:46:26–15:52:57
 原 `evaluation.json` 的 SHA-256 为 `893627063b69d36d6eb98d9a36e1f0ea737ea09aaddf895329b81834a937b298`；v2 `evaluation-reanalyzed.json` 为 `ebc088bc30cd441be022e6732ccb14532224ec2d4b530ea80121eddf41abdd56`。本地 raw 工件包含工作目录等信息，不直接作为公开包资源。[公开脱敏实验记录](evidence/2026-09-13-agent-lab.json) 使用更保守的 `codex-test-observation-v3`，在成功的复合脚本中才接受首条测试调用为观察，重算结果仍 Inconclusive。报告保留冻结 task/commit、两个二进制 hash、六条原始输出 hash、测试 argv、真实独立退出码及拒绝晋升记录；这六个 raw hash 与冻结 task hash 已逐项核对。重新执行入口为 [test-agent-live.py](../scripts/test-agent-live.py)，会产生新的真实模型运行和费用，不能当作重算旧数据的同一实验。
 
 ### 增量验收待项
+
+最终源码 `91d34e2` 的 [macOS CI](evidence/2026-09-13-ci-final.json)实际通过 95 项 XCTest 和 18 组 renderer 检查；[原生组件验收](evidence/2026-09-13-ui.json)确认隔离 wrapper 的两种窗口布局与 Reuse Preview/Apply/重开/Undo 持久化；[开发包审核](evidence/2026-09-13-package.json)通过资源、签名完整性和归档检查。这些新增证据不改变整条 Golden 的 Not Run、完整产品 No-Go 或签名/公证缺口。
 
 - 曾有一次 81 方法运行出现三个 Agent Lab 执行失败，原因是配置标量 JSON 编码；修正后已有 90 方法的中间 portable 快照通过。随后仍有 scorer、旧结果重算、Usage 与 Reuse 关联改动；**中间通过不继承为最新工作树通过**。
 - 最终回归须同时检查 `lab.list` / `lab.compare` / `evidence.get` / `lab.promote` 对旧结果使用相同计分，旧 ready 修正后不能激活，顶层及逐次 tokens 的 null/真实零一致。复合命令有语法错误或状态不明时不能凭前缀断言测试实际执行。
@@ -154,8 +156,14 @@ Tests 以实际执行及结果计，Task Success 使用预先定义的任务检�
 
 真实开发者连续使用受支持 Claude Code/Codex/Cursor，Vela 能观察、记住正确工程事实、发现重复纠错与操作、形成受控 Context/Workflow、在真实任务中验证、在未来任务中复用，并证明改善或诚实报告证据不足。性能、安全、隐私和数据完整性没有被牺牲。只有“保存、生成、测试界面”而没有这条可回放链，仍未完成原始构思。
 
-### 最终核心回归快照（2026-09-13）
+### 当前核心与六组界面回归快照（2026-09-13）
 
-`swift build` 与 portable runner **93/93 方法通过**，包含 Reuse provider/复制索引关联、复合脚本语法失败未知值、旧评测所有读接口重算及拒绝晋升。核心使用 `codex-test-observation-v3`；`originalGitStatusUnchanged` 只声明 Git 状态相同，文件内容等价未测。真实 RPC/MCP 与无换行巨帧恢复通过。UI、原生包和 hosted XCTest 结果独立记录，整体 Golden/Hard Gate 仍未通过。
+`swift build` 与 portable runner **95/95 方法通过**，包含 Reuse provider/复制索引关联、复合脚本语法失败未知值、旧评测所有读接口重算及拒绝晋升，以及已安装/已应用 Hook 预览的两项真实文件回归。核心使用 `codex-test-observation-v3`；`originalGitStatusUnchanged` 只声明 Git 状态相同，文件内容等价未测。真实 RPC/MCP 与无换行巨帧恢复通过。原生包和 hosted XCTest 结果独立记录，整体 Golden/Hard Gate 仍未通过。
+
+[六组真实 renderer→CLI 套件](verification.md#six-renderer-to-cli-acceptance-checks)使用同一次全新合成 fixture 通过 **6/6**，`completeSuite: true`，56 次 Core RPC 无错误；运行前后 UI 文件哈希一致。其证据仅支持 Memory 状态过滤和真实激活、确切 Session/Message 来源、跨项目同 provider ID 不误链、Suggestion→Lab 冻结待审批、Reuse 文件 Apply/Undo 与缺失用量语义。Lab approval 在测试桥被拒，未转入 Core 执行；Hook 只修改测试项目文件且从未运行。该套件不能将 GS13–20 的同次真实 Agent 主线标为 Pass。
+
+最后一行 Reuse 对话框文案调整后，于 **2026-09-12 17:37:16 UTC** 使用新的 `acceptance-flow-final` fixture 再跑全六组通过。最终 E-UI2 记录为本地 `output/playwright/acceptance-flow-final/results.json`，`app.js` SHA-256 为 `01104e7fbeef5c24a08af20fe70bd1934dc82f1446f7e16e230b03688ee3af0b`，helper 仍为 `bbeb97c8…e14d24483`。17:27:33 UTC 的中间通过与更早的两项产品失败记录均保留，没有用最终结果覆盖历史证据。
+
+Reuse 初次诊断保留两项产品失败：已安装空操作草稿的预览被 Apply 数量校验拒绝；已应用草稿重开预览被过期 base hash 拒绝，导致无法进入 Undo。现仅对内部 Vela Hook 标记、确切项目路径及未变化观测 hash 提供无变更预览；已应用预览读取同项目已提交 journal。空 Apply 仍拒绝，Undo 仍按 journal 的 after hash 校验当前文件，外部编辑必须停止。两项 Core 回归与最终六组中的真实预览/恢复均通过；跨 scope 守卫另经源码复核，不扩大为完整恶意 journal/并发攻击矩阵已通过。原失败证据保留，成功与已解决失败的临时 fixture 均已清理。
 
 [核心提交 8929967 的 GitHub macOS CI](https://github.com/Atingaii/Vela/actions/runs/34705822040)已实际通过 **93 项 XCTest、0 失败**，以及仓库/资源、RPC/MCP、巨帧、强杀重启和打包检查。首轮 XCTest 的两条记录来自预期异常被 `XCTUnwrap` 另行记错的测试辅助函数，已保留失败运行并修正测试，不曾放宽生产安全校验。该提交尚未包含最终客户端界面，不能代替后续 UI/打包验收。

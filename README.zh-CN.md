@@ -17,9 +17,9 @@ Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Co
 
 > **0.1.0-preview.2 · 开发者预览版。** 核心路径已经实现，但适配、自动化和评测仍有明确限制；当前版本不代表完整产品路线图已经交付，也不是稳定版本。开发包使用 ad-hoc 签名，没有 Developer ID 签名，尚未通过 Apple 公证。使用前请阅读[功能状态与限制](docs/status.md)。
 
-![Vela 原生客户端展示项目会话与 Coding Agent 活动](docs/assets/vela-sessions.png)
+![Vela 开发版工作区展示分组 Agent 会话与原始消息](docs/assets/vela-workspace.png)
 
-*真实 macOS 应用截图，使用隔离的示例工程与合成会话日志，通过真实本地 helper 和数据库渲染；不含个人会话数据。*
+*真实 macOS 开发版截图，使用隔离的示例工程与合成会话日志，通过真实本地 helper 和数据库渲染；不含个人会话数据。本次工作区重构位于开发分支，尚未包含在 preview.2 下载中。*
 
 ## 当前可用能力
 

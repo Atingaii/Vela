@@ -18,9 +18,9 @@ Vela is a local macOS workspace for supported Claude Code, Codex and Cursor sess
 
 > **0.1.0-preview.2 — developer preview.** The core paths are implemented, with substantial compatibility and automation limits. This is not a complete implementation of the product roadmap or a stable release. The development app is ad-hoc signed, has no Developer ID signature and is not Apple-notarized. Read [feature status and limitations](docs/status.md).
 
-![Vela sessions workspace showing a project and its coding-agent activity](docs/assets/vela-sessions.png)
+![Vela development workspace showing grouped agent sessions and their source messages](docs/assets/vela-workspace.png)
 
-*Actual macOS application with an isolated example project and synthetic session logs. The interface uses the real local helper and database; no personal session data appears here.*
+*Actual macOS development build with an isolated example project and synthetic session logs. The interface uses the real local helper and database; no personal session data appears here. This workspace redesign is on the development branch and is not included in the preview.2 download.*
 
 ## What you can use
 

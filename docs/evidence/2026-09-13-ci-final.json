@@ -1,0 +1,106 @@
+{
+  "format": "vela-ci-verification-v1",
+  "sourceCommit": "91d34e207eb7178a662c96a00267099025e52310",
+  "repository": "Atingaii/Vela",
+  "runId": 34709059008,
+  "jobId": 103594341468,
+  "url": "https://github.com/Atingaii/Vela/actions/runs/34709059008",
+  "conclusion": "success",
+  "xctest": {
+    "executed": 95,
+    "failures": 0,
+    "summary": "Executed 95 tests, with 0 failures (0 unexpected) in 16.446 (16.451) seconds"
+  },
+  "renderer": {
+    "synthetic": true,
+    "checks": [
+      {
+        "check": "filtering",
+        "passed": true
+      },
+      {
+        "check": "setup",
+        "passed": true
+      },
+      {
+        "check": "memory",
+        "passed": true
+      },
+      {
+        "check": "workflow",
+        "passed": true
+      },
+      {
+        "check": "draft",
+        "passed": true
+      },
+      {
+        "check": "keyboard",
+        "passed": true
+      },
+      {
+        "check": "rapid-navigation",
+        "passed": true
+      },
+      {
+        "check": "live-detail",
+        "passed": true
+      },
+      {
+        "check": "routing",
+        "passed": true
+      },
+      {
+        "check": "routing-failure",
+        "passed": true
+      },
+      {
+        "check": "routing-unknown",
+        "passed": true
+      },
+      {
+        "check": "routing-aggregate",
+        "passed": true
+      },
+      {
+        "check": "memory-lifecycle",
+        "passed": true
+      },
+      {
+        "check": "exact-source",
+        "passed": true
+      },
+      {
+        "check": "cross-project-source",
+        "passed": true
+      },
+      {
+        "check": "lab-frozen-approval",
+        "passed": true
+      },
+      {
+        "check": "reuse-apply-undo",
+        "passed": true
+      },
+      {
+        "check": "usage-missing",
+        "passed": true
+      }
+    ],
+    "passed": 18,
+    "total": 18
+  },
+  "otherChecks": [
+    "Repository and static assets",
+    "RPC/MCP integration",
+    "Bounded JSONL input recovery",
+    "Forced helper restarts",
+    "Package allowlist and signing verification"
+  ],
+  "limits": [
+    "Hosted macOS does not establish compatibility with every supported OS",
+    "Renderer checks use synthetic data and a test-only native bridge",
+    "No real provider trust, next-session adoption, OS notification delivery or full Golden Scenario is established"
+  ],
+  "previousCheckpoint": "2026-09-13-ci-core.json"
+}

@@ -52,6 +52,33 @@ Both the development wrapper and final ad-hoc-signed release returned “Notific
 
 All three Antigravity conversations exited normally. Removed seven disposable client implementation/review briefs, the local initial-invocation log and the temporary-permission manifest. The five exact task-added read permissions were reconciled against the final CLI settings: one remained and was removed; the other four were already absent. Removed only this task's workspace-trust entry, preserving all other settings, pre-existing trust, provider history and credentials. Product sources, final screenshots, reusable dependencies and release deliverables remain intact; the release owner handles shared fixture, packaging and capture scratch files separately.
 
+## Blume-inspired client refinement (2026-09-12–13)
+
+This later client refinement uses screenshots of the actual [Blume client](https://blume.codes/) as a design reference. It retains Vela's existing Swift/AppKit/WebKit stack and all eight navigation areas. Warm neutral surfaces, compact status-grouped session lists, restrained blue selection, Memory lifecycle filters and evidence-first Improve cards replace the sparse table presentation. Reference branding, illustrations and proprietary assets are not copied. The website retains the separately reviewed px0-inspired direction.
+
+All client UI implementation continues to use Antigravity CLI 1.2.2 with `--model gemini-3.8-flash-high --effort high --mode accept-edits --prompt-interactive`. The initial invocation requested continuation of the earlier client conversation `286d77dd-5129-47ad-aa7b-d84c0a3f2f37`; its actual exit/resume identifier for this refinement was `ed0f5097-7f11-4dda-b4e7-9f55086bd4ca`. The remaining work is divided into narrowly scoped conversations using that same exact model and effort:
+
+| Conversation | Authorship scope |
+| --- | --- |
+| `ed0f5097-7f11-4dda-b4e7-9f55086bd4ca` | Client shell, grouped Sessions, Memory lifecycle and exact evidence navigation, Improve and Agent Lab implementation. |
+| `fe9a7c9c-96a2-4f39-94da-beca257f650b` | Final modal/drawer/search focus correction, explicit Lab project choice, generic executable placeholder, Usage fragment integration and nullable Session token details. |
+| `d7d7b39f-e8a8-4c3e-921d-c8d4aa1da455` | Independently authored Usage function fragment and integration notes; no direct production-file writes. |
+| `42fb034d-8d37-4b3a-a2c5-6af3fa591af9` | Independently authored project Reuse fragment and integration notes, followed by an exclusive handoff to integrate that feature into the production renderer. |
+
+Supervisors provide natural-language briefs, real captures and Core contracts, and perform independent validation. UI source changes and fragment integration are performed by the listed required-model conversations. No provider transcripts or temporary implementation briefs are committed.
+
+The implementation includes explicit Agent Lab inputs and frozen-approval review, exact project/provider/session evidence links, nullable usage presentation, and project Codex reuse configuration through the existing preview/apply/undo boundary. It does not infer provider trust, agent adoption, future improvement or missing token counts. The native bridge change in this refinement is limited to the named `lab.promote`, `reuse.preview` and `reuse.outcomes` allowlist entries; `reuse.context` remains unavailable to the renderer.
+
+The supervisor reviewed the current client at 1,250 × 800 and 900 × 620 pixels and accepted the visual direction. Independent checks of extracted, actual Lab functions passed nine source-isolation and delayed-response cases. The required-model Usage fragment passed syntax validation and eight groups of isolated function checks, including missing values, genuine zero, observed subsets, overflow and stale-response guards. These are scoped checks, not complete browser or native acceptance. Final real-RPC regression, native captures and packaged verification for this refinement are recorded by the release owner after integration. The Preview 2 twelve-group acceptance results above are historical and must not be read as results for this newer renderer.
+
+The release owner records the new final workspace capture separately as `docs/assets/vela-workspace.png`; the Preview 2 session and approval images remain historical assets. After native review, the Reuse author briefly resumed conversation `42fb034d-8d37-4b3a-a2c5-6af3fa591af9` for one copy-only correction: the configuration explanation no longer exposes an internal RPC method name. The supervisor verified that exactly one text line changed and all surrounding source bytes stayed unchanged. Node syntax validation passed. The resulting renderer SHA-256 is `01104e7fbeef5c24a08af20fe70bd1934dc82f1446f7e16e230b03688ee3af0b`; the final source CI passed 95 XCTest cases and both renderer suites (18 checks) against this text revision; see [the recorded run](../evidence/2026-09-13-ci-final.json).
+
+### Refinement cleanup
+
+All four refinement conversations exited normally, and the supervisor closed its isolated browser session. After the release owner confirmed the final native Reuse preview/apply/reopen/undo flow, cleanup removed the 26 explicitly enumerated files in the disposable `blume-ui` scratch directory: implementation/review briefs, generated integration fragments and notes, two mechanical source snapshots, ten temporary review images, and the temporary-access manifest. It also removed that empty directory and the one default browser-cache screenshot created by this task. Formal acceptance evidence, native delivery captures, source files and reusable dependencies remain intact.
+
+Cleanup removed exactly the one task-added repository read permission and the one task-added workspace-trust entry from the latest CLI settings. All other settings were preserved. Provider history, credentials and pre-existing permissions were not deleted; shared native fixtures, packaging outputs and reference captures remain under the release owner's cleanup scope.
+
 ## Workflow
 
 The initial headless attempts stopped at an explicit repository read-permission request before generating files. The same model and effort were used interactively to establish scoped repository access. Subsequent implementation and correction passes reused that conversation through `--conversation`, without changing models. No blanket permission bypass was used.

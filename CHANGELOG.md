@@ -8,6 +8,8 @@ Changes are documented by user-visible behavior. Preview storage formats may cha
 - Add strict engineering-constraint candidates and repeated verification-procedure proposals with near-miss and source-identity checks.
 - Add frozen Codex comparisons with protected independent verification, versioned raw-event analysis and guarded memory-only promotion. Preserve inconclusive/regression outcomes and transparent scorer corrections.
 - Add project SessionStart Hook proposals and provider-aware context receipts; require Codex's own hook review. Do not equate delivery with adoption.
+- Make unchanged, already-installed Hook previews read-only and reopen applied transaction Diffs from committed snapshots. Empty Apply remains rejected; Undo still rejects a changed target.
+- Verify the final workspace through 95 hosted XCTest cases, 18 real-helper renderer checks and isolated native Apply/Undo interaction. Run both renderer suites in macOS CI and retain their reports.
 - Reject existing Library identity replacement, asset-ancestor symlinks and unbounded JSONL frames. Preserve missing/partial usage and reject unsafe token arithmetic.
 - Establish the product constitution, 113-requirement traceability, three-project comparison and six mandatory release gates. Full product acceptance remains No-Go; this is not a new stable or preview release.
 

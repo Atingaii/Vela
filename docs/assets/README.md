@@ -4,6 +4,9 @@ The screenshots in this directory show Vela's actual macOS AppKit/WKWebView appl
 
 No personal sessions, user projects, account credentials or reference-product screenshots are included. The data is deliberately synthetic; the interface and its responses are real. These images are product illustrations, not evidence of a completed real-world agent task or benchmark improvement.
 
-The native WebKit viewport is exported without visual editing by the development-only capture command. Release builds exclude this command. Copies in `website/dist/assets/` use the same pixels. When refreshing an image, regenerate the fixture, inspect the actual app state, capture it again, and update the verification record.
+The native WebKit viewport is exported without visual editing by the development-only capture command. Release builds exclude this command. When refreshing an image, regenerate the fixture, inspect the actual app state, capture it again, and update the verification record.
+
+- `vela-workspace.png` shows the unreleased acceptance branch at source commit `91d34e2`, captured after a standard LaunchServices launch of an isolated development wrapper at 1250 × 800. Its pixels and SHA-256 are recorded in [UI evidence](../evidence/2026-09-13-ui.json). It is not included in the preview.2 download or current website assets.
+- `vela-sessions.png` and `vela-approval.png` retain the released preview.2 interface. Their copies in `website/dist/assets/` use the same pixels.
 
 The Vela icon and notification sound source files, generation details and license are documented under `Sources/VelaApp/Resources/Design/`. Website font licenses accompany the self-hosted font files. Third-party product references are not redistributed as Vela assets.
