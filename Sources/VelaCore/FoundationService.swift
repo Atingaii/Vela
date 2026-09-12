@@ -32,7 +32,13 @@ public final class FoundationService {
             }
             dashboard["harnesses"] = agentList()
             dashboard["usage"] = try usage(params); dashboard["settings"] = try store.get("settings","preferences") ?? ["telemetry":false]
-            dashboard["stats"] = ["sessionCount":(dashboard["sessions"] as? [JSON])?.count ?? 0,"memoryCount":(dashboard["memories"] as? [JSON])?.count ?? 0,"activeMemoryCount":(dashboard["memories"] as? [JSON])?.filter { string($0,"state").lowercased() == "active" }.count ?? 0,"workflowCount":(dashboard["workflows"] as? [JSON])?.count ?? 0]
+            let sessionRows = dashboard["sessions"] as? [JSON] ?? []
+            let memories = dashboard["memories"] as? [JSON] ?? []
+            let workflows = dashboard["workflows"] as? [JSON] ?? []
+            let activeMemories = memories.filter { string($0,"state").lowercased() == "active" }
+            let stats: JSON = ["sessionCount": sessionRows.count, "memoryCount": memories.count,
+                               "activeMemoryCount": activeMemories.count, "workflowCount": workflows.count]
+            dashboard["stats"] = stats
             dashboard["ingestion"] = ["diagnostics":sessions.diagnostics,"historyFullyIndexed":false,"mode":"bounded initial index with incremental FSEvents"]
             return dashboard
         case "projects.list": return try store.list("project")

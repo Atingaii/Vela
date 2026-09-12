@@ -12,13 +12,17 @@ final class AutomationTests: XCTestCase {
         try work(root,store,AutomationService(store:store))
     }
     private func workflow(_ service: AutomationService, root: URL, steps: [JSON]) throws -> JSON {
-        try XCTUnwrap(service.handle("workflows.save",["title":"Test workflow","project":root.path,"trigger":"manual","steps":steps]) as? JSON)
+        let value = try service.handle("workflows.save",["title":"Test workflow","project":root.path,"trigger":"manual","steps":steps])
+        return try XCTUnwrap(value as? JSON)
     }
     private func call(_ service: AutomationService, _ method: String, _ params: JSON) throws -> JSON {
-        try XCTUnwrap(service.handle(method,params) as? JSON)
+        // Let expected service errors reach the calling test without recording an inner assertion failure.
+        let value = try service.handle(method,params)
+        return try XCTUnwrap(value as? JSON)
     }
     private func approve(_ service: AutomationService, store: VelaStore) throws -> JSON {
-        let approval = try XCTUnwrap(store.list("approval").first {string($0,"state") == "pending"})
+        let approvals = try store.list("approval")
+        let approval = try XCTUnwrap(approvals.first {string($0,"state") == "pending"})
         return try call(service,"approvals.decide",["id":approval["id"]!,"decision":"approve","snapshotHash":approval["snapshotHash"]!])
     }
     private func gitRepository(_ root: URL) throws {
