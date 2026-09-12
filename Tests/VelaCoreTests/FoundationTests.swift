@@ -22,9 +22,18 @@ final class FoundationTests: XCTestCase {
         service?.stopWatching(); service = nil; store = nil
         if let temporary, FileManager.default.fileExists(atPath:temporary.path) { try FileManager.default.removeItem(at:temporary) }
     }
-    @discardableResult func rpc(_ method:String,_ params:JSON = [:]) throws -> Any { try XCTUnwrap(service.handle(method,params)) }
-    func rows(_ method:String,_ params:JSON = [:]) throws -> [JSON] { try XCTUnwrap(rpc(method,params) as? [JSON]) }
-    func object(_ method:String,_ params:JSON = [:]) throws -> JSON { try XCTUnwrap(rpc(method,params) as? JSON) }
+    @discardableResult func rpc(_ method:String,_ params:JSON = [:]) throws -> Any {
+        let value = try service.handle(method,params)
+        return try XCTUnwrap(value)
+    }
+    func rows(_ method:String,_ params:JSON = [:]) throws -> [JSON] {
+        let value = try rpc(method,params)
+        return try XCTUnwrap(value as? [JSON])
+    }
+    func object(_ method:String,_ params:JSON = [:]) throws -> JSON {
+        let value = try rpc(method,params)
+        return try XCTUnwrap(value as? JSON)
+    }
     func write(_ url:URL,_ text:String) throws { try FileManager.default.createDirectory(at:url.deletingLastPathComponent(),withIntermediateDirectories:true); try Data(text.utf8).write(to:url) }
     func jsonl(_ objects:[JSON]) throws -> String { try objects.map { try jsonString($0) }.joined(separator:"\n") + "\n" }
     func append(_ url:URL,_ text:String) throws { let handle = try FileHandle(forWritingTo:url); defer { try? handle.close() }; try handle.seekToEnd(); try handle.write(contentsOf:Data(text.utf8)) }
