@@ -2,6 +2,15 @@
 
 Changes are documented by user-visible behavior. Preview storage formats may change before a stable compatibility policy is declared.
 
+## Unreleased — acceptance and Blume-inspired client refinement
+
+- Group sessions by attention/state; show project Memory lifecycle, exact message provenance, reviewable suggestion cards and explicit Lab/Reuse steps. UI implementation remains authored through Antigravity CLI Gemini 3.8 Flash (High).
+- Add strict engineering-constraint candidates and repeated verification-procedure proposals with near-miss and source-identity checks.
+- Add frozen Codex comparisons with protected independent verification, versioned raw-event analysis and guarded memory-only promotion. Preserve inconclusive/regression outcomes and transparent scorer corrections.
+- Add project SessionStart Hook proposals and provider-aware context receipts; require Codex's own hook review. Do not equate delivery with adoption.
+- Reject existing Library identity replacement, asset-ancestor symlinks and unbounded JSONL frames. Preserve missing/partial usage and reject unsafe token arithmetic.
+- Establish the product constitution, 113-requirement traceability, three-project comparison and six mandatory release gates. Full product acceptance remains No-Go; this is not a new stable or preview release.
+
 ## 0.1.0-preview.2 — 2026-09-12
 
 A product experience update to the macOS workspace and public website. The underlying preview boundaries remain documented in [feature status](docs/status.md).

@@ -12,7 +12,9 @@
 
 An agent session ends. Your engineering context should not.
 
-Vela is a local macOS workspace for supported Claude Code, Codex and Cursor session data. It brings conversation evidence, project memory, reviewable workflows and command comparisons into one place, alongside the agents you already use.
+Vela is a local macOS workspace for supported Claude Code, Codex and Cursor session data. It brings conversation evidence, project memory, reviewable workflows and measured Codex comparisons into one place, alongside the agents you already use.
+
+> **Development branch — acceptance redesign, not yet released.** The download still points to preview.2. The 20-step product scenario and six release gates are **not passed**; see [acceptance](docs/ACCEPTANCE.md), [traceability](docs/TRACEABILITY.md) and the [three-project comparison](docs/reference-comparison.md).
 
 > **0.1.0-preview.2 — developer preview.** The core paths are implemented, with substantial compatibility and automation limits. This is not a complete implementation of the product roadmap or a stable release. The development app is ad-hoc signed, has no Developer ID signature and is not Apple-notarized. Read [feature status and limitations](docs/status.md).
 
@@ -89,13 +91,21 @@ Add a stdio MCP server to your agent configuration using the installed helper an
 
 Read tools expose supported search, recall and context records. Requests require an explicitly selected, registered project. The optional `--contribute` flag also permits candidate memories, checkpoints, session-backed signals and suggestion drafts. Contribution cannot activate an existing memory, apply a suggestion or execute a workflow. Private Library material is excluded from agent retrieval.
 
+## From evidence to reuse
+
+Explicit engineering corrections can create source-linked candidate Memory and reviewable suggestions. Repeated supported tool sequences can propose disabled Workflow drafts. Open the exact source message before choosing what to test.
+
+In Lab, select a committed project, an explicit Codex executable and model, the same task, protected verification files and allowed output files. Review the frozen request in Inbox before running it. A comparison can legitimately be **inconclusive**. Promotion activates only unchanged, tested project Memory after an eligible comparison and explicit review.
+
+To offer active Memory to later Codex sessions, preview and apply the project-only `.codex/hooks.json` change, then review and trust the exact hook in Codex `/hooks`. Vela does not bypass provider trust. Recall receipts establish that context was offered; they do not establish agent compliance or improvement. See the [Lab and Reuse contract](docs/implementation/agent-lab-contract.md).
+
 ## Know the preview boundaries
 
 - Initial ingestion selects up to **60 recent source files per provider**, using a **256 KB tail** plus a **32 KB header** where needed. Retained messages are bounded; full historical backfill and native session transfer are not implemented. Cursor compatibility covers exports and selected known SQLite records.
 - **Usage is observed log usage.** Subscription quota, reset detection, pricing and the `usage_reset` trigger are unavailable.
 - Workflow drafting and Improve use **deterministic local rules**. They are not a general natural-language planner or a model-driven improvement pipeline.
 - Guidelines can be saved and frozen in run records, but **are not injected into agent prompts** in this preview.
-- Lab performs **paired command comparisons**, not a complete agent benchmark. An exit code and runtime do not establish task success, rule compliance or token savings.
+- Lab supports paired commands and an explicit **Codex agent mode**: frozen task/model request, isolated worktrees, protected verification files, and a separate verifier. Three complete repetitions per variant are required for promotion review. Ties, missing measurements and regressions cannot promote a candidate. The first six real runs were tied; [the evidence](docs/evidence/2026-09-13-agent-lab.json) preserves a corrected scorer defect. Future correction reduction remains unmeasured.
 - Scheduled triggers operate while the app/helper is running. There is no always-on system daemon or missed-run catch-up after sleep or shutdown.
 
 See [the detailed status](docs/status.md) for the supported boundaries and [the requirements](docs/requirements.md) for the broader roadmap.

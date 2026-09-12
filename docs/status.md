@@ -1,6 +1,6 @@
 # 功能状态与限制
 
-**版本：0.1.0-preview.2 · 开发者预览版。** 本文描述当前实现与验证边界，不代表[完整需求矩阵](requirements.md)已经完成，也不是稳定版本承诺。
+**当前开发分支：基于 0.1.0-preview.2 的未发布验收重构。完整产品 No-Go。** 发布下载仍是 preview.2，以下区分当前源码与已发布包。本文描述当前实现与验证边界，不代表[完整需求矩阵](requirements.md)已经完成，也不是稳定版本承诺。
 
 源码仓库：[Atingaii/Vela](https://github.com/Atingaii/Vela)；预览下载：[版本发布页](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2)；官网：[Vela](https://vela-engineering.zzzsssaa.chatgpt.site)。官网当前使用托管子域名。
 
@@ -25,15 +25,16 @@
 | 审批与写入 | 冻结动作参数、持久化 Inbox、跨进程原子状态抢占；受支持文件写入有路径与 hash 校验，Apply/Undo 记录前后状态 | 原子抢占避免同一待审批动作被两个进程同时启动，不代表任意外部命令都具备端到端 exactly-once 语义。崩溃后的外部副作用仍需结合记录核对 |
 | Scheduler | 已实现的 cron、启动、会话完成及 Git 事件使用持久化标识去重 | 只在应用或 RPC helper 运行时检查；没有独立系统 daemon，休眠/关机错过的时机不补跑。`usage_reset` 不可用，不制造重置事件 |
 | Usage | 从已索引日志汇总 provider/project/session token，处理支持的累计/重复事件 | 不是账户订阅额度。价格、配额、重置时间及分析精确成本不可用；历史未完整索引。按日统计归属会话开始日期，不是逐事件消耗的完整重建 |
-| Lab | baseline/candidate 在同一 Git 提交的独立 worktree 中执行配对命令，记录退出码、输出、耗时和变更，执行前审批 | 当前是 command-paired comparison，不是完整 Agent Benchmark。尚无可靠的自动任务成功、规则遵循、模型质量或 token 收益结论 |
+| Lab | 同提交命令对照及 Codex Agent 对照；冻结同一任务/模型请求、候选上下文、验证/输出清单，审批后运行；独立干净目录验证 | 首次真实六次任务均成功且测试观察同分，判定 Inconclusive，晋升拒绝。计分缺陷与更正保留；没有未来纠错率改善证据 |
+| Reuse | Memory-only 受测候选显式晋升；项目 SessionStart Hook 提案、SafeApply/Undo、Active Memory 收据与后续来源关联 | 需在 Codex `/hooks` 信任确切定义；没有自动改 provider 信任。收据不证明 Agent 采纳；完整真实下一会话链尚未通过 |
 | 通知 | 审批、完成和错误分类开关；首次历史加载静默、重复事件去重、三个原创短提示音 | 默认关闭；使用 macOS 通知权限与声音策略。推断事件保留标签；应用/helper 停止期间不承诺通知投递 |
 | 官方网站 | 静态 HTML/CSS/JavaScript 产品介绍、开发预览说明和下载入口 | 网站展示不构成实现或测试证据；下载与签名状态以具体发布记录为准 |
 
 ## 本地验证状态
 
-本轮已有 **54/54 个真实核心测试方法通过** portable runner，覆盖 SQLite、文件系统、增量日志、FSEvents、项目与私有数据边界、文档提取、Git、审批竞争、Workflow、Apply/Undo、配对命令执行及通知分类、静默基线、去重、偏好校验。Portable runner 编译真实核心和原同步测试方法，只提供小型断言兼容层，**不是 XCTest**。
+当前验收分支已有 **93/93 个真实核心测试方法通过** portable runner，覆盖 SQLite、文件系统、增量日志、FSEvents、项目与私有数据边界、文档提取、Git、审批竞争、Workflow、Apply/Undo、配对命令执行及通知分类、静默基线、去重、偏好校验。Portable runner 编译真实核心和原同步测试方法，只提供小型断言兼容层，**不是 XCTest**。
 
-本机为 Command Line Tools 环境，`swift build` 可用；缺少 XCTest 模块，因此不能将本机验证写成“`swift test` 已通过”。完整 Xcode 环境使用 `swift test`，仓库 macOS CI 也配置为该路径。
+本机为 Command Line Tools 环境，`swift build` 可用；缺少 XCTest 模块，因此不能将本机验证写成“`swift test` 已通过”。完整 Xcode 环境使用 `swift test`。本轮[macOS CI](https://github.com/Atingaii/Vela/actions/runs/34705822040)已在核心提交 `8929967` 实际通过 **93 项 XCTest**、RPC/MCP、重启恢复与打包；最终 UI 提交仍单独复验。
 
 JSONL RPC/MCP 黑盒检查已通过，使用编译后的 CLI 和一次性数据目录，验证持久化设置、私有检索、候选贡献与 Dry Run 等边界。相关复验入口：
 
@@ -43,6 +44,8 @@ python3 scripts/test-portable.py
 python3 scripts/test-rpc.py
 python3 scripts/check-repository.py
 ```
+
+新增测试覆盖 Improve 明确纠错/重复程序及近似负例、Library 身份和符号链接、Agent 独立 verifier 防篡改、旧结果重算与拒绝晋升、跨 provider Recall 关联、缺失用量和整数溢出。六次真实 Codex 比较单独记录在[公开证据](evidence/2026-09-13-agent-lab.json)，没有用受控协议 fixture 代替模型实验。
 
 这些结果验证的是相应 fixture 和测试边界，不代表任意 provider 版本、任意项目或全部需求已经覆盖。性能目标与实际测量分开记录；小规模本地样本不能外推为大历史、并发任务或长期稳定性保证。
 
@@ -54,7 +57,7 @@ python3 scripts/check-repository.py
 - 本地优先不意味着完全无网络：明确导入 URL 会请求该文档；用户批准执行的远程 Coding Agent 可能向其 provider 发送指定上下文。Vela 不自动将会话历史提交给模型。
 - 预览格式尚未声明长期兼容；重要资产需自行备份。测试、内部材料和一次性缓存不属于安装包交付内容。
 
-完整历史回填、完整 Agent Eval、Guideline 实际注入、原生 Session Transfer、真实配额接入、成熟后台调度、外部 SaaS 工具、加密同步与团队能力仍是后续工作。请使用[需求矩阵](requirements.md)讨论范围，避免将本预览版视为 P0–P2 或全部路线图已经完成。
+完整历史回填、纵向 Agent 效果验证、Guideline 实际注入、原生 Session Transfer、真实配额接入、成熟后台调度、外部 SaaS 工具、加密同步与团队能力仍是后续工作。请使用[需求矩阵](requirements.md)讨论范围，避免将本预览版视为 P0–P2 或全部路线图已经完成。
 
 ## Notification acceptance boundary
 

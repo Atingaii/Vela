@@ -1,0 +1,22 @@
+{
+  "date": "2026-09-13",
+  "scope": "core checkpoint before final client and documentation commit",
+  "commit": "8929967d66acd8e4095a07d44c2a24b5e06869cb",
+  "ciRun": "https://github.com/Atingaii/Vela/actions/runs/34705822040",
+  "jobId": 103585551672,
+  "xctest": {
+    "tests": 93,
+    "failures": 0,
+    "passed": true
+  },
+  "repositoryAndResources": "passed",
+  "rpcMcpAndBoundedInput": "passed",
+  "helperRestart": "passed",
+  "packageAudit": "passed",
+  "previousRun": {
+    "url": "https://github.com/Atingaii/Vela/actions/runs/34705284760",
+    "failure": "Expected service exceptions were evaluated inside XCTUnwrap, which recorded additional XCTest failures. Moved service evaluation outside the assertion helper.",
+    "coreProtectionWeakened": false
+  },
+  "fullProductAcceptance": "No-Go; incomplete Golden Scenario and release gates"
+}

@@ -11,7 +11,9 @@
 
 **让一次 Agent Session 结束，但工程经验不结束。**
 
-Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Codex 和 Cursor 会话数据，将对话证据、项目 Memory、可审批的 Workflow 和命令对照记录放在一起，配合已有 Coding Agent 使用。
+Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Codex 和 Cursor 会话数据，将对话证据、项目 Memory、可审批的 Workflow 和真实 Codex 对照记录放在一起，配合已有 Coding Agent 使用。
+
+> **当前开发分支：验收与界面重构，尚未发布。** 下载链接仍指向 preview.2。20 步产品场景和六项发布门槛**尚未通过**；请阅读[验收框架](docs/ACCEPTANCE.md)、[需求追踪](docs/TRACEABILITY.md)和[三个参考项目对照](docs/reference-comparison.md)。
 
 > **0.1.0-preview.2 · 开发者预览版。** 核心路径已经实现，但适配、自动化和评测仍有明确限制；当前版本不代表完整产品路线图已经交付，也不是稳定版本。开发包使用 ad-hoc 签名，没有 Developer ID 签名，尚未通过 Apple 公证。使用前请阅读[功能状态与限制](docs/status.md)。
 
@@ -88,13 +90,21 @@ swift run vela recall '项目约束' --project /absolute/path/to/project
 
 只读工具提供受支持的 Search、Recall 和上下文记录，请求必须显式指定已登记的目标项目。增加 `--contribute` 后，可创建候选 Memory、Checkpoint、绑定真实会话的 Signal 及 Suggestion Draft；不能激活已有 Memory、应用建议或执行 Workflow。私有 Library 不会通过 Agent 检索返回。
 
+## 从证据到后续使用
+
+明确的工程纠错可以形成带原消息来源的 Candidate Memory 和可审阅建议。多次出现的受支持工具序列可以形成默认停用的 Workflow 草案。先查看确切来源，再决定候选内容与验证方式。
+
+在 Lab 选择已提交的项目、明确的 Codex 程序与模型、同一任务、受保护的验证文件和允许产出的文件；在 Inbox 审核冻结内容后执行。结果可以是“证据不足”。只有满足比较门槛且再次人工审阅，才会激活内容未变的受测项目 Memory。
+
+要向后续 Codex 会话提供 Active Memory，先预览并应用项目内 `.codex/hooks.json` 变更，再在 Codex `/hooks` 审核并信任确切定义。Vela 不绕过 provider 信任。召回收据仅证明上下文已提供，不证明 Agent 采纳或行为改善。详见 [Lab 与 Reuse 接口](docs/implementation/agent-lab-contract.md)。
+
 ## 预览版的重要边界
 
 - 初始摄取最多选择**每个 provider 60 个近期来源文件**，按需读取 **256 KB 尾窗和 32 KB 文件头**。保留的消息也有上限；尚未实现完整历史回填与原生 Session 迁移。Cursor 仅适配导出格式和部分已知 SQLite 记录。
 - **Usage 是已观察到的日志用量**。订阅额度、重置检测、定价和 `usage_reset` 触发器不可用。
 - Workflow Draft 与 Improve 使用**确定性的本地规则**，不具备通用自然语言规划或模型驱动的完整改进管线。
 - Guidelines 支持保存与运行快照，**尚未注入 Agent 提示词**。
-- Lab 提供**配对命令对照**，不是完整 Agent Benchmark。退出码与耗时不能单独证明任务成功、规则遵循或 token 节省。
+- Lab 支持命令对照及明确的 **Codex Agent 模式**：冻结任务和模型请求、隔离 worktree、保护验证文件、另建干净目录验证。晋升审阅至少需要两边各三次完整样本；同分、缺失指标或退步不能晋升。首轮六次真实任务为同分，[公开证据](docs/evidence/2026-09-13-agent-lab.json)保留计分器缺陷及更正记录；未来纠错率下降仍未测量。
 - 定时触发只在应用/helper 运行期间工作，没有独立系统守护进程，也不会在休眠或关机后补跑错过的任务。
 
 完整边界见[功能状态](docs/status.md)，后续目标见[需求与路线图](docs/requirements.md)。

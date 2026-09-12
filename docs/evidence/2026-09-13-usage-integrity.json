@@ -1,0 +1,88 @@
+{
+  "format": "vela-usage-rpc-regression-v1",
+  "binarySHA256": "b3eef605e4fe78411643fe724ef4d43efa74866ee1d514ede137ef787e03108a",
+  "cases": [
+    {
+      "case": "missing",
+      "totalTokens": null,
+      "observedTotalTokens": null,
+      "coverage": "unavailable",
+      "dailyTokens": [
+        null
+      ],
+      "helperRemainedResponsive": true
+    },
+    {
+      "case": "claude-extreme",
+      "totalTokens": null,
+      "observedTotalTokens": 1,
+      "coverage": "partial",
+      "dailyTokens": [
+        null
+      ],
+      "helperRemainedResponsive": true
+    },
+    {
+      "case": "codex-extreme",
+      "totalTokens": null,
+      "observedTotalTokens": 1,
+      "coverage": "partial",
+      "dailyTokens": [
+        null
+      ],
+      "helperRemainedResponsive": true
+    },
+    {
+      "case": "zero",
+      "totalTokens": 0,
+      "observedTotalTokens": 0,
+      "coverage": "complete",
+      "dailyTokens": [
+        0
+      ],
+      "helperRemainedResponsive": true
+    },
+    {
+      "case": "mixed",
+      "totalTokens": null,
+      "observedTotalTokens": 15,
+      "coverage": "partial",
+      "dailyTokens": [
+        null
+      ],
+      "helperRemainedResponsive": true
+    },
+    {
+      "case": "aggregate-overflow",
+      "totalTokens": null,
+      "observedTotalTokens": null,
+      "coverage": "overflow",
+      "dailyTokens": [
+        null
+      ],
+      "helperRemainedResponsive": true
+    }
+  ],
+  "passed": true,
+  "verifiedAtUTC": "2026-09-12T16:07:24.512560+00:00",
+  "beforeFix": {
+    "provenance": "Observed against then-current debug CLI before usage patch; baseline binary hash and timestamp were not captured",
+    "missingUsage": {
+      "refreshExit": 0,
+      "usageExit": 0,
+      "totalTokens": 0,
+      "dailyTokens": [
+        0
+      ]
+    },
+    "claudeIntMaxCacheAddition": {
+      "refreshExit": -5,
+      "signal": "SIGTRAP"
+    },
+    "codexIntMaxTotalAddition": {
+      "refreshExit": 0,
+      "usageExit": -5,
+      "signal": "SIGTRAP"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # 当前架构
 
-Vela `0.1.0-preview.2` 是一个以本地数据为中心的macOS开发预览：Swift核心、独立CLI/helper、AppKit壳与系统WKWebView，附独立静态官网。它已建立观察、工程资产、审批执行和真实命令对照的基础闭环，未实现完整P0–P2产品范围。功能状态见 [status.md](status.md)，API见 [implementation/contracts.md](implementation/contracts.md)，选型依据见 [ADR 0001](adr/0001-native-macos-core.md)。
+当前开发分支基于 `0.1.0-preview.2`，是一个以本地数据为中心的macOS开发预览：Swift核心、独立CLI/helper、AppKit壳与系统WKWebView，附独立静态官网。它已建立观察、工程资产、审批执行和真实命令对照的基础闭环，未实现完整P0–P2产品范围。功能状态见 [status.md](status.md)，API见 [implementation/contracts.md](implementation/contracts.md)，选型依据见 [ADR 0001](adr/0001-native-macos-core.md)。
 
 ## 进程与请求路径
 
@@ -47,7 +47,9 @@ helper通知只表示摄取更新，未构成覆盖所有写操作的事件总�
 | `SafeApply.swift` | 项目根与文件身份验证、staging/fsync/rename、多文件失败补偿、Undo、跨进程锁和中断恢复 |
 | `AutomationProcess.swift` | 明确可执行文件和参数、净化环境、独立进程组、时间/输出上限与后代清理 |
 | `ImproveService.swift` | 确定性明确纠错检测、真实证据去重、代码晋升、可审阅的Markdown建议 |
-| `LabService.swift` / `SchedulerService.swift` | 审批后的成对worktree命令对照；有限cron/事件触发与持久化领取 |
+| `LabService.swift` / `AgentEvaluation.swift` | 冻结审批后的命令/Codex 对照、同提交独立验证和版本化观察计量 |
+| `ReuseService.swift` | Memory-only 晋升、项目 Hook 草案、受限 stdout 上下文和按 provider/session 关联的收据；见 [ADR 0003](adr/0003-evaluation-and-reuse-evidence.md) |
+| `SchedulerService.swift` | 有限 cron/事件触发与持久化领取 |
 | `website/dist` | 独立官网静态资源，不连接用户本地Session、Memory或Workflow数据库 |
 
 CLI默认数据目录`~/.vela`，可用`--home`或`VELA_HOME`指定。桌面stable默认`~/.vela`、canary为`~/.vela-canary`、dev为`~/.vela-dev`，并把所选目录传给helper。通道有独立bundle ID、协议和数据目录；CLI连接开发应用时也必须指向同一home，不能假定默认目录相同。
@@ -60,9 +62,9 @@ SQLite trigger在Session新增、JSON变化或删除时推进单行持久化revi
 
 首次发现最多选择60个近期文件，每文件初始读取256KiB尾窗，流式读取上限8MiB，每个Session保留最多1,000条消息；后续按FSEvents变化路径和持久化偏移摄取。完整历史回填尚未交付，dashboard明确标记`historyFullyIndexed=false`。Cursor适配是已知导出和SQLite composerData记录，不能概括成兼容全部私有版本。
 
-Agent状态源于日志，不是进程监视器；API区分推断与可用能力，过久的Running会降为Idle/Unknown。Usage仅聚合已索引日志token，并按会话开始日分组；没有真实订阅百分比、价格、额度窗口或reset。Setup当前只检查有限内容、语法、重复和估算上下文大小，不承诺完整18项治理审计。
+Agent状态源于日志，不是进程监视器；API区分推断与可用能力，过久的Running会降为Idle/Unknown。Usage仅聚合已索引日志token，并按会话开始日分组；缺失、非法或越界计数为null，部分观测和与完整可用总量分开，所有加法保留精确整数边界，见 [ADR 0004](adr/0004-nullable-observed-usage.md)。没有真实订阅百分比、价格、额度窗口或reset。Setup当前只检查有限内容、语法、重复和估算上下文大小，不承诺完整18项治理审计。
 
-Memory有global/project/repository/branch/worktree/task/session范围及candidate/active/superseded/archived生命周期。Recall先做范围与private过滤，再按词面相关性排序，并施加0–4,000的保守字符预算；只有Active参与。当前没有向量数据库、语义模型排序或自动把Recall结果注入任意Agent CLI。
+Memory有global/project/repository/branch/worktree/task/session范围及candidate/active/superseded/archived生命周期。Recall先做范围与private过滤，再按词面相关性排序，并施加0–4,000的保守字符预算；只有Active参与。当前没有向量数据库或语义模型排序。明确安装并经 Codex 自身信任的项目 SessionStart Hook 可以提供 Active Memory；其他 Agent 没有自动接入，Hook 输出不等于已采纳。
 
 Library为用户持有的资料，支持Markdown/UTF-8、HTML、可提取文字的PDF、DOCX和显式URL；导入默认private，用户private目录强制隔离。人类可显式搜索private内容，Agent路径不能读取；当前Recall仅处理Memory，尚未完成Library语义召回。URL导入是用户指定的网络读取，与默认本地存储并不矛盾。
 
@@ -84,11 +86,11 @@ SafeApply的路径授权和文件访问使用规范项目根、纯词法目标�
 
 执行器使用posix_spawn，明确executable/args、净化敏感环境，创建进程组并限制运行时间和输出；退出清理后代。工作目录隔离不是操作系统沙箱，已批准命令仍可能访问其他路径。Git只读路径禁用hooks、fsmonitor及external diff/textconv。
 
-Improve目前从真实user消息检测明确纠错语言，按稳定来源ID去重；纯代码至少3信号、2个不同Session才晋升。它生成证据Markdown草案，没有调用语义模型做完整Extraction/Clustering/Planning，不能把heuristic结果包装成模型置信度。Guideline和Memory快照尚未自动注入Agent执行。
+Improve目前从真实user消息检测明确纠错语言，按稳定来源ID去重；纯代码至少3信号、2个不同Session才晋升。它生成证据Markdown草案，没有调用语义模型做完整Extraction/Clustering/Planning，不能把heuristic结果包装成模型置信度。Guideline 仍为 snapshot-only；明确的长期验证约束形成 Candidate Memory，三会话的受支持工具序列形成停用 Workflow 草案，不自动写入 AGENTS.md。
 
 后台证据分析默认关闭。用户开启analysisEnabled后，同一Scheduler每约30秒检查水位，只有Session或检测器版本变化才运行确定性分析，失败下次重试；关闭不消费变化，重新开启处理积累数据。该功能不检测OS空闲、不启动模型或进程、不自动应用草案。当前每次分析上限为最近500个已索引Session和10,000个Signal，因此这仍是有界扫描，不是完整历史回填或逐Session增量抽取。
 
-Lab先冻结同一Git commit、command、timeout及baseline/candidate文件内容，批准后创建独立detached worktree并执行真实命令，记录退出码、输出、runtime、diff和样本统计，再清理本次worktree。`evaluator=deterministic_command`明确其性质；memory/workflow类别标签不自动执行Recall或历史workflow。没有真实Agent调用和评分证据时，不能称为完整Agent Eval或宣称因果提升。
+Lab先冻结同一Git commit、command、timeout及baseline/candidate文件内容，批准后创建独立detached worktree并执行真实命令，记录退出码、输出、runtime、diff和样本统计，再清理本次worktree。`evaluator=deterministic_command`明确其性质；memory/workflow类别标签不自动执行Recall或历史workflow。另有 `codex_agent` 模式，冻结同一 task、模型请求、候选 Memory/context、输出清单与验证文件。受保护文件变化使样本无效，独立 verifier 仅获得干净 commit 与明确输出文件。真实 JSONL 提供可用的工具/测试观察及 token；计量版本重算旧结果，未知保留 null。局部同分或退步不能晋升，单轮对照不能证明未来纠错下降。详见 [ADR 0003](adr/0003-evaluation-and-reuse-evidence.md) 和 [接口契约](implementation/agent-lab-contract.md)。
 
 Scheduler按workflow.enabled运行，支持基本本地cron、helper启动、最新Session完成、Git HEAD变化；通过schedule_event唯一ID跨进程领取事件，现有运行或审批时避免重叠。usage_reset明确unavailable，休眠期间全部事件补跑未完成。`regression.list`仅比较已记录版本的观测统计，不自动触发回归或判断变更因果。
 

@@ -4,6 +4,19 @@ Release candidate: `0.1.0-preview.2`, 12 September 2026.
 
 This record separates executed checks from targets. Synthetic fixtures contain no user sessions or credentials.
 
+## Unreleased acceptance redesign — 13 September 2026
+
+The development branch remains **No-Go / Not Scored** under the [new acceptance framework](ACCEPTANCE.md). This section records incremental evidence, separately from the released preview.2 below.
+
+- **93/93 real-core methods passed** the portable runner, including strict correction/procedure detection, scope/provenance, create-only private Library assets, symlink boundaries, guarded writes, protected independent Agent Lab verification, old-result reanalysis, rejected promotion, provider-aware reuse and nullable/overflowing usage. The runner is not XCTest; the hosted [macOS CI checkpoint](https://github.com/Atingaii/Vela/actions/runs/34705822040) also passed all 93 XCTest cases, integration checks and packaging at commit `8929967`. The first hosted run exposed an expected-error test-helper difference and is retained in [CI evidence](evidence/2026-09-13-ci-core.json).
+- Debug Swift build, repository checks, release-audio resource checks and real RPC/MCP integration passed. [Two forced helper restarts](evidence/2026-09-13-restart.json) preserved confirmed Memory/settings/assets and completed a partial UTF-8 log exactly once; this does not simulate power loss or unconfirmed writes. The bounded-input suite rejected a frame above 2 MB before its newline, drained 64 MiB without accumulating it, and accepted the next valid frame in the same process. These are fixture-level observations, not an unrestricted memory guarantee.
+- Six **real Codex** turns used the same committed Python task and explicit model request, with three runs per variant. All independently verified and all ran tests. The result is **inconclusive** and promotion was actually refused. An earlier scorer missed compound test commands and incorrectly reported improvement; [the public record](evidence/2026-09-13-agent-lab.json) retains that error, its correction, raw-output hashes and limits. No longitudinal correction reduction was measured.
+- The current search index passed 10k/100k records × six query classes, 50 measured samples each: 100k p95 **57.127–77.873 ms**, below the 120 ms limit in this fixture. [Search evidence](evidence/2026-09-13-performance-search.json) preserves environment, binary identity and samples. The historical 132.33 ms failure remains below.
+- Nine ingestion scenarios × three samples cover 10/100/1,000 source files, 1/10/50/500 MB logs and 10k/100k raw messages. [Ingestion evidence](evidence/2026-09-13-performance-ingest.json) explicitly separates input from retained data: the 60-file selection and tail limits remain. This does not establish full-history ingestion, cold-start distributions or event-to-UI latency.
+- [Usage RPC evidence](evidence/2026-09-13-usage-integrity.json) includes six actual missing/zero/partial/extreme-integer scenarios. Both previously reproduced helper crashes were corrected; each malformed input was followed by a successful request in the same process. Missing values remain null.
+
+New renderer/native screenshots, final package matching and hosted CI are recorded only after their corresponding checks finish. Hook installation and context-output tests do not establish real provider trust, agent adoption or the full 20-step Golden Scenario. Developer ID/notarization, macOS 13 installation, OS notification delivery and the remaining hard-gate matrix are still required.
+
 ## Preview.2 verification
 
 Checks executed against the redesigned client and current core:
