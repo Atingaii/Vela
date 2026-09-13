@@ -36,6 +36,7 @@ jobs:
         run: |
           python3 scripts/test-provider-rpc.py
           python3 scripts/test-session-history-rpc.py --output output/parity/ci-session-history.json
+          python3 scripts/test-ingestion-exclusions-rpc.py --output output/parity/ci-ingestion-exclusions.json
           python3 scripts/test-session-plans-rpc.py --output output/parity/ci-session-plans.json
           python3 scripts/test-quota-rpc.py
           python3 scripts/test-memory-archives.py
@@ -48,6 +49,7 @@ jobs:
           python3 scripts/test-session-growing-rewrite-rpc.py --binary .build/debug/vela --output output/parity/ci-session-growing-rewrite.json
           python3 scripts/test-run-feedback-rpc.py --binary .build/debug/vela --output output/parity/ci-run-feedback.json
           python3 scripts/test-run-feedback-bridge.py --binary .build/debug/vela --output output/parity/ci-run-feedback-bridge.json
+          python3 scripts/test-ui-server-ci55-lab-guards.py --binary .build/debug/vela --output output/parity/ci-ui-server-lab-guards.json
           python3 scripts/test-lab-recall-variant-rpc.py --binary .build/debug/vela --output output/parity/ci-lab-recall.json
           python3 scripts/test-lab-explicit-memory-guard-rpc.py --binary .build/debug/vela --output output/parity/ci-lab-explicit-memory-guard.json
           python3 scripts/test-lab-semantic-recall-rpc.py --binary .build/debug/vela --output output/parity/ci-lab-semantic-recall.json
@@ -140,6 +142,8 @@ jobs:
             output/playwright/ci-health-proposal-ui/*.jsonl
             output/playwright/ci-health-proposal-ui/*.png
             output/parity/ci-session-history.json
+            output/parity/ci-ingestion-exclusions*.json
+            output/parity/ci-ui-server-lab-guards.json
             output/parity/ci-session-plans.json
             output/parity/ci-mcp-stdio.json
             output/parity/ci-loop-controls*.json

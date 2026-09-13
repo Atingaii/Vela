@@ -11,6 +11,7 @@ import hashlib
 import http.client
 import json
 import os
+import select
 from pathlib import Path
 import shutil
 import subprocess
@@ -46,6 +47,9 @@ def main():
     if missing:
         raise SystemExit('Missing frozen test input: ' + ', '.join(missing))
     helper_before = digest(helper)
+    bridge_before = digest(BRIDGE_SCRIPT)
+    fixture_before = digest(FIXTURE_SCRIPT)
+    test_before = digest(Path(__file__))
 
     result = {
         'format': 'vela-run-feedback-bridge-v1',
@@ -60,9 +64,9 @@ def main():
         },
         'sha256': {
             'helperBefore': helper_before,
-            'bridge': digest(BRIDGE_SCRIPT),
-            'fixtureCreator': digest(FIXTURE_SCRIPT),
-            'test': digest(Path(__file__)),
+            'bridgeBefore': bridge_before,
+            'fixtureCreatorBefore': fixture_before,
+            'testBefore': test_before,
         },
         'checks': [],
         'cleanup': {'serverStopped': False, 'fixtureRemoved': False},
@@ -92,6 +96,9 @@ def main():
         deadline = time.monotonic() + 30
         startup = ''
         while time.monotonic() < deadline:
+            remaining = max(0, deadline - time.monotonic())
+            if not select.select([server.stdout], [], [], remaining)[0]:
+                break
             line = server.stdout.readline()
             if line:
                 startup = line
@@ -191,6 +198,8 @@ def main():
             'project': harbor, 'runId': run_id, 'runHash': 'invalid', 'previousFeedbackHash': None,
             'outcome': 'good', 'reason': 'Synthetic invalid hash request.',
         })
+        if not all((result['sha256']['helperBefore'] == digest(helper), result['sha256']['bridgeBefore'] == digest(BRIDGE_SCRIPT), result['sha256']['fixtureCreatorBefore'] == digest(FIXTURE_SCRIPT), result['sha256']['testBefore'] == digest(Path(__file__)))):
+            raise RuntimeError('A frozen Bridge source changed before the final check.')
         result['status'] = 'passed'
     except Exception as error:
         result['failure'] = type(error).__name__ + ': ' + str(error)
@@ -208,7 +217,17 @@ def main():
             shutil.rmtree(base)
             result['cleanup']['fixtureRemoved'] = not base.exists()
         result['sha256']['helperAfter'] = digest(helper)
+        result['sha256']['bridgeAfter'] = digest(BRIDGE_SCRIPT)
+        result['sha256']['fixtureCreatorAfter'] = digest(FIXTURE_SCRIPT)
+        result['sha256']['testAfter'] = digest(Path(__file__))
         result['sha256']['helperUnchanged'] = result['sha256']['helperBefore'] == result['sha256']['helperAfter']
+        result['sha256']['bridgeUnchanged'] = result['sha256']['bridgeBefore'] == result['sha256']['bridgeAfter']
+        result['sha256']['fixtureCreatorUnchanged'] = result['sha256']['fixtureCreatorBefore'] == result['sha256']['fixtureCreatorAfter']
+        result['sha256']['testUnchanged'] = result['sha256']['testBefore'] == result['sha256']['testAfter']
+        result['sourceUnchanged'] = all(result['sha256'][key] for key in ('helperUnchanged','bridgeUnchanged','fixtureCreatorUnchanged','testUnchanged'))
+        if not result['sourceUnchanged']:
+            result['status'] = 'failed'
+            result.setdefault('failure', 'A frozen Bridge source changed during the run.')
         result['finishedAt'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(result, indent=2) + '\n')

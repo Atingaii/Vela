@@ -78,3 +78,7 @@ UI20 健康提案已由同一指定模型实现并合入开发源码：完整4�
 运行反馈、Lab Recall 和增长日志完整性修复已机械合入开发源码，整合前冻结 Core 的463项 portable 方法与真实隔离 RPC 均通过；本机 root 构建通过。增长日志会验证已索引前缀完整 SHA，检测旧消息改写加追加；每64 KiB 释放临时读取对象。在同一100 MiB合成日志、五次追加的长驻 helper 对照中，RSS 从修前最终383344 KiB 降至修后约18176 KiB，完整扫描仍需约125–145 ms，不据此宣称全应用性能达标。[Core证据](parity/feedback-lab-session-core-evidence-2026-09-14.json)。反馈与Lab新界面、最终 checkout CI、发布包仍分别验收。
 
 原生资源补测为2分钟、5个合成会话及一次增量刷新：可归属的主进程和helper RSS中位95.344 MiB、峰104.203 MiB；稳定空闲采样CPU峰0.4%。WebContent无法可靠归属，整应用内存目标仍未成立为已验收结论；启动/交互p95与长稳仍未测。[资源证据](parity/native-resource-evidence-2026-09-14.json)。
+
+摄取排除与数据库迁移已合入开发源码：项目/来源规则、投影撤回和规则代际原子提交，五种 provider 的新写入复核代际；History 的旧 ID 在规则有效时不能绕过访问限制。SQLite 0→1 升级可回滚，较新 schema 会拒绝。匹配 root 的冻结 Core 共482项 portable 方法通过，真实隔离 RPC、重启和旧历史导入回归通过；[证据](parity/ingestion-migration-evidence-2026-09-14.json)。这不等于 OBS-09/OBS-13/SEC-12 整体验收：桌面排除入口、已存在 Memory 的召回抑制、完整备份恢复与索引修复仍未闭合。
+
+上一个 checkpoint 的 CI 在 Lab 浏览器测试桥处失败：新 Recall fixture 限制误拦了旧 pending-only 实验。已修复兼容分支，并验证错误 agent、跨项目提案、修改 verifier argv 和执行批准仍被拒绝；新 checkpoint CI 单独追踪。UI21 仍存在 late prepare 覆盖用户反馈选择的已复现问题，UI22 Lab Recall 控件待实现；指定 Antigravity 模型配额耗尽，目前均未合入。

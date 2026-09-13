@@ -7,7 +7,8 @@ final class SessionHistoryService {
     private let store: VelaStore
     private let roots: [String: [URL]]
     private let lock = NSRecursiveLock()
-    init(store: VelaStore, roots: [String: [URL]]) { self.store = store; self.roots = roots }
+    private let exclusions: IngestionExclusionService
+    init(store: VelaStore, roots: [String: [URL]]) { self.store = store; self.roots = roots; exclusions = IngestionExclusionService(store:store) }
     func handle(_ method: String, _ params: JSON) throws -> Any? {
         guard Self.methods.contains(method) else { return nil }
         lock.lock(); defer { lock.unlock() }
@@ -20,15 +21,20 @@ final class SessionHistoryService {
         case "history.sources": return try sources(params, project: project, db: db)
         case "history.start": return try start(params, project: project, db: db)
         case "history.advance": return try advance(params, project: project, db: db)
-        case "history.get": try allowed(params, ["project", "id"]); return try scoped(db, "epoch", requireString(params, "id"), project)
+        case "history.get":
+            try allowed(params, ["project", "id"])
+            let epoch = try scoped(db, "epoch", requireString(params, "id"), project)
+            guard try eligibleEpoch(epoch, db:db) else { throw VelaError("History source is excluded from ingestion") }
+            return epoch
         case "history.jobs":
             try allowed(params, ["project", "afterId"])
-            let rows = try db.rows("SELECT json FROM history_objects_v1 WHERE kind='epoch' AND project=? AND id>? ORDER BY id LIMIT 101", [project, string(params, "afterId")])
-            return ["items": Array(rows.prefix(100)), "nextAfterId": rows.count > 100 ? string(rows[99], "id") as Any : NSNull(), "limit": 100] as JSON
+            let page = try eligibleEpochPage(db:db, project:project, afterID:string(params, "afterId"), limit:100)
+            return ["items":page.items, "nextAfterId":page.nextAfterID as Any? ?? NSNull(), "limit":100] as JSON
         case "history.pause", "history.resume", "history.cancel":
             try allowed(params, ["project", "id"])
             return try db.transaction {
                 var epoch = try scoped(db, "epoch", requireString(params, "id"), project)
+                guard try eligibleEpoch(epoch, db:db) else { throw VelaError("History source is excluded from ingestion") }
                 let state = string(epoch, "state")
                 guard ["pending", "paused"].contains(state) || (method == "history.resume" && ["failed", "cancelled"].contains(state)) else { throw VelaError("History task is not pausable or resumable") }
                 epoch["state"] = method == "history.cancel" ? "cancelled" : method == "history.pause" ? "paused" : "pending"
@@ -103,6 +109,8 @@ final class SessionHistoryService {
                         do {
                             let header = try SessionHistorySource.header(path: child.path, root: root, provider: provider)
                             guard string(header, "project") == project else { inventory["excluded"] = intValue(inventory, "excluded") + 1; continue }
+                            let relative = String(child.path.dropFirst(root.count + 1))
+                            guard try !exclusions.excludes(project:project,provider:provider,relative:relative) else { inventory["excluded"] = intValue(inventory, "excluded") + 1; continue }
                             let sourceId = stableHash(id + ":" + provider + ":" + child.path)
                             var source = header
                             source.merge(["id": sourceId, "inventoryId": id, "project": project, "provider": provider, "path": child.path, "root": root, "relativePath": String(child.path.dropFirst(root.count + 1)), "discoveredAt": isoNow(), "sourceIdentity": stableHash(provider + ":" + child.path)]) { _, new in new }
@@ -124,16 +132,91 @@ final class SessionHistoryService {
             var result = inventory; result["items"] = found; return result
         }
     }
+    /// Checks the configured filesystem on each call, rather than trusting an
+    /// inventory row. This is intentionally suitable for the exclusion upsert
+    /// precondition: a path that has become a symlink is not a known source.
+    func hasKnownSource(project: String, provider: String, glob: String) -> Bool {
+        let selected = canonicalProject(project)
+        guard SessionHistorySource.providers.contains(provider), provider != "cursor", !glob.isEmpty else { return false }
+        for root in roots[provider] ?? [] {
+            let rootPath = canonicalProject(root.path)
+            var directories = [rootPath], visited = Set<String>(), examined = 0
+            while let directory = directories.popLast(), visited.insert(directory).inserted {
+                var after = ""
+                while true {
+                    guard let page = try? SessionHistorySource.directoryPage(path:directory, root:rootPath, after:after, limit:128) else { break }
+                    for name in page.names {
+                        examined += 1
+                        guard examined <= 50_000 else { return false }
+                        let path = URL(fileURLWithPath:directory).appendingPathComponent(name).path
+                        var info = stat()
+                        guard lstat(path, &info) == 0 else { continue }
+                        if info.st_mode & S_IFMT == S_IFDIR { directories.append(path); continue }
+                        guard info.st_mode & S_IFMT == S_IFREG, ["jsonl", "ndjson"].contains(URL(fileURLWithPath:path).pathExtension.lowercased()) else { continue }
+                        let relative = String(path.dropFirst(rootPath.count + 1))
+                        guard exclusions.matches(relative, glob), let header = try? SessionHistorySource.header(path:path, root:rootPath, provider:provider), string(header, "project") == selected else { continue }
+                        return true
+                    }
+                    guard page.more, let last = page.names.last else { break }
+                    after = last
+                }
+            }
+        }
+        return false
+    }
+    private func eligibleSource(_ source: JSON) throws -> Bool {
+        let project = string(source,"project"), provider = string(source,"provider"), relative = string(source,"relativePath")
+        guard !project.isEmpty, !provider.isEmpty, !relative.isEmpty else { return false }
+        return try !exclusions.excludes(project:project,provider:provider,relative:relative)
+    }
+    private func eligibleEpoch(_ epoch: JSON, db: SessionHistoryStore) throws -> Bool {
+        guard let source = try db.get("source",string(epoch,"sourceId")), string(source,"project") == string(epoch,"project") else { return false }
+        return try eligibleSource(source)
+    }
     private func sources(_ params: JSON, project: String, db: SessionHistoryStore) throws -> JSON {
         try allowed(params, ["project", "inventoryId", "afterId", "limit"])
         let inventory = try scoped(db, "inventory", requireString(params, "inventoryId"), project)
         let limit = try integer(params, "limit", fallback: 50, range: 1...100)
-        let items = try db.rows("SELECT json FROM history_objects_v1 WHERE kind='source' AND project=? AND json_extract(json,'$.inventoryId')=? AND id>? ORDER BY id LIMIT ?", [project, string(inventory, "id"), string(params, "afterId"), limit + 1])
-        return ["items": Array(items.prefix(limit)), "nextAfterId": items.count > limit ? string(items[limit - 1], "id") as Any : NSNull(), "inventoryState": string(inventory, "state"), "traversalComplete": inventory["traversalComplete"] ?? false]
+        let page = try eligibleSourcePage(db:db, project:project, inventoryID:string(inventory, "id"), afterID:string(params, "afterId"), limit:limit)
+        return ["items":page.items, "nextAfterId":page.nextAfterID as Any? ?? NSNull(), "inventoryState": string(inventory, "state"), "traversalComplete": inventory["traversalComplete"] ?? false]
+    }
+    /// SQL queries stay bounded. Continue from the raw id until we have one
+    /// look-ahead eligible object, so excluded rows never make a valid later
+    /// source disappear from pagination.
+    private func eligibleSourcePage(db: SessionHistoryStore, project: String, inventoryID: String, afterID: String, limit: Int) throws -> (items: [JSON], nextAfterID: String?) {
+        var anchor = afterID, eligible: [JSON] = []
+        while true {
+            let rows = try db.rows("SELECT json FROM history_objects_v1 WHERE kind='source' AND project=? AND json_extract(json,'$.inventoryId')=? AND id>? ORDER BY id LIMIT 101", [project, inventoryID, anchor])
+            guard !rows.isEmpty else { return (eligible, nil) }
+            for row in rows {
+                anchor = string(row, "id")
+                if try eligibleSource(row) {
+                    eligible.append(row)
+                    if eligible.count > limit { return (Array(eligible.prefix(limit)), string(eligible[limit - 1], "id")) }
+                }
+            }
+            if rows.count < 101 { return (eligible, nil) }
+        }
+    }
+    private func eligibleEpochPage(db: SessionHistoryStore, project: String, afterID: String, limit: Int) throws -> (items: [JSON], nextAfterID: String?) {
+        var anchor = afterID, eligible: [JSON] = []
+        while true {
+            let rows = try db.rows("SELECT json FROM history_objects_v1 WHERE kind='epoch' AND project=? AND id>? ORDER BY id LIMIT 101", [project, anchor])
+            guard !rows.isEmpty else { return (eligible, nil) }
+            for row in rows {
+                anchor = string(row, "id")
+                if try eligibleEpoch(row, db:db) {
+                    eligible.append(row)
+                    if eligible.count > limit { return (Array(eligible.prefix(limit)), string(eligible[limit - 1], "id")) }
+                }
+            }
+            if rows.count < 101 { return (eligible, nil) }
+        }
     }
     private func start(_ params: JSON, project: String, db: SessionHistoryStore) throws -> JSON {
         try allowed(params, ["project", "sourceId", "maxBytes"])
         let source = try scoped(db, "source", requireString(params, "sourceId"), project); try configured(source)
+        guard try eligibleSource(source) else { throw VelaError("History source is excluded from ingestion") }
         let current = try SessionHistorySource.header(path: string(source, "path"), root: string(source, "root"), provider: string(source, "provider"))
         guard string(current, "project") == project else { throw VelaError("History source project changed") }
         let maximum = try integer(params, "maxBytes", fallback: 256 * 1024 * 1024, range: 1...8 * 1024 * 1024 * 1024)
@@ -152,6 +235,7 @@ final class SessionHistoryService {
         let recordBudget = try integer(params, "batchRecords", fallback: 2000, range: 1...2000)
         return try db.transaction {
             var epoch = try scoped(db, "epoch", requireString(params, "id"), project)
+            guard try eligibleEpoch(epoch, db:db) else { throw VelaError("History source is excluded from ingestion") }
             guard string(epoch, "state") == "pending" else { return epoch }
             try configured(epoch)
             let id = string(epoch, "id"), path = string(epoch, "path"), root = string(epoch, "root"), version = string(epoch, "sourceVersion")
@@ -245,6 +329,7 @@ final class SessionHistoryService {
     private func page(_ params: JSON, project: String, db: SessionHistoryStore) throws -> JSON {
         try allowed(params, ["project", "id", "cursor", "direction", "limit", "type"])
         let epoch = try scoped(db, "epoch", requireString(params, "id"), project)
+        guard try eligibleEpoch(epoch, db:db) else { throw VelaError("History source is excluded from ingestion") }
         let id = string(epoch, "id"), direction = string(params, "direction", "forward"), type = string(params, "type")
         guard ["forward", "backward"].contains(direction), type.utf8.count <= 64 else { throw VelaError("Invalid history page order") }
         let limit = try integer(params, "limit", fallback: 50, range: 1...100)
@@ -259,6 +344,7 @@ final class SessionHistoryService {
     private func raw(_ params: JSON, project: String, db: SessionHistoryStore) throws -> JSON {
         try allowed(params, ["project", "id", "ordinal", "part"])
         let epoch = try scoped(db, "epoch", requireString(params, "id"), project)
+        guard try eligibleEpoch(epoch, db:db) else { throw VelaError("History source is excluded from ingestion") }
         let ordinal = try integer(params, "ordinal", fallback: -1, range: 0...Int.max), part = try integer(params, "part", fallback: 0, range: 0...Int.max)
         guard let event = try db.rows("SELECT json FROM history_records_v1 WHERE epoch=? AND ordinal=? AND project=?", [string(epoch, "id"), ordinal, project]).first,
               let chunk = try db.blob(epoch: string(epoch, "id"), ordinal: ordinal, part: part) else { throw VelaError("History original is unavailable in this project") }
@@ -267,6 +353,7 @@ final class SessionHistoryService {
     private func branch(_ params: JSON, project: String, db: SessionHistoryStore) throws -> JSON {
         try allowed(params, ["project", "id", "leafId", "cursor", "limit"])
         let epoch = try scoped(db, "epoch", requireString(params, "id"), project)
+        guard try eligibleEpoch(epoch, db:db) else { throw VelaError("History source is excluded from ingestion") }
         guard ["pi", "omp"].contains(string(epoch, "provider")), epoch["branchIntegrity"] as? Bool == true else { throw VelaError("History branch ancestry is unavailable or ambiguous") }
         let id = string(epoch, "id"), leaf = string(params, "leafId", string(epoch, "lastProviderId"))
         guard !leaf.isEmpty, leaf.utf8.count <= 1024 else { throw VelaError("History branch leaf is required") }

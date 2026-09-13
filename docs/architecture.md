@@ -36,6 +36,7 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 | `MCPTools.swift` / `MCPToolAccess.swift` | stdio 协议协商、严格工具 schema、只读/候选贡献目录、按来源重新核验的窄分页与完整脱敏后正文分块；[ADR 0029](adr/0029-typed-stdio-mcp-tools.md) |
 | `Store.swift` | 系统 sqlite3、WAL、参数化窄查询、Markdown 人工编辑、版本、批次补偿、CAS 与持久化变化/完成事件 |
 | `SessionEngine.swift` / `PiSessionReader.swift` | Claude/Codex、已知 Cursor、版本感知 Pi/OMP；流式偏移、增长前已索引前缀 SHA-256、分支来源、文件身份、轮转与截断诊断；增长检查以 O(已完成偏移) 流式 I/O 换取旧区重写不复用陈旧投影；[ADR 0009](adr/0009-session-provider-compatibility.md)、[ADR 0040](adr/0040-indexed-prefix-integrity-for-growing-session-sources.md) |
+| `IngestionExclusionService.swift` | 已登记项目或已知来源的持久排除、规则/代际/派生撤回原子提交、投影写入 CAS 与历史入口重验；[ADR 0042](adr/0042-atomic-ingestion-exclusions.md) |
 | `SessionHistory*.swift` | 显式来源清单、固定epoch、分批回填、断点/分页原文与分支关系；不扩大dashboard尾窗；[ADR 0025](adr/0025-explicit-session-history.md) |
 | `SessionPlanProjection.swift` / `SessionPlanService.swift` | 从已确认工具结果投影计划及有界变更事件；未知、提议与确认空计划分开，不将声明完成视为工作验证；[ADR 0027](adr/0027-observed-session-plans.md) |
 | `SessionRelationProjection.swift` / `SessionRelationService.swift` | 从 Codex 来源头与结构化工具事件观察父子关系；重验来源身份、项目与隐私，分页和保留窗口明确，未知存活状态不推断为运行中；[ADR 0030](adr/0030-observed-codex-session-relations.md) |
@@ -76,9 +77,13 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 
 CLI 默认 `~/.vela`，`--home`/`VELA_HOME` 可显式选择。桌面 stable/canary/dev 采用独立应用身份和 store；CLI/MCP 必须选中实际目标，通道名称不赋予发布资格。SQLite 为 `vela.sqlite3`，WAL、NORMAL synchronous；长期资产位于 `assets/{memory,workflow,guideline,library,checkpoint}`。运行对象、审批和版本单独存储。JSON frontmatter 是当前 Markdown Workflow 支持的 YAML 子集，执行前重新读取人工更改并校验增版。
 
+`vela.sqlite3` 使用 `PRAGMA user_version` 管理 schema，当前版本为 1。历史未 versioned store 由显式 `0 → 1` registry 在单个 SQLite 事务中迁移，成功后才写版本；取得写锁后再次读取版本，防止等待锁期间的另一 helper 升级被旧 helper 降级回写。更高或负版本在 schema/data 写入前由当前 helper 拒绝；已标为 v1 但缺必要 schema 对象也拒绝而不自动修补。迁移失败 rollback 后可重试。WAL sidecar/checkpoint 使 raw database 文件字节不稳定，因此迁移验收检查已提交的 schema 与逻辑记录；它不代替 Markdown 资产补偿、完整备份或派生索引灾后恢复。[ADR 0041](adr/0041-versioned-sqlite-store-migrations.md) 记录该边界。
+
 Session 通用 revision 用于无变化时跳过后台分析。完成事件另有单调 sequence 与 `(project,session_id,activity)` 唯一身份，不复制会话正文；调度首次建立基线、之后分页推进持久化游标。跨连接写入同样生效，超过一页的突发完成不会由固定最近列表遗漏；private、删除、迁移与内部会话不能触发错误项目执行。
 
 Session 来源仍有明确保留预算，不宣称完整历史已索引。Pi 按版本解析父子链，展示最后持久化分支及覆盖范围；O_NOFOLLOW 和前后 inode/size/mtime/ctime 检查防止将并发修改的文件误记为完整版本。日志状态与实时进程状态分开；缺失用量为 null，真实 0 为 0。Codex 账户额度来自单独只读 app-server 请求，不读取 auth 文件、不调用 reset，也不从 token 推算剩余额度。
+
+摄取排除是可逆的访问策略。规则命中的普通 Session 投影会撤回，历史原始缓存与 Memory 保留；规则有效期间旧 History ID 不能绕过读取限制。解除规则本身不重读来源，保留的旧 epoch 可再次访问；Session 投影在后续 refresh 或新来源事件时重建。RPC 已实现，桌面配置入口仍待实现。详见[摄取排除合同](implementation/ingestion-exclusions-contract.md)。
 
 单独的历史回填按配置来源ID启动，保存固定epoch、字节checkpoint及归一化记录；分页游标与epoch绑定，来源变化使当前回填stale，不把新旧版本拼成“完整”。原文完整性、消息解析与分支完整性分别报告。该模块正在分provider验收，未知Cursor私有格式不能用raw保存替代功能解析。
 

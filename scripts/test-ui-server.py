@@ -157,10 +157,26 @@ class Bridge:
 
     def lab_recall_request(self, params):
         if not isinstance(params,dict) or params.get('project') != self.fixture['project'] or params.get('kind') != 'memory': raise ValueError('Lab Recall must use the Harbor fixture.')
-        allowed={'title','project','kind','agent','task','verificationCommand','verificationFiles','outputFiles','timeoutSeconds','repetitions','baseline','candidate'}
+        allowed={'title','project','kind','agent','task','verificationCommand','verificationFiles','outputFiles','timeoutSeconds','repetitions','baseline','candidate','sourceSuggestionId'}
         if not set(params).issubset(allowed): raise ValueError('Lab Recall request has unsupported fields.')
+        if 'sourceSuggestionId' in params:
+            source = params.get('sourceSuggestionId')
+            suggestions = self.rpc('improve.list', {})
+            if not isinstance(source, str) or not any(row.get('id') == source and row.get('project') == self.fixture['project'] for row in suggestions):
+                raise ValueError('Lab Recall source suggestion must belong to the Harbor fixture.')
         agent=params.get('agent'); path=self.base/'synthetic-lab-recall-agent.py'
-        if agent != {'provider':'codex','executable':str(path),'model':'fixed-local-jsonl','reasoningEffort':'high'} or path.is_symlink() or not path.is_file(): raise ValueError('Lab Recall only permits its owned synthetic agent.')
+        recall_agent = {'provider':'codex','executable':str(path),'model':'fixed-local-jsonl','reasoningEffort':'high'}
+        if agent != recall_agent:
+            # The legacy acceptance case creates only a pending approval. Its
+            # approval gate below still rejects every Agent execution.
+            legacy_agent = {'provider':'codex','executable':'/usr/bin/true','model':'fixture-no-provider-execution','reasoningEffort':'high'}
+            if agent != legacy_agent: raise ValueError('Lab fixture only permits its fixed synthetic or pending-only Agent.')
+            if params.get('verificationCommand') != ['/usr/bin/printf', '', 'argument with spaces', 'quote"argument'] or params.get('verificationFiles') != ['tests/parser.test.mjs'] or params.get('outputFiles') != ['src/parser.mjs'] or params.get('timeoutSeconds') != 10 or params.get('repetitions') != 3: raise ValueError('Pending-only Lab fixture command differs.')
+            for side in ('baseline','candidate'):
+                value = params.get(side)
+                if not isinstance(value,dict) or not set(value).issubset({'files','label','context','memoryIds'}): raise ValueError('Pending-only Lab variant is invalid.')
+            return
+        if path.is_symlink() or not path.is_file(): raise ValueError('Lab Recall only permits its owned synthetic agent.')
         if params.get('verificationCommand') != ['/usr/bin/python3','verify.py'] or params.get('verificationFiles') != ['verify.py'] or params.get('outputFiles') != ['observed-context.txt'] or params.get('timeoutSeconds') != 20 or params.get('repetitions') != 1: raise ValueError('Lab Recall fixture command differs.')
         for side in ('baseline','candidate'):
             v=params.get(side); recall=v.get('recall') if isinstance(v,dict) else None

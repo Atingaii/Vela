@@ -33,6 +33,7 @@ final class SessionEngine {
     private var changed: Set<String> = []
     private var refreshPending = false
     private let diagnosticLock = NSLock()
+    private let exclusions: IngestionExclusionService
     private var diagnosticStorage: [JSON] = []
     private(set) var diagnostics: [JSON] {
         get { diagnosticLock.lock(); defer { diagnosticLock.unlock() }; return diagnosticStorage }
@@ -46,6 +47,7 @@ final class SessionEngine {
 
     init(store: VelaStore, sourceRoots: [String:[URL]]? = nil) {
         self.store = store
+        exclusions = IngestionExclusionService(store:store)
         let home = FileManager.default.homeDirectoryForCurrentUser
         let configuredRoots = sourceRoots ?? [
             "claude":[home.appendingPathComponent(".claude/projects")],
@@ -180,7 +182,9 @@ final class SessionEngine {
             session["title"] = session["title"] ?? url.deletingPathExtension().lastPathComponent
             finalizeUsage(provider:provider,session:&session)
             cursor = ["id":cursorId,"offset":intValue(session,"indexedBytes"),"sourcePath":url.path,"fingerprint":fingerprint,"modified":modified,"sourceVersion":before.version]
-            _ = try store.putBatch([("session",session),("ingestion",cursor)])
+            let policy = try admission(session:session,provider:provider,url:url)
+            if policy.excluded { return false }
+            _ = try store.putBatch([("session",session),("ingestion",cursor)],expecting:policy.expected,expectingAbsent:policy.absent)
             return true
         }
         let sourceVersion = try piSourceVersion(url).version
@@ -305,6 +309,8 @@ final class SessionEngine {
         guard try piSourceVersion(url).version == sourceVersion else {
             changed.insert(url.path); throw VelaError("Session source changed while reading; prior session and plan retained")
         }
+        let policy = try admission(session:session,provider:provider,url:url)
+        if policy.excluded { return false }
         if string(plan,"project") != string(session,"project") { plan = SessionPlanProjection.empty(provider: provider); plan["id"] = sessionId; plan["project"] = string(session,"project"); plan["coverageLimited"] = true }
         plan["id"] = sessionId; plan["sourceIdentity"] = sessionId
         session["planSummary"] = SessionPlanProjection.summary(plan, provider: provider, historyTruncated: session["historyTruncated"] as? Bool == true)
@@ -323,7 +329,7 @@ final class SessionEngine {
         }
         var originals: [(String,String,JSON?)] = [("session",sessionId,originalSession),("session_plan",sessionId,originalPlan),("ingestion",cursorId,originalCursor.isEmpty ? nil : originalCursor)]
         if provider == "codex" { originals.append(("session_relation",sessionId,originalRelation)) }
-        var expected: [(String,String,String)] = []; var absent: [(String,String)] = []
+        var expected: [(String,String,String)] = policy.expected; var absent: [(String,String)] = policy.absent
         for (kind,id,original) in originals {
             if let original { expected.append((kind,id,stableHash(try jsonString(original)))) }
             else { absent.append((kind,id)) }
@@ -335,6 +341,36 @@ final class SessionEngine {
         return true
     }
 
+
+    // Rules are evaluated only after provider metadata establishes a canonical
+    // project identity, but before any projection/cursor write. The source
+    // pattern is relative to the configured provider root, never to the repo.
+    private func admission(session: JSON, provider: String, url: URL) throws -> (excluded: Bool, expected: [(String,String,String)], absent: [(String,String)]) {
+        let project = string(session,"project")
+        return try exclusions.admission(project:project,provider:provider,relative:relativeSourcePath(url,provider:provider) ?? "")
+    }
+    func relativeSourcePath(_ url: URL, provider: String) -> String? {
+        let source = canonicalProject(url.path)
+        for root in sourceRoots[provider] ?? [] {
+            let base = canonicalProject(root.path)
+            if source == base { return url.lastPathComponent }
+            if source.hasPrefix(base + "/") { return String(source.dropFirst(base.count + 1)) }
+        }
+        return nil
+    }
+    func hasKnownSource(project: String, provider: String, glob: String) -> Bool {
+        guard ["claude","codex","cursor","pi","omp"].contains(provider) else { return false }
+        var after = ""
+        while let page = try? store.ingestionSourcePage(project:project,afterID:after), !page.isEmpty {
+            for session in page {
+                let path = string(session,"sourcePath")
+                guard string(session,"provider") == provider, let relative = relativeSourcePath(URL(fileURLWithPath:path),provider:provider), exclusions.matches(relative,glob) else { continue }
+                var info = stat(); if lstat(path,&info) == 0 && info.st_mode & S_IFMT == S_IFREG { return true }
+            }
+            after = string(page.last!,"id")
+        }
+        return false
+    }
     private func piSourceVersion(_ url: URL) throws -> (size: Int, version: String) {
         var information = stat()
         guard lstat(url.path,&information) == 0, information.st_mode & S_IFMT == S_IFREG,
@@ -514,7 +550,9 @@ final class SessionEngine {
         for row in messages { mergeEvent(row,provider:"cursor",session:&session) }
         let normalized = session["messages"] as? [JSON] ?? []
         session["messageCount"] = normalized.count; session["content"] = normalized.map { string($0,"content") }.joined(separator:"\n")
-        _ = try store.put("session",session); return true
+        let policy = try admission(session:session,provider:"cursor",url:url)
+        if policy.excluded { return false }
+        _ = try store.putBatch([("session",session)],expecting:policy.expected,expectingAbsent:policy.absent); return true
     }
     private func ingestCursorDatabase(_ url: URL) throws -> Bool {
         var db: OpaquePointer?
@@ -540,7 +578,9 @@ final class SessionEngine {
                     mergeEvent(row,provider:"cursor",session:&session)
                 }
                 let normalized = session["messages"] as? [JSON] ?? []; session["messageCount"] = normalized.count; session["content"] = normalized.map { string($0,"content") }.joined(separator:"\n")
-                _ = try store.put("session",session); imported += 1
+                let policy = try admission(session:session,provider:"cursor",url:url)
+                if policy.excluded { continue }
+                _ = try store.putBatch([("session",session)],expecting:policy.expected,expectingAbsent:policy.absent); imported += 1
             }
         }
         if !supported { throw VelaError("Unsupported Cursor SQLite schema; only known composerData records are imported") }

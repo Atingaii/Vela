@@ -249,3 +249,24 @@ final class SessionHistoryTests: XCTestCase {
         epoch = try finish(start("pi")); XCTAssertEqual(epoch["normalizationComplete"] as? Bool, false); XCTAssertEqual(epoch["branchIntegrity"] as? Bool, false)
     }
 }
+
+extension SessionHistoryTests {
+    func testHistoryExistingSourceIsHiddenAndBlockedAfterIngestionExclusion() throws {
+        try FileManager.default.createDirectory(at: logs.appendingPathComponent("claude/nested"), withIntermediateDirectories:true)
+        try write([claude("header", cwd: project.path), claude("body", "history exclusion")], name:"nested/blocked.jsonl")
+        let discovered = try discover("claude").1
+        let source = try XCTUnwrap(discovered.first { string($0,"relativePath") == "nested/blocked.jsonl" })
+        let epoch = try finish(try call("history.start",["sourceId":string(source,"id")]))
+        XCTAssertFalse(((try call("history.page",["id":string(epoch,"id")]))["items"] as? [JSON] ?? []).isEmpty)
+        XCTAssertThrowsError(try call("ingestion.exclusions.upsert",["provider":"claude","pathGlob":"missing/*.jsonl"]))
+        XCTAssertThrowsError(try call("ingestion.exclusions.upsert",["provider":"codex","pathGlob":"nested/*.jsonl"]))
+        _ = try call("ingestion.exclusions.upsert",["provider":"claude","pathGlob":"nested/*.jsonl"])
+        let inventory = try call("history.discover",["provider":"claude"])
+        let page = try call("history.sources",["inventoryId":string(inventory,"id")])
+        XCTAssertFalse((page["items"] as? [JSON] ?? []).contains { string($0,"id") == string(source,"id") })
+        XCTAssertThrowsError(try call("history.start",["sourceId":string(source,"id")]))
+        XCTAssertThrowsError(try call("history.advance",["id":string(epoch,"id")]))
+        XCTAssertThrowsError(try call("history.page",["id":string(epoch,"id")]))
+        XCTAssertThrowsError(try call("history.raw",["id":string(epoch,"id"),"ordinal":0]))
+    }
+}

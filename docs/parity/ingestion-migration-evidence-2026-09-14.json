@@ -1,0 +1,93 @@
+{
+  "format": "vela-ingestion-migration-checkpoint-v1",
+  "date": "2026-09-14",
+  "baseCommit": "55c75196061089bb202909e1c6898b90856dfd9e",
+  "overallAcceptance": "No-Go",
+  "uiChanged": false,
+  "core": {
+    "runner": "portable synchronous assertion compatibility layer; not XCTest",
+    "passed": true,
+    "methods": 482,
+    "snapshotSHA256": "3e65a1312544efc139d0f55f0ef88310924965a0b0746e6aa274911eb4692f14",
+    "all122RootInputsMatch": true,
+    "receipt": {
+      "path": ".task-tmp/ingestion-exclusions-r1/output/parity/ingestion-migration-full-r2.json",
+      "sha256": "fe00622fc6c40613c2f856fc3abb99ccfef7a430dda791e6574db306a2711efd"
+    }
+  },
+  "rootBuild": {
+    "passed": true,
+    "helperSHA256": "a30e7e82df3bf73dd82650b3dbf2c300f475c9f0561bba2062c1d3a813720087"
+  },
+  "realIsolatedRPC": {
+    "passed": true,
+    "checks": [
+      {
+        "check": "source-scope-and-stale-capture",
+        "passed": true
+      },
+      {
+        "check": "malformed-and-cross-project-rejections",
+        "passed": true,
+        "rejections": 7
+      },
+      {
+        "check": "whole-project-all-providers-and-search-withdrawn",
+        "passed": true,
+        "formats": 6
+      },
+      {
+        "check": "policy-survives-helper-restart",
+        "passed": true
+      },
+      {
+        "check": "explicit-refresh-restores-and-source-bytes-unchanged",
+        "passed": true
+      }
+    ],
+    "sourceUnchanged": true,
+    "providerRuns": 0,
+    "helperStopped": true,
+    "fixtureRemoved": true,
+    "receipt": {
+      "path": "output/parity/ingestion-migration-root-rpc-r3.json",
+      "sha256": "de14508cb23e55f5bd87d90aeea4d09a46044b17326f4d199d8663443322325b"
+    }
+  },
+  "regressions": {
+    "existingHistoryRPC": {
+      "path": ".task-tmp/ingestion-exclusions-r1/output/parity/ingestion-migration-legacy-history-r1.json",
+      "sha256": "5f37a3059f5eeef3026fdd4094d0e1933e16d2588338b90de0bb5082722bf6f1"
+    },
+    "fixtureBridgeSafety": {
+      "path": "output/parity/ui-server-ci55-lab-guards-newcore-r3.json",
+      "sha256": "7648303d11c63775e42e3ab0d4643a1756b5912a4426845ede8cac82e56ec088"
+    },
+    "rootRenderer": {
+      "path": "output/playwright/ci55-newcore-acceptance-r2/results.json",
+      "sha256": "2b9a6bf1911a78b5d4d9cd9d21b09b26fae63ee0f30144707f4ccf98876ce6d1",
+      "sixJourneysPassed": true,
+      "helperSHA256": "a30e7e82df3bf73dd82650b3dbf2c300f475c9f0561bba2062c1d3a813720087",
+      "uiUnchanged": true,
+      "synthetic": true,
+      "nativeClaimed": false
+    }
+  },
+  "retainedFailures": {
+    "initialMergedTestCompile": {
+      "path": ".task-tmp/ingestion-exclusions-r1/output/parity/ingestion-migration-full-r1.json",
+      "sha256": "97319e912e0e67d9f0d01fced702d284daa8a7d98301f42f359bfa76d7e7b664"
+    },
+    "priorCI": "https://github.com/Atingaii/Vela/actions/runs/34775251935",
+    "ui21FeedbackPrepareRace": "Late prepare overwrote the edited outcome. Staged UI21 remains unintegrated; UI22 remains pending."
+  },
+  "boundaries": [
+    "This is the 482-method synchronous Core suite via the portable assertion layer, not local XCTest or whole-product acceptance.",
+    "Project/source exclusion is currently RPC-only. Existing canonical Memory is preserved and retrieval suppression remains a separate pending slice.",
+    "History cached bytes are retained; active exclusion blocks old entrypoints, explicit removal permits reading retained epochs again.",
+    "Removal itself does not schedule ingestion; later refresh or ordinary source change can rebuild Session projections.",
+    "SQLite schema migration does not complete backup/restore, arbitrary index repair, or cross-media asset recovery.",
+    "Antigravity 3.8 Flash High UI work remains pending after verified quota exhaustion.",
+    "Hosted CI for this forthcoming checkpoint and the distribution package remain separate gates."
+  ]
+}

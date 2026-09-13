@@ -9,6 +9,7 @@ public final class FoundationService {
     private let quotas: ProviderQuotaService
     private let setup: SetupInventoryService
     private let history: SessionHistoryService
+    private let ingestionExclusions: IngestionExclusionService
 
     public init(store: VelaStore, sourceRoots: [String:[URL]]? = nil, globalHome: URL? = nil) {
         self.globalHome = globalHome ?? FileManager.default.homeDirectoryForCurrentUser
@@ -16,6 +17,12 @@ public final class FoundationService {
         quotas = ProviderQuotaService(store:store)
         setup = SetupInventoryService(store:store,home:self.globalHome)
         history = SessionHistoryService(store: store, roots: sessions.sourceRoots)
+        ingestionExclusions = IngestionExclusionService(store:store)
+        ingestionExclusions.knownSource = { [weak sessions, weak history] project, provider, glob in
+            (history?.hasKnownSource(project:project,provider:provider,glob:glob) ?? false) ||
+            (sessions?.hasKnownSource(project:project,provider:provider,glob:glob) ?? false)
+        }
+        ingestionExclusions.relativeSourcePath = { [weak sessions] path, provider in sessions?.relativeSourcePath(URL(fileURLWithPath:path),provider:provider) }
     }
     public var onChange: (() -> Void)? { get { sessions.onChange } set { sessions.onChange = newValue } }
     public func startWatching() {
@@ -29,6 +36,9 @@ public final class FoundationService {
     public func handle(_ method: String, _ params: JSON) throws -> Any? {
         if let result = try quotas.handle(method,params) { return result }
         if let result = try history.handle(method,params) { return result }
+        if let result = try ingestionExclusions.handle(method,params) {
+            return result
+        }
         lock.lock(); defer { lock.unlock() }
         if let result = try memory.handle(method,params) { return result }
         if let result = try setup.handle(method,params) { return result }

@@ -65,44 +65,159 @@ public final class VelaStore {
     private var isBatching = false
     private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
     private let assetKinds: Set<String> = ["memory", "workflow", "guideline", "library", "checkpoint"]
+    // Internal fixture hooks; neither is exposed through RPC, CLI, or renderer.
+    var ingestionPolicyAfterRuleWriteForTesting: (() throws -> Void)?
+    var ingestionPolicyBeforeCommitForTesting: (() throws -> Void)?
 
-    public init(root: URL) throws {
+    private static let currentSchemaVersion = 1
+
+    /// Internal test-only fault points prove SQLite migration ordering and rollback.
+    /// They expose neither caller-provided SQL nor an RPC/CLI entry point.
+    init(root: URL, schemaMigrationFailureAfterStepForTesting: Int?, schemaMigrationBeforeWriteLockHookForTesting: (() -> Void)? = nil) throws {
+        guard schemaMigrationFailureAfterStepForTesting == nil || schemaMigrationFailureAfterStepForTesting! > 0 else {
+            throw VelaError("Invalid schema migration test fault point")
+        }
         self.root = URL(fileURLWithPath:canonicalProject(root.path))
         try FileManager.default.createDirectory(at: self.root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let file = self.root.appendingPathComponent("vela.sqlite3")
         guard sqlite3_open_v2(file.path, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else { throw VelaError("Cannot open Vela SQLite database") }
         sqlite3_busy_timeout(db, 5000)
-        try execute("PRAGMA journal_mode=WAL")
-        try execute("PRAGMA synchronous=NORMAL")
-        try execute("CREATE TABLE IF NOT EXISTS objects(kind TEXT NOT NULL,id TEXT NOT NULL,project TEXT NOT NULL DEFAULT '',title TEXT NOT NULL DEFAULT '',content TEXT NOT NULL DEFAULT '',private INTEGER NOT NULL DEFAULT 0,updatedAt TEXT NOT NULL,json TEXT NOT NULL,PRIMARY KEY(kind,id))")
-        try execute("CREATE INDEX IF NOT EXISTS objects_project ON objects(project,kind,updatedAt)")
-        try execute("CREATE INDEX IF NOT EXISTS objects_runtime_workflow ON objects(kind,project,json_extract(json,'$.workflowId'),json_extract(json,'$.state')) WHERE kind IN ('schedule_event','run')")
+        do {
+            // Read the version before changing journal mode or issuing any schema/data
+            // statement. A newer store must remain untouched by an older helper.
+            let existingVersion = try pragmaUserVersion()
+            try validateSupportedSchemaVersion(existingVersion)
+            try execute("PRAGMA journal_mode=WAL")
+            try execute("PRAGMA synchronous=NORMAL")
+            if existingVersion < Self.currentSchemaVersion {
+                try applySchemaMigrations(failureAfterStepForTesting: schemaMigrationFailureAfterStepForTesting, beforeWriteLockHookForTesting: schemaMigrationBeforeWriteLockHookForTesting)
+            } else {
+                try validateCurrentSchema()
+            }
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        } catch {
+            sqlite3_close(db); db = nil
+            throw error
+        }
+    }
+
+    public convenience init(root: URL) throws {
+        try self.init(root: root, schemaMigrationFailureAfterStepForTesting: nil)
+    }
+
+    private func validateSupportedSchemaVersion(_ version: Int) throws {
+        guard version >= 0 else { throw VelaError("Vela SQLite schema version is invalid") }
+        guard version <= Self.currentSchemaVersion else {
+            throw VelaError("Vela SQLite schema version \(version) is newer than this helper supports")
+        }
+    }
+
+    private func pragmaUserVersion() throws -> Int {
+        let pointer = try statement("PRAGMA user_version")
+        defer { sqlite3_finalize(pointer) }
+        guard sqlite3_step(pointer) == SQLITE_ROW else { throw VelaError("SQLite schema version is unavailable") }
+        return Int(sqlite3_column_int64(pointer, 0))
+    }
+
+    private func applySchemaMigrations(failureAfterStepForTesting: Int?, beforeWriteLockHookForTesting: (() -> Void)?) throws {
+        var completedSteps = 0
+        beforeWriteLockHookForTesting?()
+        try execute("BEGIN IMMEDIATE")
+        do {
+            // The first version read is only an early no-write guard. Another
+            // helper can commit a migration while this connection waits for the
+            // write lock, so advance from the value observed under that lock.
+            var version = try pragmaUserVersion()
+            try validateSupportedSchemaVersion(version)
+            while version < Self.currentSchemaVersion {
+                switch version {
+                case 0:
+                    try migrateSchema0To1 { sql in
+                        try self.execute(sql)
+                        completedSteps += 1
+                        if completedSteps == failureAfterStepForTesting {
+                            throw VelaError("Injected schema migration failure")
+                        }
+                    }
+                    version = 1
+                default:
+                    throw VelaError("No Vela SQLite migration exists from version \(version)")
+                }
+            }
+            try validateCurrentSchema()
+            if try pragmaUserVersion() != Self.currentSchemaVersion {
+                try execute("PRAGMA user_version=\(Self.currentSchemaVersion)")
+            }
+            try execute("COMMIT")
+        } catch {
+            try? execute("ROLLBACK")
+            throw error
+        }
+    }
+
+    private func schemaObjectExists(type: String, name: String) throws -> Bool {
+        let pointer = try statement("SELECT 1 FROM sqlite_master WHERE type=? AND name=? LIMIT 1", [type, name])
+        defer { sqlite3_finalize(pointer) }
+        let result = sqlite3_step(pointer)
+        guard result == SQLITE_ROW || result == SQLITE_DONE else { throw VelaError("SQLite schema validation failed") }
+        return result == SQLITE_ROW
+    }
+
+    private func tableContainsColumns(_ table: String, _ expected: Set<String>) throws -> Bool {
+        let pointer = try statement("PRAGMA table_info(\(table))")
+        defer { sqlite3_finalize(pointer) }
+        var names: Set<String> = []
+        while true {
+            let result = sqlite3_step(pointer)
+            if result == SQLITE_DONE { return expected.isSubset(of: names) }
+            guard result == SQLITE_ROW, let raw = sqlite3_column_text(pointer, 1) else { throw VelaError("SQLite schema validation failed") }
+            names.insert(String(cString: raw))
+        }
+    }
+
+    private func validateCurrentSchema() throws {
+        let tables = ["objects", "memory_embeddings", "session_change_counter", "session_completions"]
+        let indexes = ["objects_project", "objects_runtime_workflow", "objects_search_project", "memory_embeddings_scope", "session_completions_project"]
+        let triggers = ["vela_memory_vector_delete", "vela_memory_vector_private", "vela_session_insert", "vela_session_update", "vela_session_delete", "vela_completion_insert_v2", "vela_completion_update_v2"]
+        guard try tables.allSatisfy({ try schemaObjectExists(type: "table", name: $0) }),
+              try indexes.allSatisfy({ try schemaObjectExists(type: "index", name: $0) }),
+              try triggers.allSatisfy({ try schemaObjectExists(type: "trigger", name: $0) }),
+              try tableContainsColumns("objects", ["kind", "id", "project", "title", "content", "private", "updatedAt", "json"]) else {
+            throw VelaError("Vela SQLite schema version \(Self.currentSchemaVersion) is incomplete or corrupt")
+        }
+    }
+
+    private func migrateSchema0To1(_ apply: (String) throws -> Void) throws {
+        try apply("CREATE TABLE IF NOT EXISTS objects(kind TEXT NOT NULL,id TEXT NOT NULL,project TEXT NOT NULL DEFAULT '',title TEXT NOT NULL DEFAULT '',content TEXT NOT NULL DEFAULT '',private INTEGER NOT NULL DEFAULT 0,updatedAt TEXT NOT NULL,json TEXT NOT NULL,PRIMARY KEY(kind,id))")
+        try apply("CREATE INDEX IF NOT EXISTS objects_project ON objects(project,kind,updatedAt)")
+        try apply("CREATE INDEX IF NOT EXISTS objects_runtime_workflow ON objects(kind,project,json_extract(json,'$.workflowId'),json_extract(json,'$.state')) WHERE kind IN ('schedule_event','run')")
         // Read substring candidates in row order instead of following the
         // time-ordered listing index through every matching project's content.
-        try execute("CREATE INDEX IF NOT EXISTS objects_search_project ON objects(project,private,kind)")
-        try execute("CREATE TABLE IF NOT EXISTS memory_embeddings(memory_id TEXT NOT NULL,project TEXT NOT NULL,language TEXT NOT NULL,model TEXT NOT NULL,revision INTEGER NOT NULL,dimension INTEGER NOT NULL,source_hash TEXT NOT NULL,vector BLOB NOT NULL,PRIMARY KEY(memory_id,language))")
-        try execute("CREATE INDEX IF NOT EXISTS memory_embeddings_scope ON memory_embeddings(project,language)")
-        try execute("CREATE TRIGGER IF NOT EXISTS vela_memory_vector_delete AFTER DELETE ON objects WHEN OLD.kind='memory' BEGIN DELETE FROM memory_embeddings WHERE memory_id=OLD.id; END")
-        try execute("CREATE TRIGGER IF NOT EXISTS vela_memory_vector_private AFTER UPDATE ON objects WHEN NEW.kind='memory' AND NEW.private<>0 BEGIN DELETE FROM memory_embeddings WHERE memory_id=NEW.id; END")
+        try apply("CREATE INDEX IF NOT EXISTS objects_search_project ON objects(project,private,kind)")
+        try apply("CREATE TABLE IF NOT EXISTS memory_embeddings(memory_id TEXT NOT NULL,project TEXT NOT NULL,language TEXT NOT NULL,model TEXT NOT NULL,revision INTEGER NOT NULL,dimension INTEGER NOT NULL,source_hash TEXT NOT NULL,vector BLOB NOT NULL,PRIMARY KEY(memory_id,language))")
+        try apply("CREATE INDEX IF NOT EXISTS memory_embeddings_scope ON memory_embeddings(project,language)")
+        try apply("CREATE TRIGGER IF NOT EXISTS vela_memory_vector_delete AFTER DELETE ON objects WHEN OLD.kind='memory' BEGIN DELETE FROM memory_embeddings WHERE memory_id=OLD.id; END")
+        try apply("CREATE TRIGGER IF NOT EXISTS vela_memory_vector_private AFTER UPDATE ON objects WHEN NEW.kind='memory' AND NEW.private<>0 BEGIN DELETE FROM memory_embeddings WHERE memory_id=NEW.id; END")
         // A one-row change counter keeps background analysis from rescanning session history
         // every timer tick. Triggers also observe writes made by another helper connection.
-        try execute("CREATE TABLE IF NOT EXISTS session_change_counter(singleton INTEGER PRIMARY KEY CHECK(singleton=1),revision INTEGER NOT NULL)")
-        try execute("INSERT OR IGNORE INTO session_change_counter(singleton,revision) VALUES(1,0)")
-        try execute("CREATE TRIGGER IF NOT EXISTS vela_session_insert AFTER INSERT ON objects WHEN NEW.kind='session' BEGIN UPDATE session_change_counter SET revision=revision+1 WHERE singleton=1; END")
-        try execute("CREATE TRIGGER IF NOT EXISTS vela_session_update AFTER UPDATE OF json ON objects WHEN NEW.kind='session' AND OLD.json<>NEW.json BEGIN UPDATE session_change_counter SET revision=revision+1 WHERE singleton=1; END")
-        try execute("CREATE TRIGGER IF NOT EXISTS vela_session_delete AFTER DELETE ON objects WHEN OLD.kind='session' BEGIN UPDATE session_change_counter SET revision=revision+1 WHERE singleton=1; END")
+        try apply("CREATE TABLE IF NOT EXISTS session_change_counter(singleton INTEGER PRIMARY KEY CHECK(singleton=1),revision INTEGER NOT NULL)")
+        try apply("INSERT OR IGNORE INTO session_change_counter(singleton,revision) VALUES(1,0)")
+        try apply("CREATE TRIGGER IF NOT EXISTS vela_session_insert AFTER INSERT ON objects WHEN NEW.kind='session' BEGIN UPDATE session_change_counter SET revision=revision+1 WHERE singleton=1; END")
+        try apply("CREATE TRIGGER IF NOT EXISTS vela_session_update AFTER UPDATE OF json ON objects WHEN NEW.kind='session' AND OLD.json<>NEW.json BEGIN UPDATE session_change_counter SET revision=revision+1 WHERE singleton=1; END")
+        try apply("CREATE TRIGGER IF NOT EXISTS vela_session_delete AFTER DELETE ON objects WHEN OLD.kind='session' BEGIN UPDATE session_change_counter SET revision=revision+1 WHERE singleton=1; END")
         // Compact completion identities provide an unbounded durable cursor;
         // scheduling never rescans or loads entire session transcripts.
-        try execute("CREATE TABLE IF NOT EXISTS session_completions(sequence INTEGER PRIMARY KEY AUTOINCREMENT,project TEXT NOT NULL,session_id TEXT NOT NULL,activity TEXT NOT NULL,UNIQUE(project,session_id,activity))")
-        try execute("CREATE INDEX IF NOT EXISTS session_completions_project ON session_completions(project,sequence)")
+        try apply("CREATE TABLE IF NOT EXISTS session_completions(sequence INTEGER PRIMARY KEY AUTOINCREMENT,project TEXT NOT NULL,session_id TEXT NOT NULL,activity TEXT NOT NULL,UNIQUE(project,session_id,activity))")
+        try apply("CREATE INDEX IF NOT EXISTS session_completions_project ON session_completions(project,sequence)")
         // An outer UPSERT can override INSERT OR IGNORE inside a trigger;
         // explicit UPSERT DO NOTHING preserves completion deduplication.
         let completionInsert = "INSERT INTO session_completions(project,session_id,activity) VALUES(NEW.project,NEW.id,COALESCE(json_extract(NEW.json,'$.lastActivity'),NEW.updatedAt)) ON CONFLICT(project,session_id,activity) DO NOTHING;"
-        try execute("DROP TRIGGER IF EXISTS vela_completion_insert")
-        try execute("DROP TRIGGER IF EXISTS vela_completion_update")
-        try execute("CREATE TRIGGER IF NOT EXISTS vela_completion_insert_v2 AFTER INSERT ON objects WHEN NEW.kind='session' AND lower(json_extract(NEW.json,'$.state'))='completed' BEGIN " + completionInsert + " END")
-        try execute("CREATE TRIGGER IF NOT EXISTS vela_completion_update_v2 AFTER UPDATE ON objects WHEN NEW.kind='session' AND lower(json_extract(NEW.json,'$.state'))='completed' AND (COALESCE(lower(json_extract(OLD.json,'$.state')),'')<>'completed' OR COALESCE(json_extract(OLD.json,'$.lastActivity'),OLD.updatedAt)<>COALESCE(json_extract(NEW.json,'$.lastActivity'),NEW.updatedAt)) BEGIN " + completionInsert + " END")
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        // These names existed in an unversioned pre-v1 store. Dropping them
+        // inside this transaction makes the corrected trigger definitions atomic.
+        try apply("DROP TRIGGER IF EXISTS vela_completion_insert")
+        try apply("DROP TRIGGER IF EXISTS vela_completion_update")
+        try apply("CREATE TRIGGER IF NOT EXISTS vela_completion_insert_v2 AFTER INSERT ON objects WHEN NEW.kind='session' AND lower(json_extract(NEW.json,'$.state'))='completed' BEGIN " + completionInsert + " END")
+        try apply("CREATE TRIGGER IF NOT EXISTS vela_completion_update_v2 AFTER UPDATE ON objects WHEN NEW.kind='session' AND lower(json_extract(NEW.json,'$.state'))='completed' AND (COALESCE(lower(json_extract(OLD.json,'$.state')),'')<>'completed' OR COALESCE(json_extract(OLD.json,'$.lastActivity'),OLD.updatedAt)<>COALESCE(json_extract(NEW.json,'$.lastActivity'),NEW.updatedAt)) BEGIN " + completionInsert + " END")
     }
     deinit { sqlite3_close(db) }
     /// Lists must not deserialize bounded-but-large provider transcripts merely
@@ -488,6 +603,25 @@ public final class VelaStore {
         var edited = item; edited["title"] = title; edited["content"] = content; edited["tokens"] = tokenEstimate(content); edited["updatedAt"] = isoNow(); edited["humanEdited"] = true
         try execute("UPDATE objects SET title=?,content=?,updatedAt=?,json=? WHERE kind=? AND id=?",[title,content,string(edited,"updatedAt"),try jsonString(edited),kind,string(item,"id")])
         return edited
+    }
+    /// A narrow internal transaction for policy changes and derived session withdrawal.
+    /// No asset files participate; provider logs and canonical memories stay untouched.
+    func withIngestionPolicyTransaction(_ body: () throws -> JSON) throws -> JSON {
+        lock.lock(); defer { lock.unlock() }
+        guard !isBatching else { throw VelaError("Nested ingestion policy transaction is not supported") }
+        try execute("BEGIN IMMEDIATE"); isBatching = true
+        do {
+            let result = try body()
+            try ingestionPolicyBeforeCommitForTesting?()
+            try execute("COMMIT"); isBatching = false; return result
+        } catch {
+            try? execute("ROLLBACK"); isBatching = false; throw error
+        }
+    }
+    /// Keyset pagination never truncates policy enforcement at the dashboard limit.
+    func ingestionSourcePage(project: String, afterID: String = "") throws -> [JSON] {
+        lock.lock(); defer { lock.unlock() }
+        return try select("SELECT json_object('id',id,'project',project,'provider',json_extract(json,'$.provider'),'sourcePath',json_extract(json,'$.sourcePath')) FROM objects WHERE kind='session' AND project=? AND id>? ORDER BY id LIMIT 256", [canonicalProject(project),afterID])
     }
     public func remove(_ kind: String, _ id: String) throws {
         lock.lock(); defer { lock.unlock() }
