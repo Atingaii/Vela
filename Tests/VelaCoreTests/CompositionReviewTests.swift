@@ -14,7 +14,8 @@ final class CompositionReviewTests: XCTestCase {
         try body(project,store,AutomationService(store:store))
     }
     private func call(_ service: AutomationService,_ method: String,_ params: JSON) throws -> JSON {
-        try XCTUnwrap(service.handle(method,params) as? JSON)
+        let valueToUnwrap = try service.handle(method,params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
     }
     private func start(_ service: AutomationService,_ project: URL,_ id: String,_ text: String) throws -> JSON {
         _ = try call(service,"workflows.save",["id":id + "-child","title":id + " child","project":project.path,"steps":[["id":"emit","tool":"agent.run","arguments":["executable":"/bin/echo","args":[text]]]],"output":["target":"file","path":"must-stay-memory.md"]])

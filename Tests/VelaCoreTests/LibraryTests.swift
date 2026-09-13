@@ -12,7 +12,8 @@ final class LibraryTests: XCTestCase {
         try body(directory,store,LibraryService(store:store),canonicalProject(project.path))
     }
     private func call(_ service: LibraryService,_ method: String,_ params: JSON) throws -> JSON {
-        try XCTUnwrap(service.handle(method,params) as? JSON)
+        let valueToUnwrap = try service.handle(method,params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
     }
     private func review(_ service: LibraryService,_ id: String,_ project: String) throws -> JSON {
         ["id":id,"project":project,"snapshotHash":try call(service,"library.get",["id":id,"project":project])["snapshotHash"]!]

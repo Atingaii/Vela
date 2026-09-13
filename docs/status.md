@@ -37,6 +37,8 @@
 
 先前提交 `ea8fbd257f813c604a93e070d5f98a6337829d81` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34715619455)为历史基线：99 项 XCTest、24 组 renderer 检查。先前 1,453,375 bytes 开发包也只是该阶段产物，不能作为新增能力的包体或界面验证结果。更早的原生、Lab、私有检索、通知拒绝与失败复现保留于 verification 文档，不以新测试覆盖删除历史问题。
 
+新增开发检查点 `b94707f` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34742282084)中，SDK/OpenClaw独立安装任务通过；真正XCTest执行334项但出现158次断言失败，后续界面/打包步骤跳过。157次来自测试helper与portable运行器对`XCTUnwrap`异常计数的差异，另1次额度洪泛错误分类仍在核对。已修运行器及helper并保留旧反例；旧334项portable通过不能推广为XCTest验收。该检查点仍未通过整体CI。
+
 本机为 Command Line Tools 环境，`swift build` 可用但缺 XCTest；`scripts/test-portable.py` 编译真实 Core 与原同步测试方法，使用小型断言兼容层，**不是 XCTest**。完整 Xcode/CI 使用 `swift test`。
 
 ```sh

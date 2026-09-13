@@ -20,7 +20,10 @@ final class WorkflowFileWatchTests: XCTestCase {
     private func save(_ service: AutomationService, _ root: URL, _ policy: JSON) throws -> JSON {
         try XCTUnwrap(service.handle("workflows.save",["title":"File watch fixture","project":root.path,"trigger":"watch","enabled":true,"watch":policy,"steps":[["tool":"git.status","arguments":JSON()]]]) as? JSON)
     }
-    private func entries(_ root: URL, _ policy: JSON) throws -> JSON { try XCTUnwrap(WorkflowFileWatch.scan(project:root.path,policy:policy)["entries"] as? JSON) }
+    private func entries(_ root: URL, _ policy: JSON) throws -> JSON {
+        let valueToUnwrap = try WorkflowFileWatch.scan(project:root.path,policy:policy)["entries"] as? JSON
+        return try XCTUnwrap(valueToUnwrap)
+    }
     private func waitForEvent(_ service: AutomationService, id: String, after: Int) throws {
         let deadline = Date().addingTimeInterval(4)
         while Date() < deadline {

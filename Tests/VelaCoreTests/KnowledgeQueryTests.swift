@@ -11,7 +11,10 @@ final class KnowledgeQueryTests: XCTestCase {
         _ = try store.put("project",["title":"Knowledge fixture","path":root.path,"project":root.path])
         try work(root,store,AutomationService(store:store))
     }
-    private func call(_ service: AutomationService, _ method: String, _ params: JSON) throws -> JSON { try XCTUnwrap(service.handle(method,params) as? JSON) }
+    private func call(_ service: AutomationService, _ method: String, _ params: JSON) throws -> JSON {
+        let valueToUnwrap = try service.handle(method,params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
+    }
     private func source(_ root: URL, _ store: VelaStore, kind: String = "library", extra: JSON = [:]) throws -> JSON {
         var item: JSON = ["title":"Harbor release notes","content":"Harbor retains local configuration. Publish only after the focused tests pass.","project":root.path,"state":"active","scope":"project","private":false]
         item.merge(extra) { _,new in new }; return try store.put(kind,item)

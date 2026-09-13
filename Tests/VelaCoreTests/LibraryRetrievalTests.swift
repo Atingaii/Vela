@@ -16,7 +16,8 @@ final class LibraryRetrievalTests: XCTestCase {
     }
     private func search(_ index: LibraryIndex,_ project: String,_ query: String, extra: JSON = [:]) throws -> [JSON] {
         var params: JSON = ["project":project,"query":query]; params.merge(extra) { _,new in new }
-        return try XCTUnwrap(index.handle("library.search",params)["items"] as? [JSON])
+        let valueToUnwrap = try index.handle("library.search",params)["items"] as? [JSON]
+        return try XCTUnwrap(valueToUnwrap)
     }
     func testUnicodeAccentsCJKAndLiteralQuerySyntaxReturnRealParagraphs() throws {
         try fixture { _,store,index,project in

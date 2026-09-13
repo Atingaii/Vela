@@ -75,10 +75,14 @@ final class ModelImprovementTests: XCTestCase {
     func request(_ ids: [String], carrier: String = "Doc", mode: String = "success") throws -> JSON {
         ["project":project.path,"sessionIds":ids,"targets":[["carrier":carrier,"path":carrier == "Rule" ? "AGENTS.md" : ".vela/docs/handoff.md"]],"executable":try fake(mode),"model":"synthetic-explicit-model","effort":"high","timeoutSeconds":3]
     }
-    func plan(_ params: JSON) throws -> JSON { try XCTUnwrap(service.handle("improve.model.plan",params) as? JSON) }
+    func plan(_ params: JSON) throws -> JSON {
+        let valueToUnwrap = try service.handle("improve.model.plan",params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
+    }
     func approve(_ plan: JSON) throws -> JSON {
         let approval = try XCTUnwrap(plan["approval"] as? JSON)
-        return try XCTUnwrap(service.handle("approvals.decide",["id":string(approval,"id"),"snapshotHash":string(approval,"snapshotHash"),"decision":"approve"]) as? JSON)
+        let valueToUnwrap = try service.handle("approvals.decide",["id":string(approval,"id"),"snapshotHash":string(approval,"snapshotHash"),"decision":"approve"]) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
     }
     func current(_ plan: JSON) throws -> JSON { try XCTUnwrap(service.handle("improve.model.get",["project":project.path,"id":string(plan,"id")]) as? JSON) }
     func calls() throws -> [JSON] {
@@ -193,7 +197,8 @@ final class ModelImprovementTests: XCTestCase {
         func transition(_ action: String, hash: String? = nil) throws -> JSON {
             var params: JSON = ["project":project.path,"id":string(suggestion,"id"),"suggestionHash":hash ?? string(suggestion,"suggestionHash"),"action":action]
             if action == "snooze" { params["until"] = ISO8601DateFormatter().string(from:Date().addingTimeInterval(3600)) }
-            return try XCTUnwrap(service.handle("improve.model.transition",params) as? JSON)
+            let valueToUnwrap = try service.handle("improve.model.transition",params) as? JSON
+            return try XCTUnwrap(valueToUnwrap)
         }
         let firstHash = string(suggestion,"suggestionHash")
         suggestion = try transition("snooze"); XCTAssertEqual(string(suggestion,"state"),"snoozed")

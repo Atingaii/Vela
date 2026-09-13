@@ -12,7 +12,8 @@ final class WorkflowPlanningTests: XCTestCase {
         try work(root,store,AutomationService(store:store))
     }
     private func call(_ service: AutomationService, _ method: String, _ params: JSON) throws -> JSON {
-        try XCTUnwrap(service.handle(method,params) as? JSON)
+        let valueToUnwrap = try service.handle(method,params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
     }
     private func answer() -> JSON {
         ["title":"Review current changes","summary":"Summarize tracked changes and current status","template":"Summarize {{git_status.output}} and {{git_diff.output}}","readTools":["git.status","git.diff"],"questions":[],"unresolved":[]]

@@ -20,7 +20,8 @@ final class SessionHistoryTests: XCTestCase {
     }
     func call(_ method: String, _ params: JSON = [:]) throws -> JSON {
         var input = params; input["project"] = input["project"] ?? project.path
-        return try XCTUnwrap(service.handle(method, input) as? JSON)
+        let valueToUnwrap = try service.handle(method, input) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
     }
     func claude(_ id: String, _ text: String = "original 内容", cwd: String? = nil, timestamp: String? = nil) -> JSON {
         var row: JSON = ["type": "user", "uuid": id, "sessionId": "synthetic-history", "message": ["role": "user", "content": text]]

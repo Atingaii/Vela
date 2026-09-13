@@ -13,7 +13,8 @@ final class WorkflowContextTests: XCTestCase {
         try work(root,store,AutomationService(store:store))
     }
     private func call(_ service: AutomationService, _ method: String, _ params: JSON) throws -> JSON {
-        try XCTUnwrap(service.handle(method,params) as? JSON)
+        let valueToUnwrap = try service.handle(method,params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
     }
     private func step() -> JSON {
         ["tool":"agent.run","arguments":["executable":"/bin/sh","args":["receive.sh",WorkflowContext.promptMarker],"promptMode":"workflow_context"]]

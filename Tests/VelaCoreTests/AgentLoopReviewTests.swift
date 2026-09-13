@@ -20,7 +20,10 @@ final class AgentLoopReviewTests: XCTestCase {
         let script = "#!/bin/sh\nprintf 'called\\n' >> \(quote(root.appendingPathComponent("calls.txt").path))\nprintf '%s\\0' \"$@\" > \(quote(root.appendingPathComponent("argv.bin").path))\ncat <<'VELA_LOOP_REVIEW_EOF'\n\(try events.map(jsonString).joined(separator:"\n"))\nVELA_LOOP_REVIEW_EOF\n"
         try Data(script.utf8).write(to:path); try FileManager.default.setAttributes([.posixPermissions:0o700],ofItemAtPath:path.path); return path
     }
-    private func call(_ service: AutomationService, _ method: String, _ params: JSON) throws -> JSON { try XCTUnwrap(service.handle(method,params) as? JSON) }
+    private func call(_ service: AutomationService, _ method: String, _ params: JSON) throws -> JSON {
+        let valueToUnwrap = try service.handle(method,params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
+    }
     private func args(_ binary: URL) -> JSON { ["prompt":"Use the selected read-only facts.","agent":["executable":binary.path,"model":"synthetic-model","reasoningEffort":"low"],"tools":["git.status"],"limits":["maxModelCalls":2,"timeoutSeconds":5,"totalTimeoutSeconds":10]] }
     private func approve(_ service: AutomationService, _ loop: JSON) throws -> JSON {
         let approval = try XCTUnwrap(loop["approval"] as? JSON)

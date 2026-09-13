@@ -29,7 +29,10 @@ final class AgentLoopTests: XCTestCase {
         _ = try store.put("project",["path":project.path,"project":project.path])
         try body(project,store,AutomationService(store:store))
     }
-    private func call(_ service: AutomationService,_ method: String,_ params: JSON) throws -> JSON { try XCTUnwrap(service.handle(method,params) as? JSON) }
+    private func call(_ service: AutomationService,_ method: String,_ params: JSON) throws -> JSON {
+        let valueToUnwrap = try service.handle(method,params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
+    }
     private func quote(_ value: String) -> String { "'" + value.replacingOccurrences(of:"'",with:"'\\''") + "'" }
     private func fake(_ project: URL,_ decisions: [JSON],partial: Bool = false, tool: Bool = false, delay: Bool = false) throws -> URL {
         let prefix = project.appendingPathComponent("fake-" + UUID().uuidString)

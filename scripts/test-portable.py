@@ -75,7 +75,14 @@ func XCTAssertNoThrow<T>(_ expression: @autoclosure () throws -> T, _ message: S
     do { _ = try expression() } catch { recordFailure("\(message): \(error)",file,line) }
 }
 func XCTUnwrap<T>(_ expression: @autoclosure () throws -> T?, _ message: String = "Expected nonnil", file: StaticString = #file, line: UInt = #line) throws -> T {
-    guard let value = try expression() else { throw VelaError("\(file):\(line): \(message)") }; return value
+    let optional: T?
+    do { optional = try expression() }
+    catch { recordFailure("XCTUnwrap expression threw: \(error)",file,line); throw error }
+    guard let value = optional else {
+        recordFailure(message,file,line)
+        throw VelaError("\(file):\(line): \(message)")
+    }
+    return value
 }
 '''
 

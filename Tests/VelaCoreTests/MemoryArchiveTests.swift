@@ -60,7 +60,8 @@ final class MemoryArchiveTests: XCTestCase {
 
     private func archive(_ service: MemoryArchiveService, _ project: URL, ids: [String]? = nil) throws -> JSON {
         var params: JSON = ["project":project.path]; if let ids { params["ids"] = ids }
-        return try XCTUnwrap(service.handle("memory.archive.export",params)["archive"] as? JSON)
+        let valueToUnwrap = try service.handle("memory.archive.export",params)["archive"] as? JSON
+        return try XCTUnwrap(valueToUnwrap)
     }
 
     private func reseal(_ archive: JSON, change: (inout JSON) -> Void) throws -> JSON {

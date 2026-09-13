@@ -187,7 +187,8 @@
       "methodCount": 334,
       "runner": "portable synchronous assertion compatibility layer; not XCTest",
       "passed": true,
-      "matchesWorkingTreeAtEnd": true
+      "matchesWorkingTreeAtEnd": true,
+      "qualification": "Historical portable-runner pass only: hosted XCTest later exposed missing unwrap failure accounting in that runner. See hosted-ci-b94707f; this result cannot establish XCTest acceptance."
     },
     {
       "id": "walrus-installed-frozen-arguments",
@@ -297,6 +298,44 @@
       "modelTurn": "actual_host_with_synthetic_loopback_provider",
       "realModelQuality": "not_tested",
       "remoteEncryptedRoundtrip": "not_run"
+    },
+    {
+      "id": "hosted-ci-b94707f",
+      "commit": "b94707ff41620b3928dede2b8eefe49f90f1f64c",
+      "runURL": "https://github.com/Atingaii/Vela/actions/runs/34742282084",
+      "xctest": {
+        "job": 103683886822,
+        "status": "failure",
+        "executedTests": 334,
+        "assertionFailures": 158,
+        "unwrapAutoclosureFailures": 157,
+        "otherFailures": 1,
+        "otherFailure": "quota_flood_error_classification_without_observed_kind"
+      },
+      "installedSDKs": {
+        "job": 103683886777,
+        "status": "success",
+        "walrusPackageSHA256": "53a90db381c1979943bd8769c0219ddb5ff8d39a9531f59da4a1d22d8523e3b8",
+        "walrusTests": 33,
+        "openclawTests": 7
+      },
+      "rendererAndPackaging": "skipped_after_core_failure",
+      "rawLogSHA256": {
+        "macos-xctest.log": "ab684ac7ee3f3373188d0ebe2015121fff276ceac4e97dfc3ff1b5a8128e1197",
+        "installed-sdks.log": "446854ac6a7f1a96f74f18387f95d7bbb2fb2886759418a7fd03fa1e286061ed"
+      }
+    },
+    {
+      "id": "strict-runner-corrected-checkpoint",
+      "localReceipt": "output/parity/ci-checkpoint-b94707f/strict-runner-after.json",
+      "receiptSHA256": "6736ed2505ba3e25f65b84959551e09c1a56c23481245c627acd83de625a4efa",
+      "snapshotSHA256": "cc81f1077fa4d8bf610412d19e3e51d4701d29303fcc7a9f2d96ffdf6519770d",
+      "runnerSHA256": "792d9c7648c18d86966a80327d28872fea02c1816963ae56d7df74bd6e691fa7",
+      "passed": true,
+      "methodCount": 334,
+      "filter": [],
+      "matchesWorkingTreeAtEnd": true,
+      "scope": "Frozen b94707f Core plus corrected assertion support/test helpers; excludes next AI/Plan slices and UI. Not XCTest."
     }
   ]
 }

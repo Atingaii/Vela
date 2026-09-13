@@ -151,7 +151,8 @@ final class ProviderQuotaTests: XCTestCase {
         for mode in ["flood", "stderr_flood"] {
             let value = try read(service(), fixture(mode))
             let attempt = try XCTUnwrap(value["lastAttempt"] as? JSON); let error = try XCTUnwrap(attempt["error"] as? JSON)
-            XCTAssertTrue(["frame_limit", "output_limit"].contains(string(error, "kind")))
+            let actualKind = string(error, "kind")
+            XCTAssertTrue(["frame_limit", "output_limit"].contains(actualKind), "Flood mode \(mode) returned \(actualKind)")
         }
         let value = try read(service(timeout: 0.2), fixture("timeout_child"))
         let attempt = try XCTUnwrap(value["lastAttempt"] as? JSON); let error = try XCTUnwrap(attempt["error"] as? JSON)

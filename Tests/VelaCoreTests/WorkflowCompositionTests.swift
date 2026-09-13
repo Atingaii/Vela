@@ -12,7 +12,10 @@ final class WorkflowCompositionTests: XCTestCase {
         _ = try store.put("project",["path":canonicalProject(project.path),"project":canonicalProject(project.path)])
         try body(project,store,AutomationService(store:store))
     }
-    private func call(_ service: AutomationService,_ method: String,_ params: JSON) throws -> JSON { try XCTUnwrap(service.handle(method,params) as? JSON) }
+    private func call(_ service: AutomationService,_ method: String,_ params: JSON) throws -> JSON {
+        let valueToUnwrap = try service.handle(method,params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
+    }
     private func save(_ service: AutomationService,_ project: URL,_ id: String,_ arguments: JSON,_ extra: JSON = [:]) throws -> JSON {
         var definition: JSON = ["id":id,"title":id,"project":project.path,"steps":[["id":"report","tool":"agent.run","arguments":arguments]]]
         definition.merge(extra) { _,new in new }; return try call(service,"workflows.save",definition)

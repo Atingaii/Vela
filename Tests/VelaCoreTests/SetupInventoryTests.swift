@@ -16,7 +16,10 @@ final class SetupInventoryTests: XCTestCase {
         try FileManager.default.createDirectory(at:url.deletingLastPathComponent(),withIntermediateDirectories:true)
         try Data(content.utf8).write(to:url)
     }
-    private func call(_ service: FoundationService,_ method: String,_ params: JSON = [:]) throws -> JSON { try XCTUnwrap(service.handle(method,params) as? JSON) }
+    private func call(_ service: FoundationService,_ method: String,_ params: JSON = [:]) throws -> JSON {
+        let valueToUnwrap = try service.handle(method,params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
+    }
     private func scan(_ service: FoundationService,_ project: URL) throws -> JSON { try call(service,"setup.scan",["project":project.path]) }
     private func item(_ store: VelaStore,_ path: URL) throws -> JSON { try XCTUnwrap(store.get("artifact",stableHash("setup:" + path.path))) }
 

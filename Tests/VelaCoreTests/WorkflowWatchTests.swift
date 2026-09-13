@@ -12,7 +12,10 @@ final class WorkflowWatchTests: XCTestCase {
         XCTAssertEqual(try AutomationProcess.git(["init","-q"],cwd:root.path).exitCode,0)
         try body(root,store,AutomationService(store:store))
     }
-    private func call(_ service: AutomationService, _ method: String, _ params: JSON) throws -> JSON { try XCTUnwrap(service.handle(method,params) as? JSON) }
+    private func call(_ service: AutomationService, _ method: String, _ params: JSON) throws -> JSON {
+        let valueToUnwrap = try service.handle(method,params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
+    }
     private func definition(_ root: URL, tool: String = "git.status", minimum: Int = 1, debounce: Int = 0, write: Bool = false) -> JSON {
         let step: JSON = write ? ["tool":"file.write","arguments":["path":"reviewed.txt","content":"WATCH_APPROVED_ONCE"]] : ["tool":"git.status","arguments":JSON()]
         let arguments: JSON = tool == "library.retrieve" ? ["query":"cedar","k":10] : JSON()

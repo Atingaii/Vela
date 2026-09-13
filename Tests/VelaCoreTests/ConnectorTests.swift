@@ -51,7 +51,8 @@ final class ConnectorTests: XCTestCase {
         try body(project,store,service,connector,provider,vault)
     }
     private func configure(_ connector: ConnectorService) throws -> JSON {
-        try XCTUnwrap(connector.handle("connectors.configure",["apiKey":"synthetic-project-key-one","userId":"user_fixture"]) as? JSON)
+        let valueToUnwrap = try connector.handle("connectors.configure",["apiKey":"synthetic-project-key-one","userId":"user_fixture"]) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
     }
     private func params(_ project: URL, _ connector: ConnectorService) throws -> JSON {
         let tool = try XCTUnwrap(connector.handle("connectors.tools.get",["slug":"FIXTURE_READ","version":"20260913_01"]) as? JSON)
@@ -59,7 +60,8 @@ final class ConnectorTests: XCTestCase {
     }
     private func approve(_ service: AutomationService, _ action: JSON) throws -> JSON {
         let approval = try XCTUnwrap(action["approval"] as? JSON)
-        return try XCTUnwrap(service.handle("approvals.decide",["id":approval["id"]!,"snapshotHash":approval["snapshotHash"]!,"decision":"approve"]) as? JSON)
+        let valueToUnwrap = try service.handle("approvals.decide",["id":approval["id"]!,"snapshotHash":approval["snapshotHash"]!,"decision":"approve"]) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
     }
 
     func testConfigureVerifiesPermissionBeforeSavingAndNeverPersistsSecrets() throws {

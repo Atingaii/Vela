@@ -23,6 +23,7 @@ jobs:
       - name: Repository and website checks
         run: |
           python3 scripts/check-repository.py
+          python3 scripts/test-portable-support.py
           python3 scripts/check-ui-translations.py
           python3 scripts/test-release-resources.py
       - name: JSONL and MCP integration

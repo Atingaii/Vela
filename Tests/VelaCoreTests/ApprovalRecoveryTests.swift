@@ -12,7 +12,8 @@ final class ApprovalRecoveryTests: XCTestCase {
         try body(project,store,AutomationService(store:store))
     }
     private func call(_ service: AutomationService,_ method: String,_ params: JSON) throws -> JSON {
-        try XCTUnwrap(service.handle(method,params) as? JSON)
+        let valueToUnwrap = try service.handle(method,params) as? JSON
+        return try XCTUnwrap(valueToUnwrap)
     }
     private func approve(_ service: AutomationService,_ approval: JSON,_ decision: String = "approve") throws -> JSON {
         try call(service,"approvals.decide",["id":approval["id"]!,"snapshotHash":approval["snapshotHash"]!,"decision":decision])
