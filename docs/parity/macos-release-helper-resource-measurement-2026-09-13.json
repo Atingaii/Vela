@@ -1,0 +1,81 @@
+{
+  "format": "vela-release-helper-resource-measurement-v1",
+  "date": "2026-09-13",
+  "helperSHA256": "be235ea587100e6882134549b1fc09e0f53cfca83a536b7411edae1bf1eea436",
+  "scope": "one bundled release helper, one new empty Vela store, no schedule, default watcher enabled; no GUI",
+  "host": {
+    "system": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "python": "3.14.7"
+  },
+  "startup": {
+    "measurement": "monotonic elapsed from Popen invocation to first system.version JSON-RPC response",
+    "milliseconds": 28.652,
+    "response": {
+      "version": "0.1.0-preview.2",
+      "platform": "macOS"
+    }
+  },
+  "idle": {
+    "durationSeconds": 30,
+    "sampleIntervalSeconds": 5,
+    "samples": [
+      {
+        "offsetSeconds": 0.0,
+        "rssKiB": 13728,
+        "cpuPercent": 0.0
+      },
+      {
+        "offsetSeconds": 5.009,
+        "rssKiB": 37824,
+        "cpuPercent": 7.4
+      },
+      {
+        "offsetSeconds": 10.021,
+        "rssKiB": 65808,
+        "cpuPercent": 7.5
+      },
+      {
+        "offsetSeconds": 15.029,
+        "rssKiB": 92912,
+        "cpuPercent": 17.5
+      },
+      {
+        "offsetSeconds": 20.036,
+        "rssKiB": 65664,
+        "cpuPercent": 0.2
+      },
+      {
+        "offsetSeconds": 25.046,
+        "rssKiB": 61312,
+        "cpuPercent": 0.1
+      },
+      {
+        "offsetSeconds": 30.057,
+        "rssKiB": 57632,
+        "cpuPercent": 0.1
+      }
+    ],
+    "tool": "/bin/ps -o rss= -o %cpu= -p PID",
+    "rssUnit": "KiB resident set size reported by ps",
+    "cpuUnit": "percent reported by ps; platform-provided process percentage, not a dedicated interval CPU profiler"
+  },
+  "shutdown": {
+    "method": "stdin EOF after accepted response",
+    "helperExitCode": 0,
+    "pidAbsentAfterExit": true,
+    "stderr": null
+  },
+  "finding": "This single run observed startup activity through 15 seconds (CPU samples up to 17.5% and RSS up to 92,912 KiB); later samples were 0.1–0.2% CPU. It is evidence of this run, not an idle-budget pass.",
+  "notRun": [
+    "five real provider agents",
+    "event-to-UI latency",
+    "synthetic five-writer burst (not representative of five real provider loads)",
+    "cold-start/RSS/CPU distributions or p95"
+  ],
+  "limits": [
+    "One empty-store helper sample is not a cold-start distribution or a five-Agent workload.",
+    "No synthetic event burst was run: it would not establish five real provider load or event-to-UI latency.",
+    "This measurement does not change HG-1 Performance status or infer package performance from package size."
+  ]
+}

@@ -247,8 +247,38 @@ def main():
             assert not (project / 'docs/ui-browser-check.md').exists(), 'Dry Run wrote a file.'
             page('workflows')
             click('.btn-wf-run[data-id="' + item['id'] + '"]')
+            # The product handler awaits workflows.run before it refreshes the
+            # dashboard. A Playwright click only waits for the DOM event, so
+            # wait for the exact frozen side effect instead of sampling Inbox
+            # before the bridge call has committed it.
+            expected_path = str((project / 'docs/ui-browser-check.md').resolve())
+            expected_content = 'Written after explicit renderer approval.\n'
+            deadline = time.monotonic() + 8
+            approval = None
+            while time.monotonic() < deadline:
+                for candidate in read('inbox.list'):
+                    arguments = candidate.get('arguments') or {}
+                    if (candidate.get('tool') == 'file.write'
+                            and candidate.get('project') == str(project)
+                            and arguments.get('path') == expected_path
+                            and arguments.get('content') == expected_content):
+                        candidate_run = read('runs.get', {'id': candidate['runId']})
+                        steps = candidate_run.get('steps') or []
+                        if (candidate_run.get('workflowId') == item['id']
+                                and candidate_run.get('state') == 'pending_approval'
+                                and any(step.get('approvalId') == candidate['id']
+                                        and step.get('tool') == 'file.write'
+                                        and step.get('state') == 'pending_approval'
+                                        for step in steps)):
+                            approval = candidate
+                            break
+                if approval:
+                    break
+                time.sleep(0.1)
+            assert approval is not None, 'Workflow run did not persist its exact pending file.write approval within 8 seconds.'
             page('inbox')
-            approval = next(a for a in read('inbox.list') if a['arguments'].get('path', '').endswith('ui-browser-check.md'))
+            wait_for('!!document.querySelector(' + json.dumps('.btn-approve-appr[data-id="' + approval['id'] + '"]') + ')?.getClientRects().length',
+                     'Persisted approval is absent from the Inbox UI.')
             assert not (project / 'docs/ui-browser-check.md').exists(), 'File was written before approval.'
             click('.btn-approve-appr[data-id="' + approval['id'] + '"]')
             # A browser click returns before its async approval request completes.

@@ -1,0 +1,129 @@
+{
+  "format": "vela-legacy-renderer-regression-evidence-v1",
+  "date": "2026-09-13",
+  "scope": {
+    "en": "Local regression evidence for CI-connected legacy renderer flows, using the frozen UI17 allowlist and the frozen f05 helper. Synthetic fixtures only; no provider account, user store, or native notification/audio delivery was used.",
+    "zh-CN": "面向 CI 已接入旧 renderer 流程的本机回归证据，使用冻结 UI17 白名单和冻结 f05 helper。仅使用合成 fixture；未使用提供方账户、用户存储或原生通知/音频投递。"
+  },
+  "frozenInputs": {
+    "ui": {
+      "label": "UI17",
+      "files": {
+        "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+        "app.js": "d4adec2078d08eaac41100b9d70b9dbccb9c496574d65714e28182f5b8a6a11f",
+        "i18n.js": "265b6af7067b45bd1207bff56a134b9d1d267774cb99e1f616188db1a500947a",
+        "app.css": "70cb9e547a0104eb81be98b2c53977722594797fb46b21faeea31cbb87691c6d"
+      }
+    },
+    "helper": {
+      "path": ".task-tmp/ui17-engineering/vela-frozen",
+      "sha256": "f05dc75ad935b59828f46f296f1a5aa5e58439c44db03188dd842a71c3c0d86e"
+    },
+    "changedTest": {
+      "path": "scripts/test-ui-browser.py",
+      "sha256": "92c8e810f55a36ec97a3b4b0689a8da7d665fa8a2d96fa9484e023f0107c665f"
+    }
+  },
+  "receipts": [
+    {
+      "name": "legacy-ui-browser",
+      "path": ".task-tmp/ui17-legacy-fixed/browser-results.json",
+      "sha256": "29b3b2c487ee6f97193b94e4675f9a6663546d04cded7504b8884c8a0eab66c2",
+      "passed": 12,
+      "total": 12
+    },
+    {
+      "name": "legacy-ui-browser-metadata",
+      "path": ".task-tmp/ui17-legacy-fixed/browser-metadata.json",
+      "sha256": "1618fbc9e91a5d2e8da72f7e38f7267f6e4ba556705f06f57be05b5b81cdf5a6"
+    },
+    {
+      "name": "acceptance-browser",
+      "path": "output/playwright/ui17-legacy-acceptance/results.json",
+      "sha256": "890a32e206ddf501f8132354ecb228ba3ebcf03c0d56276062da79288decd8c5",
+      "passed": 6,
+      "total": 6
+    },
+    {
+      "name": "localization-browser",
+      "path": "output/playwright/ui17-legacy-localization/results.json",
+      "sha256": "096952d8f399115995e890dd3e52315354c5255cd864b59743c584d264cf4bad",
+      "passed": 6,
+      "total": 6
+    },
+    {
+      "name": "capability-browser",
+      "path": "output/playwright/ui17-capabilities-rerun/results.json",
+      "sha256": "c38717193ce1144343a282ec037cfc3ef60541d182ca1f8b0b6ddb14139e88eb",
+      "passed": 5,
+      "total": 5
+    },
+    {
+      "name": "engineering-browser",
+      "path": "output/playwright/ui17-engineering/results.json",
+      "sha256": "e95dcae56f0d2460bb4ccc7d291c8cd1c7bafadaeb1fff63e23c60dd5f755ab8",
+      "passed": 11,
+      "total": 11
+    },
+    {
+      "name": "ask-consumer-browser",
+      "path": "output/playwright/ui17-ask-consumer-rerun/results.json",
+      "sha256": "2bec58cbf5fa754fba568d7da31e5f5c391f200054c3ad54de6e428ca2c08ccd",
+      "passed": 4,
+      "total": 4
+    },
+    {
+      "name": "library-watch-browser",
+      "path": "output/playwright/ui17-library-watch/results.json",
+      "sha256": "16838b404b8965403fb78730982180ef58d8bd836402222e41cb6ab556d9c38a",
+      "passed": 6,
+      "total": 6
+    },
+    {
+      "name": "history-plan-browser",
+      "path": "output/playwright/ui17-history-plan/results.json",
+      "sha256": "03dc7c430cca72f76c1bcff5fcada1c31a0996d964b2afa8d76a70f3c3f6adf9",
+      "passed": 10,
+      "total": 10
+    },
+    {
+      "name": "workspace-actions-browser",
+      "path": "output/playwright/ui17-workspace-actions/results.json",
+      "sha256": "54216c2903c2b00ca29bad7498fe8a1f05a086911a97a32c38c97842f4c96a59",
+      "passed": 9,
+      "total": 9
+    },
+    {
+      "name": "session-relations-browser",
+      "path": "output/playwright/ui17-session-relations/results.json",
+      "sha256": "5d820f4b5aa17e89be662729e2a5872ad2388f8fd98aba956a8bb37358022ff0",
+      "passed": 5,
+      "total": 5
+    }
+  ],
+  "result": {
+    "passedChecks": 74,
+    "totalChecks": 74,
+    "completeLegacyUIBrowserSuite": true
+  },
+  "initialFailures": [
+    {
+      "kind": "ci_test_race",
+      "run": "34763685616",
+      "job": "103740786273",
+      "script": "scripts/test-ui-browser.py",
+      "line": 251,
+      "symptom": "StopIteration while sampling inbox.list immediately after the click event.",
+      "finding": "The exact pending file.write approval was persisted after the failed sampling attempt; the product handler awaits workflows.run, while the browser click returns after dispatch. The test now performs a bounded exact approval/run/step/Inbox-DOM wait."
+    },
+    {
+      "kind": "local_browser_prerequisite",
+      "symptom": "The locally cached Playwright chromium headless-shell executable was absent.",
+      "finding": "This is distinct from the CI test race and not a product result. Local reruns passed with the installed system Google Chrome supplied explicitly; hosted CI installs its own Chromium."
+    }
+  ],
+  "limitations": {
+    "en": "These are local results, not a hosted CI claim. Native notification and audio delivery are outside these browser receipts.",
+    "zh-CN": "这些是本机结果，不是 hosted CI 通过声明。原生通知和音频投递不在这些浏览器回执覆盖范围内。"
+  }
+}
