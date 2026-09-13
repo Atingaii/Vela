@@ -11,7 +11,7 @@
 | 桌面与语言 | AppKit、系统 WKWebView、独立 Swift helper；分组会话、记忆、工作流、审批与设置；简体中文/English 持久化切换 | 当前交付平台 Apple Silicon、macOS 13+。新增能力的界面正在指定 Antigravity CLI 中接通，不能沿用旧 UI 结果证明新入口可用 |
 | 会话观察 | Claude/Codex 增量日志、部分 Cursor 导出/SQLite、Pi v1/v2/v3 分支记录与 OMP 元数据；有界流式读取、来源版本、身份/轮转检查 | 完整历史回填及所有私有 Cursor 格式仍未完成。日志推断不等于进程存活证明；Pi 最新持久化分支不冒充当前活跃分支 |
 | 显式历史回填 | Claude/Codex/Pi/OMP JSONL来源清单、固定epoch、分批读取与重启续传、稳定分页和完整原文分块；解析/原文/分支分别计量 | 历史回填桌面发现/分页/启停/续传/原文分块已通过 UI17 实测和 972 CI；Cursor、未知格式与完整大负载仍未验收，未解析原文不计为归一化功能 |
-| 会话计划 | Codex update_plan、Claude Todo/Task 的持久化调用与成功回执配对；只读任务状态、来源hash/位置、提议/失败/未知区分 | Core及 UI17 计划状态/事件分页已通过实测；全部项目 scope 与后台刷新展开状态有已复现 UI17 缺陷，正在指定作者中修复。完整历史投影/未文档化格式仍不足；计划完成不证明工程验证通过 |
+| 会话计划 | Codex update_plan、Claude Todo/Task 的持久化调用与成功回执配对；只读任务状态、来源hash/位置、提议/失败/未知区分 | UI17 的全部项目 scope 与后台刷新展开/锚点缺陷保留为历史反例。UI18 r7 已在冻结 renderer→真实隔离 helper 的完整 8 项浏览器路径中复验 explicit project、展开首屏、默认首 cursor、无旧 cursor、stale guard 与 anchor；其真实 held `sessions.relations.get` + 用户 wheel 反例从 r6 的红结果变为 r7 保持阅读位置的通过结果。此修复只在 Chrome 实测，机制是 Chromium 原生 scroll anchoring 的证据支持推断而非 setter trace 结论；当前 WKWebView 未实测且本机 Safari 26.5 不可据此视为支持。原生仅有 r4 的局部路径，不覆盖 r6/r7；完整历史投影/未文档化格式仍不足，计划完成不证明工程验证通过 |
 | Setup | 五harness公开位置目录、项目/全局配置扫描、脱敏版本历史/差异、来源关系、删除/重新出现痕迹与不完整扫描保护 | Setup 目录/历史/diff/关系入口已通过真实 helper 浏览器验收；完整原生操作仍需持续验证。TOML/YAML无安全解析器时只给元数据/hash，不提供原文；实际加载配置仍未知，不执行被扫描的 Hook/MCP |
 | Memory | 九类内容、七类作用域、Candidate/Active/Superseded/Archived、来源消息、Markdown 人工编辑；同项目已索引 session 单消息可经 Core identity/hash 重验捕获为 candidate observation；Active-only Recall | 捕获只重读已索引记录、不打开 provider 文件；新建需 review，不自动激活，后续人工编辑保留来源并标为 user-derived。完整提取、合并、遗忘、团队策略与所有插件入口仍按台账验收 |
 | 语义 Recall | 系统已安装 NaturalLanguage 模型、本地分页索引、lexical/semantic/hybrid、版本/维度/sourceHash 校验、明确语言与不可用状态 | 默认仍可离线词面检索，不自动下载。真实合成中英文语义召回与界面取消/索引流程已测，不能据此宣称真实长期检索质量达标；Library向量后端仍需实现 |
@@ -20,12 +20,12 @@
 | 可选 Walrus 后端 | 独立TypeScript包、固定官方SDK、显式profile/隔离worker、owner交易准备/签名核验、端侧manifest与原文恢复/候选构造 | 真实安装包、公开兼容性与testnet只读交易模拟已通过；官方faucet限流，测试地址无gas。真实加密写入/恢复与owner/delegate链上提交仍待验证；模拟不是链上成功，不默认给桌面增加Node |
 | OpenClaw集成 | 可选独立插件、宿主agent/workspace映射、namespace召回、候选捕获、注入框与持久操作日志 | 真实隔离宿主加载/CLI/hook与完整会话通过；模型响应使用本地合成provider。两条新记忆均为候选，不等于真实模型采纳或远端加密写入。自动捕获默认关闭，远端提取另需明确明文接收与预算 |
 | 模型记忆中间件 | 独立可选TypeScript AI SDK v4、Python Responses与LangChain ChatOpenAI包；精确scope召回、受限注入、完整终态才捕获候选、取消/不确定回执 | AI SDK安装17项及基础TS12项通过；Python Responses修后安装30项、基础SDK12项与旧wheel兼容1项通过；独立四入口复核通过。LangChain v2安装36项、基础SDK13项和旧wheel1项通过，独立7方法与12矩阵格复核通过。均为真实SDK与loopbackHTTP/SSE，不代表真实模型质量；其他LangChain providers与remote analyze仍待完成 |
-| 本地 MCP | 强类型 stdio、四协议版本协商、15只读/7显式贡献工具、项目与fresh-source隔离、可见正文分页及候选批量写入 | 四版本22工具实际消费者及 framing 修正已通过；972155b7 整次 CI 通过，包含443项真实XCTest、MCP及安装后集成。远端HTTP/OAuth及完整Agent客户端接入另验 |
+| 本地 MCP | 强类型 stdio、四协议版本协商、15只读/7显式贡献工具、项目与fresh-source隔离、可见正文分页及候选批量写入 | 四版本22工具实际消费者及 framing 修正已通过；83689c8a 整次 CI 通过，包含454项真实 XCTest、MCP 及安装后集成。远端HTTP/OAuth及完整Agent客户端接入另验 |
 | Checkpoint / Reuse | 用户工程记录及真实 Git 快照；中立交接；项目 Codex SessionStart Hook 的预览、Apply/Undo 与提供上下文收据 | 原生 Session Transfer、更多官方 lifecycle hooks 和完整真实下一会话闭环仍需验证。收据证明已提供，不证明模型遵守 |
 | Workflow Context | 已选择 Guideline、Active Memory、只读 Git/Library/stdin/literal 输入，冻结来源/hash；显式 `{{vela.prompt}}` 参数实际交给 Agent | 旧 raw argv 不被静默改写。记录 prompt 消费路径不等于证明模型采纳约束 |
 | 自然语言规划 | 明确选择 Codex 程序/模型/effort，冻结请求，经审批生成问题或默认停用草案，再显式保存 | 真实提供方已产出有效草案；规划工具目录仍需拓展，与自主多轮工具执行是不同能力 |
 | 执行与组合 | 工具步骤、Markdown版本、Dry Run、逐工具审批；冻结pipeline/子工作流、条件透传、子输入、根产物文件/Inbox；审阅后克隆/启停/归档/恢复 | 四项独立恢复/并发反例已修后通过，历史证据保留。完整双版本Replay与更多工具仍按台账推进 |
-| Health 候选改进 | 从完整 timeout 观察提出显式时限候选；受限工具、版本/来源 hash、needs_review 确认、原子生成新 ID 的停用工作流；accepting 显式恢复 | 本机整合454项 portable、真实RPC和安装后SDK已过；桌面入口未接通。只生成待审候选，不自动运行/修改原工作流，不证明提高成功率；精确跨进程检查至提交窗口未独立注入 |
+| Health 候选改进 | 从完整 timeout 观察提出显式时限候选；受限工具、版本/来源 hash、needs_review 确认、原子生成新 ID 的停用工作流；accepting 显式恢复 | 83689c8a hosted CI 的454项真实 XCTest、真实RPC和安装后SDK已过；桌面入口未接通。只生成待审候选，不自动运行/修改原工作流，不证明提高成功率；精确跨进程检查至提交窗口未独立注入 |
 | 历史输入Replay | 显式同意保留fixture、两保存模板版本的独立审批/最多两次模型调用、输出差异、取消、到期与分页清理；A/B使用同一已核hash原生入口副本 | 24项定点、两独立CLI fixture和普通/饱和RPC控制通过；0真实模型调用，语义效果保持未知。当前只支持单contextual agent.run；组合回放、解释器包装兼容与桌面入口仍未关闭 |
 | 模型工具循环 | 有界多轮结构化决策、真实只读工具结果回传、外部动作独立排队审批、响应式查询/取消 | 真实Codex两轮+一次Git读取通过；同RPC普通/饱和队列取消通过。工具覆盖、全部账户、严格成本预算等仍未完成，初始循环审批不授权外部写 |
 | 外部工具 | 可选 Composio v3.1：Keychain 凭据、分页发现、固定版本 schema/账户、审批后执行、连接/撤销等动作、`connector.call` 步骤 | 无凭据真实 HTTPS 拒绝路径已测；尚无真实测试账户正向执行证据。结果不确定不重试；失败回包不证明无部分副作用，已知凭据回显在入库前拒绝 |
@@ -42,7 +42,9 @@
 
 先前提交 `ea8fbd257f813c604a93e070d5f98a6337829d81` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34715619455)为历史基线：99 项 XCTest、24 组 renderer 检查。先前 1,453,375 bytes 开发包也只是该阶段产物，不能作为新增能力的包体或界面验证结果。更早的原生、Lab、私有检索、通知拒绝与失败复现保留于 verification 文档，不以新测试覆盖删除历史问题。
 
-最新正式检查点 `1a0e69b` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34746619462)已全部通过：371项真实XCTest（0失败）、RPC/能力合同、Replay普通及饱和控制、全部renderer流程、SDK/AI SDK/Python Responses/OpenClaw安装任务、macOS打包与产物审计。旧检查点失败和修后证据仍保留于[验证记录](verification.md#hosted-checkpoint-correction)。这是开发分支检查点，不改变公开下载版本与产品总验收状态。
+最新正式检查点 `83689c8a` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34767165254)已全部通过：454项真实 XCTest（0失败）、新 session-memory-capture 与 Health proposal 能力RPC、既有 MCP/renderer 流程、安装后 TypeScript/Python SDK 与 AI SDK/Python Responses/LangChain/OpenClaw 消费者，以及 macOS ad-hoc 打包和 release allowlist 审计。精确命令、数量和限制见 [CI evidence](parity/ci-83689c8a-evidence-2026-09-14.json)。这不验证 UI18 或新增原生入口；旧检查点失败和修后证据仍保留于[验证记录](verification.md#hosted-checkpoint-correction)。这是开发分支检查点，不改变公开下载版本与产品总验收状态。
+
+UI18 r6 的嵌套 loader 用户 wheel 红例已保留，并由 r7 的完整 8 项冻结浏览器回归在同一真实 held-response 路径中复验通过：scrollTop 707 / relative -388.953125 在释放后保持不变。r7 只机械替换 `app.js`，其余五资源不变；scope、默认首 cursor、旧 cursor、stale guard 与 ARIA 断言均未弱化。legacy renderer 12 项仍只对应 r6；r5 History/Plan 10 项、Relations 5 项及 r4 Actions 9 项仍是不同冻结版本的阶段回归，不能充当 r7 全套验收。r7 的 Chrome 结果不等于 WKWebView 或 hosted CI：本机原生仅 r4 局部、UI18 r7 尚未有被接受的 CI。精确哈希、AGY provenance、测试修正和原生边界见 [UI18 renderer evidence](parity/ui18-renderer-evidence-2026-09-14.json)。这不表示 session-memory-capture 或 Health 的桌面 UI 已接通，也不改变 Golden 或产品总验收状态。
 
 冻结第9版界面另通过完整6项Library/Watch、11项工程和4项Ask浏览器检查；原生窗口已验证文件Watch创建、编辑和真实预览。原生动态字段的完整可访问性、其余新增入口、最终发布签名及资源预算继续分别验收。正在进行的MCP扩展与LangChain不在该提交中。
 

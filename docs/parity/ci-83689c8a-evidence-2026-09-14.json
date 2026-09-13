@@ -1,0 +1,112 @@
+{
+  "format": "vela-ci-commit-result-v1",
+  "recordedAt": "2026-09-14",
+  "commit": "83689c8a3f2ff8067ad2edbffac3b323361bdcf4",
+  "sourceTree": "773a4e60921319387fdb5a1cb2ae438d9e4f1ef0",
+  "runId": 34767165254,
+  "runURL": "https://github.com/Atingaii/Vela/actions/runs/34767165254",
+  "workflow": "CI",
+  "event": "pull_request",
+  "attempt": 1,
+  "createdAt": "2026-09-13T15:58:11Z",
+  "updatedAt": "2026-09-13T16:04:47Z",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": 103750082318,
+      "name": "macOS build and tests",
+      "conclusion": "success",
+      "hostedRunner": "macos-14",
+      "actualXCTest": {
+        "command": "swift test",
+        "executed": 454,
+        "failures": 0,
+        "unexpectedFailures": 0,
+        "testBodySeconds": 94.058,
+        "summary": "Executed 454 tests, with 0 failures (0 unexpected) in 94.058 (94.086) seconds"
+      },
+      "capabilityRPC": {
+        "sessionMemoryCapture": {
+          "command": "python3 scripts/test-session-memory-capture-rpc.py --binary .build/debug/vela --output output/parity/ci-session-memory-capture.json",
+          "status": "pass",
+          "checks": 4,
+          "providerCalls": 0,
+          "fixture": "synthetic Codex JSONL only"
+        },
+        "workflowHealthProposal": {
+          "command": "python3 scripts/test-workflow-health-proposal-rpc.py --binary .build/debug/vela --output output/parity/ci-health-proposal",
+          "status": "passed",
+          "checks": 4,
+          "providerRuns": 0,
+          "modelRuns": 0,
+          "fixture": "synthetic workflow, shell timeout, isolated store"
+        }
+      },
+      "packaging": {
+        "command": "bash scripts/package-macos.sh",
+        "status": "passed",
+        "adHocSignatureApplied": true,
+        "releaseAllowlist": "passed",
+        "packagedApp": "releases/Vela.app",
+        "uploadedArtifact": {
+          "name": "Vela-macOS-arm64-dev",
+          "id": 10320434160,
+          "uploadedBytes": 3637488,
+          "artifactZipSHA256": "5ee9abb86c061b4f3223502dc045fc7a6fcfa65c004560f99930fbb5365a37d2"
+        }
+      }
+    },
+    {
+      "id": 103750082500,
+      "name": "Installed SDKs and OpenClaw integration",
+      "conclusion": "success",
+      "hostedRunner": "macos-14",
+      "installedBasePackages": {
+        "typescriptPassed": 15,
+        "pythonPassed": 16,
+        "installedOutsideSourceDirectories": true
+      },
+      "installedConsumers": [
+        {
+          "name": "AI SDK middleware",
+          "testsPassed": 17,
+          "baseSDKCompatibilityTests": 12,
+          "consumerTypecheck": true,
+          "transport": "synthetic_loopback_http_sse"
+        },
+        {
+          "name": "Python Responses",
+          "testsPassed": 30,
+          "baseSDKCompatibilityTests": 16,
+          "transport": "synthetic_loopback_http_sse"
+        },
+        {
+          "name": "LangChain",
+          "testsPassed": 36,
+          "baseSDKTestsPassed": 16,
+          "transport": "synthetic_loopback_chat_completions_http_sse"
+        },
+        {
+          "name": "OpenClaw pinned isolated host",
+          "testsPassed": 7,
+          "coverage": "real host loader, CLI, and hook runner with local fixtures"
+        }
+      ],
+      "walrus": {
+        "installedPackageTestsPassed": 33,
+        "installedConsumerTypecheck": true,
+        "remoteEncryptedRoundtrip": "not_run_free_testnet_faucet_rate_limited_and_no_gas_coin"
+      },
+      "uploadedArtifact": {
+        "name": "Vela-optional-SDK-verification",
+        "id": 10320217963,
+        "uploadedBytes": 46534,
+        "artifactZipSHA256": "daf87d6a2d058ff83312a46a312337bb44213dfb8da2d5f0a7c4fcdc8d156e41"
+      }
+    }
+  ],
+  "limits": {
+    "en": "This records only the two hosted jobs for this exact commit. Capture and Health proposal RPC use synthetic fixtures with zero provider/model runs. Installed SDK consumers use local loopback transports. The package is ad-hoc signed; this is not Developer ID signing or notarization. UI18 and new native entry points are outside this checkpoint.",
+    "zhCN": "本记录仅覆盖该准确提交的两个 hosted job。Capture 与 Health proposal RPC 均使用零 provider/model 调用的合成夹具；安装后 SDK 消费者使用本地 loopback transport。安装包为 ad-hoc 签名，并非 Developer ID 签名或公证。UI18 与新增原生入口不在本检查点范围内。"
+  }
+}

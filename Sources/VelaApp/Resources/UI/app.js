@@ -885,6 +885,7 @@
     state.priorProject = priorProject;
     if (resolvedProject !== priorProject) {
       resetHistoryState();
+      invalidateSessionDisclosures();
     }
     state.currentProject = resolvedProject;
     const projSel = document.getElementById('project-selector');
@@ -3163,10 +3164,233 @@
   // 1.2 OBSERVED SESSION TASK PLANS
   // -------------------------------------------------------------------------
 
+  let currentSessionDisclosures = {
+    sessionId: null,
+    project: null,
+    seq: 0,
+    drawerInstance: 0,
+    relationsOpen: false,
+    relationEventsOpen: false,
+    planEventsOpen: false
+  };
+
+  function invalidateSessionDisclosures() {
+    currentSessionDisclosures = {
+      sessionId: null,
+      project: null,
+      seq: 0,
+      drawerInstance: 0,
+      relationsOpen: false,
+      relationEventsOpen: false,
+      planEventsOpen: false
+    };
+    currentSessionScrollAnchor = null;
+  }
+
+  function isSameSessionDrawerScope(session) {
+    if (!session) return false;
+    return Boolean(
+      currentSessionDisclosures.sessionId &&
+      currentSessionDisclosures.sessionId === session.id &&
+      currentSessionDisclosures.project === (session.project || '') &&
+      currentSessionDisclosures.seq === sessionDetailSequence &&
+      currentSessionDisclosures.drawerInstance === currentDrawerInstance
+    );
+  }
+
+  let currentSessionScrollAnchor = null;
+  let liveRefreshCounter = 0;
+
+  function ensureDrawerUserScrollListener() {
+    const drawerBody = document.getElementById('drawer-content');
+    if (drawerBody) {
+      drawerBody.style.overflowAnchor = 'none';
+    }
+    if (drawerBody && !drawerBody._userScrollListenerAttached) {
+      drawerBody._userScrollListenerAttached = true;
+      const cancelAnchor = () => {
+        currentSessionScrollAnchor = null;
+      };
+      drawerBody.addEventListener('wheel', cancelAnchor, { passive: true });
+      drawerBody.addEventListener('touchstart', cancelAnchor, { passive: true });
+      drawerBody.addEventListener('pointerdown', cancelAnchor, { passive: true });
+      drawerBody.addEventListener('keydown', (e) => {
+        const scrollKeys = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
+        if (scrollKeys.has(e.key)) {
+          currentSessionScrollAnchor = null;
+        }
+      }, { passive: true });
+    }
+  }
+
+  function captureScrollAnchor(drawerBody, session) {
+    if (!drawerBody) return null;
+    ensureDrawerUserScrollListener();
+
+    const isAtBottom = (drawerBody.scrollHeight - drawerBody.scrollTop - drawerBody.clientHeight) < 35;
+    const drawerRect = drawerBody.getBoundingClientRect();
+    const prevScrollTop = drawerBody.scrollTop;
+    const currentProj = state.currentProject;
+    const sessProj = (session && typeof session.project === 'string') ? session.project : '';
+
+    if (isAtBottom) {
+      return {
+        sessionId: session?.id || state.selectedSessionId,
+        project: currentProj,
+        sessionProject: sessProj,
+        seq: sessionDetailSequence,
+        drawerInstance: currentDrawerInstance,
+        refreshId: ++liveRefreshCounter,
+        isAtBottom: true,
+        selector: null,
+        messageElementId: null,
+        messageId: null,
+        relativeTop: 0,
+        fallbackSelector: null,
+        fallbackRelativeTop: null,
+        prevScrollTop
+      };
+    }
+
+    const candidateSelectors = [
+      '#session-relation-events-summary',
+      '#session-relation-events-container',
+      '#session-relations-summary',
+      '#session-relations-section',
+      '#plan-events-summary',
+      '#plan-events-container',
+      '#session-plan-section'
+    ];
+
+    let foundSelector = null;
+    let foundRelativeTop = null;
+    let fallbackSelector = null;
+    let fallbackRelativeTop = null;
+    let foundMessageElementId = null;
+    let foundMessageId = null;
+
+    for (const sel of candidateSelectors) {
+      const el = drawerBody.querySelector(sel);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > drawerRect.top && rect.top < drawerRect.bottom) {
+          foundSelector = sel;
+          foundRelativeTop = rect.top - drawerRect.top;
+          break;
+        }
+      }
+    }
+
+    if (foundSelector === '#session-relation-events-summary' || foundSelector === '#session-relation-events-container') {
+      const relSum = drawerBody.querySelector('#session-relations-summary') || drawerBody.querySelector('#session-relations-section');
+      if (relSum) {
+        const rRect = relSum.getBoundingClientRect();
+        fallbackSelector = relSum.id ? `#${relSum.id}` : '#session-relations-section';
+        fallbackRelativeTop = rRect.top - drawerRect.top;
+      }
+    } else if (foundSelector === '#plan-events-summary' || foundSelector === '#plan-events-container') {
+      const planSec = drawerBody.querySelector('#session-plan-section');
+      if (planSec) {
+        const pRect = planSec.getBoundingClientRect();
+        fallbackSelector = '#session-plan-section';
+        fallbackRelativeTop = pRect.top - drawerRect.top;
+      }
+    }
+
+    if (!foundSelector) {
+      const cards = drawerBody.querySelectorAll('.session-message-card');
+      for (const card of cards) {
+        const rect = card.getBoundingClientRect();
+        if (rect.bottom > drawerRect.top && rect.top < drawerRect.bottom) {
+          foundMessageElementId = card.id ? card.id : null;
+          foundMessageId = card.dataset.messageId ? card.dataset.messageId : null;
+          foundRelativeTop = rect.top - drawerRect.top;
+          break;
+        }
+      }
+    }
+
+    return {
+      sessionId: session?.id || state.selectedSessionId,
+      project: currentProj,
+      sessionProject: sessProj,
+      seq: sessionDetailSequence,
+      drawerInstance: currentDrawerInstance,
+      refreshId: ++liveRefreshCounter,
+      isAtBottom: false,
+      selector: foundSelector,
+      messageElementId: foundMessageElementId,
+      messageId: foundMessageId,
+      relativeTop: foundRelativeTop,
+      fallbackSelector,
+      fallbackRelativeTop,
+      prevScrollTop
+    };
+  }
+
+  function realignScrollAnchor(drawerBody, anchor) {
+    if (!drawerBody || !anchor) return;
+    if (
+      anchor.sessionId !== state.selectedSessionId ||
+      anchor.project !== state.currentProject ||
+      anchor.seq !== sessionDetailSequence ||
+      anchor.drawerInstance !== currentDrawerInstance ||
+      anchor !== currentSessionScrollAnchor
+    ) {
+      return;
+    }
+
+    if (anchor.isAtBottom) {
+      drawerBody.scrollTop = drawerBody.scrollHeight;
+      return;
+    }
+
+    let targetEl = null;
+    let targetRelTop = anchor.relativeTop;
+
+    if (anchor.messageElementId) {
+      const el = document.getElementById(anchor.messageElementId);
+      if (el && drawerBody.contains(el)) {
+        targetEl = el;
+      }
+    } else if (anchor.messageId) {
+      const escaped = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(anchor.messageId) : null;
+      if (escaped) {
+        const el = drawerBody.querySelector(`[data-message-id="${escaped}"]`);
+        if (el) targetEl = el;
+      }
+    } else if (anchor.selector) {
+      targetEl = drawerBody.querySelector(anchor.selector);
+    }
+
+    if (!targetEl && anchor.fallbackSelector && typeof anchor.fallbackRelativeTop === 'number') {
+      targetEl = drawerBody.querySelector(anchor.fallbackSelector);
+      targetRelTop = anchor.fallbackRelativeTop;
+    }
+
+    if (targetEl && typeof targetRelTop === 'number') {
+      const drawerRect = drawerBody.getBoundingClientRect();
+      const elRect = targetEl.getBoundingClientRect();
+      const currentRelTop = elRect.top - drawerRect.top;
+      const delta = currentRelTop - targetRelTop;
+      if (Math.abs(delta) > 0.5) {
+        drawerBody.scrollTop = Math.max(0, drawerBody.scrollTop + delta);
+      }
+    } else if (typeof anchor.prevScrollTop === 'number') {
+      drawerBody.scrollTop = anchor.prevScrollTop;
+    }
+  }
+
   async function loadPlanEvents(session, container, afterSequence = 0) {
     const thisSeq = sessionDetailSequence;
     const thisProj = state.currentProject;
     const thisSessionId = session.id;
+
+    const reqProj = (session && typeof session.project === 'string' && session.project.trim() !== '') ? session.project : '';
+    if (!reqProj) {
+      container.innerHTML = `<div class="text-secondary" style="font-size: 12px; padding: 6px 0;" data-i18n="sessions.plan.missingProject">${escapeHtml(t('sessions.plan.missingProject'))}</div>`;
+      return;
+    }
 
     if (afterSequence === 0) {
       session._planEvents = [];
@@ -3175,7 +3399,7 @@
 
     try {
       const res = await callBridge('sessions.plan.events', {
-        project: thisProj,
+        project: reqProj,
         id: thisSessionId,
         afterSequence: afterSequence,
         limit: 50
@@ -3254,6 +3478,10 @@
 
       container.innerHTML = html;
 
+      if (currentSessionScrollAnchor) {
+        realignScrollAnchor(document.getElementById('drawer-content'), currentSessionScrollAnchor);
+      }
+
       const moreBtn = container.querySelector('#btn-load-more-plan-events');
       if (moreBtn) {
         moreBtn.addEventListener('click', async () => {
@@ -3275,12 +3503,23 @@
     const planBodyEl = planSection.querySelector('#session-plan-body');
     if (!planBodyEl) return;
 
+    const reqProj = (session && typeof session.project === 'string' && session.project.trim() !== '') ? session.project : '';
+    if (!reqProj) {
+      if (planBadgeEl) planBadgeEl.innerHTML = `<span class="status-badge status-neutral" data-i18n="sessions.plan.unavailableBadge">${escapeHtml(t('sessions.plan.unavailableBadge'))}</span>`;
+      planBodyEl.innerHTML = `
+        <div class="text-secondary" style="font-size: 12px; padding: 6px 0;" data-i18n="sessions.plan.missingProject">
+          ${escapeHtml(t('sessions.plan.missingProject'))}
+        </div>
+      `;
+      return;
+    }
+
     if (forceRefresh) {
       planBodyEl.innerHTML = `<div class="text-secondary" style="font-size: 12px; padding: 12px 0; text-align: center;">${escapeHtml(t('common.loading'))}</div>`;
     }
 
     try {
-      const plan = await callBridge('sessions.plan.get', { project: thisProj, id: thisSessionId });
+      const plan = await callBridge('sessions.plan.get', { project: reqProj, id: thisSessionId });
       if (thisSeq !== sessionDetailSequence || state.selectedSessionId !== thisSessionId || state.currentProject !== thisProj) {
         return;
       }
@@ -3436,9 +3675,10 @@
         }
       }
 
+      const shouldOpenPlanEvents = isSameSessionDrawerScope(session) && currentSessionDisclosures.planEventsOpen;
       let eventsSectionHtml = `
-        <details id="plan-events-container" style="font-size: 12px; margin-top: 8px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
-          <summary style="cursor: pointer; font-weight: 600; user-select: none;" data-i18n="sessions.plan.eventsTitle">${escapeHtml(t('sessions.plan.eventsTitle'))}</summary>
+        <details id="plan-events-container" ${shouldOpenPlanEvents ? 'open' : ''} style="font-size: 12px; margin-top: 8px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+          <summary id="plan-events-summary" style="cursor: pointer; font-weight: 600; user-select: none;" data-i18n="sessions.plan.eventsTitle">${escapeHtml(t('sessions.plan.eventsTitle'))}</summary>
           <div id="plan-events-body" style="margin-top: 8px;">
             <button id="btn-load-plan-events" class="btn btn-secondary btn-sm" style="width: 100%;" data-i18n="sessions.plan.btnLoadEvents">${escapeHtml(t('sessions.plan.btnLoadEvents'))}</button>
           </div>
@@ -3447,10 +3687,36 @@
 
       planBodyEl.innerHTML = headerStatusHtml + countsHtml + alertsHtml + itemsHtml + lastConfirmedHtml + eventsSectionHtml;
 
+      if (currentSessionScrollAnchor) {
+        realignScrollAnchor(document.getElementById('drawer-content'), currentSessionScrollAnchor);
+      }
+
+      const planEventsCont = planBodyEl.querySelector('#plan-events-container');
+      const planEventsBody = planBodyEl.querySelector('#plan-events-body');
       const loadEventsBtn = planBodyEl.querySelector('#btn-load-plan-events');
-      if (loadEventsBtn) {
+
+      if (planEventsCont && planEventsBody) {
+        planEventsCont.addEventListener('toggle', () => {
+          if (isSameSessionDrawerScope(session)) {
+            currentSessionDisclosures.planEventsOpen = planEventsCont.open;
+          }
+        });
+        if (shouldOpenPlanEvents) {
+          planEventsCont.dataset.loaded = 'true';
+          loadPlanEvents(session, planEventsBody);
+        }
+      }
+
+      if (loadEventsBtn && planEventsBody) {
         loadEventsBtn.addEventListener('click', async () => {
-          await loadPlanEvents(session, planBodyEl.querySelector('#plan-events-body'));
+          if (planEventsCont) {
+            planEventsCont.open = true;
+            planEventsCont.dataset.loaded = 'true';
+            if (isSameSessionDrawerScope(session)) {
+              currentSessionDisclosures.planEventsOpen = true;
+            }
+          }
+          await loadPlanEvents(session, planEventsBody);
         });
       }
 
@@ -3510,6 +3776,12 @@
     const thisSessionId = session.id;
     const thisDrawer = currentDrawerInstance;
 
+    const reqProj = (session && typeof session.project === 'string' && session.project.trim() !== '') ? session.project : '';
+    if (!reqProj) {
+      container.innerHTML = `<div class="text-secondary" style="font-size: 12px; padding: 6px 0;" data-i18n="sessions.relations.unavailable">${escapeHtml(t('sessions.relations.unavailable'))}</div>`;
+      return;
+    }
+
     if (session._relationEventsLoading) return;
     session._relationEventsLoading = true;
 
@@ -3526,7 +3798,7 @@
 
     try {
       const params = {
-        project: thisProj,
+        project: reqProj,
         id: thisSessionId,
         limit: 50
       };
@@ -3684,6 +3956,10 @@
       }
 
       container.innerHTML = html;
+
+      if (currentSessionScrollAnchor) {
+        realignScrollAnchor(document.getElementById('drawer-content'), currentSessionScrollAnchor);
+      }
 
       const moreBtn = container.querySelector('#btn-load-more-relation-events');
       if (moreBtn) {
@@ -3848,6 +4124,12 @@
     const thisProj = state.currentProject;
     const thisSessionId = session.id;
     const thisDrawer = currentDrawerInstance;
+    const reqProj = (session && typeof session.project === 'string' && session.project.trim() !== '') ? session.project : '';
+
+    if (!reqProj) {
+      childrenContainer.innerHTML = `<div class="text-secondary" style="font-size: 11px; padding: 6px 0;" data-i18n="sessions.relations.unavailable">${escapeHtml(t('sessions.relations.unavailable'))}</div>`;
+      return;
+    }
 
     const chState = session._relationsChildren;
     if (!chState || !chState.nextCursor) return;
@@ -3863,7 +4145,7 @@
 
     try {
       const moreRes = await callBridge('sessions.relations.children', {
-        project: thisProj,
+        project: reqProj,
         id: thisSessionId,
         limit: 20,
         after: cursorToFetch
@@ -3958,11 +4240,18 @@
     const thisProj = state.currentProject;
     const thisSessionId = session.id;
     const thisDrawer = currentDrawerInstance;
+    const reqProj = (session && typeof session.project === 'string' && session.project.trim() !== '') ? session.project : '';
 
     const badgeEl = relationsSection.querySelector('#session-relations-badge');
     const bodyEl = relationsSection.querySelector('#session-relations-body');
     const refreshBtn = relationsSection.querySelector('#btn-refresh-session-relations');
     if (!bodyEl) return;
+
+    if (!reqProj) {
+      if (badgeEl) badgeEl.innerHTML = `<span class="status-badge status-neutral" data-i18n="sessions.relations.unavailableBadge">${escapeHtml(t('sessions.relations.unavailableBadge'))}</span>`;
+      bodyEl.innerHTML = `<div class="text-secondary" style="font-size: 12px; padding: 6px 0;" data-i18n="sessions.relations.unavailable">${escapeHtml(t('sessions.relations.unavailable'))}</div>`;
+      return;
+    }
 
     const isCodex = (session.provider || '').toLowerCase() === 'codex';
     if (!isCodex) {
@@ -3987,7 +4276,7 @@
     }
 
     try {
-      const getRes = await callBridge('sessions.relations.get', { project: thisProj, id: thisSessionId });
+      const getRes = await callBridge('sessions.relations.get', { project: reqProj, id: thisSessionId });
       if (
         thisGen !== sessionRelationSequence ||
         thisSeq !== sessionDetailSequence ||
@@ -4006,7 +4295,7 @@
       const isUnindexed = getRes.relation && getRes.relation.status === 'not_indexed';
       if (!isUnindexed) {
         try {
-          childrenRes = await callBridge('sessions.relations.children', { project: thisProj, id: thisSessionId, limit: 20 });
+          childrenRes = await callBridge('sessions.relations.children', { project: reqProj, id: thisSessionId, limit: 20 });
         } catch (cErr) {
           childrenFetchError = cErr;
         }
@@ -4130,8 +4419,9 @@
       `;
 
       // 5. Events section (Secondary Evidence disclosure)
+      const shouldOpenRelEvents = isSameSessionDrawerScope(session) && currentSessionDisclosures.relationEventsOpen;
       let eventsHtml = `
-        <details id="session-relation-events-container" style="margin-top: 12px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+        <details id="session-relation-events-container" ${shouldOpenRelEvents ? 'open' : ''} style="margin-top: 12px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
           <summary id="session-relation-events-summary" style="cursor: pointer; font-weight: 600; font-size: 12px; user-select: none;" data-i18n="sessions.relations.eventsTitle">${escapeHtml(t('sessions.relations.eventsTitle'))}</summary>
           <div id="session-relation-events-body" style="margin-top: 8px;">
             <button id="btn-load-relation-events" class="btn btn-secondary btn-sm" style="width: 100%;" data-i18n="sessions.relations.btnLoadEvents">${escapeHtml(t('sessions.relations.btnLoadEvents'))}</button>
@@ -4196,22 +4486,39 @@
         renderRelationChildren(session, childrenBodyEl);
       }
 
+      if (currentSessionScrollAnchor) {
+        realignScrollAnchor(document.getElementById('drawer-content'), currentSessionScrollAnchor);
+      }
+
       // Wire events button and details toggle
       const eventsContainer = bodyEl.querySelector('#session-relation-events-container');
       const eventsBody = bodyEl.querySelector('#session-relation-events-body');
       const loadEventsBtn = bodyEl.querySelector('#btn-load-relation-events');
       if (eventsContainer && eventsBody) {
         eventsContainer.addEventListener('toggle', () => {
+          if (isSameSessionDrawerScope(session)) {
+            currentSessionDisclosures.relationEventsOpen = eventsContainer.open;
+          }
           if (eventsContainer.open && !eventsContainer.dataset.loaded) {
             eventsContainer.dataset.loaded = 'true';
             loadRelationEvents(session, eventsBody, 0);
           }
         });
+        if (shouldOpenRelEvents) {
+          eventsContainer.dataset.loaded = 'true';
+          loadRelationEvents(session, eventsBody, 0);
+        }
       }
       if (loadEventsBtn && eventsBody) {
         loadEventsBtn.addEventListener('click', async (e) => {
           e.preventDefault();
-          if (eventsContainer) eventsContainer.dataset.loaded = 'true';
+          if (eventsContainer) {
+            eventsContainer.open = true;
+            eventsContainer.dataset.loaded = 'true';
+            if (isSameSessionDrawerScope(session)) {
+              currentSessionDisclosures.relationEventsOpen = true;
+            }
+          }
           await loadRelationEvents(session, eventsBody, 0);
         });
       }
@@ -4237,6 +4544,24 @@
   }
 
   function renderSessionDetailContent(session, drawerBody) {
+    if (isSameSessionDrawerScope(session)) {
+      const existingRel = drawerBody.querySelector('#session-relations-section');
+      if (existingRel) currentSessionDisclosures.relationsOpen = existingRel.open;
+      const existingRelEv = drawerBody.querySelector('#session-relation-events-container');
+      if (existingRelEv) currentSessionDisclosures.relationEventsOpen = existingRelEv.open;
+      const existingPlanEv = drawerBody.querySelector('#plan-events-container');
+      if (existingPlanEv) currentSessionDisclosures.planEventsOpen = existingPlanEv.open;
+    } else {
+      currentSessionDisclosures = {
+        sessionId: session.id,
+        project: session.project || '',
+        seq: sessionDetailSequence,
+        drawerInstance: currentDrawerInstance,
+        relationsOpen: false,
+        relationEventsOpen: false,
+        planEventsOpen: false
+      };
+    }
     const messages = session.messages || [];
     const isTruncated = Boolean(session.messagesTruncated || session.isPartial || session.partial);
 
@@ -4318,7 +4643,7 @@
       </div>
 
       <!-- Observed Codex Session Relations Section -->
-      <details id="session-relations-section" class="card session-relations-card" style="padding: 12px 14px; margin-bottom: 16px; background: var(--bg-subtle);">
+      <details id="session-relations-section" class="card session-relations-card" ${currentSessionDisclosures.relationsOpen ? 'open' : ''} style="padding: 12px 14px; margin-bottom: 16px; background: var(--bg-subtle);">
         <summary id="session-relations-summary" style="cursor: pointer; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; user-select: none;">
           <span style="display: inline-flex; align-items: center; gap: 8px;">
             <span data-i18n="sessions.relations.title">${escapeHtml(t('sessions.relations.title'))}</span>
@@ -4431,10 +4756,18 @@
         if (badgeEl) badgeEl.innerHTML = `<span class="status-badge status-neutral" data-i18n="sessions.relations.notSupportedBadge">${escapeHtml(t('sessions.relations.notSupportedBadge'))}</span>`;
       } else {
         relationsSection.addEventListener('toggle', () => {
+          if (isSameSessionDrawerScope(session)) {
+            currentSessionDisclosures.relationsOpen = relationsSection.open;
+          }
           if (relationsSection.open && !relationsSection.dataset.loaded) {
+            relationsSection.dataset.loaded = 'true';
             loadSessionRelations(session, relationsSection, false);
           }
         });
+        if (currentSessionDisclosures.relationsOpen) {
+          relationsSection.dataset.loaded = 'true';
+          loadSessionRelations(session, relationsSection, false);
+        }
         const refreshBtn = relationsSection.querySelector('#btn-refresh-session-relations');
         if (refreshBtn) {
           refreshBtn.addEventListener('click', (e) => {
@@ -4510,8 +4843,8 @@
       }
       if (!session || session.id !== targetSessionId) return;
 
-      const isAtBottom = (drawerBody.scrollHeight - drawerBody.scrollTop - drawerBody.clientHeight) < 35;
-      const prevScrollTop = drawerBody.scrollTop;
+      const anchor = captureScrollAnchor(drawerBody, session);
+      currentSessionScrollAnchor = anchor;
 
       const fp = computeSessionFingerprint(session);
       state.loadedSessionDetail = {
@@ -4522,11 +4855,7 @@
 
       renderSessionDetailContent(session, drawerBody);
 
-      if (isAtBottom) {
-        drawerBody.scrollTop = drawerBody.scrollHeight;
-      } else {
-        drawerBody.scrollTop = prevScrollTop;
-      }
+      realignScrollAnchor(drawerBody, anchor);
     } catch (err) {
       console.warn('Live session detail update skipped:', err);
     } finally {
@@ -4539,6 +4868,7 @@
     sessionRelationSequence++;
     const thisProject = state.currentProject;
     state.selectedSessionId = sessionId;
+    invalidateSessionDisclosures();
     openDrawer({ key: 'sessions.loadingDetail' }, { key: 'nav.agents' }, triggerEl);
 
     try {
@@ -17768,41 +18098,50 @@
     let currentMode = 'search'; // 'search' | 'actions'
     let actionSelectedIndex = 0;
     let currentFilteredActions = [];
+    let searchSelectedIndex = -1;
+    let currentSearchResults = [];
     let searchGeneration = 0;
 
     const modalBody = `
       <div class="search-actions-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
         <div class="tabs-nav search-mode-tabs" role="tablist" style="margin-bottom: 0;">
-          <button type="button" id="tab-mode-search" role="tab" class="tab-btn active" data-mode="search" aria-selected="true" data-i18n="search.tabSearch">${escapeHtml(t('search.tabSearch'))}</button>
-          <button type="button" id="tab-mode-actions" role="tab" class="tab-btn" data-mode="actions" aria-selected="false" data-i18n="search.tabActions">${escapeHtml(t('search.tabActions'))}</button>
+          <button type="button" id="tab-mode-search" role="tab" class="tab-btn active" data-mode="search" aria-selected="true" aria-controls="search-mode-panel" tabindex="0" data-i18n="search.tabSearch">${escapeHtml(t('search.tabSearch'))}</button>
+          <button type="button" id="tab-mode-actions" role="tab" class="tab-btn" data-mode="actions" aria-selected="false" aria-controls="actions-mode-panel" tabindex="-1" data-i18n="search.tabActions">${escapeHtml(t('search.tabActions'))}</button>
         </div>
         <span class="text-secondary" data-i18n="search.escHint" style="font-size: 11px;">${escapeHtml(t('search.escHint'))}</span>
       </div>
-      <div class="form-group" style="margin-bottom: 8px;">
-        <input type="search" id="global-search-input" class="form-input" placeholder="${escapeHtml(t('search.placeholder'))}" data-i18n-placeholder="search.placeholder" autofocus autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="search-results-list">
+      <div id="search-mode-panel" role="tabpanel" aria-labelledby="tab-mode-search">
+        <div class="form-group" id="search-input-group" style="margin-bottom: 8px;">
+          <input type="search" id="global-search-input" class="form-input" placeholder="${escapeHtml(t('search.placeholder'))}" data-i18n-placeholder="search.placeholder" autofocus autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="search-results-list">
+        </div>
+        <div id="search-mode-subbar" style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+          <label class="form-checkbox-label">
+            <input type="checkbox" id="search-include-private">
+            <span data-i18n="search.includePrivate">${escapeHtml(t('search.includePrivate'))}</span>
+          </label>
+          <span class="text-secondary" data-i18n="search.enterPrompt" style="font-size: 11px;">${escapeHtml(t('search.enterPrompt'))}</span>
+        </div>
+        <div id="search-results-list" style="margin-top: 10px; max-height: 280px; overflow-y: auto;" role="listbox" aria-label="${escapeHtml(t('search.resultsListAria'))}" data-i18n-aria-label="search.resultsListAria">
+          <div class="text-secondary" data-i18n="search.enterPrompt" style="font-size: 11px; padding: 12px 0; text-align: center;">${escapeHtml(t('search.enterPrompt'))}</div>
+        </div>
       </div>
-      <div id="search-mode-subbar" style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
-        <label class="form-checkbox-label">
-          <input type="checkbox" id="search-include-private">
-          <span data-i18n="search.includePrivate">${escapeHtml(t('search.includePrivate'))}</span>
-        </label>
-        <span class="text-secondary" data-i18n="search.enterPrompt" style="font-size: 11px;">${escapeHtml(t('search.enterPrompt'))}</span>
-      </div>
-      <div id="actions-mode-subbar" class="hidden" style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-secondary);">
-        <span data-i18n="actions.hint">${escapeHtml(t('actions.hint'))}</span>
-      </div>
-      <div id="search-results-list" style="margin-top: 10px; max-height: 280px; overflow-y: auto;" role="listbox" aria-label="${escapeHtml(t('search.resultsListAria'))}" data-i18n-aria-label="search.resultsListAria">
-        <div class="text-secondary" data-i18n="search.enterPrompt" style="font-size: 11px; padding: 12px 0; text-align: center;">${escapeHtml(t('search.enterPrompt'))}</div>
+      <div id="actions-mode-panel" role="tabpanel" aria-labelledby="tab-mode-actions" class="hidden" hidden>
+        <div id="actions-mode-subbar" style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-secondary);">
+          <span data-i18n="actions.hint">${escapeHtml(t('actions.hint'))}</span>
+        </div>
       </div>
     `;
 
     openModal({ key: 'search.title' }, modalBody, '');
 
     const input = document.getElementById('global-search-input');
+    const inputGroup = document.getElementById('search-input-group');
     const chkPrivate = document.getElementById('search-include-private');
     const resultsList = document.getElementById('search-results-list');
     const tabSearch = document.getElementById('tab-mode-search');
     const tabActions = document.getElementById('tab-mode-actions');
+    const searchPanel = document.getElementById('search-mode-panel');
+    const actionsPanel = document.getElementById('actions-mode-panel');
     const searchSubbar = document.getElementById('search-mode-subbar');
     const actionsSubbar = document.getElementById('actions-mode-subbar');
 
@@ -17897,6 +18236,7 @@
     };
 
     const renderActionsList = () => {
+      resultsList?.classList.add('action-items-list');
       const query = input ? input.value.trim().toLowerCase() : '';
       const catalog = getLocalActionsCatalog();
       currentFilteredActions = catalog.filter(act => {
@@ -17920,38 +18260,34 @@
         input.setAttribute('aria-activedescendant', `action-item-${actionSelectedIndex}`);
       }
 
-      resultsList.innerHTML = `
-        <div class="action-items-list" role="listbox">
-          ${currentFilteredActions.map((item, idx) => {
-            const isSelected = idx === actionSelectedIndex;
-            const isDisabled = Boolean(item.disabled);
-            return `
-              <div class="action-item-card ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}"
-                   role="option"
-                   id="action-item-${idx}"
-                   data-action-id="${escapeHtml(item.id)}"
-                   data-action-index="${idx}"
-                   aria-selected="${isSelected ? 'true' : 'false'}"
-                   aria-disabled="${isDisabled ? 'true' : 'false'}"
-                   tabindex="-1">
-                <div class="action-item-content">
-                  <div class="action-item-header">
-                    <span class="action-item-title">${escapeHtml(item.title)}</span>
-                    <span class="code-badge" style="font-size: 10px;">${escapeHtml(item.category)}</span>
-                    ${isDisabled && item.disabledReason ? `<span class="status-badge status-amber" style="font-size: 10px;">${escapeHtml(item.disabledReason)}</span>` : ''}
-                  </div>
-                  <div class="action-item-desc">${escapeHtml(item.description)}</div>
-                </div>
-                ${item.badge ? `
-                  <div class="action-item-meta">
-                    <kbd class="code-badge" style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(item.badge)}</kbd>
-                  </div>
-                ` : ''}
+      resultsList.innerHTML = currentFilteredActions.map((item, idx) => {
+        const isSelected = idx === actionSelectedIndex;
+        const isDisabled = Boolean(item.disabled);
+        return `
+          <div class="action-item-card ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}"
+               role="option"
+               id="action-item-${idx}"
+               data-action-id="${escapeHtml(item.id)}"
+               data-action-index="${idx}"
+               aria-selected="${isSelected ? 'true' : 'false'}"
+               aria-disabled="${isDisabled ? 'true' : 'false'}"
+               tabindex="-1">
+            <div class="action-item-content">
+              <div class="action-item-header">
+                <span class="action-item-title">${escapeHtml(item.title)}</span>
+                <span class="code-badge" style="font-size: 10px;">${escapeHtml(item.category)}</span>
+                ${isDisabled && item.disabledReason ? `<span class="status-badge status-amber" style="font-size: 10px;">${escapeHtml(item.disabledReason)}</span>` : ''}
               </div>
-            `;
-          }).join('')}
-        </div>
-      `;
+              <div class="action-item-desc">${escapeHtml(item.description)}</div>
+            </div>
+            ${item.badge ? `
+              <div class="action-item-meta">
+                <kbd class="code-badge" style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(item.badge)}</kbd>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
 
       resultsList.querySelectorAll('.action-item-card').forEach(card => {
         card.addEventListener('click', () => {
@@ -17973,6 +18309,110 @@
       }
     };
 
+    const handleItemSelect = (item) => {
+      closeModal();
+      if (item.kind === 'session' || item.sessionId) {
+        openSessionDetail(item.id || item.sessionId);
+      } else if (item.kind === 'run' || item.runId) {
+        openRunDetail(item.id || item.runId);
+      } else if (item.kind === 'suggestion') {
+        openImprovePreviewDrawer(item.id);
+      } else if (item.kind === 'lab' || item.kind === 'evaluation') {
+        openLabCompareDrawer(item.id);
+      } else {
+        openDrawer(item.title || item.id, item.kind ? { key: 'search.evidenceKind', params: { kind: item.kind } } : { key: 'search.evidenceDetail' });
+        const drawerBody = document.getElementById('drawer-content');
+        if (drawerBody) {
+          drawerBody.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div class="card">
+                <div class="card-header">
+                  <span class="card-title">${escapeHtml(item.title || item.id)}</span>
+                  <span class="code-badge">${escapeHtml(item.kind || 'evidence')}</span>
+                </div>
+                <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--text-primary);">
+                  ${escapeHtml(item.content || item.description || t('search.noDetailedText'))}
+                </div>
+              </div>
+              ${item.project ? `
+                <div class="card" style="font-size: 12px;">
+                  <div class="text-secondary" data-i18n="search.projectPath" style="margin-bottom: 4px;">${escapeHtml(t('search.projectPath'))}</div>
+                  <code class="code-badge">${escapeHtml(item.project)}</code>
+                </div>
+              ` : ''}
+              ${item.sourceFile ? `
+                <div class="card" style="font-size: 12px;">
+                  <div class="text-secondary" data-i18n="search.sourceFile" style="margin-bottom: 4px;">${escapeHtml(t('search.sourceFile'))}</div>
+                  <code class="code-badge">${escapeHtml(item.sourceFile)}</code>
+                </div>
+              ` : ''}
+              ${item.metadata ? `
+                <div class="card">
+                  <div class="card-header"><span class="card-title" data-i18n="search.metadata">${escapeHtml(t('search.metadata'))}</span></div>
+                  <div class="code-view" style="font-size: 12px;">${escapeHtml(typeof item.metadata === 'object' ? JSON.stringify(item.metadata, null, 2) : String(item.metadata))}</div>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }
+      }
+    };
+
+    const updateSearchSelection = () => {
+      if (searchSelectedIndex >= 0 && searchSelectedIndex < currentSearchResults.length) {
+        input?.setAttribute('aria-activedescendant', `search-item-${searchSelectedIndex}`);
+      } else {
+        input?.removeAttribute('aria-activedescendant');
+      }
+      const cards = resultsList.querySelectorAll('.search-result-card');
+      cards.forEach((card, idx) => {
+        const isSelected = idx === searchSelectedIndex;
+        card.classList.toggle('selected', isSelected);
+        card.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      });
+      if (searchSelectedIndex >= 0) {
+        const activeEl = resultsList.querySelector(`#search-item-${searchSelectedIndex}`);
+        if (activeEl) {
+          activeEl.scrollIntoView({ block: 'nearest' });
+        }
+      }
+    };
+
+    const renderSearchResults = () => {
+      resultsList.innerHTML = currentSearchResults.map((item, idx) => {
+        const isSelected = idx === searchSelectedIndex;
+        return `
+          <div class="card clickable-card search-result-card ${isSelected ? 'selected' : ''}"
+               role="option"
+               id="search-item-${idx}"
+               data-index="${idx}"
+               aria-selected="${isSelected ? 'true' : 'false'}"
+               tabindex="-1"
+               style="padding: 10px 12px; margin-bottom: 0; cursor: pointer; text-align: left; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <strong style="font-size: 13px; color: var(--text-primary);">${escapeHtml(item.title || item.id)}</strong>
+              <span class="code-badge">${escapeHtml(item.kind || 'evidence')}</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; word-break: break-word;">${escapeHtml(item.content || item.description || '')}</div>
+            ${item.project ? `<div style="font-size: 12px; color: var(--text-muted); margin-top: 4px; font-family: var(--font-mono);">${escapeHtml(item.project)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+
+      resultsList.querySelectorAll('.search-result-card').forEach(card => {
+        const idx = parseInt(card.getAttribute('data-index'), 10);
+        const item = currentSearchResults[idx];
+        if (!item) return;
+        card.addEventListener('click', () => {
+          searchSelectedIndex = idx;
+          updateSearchSelection();
+          handleItemSelect(item);
+        });
+      });
+
+      updateSearchSelection();
+    };
+
     const doSearch = async () => {
       ++searchGeneration;
       const query = input.value.trim();
@@ -17980,6 +18420,10 @@
       const thisProject = state.currentProject;
       const thisModal = currentModalInstance;
       const thisQuery = query;
+
+      currentSearchResults = [];
+      searchSelectedIndex = -1;
+      if (input) input.removeAttribute('aria-activedescendant');
 
       if (!query) {
         resultsList.innerHTML = `<div class="text-secondary" data-i18n="search.enterPrompt" style="font-size: 11px; padding: 12px 0; text-align: center;">${escapeHtml(t('search.enterPrompt'))}</div>`;
@@ -18007,87 +18451,16 @@
         if (!modal || modal.classList.contains('hidden')) return;
 
         const items = Array.isArray(results) ? results : [];
+        currentSearchResults = items;
+        searchSelectedIndex = -1;
+        if (input) input.removeAttribute('aria-activedescendant');
+
         if (items.length === 0) {
           resultsList.innerHTML = `<div data-i18n="search.noMatch" style="font-size: 11px; color: var(--text-muted); padding: 16px 0; text-align: center;">${escapeHtml(t('search.noMatch'))}</div>`;
           return;
         }
 
-        resultsList.innerHTML = `
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            ${items.map((item, idx) => `
-              <div class="card clickable-card search-result-card" tabindex="0" role="button" data-index="${idx}" style="padding: 10px 12px; margin-bottom: 0; cursor: pointer; text-align: left; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card);">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                  <strong style="font-size: 13px; color: var(--text-primary);">${escapeHtml(item.title || item.id)}</strong>
-                  <span class="code-badge">${escapeHtml(item.kind || 'evidence')}</span>
-                </div>
-                <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; word-break: break-word;">${escapeHtml(item.content || item.description || '')}</div>
-                ${item.project ? `<div style="font-size: 12px; color: var(--text-muted); margin-top: 4px; font-family: var(--font-mono);">${escapeHtml(item.project)}</div>` : ''}
-              </div>
-            `).join('')}
-          </div>
-        `;
-
-        const handleItemSelect = (item) => {
-          closeModal();
-          if (item.kind === 'session' || item.sessionId) {
-            openSessionDetail(item.id || item.sessionId);
-          } else if (item.kind === 'run' || item.runId) {
-            openRunDetail(item.id || item.runId);
-          } else if (item.kind === 'suggestion') {
-            openImprovePreviewDrawer(item.id);
-          } else if (item.kind === 'lab' || item.kind === 'evaluation') {
-            openLabCompareDrawer(item.id);
-          } else {
-            openDrawer(item.title || item.id, item.kind ? { key: 'search.evidenceKind', params: { kind: item.kind } } : { key: 'search.evidenceDetail' });
-            const drawerBody = document.getElementById('drawer-content');
-            if (drawerBody) {
-              drawerBody.innerHTML = `
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                  <div class="card">
-                    <div class="card-header">
-                      <span class="card-title">${escapeHtml(item.title || item.id)}</span>
-                      <span class="code-badge">${escapeHtml(item.kind || 'evidence')}</span>
-                    </div>
-                    <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--text-primary);">
-                      ${escapeHtml(item.content || item.description || t('search.noDetailedText'))}
-                    </div>
-                  </div>
-                  ${item.project ? `
-                    <div class="card" style="font-size: 12px;">
-                      <div class="text-secondary" data-i18n="search.projectPath" style="margin-bottom: 4px;">${escapeHtml(t('search.projectPath'))}</div>
-                      <code class="code-badge">${escapeHtml(item.project)}</code>
-                    </div>
-                  ` : ''}
-                  ${item.sourceFile ? `
-                    <div class="card" style="font-size: 12px;">
-                      <div class="text-secondary" data-i18n="search.sourceFile" style="margin-bottom: 4px;">${escapeHtml(t('search.sourceFile'))}</div>
-                      <code class="code-badge">${escapeHtml(item.sourceFile)}</code>
-                    </div>
-                  ` : ''}
-                  ${item.metadata ? `
-                    <div class="card">
-                      <div class="card-header"><span class="card-title" data-i18n="search.metadata">${escapeHtml(t('search.metadata'))}</span></div>
-                      <div class="code-view" style="font-size: 12px;">${escapeHtml(typeof item.metadata === 'object' ? JSON.stringify(item.metadata, null, 2) : String(item.metadata))}</div>
-                    </div>
-                  ` : ''}
-                </div>
-              `;
-            }
-          }
-        };
-
-        resultsList.querySelectorAll('.search-result-card').forEach(card => {
-          const idx = parseInt(card.getAttribute('data-index'), 10);
-          const item = items[idx];
-          if (!item) return;
-          card.addEventListener('click', () => handleItemSelect(item));
-          card.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleItemSelect(item);
-            }
-          });
-        });
+        renderSearchResults();
       } catch (err) {
         if (currentModalInstance !== thisModal ||
             thisGen !== searchGeneration ||
@@ -18096,23 +18469,44 @@
             input.value.trim() !== thisQuery) {
           return;
         }
+        currentSearchResults = [];
+        searchSelectedIndex = -1;
+        if (input) input.removeAttribute('aria-activedescendant');
         resultsList.innerHTML = `<div class="alert-banner alert-danger">${escapeHtml(err.message)}</div>`;
       }
     };
 
-    const setMode = (mode) => {
-      if (currentMode === mode) return;
+    const setMode = (mode, focusInput = true) => {
+      if (currentMode === mode) {
+        if (focusInput) input?.focus();
+        return;
+      }
       ++searchGeneration;
       currentMode = mode;
       if (mode === 'search') {
+        resultsList?.classList.remove('action-items-list');
         tabSearch?.classList.add('active');
         tabSearch?.setAttribute('aria-selected', 'true');
+        tabSearch?.setAttribute('tabindex', '0');
         tabActions?.classList.remove('active');
         tabActions?.setAttribute('aria-selected', 'false');
+        tabActions?.setAttribute('tabindex', '-1');
+        searchPanel?.classList.remove('hidden');
+        searchPanel?.removeAttribute('hidden');
+        actionsPanel?.classList.add('hidden');
+        actionsPanel?.setAttribute('hidden', '');
+        if (inputGroup && searchPanel && searchSubbar) {
+          searchPanel.insertBefore(inputGroup, searchSubbar);
+        }
+        if (resultsList && searchPanel) {
+          searchPanel.appendChild(resultsList);
+        }
         searchSubbar?.classList.remove('hidden');
         actionsSubbar?.classList.add('hidden');
         input.placeholder = t('search.placeholder');
         input.setAttribute('data-i18n-placeholder', 'search.placeholder');
+        currentSearchResults = [];
+        searchSelectedIndex = -1;
         input.removeAttribute('aria-activedescendant');
         if (input.value.trim()) {
           doSearch();
@@ -18120,22 +18514,63 @@
           resultsList.innerHTML = `<div class="text-secondary" data-i18n="search.enterPrompt" style="font-size: 11px; padding: 12px 0; text-align: center;">${escapeHtml(t('search.enterPrompt'))}</div>`;
         }
       } else {
+        resultsList?.classList.add('action-items-list');
         tabActions?.classList.add('active');
         tabActions?.setAttribute('aria-selected', 'true');
+        tabActions?.setAttribute('tabindex', '0');
         tabSearch?.classList.remove('active');
         tabSearch?.setAttribute('aria-selected', 'false');
+        tabSearch?.setAttribute('tabindex', '-1');
+        actionsPanel?.classList.remove('hidden');
+        actionsPanel?.removeAttribute('hidden');
+        searchPanel?.classList.add('hidden');
+        searchPanel?.setAttribute('hidden', '');
+        if (inputGroup && actionsPanel && actionsSubbar) {
+          actionsPanel.insertBefore(inputGroup, actionsSubbar);
+        }
+        if (resultsList && actionsPanel) {
+          actionsPanel.appendChild(resultsList);
+        }
         actionsSubbar?.classList.remove('hidden');
         searchSubbar?.classList.add('hidden');
         input.placeholder = t('actions.placeholder');
         input.setAttribute('data-i18n-placeholder', 'actions.placeholder');
+        currentSearchResults = [];
+        searchSelectedIndex = -1;
+        input.removeAttribute('aria-activedescendant');
         actionSelectedIndex = 0;
         renderActionsList();
       }
-      input.focus();
+      if (focusInput) {
+        input.focus();
+      }
     };
 
-    tabSearch?.addEventListener('click', () => setMode('search'));
-    tabActions?.addEventListener('click', () => setMode('actions'));
+    tabSearch?.addEventListener('click', () => setMode('search', true));
+    tabActions?.addEventListener('click', () => setMode('actions', true));
+
+    const modeTabs = [tabSearch, tabActions].filter(Boolean);
+    modeTabs.forEach((tab, tabIdx) => {
+      tab.addEventListener('keydown', (e) => {
+        let targetIndex = -1;
+        if (e.key === 'ArrowRight') {
+          targetIndex = (tabIdx + 1) % modeTabs.length;
+        } else if (e.key === 'ArrowLeft') {
+          targetIndex = (tabIdx - 1 + modeTabs.length) % modeTabs.length;
+        } else if (e.key === 'Home') {
+          targetIndex = 0;
+        } else if (e.key === 'End') {
+          targetIndex = modeTabs.length - 1;
+        }
+        if (targetIndex !== -1) {
+          e.preventDefault();
+          const targetTab = modeTabs[targetIndex];
+          const targetMode = targetTab.getAttribute('data-mode');
+          setMode(targetMode, false);
+          targetTab.focus();
+        }
+      });
+    });
 
     input.addEventListener('keydown', (e) => {
       if (currentMode === 'actions') {
@@ -18168,8 +18603,39 @@
           return;
         }
       } else {
+        if (e.key === 'ArrowDown') {
+          if (currentSearchResults.length > 0) {
+            e.preventDefault();
+            if (searchSelectedIndex === -1) {
+              searchSelectedIndex = 0;
+            } else {
+              searchSelectedIndex = (searchSelectedIndex + 1) % currentSearchResults.length;
+            }
+            updateSearchSelection();
+          }
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          if (currentSearchResults.length > 0) {
+            e.preventDefault();
+            if (searchSelectedIndex === -1) {
+              searchSelectedIndex = currentSearchResults.length - 1;
+            } else {
+              searchSelectedIndex = (searchSelectedIndex - 1 + currentSearchResults.length) % currentSearchResults.length;
+            }
+            updateSearchSelection();
+          }
+          return;
+        }
         if (e.key === 'Enter') {
           e.preventDefault();
+          if (searchSelectedIndex >= 0 && searchSelectedIndex < currentSearchResults.length) {
+            const item = currentSearchResults[searchSelectedIndex];
+            if (item) {
+              handleItemSelect(item);
+              return;
+            }
+          }
           doSearch();
         }
       }
@@ -18180,14 +18646,24 @@
       if (currentMode === 'actions') {
         actionSelectedIndex = 0;
         renderActionsList();
+      } else {
+        currentSearchResults = [];
+        searchSelectedIndex = -1;
+        if (input) input.removeAttribute('aria-activedescendant');
+        resultsList.innerHTML = `<div class="text-secondary" data-i18n="search.enterPrompt" style="font-size: 11px; padding: 12px 0; text-align: center;">${escapeHtml(t('search.enterPrompt'))}</div>`;
       }
     });
 
     chkPrivate?.addEventListener('change', () => {
       ++searchGeneration;
       if (currentMode === 'search') {
+        searchSelectedIndex = -1;
+        if (input) input.removeAttribute('aria-activedescendant');
         if (input.value.trim()) doSearch();
-        else resultsList.innerHTML = `<div class="text-secondary" data-i18n="search.enterPrompt" style="font-size: 11px; padding: 12px 0; text-align: center;">${escapeHtml(t('search.enterPrompt'))}</div>`;
+        else {
+          currentSearchResults = [];
+          resultsList.innerHTML = `<div class="text-secondary" data-i18n="search.enterPrompt" style="font-size: 11px; padding: 12px 0; text-align: center;">${escapeHtml(t('search.enterPrompt'))}</div>`;
+        }
       }
     });
 
@@ -18198,6 +18674,8 @@
       }
       if (currentMode === 'actions') {
         renderActionsList();
+      } else if (currentSearchResults.length > 0) {
+        renderSearchResults();
       }
     };
     window.addEventListener('vela:localeApplied', onLocaleChanged);
@@ -18419,7 +18897,11 @@
     if (titleEl) setElementDescriptor(titleEl, title || { key: 'shell.drawerTitle' });
     if (s) setElementDescriptor(s, subtitle);
     if (customActions) customActions.innerHTML = '';
-    if (content) content.innerHTML = `<div class="empty-state"><div class="empty-state-title" data-i18n="common.loading">${escapeHtml(t('common.loading'))}</div></div>`;
+    if (content) {
+      content.style.overflowAnchor = 'none';
+      content.innerHTML = `<div class="empty-state"><div class="empty-state-title" data-i18n="common.loading">${escapeHtml(t('common.loading'))}</div></div>`;
+    }
+    ensureDrawerUserScrollListener();
 
     if (drawer) drawer.classList.remove('hidden');
 
@@ -18484,6 +18966,7 @@
 
   function closeDrawer() {
     currentDrawerInstance = ++drawerInstanceCounter;
+    invalidateSessionDisclosures();
     const drawer = document.getElementById('detail-drawer');
     const backdrop = document.getElementById('drawer-backdrop');
     if (drawer) drawer.classList.add('hidden');

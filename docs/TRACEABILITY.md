@@ -50,6 +50,7 @@
 | T-MCP | [test-rpc.py](../scripts/test-rpc.py) | 编译 CLI、持久偏好、project 必填、private 排除、Candidate-only 贡献及 Dry Run |
 | T-UI | [test-ui-browser.py](../scripts/test-ui-browser.py)；12 项见 [UX review](implementation/ux-review.md#最终-renderer-复验2026-09-12-1416-utc) | renderer→真实 CLI；原生通知注入/native stub 已明确；不运行完整 Golden |
 | T-UI2（增量） | [test-acceptance-browser.py](../scripts/test-acceptance-browser.py) | 六组真实 CLI：Memory 生命周期/确切来源/跨项目、Lab pending 冻结、Reuse Apply/Undo、缺失→真实零；拒绝 Agent approval，不执行 Hook |
+| T-UI18（增量） | [test-workspace-scope-accessibility-browser.py](../scripts/test-workspace-scope-accessibility-browser.py) | 冻结 UI18→真实隔离 helper 的 All Projects Plan/relations、live disclosure/anchor、实际 wheel 意图/切换 guard、Search/Actions ARIA；r6 nested-loader wheel 红例已由 r7 同一路径真实 held response 回归通过，保留两份证据；不测原生全量、Capture/Health UI、Golden 或 provider 行为 |
 | T-PKG | [test-release-resources.py](../scripts/test-release-resources.py)、[release-audit.py](../scripts/release-audit.py) | 原创资源与实际包排除；不等 notarization/update |
 | T-PERF | [benchmark-read.py](../scripts/benchmark-read.py) | 100k synthetic records 的 warm RPC 搜索；不含 UI/冷启动/大日志 |
 | T-IMP2（增量） | [ImproveAcceptanceTests](../Tests/VelaCoreTests/ImproveAcceptanceTests.swift)：`testFeatureSpecificationsQuotedExamplesAndAgainDoNotCreateSignals`、`testThreeParsedCodexToolSequencesCreateDisabledWorkflowDraftWithoutExecution`、`testCopiedProviderLogsDoNotMultiplySessionsOrCandidateMemories`，共九项专项方法 | 受控确切来源、near-miss 与有界读取；不是泛化 precision 或未来改善 |
@@ -73,6 +74,7 @@
 | E-USAGE（增量） | [本轮 Usage 反例与修复](reference-comparison.md#concrete-review-findings-and-follow-up)，本地 `acceptance-usage-integrity.json` | 缺失与两个历史 SIGTRAP 反例、修后六类 helper 行为及持续响应；不是所有 usage 来源完整 |
 | E-CORE2（增量） | [本轮验证记录](verification.md#unreleased-acceptance-redesign--13-september-2026)、[最终源码 CI](evidence/2026-09-13-ci-final.json) | 当前 95/95 portable；最终提交 `91d34e2` hosted 95 项 XCTest 与 18 组 renderer 全过；此前 93 项保留为历史检查点 |
 | E-UI2（增量） | [六组 UI/CLI 验收记录](verification.md#six-renderer-to-cli-acceptance-checks)，最终本地 `output/playwright/acceptance-flow-final` | 17:37:16 UTC 同次 fresh fixture 6/6、56 次 Core RPC 无错误；最终 UI `01104e7f…ee3af0b` / helper `bbeb97c8…e14d24483`，完整 hash 见验证记录；未执行真实 Agent、Hook 或 OS 通知，非完整 Golden |
+| E-UI18（增量） | [UI18 renderer evidence](parity/ui18-renderer-evidence-2026-09-14.json) | r6 UI `6a77a300…03a717` 的 8 项基线与同字节 12 项 legacy renderer 通过；r6 nested relations loader 的真实 user-wheel 红例保留，并由 r7 `71db445a…7660a4` 完整 8 项同路径回归通过。机制仅是 Chrome native scroll anchoring 的证据支持推断；原生仅 r4 局部，UI18 r7 未进新 CI，非完整 Golden |
 | E-NATIVE2（增量） | [UI 与原生证据](evidence/2026-09-13-ui.json)、[开发包审核](evidence/2026-09-13-package.json) | 开发 wrapper 两尺寸实际交互、Reuse Apply/Undo 独立落库确认；最终包静态检查通过。没有正式包安装/公证/OS 通知或完整 Golden 证明 |
 
 一次性旧 UI fixture 的 raw `browser-results.json` 不作为公开仓库长期工件；本次只核对到持久化报告与复验脚本，不假称原始文件仍保留。CI 配置存在不等于本次托管 CI 已通过；新候选应固定 run URL/commit 和工件哈希。E-CORE/E-RPC/E-UI 的合成数据不能作为真实用户长期改善样本。
@@ -94,7 +96,7 @@ R 编号对应 PRD 同号 D 约束及其 Goal；代码/测试覆盖的是“已�
 | FR-09 | Parser Version | 03 | Partial：固定 epoch 的显式历史回填、分页/暂停/续传/取消已实现；Cursor 等未支持格式仍有缺口 | C-OBS/C-UI | T-ING、[History/Plan 消费者](../scripts/test-history-plan-browser.py) | [History/Plan 证据](parity/desktop-history-plan-evidence-2026-09-13.json)、[972 CI](parity/ci-972155b7-evidence-2026-09-13.json) |
 | FR-10 | Project identity | 02/03 | Partial：canonical path；remote/repository/worktree 归并不足 | C-OBS/C-STORE | T-STORE | E-CORE |
 | FR-11 | Exclusion | 03 | Missing：显式 project/path/glob 全链排除 | C-OBS | — | E-NONE |
-| FR-12 | Session Detail | 03 | Partial：消息/工具、已观察计划和关联证据已接通；全部项目 Plan scope 与刷新后展开状态是 UI17 已复现缺陷，完整格式/文件视图仍不足 | C-UI/C-OBS | T-UI/T-ING、[History/Plan 消费者](../scripts/test-history-plan-browser.py) | [UI17 证据](parity/ui17-final-renderer-evidence-2026-09-13.json) |
+| FR-12 | Session Detail | 03 | Partial：消息/工具、已观察计划和关联证据已接通；UI17 全部项目 Plan scope 与刷新后展开/锚点缺陷保留为历史反例，UI18 r7 已在真实 helper 浏览器路径复验 scope、首屏、展开、默认首 cursor、stale guard 和 nested-loader user-wheel anchor；r6 红例保留。该 Chrome 证据不覆盖 WKWebView，完整格式/文件视图与原生复验仍不足 | C-UI/C-OBS | T-UI/T-UI18/T-ING、[History/Plan 消费者](../scripts/test-history-plan-browser.py) | [UI18 renderer evidence](parity/ui18-renderer-evidence-2026-09-14.json)、[UI17 证据](parity/ui17-final-renderer-evidence-2026-09-13.json) |
 | FR-13 | Tool Detail | 03 | Partial：支持 input/output 子集；完整 duration/status/lazy paging 不足 | C-OBS/C-UI | T-ING | E-CORE |
 | FR-14 | Inventory | 04 | Partial：扫描真实 Rules/Skills/Hooks/MCP；完整对象集合待验 | C-OBS/C-UI | T-SETUP/T-UI | E-CORE/E-UI |
 | FR-15 | Artifact model | 04 | Partial：hash/source/diagnostics；runtime 加载差异/关系不足 | C-OBS | T-SETUP | E-CORE |

@@ -88,6 +88,7 @@ jobs:
           python3 scripts/test-history-plan-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-history-plan --output output/playwright/ci-history-plan --browser-executable "$BROWSER_EXECUTABLE"
           python3 scripts/test-workspace-actions-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-workspace-actions --output output/playwright/ci-workspace-actions --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
           python3 scripts/test-session-relations-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-session-relations --output output/playwright/ci-session-relations --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
+          python3 scripts/test-workspace-scope-accessibility-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-workspace-scope --output output/playwright/ci-workspace-scope --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -121,6 +122,9 @@ jobs:
             output/playwright/ci-session-relations/*.json
             output/playwright/ci-session-relations/*.jsonl
             output/playwright/ci-session-relations/*.png
+            output/playwright/ci-workspace-scope/*.json
+            output/playwright/ci-workspace-scope/*.jsonl
+            output/playwright/ci-workspace-scope/*.png
             output/parity/ci-session-history.json
             output/parity/ci-session-plans.json
             output/parity/ci-mcp-stdio.json
