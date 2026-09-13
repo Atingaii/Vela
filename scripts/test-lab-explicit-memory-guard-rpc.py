@@ -44,7 +44,9 @@ def main():
               'helperBefore': sha(binary), 'helperFrozen': sha(helper),
               'consumerSourceBefore': sha(Path(__file__)), 'actualCalls': []}
     try:
-        for mutation in ('private', 'archived', 'content', 'foreign', 'unchanged'):
+        cases = ('private', 'archived', 'content', 'foreign', 'unchanged',
+                 'exclusion_project', 'exclusion_source', 'exclusion_removed')
+        for mutation in cases:
             # A directory literally named private is intentionally protected by
             # the product and cannot be used for a public baseline fixture.
             case = base / ('case-' + mutation)
@@ -88,7 +90,29 @@ def main():
             call('projects.add', {'path': str(other)})
             memory = {'id': memory_id, 'project': str(project), 'scope': 'project',
                       'state': 'active', 'title': 'Synthetic source', 'content': 'ORIGINAL'}
-            call('memory.save', memory)
+            captured_log = None
+            if mutation in ('exclusion_source', 'exclusion_removed'):
+                captured_log = case / 'no-sessions' / 'claude' / 'captured.jsonl'
+                captured_log.parent.mkdir(parents=True)
+                captured_log.write_text(json.dumps({'type': 'user', 'uuid': 'observed-message',
+                    'sessionId': 'observed-session', 'cwd': str(project),
+                    'message': {'role': 'user', 'content': 'ORIGINAL'}}) + '\n')
+                captured_log_hash = sha(captured_log)
+                call('sessions.refresh', {})
+                session = next(row for row in call('sessions.list', {'project': str(project)})
+                               if row.get('provider') == 'claude')
+                detail = call('sessions.get', {'id': session['id']})
+                message = next(row for row in detail['messages'] if row.get('role') == 'user')
+                fields = {'project': str(project), 'sessionId': session['id'], 'messageId': message['id']}
+                prepared = call('memory.capture.prepare', fields)
+                memory = call('memory.capture', dict(fields, sourceIdentity=prepared['sourceIdentity'],
+                                                     expectedSourceHash=prepared['expectedSourceHash']))
+                memory_id = memory['id']
+                call('memory.transition', {'id': memory_id, 'state': 'active'})
+            else:
+                call('memory.save', memory)
+            memory_file = home / 'assets' / 'memory' / (memory_id + '.md')
+            memory_hash_before = sha(memory_file)
             created = call('lab.run', {'title': 'Synthetic explicit source guard',
                 'project': str(project), 'kind': 'memory',
                 'agent': {'provider': 'codex', 'executable': str(agent), 'model': 'local', 'reasoningEffort': 'high'},
@@ -111,6 +135,13 @@ def main():
                     row['project'] = str(other)
                     connection.execute("UPDATE objects SET project=?,json=? WHERE kind='memory' AND id=?",
                                        (str(other), json.dumps(row, separators=(',', ':')), memory_id))
+            elif mutation.startswith('exclusion_'):
+                fields = {'project': str(project)}
+                if mutation != 'exclusion_project':
+                    fields.update(provider='claude', pathGlob='captured.jsonl')
+                rule = call('ingestion.exclusions.upsert', fields)
+                if mutation == 'exclusion_removed':
+                    call('ingestion.exclusions.remove', {'project': str(project), 'id': rule['id']})
             approval = next(item for item in call('inbox.list', {'project': str(project)})
                             if item['id'] == created['approvalId'])
             decision = call('approvals.decide', {'id': approval['id'], 'decision': 'approve',
@@ -124,7 +155,7 @@ def main():
             live_paths = [line.removeprefix('worktree ') for line in worktrees.splitlines() if line.startswith('worktree ')]
             assert live_paths == [str(project)], 'owned Lab worktree remained registered'
             assert all(not Path(item['cwd']).exists() for item in starts), 'owned variant directory remained'
-            expected_success = mutation == 'unchanged'
+            expected_success = mutation in ('unchanged', 'exclusion_removed')
             passed = (decision['state'] == ('executed' if expected_success else 'failed')
                       and len(candidate_starts) == (1 if expected_success else 0)
                       and len(baseline_starts) == 1)
@@ -134,8 +165,16 @@ def main():
                                      'candidateStartCount': len(candidate_starts), 'ownedWorktreesRemoved': True,
                                      'evaluationResultCount': len(evaluation.get('results', [])),
                                      'foreignMutationUsesOwnedDatabaseSeam': mutation == 'foreign'})
+            if mutation.startswith('exclusion_'):
+                memory_preserved = sha(memory_file) == memory_hash_before
+                log_preserved = captured_log is None or sha(captured_log) == captured_log_hash
+                managed = any(row['id'] == memory_id for row in call('memory.list', {'project': str(project)}))
+                result['checks'][-1].update(memoryFileUnchanged=memory_preserved,
+                    providerLogUnchanged=log_preserved, memoryStillManaged=managed)
+                passed = passed and memory_preserved and log_preserved and managed
+                result['checks'][-1]['passed'] = passed
             assert passed, 'unexpected explicit source guard outcome: ' + mutation
-        result['passed'] = len(result['checks']) == 5 and all(item['passed'] for item in result['checks'])
+        result['passed'] = len(result['checks']) == len(cases) and all(item['passed'] for item in result['checks'])
     except Exception as error:
         result['passed'] = False
         result['failure'] = str(error)

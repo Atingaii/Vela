@@ -64,10 +64,11 @@ final class AppleSemanticEmbedding: SemanticEmbeddingProvider {
 
 final class SemanticMemory {
     private let store: VelaStore
+    private let exclusions: IngestionExclusionService
     private let providerFactory: (String) -> SemanticEmbeddingProvider?
     private let now: () -> Date
     init(store: VelaStore, providerFactory: @escaping (String) -> SemanticEmbeddingProvider? = { AppleSemanticEmbedding(language:$0) }, now: @escaping () -> Date = Date.init) {
-        self.store = store; self.providerFactory = providerFactory; self.now = now
+        self.store = store; self.exclusions = IngestionExclusionService(store:store); self.providerFactory = providerFactory; self.now = now
     }
     static func sourceHash(_ item: JSON) throws -> String {
         var source: JSON = [:]
@@ -97,6 +98,9 @@ final class SemanticMemory {
         case "session": return !string(params,"sessionId").isEmpty && string(item,"sourceSession") == string(params,"sessionId")
         default: return true
         }
+    }
+    private func canRecall(_ item: JSON, params: JSON, project: String, policy: IngestionExclusionService.MemoryRecallPolicy) -> Bool {
+        Self.canRecall(item,params:params,project:project) && policy.allows(item)
     }
     private func project(_ params: JSON) throws -> String {
         let project = try checkedProject(params,required:true)!
@@ -136,7 +140,8 @@ final class SemanticMemory {
         guard Set(params.keys).isSubset(of:allowed) else { throw VelaError("Unsupported semantic index fields") }
         let project = try project(params), language = try language(params)
         guard let provider = providerFactory(language) else { return ["status":"unavailable","language":language,"model":NSNull(),"reason":"The requested Apple sentence embedding is not installed","downloadRequested":false,"indexIncomplete":true] }
-        if method == "memory.semantic.status" { return try status(project:project,provider:provider) }
+        let policy = try exclusions.memoryRecallPolicy(project:project)
+        if method == "memory.semantic.status" { return try status(project:project,provider:provider,policy:policy) }
         guard method == "memory.semantic.index" else { throw VelaError("Unknown semantic memory method") }
         let batchSize = try integer(params,"batchSize",default:32,range:1...200)
         var after = ""
@@ -154,7 +159,7 @@ final class SemanticMemory {
         var indexed = 0, unchanged = 0, skipped = 0, failed = 0
         for item in page.items {
             let id = string(item,"id")
-            guard Self.isIndexable(item,project:project) else { skipped += 1; try store.removeSemanticVector(memoryID:id,language:language); continue }
+            guard Self.isIndexable(item,project:project), policy.allows(item) else { skipped += 1; try store.removeSemanticVector(memoryID:id,language:language); continue }
             let hash = try Self.sourceHash(item)
             if try matches(store.semanticVectorMetadata(memoryID:id,language:language),sourceHash:hash,provider:provider) { unchanged += 1; continue }
             do {
@@ -170,14 +175,14 @@ final class SemanticMemory {
         }
         return ["status":failed > 0 ? "partial" : "ok","model":modelInfo(provider),"processed":page.items.count,"indexed":indexed,"unchanged":unchanged,"skipped":skipped,"failed":failed,"nextCursor":nextCursor,"hasMore":page.hasMore,"indexCompleteness":"Call memory.semantic.status after all pages; concurrent edits may require another pass","downloadRequested":false]
     }
-    private func status(project: String, provider: SemanticEmbeddingProvider, scope: JSON? = nil) throws -> JSON {
+    private func status(project: String, provider: SemanticEmbeddingProvider, scope: JSON? = nil, policy: IngestionExclusionService.MemoryRecallPolicy) throws -> JSON {
         var after = "", eligible = 0, indexed = 0, stale = 0, scanned = 0
         while true {
             let page = try store.semanticMemoryPage(project:project,after:after,limit:200)
             for item in page.items {
-                if let scope, !Self.canRecall(item,params:scope,project:project) { continue }
+                if let scope, !canRecall(item,params:scope,project:project,policy:policy) { continue }
                 scanned += 1
-                guard Self.isIndexable(item,project:project) else { continue }
+                guard Self.isIndexable(item,project:project), policy.allows(item) else { continue }
                 eligible += 1
                 let metadata = try store.semanticVectorMetadata(memoryID:string(item,"id"),language:provider.language)
                 if try matches(metadata,sourceHash:Self.sourceHash(item),provider:provider) { indexed += 1 }
@@ -270,7 +275,8 @@ final class SemanticMemory {
         if method == "memory.semantic.embed" {
             return ["status":"ok","model":modelIdentity(provider),"vector":vector.map(Double.init),"inputBytes":text.utf8.count,"persisted":false,"downloadRequested":false,"runtime":"local"]
         }
-        return try retrieve(params,project:project,provider:provider,queryVector:vector,options:options,requested:"semantic",querySource:suppliedVector == nil ? "text" : "precomputed-vector",lexical:{ ["items":[]] })
+        let policy = try exclusions.memoryRecallPolicy(project:project)
+        return try retrieve(params,project:project,provider:provider,queryVector:vector,options:options,requested:"semantic",querySource:suppliedVector == nil ? "text" : "precomputed-vector",policy:policy,lexical:{ ["items":[]] })
     }
     func recall(_ params: JSON, lexical: () throws -> JSON) throws -> JSON {
         let project = try project(params), language = try language(params)
@@ -280,20 +286,21 @@ final class SemanticMemory {
         guard query.utf8.count <= 16 * 1024 else { throw VelaError("Semantic query exceeds 16 KiB") }
         let options = try options(params)
         let limit = options.limit, budget = options.budget
+        let policy = try exclusions.memoryRecallPolicy(project:project)
         guard let provider = providerFactory(language) else {
             if requested == "hybrid" {
                 var result = try lexical(); result["requestedRetrievalMode"] = requested; result["retrievalMode"] = "lexical"; result["fallbackReason"] = "Apple sentence embedding is unavailable"; result["indexIncomplete"] = true; result["model"] = NSNull(); result["downloadRequested"] = false
                 // Even fallback uses semantic mode's stricter private/source rules and explicit limit.
-                let items = (result["items"] as? [JSON] ?? []).filter { Self.canRecall($0,params:params,project:project) }
+                let items = (result["items"] as? [JSON] ?? []).filter { self.canRecall($0,params:params,project:project,policy:policy) }
                 return pack(items:Array(items.prefix(limit)),budget:budget,base:result)
             }
             return pack(items:[],budget:budget,base:["status":"unavailable","retrievalMode":"unavailable","requestedRetrievalMode":requested,"model":NSNull(),"indexIncomplete":true,"reason":"Apple sentence embedding is unavailable","downloadRequested":false])
         }
         let queryVector = try SemanticVectorMath.normalized(provider.vector(query))
         guard queryVector.count == provider.dimension else { throw VelaError("Query model dimension mismatch") }
-        return try retrieve(params,project:project,provider:provider,queryVector:queryVector,options:options,requested:requested,querySource:"text",lexical:lexical)
+        return try retrieve(params,project:project,provider:provider,queryVector:queryVector,options:options,requested:requested,querySource:"text",policy:policy,lexical:lexical)
     }
-    private func retrieve(_ params: JSON, project: String, provider: SemanticEmbeddingProvider, queryVector: [Float], options: RetrievalOptions, requested: String, querySource: String, lexical: () throws -> JSON) throws -> JSON {
+    private func retrieve(_ params: JSON, project: String, provider: SemanticEmbeddingProvider, queryVector: [Float], options: RetrievalOptions, requested: String, querySource: String, policy: IngestionExclusionService.MemoryRecallPolicy, lexical: () throws -> JSON) throws -> JSON {
         let limit = options.limit, budget = options.budget, threshold = options.threshold
         let semanticWeight = options.semanticWeight, recencyWeight = options.recencyWeight, importanceWeight = options.importanceWeight, halfLife = options.halfLife
         var best: [(Double,Double?,JSON)] = [], stale = 0, valid = 0, matched = 0, limited = false
@@ -332,7 +339,7 @@ final class SemanticMemory {
             if best.count > limit { best.removeLast(); limited = true }
         }
         try store.forEachSemanticVector(project:project,language:provider.language) { row in
-            guard let item = try store.get("memory",row.memoryID), Self.canRecall(item,params:params,project:project) else { return }
+            guard let item = try store.get("memory",row.memoryID), canRecall(item,params:params,project:project,policy:policy) else { return }
             guard row.model == provider.model, row.revision == provider.revision, row.dimension == provider.dimension,
                   row.project == string(item,"project"), try row.sourceHash == Self.sourceHash(item) else { stale += 1; return }
             valid += 1
@@ -345,7 +352,8 @@ final class SemanticMemory {
         }
         if requested == "hybrid" {
             let lexicalItems = (try lexical()["items"] as? [JSON]) ?? []
-            for var item in lexicalItems where Self.canRecall(item,params:params,project:project) {
+            for var item in lexicalItems {
+                guard canRecall(item,params:params,project:project,policy:policy) else { continue }
                 if let existing = best.firstIndex(where: { string($0.2,"id") == string(item,"id") }) {
                     best[existing].2["retrievalSource"] = "semantic+lexical"; continue
                 }
@@ -354,7 +362,7 @@ final class SemanticMemory {
                 keep(item,score:lexicalScore * 0.5)
             }
         }
-        let coverage = try status(project:project,provider:provider,scope:params)
+        let coverage = try status(project:project,provider:provider,scope:params,policy:policy)
         let base: JSON = ["status":"ok","retrievalMode":requested,"model":modelInfo(provider),"indexIncomplete":coverage["indexIncomplete"] ?? true,"indexCoverage":coverage,"validVectors":valid,"matchedVectors":matched,"staleVectorsExcluded":stale,"scopeExcluded":NSNull(),"scopeCountPolicy":"Out-of-scope counts are withheld","querySource":querySource,"sort":options.sort,"minSimilarity":threshold,"limit":limit,"limited":limited,"rankingPolicy":options.sort == "recent" ? "all eligible cosine matches before newest-first top-K; unknown/future dates last, then cosine, then stable ID; token packing after top-K" : "semantic score plus optional recency/importance; hybrid lexical-only fallback score capped at 0.5; top-K before token packing","downloadRequested":false]
         return pack(items:best.map(\.2),budget:budget,base:base)
     }

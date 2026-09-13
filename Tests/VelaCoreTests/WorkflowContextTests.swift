@@ -60,6 +60,27 @@ final class WorkflowContextTests: XCTestCase {
         }
     }
 
+    func testExcludedFrozenMemoryFailsApprovalButNoMemoryContextStillExecutes() throws {
+        try fixture { root,store,service in
+            _ = try XCTUnwrap(MemoryService(store:store).handle("memory.save",["title":"Evidence","project":root.path,"content":"excluded evidence","state":"active"]) as? JSON)
+            let blocked = try save(service,root,["version":1,"template":"Evidence {{memory}}"])
+            let pending = try call(service,"workflows.run",["id":blocked["id"]!,"dryRun":false])
+            XCTAssertEqual(string(pending,"state"),"pending_approval")
+            XCTAssertEqual((pending["memoryUsed"] as? [JSON] ?? []).count,1)
+            XCTAssertTrue(string((pending["contextSnapshot"] as? JSON) ?? [:],"renderedPrompt").contains("excluded evidence"))
+            let foundation = FoundationService(store:store,sourceRoots:[:],globalHome:root)
+            _ = try foundation.handle("projects.add",["path":root.path])
+            _ = try foundation.handle("ingestion.exclusions.upsert",["project":root.path])
+            let rejected = try approve(service,store)
+            XCTAssertEqual(string(rejected,"state"),"failed")
+            XCTAssertFalse(FileManager.default.fileExists(atPath:root.appendingPathComponent("received.txt").path))
+            let noMemory = try save(service,root,["version":1,"template":"safe","memory":["enabled":false]])
+            let normal = try call(service,"workflows.run",["id":noMemory["id"]!,"dryRun":false])
+            XCTAssertEqual(string(normal,"state"),"pending_approval")
+            XCTAssertEqual(string(try approve(service,store),"state"),"executed")
+        }
+    }
+
     func testDryRunRendersWithoutExecutingAndLegacyArgumentsStayLiteral() throws {
         try fixture { root,store,service in
             let workflow = try save(service,root,["version":1,"template":"Hello {{input.name}}","memory":["enabled":false]])

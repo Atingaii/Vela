@@ -22,7 +22,8 @@ public final class FoundationService {
             (history?.hasKnownSource(project:project,provider:provider,glob:glob) ?? false) ||
             (sessions?.hasKnownSource(project:project,provider:provider,glob:glob) ?? false)
         }
-        ingestionExclusions.relativeSourcePath = { [weak sessions] path, provider in sessions?.relativeSourcePath(URL(fileURLWithPath:path),provider:provider) }
+        store.ingestionSourceRelativePath = { [weak sessions] path, provider in sessions?.relativeSourcePath(URL(fileURLWithPath:path),provider:provider) }
+        ingestionExclusions.relativeSourcePath = store.ingestionSourceRelativePath
     }
     public var onChange: (() -> Void)? { get { sessions.onChange } set { sessions.onChange = newValue } }
     public func startWatching() {

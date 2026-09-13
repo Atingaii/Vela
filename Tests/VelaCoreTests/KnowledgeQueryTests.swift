@@ -99,6 +99,18 @@ final class KnowledgeQueryTests: XCTestCase {
             XCTAssertFalse(FileManager.default.fileExists(atPath:root.appendingPathComponent("calls.txt").path))
         }
     }
+
+    func testExcludedFrozenMemoryStopsKnowledgeExecutionBeforeProvider() throws {
+        try fixture { root,store,service in
+            let item = try source(root,store,kind:"memory")
+            let pending = try create(root,service,try fake(root,result:answer(item)))
+            let foundation = FoundationService(store:store,sourceRoots:[:],globalHome:root)
+            _ = try foundation.handle("projects.add",["path":root.path])
+            _ = try foundation.handle("ingestion.exclusions.upsert",["project":root.path])
+            XCTAssertEqual(string(try approve(service,pending),"state"),"failed")
+            XCTAssertFalse(FileManager.default.fileExists(atPath:root.appendingPathComponent("calls.txt").path))
+        }
+    }
     func testMissingFabricatedDuplicateCredentialAndToolAnswersNeverPublish() throws {
         try fixture { root,store,service in
             let item = try source(root,store)

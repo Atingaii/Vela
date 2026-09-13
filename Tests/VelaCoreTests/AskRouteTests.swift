@@ -100,6 +100,19 @@ final class AskRouteTests: XCTestCase {
         }
     }
 
+    func testExcludedFrozenMemoryCannotReachAskProposalProvider() throws {
+        try fixture { root,store,service in
+            try source(store,root,id:"captured",extra:["title":"Needle","content":"needle"])
+            let route = try call(service,"ask.route",["project":root.path,"question":"needle"])
+            let foundation = FoundationService(store:store,sourceRoots:[:],globalHome:root)
+            _ = try foundation.handle("projects.add",["path":root.path])
+            _ = try foundation.handle("ingestion.exclusions.upsert",["project":root.path])
+            XCTAssertThrowsError(try call(service,"ask.route.propose",["project":root.path,"id":route["id"]!,"routeHash":route["routeHash"]!,"executable":"/usr/bin/true","model":"fixture-model"]))
+            XCTAssertTrue(try store.list("ask_route_proposal").isEmpty)
+            XCTAssertTrue(try store.list("approval").isEmpty)
+        }
+    }
+
     func testLegacyRouteHashRemainsReadableButCannotCreateProposal() throws {
         try fixture { root,store,service in
             let route = try call(service,"ask.route",["project":root.path,"question":"legacy route"])

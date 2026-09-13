@@ -306,6 +306,7 @@ extension AutomationService {
     }
 
     private func verifyLoopSources(_ sources: [JSON], project: String) throws {
+        let memoryPolicy = try IngestionExclusionService(store:store).memoryRecallPolicy(project:project)
         for source in sources {
             let kind = string(source,"kind")
             if kind == "library" {
@@ -317,7 +318,8 @@ extension AutomationService {
             guard ["memory","library","guideline"].contains(kind), let current = try store.get(kind,string(source,"id")),
                   ModelImprovement.falseOrAbsent(current["private"]), !privateLibraryPath(string(current,"sourcePath")),
                   string(current,"scope").lowercased() != "private", string(current,"state","active") == "active",
-                  string(current,"project") == project || (kind != "library" && string(current,"scope") == "global" && string(current,"project").isEmpty) else {
+                  string(current,"project") == project || (kind != "library" && string(current,"scope") == "global" && string(current,"project").isEmpty),
+                  kind != "memory" || memoryPolicy.allows(current) else {
                 throw VelaError("A loop context source became private, unavailable or out of scope; no further model prompt was sent")
             }
         }

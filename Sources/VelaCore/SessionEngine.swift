@@ -180,6 +180,7 @@ final class SessionEngine {
             session["id"] = stableHash(provider + ":" + url.path); session["provider"] = provider
             session["sourcePath"] = url.path; session["project"] = session["project"] ?? ""
             session["title"] = session["title"] ?? url.deletingPathExtension().lastPathComponent
+            recordIngestionSource(&session,provider:provider,url:url)
             finalizeUsage(provider:provider,session:&session)
             cursor = ["id":cursorId,"offset":intValue(session,"indexedBytes"),"sourcePath":url.path,"fingerprint":fingerprint,"modified":modified,"sourceVersion":before.version]
             let policy = try admission(session:session,provider:provider,url:url)
@@ -297,6 +298,7 @@ final class SessionEngine {
         session["indexedBytes"] = offset + consumed; session["sourceBytes"] = size
         session["title"] = session["title"] ?? url.deletingPathExtension().lastPathComponent
         session["project"] = session["project"] ?? ""
+        recordIngestionSource(&session,provider:provider,url:url)
         if session["startedAt"] == nil { session["startedAt"] = isoNow(); session["startedAtSource"] = "ingestion_fallback" }
         let messages = session["messages"] as? [JSON] ?? []
         session["messageCount"] = messages.count; session["content"] = messages.map { string($0,"content") }.joined(separator:"\n")
@@ -348,6 +350,12 @@ final class SessionEngine {
     private func admission(session: JSON, provider: String, url: URL) throws -> (excluded: Bool, expected: [(String,String,String)], absent: [(String,String)]) {
         let project = string(session,"project")
         return try exclusions.admission(project:project,provider:provider,relative:relativeSourcePath(url,provider:provider) ?? "")
+    }
+    private func recordIngestionSource(_ session: inout JSON, provider: String, url: URL) {
+        guard let relative = relativeSourcePath(url,provider:provider) else {
+            session.removeValue(forKey:"ingestionSource"); return
+        }
+        session["ingestionSource"] = ["provider":provider,"relativePath":relative] as JSON
     }
     func relativeSourcePath(_ url: URL, provider: String) -> String? {
         let source = canonicalProject(url.path)
@@ -547,6 +555,7 @@ final class SessionEngine {
         if let existing = try store.get("session",id), string(existing,"sourceHash") == hash { return false }
         var session: JSON = ["id":id,"provider":"cursor","sourcePath":url.path,"sourceHash":hash,"state":"Unknown","statusInferred":true,"statusSource":"imported Cursor export; no live process evidence","title":string(object,"name",string(object,"title",url.deletingPathExtension().lastPathComponent)),"historyFullyIndexed":true]
         if let cwd = object["cwd"] as? String ?? object["projectPath"] as? String { session["cwd"] = cwd; session["project"] = canonicalProject(cwd) }
+        recordIngestionSource(&session,provider:"cursor",url:url)
         for row in messages { mergeEvent(row,provider:"cursor",session:&session) }
         let normalized = session["messages"] as? [JSON] ?? []
         session["messageCount"] = normalized.count; session["content"] = normalized.map { string($0,"content") }.joined(separator:"\n")
@@ -573,6 +582,7 @@ final class SessionEngine {
                 if let existing = try store.get("session",id), string(existing,"sourceHash") == hash { continue }
                 var session: JSON = ["id":id,"provider":"cursor","title":string(object,"name","Cursor conversation"),"sourcePath":url.path,"sourceKey":key,"sourceHash":hash,"state":"Unknown","statusInferred":true,"statusSource":"read-only Cursor SQLite snapshot; no live status","historyFullyIndexed":false]
                 if let cwd = object["cwd"] as? String ?? object["projectPath"] as? String { session["cwd"] = cwd; session["project"] = canonicalProject(cwd) }
+                recordIngestionSource(&session,provider:"cursor",url:url)
                 for var row in messages {
                     if row["role"] == nil, let type = row["type"] as? Int { row["role"] = type == 1 ? "user" : "assistant" }
                     mergeEvent(row,provider:"cursor",session:&session)

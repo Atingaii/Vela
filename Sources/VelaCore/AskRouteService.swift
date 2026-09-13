@@ -168,9 +168,10 @@ extension AutomationService {
         guard Set(params.keys).isSubset(of:allowed) else { throw VelaError("Unsupported Ask route parameter") }
         let root = try project(requireString(params,"project")), question = try AskRoute.safeText(params,"question",limit:4000)
         let scope = try KnowledgeQuery.scope(params), words = AskRoute.terms(question)
+        let memoryPolicy = try IngestionExclusionService(store:store).memoryRecallPolicy(project:root)
         var candidates: [JSON] = []
         let memories = try boundedAskRouteScan("memory",project:root)
-        for item in memories where KnowledgeQuery.visible(item,project:root,scope:scope) {
+        for item in memories where KnowledgeQuery.visible(item,project:root,scope:scope) && memoryPolicy.allows(item) {
             let title = string(item,"title"), score = AskRoute.score(title + " " + string(item,"content"),words)
             if score > 0 { candidates.append(["kind":"memory","id":string(item,"id"),"title":try AskRoute.safeText(["title":title],"title",limit:240),"sourceHash":try KnowledgeQuery.sourceHash(item),"score":score]) }
         }
@@ -273,13 +274,14 @@ extension AutomationService {
         let route = try askRoute(id:requireString(request,"routeId"),project:root)
         guard string(route,"routeHash") == string(request,"routeHash"), try AskRoute.hash(route) == string(request,"routeHash") else { throw VelaError("Ask route changed; create a new proposal") }
         let scope = request["scope"] as? JSON ?? [:]
+        let memoryPolicy = try IngestionExclusionService(store:store).memoryRecallPolicy(project:root)
         guard let candidates = request["candidates"] as? [JSON], candidates.count <= 20 else { throw VelaError("Ask route proposal has invalid frozen candidates") }
         for candidate in candidates {
             let kind = try requireString(candidate,"kind"), id = try requireString(candidate,"id")
             switch kind {
             case "memory", "library":
                 let prefix = kind + ":"
-                guard id.hasPrefix(prefix), let item = try store.get(kind,String(id.dropFirst(prefix.count))), KnowledgeQuery.visible(item,project:root,scope:scope), try KnowledgeQuery.sourceHash(item) == string(candidate,"sourceHash") else { throw VelaError("Ask route source changed or became private; create a new proposal") }
+                guard id.hasPrefix(prefix), let item = try store.get(kind,String(id.dropFirst(prefix.count))), KnowledgeQuery.visible(item,project:root,scope:scope), (kind != "memory" || memoryPolicy.allows(item)), try KnowledgeQuery.sourceHash(item) == string(candidate,"sourceHash") else { throw VelaError("Ask route source changed, became private or was excluded; create a new proposal") }
             case "workflow":
                 guard let workflow = try store.get("workflow",id), string(workflow,"project") == root, string(workflow,"state") != "archived", workflow["enabled"] as? Bool == true, string(workflow,"title") == string(candidate,"title"), intValue(workflow,"version") == intValue(candidate,"version") else { throw VelaError("Ask route workflow changed or is unavailable; create a new proposal") }
             default: throw VelaError("Ask route proposal has an unsupported candidate")

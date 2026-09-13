@@ -173,13 +173,15 @@ extension AutomationService {
     private func knowledgeKeys(_ params: JSON, _ allowed: [String]) throws {
         guard Set(params.keys).isSubset(of:Set(allowed)) else { throw VelaError("Unsupported knowledge query parameter") }
     }
-    func freshKnowledgeSource(kind: String, id: String, project root: String, scope: JSON) throws -> JSON {
+    func freshKnowledgeSource(kind: String, id: String, project root: String, scope: JSON, policy: IngestionExclusionService.MemoryRecallPolicy? = nil) throws -> JSON {
         if kind == "library" {
             let item = try LibrarySource.fresh(store:store,id:id)
             guard LibraryIndex.isPublic(item,project:root), KnowledgeQuery.visible(item,project:root,scope:scope) else { throw VelaError("Library source is private, inactive or outside the selected scope") }
             return item
         }
         guard ["library","memory"].contains(kind), let item = try store.get(kind,id), KnowledgeQuery.visible(item,project:root,scope:scope) else { throw VelaError("Knowledge source is missing, private, inactive or outside the selected scope") }
+        let recallPolicy = try policy ?? IngestionExclusionService(store:store).memoryRecallPolicy(project:root)
+        guard recallPolicy.allows(item) else { throw VelaError("Knowledge Memory is excluded by the current ingestion policy") }
         // get() refreshes edited Markdown; a missing asset must not fall back to
         // yesterday's indexed body, and its path must be the managed asset path.
         let expected = store.root.appendingPathComponent("assets/\(kind)/\(id).md").path
@@ -189,9 +191,10 @@ extension AutomationService {
     }
     func verifyKnowledgeSources(_ request: JSON, project root: String) throws -> [(String,String,String)] {
         guard string(request,"project") == root, let sources = request["sources"] as? [JSON], sources.count <= 12 else { throw VelaError("Invalid frozen knowledge scope") }
+        let policy = try IngestionExclusionService(store:store).memoryRecallPolicy(project:root)
         var expected: [(String,String,String)] = []
         for source in sources {
-            let item = try freshKnowledgeSource(kind:requireString(source,"kind"),id:requireString(source,"id"),project:root,scope:request["scope"] as? JSON ?? [:])
+            let item = try freshKnowledgeSource(kind:requireString(source,"kind"),id:requireString(source,"id"),project:root,scope:request["scope"] as? JSON ?? [:],policy:policy)
             let suffix = (source["paragraph"] as? JSON).map { "#" + string($0,"anchor") } ?? ""
             guard try KnowledgeQuery.sourceHash(item) == string(source,"sourceHash"), stableHash(string(source,"content")) == string(source,"excerptHash"),
                   string(source,"sourceId") == string(item,"kind") + ":" + string(item,"id") + suffix else { throw VelaError("Knowledge source changed; create a new reviewed question") }
@@ -268,11 +271,12 @@ extension AutomationService {
         }
         var used = sources.reduce(0) { $0 + string($1,"content").utf8.count }, omitted = 0
         guard sources.count <= count, used <= bytes else { throw VelaError("Follow-up budget cannot drop previously cited sources") }
+        let policy = try IngestionExclusionService(store:store).memoryRecallPolicy(project:root)
         for row in candidates {
             let kind = string(row,"kind"), id = string(row,"id")
             let sourceID = row["candidateId"] as? String ?? kind + ":" + id
             if sources.contains(where:{ string($0,"sourceId") == sourceID }) { continue }
-            guard let item = try? freshKnowledgeSource(kind:kind,id:id,project:root,scope:scope) else { omitted += 1; continue }
+            guard let item = try? freshKnowledgeSource(kind:kind,id:id,project:root,scope:scope,policy:policy) else { omitted += 1; continue }
             guard sources.count < count, bytes - used >= 200 else { limited = true; omitted += 1; continue }
             let frozen = try KnowledgeQuery.source(item,bytes:min(4000,bytes-used),paragraph:row["paragraph"] as? JSON)
             guard !string(frozen,"content").trimmingCharacters(in:.whitespacesAndNewlines).isEmpty else { omitted += 1; continue }

@@ -79,6 +79,12 @@ UI20 健康提案已由同一指定模型实现并合入开发源码：完整4�
 
 原生资源补测为2分钟、5个合成会话及一次增量刷新：可归属的主进程和helper RSS中位95.344 MiB、峰104.203 MiB；稳定空闲采样CPU峰0.4%。WebContent无法可靠归属，整应用内存目标仍未成立为已验收结论；启动/交互p95与长稳仍未测。[资源证据](parity/native-resource-evidence-2026-09-14.json)。
 
-摄取排除与数据库迁移已合入开发源码：项目/来源规则、投影撤回和规则代际原子提交，五种 provider 的新写入复核代际；History 的旧 ID 在规则有效时不能绕过访问限制。SQLite 0→1 升级可回滚，较新 schema 会拒绝。匹配 root 的冻结 Core 共482项 portable 方法通过，真实隔离 RPC、重启和旧历史导入回归通过；[证据](parity/ingestion-migration-evidence-2026-09-14.json)。这不等于 OBS-09/OBS-13/SEC-12 整体验收：桌面排除入口、已存在 Memory 的召回抑制、完整备份恢复与索引修复仍未闭合。
+摄取排除与数据库迁移已合入开发源码：项目/来源规则、投影撤回和规则代际原子提交，五种 provider 的新写入复核代际；History 的旧 ID 在规则有效时不能绕过访问限制。SQLite 0→1 升级可回滚，较新 schema 会拒绝。匹配 root 的冻结 Core 共482项 portable 方法通过，真实隔离 RPC、重启和旧历史导入回归通过；[证据](parity/ingestion-migration-evidence-2026-09-14.json)。这不等于 OBS-09/OBS-13/SEC-12 整体验收：桌面排除入口、完整备份恢复与索引修复仍未闭合；已存在 Memory 的召回抑制在下述新检查点单独验收。
 
 上一个 checkpoint 的 CI 在 Lab 浏览器测试桥处失败：新 Recall fixture 限制误拦了旧 pending-only 实验。已修复兼容分支，并验证错误 agent、跨项目提案、修改 verifier argv 和执行批准仍被拒绝；新 checkpoint CI 单独追踪。UI21 仍存在 late prepare 覆盖用户反馈选择的已复现问题，UI22 Lab Recall 控件待实现；指定 Antigravity 模型配额耗尽，目前均未合入。
+
+`b16e7b99` 的新 CI 已通过两个任务，包括482项真实 XCTest、已安装SDK/OpenClaw、浏览器旅程和macOS打包审计；[CI证据](parity/ci-b16e7b99-evidence-2026-09-14.json)。本机独立开发包内容约8.54 MiB，并通过5项原生QA包装器检查；[原生证据](parity/native-b16-package-evidence-2026-09-14.json)。这是不同身份的隔离测试，不能替代正式安装、公证或系统通知验收。
+
+召回排除修复已整合到开发源码，覆盖旧版采集 Memory 的五种检索路线、MCP、Ask/Route、工作流执行前、Agent Loop 每轮与 Lab 候选执行前。已冻结工作流仍使用原批准 argv；普通正文编辑不会替换该 argv。用户管理视图和原始 Markdown/日志保留，显式移除规则后可恢复召回。匹配 root 的123个 Core/测试输入已通过490项 portable 方法；root 实际构建后，旧 b16→新 helper 升级7组、consumer28项、loop16项、Lab8项和完整6项 renderer 均通过。[精确证据与历史失败](parity/exclusion-recall-evidence-2026-09-14.json)。这关闭的是上述召回/执行检查缺口；桌面排除入口、完整备份与总体验收仍未闭合。UI仍为UI20，既有b16开发包不包含本修复，新checkpoint CI另行记录。
+
+同一2000条合成Memory、真实来源规则与7次测量的debug helper对照中，lexical Recall中位耗时从776.885 ms降为547.898 ms；每次查询复用一次规则读取。该结果只代表此次helper调用，不等同于10万条Search、原生交互延迟或整应用内存预算。

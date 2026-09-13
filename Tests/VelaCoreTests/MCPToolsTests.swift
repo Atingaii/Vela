@@ -73,6 +73,15 @@ final class MCPToolsTests: XCTestCase {
         let future = f.server(); XCTAssertEqual(string(try f.handshake(future,version:"2099-01-01"),"protocolVersion"),"2025-11-25")
         XCTAssertTrue(f.coreCalls.isEmpty)
     }
+
+    func testExcludedMemoryIsOmittedFromAgentMCPToolsButRetainedForManagement() throws {
+        let f = try Fixture(); let memory = try f.source()
+        _ = try IngestionExclusionService(store:f.store).handle("ingestion.exclusions.upsert",["project":f.project])
+        let server = f.server(); _ = try f.handshake(server)
+        XCTAssertTrue(try f.array(f.call(server,"vela_memory_list")).isEmpty)
+        XCTAssertTrue(try f.array(f.call(server,"vela_search",["query":"CedarBoundary"])).isEmpty)
+        XCTAssertEqual(string(try XCTUnwrap(try f.store.get("memory",string(memory,"id"))),"id"),string(memory,"id"))
+    }
     func testInitializationNotificationsAndDuplicateIDsCannotExecuteTools() throws {
         let f = try Fixture(), server = f.server(true)
         let early = server.handle(request:["jsonrpc":"2.0","id":2,"method":"tools/list"])

@@ -515,6 +515,7 @@ public final class AutomationService {
         }
         let result: JSON
         do {
+            if let run = pendingRun { try verifyFrozenWorkflowMemories(run,project:root) }
             result = try executeTool(tool,arguments:approval["arguments"] as? JSON ?? [:],project:root)
             approval["state"] = result["outcomeUnknown"] as? Bool == true ? "needs_review" : intValue(result,"exitCode") == 0 ? "executed" : "failed"
             approval["result"] = result
@@ -540,6 +541,23 @@ public final class AutomationService {
             }
         }
         return approval
+    }
+
+    /// Approval executes the already hashed prompt/argv unchanged. This only
+    /// checks whether the persisted Memory receipts remain eligible to enter
+    /// the selected project's context; ordinary title/content edits do not
+    /// invalidate a reviewed frozen prompt.
+    private func verifyFrozenWorkflowMemories(_ run: JSON, project root: String) throws {
+        let receipts = run["memoryUsed"] as? [JSON] ?? []
+        guard receipts.count <= 100 else { throw VelaError("Frozen workflow Memory receipts exceed the supported bound") }
+        guard !receipts.isEmpty else { return }
+        let policy = try IngestionExclusionService(store:store).memoryRecallPolicy(project:root)
+        for receipt in receipts {
+            guard string(receipt,"kind") == "memory", let current = try store.get("memory",string(receipt,"id")),
+                  SemanticMemory.canRecall(current,params:[:],project:root), policy.allows(current) else {
+                throw VelaError("Frozen workflow Memory became private, inactive, out of scope or excluded; no process was started")
+            }
+        }
     }
 
     func replay(_ params: JSON) throws -> JSON {

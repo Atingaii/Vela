@@ -37,6 +37,8 @@ jobs:
           python3 scripts/test-provider-rpc.py
           python3 scripts/test-session-history-rpc.py --output output/parity/ci-session-history.json
           python3 scripts/test-ingestion-exclusions-rpc.py --output output/parity/ci-ingestion-exclusions.json
+          python3 scripts/test-ingestion-consumer-guards-rpc.py --binary .build/debug/vela --output output/parity/ci-ingestion-consumers.json
+          python3 scripts/test-ingestion-loop-guard-rpc.py --binary .build/debug/vela --output output/parity/ci-ingestion-loop.json
           python3 scripts/test-session-plans-rpc.py --output output/parity/ci-session-plans.json
           python3 scripts/test-quota-rpc.py
           python3 scripts/test-memory-archives.py
@@ -143,6 +145,8 @@ jobs:
             output/playwright/ci-health-proposal-ui/*.png
             output/parity/ci-session-history.json
             output/parity/ci-ingestion-exclusions*.json
+            output/parity/ci-ingestion-consumers*.json
+            output/parity/ci-ingestion-loop*.json
             output/parity/ci-ui-server-lab-guards.json
             output/parity/ci-session-plans.json
             output/parity/ci-mcp-stdio.json

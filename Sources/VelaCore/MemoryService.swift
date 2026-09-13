@@ -2,7 +2,10 @@ import Foundation
 
 final class MemoryService {
     let store: VelaStore
-    init(store: VelaStore) { self.store = store }
+    private let exclusions: IngestionExclusionService
+    // Internal fixture hook; no RPC, CLI, or UI path can invoke it.
+    var captureAfterIngestionAdmissionForTesting: (() throws -> Void)?
+    init(store: VelaStore) { self.store = store; exclusions = IngestionExclusionService(store:store) }
     private let scopes: Set<String> = ["global","project","repository","branch","worktree","task","session","namespace"]
     private let types: Set<String> = ["decision","constraint","preference","failure","fact","workflow knowledge","observation","hypothesis","checkpoint"]
     private let states: Set<String> = ["candidate","active","superseded","archived"]
@@ -209,6 +212,9 @@ final class MemoryService {
         // a changed source with the same provider/session/message identity is refused.
         let identityKey = provider + "\0" + source.identity + "\0" + sessionID + "\0" + messageID
         let id = "capture-" + String(stableHash(Self.sessionCaptureProtocol + "\0" + source.project + "\0" + identityKey).prefix(32))
+        let policy = try exclusions.memoryAdmission(project:source.project,session:source.session)
+        guard !policy.excluded else { throw VelaError("Session source is excluded from Memory capture") }
+        try captureAfterIngestionAdmissionForTesting?()
         if let existing = try store.get("memory",id) {
             let provenance = existing["provenance"] as? JSON ?? [:]
             guard string(provenance,"captureIdentity") == identityKey,
@@ -221,14 +227,15 @@ final class MemoryService {
         }
         let content = string(source.message,"content"), role = string(source.message,"role")
         let title = "Observed \(role) message"
+        let ingestionSource: Any = (source.session["ingestionSource"] as? JSON) ?? NSNull()
         let memory: JSON = ["id":id,"title":title,"content":content,"type":"observation","scope":"project","project":source.project,
                             "state":"candidate","tokens":tokenEstimate(content),"provenance":["origin":"observed_session_capture","sourceObservation":"observed",
                             "captureProtocol":Self.sessionCaptureProtocol,"captureIdentity":identityKey,"sourceHash":source.sourceHash,
                             "originalContentHash":stableHash(content),"contentEqualsObservedSource":true,"sourceIdentity":source.identity,"sessionId":sessionID,"messageId":messageID,"provider":provider,
-                            "sourceSession":source.session["sourceSessionId"] ?? NSNull(),"sourcePath":source.session["sourcePath"] ?? NSNull(),
+                            "sourceSession":source.session["sourceSessionId"] ?? NSNull(),"sourcePath":source.session["sourcePath"] ?? NSNull(),"ingestionSource":ingestionSource,
                             "sourceCoverage":"currently indexed session message; not a complete provider-history assertion"] as JSON,
                             "sourceSession":sessionID,"sourceMessage":messageID,"capturedAt":isoNow(),"requiresReview":true,"modelCalls":0]
-        let saved = try store.putBatch([("memory",memory)],expecting:[("session",sessionID,stableHash(try jsonString(source.session)))],expectingAbsent:[("memory",id)],createOnly:true).last!
+        let saved = try store.putBatch([("memory",memory)],expecting:[("session",sessionID,stableHash(try jsonString(source.session)))] + policy.expected,expectingAbsent:[("memory",id)] + policy.absent,createOnly:true).last!
         var result = saved; result["created"] = true; result["idempotent"] = false; result["requiresReview"] = true
         return result
     }
@@ -245,8 +252,10 @@ final class MemoryService {
         let budget = max(0,min(params["budget"] == nil ? 2000 : intValue(params,"budget"),4000))
         let query = string(params,"query").lowercased()
         let terms = query.split(whereSeparator: { $0.isWhitespace || $0.isPunctuation }).map(String.init)
+        let policy = try exclusions.memoryRecallPolicy(project:project)
         var candidates = try store.list("memory",limit:10000).filter { item in
             guard string(item,"state").lowercased() == "active", ModelImprovement.falseOrAbsent(item["private"]), !privateLibraryPath(string(item,"sourceFile")) else { return false }
+            guard policy.allows(item) else { return false }
             let scope = string(item,"scope","project").lowercased()
             guard scope == "global" || string(item,"project") == project else { return false }
             let namespace = string(params,"namespace")

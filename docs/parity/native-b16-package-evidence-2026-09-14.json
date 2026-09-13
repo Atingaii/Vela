@@ -1,0 +1,67 @@
+{
+  "format": "vela-native-b16-source-evidence-v1",
+  "commit": "b16e7b999e8e67e5f0570739d08e6c9530437a07",
+  "status": "passed",
+  "method": "CUA native AppKit/WKWebView interaction with isolated synthetic QA wrapper around copies of packaged host/helper/UI; wrapper uses separate identity and ad-hoc resigning. Not a distribution-install test.",
+  "checks": [
+    {
+      "name": "native-startup-and-incremental-refresh",
+      "passed": true,
+      "observed": "5 fixture sessions, ready service, refreshed notice"
+    },
+    {
+      "name": "zh-to-en-native-menu-sync",
+      "passed": true,
+      "observed": "English settings and Edit/View/Window menus"
+    },
+    {
+      "name": "quit-restart-language-persistence",
+      "passed": true,
+      "oldHostPID": 56324,
+      "newHostPID": 57193,
+      "observed": "English sessions after full restart"
+    },
+    {
+      "name": "memory-source-preview-cancel",
+      "passed": true,
+      "observed": "exact assistant text, original message readonly, metadata folded; memory/workflow/run/approval rows and source hashes unchanged"
+    },
+    {
+      "name": "normal-quit-cleans-owned-host-helper",
+      "passed": true
+    }
+  ],
+  "releaseBundleUnchanged": true,
+  "packageFilesSHA256": {
+    "Contents/MacOS/VelaDesktop": "b25454f07d9d481da6465cdb51f12802e72a6601f4444f3a8b88debc181bdec5",
+    "Contents/MacOS/vela": "a7f600a37d928b757bc5fc6ddb673b8a78495c245a2d7a44cbbc596b3a84a82e",
+    "Contents/Resources/vela-completed.wav": "240bdb6816d12423e16dee0eb7128f5cfb8eca38d4cfbc05135fcc55671ed00a",
+    "Contents/Resources/vela-error.wav": "e8942535396f882bf381d19afe0952f67e30e2620bca4df8005f0ee6903ea374",
+    "Contents/Resources/vela-approval.wav": "0c399c3e60bbb5adc4f80fceba4a5bd81c3dbd60c3df6dada46ff75cce9c2635",
+    "Contents/Resources/Vela.icns": "deeb9b65a5a5e89f201ecbc9f868d668e4fc27766dd7919f9ffc9dd30a375ebd",
+    "Contents/Resources/UI/index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+    "Contents/Resources/UI/app.css": "0544e72261d603878892064dac115430e3bbda4b71affa4b3270f0ffc6c9e939",
+    "Contents/Resources/UI/app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+    "Contents/Resources/UI/i18n.js": "baac643281aa12f5ee4f4399003acba839adaddb39296abe93eb51ac4d5e34f3",
+    "Contents/Resources/UI/app.js": "c5e25f5ec26bafeb17d3f079d67f76d81070a7e90a2c96f80ebf2f1b9ec46a70"
+  },
+  "zipSHA256": "6a157d2c3c678080d175e6e99d9c6726a228a3177ce4f25426a63b1ac91161c3",
+  "bundleBytes": 8950486,
+  "nativeReceipt": {
+    "path": "output/playwright/native-b16-package-r1/results.json",
+    "sha256": "3d879a70e8903d7c83c0e0445d5bc629dc3b9be49927e3f76cd7703263018607"
+  },
+  "cleanup": {
+    "ownedNativeProcessesStopped": true,
+    "temporaryNativeCheckoutRemoved": true,
+    "desktopTestFixtureRemoved": true,
+    "disposablePackageBuildCacheRemoved": true
+  },
+  "boundaries": [
+    "Native smoke only, not whole-product acceptance.",
+    "English session heading wraps narrowly when the detail drawer is open; existing UI21 author follow-up remains pending.",
+    "Initial Desktop QA launcher blocked before host exec; failed attempt retained. No broader filesystem permission was requested.",
+    "No provider execution, notification authorization, installation, notarization, external write or Golden success is claimed."
+  ],
+  "distribution": "Ad-hoc development bundle only; public download remains preview.2; no Apple notarization."
+}

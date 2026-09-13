@@ -4,7 +4,7 @@ This is a fallback runner, not an XCTest implementation. It compiles the real co
 and unchanged test bodies together, provides only the assertions used here, and
 runs each test with its normal fixture setup/teardown. Full-Xcode CI runs XCTest.
 """
-import argparse, datetime, hashlib, json, pathlib, re, subprocess, tempfile
+import argparse, datetime, hashlib, json, pathlib, re, subprocess, sys, tempfile
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--filter', action='append', default=[], help='Run methods whose fully qualified name contains this text; repeat to select several groups.')
@@ -25,11 +25,34 @@ receipt = {'format':'vela-portable-source-snapshot-v1','startedAt':datetime.date
            'filter':args.filter,'runner':'portable synchronous assertion compatibility layer; not XCTest','passed':False}
 if args.receipt and args.receipt.exists():
     parser.error('Choose a new receipt path; existing evidence is not overwritten.')
+if args.receipt:
+    for suffix in ('.stdout.log', '.stderr.log'):
+        if args.receipt.with_suffix(suffix).exists():
+            parser.error('Choose a new receipt path; existing diagnostic logs are not overwritten.')
 def save_receipt():
     receipt['matchesWorkingTreeAtEnd'] = paths == source_paths() and all(path.exists() and hashlib.sha256(path.read_bytes()).hexdigest() == source_hashes[str(path.relative_to(root))] for path in paths)
     if args.receipt:
         args.receipt.parent.mkdir(parents=True,exist_ok=True)
         args.receipt.write_text(json.dumps(receipt,indent=2)+'\n')
+def record_output(stdout, stderr):
+    def decoded(value):
+        return value.decode('utf-8',errors='replace') if isinstance(value,bytes) else value or ''
+    stdout, stderr = decoded(stdout), decoded(stderr)
+    results = re.findall(r'^(PASS|FAIL) ([A-Za-z0-9_]+\.[A-Za-z0-9_]+)$',stdout,re.MULTILINE)
+    receipt['executedMethodCount'] = len(results)
+    receipt['passedMethodCount'] = sum(status == 'PASS' for status, _ in results)
+    receipt['failedMethods'] = [name for status, name in results if status == 'FAIL']
+    if args.receipt:
+        args.receipt.parent.mkdir(parents=True,exist_ok=True)
+        receipt['diagnostics'] = {}
+        for suffix, value in (('.stdout.log',stdout),('.stderr.log',stderr)):
+            path = args.receipt.with_suffix(suffix)
+            with path.open('x') as target:
+                target.write(value)
+            receipt['diagnostics'][suffix[1:]] = {'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+    print(stdout,end='')
+    if stderr:
+        print(stderr,end='',file=sys.stderr)
 support = r'''
 import Foundation
 var testFailures: [String] = []
@@ -126,8 +149,13 @@ do {{
     print(f'Compiled real core and test methods ({warning_count} compiler warnings); source snapshot {snapshot_hash}.',flush=True)
     receipt.update(methodCount=len(invocations),compilerWarnings=warning_count,phase='execute')
     try:
-        completed = subprocess.run([str(scratch/'tests')],cwd=root,timeout=180)
-    except subprocess.TimeoutExpired:
+        completed = subprocess.run([str(scratch/'tests')],cwd=root,timeout=180,capture_output=True,text=True)
+    except subprocess.TimeoutExpired as error:
+        record_output(error.stdout,error.stderr)
         receipt.update(timedOut=True); save_receipt(); raise
-    receipt.update(passed=completed.returncode == 0,exitCode=completed.returncode); save_receipt()
+    record_output(completed.stdout,completed.stderr)
+    complete = receipt['executedMethodCount'] == len(invocations)
+    receipt.update(passed=completed.returncode == 0 and complete and not receipt['failedMethods'],exitCode=completed.returncode); save_receipt()
     completed.check_returncode()
+    if not receipt['passed']:
+        raise RuntimeError('The portable process exited without passing every discovered method; inspect the retained diagnostics.')

@@ -68,6 +68,10 @@ public final class VelaStore {
     // Internal fixture hooks; neither is exposed through RPC, CLI, or renderer.
     var ingestionPolicyAfterRuleWriteForTesting: (() throws -> Void)?
     var ingestionPolicyBeforeCommitForTesting: (() throws -> Void)?
+    // Configured by FoundationService. It maps an absolute provider log path
+    // only when it is beneath an explicit provider ingestion root; it never
+    // consults a derived Session projection.
+    var ingestionSourceRelativePath: ((String,String) -> String?)?
 
     private static let currentSchemaVersion = 1
 
@@ -560,7 +564,11 @@ public final class VelaStore {
         guard !isBatching else { throw VelaError("Semantic indexing cannot run inside a store batch") }
         try execute("BEGIN IMMEDIATE")
         do {
-            guard let source = try get("memory",row.memoryID), SemanticMemory.isIndexable(source,project:row.project),
+            guard let source = try get("memory",row.memoryID) else { throw VelaError("Memory changed before indexing; index it again") }
+            let policyAllowsRecall: Bool
+            if row.project.isEmpty { policyAllowsRecall = true }
+            else { policyAllowsRecall = try IngestionExclusionService(store:self).allowsMemoryRecall(source,project:row.project) }
+            guard SemanticMemory.isIndexable(source,project:row.project), policyAllowsRecall,
                   string(source,"project") == row.project, try SemanticMemory.sourceHash(source) == row.sourceHash else { throw VelaError("Memory changed before indexing; index it again") }
             try execute("INSERT INTO memory_embeddings(memory_id,project,language,model,revision,dimension,source_hash,vector) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(memory_id,language) DO UPDATE SET project=excluded.project,model=excluded.model,revision=excluded.revision,dimension=excluded.dimension,source_hash=excluded.source_hash,vector=excluded.vector",[row.memoryID,row.project,row.language,row.model,row.revision,row.dimension,row.sourceHash,blob])
             try execute("COMMIT")

@@ -10,13 +10,15 @@ extension MCPTools {
               FileManager.default.fileExists(atPath:root) else { throw VelaError("Register the selected project in Vela before using MCP") }
         return root
     }
-    private func mcpVisible(_ row: JSON, project: String, state: String = "active", scope: JSON = [:]) -> Bool {
+    private func mcpVisible(_ row: JSON, project: String, state: String = "active", scope: JSON = [:], policy: IngestionExclusionService.MemoryRecallPolicy? = nil) throws -> Bool {
         guard string(row,"project") == project, ModelImprovement.falseOrAbsent(row["private"]), ModelImprovement.falseOrAbsent(row["sourceLabeledPrivate"]),
               ["private","global"].contains(string(row,"scope").lowercased()) == false, row["scope"] == nil || row["scope"] is String else { return false }
         for key in ["sourcePath","sourceFile","assetPath","path"] where privateLibraryPath(string(row,key)) { return false }
         if string(row,"kind") == "session", !ModelImprovement.falseOrAbsent(row["internalRun"]) { return false }
         if string(row,"kind") == "guideline", string(row,"state").lowercased() != "active" { return false }
         if string(row,"kind") == "memory" {
+            let recallPolicy = try policy ?? IngestionExclusionService(store:store).memoryRecallPolicy(project:project)
+            guard recallPolicy.allows(row) else { return false }
             guard string(row,"state").lowercased() == state else { return false }
             switch string(row,"scope","project") {
             case "project","repository": return true
@@ -30,8 +32,8 @@ extension MCPTools {
         }
         return !["archived","deleted","excluded"].contains(string(row,"state").lowercased())
     }
-    func mcpFresh(kind: String, id: String, project: String, input: JSON) throws -> JSON {
-        guard let raw = try store.get(kind,id), mcpVisible(raw,project:project,state:string(input,"state","active"),scope:input) else { throw VelaError("Source is missing, private, inactive or outside the selected project/scope") }
+    func mcpFresh(kind: String, id: String, project: String, input: JSON, policy: IngestionExclusionService.MemoryRecallPolicy? = nil) throws -> JSON {
+        guard let raw = try store.get(kind,id), try mcpVisible(raw,project:project,state:string(input,"state","active"),scope:input,policy:policy) else { throw VelaError("Source is missing, private, inactive, excluded or outside the selected project/scope") }
         var row = raw
         if ["memory","library","guideline","workflow","checkpoint"].contains(kind) {
             let relative = "assets/\(kind)/\(id).md"
@@ -40,7 +42,7 @@ extension MCPTools {
                   markdown.hasPrefix("<!-- Vela metadata: "), let end = markdown.range(of:" -->\n\n# "),
                   let header = try JSONSerialization.jsonObject(with:Data(markdown[markdown.index(markdown.startIndex,offsetBy:"<!-- Vela metadata: ".count)..<end.lowerBound].utf8)) as? JSON,
                   string(header,"id") == id, string(header,"kind") == kind, string(header,"project") == project,
-                  mcpVisible(header,project:project,state:string(input,"state","active"),scope:input),
+                  try mcpVisible(header,project:project,state:string(input,"state","active"),scope:input,policy:policy),
                   ModelImprovement.falseOrAbsent(header["private"]), ModelImprovement.falseOrAbsent(header["sourceLabeledPrivate"]),
                   string(header,"scope") != "private", !["archived","deleted"].contains(string(header,"state").lowercased()),
                   markdown.hasSuffix("\n\n# " + string(row,"title") + "\n\n" + string(row,"content") + "\n") else { throw VelaError("Source managed asset is missing, linked, changed or marked private") }
@@ -74,12 +76,13 @@ extension MCPTools {
     }
     private func mcpList(kind: String, input: JSON, legacy: Bool, query: String? = nil) throws -> MCPToolOutput {
         let root = try mcpProject(input), limit = (input["limit"] as? Int ?? 20), after = string(input,"after")
+        let policy = try IngestionExclusionService(store:store).memoryRecallPolicy(project:root)
         let rows = try store.mcpSourceIDs(kind:kind,project:root,after:after,limit:limit+1)
         var items: [JSON] = [], cursor = after, omitted = 0
         for identity in rows.prefix(limit) {
             let id = string(identity,"id"), actualKind = string(identity,"kind")
             cursor = kind == "search" ? actualKind + ":" + id : id
-            guard let row = try? mcpFresh(kind:actualKind,id:id,project:root,input:input) else { omitted += 1; continue }
+            guard let row = try? mcpFresh(kind:actualKind,id:id,project:root,input:input,policy:policy) else { omitted += 1; continue }
             if let query, string(row,"title").range(of:query,options:.caseInsensitive) == nil && string(row,"content").range(of:query,options:.caseInsensitive) == nil { continue }
             var summary = try mcpSummary(row)
             if query != nil, ["memory","library","guideline","workflow","checkpoint"].contains(actualKind) {
@@ -111,9 +114,10 @@ extension MCPTools {
         var params = input; let root = try mcpProject(input); params["project"] = root
         guard var result = try coreCall("recall",params) as? JSON, let recalled = result["items"] as? [JSON] else { throw VelaError("Core recall returned an invalid response") }
         let budget = (input["budget"] as? Int ?? 2000), limit = (input["limit"] as? Int ?? 100)
+        let policy = try IngestionExclusionService(store:store).memoryRecallPolicy(project:root)
         var items: [JSON] = [], used = 0, omitted = 0
         for old in recalled {
-            guard let fresh = try? mcpFresh(kind:"memory",id:string(old,"id"),project:root,input:input), string(old,"content") == string(fresh,"content") else { omitted += 1; continue }
+            guard let fresh = try? mcpFresh(kind:"memory",id:string(old,"id"),project:root,input:input,policy:policy), string(old,"content") == string(fresh,"content") else { omitted += 1; continue }
             let cost = tokenEstimate(string(fresh,"title") + "\n" + string(fresh,"content")) + 32
             guard used+cost <= budget, items.count < limit else { omitted += 1; continue }
             var row = try mcpSummary(fresh)

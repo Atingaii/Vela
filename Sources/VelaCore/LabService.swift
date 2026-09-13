@@ -99,9 +99,10 @@ extension AutomationService {
         guard context.utf8.count <= 32_000 else { throw VelaError("Variant context exceeds 32 KB") }
         let ids = input["memoryIds"] as? [String] ?? []
         guard ids.count <= 16, Set(ids).count == ids.count else { throw VelaError("At most 16 distinct memories per variant") }
+        let exclusions = IngestionExclusionService(store:store)
         let memories = try ids.map { id -> JSON in
             let memory = try object("memory",id)
-            guard string(memory,"project") == project, string(memory,"scope") == "project", memory["private"] as? Bool != true, !privateLibraryPath(string(memory,"sourceFile")), ["active","candidate"].contains(string(memory,"state")) else { throw VelaError("Evaluation memory must be active/candidate, nonprivate and in this project scope") }
+            guard string(memory,"project") == project, string(memory,"scope") == "project", memory["private"] as? Bool != true, !privateLibraryPath(string(memory,"sourceFile")), ["active","candidate"].contains(string(memory,"state")), try exclusions.allowsMemoryRecall(memory,project:project) else { throw VelaError("Evaluation memory is excluded by the current ingestion policy") }
             return explicitMemoryReceipt(memory)
         }
         let recall = try evaluationRecall(input["recall"], project:project, explicitIDs:Set(ids))
@@ -171,6 +172,7 @@ extension AutomationService {
     }
 
     private func revalidateVariantRecall(_ variant: JSON, project: String) throws {
+        let exclusions = IngestionExclusionService(store:store)
         let explicit = variant["memories"] as? [JSON] ?? []
         for frozen in explicit {
             // Older Lab records stored direct IDs/content without a source receipt. They
@@ -180,7 +182,7 @@ extension AutomationService {
             guard string(current,"project") == project, string(current,"scope").lowercased() == "project", ["active","candidate"].contains(string(current,"state").lowercased()),
                   current["private"] as? Bool != true, !privateLibraryPath(string(current,"sourceFile")),
                   stableHash(string(current,"title") + "\n" + string(current,"content")) == string(frozen,"contentHash"),
-                  labMemorySourceHash(current) == string(frozen,"sourceHash") else { throw VelaError("Frozen explicit Lab memory changed, became private or is no longer eligible; prepare a new evaluation") }
+                  labMemorySourceHash(current) == string(frozen,"sourceHash"), try exclusions.allowsMemoryRecall(current,project:project) else { throw VelaError("Frozen explicit Lab memory changed, became private, was excluded, or is no longer eligible; prepare a new evaluation") }
         }
         let recall = variant["recall"] as? JSON ?? [:]
         for frozen in recall["items"] as? [JSON] ?? [] {
@@ -188,7 +190,7 @@ extension AutomationService {
             guard string(current,"project") == project, string(current,"scope").lowercased() == "project", string(current,"state").lowercased() == "active",
                   current["private"] as? Bool != true, !privateLibraryPath(string(current,"sourceFile")),
                   stableHash(string(current,"title") + "\n" + string(current,"content")) == string(frozen,"contentHash"),
-                  labMemorySourceHash(current) == string(frozen,"sourceHash") else { throw VelaError("Frozen Lab Recall source changed, became private or is no longer active; prepare a new evaluation") }
+                  labMemorySourceHash(current) == string(frozen,"sourceHash"), try exclusions.allowsMemoryRecall(current,project:project) else { throw VelaError("Frozen Lab Recall source changed, became private, was excluded, or is no longer active; prepare a new evaluation") }
         }
         if !explicit.isEmpty || recall["enabled"] as? Bool == true {
             guard !string(variant,"finalContextHash").isEmpty, stableHash(string(variant,"context")) == string(variant,"finalContextHash") else { throw VelaError("Frozen Lab memory context is invalid") }
