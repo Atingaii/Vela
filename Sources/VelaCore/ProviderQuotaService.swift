@@ -170,6 +170,11 @@ enum CodexQuotaTransport {
         func send(_ request: JSON) throws { pending.append(Data((try jsonString(request) + "\n").utf8)) }
         try send(["id": 1, "method": "initialize", "params": ["clientInfo": ["name": "vela", "title": "Vela", "version": "0.1.0"], "capabilities": ["experimentalApi": false]]])
         var frame = Data()
+        // Bytes retained from the previous read are already known to contain
+        // no newline. Rescanning that prefix on every small pipe read makes a
+        // near-limit unterminated line quadratic and can exhaust the timeout
+        // before the byte-limit error is observed.
+        var newlineSearchOffset = 0
         var readBytes = 0
         var errorBytes = 0
         var initialized = false
@@ -196,10 +201,11 @@ enum CodexQuotaTransport {
                     readBytes += count
                     guard readBytes <= totalLimit else { throw QuotaReadError("output_limit") }
                     frame.append(contentsOf: bytes.prefix(count))
-                    while let end = frame.firstIndex(of: 10) {
+                    while let end = frame.dropFirst(newlineSearchOffset).firstIndex(of: 10) {
                         let length = frame.distance(from: frame.startIndex, to: end)
                         guard length <= frameLimit else { throw QuotaReadError("frame_limit") }
                         let line = Data(frame.prefix(length)); frame.removeFirst(length + 1)
+                        newlineSearchOffset = 0
                         if line.isEmpty { continue }
                         guard let response = (try? JSONSerialization.jsonObject(with: line)) as? JSON else { throw QuotaReadError("invalid_response") }
                         if response["method"] != nil {
@@ -226,6 +232,7 @@ enum CodexQuotaTransport {
                             return result
                         }
                     }
+                    newlineSearchOffset = frame.count
                     guard frame.count <= frameLimit else { throw QuotaReadError("frame_limit") }
                 }
             }

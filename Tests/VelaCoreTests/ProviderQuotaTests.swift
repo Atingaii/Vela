@@ -26,7 +26,12 @@ final class ProviderQuotaTests: XCTestCase {
         assert 'FAKE_API_TOKEN' not in os.environ
         assert 'DYLD_INSERT_LIBRARIES' not in os.environ
         def send(value):
-            sys.stdout.write(json.dumps(value) + '\\n'); sys.stdout.flush()
+            data = (json.dumps(value, ensure_ascii=False) + '\\n').encode('utf-8')
+            if mode == 'fragmented':
+                for start in range(0, len(data), 4093):
+                    sys.stdout.buffer.write(data[start:start + 4093]); sys.stdout.buffer.flush()
+            else:
+                sys.stdout.buffer.write(data); sys.stdout.buffer.flush()
         first = json.loads(sys.stdin.readline())
         assert first['method'] == 'initialize' and first['params']['clientInfo']['name'] == 'vela'
         if mode == 'premature':
@@ -47,6 +52,12 @@ final class ProviderQuotaTests: XCTestCase {
             time.sleep(3)
         if mode == 'stderr':
             sys.stderr.write('DO-NOT-RETURN-AUTH-SECRET' * 4000); sys.stderr.flush()
+        if mode == 'fragmented':
+            # Fragment UTF-8 and carry a complete frame plus the next partial
+            # frame through the same buffer; retained Data indices may be nonzero.
+            send({'method': 'notification/test', 'params': {'text': '合成' * 16000}})
+        if mode == 'long_notification':
+            send({'method': 'notification/test', 'params': {'text': 'x' * (1024 * 1024 - 100)}})
         send({'method': 'notification/test', 'params': {'privateData': 'DO-NOT-RETURN-AUTH-SECRET'}})
         send({'id': 1, 'result': {'userAgent': 'fixture'}})
         notification = json.loads(sys.stdin.readline())
@@ -159,6 +170,16 @@ final class ProviderQuotaTests: XCTestCase {
         XCTAssertEqual(string(error, "kind"), "timeout")
         Thread.sleep(forTimeInterval: 0.8)
         XCTAssertFalse(FileManager.default.fileExists(atPath: store.root.appendingPathComponent("orphan-survived").path))
+    }
+
+    func testFragmentedUTF8AndNearLimitNotificationKeepFollowingResponses() throws {
+        for mode in ["fragmented", "long_notification"] {
+            let value = try read(service(), fixture(mode))
+            XCTAssertEqual(string(value, "status"), "fresh", "Mode \(mode): \(String(describing:value["lastAttempt"]))")
+            let snapshot = try XCTUnwrap(value["snapshot"] as? JSON)
+            XCTAssertEqual(windows(snapshot)[0]["remainingPercent"] as? Double, 100)
+            XCTAssertFalse(try jsonString(value).contains("合成"))
+        }
     }
 
     func testStatusIsReadOnlyAndDoesNotTreatOldSnapshotsAsFresh() throws {

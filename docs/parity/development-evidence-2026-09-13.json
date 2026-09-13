@@ -372,6 +372,222 @@
       "syntheticProviderProcess": true,
       "nativeDialogsTested": false,
       "qualification": "The same labelled-control assertion still fails all three old-UI scenarios; the first revised-UI timeout check misread template whitespace and was corrected using its rendered labelled field."
+    },
+    {
+      "id": "core-plan-ai-checkpoint-353",
+      "localReceipt": "output/parity/core-round7-snapshot.json",
+      "receiptSHA256": "743064cf32643ba7111531c8ccc138fa8a42fb973818b2538a844a3948b01224",
+      "passed": true,
+      "snapshotSHA256": "26fdb5e29c8e00c55d43256efcaf7ded0adb1abe91ef4280615473f1b89cb53a",
+      "runnerSHA256": "792d9c7648c18d86966a80327d28872fea02c1816963ae56d7df74bd6e691fa7",
+      "methodCount": 353,
+      "matchesWorkingTreeAtEnd": true,
+      "commit": "61bf8d7118b59626dad0ab71ca444ac0735a27a4",
+      "qualification": "Frozen full Core/test snapshot. Portable fallback; actual XCTest at this commit has the separately recorded quota failure."
+    },
+    {
+      "id": "ai-sdk-installed-v6",
+      "localReceipt": "sdk/ai/evidence/installed-v6/package-results.json",
+      "receiptSHA256": "58357ecc2abb7c7897124a75f4817c51a7e85f02bbe5588a6cfb2f1bb1645686",
+      "testsPassed": 17,
+      "localSDKCompatibilityTests": 12,
+      "consumerTypecheck": true,
+      "actualAISDK": "7.0.99",
+      "actualOpenAIProvider": "4.0.66",
+      "modelProvider": "synthetic_loopback_http_sse",
+      "helperSHA256": "3dd60c6dea13868ad2f5006152f6acaa417d493dc89516ef51301b0097628e1e",
+      "packages": [
+        {
+          "name": "vela-engineering-ai-0.1.0-dev.1.tgz",
+          "sha256": "19e56c0058eb0ba8e9d1e08e3a1184511e60f957f24832058a0727427fae745a",
+          "bytes": 11820
+        },
+        {
+          "name": "vela-engineering-sdk-0.1.0-dev.1.tgz",
+          "sha256": "ab2e0aef01410ffefe1c78d3923cd3ad84a35d3a801042d68119b0819ef8bb9d",
+          "bytes": 10626
+        }
+      ],
+      "realModelQuality": "not_tested",
+      "remoteMemory": "not_used",
+      "existingUserAccounts": "not_used",
+      "temporaryInstallHelperStoresAndCacheRemovedOnExit": true,
+      "legacySDKCompatibilityTests": 1
+    },
+    {
+      "id": "session-plans-core",
+      "localReceipt": "output/parity/blume/session-plans-verified.json",
+      "receiptSHA256": "ba7b9505034fb776196258c4ae33f86ce909df300451bc272c9fecbc6e7156da",
+      "passed": true,
+      "snapshotSHA256": "8d8b37c7f8dfab03e390199376dd4ca4299096cf2ec3caa6fab9338a838af1ac",
+      "runnerSHA256": "792d9c7648c18d86966a80327d28872fea02c1816963ae56d7df74bd6e691fa7",
+      "methodCount": 59,
+      "matchesWorkingTreeAtEnd": true,
+      "planMethods": 18,
+      "workVerified": false
+    },
+    {
+      "id": "session-plans-cli",
+      "localReceipt": "output/parity/blume/session-plans-rpc-verified.json",
+      "receiptSHA256": "c50a83b79647d2beb3f127dfe62abd7e97e60a1322cd2329818f587e4072111b",
+      "status": "passed",
+      "helperSHA256": "3dd60c6dea13868ad2f5006152f6acaa417d493dc89516ef51301b0097628e1e",
+      "providerCalls": 0,
+      "sourceData": "synthetic JSONL only",
+      "checks": [
+        "Codex_pending_wrong_ID_session_completion_and_restart_then_matching_success",
+        "Exact_source_record_hashes_and_matching_call_provenance",
+        "Claude_TaskCreate_ID_failed_update_then_confirmed_status_transition",
+        "Cross_project_unregistered_extra_path_and_typed_pagination_rejected",
+        "Idempotent_refresh_and_summary_excludes_private_correlation_ledger"
+      ],
+      "nativeUI": "not_yet_implemented"
+    },
+    {
+      "id": "hosted-ci-61bf8d7",
+      "commit": "61bf8d7118b59626dad0ab71ca444ac0735a27a4",
+      "url": "https://github.com/Atingaii/Vela/actions/runs/34743771288",
+      "status": "failed",
+      "xctestMethods": 353,
+      "xctestAssertionFailures": 1,
+      "xctestUnexpectedFailures": 0,
+      "failedMethod": "ProviderQuotaTests.testOutputBoundsAndTimeoutTerminateProcessGroups",
+      "actualFailure": "Flood mode flood returned timeout",
+      "installedSDKAndAISDKAndOpenClawJob": "passed",
+      "rendererAndPackageSteps": "skipped",
+      "localReceipt": "output/parity/ci-checkpoint-61bf8d7/macos-xctest.log",
+      "receiptSHA256": "1d1bd12ab82a3f6059681199004b5f01825499d7b53a168a68856a06289822fd"
+    },
+    {
+      "id": "quota-linear-parser-focused",
+      "localReceipt": "output/parity/quota-linear-parser-tests.json",
+      "receiptSHA256": "f11b66235314694a7e34aaf5e281953ee0044932ab2a72c86ad25e415b869572",
+      "passed": true,
+      "snapshotSHA256": "c0c7f5723c24c1f329835b80b5a940a53539db431bf80049c7ea9c808fcba877",
+      "runnerSHA256": "792d9c7648c18d86966a80327d28872fea02c1816963ae56d7df74bd6e691fa7",
+      "methodCount": 10,
+      "matchesWorkingTreeAtEnd": true,
+      "qualification": "Original 2-second overflow and 0.2-second child timeout expectations retained. Adds fragmented UTF-8 and near-limit complete-frame checks."
+    },
+    {
+      "id": "quota-stream-before",
+      "localReceipt": "output/parity/quota-stream-before.json",
+      "receiptSHA256": "6924b8a4892ef0945a897070ce48e32c05e83bd5c0d441e5031684e15d47afed",
+      "sourceSnapshotSHA256": "c1a3f65dd9a51e808da75be1e9476c395a49182847a616d7892685f4df16b724",
+      "results": [
+        {
+          "elapsedSeconds": 1.4718879461288452,
+          "errorKind": "frame_limit",
+          "mode": "flood",
+          "round": 0
+        },
+        {
+          "elapsedSeconds": 1.2681330442428589,
+          "errorKind": "frame_limit",
+          "mode": "flood",
+          "round": 1
+        },
+        {
+          "elapsedSeconds": 1.2217329740524292,
+          "errorKind": "frame_limit",
+          "mode": "flood",
+          "round": 2
+        },
+        {
+          "elapsedSeconds": 1.2406299114227295,
+          "errorKind": "frame_limit",
+          "mode": "flood",
+          "round": 3
+        },
+        {
+          "elapsedSeconds": 0.8548940420150757,
+          "errorKind": "output_limit",
+          "mode": "stderr_flood",
+          "round": 0
+        },
+        {
+          "elapsedSeconds": 0.6483629941940308,
+          "errorKind": "output_limit",
+          "mode": "stderr_flood",
+          "round": 1
+        },
+        {
+          "elapsedSeconds": 0.6904759407043457,
+          "errorKind": "output_limit",
+          "mode": "stderr_flood",
+          "round": 2
+        },
+        {
+          "elapsedSeconds": 0.653122067451477,
+          "errorKind": "output_limit",
+          "mode": "stderr_flood",
+          "round": 3
+        }
+      ],
+      "timeoutSeconds": 2,
+      "existingAccountsUsed": false,
+      "temporaryFilesRemoved": true,
+      "qualification": "Four runs per synthetic mode on this host; diagnostic range, not a performance guarantee or final packaged benchmark."
+    },
+    {
+      "id": "quota-stream-after",
+      "localReceipt": "output/parity/quota-stream-after.json",
+      "receiptSHA256": "60e126457cc760051b1c8e0dc6335f987caf736d30b1ac87864e36b775079f95",
+      "sourceSnapshotSHA256": "914640584fbdbc093d4a974346134da3bad96fcabd3ece2a8eff114e5b38ec23",
+      "results": [
+        {
+          "elapsedSeconds": 0.7685970067977905,
+          "errorKind": "frame_limit",
+          "mode": "flood",
+          "round": 0
+        },
+        {
+          "elapsedSeconds": 0.460487961769104,
+          "errorKind": "frame_limit",
+          "mode": "flood",
+          "round": 1
+        },
+        {
+          "elapsedSeconds": 0.43782496452331543,
+          "errorKind": "frame_limit",
+          "mode": "flood",
+          "round": 2
+        },
+        {
+          "elapsedSeconds": 0.542294979095459,
+          "errorKind": "frame_limit",
+          "mode": "flood",
+          "round": 3
+        },
+        {
+          "elapsedSeconds": 0.9962649345397949,
+          "errorKind": "output_limit",
+          "mode": "stderr_flood",
+          "round": 0
+        },
+        {
+          "elapsedSeconds": 0.9232379198074341,
+          "errorKind": "output_limit",
+          "mode": "stderr_flood",
+          "round": 1
+        },
+        {
+          "elapsedSeconds": 0.9093949794769287,
+          "errorKind": "output_limit",
+          "mode": "stderr_flood",
+          "round": 2
+        },
+        {
+          "elapsedSeconds": 1.304527997970581,
+          "errorKind": "output_limit",
+          "mode": "stderr_flood",
+          "round": 3
+        }
+      ],
+      "timeoutSeconds": 2,
+      "existingAccountsUsed": false,
+      "temporaryFilesRemoved": true,
+      "qualification": "Four runs per synthetic mode on this host; diagnostic range, not a performance guarantee or final packaged benchmark."
     }
   ]
 }

@@ -11,6 +11,7 @@
 | 桌面与语言 | AppKit、系统 WKWebView、独立 Swift helper；分组会话、记忆、工作流、审批与设置；简体中文/English 持久化切换 | 当前交付平台 Apple Silicon、macOS 13+。新增能力的界面正在指定 Antigravity CLI 中接通，不能沿用旧 UI 结果证明新入口可用 |
 | 会话观察 | Claude/Codex 增量日志、部分 Cursor 导出/SQLite、Pi v1/v2/v3 分支记录与 OMP 元数据；有界流式读取、来源版本、身份/轮转检查 | 完整历史回填及所有私有 Cursor 格式仍未完成。日志推断不等于进程存活证明；Pi 最新持久化分支不冒充当前活跃分支 |
 | 显式历史回填 | Claude/Codex/Pi/OMP JSONL来源清单、固定epoch、分批读取与重启续传、稳定分页和完整原文分块；解析/原文/分支分别计量 | 已完成16项新Core与原Provider16项组合验证；Cursor、Todo/子代理产品视图及桌面操作仍需继续接通，不能把未解析原文计为全部功能 |
+| 会话计划 | Codex update_plan、Claude Todo/Task 的持久化调用与成功回执配对；只读任务状态、来源hash/位置、提议/失败/未知区分 | 18项计划用例、相关59项回归及5组真实helper链路通过；完整历史投影、未文档化格式、桌面展示仍待完成。完成状态不证明工程验证通过 |
 | Setup | 五harness公开位置目录、项目/全局配置扫描、脱敏版本历史/差异、来源关系、删除/重新出现痕迹与不完整扫描保护 | Core与隔离CLI已验；原生入口接通中。TOML/YAML无安全解析器时只给元数据/hash，不提供原文；实际已加载配置仍未知，不执行被扫描的Hook/MCP |
 | Memory | 九类内容、七类作用域、Candidate/Active/Superseded/Archived、来源消息、Markdown 人工编辑；Active-only Recall | 完整提取、合并、遗忘、团队策略与所有插件入口仍按台账验收 |
 | 语义 Recall | 系统已安装 NaturalLanguage 模型、本地分页索引、lexical/semantic/hybrid、版本/维度/sourceHash 校验、明确语言与不可用状态 | 默认仍可离线词面检索，不自动下载。真实合成中英文语义召回与界面取消/索引流程已测，不能据此宣称真实长期检索质量达标；Library向量后端仍需实现 |
@@ -18,6 +19,7 @@
 | 归档与 SDK | 有界 JSON 导出/校验/候选导入、跨项目身份与幂等；可安装 TypeScript/Python 本地 SDK，含语义接口 | 归档为明文，排除 private/global。SDK 安装产物已隔离验收；本地归档不等于加密跨设备同步 |
 | 可选 Walrus 后端 | 独立TypeScript包、固定官方SDK、显式profile/隔离worker、owner交易准备/签名核验、端侧manifest与原文恢复/候选构造 | 真实安装包、公开兼容性与testnet只读交易模拟已通过；官方faucet限流，测试地址无gas。真实加密写入/恢复与owner/delegate链上提交仍待验证；模拟不是链上成功，不默认给桌面增加Node |
 | OpenClaw集成 | 可选独立插件、宿主agent/workspace映射、namespace召回、候选捕获、注入框与持久操作日志 | 真实隔离宿主加载/CLI/hook与完整会话通过；模型响应使用本地合成provider。两条新记忆均为候选，不等于真实模型采纳或远端加密写入。自动捕获默认关闭，远端提取另需明确明文接收与预算 |
+| 模型记忆中间件 | 独立可选TypeScript AI SDK v4包；精确scope召回、受限注入、完整终态才捕获候选、取消/不确定回执 | 真实安装AI SDK与loopbackHTTP/SSE的17项及基础TS12项通过，GitHub独立任务已复验；Python与remote analyze仍在后续切片，不代表真实模型质量 |
 | Checkpoint / Reuse | 用户工程记录及真实 Git 快照；中立交接；项目 Codex SessionStart Hook 的预览、Apply/Undo 与提供上下文收据 | 原生 Session Transfer、更多官方 lifecycle hooks 和完整真实下一会话闭环仍需验证。收据证明已提供，不证明模型遵守 |
 | Workflow Context | 已选择 Guideline、Active Memory、只读 Git/Library/stdin/literal 输入，冻结来源/hash；显式 `{{vela.prompt}}` 参数实际交给 Agent | 旧 raw argv 不被静默改写。记录 prompt 消费路径不等于证明模型采纳约束 |
 | 自然语言规划 | 明确选择 Codex 程序/模型/effort，冻结请求，经审批生成问题或默认停用草案，再显式保存 | 真实提供方已产出有效草案；规划工具目录仍需拓展，与自主多轮工具执行是不同能力 |
@@ -40,6 +42,8 @@
 新增开发检查点 `b94707f` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34742282084)中，SDK/OpenClaw独立安装任务通过；真正XCTest执行334项但出现158次断言失败，后续界面/打包步骤跳过。157次来自测试helper与portable运行器对`XCTUnwrap`异常计数的差异，另1次额度洪泛错误分类仍在核对。已修运行器及helper并保留旧反例；旧334项portable通过不能推广为XCTest验收。该检查点仍未通过整体CI。
 
 第二轮纠正提交 `cf00a48` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34742860219)仍未通过：334项XCTest执行后仅文件Watch离线重启方法有2次断言失败（首次tick未派发）；157次异常计数问题已消除，额度9项本轮通过。SDK/OpenClaw任务再次通过，后续界面与打包仍跳过。Watch重启问题正独立复现，不将单次复跑成功视为已解决。
+
+第三轮开发提交 `61bf8d7` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34743771288)执行353项XCTest，剩1次额度洪泛断言失败，明确返回timeout；会话计划和Watch已通过。SDK/AI SDK/OpenClaw安装任务全通过。额度长行处理现已改为只扫描新增字节，保持原字节界限和2秒测试预算；本机10项定点通过，待新的正式CI。
 
 本机为 Command Line Tools 环境，`swift build` 可用但缺 XCTest；`scripts/test-portable.py` 编译真实 Core 与原同步测试方法，使用小型断言兼容层，**不是 XCTest**。完整 Xcode/CI 使用 `swift test`。
 
