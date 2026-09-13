@@ -57,19 +57,23 @@ with tempfile.TemporaryDirectory(prefix="vela-sdk-installed-") as temporary:
         (consumer / "package.json").write_text('{"private":true,"type":"module"}')
         run("typescript-install", ["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund", str(tgz)], consumer)
         installed = consumer / "node_modules/@vela-engineering/sdk/dist/index.js"
-        (consumer / "consumer.ts").write_text('''import {VelaClient, type RecallParameters, type SemanticIndexResult, type SemanticEmbeddingResult, type SemanticQueryResult} from '@vela-engineering/sdk';
+        (consumer / "consumer.ts").write_text('''import {VelaClient, type RecallParameters, type SemanticIndexResult, type SemanticEmbeddingResult, type SemanticQueryResult, type SessionCapturePrepared} from '@vela-engineering/sdk';
     const client = new VelaClient({transport:{type:'local',executable:'/helper',home:'/store'},project:'/project'});
     const params: RecallParameters = {retrievalMode:'semantic', language:'zh-Hans', scoringWeights:{recency:1}};
     const page: Promise<SemanticIndexResult> = client.semanticIndex({batchSize:1});
     const embedded: Promise<SemanticEmbeddingResult> = client.semanticEmbed('explicit text');
     const queried: Promise<SemanticQueryResult> = embedded.then(value => value.status === 'ok' ? client.semanticQuery(value,{sort:'relevance'}) : client.semanticRecent('explicit text'));
+    const capture: Promise<SessionCapturePrepared> = client.prepareSessionCapture({sessionId:'session',messageId:'message'}); void capture.then(value => client.captureSessionCandidate({sessionId:value.sessionId,messageId:value.messageId,sourceIdentity:value.sourceIdentity,expectedSourceHash:value.expectedSourceHash}));
     void client.semanticStatus({language:'en'}); void client.recall('query',params); void page; void queried;
     void client.archiveFromWalrusRecords({},[]); void client.captureIntegration('main','source',[]); void client.recallIntegration('main','query',{limit:1}); void client.integrationStats('main');
     ''')
         run("installed-typecheck", [str(root / "sdk/typescript/node_modules/.bin/tsc"), "--strict", "--noEmit", "--target", "ES2022", "--module", "NodeNext", "--moduleResolution", "NodeNext", "consumer.ts"], consumer)
-        run("typescript-installed-tests", ["node", "--test", str(root / "sdk/typescript/test/sdk.test.mjs")], consumer, {**env, "VELA_TEST_PACKAGE": installed.as_uri(), "VELA_TEST_PYTHON": sys.executable})
+        typed_tests = run("typescript-installed-tests", ["node", "--test", str(root / "sdk/typescript/test/sdk.test.mjs")], consumer, {**env, "VELA_TEST_PACKAGE": installed.as_uri(), "VELA_TEST_PYTHON": sys.executable})
+        ts_count = re.search(r"(?:^|\n)[^\n]*tests (\d+)(?:\n|$)", typed_tests.stdout + typed_tests.stderr)
+        assert ts_count, "Node test count missing"
+        typescript_passed = int(ts_count.group(1))
         shutil.copy2(tgz, out / tgz.name)
-        (out / "typescript-package-results.json").write_text(json.dumps({"package": tgz.name, "sha256": sha(tgz), "bytes": tgz.stat().st_size, "members": ts_members, "installedConsumerTypecheck": True, "installedImportOutsideSource": True, "testsPassed": 13, "exitCode": 0, "helperSHA256": helper_hash, "temporaryInstallAndCacheRemovedOnExit": True}, indent=2))
+        (out / "typescript-package-results.json").write_text(json.dumps({"package": tgz.name, "sha256": sha(tgz), "bytes": tgz.stat().st_size, "members": ts_members, "installedConsumerTypecheck": True, "installedImportOutsideSource": True, "testsPassed": typescript_passed, "exitCode": 0, "helperSHA256": helper_hash, "temporaryInstallAndCacheRemovedOnExit": True}, indent=2))
 
     run("python-wheel", [sys.executable, "-m", "pip", "wheel", "--no-deps", "--wheel-dir", str(scratch), str(root / "sdk/python")])
     wheel = next(scratch.glob("*.whl"))
@@ -87,4 +91,4 @@ with tempfile.TemporaryDirectory(prefix="vela-sdk-installed-") as temporary:
     python_passed = int(count.group(1))
     shutil.copy2(wheel, out / wheel.name)
     (out / "python-package-results.json").write_text(json.dumps({"wheel": wheel.name, "sha256": sha(wheel), "bytes": wheel.stat().st_size, "members": py_members, "installedImportFromVenv": True, "testsPassed": python_passed, "exitCode": 0, "python": sys.version, "helperSHA256": helper_hash, "temporaryVenvRemovedOnExit": True}, indent=2))
-print(json.dumps({"typescriptPassed": None if python_only else 13, "pythonPassed": python_passed, "helperSHA256": helper_hash, "installedPackageTests": True, "temporaryFixturesRemoved": True}))
+print(json.dumps({"typescriptPassed": None if python_only else typescript_passed, "pythonPassed": python_passed, "helperSHA256": helper_hash, "installedPackageTests": True, "temporaryFixturesRemoved": True}))

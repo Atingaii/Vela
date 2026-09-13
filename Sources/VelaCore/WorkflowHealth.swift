@@ -61,13 +61,18 @@ extension AutomationService {
         return ["id":string(run,"id"),"workflowId":string(run,"workflowId"),"workflowVersion":validPositiveInteger(run["workflowVersion"]) ? intValue(run,"workflowVersion") : NSNull(),"versionAvailability":validPositiveInteger(run["workflowVersion"]) ? "recorded" : "unknown","state":string(run,"state"),"startedAt":run["startedAt"] ?? NSNull(),"completedAt":run["completedAt"] ?? NSNull(),"durationMs":duration(run["durationMs"]) as Any? ?? NSNull(),"durationAvailable":duration(run["durationMs"]) != nil,"dryRun":run["dryRun"] ?? NSNull(),"stepStates":steps]
     }
     private func healthFindings(_ run: JSON) -> [JSON] {
-        let steps = run["steps"] as? [JSON] ?? []; var codes: [String] = []
-        if string(run,"state") == "needs_review" { codes.append("uncertain_run") }
-        if steps.contains(where: { $0["timedOut"] as? Bool == true }) { codes.append("timeout_observed") }
-        if steps.contains(where: { string($0,"state") == "refused" || $0["refused"] as? Bool == true }) { codes.append("tool_refused_observed") }
-        if steps.contains(where: { $0["turnCapReached"] as? Bool == true }) { codes.append("turn_cap_observed") }
+        let steps = run["steps"] as? [JSON] ?? []; var findings: [JSON] = []
+        func finding(_ code: String, step: JSON? = nil) -> JSON {
+            var value: JSON = ["id":code + ":" + String(stableHash(string(run,"id") + ":" + string(step ?? [:],"id")).prefix(32)),"code":code,"runId":string(run,"id"),"workflowVersion":validPositiveInteger(run["workflowVersion"]) ? intValue(run,"workflowVersion") : NSNull(),"state":string(run,"state"),"evidence":"structured_run_or_step_field"]
+            if let step { value["stepId"] = string(step,"id"); value["tool"] = string(step,"tool") }
+            return value
+        }
+        if string(run,"state") == "needs_review" { findings.append(finding("uncertain_run")) }
+        for step in steps where step["timedOut"] as? Bool == true { findings.append(finding("timeout_observed",step:step)) }
+        for step in steps where string(step,"state") == "refused" || step["refused"] as? Bool == true { findings.append(finding("tool_refused_observed",step:step)) }
+        for step in steps where step["turnCapReached"] as? Bool == true { findings.append(finding("turn_cap_observed",step:step)) }
         let concluded = steps.filter { ["completed","failed","rejected","cancelled","needs_review"].contains(string($0,"state")) }
-        if string(run,"state") == "completed", !concluded.isEmpty, concluded.allSatisfy({ string($0,"state") == "failed" }) { codes.append("inconsistent_completion") }
-        return codes.map { ["code":$0,"runId":string(run,"id"),"workflowVersion":validPositiveInteger(run["workflowVersion"]) ? intValue(run,"workflowVersion") : NSNull(),"state":string(run,"state"),"evidence":"structured_run_or_step_field"] }
+        if string(run,"state") == "completed", !concluded.isEmpty, concluded.allSatisfy({ string($0,"state") == "failed" }) { findings.append(finding("inconsistent_completion")) }
+        return findings
     }
 }

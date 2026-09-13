@@ -105,6 +105,26 @@ def _timeout(value: float) -> float:
     return float(value)
 
 
+def _capture_reference(session_id: Any, message_id: Any) -> None:
+    for value in (session_id, message_id):
+        try:
+            encoded = value.encode("utf-8") if isinstance(value, str) else b""
+        except UnicodeError:
+            raise VelaError("invalid_input") from None
+        if not isinstance(value, str) or not value or len(encoded) > 512 or any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in value):
+            raise VelaError("invalid_input")
+
+
+def _capture_input(session_id: Any, message_id: Any, source_identity: Any, expected_source_hash: Any) -> None:
+    _capture_reference(session_id, message_id)
+    try:
+        identity = source_identity.encode("utf-8") if isinstance(source_identity, str) else b""
+    except UnicodeError:
+        raise VelaError("invalid_input") from None
+    if not isinstance(source_identity, str) or not source_identity or len(identity) > 1024 or any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in source_identity) or not isinstance(expected_source_hash, str) or len(expected_source_hash) != 64 or any(char not in "0123456789abcdef" for char in expected_source_hash):
+        raise VelaError("invalid_input")
+
+
 def _candidate(value: CandidateInput) -> None:
     if not isinstance(value, dict) or set(value) - {"title", "content", "type", "project"}:
         raise VelaError("invalid_input")
@@ -434,6 +454,14 @@ class VelaClient:
                 raise VelaBulkError(completed, index, len(memories), error) from None
         return completed
 
+    def prepare_session_capture(self, session_id: str, message_id: str, *, project: str | None = None, timeout: float | None = None) -> dict[str, Any]:
+        _capture_reference(session_id, message_id)
+        return self._request("memory.capture.prepare", {"project": self._selected(project), "sessionId": session_id, "messageId": message_id}, False, timeout)
+
+    def capture_session_candidate(self, session_id: str, message_id: str, source_identity: str, expected_source_hash: str, *, project: str | None = None, timeout: float | None = None) -> dict[str, Any]:
+        _capture_input(session_id, message_id, source_identity, expected_source_hash)
+        return self._request("memory.capture", {"project": self._selected(project), "sessionId": session_id, "messageId": message_id, "sourceIdentity": source_identity, "expectedSourceHash": expected_source_hash}, True, timeout)
+
     def export_archive(self, project: str | None = None, *, ids: list[str] | None = None, timeout: float | None = None) -> dict[str, Any]:
         params: dict[str, Any] = {"project": self._selected(project)}
         if ids is not None:
@@ -574,6 +602,12 @@ class AsyncVelaClient:
                 cause = error if isinstance(error, VelaError) else VelaError("cancelled", error.request_id, error.effects_unknown)
                 raise VelaBulkError(completed, index, len(memories), cause) from None
         return completed
+
+    async def prepare_session_capture(self, session_id: str, message_id: str, **kwargs: Any) -> dict[str, Any]:
+        return await self._run("prepare_session_capture", session_id, message_id, **kwargs)
+
+    async def capture_session_candidate(self, session_id: str, message_id: str, source_identity: str, expected_source_hash: str, **kwargs: Any) -> dict[str, Any]:
+        return await self._run("capture_session_candidate", session_id, message_id, source_identity, expected_source_hash, **kwargs)
 
     async def export_archive(self, project: str | None = None, **kwargs: Any) -> dict[str, Any]:
         return await self._run("export_archive", project, **kwargs)

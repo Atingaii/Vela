@@ -1,0 +1,169 @@
+{
+  "format": "vela-ci-commit-result-v1",
+  "commit": "972155b726d9e812b3cf47b7b35b3f9e4178afd1",
+  "sourceTree": "e22fab086fd262c5b5e24b723f377697a3a58aeb",
+  "runId": 34765916679,
+  "runURL": "https://github.com/Atingaii/Vela/actions/runs/34765916679",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": 103746728370,
+      "name": "Installed SDKs and OpenClaw integration",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build the real local helper",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install optional package development dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed packages outside their source directories",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed AI SDK middleware with real helper and local HTTP",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed Python Responses wrappers with real helper and local HTTP",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed LangChain wrappers with real helper and local HTTP",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the pinned isolated OpenClaw host",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify real host loading, CLI and hooks with local fixtures",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 103746728460,
+      "name": "macOS build and tests",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and test the real core",
+          "conclusion": "success"
+        },
+        {
+          "name": "Repository and website checks",
+          "conclusion": "success"
+        },
+        {
+          "name": "JSONL and MCP integration",
+          "conclusion": "success"
+        },
+        {
+          "name": "Capability contracts and responsive controls",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install isolated browser test dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Real-helper renderer acceptance",
+          "conclusion": "success"
+        },
+        {
+          "name": "Frozen capability and engineering renderer flows",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package and audit macOS application",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "actualXCTestSummary": [
+    "Executed 443 tests, with 0 failures (0 unexpected) in 113.206 (113.242) seconds",
+    "Executed 443 tests, with 0 failures (0 unexpected) in 113.206 (113.244) seconds"
+  ],
+  "regressions": {
+    "legacyRenderer": "passed",
+    "relationsAutomaticFirstPage": "passed",
+    "relationsStaleCursorWithActualBackgroundResponseIsolation": "passed"
+  },
+  "limits": {
+    "en": "This result covers this exact commit. UI18, session-message capture and Health proposal work remain separate uncommitted increments. It does not validate full reference parity, native notification delivery, Apple notarization, external authenticated write operations or longitudinal engineering improvement.",
+    "zhCN": "此结果仅覆盖该提交。UI18、来源消息捕获与 Health 提案是另行开发的未提交增量；不能证明完整参考功能、原生通知投递、Apple 公证、外部认证写入或长期工程改善已验收。"
+  }
+}

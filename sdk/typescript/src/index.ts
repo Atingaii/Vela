@@ -11,6 +11,9 @@ export const MEMORY_INTEGRATIONS = Object.freeze(['openclaw', 'ai-sdk-v4'] as co
 export type MemoryIntegration = typeof MEMORY_INTEGRATIONS[number];
 export interface CaptureIntegrationOptions extends RequestOptions { integration?: MemoryIntegration }
 export interface CandidateInput { title: string; content: string; type?: MemoryType; project?: string }
+export interface SessionCaptureReference { sessionId: string; messageId: string; project?: string }
+export interface SessionCapturePrepared extends ObjectValue { protocol: 'vela-session-memory-capture-v1'; project: string; sessionId: string; messageId: string; sourceIdentity: string; expectedSourceHash: string; role: 'user' | 'assistant'; content: string; contentBytes: number; state: 'candidate'; sourceObservation: 'observed'; modelCalls: 0 }
+export interface SessionCaptureInput extends SessionCaptureReference { sourceIdentity: string; expectedSourceHash: string }
 export interface MemoryRecord extends ObjectValue { id: string; title: string; content: string; state: string; project: string }
 export type SemanticLanguage = 'en' | 'zh-Hans';
 export interface ScoringWeights { semantic?: number; recency?: number; importance?: number; recencyHalfLifeDays?: number }
@@ -91,6 +94,20 @@ const semanticWeights = (weights: ScoringWeights): void => {
   exactKeys(weights,['semantic','recency','importance','recencyHalfLifeDays']);
   numeric(weights.semantic,0,10); numeric(weights.recency,0,10); numeric(weights.importance,0,10); numeric(weights.recencyHalfLifeDays,0.01,3650);
   if ((weights.semantic ?? 1) + (weights.recency ?? 0) + (weights.importance ?? 0) <= 0) throw new VelaError('invalid_input');
+};
+const captureIdentifiers = (input: {sessionId: unknown; messageId: unknown}): void => {
+  for (const value of [input.sessionId,input.messageId]) if (typeof value !== 'string' || !value || Buffer.byteLength(value) > 512 || /[\u0000-\u001f\u007f-\u009f]/u.test(value)) throw new VelaError('invalid_input');
+};
+const captureReference = (input: SessionCaptureReference): void => {
+  if (!input || typeof input !== 'object') throw new VelaError('invalid_input');
+  exactKeys(input, ['sessionId','messageId','project']);
+  captureIdentifiers(input);
+};
+const captureInput = (input: SessionCaptureInput): void => {
+  if (!input || typeof input !== 'object') throw new VelaError('invalid_input');
+  exactKeys(input, ['sessionId','messageId','project','sourceIdentity','expectedSourceHash']);
+  captureIdentifiers(input);
+  if (typeof input.sourceIdentity !== 'string' || !input.sourceIdentity || Buffer.byteLength(input.sourceIdentity) > 1024 || /[\u0000-\u001f\u007f-\u009f]/u.test(input.sourceIdentity) || !/^[a-f0-9]{64}$/.test(input.expectedSourceHash)) throw new VelaError('invalid_input');
 };
 const candidate = (input: CandidateInput): void => {
   if (!input || typeof input !== 'object') throw new VelaError('invalid_input');
@@ -257,6 +274,14 @@ export class VelaClient {
   saveCandidate(input: CandidateInput, options?: RequestOptions): Promise<MemoryRecord> {
     candidate(input);
     return this.request('memory.save', {title:input.title, content:input.content, type:input.type ?? 'fact', project:this.selected(input.project), scope:'project', state:'candidate'}, true, options);
+  }
+  prepareSessionCapture(input: SessionCaptureReference, options?: RequestOptions): Promise<SessionCapturePrepared> {
+    captureReference(input);
+    return this.request('memory.capture.prepare',{project:this.selected(input.project),sessionId:input.sessionId,messageId:input.messageId},false,options);
+  }
+  captureSessionCandidate(input: SessionCaptureInput, options?: RequestOptions): Promise<MemoryRecord> {
+    captureInput(input);
+    return this.request('memory.capture',{project:this.selected(input.project),sessionId:input.sessionId,messageId:input.messageId,sourceIdentity:input.sourceIdentity,expectedSourceHash:input.expectedSourceHash},true,options);
   }
   async saveCandidates(inputs: CandidateInput[], options?: RequestOptions): Promise<MemoryRecord[]> {
     if (!Array.isArray(inputs) || inputs.length < 1 || inputs.length > 100) throw new VelaError('invalid_input');

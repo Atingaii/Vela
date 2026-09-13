@@ -15,6 +15,46 @@ BINARY = os.environ.get("VELA_TEST_HELPER", str(Path(__file__).resolve().parents
 
 
 class SDKTests(unittest.TestCase):
+    def test_session_capture_validates_identity_references_before_transport_dispatch(self):
+        client = self.client()
+        with self.assertRaises(VelaError) as error:
+            client.prepare_session_capture("bad\x00", "message")
+        self.assertEqual(error.exception.code, "invalid_input")
+        with self.assertRaises(VelaError) as error:
+            client.capture_session_candidate("session", "message", "codex:thread", "bad")
+        self.assertEqual(error.exception.code, "invalid_input")
+        with self.assertRaises(VelaError) as error:
+            client.capture_session_candidate("session", "message", "bad\nidentity", "0" * 64)
+        self.assertEqual(error.exception.code, "invalid_input")
+
+    def test_installed_sdk_prepares_and_captures_a_real_indexed_session_message(self):
+        sources = self.root / "sources"
+        (sources / "codex").mkdir(parents=True)
+        rows = [
+            {"type": "session_meta", "payload": {"id": "python-capture-thread", "cwd": str(self.project)}},
+            {"type": "response_item", "payload": {"type": "message", "id": "python-source-message", "role": "assistant", "content": [{"type": "output_text", "text": "Verify capture through the installed Python package."}]}},
+        ]
+        (sources / "codex" / "capture.jsonl").write_text("".join(json.dumps(row) + "\n" for row in rows))
+        prior = os.environ.get("VELA_SESSION_ROOT")
+        os.environ["VELA_SESSION_ROOT"] = str(sources)
+        try:
+            client = self.client()
+            client.register_project(str(self.project))
+            subprocess.run([BINARY, "call", "sessions.refresh", "--home", str(self.root / "store")], env={**os.environ, "VELA_DISABLE_DISCOVERY": "1", "VELA_SESSION_ROOT": str(sources)}, check=True, capture_output=True, timeout=15)
+            sessions = json.loads(subprocess.run([BINARY, "call", "sessions.list", json.dumps({"project": str(self.project)}), "--home", str(self.root / "store")], env={**os.environ, "VELA_DISABLE_DISCOVERY": "1", "VELA_SESSION_ROOT": str(sources)}, check=True, capture_output=True, text=True, timeout=15).stdout)
+            self.assertEqual(len(sessions), 1)
+            prepared = client.prepare_session_capture(sessions[0]["id"], "python-source-message")
+            self.assertEqual(prepared["content"], "Verify capture through the installed Python package.")
+            captured = client.capture_session_candidate(prepared["sessionId"], prepared["messageId"], prepared["sourceIdentity"], prepared["expectedSourceHash"])
+            self.assertEqual(captured["state"], "candidate")
+            self.assertTrue(captured["requiresReview"])
+            self.assertEqual(client.capture_session_candidate(prepared["sessionId"], prepared["messageId"], prepared["sourceIdentity"], prepared["expectedSourceHash"])["id"], captured["id"])
+        finally:
+            if prior is None:
+                os.environ.pop("VELA_SESSION_ROOT", None)
+            else:
+                os.environ["VELA_SESSION_ROOT"] = prior
+
     def test_integration_namespace_reopen_remains_candidate(self):
         client = self.client()
         client.register_project(str(self.project))

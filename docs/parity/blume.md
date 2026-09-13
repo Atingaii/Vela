@@ -37,13 +37,13 @@
 | B04 Cursor 消息摄取 | O1 已交付 | 已知 composerData SQLite 及导出 | 拆分 bubble、当前 schema、导入与实时状态分开验证 |
 | B05 Pi 会话 | O1 已交付 | 本轮 `PiSessionReader`；v1 线性、v2/v3 树 | 真实 CLI 版本 fixture；未知版本保旧数据，格式支持不是运行中证明 |
 | B06 OMP 会话 | O1 已交付 | 同一 reader 明确区分 provider；title slot、v1/v2/v3 | 标题原位变更、已迁移目录、provider 扩展角色/外置内容兼容 |
-| B07 增量摄取、完整历史访问 | R2 B3–B4：报告描述 | 默认 FSEvents/轻量尾窗不变；新增四 JSONL provider 显式 manifest、版本 epoch、SQLite 断点、原文分块和稳定分页，见 [合同](../implementation/session-history-contract.md) | Cursor 一致性历史；超长 header/其他角色兼容；历史 UI/跨源检索/保留维护/大型性能；raw、normalized、scope、branch 完整性分开 |
+| B07 增量摄取、完整历史访问 | R2 B3–B4：报告描述 | 默认 FSEvents/轻量尾窗不变；新增四 JSONL provider 显式 manifest、版本 epoch、SQLite 断点、原文分块和稳定分页，见 [合同](../implementation/session-history-contract.md) | 已完成冻结合成数据的 History renderer 范围验收（发现、导入控制、分页、原文、分支及项目切换），见 [UI17](ui17-final-renderer-evidence-2026-09-13.json)。Cursor 一致性历史、超长 header/其他角色、跨源检索、保留维护、大型性能与完整真实 provider 历史仍待验收；raw、normalized、scope、branch 完整性分开 |
 | B08 持久化分支、工作区身份 | R2 B6/B9：报告描述 | canonical 项目路径；Pi/OMP 默认显示最近持久化链，显式历史保留全部原始分支和父链分页 | Git remote/worktree 关系；内存 leaf 无来源时不得猜；子会话实体关系与完整 UI 另验 |
 | B09 Running/Idle/Completed/Stopped/Error | O1/O2 已交付 | Claude/Codex 活动推断；Pi/OMP 仅明确 stopReason 终止态 | 五真实进程并发、停止/重启/中断/旧日志，不将推断视作进程存活 |
 | B10 待审批与完成提醒 | O1/O2 已交付 | `NotificationPolicy`、原生通知已实现；权限失败实测保留 | 真 macOS 授权、banner、点回准确会话；五 provider 的真实等待/完成事件 |
 | B11 工具调用及结果 | R2 B5/B9：报告描述 | Claude/Codex 常见工具；Pi/OMP 关联 toolCallId、name、结果和错误 | 起止时间、结果缺失/重排、并行 call、多个 tool 类型、完整参数显示 |
-| B12 Todo / 计划进度 | O2 已交付 | `SessionPlanProjection`/`SessionPlanService`：Codex update_plan 与 Claude TodoWrite/四 Task 工具的已知调用/结构化结果→独立有界 ledger、确认计数及来源事件；CLI/会话详情可读。[合同](../implementation/session-plan-contract.md) | 普通正文/会话 Completed 不推导计划完成；提案、失败、未知与 provider 确认分开。完整 History 投影、全 provider/version（含未获官方合同的 Claude camelCase transcript）、完整 UI 仍待完成，不以此关闭 B12 全量验收 |
-| B13 子代理关系与状态 | R2 B9/O7：报告描述 | `SessionRelationProjection/Service` 新增 Codex 固定公开版本的直接父声明、独立 fork、配对 spawn 回执、同项目来源解析、关系 epoch、只读分页与父子独立状态；[合同](../implementation/session-relations-contract.md) | 当前是 Codex 已索引窗口的明确关系，不是完整历史图；其他 provider、v2/code-mode 输出、完整历史重建、实时子进程与 UI 展开仍待验收。缺失/私有/internal/冲突/重号不猜验证成功 |
+| B12 Todo / 计划进度 | O2 已交付 | `SessionPlanProjection`/`SessionPlanService`：Codex update_plan 与 Claude TodoWrite/四 Task 工具的已知调用/结构化结果→独立有界 ledger、确认计数及来源事件；CLI/会话详情可读。[合同](../implementation/session-plan-contract.md) | 普通正文/会话 Completed 不推导计划完成；提案、失败、未知与 provider 确认分开。冻结合成数据的 Plan drawer 状态、事件分页和延迟响应路由已验；UI17 全部项目 scope 是已复现问题。完整 History 投影、全 provider/version（含未获官方合同的 Claude camelCase transcript）、真实 provider 和完整 UI 仍待完成，不以此关闭 B12 全量验收 |
+| B13 子代理关系与状态 | R2 B9/O7：报告描述 | `SessionRelationProjection/Service` 新增 Codex 固定公开版本的直接父声明、独立 fork、配对 spawn 回执、同项目来源解析、关系 epoch、只读分页与父子独立状态；[合同](../implementation/session-relations-contract.md) | 冻结合成数据的 Codex drawer 展开、隐私、分页、陈旧响应/重复 cursor 与支持尺寸已验，见 [972 CI](ci-972155b7-evidence-2026-09-13.json)；后台刷新收起已展开区域是单独的 UI17 已复现缺陷。仍限已索引窗口，其他 provider、v2/code-mode、完整历史图、实时子进程和原生完整流程未验收。缺失/私有/internal/冲突/重号不猜验证成功 |
 | B14 标题/摘要/元数据生成 | O5 描述功能处理；R2 B9 补充 | 首条用户消息或源标题；无模型摘要生成 | 显式处理设置、来源标题保护、模型可用性与错误；生成结果不能充当事实 |
 | B15 手动改名、恢复/回写标题 | R2 B9：报告描述；公开交付 U | OMP/Pi 标题只读，尚无修改接口 | Vela 名称与 provider 原名分离；冻结写入、原格式验证、Undo |
 | B16 项目/路径模式排除与恢复 | R2 B10：报告描述；公开交付 U | `projects.remove` 仅取消登记，不是 ingestion 排除 | 排除从摄取起生效、已有索引处理、glob/remote 多克隆一致性 |

@@ -46,6 +46,27 @@ test('real helper typed memory, bulk, archives, restart and candidate isolation'
   assert.deepEqual(new Set((await restored.listMemories()).map(row=>row.content)),new Set(rows.map(row=>row.content)));
 }));
 
+test('installed SDK prepares and captures a real indexed session message', async () => fixture(async ({root,project,client}) => {
+  const sources=resolve(root,'sources'); await mkdir(resolve(sources,'codex'),{recursive:true});
+  const rows=[
+    {type:'session_meta',payload:{id:'sdk-capture-thread',cwd:project}},
+    {type:'response_item',payload:{type:'message',id:'sdk-source-message',role:'assistant',content:[{type:'output_text',text:'Verify the capture through the installed package.'}]}}
+  ];
+  await writeFile(resolve(sources,'codex','capture.jsonl'),rows.map(row=>JSON.stringify(row)+'\n').join(''));
+  const prior=process.env.VELA_SESSION_ROOT; process.env.VELA_SESSION_ROOT=sources;
+  try {
+    const api=client(); await api.registerProject(project);
+    execFileSync(executable,['call','sessions.refresh','--home',resolve(root,'store')],{env:{...process.env,VELA_DISABLE_DISCOVERY:'1',VELA_SESSION_ROOT:sources}});
+    const sessions=JSON.parse(execFileSync(executable,['call','sessions.list',JSON.stringify({project}),'--home',resolve(root,'store')],{env:{...process.env,VELA_DISABLE_DISCOVERY:'1',VELA_SESSION_ROOT:sources},encoding:'utf8'}));
+    assert.equal(sessions.length,1);
+    const prepared=await api.prepareSessionCapture({sessionId:sessions[0].id,messageId:'sdk-source-message'});
+    assert.equal(prepared.content,'Verify the capture through the installed package.');
+    const captured=await api.captureSessionCandidate({sessionId:prepared.sessionId,messageId:prepared.messageId,sourceIdentity:prepared.sourceIdentity,expectedSourceHash:prepared.expectedSourceHash});
+    assert.equal(captured.state,'candidate'); assert.equal(captured.requiresReview,true);
+    assert.equal((await api.captureSessionCandidate({sessionId:prepared.sessionId,messageId:prepared.messageId,sourceIdentity:prepared.sourceIdentity,expectedSourceHash:prepared.expectedSourceHash})).id,captured.id);
+  } finally { if (prior === undefined) delete process.env.VELA_SESSION_ROOT; else process.env.VELA_SESSION_ROOT=prior; }
+}));
+
 test('unknown transport, lifecycle and invalid bulk inputs are rejected before writes', async () => fixture(async ({project,client}) => {
   assert.throws(()=>new VelaClient({transport:{type:'remote',executable,home:'/tmp'}}),VelaError);
   const api=client(); await api.registerProject(project);
@@ -163,4 +184,11 @@ test('bulk failure preserves completed records and does not attempt trailing wri
   const api=client(helper,root);
   await assert.rejects(api.saveCandidates([{title:'One',content:'Saved'},{title:'Two',content:'Uncertain'},{title:'Three',content:'Never sent'}]),error=>error instanceof VelaBulkError && error.completed.length===1 && error.failedIndex===1 && error.unattempted===1 && error.effectsUnknown && !String(error).includes('SECRET'));
   assert.equal(await readFile(resolve(root,'received'),'utf8'),'2');
+}));
+
+test('session capture SDK validates identity references before transport dispatch', async () => fixture(async ({client}) => {
+  const api=client();
+  assert.throws(()=>api.prepareSessionCapture({sessionId:'\u0000',messageId:'message'}),VelaError);
+  assert.throws(()=>api.captureSessionCandidate({sessionId:'session',messageId:'message',sourceIdentity:'codex:thread',expectedSourceHash:'bad'}),VelaError);
+  assert.throws(()=>api.captureSessionCandidate({sessionId:'session',messageId:'message',sourceIdentity:'bad\nidentity',expectedSourceHash:'0'.repeat(64)}),VelaError);
 }));

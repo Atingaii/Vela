@@ -41,7 +41,7 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 | `SessionRelationProjection.swift` / `SessionRelationService.swift` | 从 Codex 来源头与结构化工具事件观察父子关系；重验来源身份、项目与隐私，分页和保留窗口明确，未知存活状态不推断为运行中；[ADR 0030](adr/0030-observed-codex-session-relations.md) |
 | `FoundationService.swift` | 项目、harness发现、dashboard、脱敏 Setup、日志 token 聚合；[ADR 0004](adr/0004-nullable-observed-usage.md) |
 | `ProviderQuotaService.swift` | 显式 Codex app-server 只读额度请求；来源时间、失败/stale、多个 bucket/window，独立于日志 token；[ADR 0011](adr/0011-provider-quota-observation.md) |
-| `MemoryService.swift` / `SemanticMemory.swift` | 作用域与生命周期；词面或系统已安装语义模型的索引与召回、受限本地 embedding 与 recent/vector SDK API；[ADR 0013](adr/0013-local-semantic-recall.md)、[ADR 0031](adr/0031-local-embedding-and-recent-matches.md) |
+| `MemoryService.swift` / `SemanticMemory.swift` | 作用域与生命周期；词面或系统已安装语义模型的索引与召回、受限本地 embedding 与 recent/vector SDK API；已索引同项目 Session 消息可经 hash/identity 重验后捕获为候选 observation，普通编辑不会伪造其来源；[ADR 0013](adr/0013-local-semantic-recall.md)、[ADR 0031](adr/0031-local-embedding-and-recent-matches.md)、[ADR 0036](adr/0036-observed-session-memory-capture.md) |
 | `LibraryService.swift` / `LibraryIndex.swift` | 来源版本、审阅后编辑/归档/恢复/重抓、严格公开资料边界、可重建FTS5段落索引与引用；[ADR 0022](adr/0022-paragraph-library-retrieval.md) |
 | `SetupInventoryService.swift` / `SetupCatalog.swift` | 五harness公开路径、脱敏历史/差异、删除痕迹与不完整扫描；[ADR 0018](adr/0018-observed-setup-inventory.md) |
 | `MemoryArchiveService.swift` / `sdk/typescript` / `sdk/python` | 明文可移植候选归档与实际可安装本地 SDK；[ADR 0007](adr/0007-portable-memory-archives.md)、[ADR 0010](adr/0010-local-client-sdks.md) |
@@ -53,6 +53,7 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 | `AutomationService.swift` / `WorkflowComposition.swift` | Workflow 定义/版本、逐工具审批与账本、冻结依赖图、子运行、恢复、根产物；[ADR 0015](adr/0015-workflow-composition.md) |
 | `WorkflowRetry.swift` | 仅固定 Git 只读工具可显式开启有界 retry/backoff，逐 attempt 持久化；异常结果与中断证据不自动重放；[ADR 0033](adr/0033-bounded-read-step-retry.md) |
 | `WorkflowHealth.swift` | 按工作流/版本分析已记录运行与审批，明确采样缺失、扫描上限和项目范围；只读诊断不自动修改定义；[ADR 0034](adr/0034-structured-workflow-health-evidence.md) |
+| `WorkflowHealthProposal.swift` | 完整 timeout 观察→冻结候选提案→显式确认后原子创建新 ID 的停用工作流；保留原运行与权限，不自动执行；[ADR 0037](adr/0037-health-timeout-disabled-candidates.md) |
 | `WorkflowManagement.swift` | 逐资产验证、克隆、审阅后启停/归档/恢复、依赖和活跃运行保护；[ADR 0019](adr/0019-reviewed-workflow-management.md) |
 | `AgentLoopService.swift` | 受限多轮决策、实际只读工具结果、独立外部动作审批与取消；[ADR 0020](adr/0020-reviewed-model-tool-loops.md) |
 | `KnowledgeQueryService.swift` | 独立审批的来源问答、真实段落引用、重新核验的续问与原文隔离；[ADR 0021](adr/0021-reviewed-knowledge-answers.md) |

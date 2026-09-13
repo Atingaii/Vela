@@ -34,6 +34,7 @@ public final class AutomationService {
             guard params["inputs"] == nil || params["inputs"] is JSON, params["stdin"] == nil || params["stdin"] is String else { throw VelaError("Workflow inputs must be an object and stdin must be text") }
             return try startWorkflow(id: requireString(params,"id"), dryRun: params["dryRun"] as? Bool ?? true, suppliedInputs:params["inputs"] as? JSON ?? [:], stdin:params["stdin"] as? String)
         case "workflows.health": return try workflowHealthReport(params)
+        case "workflows.health.proposeTimeout", "workflows.health.proposal.get", "workflows.health.proposal.list", "workflows.health.proposal.decide": return try workflowHealthProposal(method,params)
         case "watches.describe": return ["protocol":WorkflowWatch.version,"sources":["tool","files"],"tools":try AgentLoop.builtinIDs.map(AgentLoop.builtin),"externalToolsSupported":false,"minimumIntervalSeconds":30,"fileEvents":"macOS FSEvents with bounded SHA256 observations"]
         case "watches.get": return try watchDetails(params)
         case "watches.preview": return try previewWatch(params)

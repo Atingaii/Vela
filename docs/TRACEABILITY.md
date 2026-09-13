@@ -1,6 +1,6 @@
 # Vela 需求追踪 / Traceability
 
-**基线：2026-09-12，`6c2bf54` / `0.1.0-preview.2`。** 本表是源码审查与既有运行报告的对照，未把本次写文档当成重新执行测试。后续改动须记录新的版本与证据才能升级。`Missing` 表示没有所要求的路径；`Partial` 表示存在子集；`Implemented` 仅描述窄项实现，仍须独立通过 [ACCEPTANCE](ACCEPTANCE.md)。
+**原始基线：2026-09-12，`6c2bf54` / `0.1.0-preview.2`；已核实增量截至 `972155b7`。** 本表保留原始需求；只有附带新运行证据的条目更新，不能将既有报告等同于后续版本重新执行。`Missing` 表示没有所要求的路径；`Partial` 表示存在子集；`Implemented` 仅描述窄项实现，仍须独立通过 [ACCEPTANCE](ACCEPTANCE.md)。
 
 **English:** Each original requirement maps to a PRD requirement, a design rule, code, a named test and an evidence record. Partial test support is not complete acceptance. All 78 functional and 35 non-functional requirements are retained, including gaps and implementation-equivalent architecture choices.
 
@@ -85,16 +85,16 @@ R 编号对应 PRD 同号 D 约束及其 Goal；代码/测试覆盖的是“已�
 | --- | --- | --- | --- | --- | --- | --- |
 | FR-01 | Harness 检测 | 01 | Partial：目录/CLI 检测，完整登录/版本/配额能力不足 | C-OBS | — | E-NONE |
 | FR-02 | 实时监控 | 02/19 | Partial：状态基于日志推断，无存活证明 | C-OBS/C-UI | T-ING/T-UI | E-CORE/E-UI |
-| FR-03 | Subagent | 02 | Missing：完整父子关系/根计数未具备 | C-OBS | — | E-NONE |
+| FR-03 | Subagent | 02 | Partial：来源可证实的父子关系、未定位/冲突/私有隔离与分页已实现；完整 harness/根计数未具备 | C-OBS/C-UI | [关系消费者](../scripts/test-session-relations-browser.py) | [UI17 五项实测](parity/ui17-final-renderer-evidence-2026-09-13.json)、[972 CI](parity/ci-972155b7-evidence-2026-09-13.json) |
 | FR-04 | Menu Bar | 19 | Partial：原生菜单/计数；完整 pause/状态任务流待验 | C-UI | — | E-UI |
 | FR-05 | Notification | 19 | Partial：策略/试听；实际 OS 授权被拒 | C-NOTIFY/C-UI | T-NOTIFY | E-CORE/E-UI |
 | FR-06 | Unified Session | 02/03 | Partial：messages/tools 子集，字段缺失与历史边界明确 | C-OBS | T-ING | E-CORE |
 | FR-07 | 增量摄取 | 03 | Partial：append/partial/rotation/FSEvents；完整异常矩阵不足 | C-OBS | T-ING | E-CORE |
 | FR-08 | Large Session | 03 | Partial：有界尾窗/保留上限，完整大负载矩阵缺测 | C-OBS | T-ING | E-CORE |
-| FR-09 | Parser Version | 03 | Partial：游标版本；可续历史 backfill 缺失 | C-OBS | T-ING | E-CORE |
+| FR-09 | Parser Version | 03 | Partial：固定 epoch 的显式历史回填、分页/暂停/续传/取消已实现；Cursor 等未支持格式仍有缺口 | C-OBS/C-UI | T-ING、[History/Plan 消费者](../scripts/test-history-plan-browser.py) | [History/Plan 证据](parity/desktop-history-plan-evidence-2026-09-13.json)、[972 CI](parity/ci-972155b7-evidence-2026-09-13.json) |
 | FR-10 | Project identity | 02/03 | Partial：canonical path；remote/repository/worktree 归并不足 | C-OBS/C-STORE | T-STORE | E-CORE |
 | FR-11 | Exclusion | 03 | Missing：显式 project/path/glob 全链排除 | C-OBS | — | E-NONE |
-| FR-12 | Session Detail | 03 | Partial：实时消息/部分工具详情；完整 todos/files/subagents 不足 | C-UI/C-OBS | T-UI/T-ING | E-UI/E-CORE |
+| FR-12 | Session Detail | 03 | Partial：消息/工具、已观察计划和关联证据已接通；全部项目 Plan scope 与刷新后展开状态是 UI17 已复现缺陷，完整格式/文件视图仍不足 | C-UI/C-OBS | T-UI/T-ING、[History/Plan 消费者](../scripts/test-history-plan-browser.py) | [UI17 证据](parity/ui17-final-renderer-evidence-2026-09-13.json) |
 | FR-13 | Tool Detail | 03 | Partial：支持 input/output 子集；完整 duration/status/lazy paging 不足 | C-OBS/C-UI | T-ING | E-CORE |
 | FR-14 | Inventory | 04 | Partial：扫描真实 Rules/Skills/Hooks/MCP；完整对象集合待验 | C-OBS/C-UI | T-SETUP/T-UI | E-CORE/E-UI |
 | FR-15 | Artifact model | 04 | Partial：hash/source/diagnostics；runtime 加载差异/关系不足 | C-OBS | T-SETUP | E-CORE |
@@ -104,12 +104,12 @@ R 编号对应 PRD 同号 D 约束及其 Goal；代码/测试覆盖的是“已�
 | FR-19 | No finding | 04 | Partial：允许空诊断；完整 clean/near-miss 集未验 | C-OBS | — | E-NONE |
 | FR-20 | Context cost | 04 | Partial：保守估算；常驻/条件/按需四类载体全覆盖不足 | C-OBS/C-MEM | T-MEM | E-CORE |
 | FR-21 | Cost ladder | 10 | Partial：Workflow/Guideline 分支；完整阶梯/理由缺失 | C-IMP | T-IMP | E-CORE |
-| FR-22 | Memory extraction | 05 | Partial：九类型手动 CRUD；自动源事实提取缺失 | C-MEM/C-UI | T-MEM/T-UI | E-CORE/E-UI |
+| FR-22 | Memory extraction | 05 | Partial：九类型手动 CRUD；新增来源消息校验后的候选捕获 RPC/SDK，桌面准备中；完整自动源事实提取仍不足 | C-MEM/C-UI | T-MEM/T-UI | E-CORE/E-UI |
 | FR-23 | Memory scope | 06 | Implemented：七 scope 的当前确定性匹配 | C-MEM | T-MEM/T-MCP | E-CORE/E-RPC |
 | FR-24 | Memory state | 06 | Implemented：四状态和受限迁移 | C-MEM | T-MEM | E-CORE |
 | FR-25 | Superseding | 06 | Partial：显式同项目 supersedes；新 Session 自动时序决议不足 | C-MEM | T-MEM | E-CORE |
 | FR-26 | Memory relations | 06 | Partial：supersedes/provenance；完整关系图缺失 | C-MEM | T-MEM | E-CORE |
-| FR-27 | Provenance | 05/06 | Partial：来源字段/原生消息保存；全字段可信验证不足 | C-MEM/C-UI | T-UI | E-UI |
+| FR-27 | Provenance | 05/06 | Partial：新增 Core 重读已索引消息、来源 hash/CAS 与不可伪造 capture provenance；后续编辑标为 user_edit。桌面确认入口准备中，完整可信来源字段仍不足 | C-MEM/C-UI | [来源捕获 Core/RPC](../scripts/test-session-memory-capture-rpc.py) | [本机增量证据](parity/session-capture-health-evidence-2026-09-13.json) |
 | FR-28 | Authority | 06 | Missing：Verified/Confirmed/Observed/Inferred 的强制排序语义 | C-MEM | — | E-NONE |
 | FR-29 | Lifecycle/expiry | 06 | Missing：branch/task/TTL 自动到期语义 | C-MEM | — | E-NONE |
 | FR-30 | Recall engine | 07 | Partial：独立 Memory Recall；Rules/References 和消费缺口 | C-MEM/C-RPC | T-MEM/T-MCP | E-CORE/E-RPC |
@@ -146,7 +146,7 @@ R 编号对应 PRD 同号 D 约束及其 Goal；代码/测试覆盖的是“已�
 | FR-61 | Run Ledger | 13 | Partial：实际工具/审批/输出；model/usage/实际Memory消费不足 | C-AUT | T-APPROVAL | E-CORE |
 | FR-62 | Run Feedback | 14 | Missing：Good/Bad/reason 到未来 evidence 的完整路径 | C-AUT | — | E-NONE |
 | FR-63 | Workflow Health | 14 | Partial：实际 success/runtime 等；完整 unused/edit/token metrics不足 | C-AUT | T-SCHED | E-CORE |
-| FR-64 | Workflow Improve | 14 | Missing：真实 Health/Feedback/Failure→Workflow diff | C-AUT/C-IMP | — | E-NONE |
+| FR-64 | Workflow Improve | 14 | Partial：完整 timeout 观察→冻结提案→显式确认→新 ID 停用候选；不执行、不改原工作流。完整 Feedback/Failure 改进与桌面入口仍不足 | C-AUT/C-IMP | [Health 提案测试](../Tests/VelaCoreTests/WorkflowHealthProposalTests.swift)、[真实RPC](../scripts/test-workflow-health-proposal-rpc.py) | [本机增量证据](parity/session-capture-health-evidence-2026-09-13.json) |
 | FR-65 | Replay | 14 | Partial：冻结快照 dry replay；完整版本/外部差异可比性不足 | C-AUT | T-APPROVAL | E-CORE |
 | FR-66 | Scheduler | 14 | Partial：cron/start/session/git；quota_reset unavailable | C-LAB | T-SCHED | E-CORE |
 | FR-67 | Missed Schedule | 14 | Missing：休眠后 Skip/Run latest/Run all，默认 latest | C-LAB | — | E-NONE |

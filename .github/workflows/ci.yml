@@ -43,6 +43,8 @@ jobs:
           python3 scripts/test-model-improvement-rpc.py
           python3 scripts/test-ask-route-rpc.py
           python3 scripts/test-workflow-health-rpc.py
+          python3 scripts/test-workflow-health-proposal-rpc.py --binary .build/debug/vela --output output/parity/ci-health-proposal
+          python3 scripts/test-session-memory-capture-rpc.py --binary .build/debug/vela --output output/parity/ci-session-memory-capture.json
           python3 scripts/test-workflow-retry-rpc.py
           python3 scripts/test-rpc-lab-shutdown.py --binary .build/debug/vela --output output/parity/ci-rpc-lab-shutdown.json
           python3 scripts/test-automation-sigmask-rpc.py --binary .build/debug/vela --output output/parity/ci-automation-sigmask.json
@@ -127,6 +129,8 @@ jobs:
             output/parity/ci-workflow-replay.json
             output/parity/ci-rpc-lab-shutdown.json
             output/parity/ci-automation-sigmask.json
+            output/parity/ci-health-proposal/*.json
+            output/parity/ci-session-memory-capture.json
             output/parity/ci-knowledge-*/receipt.json
           if-no-files-found: ignore
           retention-days: 14

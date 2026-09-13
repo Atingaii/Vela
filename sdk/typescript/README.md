@@ -36,11 +36,13 @@ try {
 }
 ```
 
-`listProjects`, `registerProject`, `listMemories`, `recall`, `saveCandidate`, `saveCandidates`, `exportArchive`, `validateArchive`, and `importArchive` call real helper methods. Each read and write names a project either explicitly or through the client default. Candidate writes and archive imports do not activate memory. Review activation in Vela before expecting it in Recall. Local recall retains the capabilities of the selected helper; the SDK does not itself supply embeddings or remote memory.
+`listProjects`, `registerProject`, `listMemories`, `recall`, `saveCandidate`, `saveCandidates`, `prepareSessionCapture`, `captureSessionCandidate`, `exportArchive`, `validateArchive`, and `importArchive` call real helper methods. Each read and write names a project either explicitly or through the client default. Candidate writes and archive imports do not activate memory. Review activation in Vela before expecting it in Recall. Local recall retains the capabilities of the selected helper; the SDK does not itself supply embeddings or remote memory.
 
 Every method accepts final request options containing `timeoutMs` (1–120,000, default 15,000) and `signal: AbortSignal`. At most 32 requests are pending. A timeout, abort, protocol failure or output overflow closes the shared connection and terminates its owned process group. Other pending calls fail too. Explicit `close()` waits for helper termination. There is no automatic reconnect or request retry.
 
 `VelaError` exposes `code`, `requestId`, and `effectsUnknown`. A started mutation may have completed before a timeout, disconnect, cancellation, or core error; inspect the selected store before deciding what to do next. Cancellation is not proof of rollback or core cancellation. Raw helper stdout/stderr and error bodies are never included in exceptions. Output is bounded to a 2 MiB JSONL frame and 64 KiB stderr per connection.
+
+`prepareSessionCapture({sessionId, messageId, project?})` / `captureSessionCandidate({sessionId, messageId, sourceIdentity, expectedSourceHash, project?})` form a two-step local capture. Prepare returns Core-derived bounded source content and a fresh identity/hash. Capture accepts no caller content or provenance, rechecks both values, and creates only a review-required candidate observation. Replaying an unchanged source is idempotent; a stale source is rejected. Generic edits preserve capture evidence and label changed content as user-derived.
 
 `saveCandidates` validates its entire 1–100 item input before sending, then writes sequentially. It is **not atomic**. On the first failure, `VelaBulkError` exposes `completed`, `failedIndex`, `unattempted`, `skipped` (0), and the typed `cause`. No trailing write is attempted. If all-or-nothing local import is needed, use a valid Memory archive instead. The SDK never re-hashes or silently repairs an archive.
 
