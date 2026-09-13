@@ -3,6 +3,8 @@
 Run after swift build. No user stores, agent discovery, or actual agent commands.
 RSS samples bound this fixture's observed growth; they are not a full memory budget.
 """
+import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -12,7 +14,10 @@ import tempfile
 import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-BINARY = ROOT / '.build/debug/vela'
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--binary', type=pathlib.Path, default=ROOT / '.build/debug/vela',
+                    help='Use an explicitly selected, already built helper')
+BINARY = parser.parse_args().binary.resolve()
 LIMIT = 2_000_000
 RSS_ALLOWANCE_KIB = 32 * 1024
 assert BINARY.is_file(), 'Run swift build first'
@@ -25,15 +30,27 @@ class Endpoint:
         self.mode = mode
         self.pending = bytearray()
         self.process = subprocess.Popen(
-            [str(BINARY), mode, '--home', str(home), '--no-watch'],
+            [str(BINARY), mode, '--home', str(home), '--no-watch', '--no-schedule'],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             bufsize=0, env=env)
 
-    def frame(self, identifier, **params):
+    def frame(self, identifier, *, note=None, padding=None):
+        params = {}
+        if note is not None:
+            params['note'] = note
+        if padding is not None:
+            params['padding'] = padding
         value = {'id': identifier, 'method': 'ping' if self.mode == 'mcp' else 'system.version', 'params': params}
         if self.mode == 'mcp':
             value['jsonrpc'] = '2.0'
-        return json.dumps(value, ensure_ascii=False, separators=(',', ':')).encode()
+            # Ping accepts only protocol metadata, which has its own small bound.
+            # Use legal JSON whitespace for frame-sized padding, not tool args or
+            # oversized metadata. Ping is valid before MCP initialization.
+            value['params'] = {'_meta': {'ai.vela/framing': {'note': note}}} if note is not None else {}
+        encoded = json.dumps(value, ensure_ascii=False, separators=(',', ':')).encode()
+        if self.mode == 'mcp' and padding:
+            encoded = encoded[:-1] + b' ' * len(padding.encode()) + encoded[-1:]
+        return encoded
 
     def write(self, data):
         remaining = memoryview(data)
@@ -155,4 +172,14 @@ with tempfile.TemporaryDirectory(prefix='vela-rpc-limits-') as temporary:
         finally:
             endpoint.cleanup()
 
-print(json.dumps({'status': 'passed', 'byteLimit': LIMIT, 'measurements': measurements}, indent=2))
+print(json.dumps({
+    'status': 'passed', 'byteLimit': LIMIT,
+    'binary': str(BINARY), 'binarySHA256': hashlib.sha256(BINARY.read_bytes()).hexdigest(),
+    'scriptSHA256': hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),
+    'scenariosPerMode': [
+        'split UTF-8, coalesced frames, malformed recovery, exact-limit CRLF and bounded EOF',
+        'unclosed oversized frame, 64 MiB drain, single rejection, RSS bound and recovery',
+        'EOF while draining without a duplicate rejection',
+    ],
+    'measurements': measurements,
+}, indent=2))

@@ -1,6 +1,6 @@
 # Model memory middleware contract / 模型记忆中间件合同
 
-状态：`sdk/ai` 的本地 TypeScript AI SDK v4 已实现，安装后的 17 项真实宿主测试、12 项基础 SDK 兼容测试通过；Python Responses 同步/异步/流式已通过 30 项集成、12 项基础 SDK 兼容和 1 项旧 wheel 兼容；LangChain 与 reviewed remote analyze 尚待实现。精确证据见仓库 `sdk/ai/VERIFICATION.md`。架构决策见 [ADR 0026](../adr/0026-optional-model-memory-middleware.md)。本合同只规定非 UI 接口，不要求或代表客户端 UI 已完成。
+状态：`sdk/ai` 的本地 TypeScript AI SDK v4 已实现，安装后的 17 项真实宿主测试、12 项基础 SDK 兼容测试通过；Python Responses 同步/异步/流式已通过 30 项集成、12 项基础 SDK 兼容和 1 项旧 wheel 兼容；LangChain ChatOpenAI 路线已通过 36 项宿主、13 项基础 SDK 和 1 项旧包兼容；其它 LangChain provider/动态图及 reviewed remote analyze 仍待独立验收。精确证据见仓库 `sdk/ai/VERIFICATION.md`。架构决策见 [ADR 0026](../adr/0026-optional-model-memory-middleware.md)。本合同只规定非 UI 接口，不要求或代表客户端 UI 已完成。
 
 ## Fixed compatibility targets / 固定兼容基线
 
@@ -14,7 +14,7 @@
 
 ## Binding and call context / 固定绑定与单次上下文
 
-公开 TypeScript 入口 `createVelaMemoryMiddleware(binding)` 返回 `{forTurn, close}`；`forTurn(context)` 返回 `{middleware, receipt, settled, close}`，供 `wrapLanguageModel` 使用，明确 session/turn 身份。不把 scope 或审批状态放进可被模型生成的 tool 参数。Python 已提供 `VelaResponses` / `AsyncVelaResponses`，以 `MemoryBinding` 和显式 `for_turn` 固定上下文。create 保留官方 Response，stream 逐项转发官方事件。LangChain 公共包装仍待下一切片，不修改原始模型对象。
+公开 TypeScript 入口 `createVelaMemoryMiddleware(binding)` 返回 `{forTurn, close}`；`forTurn(context)` 返回 `{middleware, receipt, settled, close}`，供 `wrapLanguageModel` 使用，明确 session/turn 身份。不把 scope 或审批状态放进可被模型生成的 tool 参数。Python 已提供 `VelaResponses` / `AsyncVelaResponses`，以 `MemoryBinding` 和显式 `for_turn` 固定上下文。create 保留官方 Response，stream 逐项转发官方事件。LangChain 已提供 VelaLangChain / MemoryRunnable，使用公开 ChatOpenAI 请求快照与 Runnable 组合，不修改原始模型对象。
 
 当前 TypeScript binding：project/namespace/helperPath/storeHome/modelRecipient 与 `acknowledgeMemoryDisclosure: true` 必填，其余下表字段可选并有默认值。
 
@@ -72,12 +72,12 @@ type MemoryReceipt = {
 
 ## Package acceptance matrix / 安装验收矩阵
 
-TypeScript 当前 17 项真实宿主安装测试已通过；Python Responses 已单独完成安装验收；LangChain 和远端 analyze 各行仍待实现/验收。单独 optional-SDK job，不作为默认 Mac runtime 依赖。测试使用固定新 helper SHA、临时 stores/venv/Node consumer、合成模型凭据、loopback URL；不读取真实用户 home/config/key，不连接外部模型、Walrus 或 faucet。
+TypeScript 当前 17 项真实宿主安装测试已通过；Python Responses 已单独完成安装验收；LangChain ChatOpenAI 四入口已完成独立安装验收；其它 provider 与远端 analyze 仍待验收。单独 optional-SDK job，不作为默认 Mac runtime 依赖。测试使用固定新 helper SHA、临时 stores/venv/Node consumer、合成模型凭据、loopback URL；不读取真实用户 home/config/key，不连接外部模型、Walrus 或 faucet。
 
 | Scenario | Actual host path | Expected evidence |
 | --- | --- | --- |
-| Actual injection and preservation | AI SDK generateText, OpenAI Responses create; LangChain invoke pending | loopback request body contains same namespace active memory; tool schema/options/attachments/order unchanged |
-| Streaming completion | AI SDK streamText, OpenAI Responses sync/async stream; LangChain stream/astream pending | original chunks/usage/finish remain available; bounded memory; candidate appears only after terminal consumption |
+| Actual injection and preservation | AI SDK generateText, OpenAI Responses create; LangChain invoke/ainvoke | loopback request body contains same namespace active memory; tool schema/options/attachments/order unchanged |
+| Streaming completion | AI SDK streamText, OpenAI Responses sync/async stream; LangChain stream/astream | original chunks/usage/finish remain available; bounded memory; candidate appears only after terminal consumption |
 | Capturing disabled | every host, default configuration | Core has no new candidate, no remote callback/upload |
 | Candidate and replay | successful nonstream/stream, repeated explicit turn ID | candidate-only original user text; deterministic ID, prior review retained |
 | Failure/cancel/early close | actual provider error and partial SSE, client abort and iterator break | no auto capture; resources close; receipt settles, model outcome not retried by wrapper |
@@ -92,7 +92,7 @@ TypeScript 当前 17 项真实宿主安装测试已通过；Python Responses 已
 
 ## English summary
 
-The local TypeScript AI SDK v4 package is implemented and has passed 17 real installed-host integration tests plus 12 base SDK compatibility tests; Python Responses adds 30 installed integration tests, 12 base SDK tests and one legacy-wheel test. LangChain and reviewed remote analyze remain planned. Each call binds explicit project/namespace and model recipients, preserves the original model request, injects bounded filtered references, and reports recall, generation and capture separately. Capture defaults off; successful local capture creates candidates only, while remote analysis requires an exact reviewed callback. Public framework methods, actual installed packages, synthetic loopback model requests, abort/resource behavior and scope-negative cases are required acceptance.
+The local TypeScript AI SDK v4 package is implemented and has passed 17 real installed-host integration tests plus 12 base SDK compatibility tests; Python Responses adds 30 installed integration tests, 12 base SDK tests and one legacy-wheel test. LangChain ChatOpenAI adds 36 installed host tests, 13 base SDK tests and one retained-wheel case; other providers/dynamic routes and reviewed remote analyze remain planned. Each call binds explicit project/namespace and model recipients, preserves the original model request, injects bounded filtered references, and reports recall, generation and capture separately. Capture defaults off; successful local capture creates candidates only, while remote analysis requires an exact reviewed callback. Public framework methods, actual installed packages, synthetic loopback model requests, abort/resource behavior and scope-negative cases are required acceptance.
 
 ## Python Responses accepted boundary / Python Responses 已验收边界
 
@@ -101,3 +101,5 @@ The local TypeScript AI SDK v4 package is implemented and has passed 17 real ins
 同步取消不承诺 headers 前立即强制中断；采用 SDK timeout 和显式 Event/close，关闭已有响应但保留共享 client。等待结束与取消请求分开，以 settled 回执为准。异步 task cancellation 传播，完成生成后捕获期间被取消仍报告可能已提交的副作用。两者不增加模型或记忆重试。纯本地原文候选捕获不等于远端 analyze；本轮合成协议验收不等于模型质量或完整产品验收。
 
 Python Responses 接收端冻结补充：每次调用在任何应用 filter 前创建公开 with_options 的 request client，只用该副本发送固定 model/base_url。应用仍拥有共享 HTTP transport，copy 不被 close；自定义网络转发/重定向不被冒称已认证。receipt.attempts 计入已接受的 wrapper 尝试，model_calls 只计 SDK dispatch，network_requests=null 表示不观测 SDK 内部重试/网络到达。capture 请求发出后收到畸形成功 ack 一律 uncertain，保留 effects_unknown，不自动重试。
+
+LangChain：`VelaLangChain(model,binding).for_turn(...)` 返回标准 MemoryRunnable；四入口使用模型/已配置URL/default headers/query/工具参数的独立快照。真实根client配置与模型字段不一致时拒绝，动态key不被固化。单turn批量要求先分配独立turn，不能部分运行。候选来源精确为langchain，原混合文本块顺序在query/wire/capture一致。版本、v1负例与v2最终wheel/helper摘要见sdk/python-langchain/VERIFICATION.md；这些是独立证据，不回写早期Responses检查点。

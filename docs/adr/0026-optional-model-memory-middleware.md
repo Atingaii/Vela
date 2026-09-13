@@ -1,6 +1,6 @@
 # ADR 0026: Optional model memory middleware / 可选模型记忆中间件
 
-- Status: Accepted for local TypeScript AI SDK v4 and Python Responses; LangChain and reviewed remote analyze remain proposed
+- Status: Accepted for local TypeScript AI SDK v4, Python Responses and the tested LangChain ChatOpenAI route; reviewed remote analyze remains proposed
 - Date: 2026-09-13
 - Scope: Optional TypeScript/Python packages, model input and candidate capture boundary
 
@@ -50,3 +50,21 @@ Python 在任何记忆 filter 前核对公开 client.base_url，并通过官方 
 The implemented optional TypeScript package uses public AI SDK v4 middleware; Python OpenAI Responses composition is also implemented, while LangChain remains proposed, with pinned host versions verified before broader compatibility claims. Explicit scope and model recipients, extensible text filters, bounded untrusted framing, default-off candidate capture, terminal-stream handling and reviewed remote analysis preserve Vela's memory boundary. Existing model objects are never monkeypatched. Installed TypeScript package tests exercise real AI SDK requests to a synthetic loopback provider and actual helper reads/candidate writes. LangChain, model quality and remote encrypted persistence require separate implementation and evidence.
 
 独立消费者复核要求：预检尝试与 SDK dispatch 分开计数，网络请求/重试次数未知时为 null；已提交 capture 后若成功 ack 的语义/ID/namespace 结构无法验证，结果必须为 uncertain，不能报告确定失败且无副作用。原 v4 包的两个 endpoint 负例、零请求误计数及已 commit 畸形 ack 负例均保留，修后按真实安装包重新验收。
+
+### LangChain ChatOpenAI request snapshots (accepted local slice)
+
+The selected entry is `langchain-core==1.6.3`, with the separately installed optional `langchain-openai==1.6.2` and `openai==3.13.0` provider adapter. The base optional package only depends on LangChain Core and the local Vela SDK; no Python dependency enters the default Mac app. Its public `MemoryRunnable` implements invoke/ainvoke/stream/astream and composes with a prompt/parser in LCEL.
+
+A plain recipient declaration or one early configuration check cannot freeze a mutable ChatModel. The supported adapter therefore accepts the exact official ChatOpenAI class and its ordinary public RunnableBinding tool/config wrappers. Before memory callbacks it copies JSON call/tool arguments and public model settings, creates request-specific official OpenAI sync/async clients with explicit base_url, and builds a public ChatOpenAI.model_copy with those fixed clients/model settings. The copy shares the application's HTTP transports; it must not close them. Actual dispatch only uses the snapshot. Per-request timeout is bounded after memory preparation. Dynamic configurable/factory/opaque graphs, custom model subclasses, unsupported provider routes and Responses routing are rejected until dedicated adapters receive equivalent consumer validation. The current explicit provider route is Chat Completions through ChatOpenAI; arbitrary provider coverage is not claimed.
+
+The namespace and candidate source `langchain` use the same Core review/privacy/idempotence guarantees as the earlier integrations. Capture defaults off. Terminal success requires non-empty AI text, finish_reason stop, no tool/refusal/error, and streaming EOF. Wrapper attempts, LangChain dispatches and unobserved network request counts remain separate. Semantically invalid success acknowledgements after mutation dispatch are uncertain; no automatic write retry is allowed. Actual installed provider/HTTP/SSE/helper tests must cover both shared-client endpoint mutation and bound argument mutation, zero-call preflight rejection, committed malformed acknowledgements, namespace/privacy, cancellation, concurrency and stream ownership before this slice is accepted.
+
+中文：该选择优先把官方标准宿主的一个明确路径完成可复验闭环。当前不开放无法锁定接收端的任意 Runnable，也不以 resolver/metadata 声明替代请求快照。额外 provider 通过可选依赖安装，不增加默认 Mac runtime；外部模型质量与远端记忆仍是独立验收项。
+
+LangChain consumer review refinement: public ChatOpenAI header/query fields alone do not freeze the root OpenAI client mappings. The adapter must explicitly set copied default mappings on request clients and reject inconsistent root configuration through public properties; generated authentication must remain dynamic when supplied by a callable key provider. Mixed text blocks must preserve order both in model input and in recall/candidate provenance. These are installed four-entry-point acceptance cases, not assumptions inferred from a successful build.
+
+LangChain local acceptance: 36 installed ChatOpenAI/Runnable HTTP/SSE cases, 13 installed base SDK cases, one genuine old-wheel compatibility case and 7 Core portable methods passed on independently frozen sources. The base-only package import was verified without OpenAI/provider dependencies. Consumer v1 defects and fixed v2 hashes remain separately recorded in sdk/python-langchain/VERIFICATION.md. Only this explicit provider route is accepted; opaque routing, other provider adapters and remote-memory parity remain separate work.
+
+### LangChain acceptance update
+
+The standard ChatOpenAI Chat Completions route described above is now implemented and verified through installed v2 artifacts: 36 host methods, 13 base SDK methods and one actual retained old-wheel case. Independent review closed the v1 mixed-content ordering and root header/query mutation findings. All earlier references to LangChain as the next slice describe the decision sequence; current acceptance is limited to this tested route. Other providers, opaque graphs, remote analysis and real model quality remain open. See [the package verification record](../../sdk/python-langchain/VERIFICATION.md).

@@ -19,8 +19,8 @@
 | 归档与 SDK | 有界 JSON 导出/校验/候选导入、跨项目身份与幂等；可安装 TypeScript/Python 本地 SDK，含语义接口 | 归档为明文，排除 private/global。SDK 安装产物已隔离验收；本地归档不等于加密跨设备同步 |
 | 可选 Walrus 后端 | 独立TypeScript包、固定官方SDK、显式profile/隔离worker、owner交易准备/签名核验、端侧manifest与原文恢复/候选构造 | 真实安装包、公开兼容性与testnet只读交易模拟已通过；官方faucet限流，测试地址无gas。真实加密写入/恢复与owner/delegate链上提交仍待验证；模拟不是链上成功，不默认给桌面增加Node |
 | OpenClaw集成 | 可选独立插件、宿主agent/workspace映射、namespace召回、候选捕获、注入框与持久操作日志 | 真实隔离宿主加载/CLI/hook与完整会话通过；模型响应使用本地合成provider。两条新记忆均为候选，不等于真实模型采纳或远端加密写入。自动捕获默认关闭，远端提取另需明确明文接收与预算 |
-| 模型记忆中间件 | 独立可选TypeScript AI SDK v4与Python Responses包；精确scope召回、受限注入、完整终态才捕获候选、取消/不确定回执 | AI SDK安装17项及基础TS12项通过；Python Responses修后安装30项、基础SDK12项与旧wheel兼容1项通过；独立四入口复核通过。均为真实SDK与loopbackHTTP/SSE，不代表真实模型质量；LangChain与remote analyze仍待完成 |
-| 本地 MCP | 强类型 stdio、四协议版本协商、15只读/7显式贡献工具、项目与fresh-source隔离、可见正文分页及候选批量写入 | 17项定点与四版本22工具实际消费者通过；Root独立完整Core388项portable及再次stdio通过，尚待该检查点真实XCTest。远端HTTP/OAuth及完整Agent客户端接入另验 |
+| 模型记忆中间件 | 独立可选TypeScript AI SDK v4、Python Responses与LangChain ChatOpenAI包；精确scope召回、受限注入、完整终态才捕获候选、取消/不确定回执 | AI SDK安装17项及基础TS12项通过；Python Responses修后安装30项、基础SDK12项与旧wheel兼容1项通过；独立四入口复核通过。LangChain v2安装36项、基础SDK13项和旧wheel1项通过，独立7方法与12矩阵格复核通过。均为真实SDK与loopbackHTTP/SSE，不代表真实模型质量；其他LangChain providers与remote analyze仍待完成 |
+| 本地 MCP | 强类型 stdio、四协议版本协商、15只读/7显式贡献工具、项目与fresh-source隔离、可见正文分页及候选批量写入 | 17项定点与四版本22工具实际消费者通过；Root独立完整Core388项portable及再次stdio通过，e043def正式CI中388项真实XCTest已通过，旧framing测试的非法ping参数正在适配，整次CI未绿。远端HTTP/OAuth及完整Agent客户端接入另验 |
 | Checkpoint / Reuse | 用户工程记录及真实 Git 快照；中立交接；项目 Codex SessionStart Hook 的预览、Apply/Undo 与提供上下文收据 | 原生 Session Transfer、更多官方 lifecycle hooks 和完整真实下一会话闭环仍需验证。收据证明已提供，不证明模型遵守 |
 | Workflow Context | 已选择 Guideline、Active Memory、只读 Git/Library/stdin/literal 输入，冻结来源/hash；显式 `{{vela.prompt}}` 参数实际交给 Agent | 旧 raw argv 不被静默改写。记录 prompt 消费路径不等于证明模型采纳约束 |
 | 自然语言规划 | 明确选择 Codex 程序/模型/effort，冻结请求，经审批生成问题或默认停用草案，再显式保存 | 真实提供方已产出有效草案；规划工具目录仍需拓展，与自主多轮工具执行是不同能力 |

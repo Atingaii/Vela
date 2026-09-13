@@ -149,6 +149,10 @@ jobs:
         env:
           VELA_PYTHON_AI_TEST_OUTPUT: ${{ github.workspace }}/output/parity/ci-python-ai
         run: python3 scripts/test-python-ai-integrations.py
+      - name: Verify installed LangChain wrappers with real helper and local HTTP
+        env:
+          VELA_LANGCHAIN_TEST_OUTPUT: ${{ github.workspace }}/output/parity/ci-langchain
+        run: python3 scripts/test-langchain-integrations.py
       - name: Install the pinned isolated OpenClaw host
         run: npm install --ignore-scripts --omit=optional --no-audit --no-fund --prefix .task-tmp/ci-openclaw openclaw@2026.9.4
       - name: Verify real host loading, CLI and hooks with local fixtures
@@ -170,5 +174,7 @@ jobs:
             output/parity/ci-ai/*.log
             output/parity/ci-python-ai/*.json
             output/parity/ci-python-ai/*.log
+            output/parity/ci-langchain/*.json
+            output/parity/ci-langchain/*.log
           if-no-files-found: ignore
           retention-days: 14

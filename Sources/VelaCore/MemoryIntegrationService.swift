@@ -3,7 +3,7 @@ import CoreFoundation
 
 /// Local process API: namespace selection is not authentication of an external host.
 final class MemoryIntegrationService {
-    private let integrations = ["openclaw", "ai-sdk-v4", "openai-responses"]
+    private let integrations = ["openclaw", "ai-sdk-v4", "openai-responses", "langchain"]
     private let store: VelaStore
     init(store: VelaStore) { self.store = store }
     private func boundary(_ params: JSON, allowed: Set<String>) throws -> (String,String) {

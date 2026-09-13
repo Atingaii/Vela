@@ -950,6 +950,30 @@
         "output/parity/mcp-checkpoint-stdio.json": "9ccd5d07c268a39087421a4ba5d97cd0a84d0d033604c5d7b1175f1eefc3c0f3"
       },
       "qualification": "Separate MCP-only overlay; excludes ongoing LangChain and UI. Full product acceptance remains open."
+    },
+    {
+      "id": "ci-e043def-mcp",
+      "commit": "e043def3c6425df822a75afe6264aae558c3d71c",
+      "runId": 34747553639,
+      "realXCTestMethods": 388,
+      "failures": 0,
+      "sdkJob": "passed",
+      "macOSJob": "failed_legacy_ping_framing_fixture",
+      "renderer": "skipped",
+      "package": "skipped",
+      "logSHA256": "6c2b4a029f0dfa637ec1d349268656ba78d8b4f945b5ac12288232864cd672c4"
+    },
+    {
+      "id": "langchain-v2",
+      "wheelSHA256": "3821bf1358fa3aaff5c41a9e18a89ce7a3431000560f71231e8937abb278c8fd",
+      "installedMethods": 36,
+      "baseSDKMethods": 13,
+      "actualHistoricalWheelCases": 1,
+      "independentFocusedMethods": 7,
+      "independentMatrixCases": 12,
+      "independentReceiptSHA256": "9e96e0259cab18dadda88b0d50faa8a8af5c49a17a55a7d261817196dfe53054",
+      "realModelCalls": 0,
+      "qualification": "Optional ChatOpenAI Chat Completions route; v1 ordering/default-mapping defects fixed; not complete Walrus parity or remote network identity."
     }
   ]
 }

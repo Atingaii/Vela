@@ -46,7 +46,7 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 | `MemoryArchiveService.swift` / `sdk/typescript` / `sdk/python` | 明文可移植候选归档与实际可安装本地 SDK；[ADR 0007](adr/0007-portable-memory-archives.md)、[ADR 0010](adr/0010-local-client-sdks.md) |
 | `sdk/walrus` | 固定官方依赖的可选远端 adapter，公开接口、受限 worker、冻结 profile 和身份/网络边界；[ADR 0017](adr/0017-optional-walrus-adapter.md) |
 | `MemoryIntegrationService.swift` / `sdk/openclaw` | 显式宿主agent/workspace→namespace、权限复核、受限上下文与候选捕获、操作去重；[ADR 0023](adr/0023-scoped-openclaw-memory-integration.md) |
-| `sdk/ai` / `sdk/python-ai` | 按需安装的 AI SDK v4 与 Python Responses 适配；冻结调用配置、有界召回、完整终态后的可选候选捕获和不确定回执，不进入默认 Mac runtime；[ADR 0026](adr/0026-optional-model-memory-middleware.md) |
+| `sdk/ai` / `sdk/python-ai` / `sdk/python-langchain` | 按需安装的 AI SDK v4、Python Responses 与 LangChain ChatOpenAI 适配；冻结调用配置、有界召回、完整终态后的可选候选捕获和不确定回执，不进入默认 Mac runtime；[ADR 0026](adr/0026-optional-model-memory-middleware.md) |
 | `ContextService.swift` / `WorkflowContext.swift` | Guideline、证据贡献、Workflow 输入与真正送入 argv 的冻结 prompt；[ADR 0008](adr/0008-workflow-context-execution.md) |
 | `AutomationService.swift` / `WorkflowComposition.swift` | Workflow 定义/版本、逐工具审批与账本、冻结依赖图、子运行、恢复、根产物；[ADR 0015](adr/0015-workflow-composition.md) |
 | `WorkflowManagement.swift` | 逐资产验证、克隆、审阅后启停/归档/恢复、依赖和活跃运行保护；[ADR 0019](adr/0019-reviewed-workflow-management.md) |

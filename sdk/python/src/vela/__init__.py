@@ -16,8 +16,8 @@ from typing import Any, Literal, TypedDict
 
 __all__ = ["VelaClient", "AsyncVelaClient", "LocalTransport", "CandidateInput", "SemanticLanguage", "ScoringWeights", "VelaError", "VelaBulkError", "VelaCancelledError", "MemoryIntegration", "MEMORY_INTEGRATIONS"]
 
-MemoryIntegration = Literal["openclaw", "openai-responses"]
-MEMORY_INTEGRATIONS: frozenset[str] = frozenset({"openclaw", "openai-responses"})
+MemoryIntegration = Literal["openclaw", "openai-responses", "langchain"]
+MEMORY_INTEGRATIONS: frozenset[str] = frozenset({"openclaw", "openai-responses", "langchain"})
 
 SemanticLanguage = Literal["en", "zh-Hans"]
 
