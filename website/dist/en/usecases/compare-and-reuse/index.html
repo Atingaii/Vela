@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compare &amp; Reuse: Retain Evidence and Uncertainty — Vela Use Cases</title>
+  <meta name="description" content="Run baseline and candidate comparisons in paired, isolated Git worktrees, evaluate with an independent verifier, and safely promote or undo proven configurations.">
+  <link rel="icon" href="../../../assets/mark.svg" type="image/svg+xml">
+  <link rel="canonical" href="https://vela-engineering.zzzsssaa.chatgpt.site/en/usecases/compare-and-reuse/">
+  <link rel="alternate" hreflang="zh-CN" href="https://vela-engineering.zzzsssaa.chatgpt.site/usecases/compare-and-reuse/">
+  <link rel="alternate" hreflang="en" href="https://vela-engineering.zzzsssaa.chatgpt.site/en/usecases/compare-and-reuse/">
+  <link rel="alternate" hreflang="x-default" href="https://vela-engineering.zzzsssaa.chatgpt.site/usecases/compare-and-reuse/">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="../../../assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../../../assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="../../../styles.css">
+
+  <!-- Immediate theme application to prevent flash -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Site Header (62px height, x70-1180 alignment) -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/en/" class="brand-link" aria-label="Vela Home">
+          <img src="../../../assets/mark.svg" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="Main Navigation">
+          <a href="/en/usecases/" class="nav-link active" aria-current="page">Use Cases</a>
+          <a href="/en/comparisons/" class="nav-link">Comparisons</a>
+        </nav>
+      </div>
+
+      <div class="header-actions">
+        <a href="/en/docs.html" class="header-docs-link">Docs</a>
+
+        <!-- Theme Toggle Button -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="Toggle light/dark theme" title="Toggle light/dark theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- Language Switcher -->
+        <a href="/usecases/compare-and-reuse/" class="header-lang-link" hreflang="zh-CN" lang="zh-CN" aria-label="切换至简体中文">简体中文</a>
+
+        <!-- GitHub Repository Button -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub repository" title="GitHub repository">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="Mobile menu">
+      <a href="/en/usecases/" class="nav-link active" aria-current="page">Use Cases</a>
+      <a href="/en/comparisons/" class="nav-link">Comparisons</a>
+      <a href="/en/docs.html" class="nav-link">Docs</a>
+      <a href="/en/releases.html" class="nav-link">Releases</a>
+      <a href="/en/privacy.html" class="nav-link">Privacy</a>
+      <a href="/usecases/compare-and-reuse/" class="nav-link lang-switch-link" hreflang="zh-CN" lang="zh-CN">简体中文</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub Repo ↗</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="usecases-hero">
+      <div class="container">
+        <!-- Breadcrumb Navigation -->
+        <div class="breadcrumb-nav">
+          <a href="/en/usecases/" class="breadcrumb-link">← Back to all use cases</a>
+        </div>
+
+        <!-- Distinct Version Warning Banner -->
+        <div style="background-color: var(--badge-dev-bg); border: 1px solid var(--badge-dev-border); color: var(--badge-dev-text); padding: 12px 18px; border-radius: 8px; font-size: 14px; font-weight: 500; margin-bottom: 24px; line-height: 1.5;">
+          <strong>Development Branch Feature Notice:</strong> The Agent Lab paired evaluation, dual Git worktree isolation, SessionStart hooks, and SafeApply/Undo features presented on this page are in the development branch and are not yet packaged in the released <code>0.1.0-preview.2</code> installer.
+        </div>
+
+        <div class="usecase-detail-header">
+          <div class="usecase-meta-badges">
+            <span class="version-badge-dev">Development Branch</span>
+            <span class="tag-badge">Agent Lab Paired Worktrees</span>
+            <span class="tag-badge">Independent Verifier</span>
+            <span class="tag-badge">SafeApply &amp; Undo</span>
+          </div>
+          <h1 class="usecase-h1">Compare &amp; Reuse: Retain Evidence and Uncertainty</h1>
+          <p class="usecase-problem-lead">
+            <strong>The Engineer's Dilemma:</strong> After adjusting system rules, engineering constraints, or context configurations, a model's performance on a single prompt does not prove global optimization. Engineering teams lack systematic side-by-side experiments, often mistaking random variance for capability jumps or prematurely applying unverified prompts that pollute project conventions.
+          </p>
+        </div>
+
+        <!-- Step-by-Step Flow -->
+        <div class="step-flow">
+          <div class="step-flow-item">
+            <div class="step-flow-num">01</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">Enter Lab from an Auditable Suggestion</div>
+              <div class="step-flow-desc">
+                Trigger experiments from configuration suggestions derived from real session history or specific memory treatments. Explicitly verify the intent behind changes before spinning up evaluations to avoid baseless comparisons.
+              </div>
+            </div>
+          </div>
+
+          <div class="step-flow-item">
+            <div class="step-flow-num">02</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">Freeze Paired Parameters &amp; Isolate Git Worktrees</div>
+              <div class="step-flow-desc">
+                Simultaneously freeze identical task prompts, model version requests, and starting Git commits. The system allocates completely independent Git worktree sandboxes for Baseline and Candidate runs, strictly restricting verification and output scopes. Pending approval never implies execution.
+              </div>
+            </div>
+          </div>
+
+          <div class="step-flow-item">
+            <div class="step-flow-num">03</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">Independent Verifier: Treating Inconclusive as Normal</div>
+              <div class="step-flow-desc">
+                Execute genuine project verification scripts and test suites. The system strictly delineates three outcomes based on real test outputs: <code>Improved</code> (proven enhancement), <code>Worse</code> (proven degradation), and <code>Inconclusive</code> (insufficient evidence or ambiguous outcome). No fabricated 100% win-rate curves.
+              </div>
+            </div>
+          </div>
+
+          <div class="step-flow-item">
+            <div class="step-flow-num">04</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">Strictly Scoped Explicit Promotion (Memory-only)</div>
+              <div class="step-flow-desc">
+                In the development branch, only memory candidates backed by clear, positive empirical evidence can be manually promoted by engineers. Candidates with missing metrics, conflicting evidence, or inconclusive verdicts are strictly blocked from automatic activation.
+              </div>
+            </div>
+          </div>
+
+          <div class="step-flow-item">
+            <div class="step-flow-num">05</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">Hook Read-Only Preview, Confirmed Apply &amp; Safe Undo</div>
+              <div class="step-flow-desc">
+                Generate deterministic SessionStart hook drafts for read-only inspection. Upon manual approval, SafeApply writes to designated paths (such as <code>.codex/hooks</code>), requiring explicit review and trust in Codex. Every write retains a hashed snapshot, supporting lossless Undo rollbacks.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real Screenshot Frame -->
+        <div class="product-screenshot-frame" style="margin-bottom: 40px;">
+          <img
+            src="../../../assets/vela-workspace.png"
+            alt="Vela development branch workspace interface: showing experimental comparisons, configuration suggestions, lifecycle transitions, and two-way verification panels"
+            width="1250"
+            height="800"
+            loading="lazy"
+            class="product-screenshot-img"
+          >
+          <div class="screenshot-caption">
+            <span>macOS native development build interface (commit 91d34e2) · Synthetic data · Not included in the preview.2 installer</span>
+          </div>
+        </div>
+
+        <!-- Limitations & Boundaries Callout -->
+        <div class="callout-limits">
+          <div class="callout-limits-title">Boundaries &amp; Known Limitations</div>
+          <div class="callout-limits-content">
+            <ul style="padding-left: 18px; margin: 0;">
+              <li><strong>Development Branch Exclusive:</strong> Agent Lab paired worktree evaluations, independent verifier verdicts, SessionStart hooks, and SafeApply/Undo exist in the repository source code and are not packaged in the released <code>0.1.0-preview.2</code> installer.</li>
+              <li><strong>Inconclusive is an Inherent Reality:</strong> Because LLM outputs inherently exhibit stochastic variance, encountering "Inconclusive" verdicts is common and expected. Vela never fabricates win rates for demonstration appeal.</li>
+              <li><strong>Active Configuration Does Not Guarantee Adherence:</strong> Even when rules are injected via hooks or trusted in Codex, downstream coding agents may still hallucinate or ignore instructions on complex tasks. Effectiveness must always be checked against actual evidence.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Bottom CTA Bar -->
+        <div class="usecase-cta-bar">
+          <a href="/en/docs.html#lab-reuse" class="usecase-next-doc-link">Next: Read Agent Lab &amp; Reuse Documentation →</a>
+          <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" class="btn btn-outline" target="_blank" rel="noopener noreferrer">
+            View Source Status (GitHub) →
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="/en/usecases/" class="footer-link">Use Cases</a>
+        <a href="/en/comparisons/" class="footer-link">Comparisons</a>
+        <a href="/en/docs.html" class="footer-link">Documentation</a>
+        <a href="/en/releases.html" class="footer-link">Releases</a>
+        <a href="/en/privacy.html" class="footer-link">Privacy</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">Security Advisory</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../../../site.js"></script>
+</body>
+</html>

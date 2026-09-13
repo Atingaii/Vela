@@ -28,12 +28,16 @@
     return 'light'; // Default LIGHT as strictly specified in brief
   }
 
+  const isEn = (document.documentElement.lang || '').toLowerCase().startsWith('en');
+
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
     themeToggleButtons.forEach(btn => {
       btn.innerHTML = theme === 'dark' ? SUN_ICON : MOON_ICON;
-      const label = theme === 'dark' ? '切换为浅色模式' : '切换为深色模式';
+      const label = theme === 'dark'
+        ? (isEn ? 'Switch to light mode' : '切换为浅色模式')
+        : (isEn ? 'Switch to dark mode' : '切换为深色模式');
       btn.setAttribute('aria-label', label);
       btn.setAttribute('title', label);
     });
@@ -186,14 +190,14 @@
         copyTextToClipboard(text, () => {
           btn.classList.add('copied');
           btn.setAttribute('aria-live', 'polite');
-          btn.textContent = '已复制';
+          btn.textContent = isEn ? 'Copied' : '已复制';
 
           setTimeout(() => {
             btn.classList.remove('copied');
             btn.innerHTML = originalHtml;
           }, 2000);
         }, () => {
-          btn.textContent = '复制失败';
+          btn.textContent = isEn ? 'Failed to copy' : '复制失败';
           setTimeout(() => {
             btn.innerHTML = originalHtml;
           }, 2000);
@@ -211,7 +215,7 @@
     function openToc() {
       toggle.setAttribute('aria-expanded', 'true');
       const hint = toggle.querySelector('.docs-toc-toggle-hint');
-      if (hint) hint.textContent = '收起 ▴';
+      if (hint) hint.textContent = isEn ? 'Collapse ▴' : '收起 ▴';
       const firstLink = content.querySelector('a');
       if (firstLink) {
         firstLink.focus();
@@ -221,7 +225,7 @@
     function closeToc(restoreFocus) {
       toggle.setAttribute('aria-expanded', 'false');
       const hint = toggle.querySelector('.docs-toc-toggle-hint');
-      if (hint) hint.textContent = '展开 ▾';
+      if (hint) hint.textContent = isEn ? 'Expand ▾' : '展开 ▾';
       if (restoreFocus) {
         toggle.focus();
       }
@@ -340,10 +344,20 @@
 
         // Update localized live status text
         if (statusEl) {
-          statusEl.textContent = `显示 ${visibleCount} / 4 个场景`;
+          statusEl.textContent = isEn
+            ? `Showing ${visibleCount} of 4 scenarios`
+            : `显示 ${visibleCount} / 4 个场景`;
         }
       });
     });
+  }
+
+  // Harmless language preference persistence (does not force-redirect shared URLs)
+  function initLangPersistence() {
+    try {
+      const lang = isEn ? 'en' : 'zh-CN';
+      localStorage.setItem('vela-lang', lang);
+    } catch (e) {}
   }
 
   // Initialize on DOM Ready
@@ -355,6 +369,7 @@
       initDocsToc();
       initComparisonsPage();
       initUsecasesFilter();
+      initLangPersistence();
     });
   } else {
     initTheme();
@@ -363,5 +378,6 @@
     initDocsToc();
     initComparisonsPage();
     initUsecasesFilter();
+    initLangPersistence();
   }
 })();

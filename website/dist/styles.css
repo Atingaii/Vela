@@ -1,6 +1,6 @@
 /* ==========================================================================
    Vela Official Website Stylesheet
-   PX0-inspired editorial aesthetic:
+   Editorial engineering aesthetic:
    - Self-hosted Space Grotesk (118px hero, 52px H2) & Inter body (17px/29.24px)
    - Light-first (#fcfcfd) with polished dark mode (#08080c)
    - 64px square subtle grid with localized pale cyan/amber/violet washes
@@ -355,6 +355,29 @@ img {
   color: var(--text-primary);
 }
 
+.header-lang-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-subtle);
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.header-lang-link:hover {
+  background-color: var(--bg-surface-subtle);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+}
+
 .mobile-menu-toggle {
   display: none;
   align-items: center;
@@ -398,7 +421,7 @@ img {
 }
 
 /* --------------------------------------------------------------------------
-   6. Buttons & Controls (PX0 square/near-square styling)
+   6. Buttons & Controls (Geometric square/near-square styling)
    -------------------------------------------------------------------------- */
 
 .btn {
@@ -1450,6 +1473,15 @@ html[data-theme="dark"] .hero-section {
     display: inline-flex;
   }
 
+  .header-actions {
+    gap: 8px;
+  }
+
+  .header-lang-link {
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
   /* Mobile CTA composition matching source: primary on its own line (intrinsic), docs/source adjacent */
   .hero-cta-group {
     flex-direction: column;
@@ -1557,7 +1589,7 @@ html[data-theme="dark"] .hero-section {
 }
 
 /* --------------------------------------------------------------------------
-   16. Comparisons Page (px0-aligned: 56px H1, 17px body, fine-rule matrix)
+   16. Comparisons Page (Fine-rule matrix layout)
    -------------------------------------------------------------------------- */
 
 .comparisons-hero {
@@ -1717,21 +1749,11 @@ html[data-theme="dark"] .hero-section {
 
 .factor-link {
   font-family: var(--font-heading);
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 4px;
-  transition: color 0.15s ease;
   display: inline-block;
   line-height: 1.35;
-}
-
-.factor-link:hover,
-.factor-link:focus-visible {
-  color: var(--accent-amber);
-  outline: none;
 }
 
 .factor-sub {
@@ -2143,7 +2165,7 @@ html[data-theme="dark"] .detail-block-highlight {
   margin-bottom: 32px;
 }
 
-/* Category Filter Pills (Adapted from px0 03-px0-usecases.png) */
+/* Category Filter Pills */
 .catalogue-pills {
   display: flex;
   flex-wrap: wrap;

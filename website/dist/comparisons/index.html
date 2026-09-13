@@ -3,9 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>产品对比与技术证据 — Vela</title>
-  <meta name="description" content="Vela 与 Blume、Walrus Memory、px0 的客观工程对比。基于 2026-09-13 公开第一方事实与测试基线，涵盖日志观测、记忆生命周期、存储所有权、审批把关及实验闭环边界。">
+  <title>Vela 与开发工具：定位与能力对比 — Vela</title>
+  <meta name="description" content="对比 Vela 与代码编辑环境（Cursor / GitHub Copilot）、工作流自动化平台（n8n）及知识库工具（Obsidian）的核心任务、日志观察、上下文记忆与安全审批机制。">
   <link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+  <link rel="canonical" href="https://vela-engineering.zzzsssaa.chatgpt.site/comparisons/">
+  <link rel="alternate" hreflang="zh-CN" href="https://vela-engineering.zzzsssaa.chatgpt.site/comparisons/">
+  <link rel="alternate" hreflang="en" href="https://vela-engineering.zzzsssaa.chatgpt.site/en/comparisons/">
+  <link rel="alternate" hreflang="x-default" href="https://vela-engineering.zzzsssaa.chatgpt.site/comparisons/">
 
   <!-- Preload core self-hosted fonts -->
   <link rel="preload" href="../assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -50,6 +54,9 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
         </button>
 
+        <!-- Language Switcher -->
+        <a href="/en/comparisons/" class="header-lang-link" hreflang="en" lang="en" aria-label="Switch to English">English</a>
+
         <!-- GitHub Repository Button -->
         <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -69,33 +76,33 @@
       <a href="/docs.html" class="nav-link">文档</a>
       <a href="/releases.html" class="nav-link">发行记录</a>
       <a href="/privacy.html" class="nav-link">数据隐私</a>
+      <a href="/en/comparisons/" class="nav-link lang-switch-link" hreflang="en" lang="en">English</a>
       <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
     </div>
   </header>
 
   <main>
-    <!-- Comparisons Hero Section (Restrained 56px H1, 2-line intro, 1-line baseline note) -->
+    <!-- Comparisons Hero Section -->
     <section class="comparisons-hero">
       <div class="container">
         <div class="comparisons-eyebrow">— COMPARISONS</div>
-        <h1 class="comparisons-h1">Different jobs. Clear boundaries.</h1>
+        <h1 class="comparisons-h1">Vela 与开发工具</h1>
         <p class="comparisons-lead">
-          Vela、Blume、Walrus Memory 与 px0 并非四个可互换产品。本表基于公开第一方资料与实测代码基线，客观比较各方案的工作重点与技术边界，不提供主观综合排名。
+          Vela 作为 Coding Agent 的本地工程留存层，记录会话证据、统计真实消耗，并在会话间沉淀可审阅的上下文与自动化规范。它与日常代码编辑器、工作流平台和知识库分工协作，互补共存。
         </p>
 
         <!-- Unobtrusive Baseline Note -->
         <div class="comparisons-notice">
-          <strong>对比基线与版本说明：</strong>
-          核验日期为 2026-09-13。Vela 列描述当前开发源码的受限实现；官方已发布下载仍是 <strong>0.1.0-preview.2</strong>。参考产品列依据可读的第一方文档，未由本项目安装复验。
+          <strong>版本说明与对比基线：</strong>Vela 列描述当前开发源码分支（参见 <a href="https://github.com/Atingaii/Vela/blob/365ed41325dcaf9f0c8a41e216ca29be9d91ba3f/docs/status.md" target="_blank" rel="noopener noreferrer">实现状态</a> 与 <a href="https://github.com/Atingaii/Vela/blob/365ed41325dcaf9f0c8a41e216ca29be9d91ba3f/docs/verification.md" target="_blank" rel="noopener noreferrer">验证文档</a>），最新公开发布安装包为 <strong>v0.1.0-preview.2</strong>。第三方产品能力均依据其公开官方文档（2026-09-13 核验）简要转述，不宣称对其进行了完整第三方实测。
         </div>
 
-        <!-- Horizontal Scroll Hint (Visible only on mobile/overflow via media query) -->
+        <!-- Horizontal Scroll Hint for mobile -->
         <div class="table-scroll-hint" aria-hidden="true">
           <span>← 左右滑动查看完整对比项目 →</span>
         </div>
 
-        <!-- Compact Comparison Table (table-layout: fixed; factor 24%, products 19% each) -->
-        <div class="comparison-table-wrapper" tabindex="0" role="region" aria-label="产品对比矩阵表格">
+        <!-- Compact Comparison Table -->
+        <div class="comparison-table-wrapper" tabindex="0" role="region" aria-label="产品类别对比矩阵表格">
           <table class="comparison-table">
             <colgroup>
               <col class="col-factor">
@@ -106,657 +113,211 @@
             </colgroup>
             <thead>
               <tr>
-                <th scope="col" class="col-factor">维度与比较定义</th>
-                <th scope="col" class="col-highlight">Vela（当前源码）</th>
-                <th scope="col">Blume</th>
-                <th scope="col">Walrus Memory</th>
-                <th scope="col">px0</th>
+                <th scope="col" class="col-factor">比较维度</th>
+                <th scope="col" class="col-highlight">Vela（开发分支）</th>
+                <th scope="col">编码环境<br><span style="font-weight:400;text-transform:none;">(Cursor / GitHub Copilot)</span></th>
+                <th scope="col">工作流自动化<br><span style="font-weight:400;text-transform:none;">(n8n)</span></th>
+                <th scope="col">知识与笔记<br><span style="font-weight:400;text-transform:none;">(Obsidian)</span></th>
               </tr>
             </thead>
             <tbody>
-              <!-- Row 1: 核心任务 -->
+              <!-- Row 1: 主要任务 -->
               <tr>
                 <th scope="row">
-                  <a href="#factor-mission" class="factor-link">1. 核心任务</a>
-                  <span class="factor-sub">主要替用户解决什么</span>
+                  <span class="factor-link">主要任务</span>
+                  <span class="factor-sub">核心定位与工程边界</span>
                 </th>
                 <td class="col-highlight">
-                  <span class="status-tag status-tag-partial">已实现子集</span>
-                  <div class="cell-desc">本地会话、Context、受审自动化与验证。<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" target="_blank" rel="noopener noreferrer">状态 ↗</a></div>
+                  <div class="cell-desc">本地工程留存层：跨 Agent 会话审计、项目约束提议与安全工作流。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">Agent 观察与配置治理。<a href="https://blume.codes/" target="_blank" rel="noopener noreferrer">官网 ↗</a></div>
+                  <div class="cell-desc">交互式代码编辑：行内自动补全、上下文问答、多文件修改与自主 Agent 任务。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">跨应用/会话可迁移记忆层 (beta)。<a href="https://github.com/MystenLabs/MemWal" target="_blank" rel="noopener noreferrer">README ↗</a></div>
+                  <div class="cell-desc">跨系统流程自动化：可视化编排多服务 API、数据同步、定时触发与 AI 链。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">从描述建立本地可编辑工作流。<a href="https://docs.px0.ai/" target="_blank" rel="noopener noreferrer">介绍 ↗</a></div>
+                  <div class="cell-desc">个人与团队知识管理：本地 Markdown 笔记库、双向链接图谱与文档沉淀。</div>
                 </td>
               </tr>
 
-              <!-- Row 2: 使用入口 -->
+              <!-- Row 2: 历史会话与执行记录 -->
               <tr>
                 <th scope="row">
-                  <a href="#factor-surface" class="factor-link">2. 使用入口</a>
-                  <span class="factor-sub">已有产品界面，非自行搭建</span>
+                  <span class="factor-link">历史会话与执行记录</span>
+                  <span class="factor-sub">执行过程与日志观察</span>
                 </th>
                 <td class="col-highlight">
-                  <span class="status-tag status-tag-partial">已实现子集</span>
-                  <div class="cell-desc">macOS AppKit/WKWebView、CLI、MCP。<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/architecture.md" target="_blank" rel="noopener noreferrer">架构 ↗</a></div>
+                  <div class="cell-desc">本地有界读取 Claude Code / Codex / Cursor 日志；记录真实 Token 并推断会话状态（无系统守护探针）。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">桌面 sidecar。<a href="https://blume.codes/" target="_blank" rel="noopener noreferrer">官网 ↗</a></div>
+                  <div class="cell-desc">记录编辑器内 Chat 历史与 Agent 运行轨迹；Copilot cloud agent 自动记录调研、计划、测试与 PR 活动。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">SDK、relayer、dashboard 与示例。<a href="https://github.com/MystenLabs/MemWal/blob/dev/docs/getting-started/what-is-memwal.md" target="_blank" rel="noopener noreferrer">说明 ↗</a></div>
+                  <div class="cell-desc">记录完整执行历史，保存各节点输入输出 Payload、执行状态与错误重试日志。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">macOS/Linux CLI，后端调用。<a href="https://px0.ai/" target="_blank" rel="noopener noreferrer">首页 ↗</a></div>
+                  <div class="cell-desc">记录普通笔记与文档历史；无内置编程 Agent 日志解析机制。</div>
                 </td>
               </tr>
 
-              <!-- Row 3: Coding 会话观察 -->
+              <!-- Row 3: 持久上下文与记忆 -->
               <tr>
                 <th scope="row">
-                  <a href="#factor-observation" class="factor-link">3. 会话观察</a>
-                  <span class="factor-sub">读取既有 harness 会话并显示状态</span>
+                  <span class="factor-link">持久上下文与记忆</span>
+                  <span class="factor-sub">规则持有与召回控制</span>
                 </th>
                 <td class="col-highlight">
-                  <span class="status-tag status-tag-partial">已实现子集</span>
-                  <div class="cell-desc">Claude/Codex 日志、部分 Cursor；状态含推断。<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" target="_blank" rel="noopener noreferrer">状态 ↗</a></div>
+                  <div class="cell-desc">项目与全局 Scope，显式预算召回；候选提议经人工激活；私有库默认排除在模型检索外。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">展示 Claude、Codex、Cursor、Pi、omp。<a href="https://blume.codes/" target="_blank" rel="noopener noreferrer">官网 ↗</a></div>
+                  <div class="cell-desc">代码库向量索引；支持 <code>.cursor/rules</code>（及 <code>AGENTS.md</code>）项目规则与 Copilot 指令；部分 Copilot Memory 公测中。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-unverified">本次未确认</span>
-                  <div class="cell-desc">未确认同类多 harness 会话观察界面。<a href="https://github.com/MystenLabs/MemWal/blob/dev/docs/getting-started/what-is-memwal.md" target="_blank" rel="noopener noreferrer">范围 ↗</a></div>
+                  <div class="cell-desc">数据库与流程变量持久化；支持 LangChain Memory 节点与外部向量数据库接入。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-unverified">本次未确认</span>
-                  <div class="cell-desc">以自身工作流和 Run 为中心。<a href="https://docs.px0.ai/" target="_blank" rel="noopener noreferrer">介绍 ↗</a></div>
+                  <div class="cell-desc">本地纯文本 Markdown 文件；支持 Frontmatter 元数据、全局搜索与双向反向链接。</div>
                 </td>
               </tr>
 
-              <!-- Row 4: Memory 持有与检索 -->
+              <!-- Row 4: 审批与恢复 -->
               <tr>
                 <th scope="row">
-                  <a href="#factor-memory-retrieval" class="factor-link">4. Memory 持有与检索</a>
-                  <span class="factor-sub">数据、索引及范围实际在哪里</span>
+                  <span class="factor-link">审批与恢复</span>
+                  <span class="factor-sub">执行安全与变更撤销</span>
                 </th>
                 <td class="col-highlight">
-                  <span class="status-tag status-tag-partial">已实现子集</span>
-                  <div class="cell-desc">本地 Markdown/SQLite 词面召回；无嵌入服务。<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" target="_blank" rel="noopener noreferrer">状态 ↗</a></div>
+                  <div class="cell-desc">对受支持的破坏性变更命令执行前审批；有界预览；仅 SafeApply 支持变更哈希保护的 Undo。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-unverified">本次未确认</span>
-                  <div class="cell-desc">会话存 SQLite；独立记忆协议未确认。<a href="https://blume.codes/privacy" target="_blank" rel="noopener noreferrer">隐私 ↗</a></div>
+                  <div class="cell-desc">交互式代码 Diff 逐行审阅与接受/拒绝；终端命令执行前确认；依赖 Git 进行版本回退。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">owner+namespace；relayer/Walrus 支持恢复。<a href="https://github.com/MystenLabs/MemWal" target="_blank" rel="noopener noreferrer">README ↗</a></div>
+                  <div class="cell-desc">支持可配置的人工审核（如 Gmail 等特定工具节点暂停请求 approval）；单步测试与执行记录。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">本地记忆文件与检索，按 Run 选取。<a href="https://docs.px0.ai/reference/privacy" target="_blank" rel="noopener noreferrer">数据流 ↗</a></div>
+                  <div class="cell-desc">仅操作本地笔记文件；内置核心 File Recovery 插件保存定期本地历史快照。</div>
                 </td>
               </tr>
 
-              <!-- Row 5: Context 进入后续执行 -->
+              <!-- Row 5: 验证方式 -->
               <tr>
                 <th scope="row">
-                  <a href="#factor-context-execution" class="factor-link">5. Context 注入</a>
-                  <span class="factor-sub">返回一段文本不等于已经采用</span>
+                  <span class="factor-link">验证方式</span>
+                  <span class="factor-sub">质量检验与对照实验</span>
                 </th>
                 <td class="col-highlight">
-                  <span class="status-tag status-tag-partial">已实现子集</span>
-                  <div class="cell-desc">Recall/MCP；新项目 Hook 需审阅信任。<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" target="_blank" rel="noopener noreferrer">状态 ↗</a></div>
+                  <div class="cell-desc">开发分支支持 Agent Lab 独立 baseline / candidate worktree 对照与 Verifier 判定；已发布 preview.2 无此能力。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-unverified">本次未确认</span>
-                  <div class="cell-desc">维护 rules/skills；统一记忆注入未确认。<a href="https://blume.codes/" target="_blank" rel="noopener noreferrer">官网 ↗</a></div>
+                  <div class="cell-desc">支持 Agent 驱动的代码测试与审阅（如 Copilot cloud agent 自动运行测试套件）；支持本地测试面板。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">AI SDK 中间件与 OpenClaw 插件 hooks。<a href="https://github.com/MystenLabs/MemWal" target="_blank" rel="noopener noreferrer">README ↗</a></div>
+                  <div class="cell-desc">节点数据固定（Data Pinning）与单步执行测试；端到端 Webhook 模拟触发验证。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">所选 Guidelines、Memory 进入模型 prompt。<a href="https://docs.px0.ai/reference/privacy" target="_blank" rel="noopener noreferrer">数据流 ↗</a></div>
+                  <div class="cell-desc">纯文本知识管理；无代码执行或测试套件验证机制。</div>
                 </td>
               </tr>
 
-              <!-- Row 6: 工作流与调度 -->
+              <!-- Row 6: 运行与部署 -->
               <tr>
                 <th scope="row">
-                  <a href="#factor-workflow-scheduling" class="factor-link">6. 工作流与调度</a>
-                  <span class="factor-sub">内置可执行定义和触发器</span>
+                  <span class="factor-link">运行与部署</span>
+                  <span class="factor-sub">运行环境与架构边界</span>
                 </th>
                 <td class="col-highlight">
-                  <span class="status-tag status-tag-partial">已实现子集</span>
-                  <div class="cell-desc">Markdown 草稿；仅 helper 存活期调度。<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" target="_blank" rel="noopener noreferrer">状态 ↗</a></div>
+                  <div class="cell-desc">macOS 本地桌面 (Apple Silicon) + CLI/MCP，纯本地 SQLite 存储，无第三方账号与云端依赖。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-unverified">本次未确认</span>
-                  <div class="cell-desc">重复操作→Skill 建议；通用调度未确认。<a href="https://blume.codes/" target="_blank" rel="noopener noreferrer">官网 ↗</a></div>
+                  <div class="cell-desc">桌面 IDE 或编辑器扩展客户端，依赖模型供应商云端 API 与平台账号。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-unverified">本次未确认</span>
-                  <div class="cell-desc">提供记忆 API，通用工作流调度未确认。<a href="https://github.com/MystenLabs/MemWal/blob/dev/docs/getting-started/what-is-memwal.md" target="_blank" rel="noopener noreferrer">说明 ↗</a></div>
+                  <div class="cell-desc">Node.js 自托管（Docker/npm）或官方云服务；浏览器 Web 界面与多用户权限。</div>
                 </td>
                 <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">自然语言访谈、Markdown 工作流、独立调度。<a href="https://px0.ai/comparisons" target="_blank" rel="noopener noreferrer">比较 ↗</a></div>
-                </td>
-              </tr>
-
-              <!-- Row 7: 配置治理 -->
-              <tr>
-                <th scope="row">
-                  <a href="#factor-configuration-governance" class="factor-link">7. 配置治理</a>
-                  <span class="factor-sub">检查 Rules/Skills/Hooks 与可审查改动</span>
-                </th>
-                <td class="col-highlight">
-                  <span class="status-tag status-tag-partial">已实现子集</span>
-                  <div class="cell-desc">Setup 扫描/脱敏、确定性建议、Diff/Undo。<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" target="_blank" rel="noopener noreferrer">状态 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">evidence/diff 审阅；Auto-Fixes 标为 Soon。<a href="https://blume.codes/" target="_blank" rel="noopener noreferrer">官网 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-unverified">本次未确认</span>
-                  <div class="cell-desc">同类 coding 配置治理本次未确认。<a href="https://github.com/MystenLabs/MemWal/blob/dev/docs/getting-started/what-is-memwal.md" target="_blank" rel="noopener noreferrer">范围 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">Guidelines、文件版本与工作流修改历史。<a href="https://px0.ai/" target="_blank" rel="noopener noreferrer">首页 ↗</a></div>
-                </td>
-              </tr>
-
-              <!-- Row 8: 修改前把关 -->
-              <tr>
-                <th scope="row">
-                  <a href="#factor-mutation-guard" class="factor-link">8. 修改前把关</a>
-                  <span class="factor-sub">批准的是哪一类动作</span>
-                </th>
-                <td class="col-highlight">
-                  <span class="status-tag status-tag-partial">已实现子集</span>
-                  <div class="cell-desc">支持工具 Dry Run、冻结参数批准、hash Undo。<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/verification.md" target="_blank" rel="noopener noreferrer">验证 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">配置建议可预览后 Apply。<a href="https://blume.codes/" target="_blank" rel="noopener noreferrer">官网 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-unverified">本次未确认</span>
-                  <div class="cell-desc">delegate/namespace 控制；逐工具审批未确认。<a href="https://github.com/MystenLabs/MemWal/blob/dev/docs/getting-started/what-is-memwal.md" target="_blank" rel="noopener noreferrer">说明 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">外部写调用暂存审批、参数执行和 Dry Run。<a href="https://px0.ai/comparisons" target="_blank" rel="noopener noreferrer">比较 ↗</a></div>
-                </td>
-              </tr>
-
-              <!-- Row 9: 变化效果证据 -->
-              <tr>
-                <th scope="row">
-                  <a href="#factor-eval-evidence" class="factor-link">9. 变化效果证据</a>
-                  <span class="factor-sub">有对照记录不等于未来必然改善</span>
-                </th>
-                <td class="col-highlight">
-                  <span class="status-tag status-tag-partial">已实现子集</span>
-                  <div class="cell-desc">Agent Lab 配对实验；样例判定 Inconclusive。<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/evidence/2026-09-13-agent-lab.json" target="_blank" rel="noopener noreferrer">记录 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-planned">规划中</span>
-                  <div class="cell-desc">Analytics 标 Soon、Auto-Improve 标 Next。<a href="https://blume.codes/" target="_blank" rel="noopener noreferrer">官网 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-unverified">本次未确认</span>
-                  <div class="cell-desc">存储完整性不等于 coding 质量对照实验。<a href="https://github.com/MystenLabs/MemWal/blob/dev/docs/getting-started/what-is-memwal.md" target="_blank" rel="noopener noreferrer">说明 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">文档有 Run health 与历史输入 replay。<a href="https://px0.ai/" target="_blank" rel="noopener noreferrer">首页 ↗</a></div>
-                </td>
-              </tr>
-
-              <!-- Row 10: 用量 -->
-              <tr>
-                <th scope="row">
-                  <a href="#factor-usage" class="factor-link">10. 用量核算</a>
-                  <span class="factor-sub">订阅剩余额度与日志 token 是不同指标</span>
-                </th>
-                <td class="col-highlight">
-                  <span class="status-tag status-tag-partial">已实现子集</span>
-                  <div class="cell-desc">已索引日志 token；缺失显式为空，成本未实现。<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" target="_blank" rel="noopener noreferrer">状态 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">provider 直接获取用量；Claude 指南含登录排错。<a href="https://blume.codes/docs/claude-usage-mac" target="_blank" rel="noopener noreferrer">指南 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-unverified">本次未确认</span>
-                  <div class="cell-desc">coding-provider 订阅额度界面本次未确认。<a href="https://github.com/MystenLabs/MemWal/blob/dev/docs/getting-started/what-is-memwal.md" target="_blank" rel="noopener noreferrer">范围 ↗</a></div>
-                </td>
-                <td>
-                  <span class="status-tag status-tag-supported">官方说明</span>
-                  <div class="cell-desc">复用 coding CLI 限额；额度看板本次未确认。<a href="https://docs.px0.ai/" target="_blank" rel="noopener noreferrer">介绍 ↗</a></div>
+                  <div class="cell-desc">跨平台本地客户端（桌面/移动端），本地存储，可选端到端加密的官方 Sync。</div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- Data Boundaries & Methodology Callout (Placed AFTER the table) -->
+        <!-- Data Boundaries & Methodology Callout -->
         <div class="callout-limits" style="margin-top: 16px;">
           <div class="callout-limits-title">数据边界与核验口径说明</div>
           <div class="callout-limits-content">
             <p style="margin-bottom: 8px;">
-              避免把“本地优先”误读成所有路径都绝对离线：<strong>Blume</strong> 隐私页允许特定功能联网处理及有限遥测；<strong>Walrus Memory</strong> 默认 SDK 的 relayer 负责明文 embedding 与加密后写入存储节点；<strong>px0</strong> 的工作流上下文会在执行时送入其 coding CLI 对应的模型服务。
+              避免把“本地优先”误读为所有操作完全离线：Vela 自身完全运行在本地，不包含任何遥测上报或远端云服务。但当用户显式导入外部 HTTP/HTTPS 文档，或批准经配置的 Coding Agent 执行包含远程 API 请求的命令时，相关网络通信由对应外部进程产生。
             </p>
             <p>
-              <strong>Vela</strong> 自身无任何用户遥测上报，但显式导入外部 HTTP URL 或经用户批准执行的远程 Coding Agent 仍会产生对外网络请求。所有比较均基于具体数据流入口与公开文档，不作模糊的绝对化宣称。参见：<a href="https://blume.codes/privacy" class="source-link" target="_blank" rel="noopener noreferrer">Blume 隐私 ↗</a> · <a href="https://github.com/MystenLabs/MemWal/blob/dev/docs/relayer/overview.md" class="source-link" target="_blank" rel="noopener noreferrer">Walrus relayer 信任边界 ↗</a> · <a href="https://docs.px0.ai/reference/privacy" class="source-link" target="_blank" rel="noopener noreferrer">px0 数据流 ↗</a> · <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" class="source-link" target="_blank" rel="noopener noreferrer">Vela 状态 ↗</a>。
+              本页所有对比基线均基于 2026-09-13 公开的第一方官方文档核验。Vela 相关描述对应当前开发源码分支的实现状态（参见 <a href="https://github.com/Atingaii/Vela/blob/365ed41325dcaf9f0c8a41e216ca29be9d91ba3f/docs/status.md" target="_blank" rel="noopener noreferrer">实现状态</a> 与 <a href="https://github.com/Atingaii/Vela/blob/365ed41325dcaf9f0c8a41e216ca29be9d91ba3f/docs/verification.md" target="_blank" rel="noopener noreferrer">验证文档</a>），官方正式发布安装包仍为 <strong>v0.1.0-preview.2</strong>。
             </p>
           </div>
         </div>
 
-        <!-- Factor Details Section (Below Matrix, Expandable & Keyboard Operable) -->
-        <section class="factor-details-section" id="factor-details">
+        <!-- 3 Short Comparison Explanations -->
+        <section class="factor-details-section" id="comparison-explanations">
           <div class="factor-details-header">
-            <h2 class="factor-details-title">各对比维度定义与核验标准</h2>
+            <h2 class="factor-details-title">关键领域的分工与互补</h2>
             <p class="factor-details-lead">
-              点击各维度展开查看详细定义、Vela 受限实现边界与外部参考依据。核验日期：2026-09-13。
+              软件工程并非单一维度的竞争。Vela 与主流开发工具在不同工作环节协同配合：
             </p>
-            <div class="factor-toolbar">
-              <button type="button" class="btn-xs" id="btn-expand-all">展开全部详情 ▾</button>
-              <button type="button" class="btn-xs" id="btn-collapse-all">收起全部详情 ▴</button>
+          </div>
+
+          <!-- Section 1: Coding Environments -->
+          <div class="factor-detail-card" style="padding: 24px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <span class="factor-num" style="font-size: 14px;">01</span>
+              <h3 style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 0;">
+                代码编辑环境（Cursor / GitHub Copilot）：工程留存层 vs 交互式编码工作区
+              </h3>
+            </div>
+            <p style="font-size: 14.5px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 12px;">
+              Cursor 与 GitHub Copilot 专注于交互式编码体验，深度整合行内补全、代码索引与 Agent 驱动的代码修改与自动化测试。Vela 不做代码编辑器，也不替代 IDE。它运行于编辑器外部，负责跨 Agent 解析会话日志、记录真实消耗，并在会话间沉淀带证据凭据的项目记忆与规范。
+            </p>
+            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-faint);">
+              依据官方资料（2026-09-13 核验）：<a href="https://cursor.com/docs" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">Cursor Docs ↗</a> · <a href="https://prod.cursor.com/help/customization/rules" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">Cursor Rules ↗</a> · <a href="https://docs.github.com/en/copilot/concepts/agents/cloud-agent/about-cloud-agent" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">Copilot Cloud Agent ↗</a>
             </div>
           </div>
 
-          <!-- Factor 1 -->
-          <details class="factor-detail-card" id="factor-mission" open>
-            <summary class="factor-summary">
-              <div class="factor-summary-left">
-                <span class="factor-num">01</span>
-                <span class="factor-heading">核心任务：主要替用户解决什么</span>
-              </div>
-              <span class="factor-toggle-indicator"><span class="factor-toggle-icon" aria-hidden="true">▾</span></span>
-            </summary>
-            <div class="factor-body">
-              <div class="factor-intro-box">
-                <strong>比较定义：</strong>产品在多智能体辅助编程生态中的根本定位与价值切入点。
-              </div>
-              <div class="detail-columns">
-                <div class="detail-block detail-block-highlight">
-                  <div class="detail-block-title"><span>Vela（当前源码）</span><span class="status-tag status-tag-partial">已实现子集</span></div>
-                  <p>定位为 macOS 上的 coding-agent 工程支撑层：本地捕获日志、维护工程记忆、工作流 Dry Run 与审批，提供严谨的本地验证环境。未发布源码新增 Agent 对照实验与 Hook 复用，但产品仍处于 No-Go 约束。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Blume</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>定位于编码智能体的会话观测、配置治理、用量监控与工程纠错改进（官网公开展示）。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Walrus Memory</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>定位于跨应用、跨框架、去中心化的可迁移记忆层协议，当前处于 beta 演进阶段。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>px0</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>定位于从自然语言描述快速建立、调度并在本地执行 Markdown 自动化工作流的 CLI 方案。</p>
-                </div>
-              </div>
-              <div class="detail-meta-bar">
-                <span>官方参考：<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" class="source-link" target="_blank" rel="noopener noreferrer">Vela status.md ↗</a> · <a href="https://blume.codes/" class="source-link" target="_blank" rel="noopener noreferrer">blume.codes ↗</a></span>
-              </div>
+          <!-- Section 2: Workflow Automation -->
+          <div class="factor-detail-card" style="padding: 24px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <span class="factor-num" style="font-size: 14px;">02</span>
+              <h3 style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 0;">
+                工作流自动化工具（n8n）：受控工程变更 vs 通用服务连接器
+              </h3>
             </div>
-          </details>
+            <p style="font-size: 14.5px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 12px;">
+              n8n 擅长通过丰富节点连接分布式 SaaS API、数据库与 AI 流程，支持可配置的人工审核流。Vela 则完全聚焦于本地软件工作区：工作流支持只读 Dry Run 预演、支持的破坏性变更命令前强制审批，以及经由 SafeApply 写入的文件哈希撤销保护，避免本地代码库被意外污染。
+            </p>
+            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-faint);">
+              依据官方资料（2026-09-13 核验）：<a href="https://docs.n8n.io/" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">n8n Docs ↗</a> · <a href="https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.gmail/message-operations/" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">n8n Human Review ↗</a>
+            </div>
+          </div>
 
-          <!-- Factor 2 -->
-          <details class="factor-detail-card" id="factor-surface">
-            <summary class="factor-summary">
-              <div class="factor-summary-left">
-                <span class="factor-num">02</span>
-                <span class="factor-heading">使用入口：已有产品界面，而非自行搭建</span>
-              </div>
-              <span class="factor-toggle-indicator"><span class="factor-toggle-icon" aria-hidden="true">▾</span></span>
-            </summary>
-            <div class="factor-body">
-              <div class="factor-intro-box">
-                <strong>比较定义：</strong>用户与工具直接交互的成熟载体形态（如原生桌面应用、命令行、协议等）。
-              </div>
-              <div class="detail-columns">
-                <div class="detail-block detail-block-highlight">
-                  <div class="detail-block-title"><span>Vela（当前源码）</span><span class="status-tag status-tag-partial">已实现子集</span></div>
-                  <p>Swift/AppKit 原生桌面宿主（WKWebView）、标准 Unix 命令行 <code>vela</code> 与 MCP 服务端。目前仅提供 Apple Silicon (macOS 13+) ad-hoc 签名的 preview.2 安装包。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Blume</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>专有 macOS 桌面 Sidecar 应用，提供托盘及配置控制面板。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Walrus Memory</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>Python/TypeScript SDK、relayer 服务端组件、网页控制面板及示例应用。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>px0</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>macOS/Linux CLI 工具，依赖开发者本机的 coding agent CLI 作为执行后端。</p>
-                </div>
-              </div>
-              <div class="detail-meta-bar">
-                <span>官方参考：<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/architecture.md" class="source-link" target="_blank" rel="noopener noreferrer">Vela architecture.md ↗</a> · <a href="https://github.com/MystenLabs/MemWal/blob/dev/docs/getting-started/what-is-memwal.md" class="source-link" target="_blank" rel="noopener noreferrer">MemWal Docs ↗</a></span>
-              </div>
+          <!-- Section 3: Knowledge & Context -->
+          <div class="factor-detail-card" style="padding: 24px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <span class="factor-num" style="font-size: 14px;">03</span>
+              <h3 style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 0;">
+                知识与笔记工具（Obsidian）：结构化工程记忆 vs 通用 Markdown 笔记
+              </h3>
             </div>
-          </details>
-
-          <!-- Factor 3 -->
-          <details class="factor-detail-card" id="factor-observation">
-            <summary class="factor-summary">
-              <div class="factor-summary-left">
-                <span class="factor-num">03</span>
-                <span class="factor-heading">Coding 会话观察：读取既有 harness 会话并显示状态</span>
-              </div>
-              <span class="factor-toggle-indicator"><span class="factor-toggle-icon" aria-hidden="true">▾</span></span>
-            </summary>
-            <div class="factor-body">
-              <div class="factor-intro-box">
-                <strong>比较定义：</strong>发现并增量追踪主流编码智能体在本地产生的调用流水与运行状态。
-              </div>
-              <div class="detail-columns">
-                <div class="detail-block detail-block-highlight">
-                  <div class="detail-block-title"><span>Vela（当前源码）</span><span class="status-tag status-tag-partial">已实现子集</span></div>
-                  <p>自动发现 Claude Code 与 Codex JSONL 日志，部分 Cursor 只读导入；根据最新活动推断 Running/Idle，无独立实时进程存活探针；初次导入采用有界尾窗读取。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Blume</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>官方公开展示 Claude Code、Codex、Cursor、Pi、omp 五种 harness 的运行、完成与待审批状态。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Walrus Memory</span><span class="status-tag status-tag-unverified">本次未确认</span></div>
-                  <p>以应用主动接入记忆中间件为主要模式，未确认提供多 coding harness 本地日志自动捕获界面。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>px0</span><span class="status-tag status-tag-unverified">本次未确认</span></div>
-                  <p>以自身工作流调度与 Run 记录为核心，未确认提供多 Agent 日志统一会话总览界面。</p>
-                </div>
-              </div>
-              <div class="detail-meta-bar">
-                <span>官方参考：<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" class="source-link" target="_blank" rel="noopener noreferrer">Vela status.md ↗</a> · <a href="https://blume.codes/" class="source-link" target="_blank" rel="noopener noreferrer">blume.codes ↗</a></span>
-              </div>
+            <p style="font-size: 14.5px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 12px;">
+              Obsidian 依托本地 Markdown 库、双链图谱与文件快照，提供灵活的个人与团队知识管理。Vela 同样采用本地纯文本，但其记忆严格归属于工程 Scope 并与 Agent 会话证据及 Git 提交直接绑定。Vela 实行有预算限制的上下文召回，并将私有笔记与模型提示词彻底隔离。
+            </p>
+            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-faint);">
+              依据官方资料（2026-09-13 核验）：<a href="https://help.obsidian.md/" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">Obsidian Help ↗</a>
             </div>
-          </details>
-
-          <!-- Factor 4 -->
-          <details class="factor-detail-card" id="factor-memory-retrieval">
-            <summary class="factor-summary">
-              <div class="factor-summary-left">
-                <span class="factor-num">04</span>
-                <span class="factor-heading">Memory 持有与检索：数据、索引及范围实际在哪里</span>
-              </div>
-              <span class="factor-toggle-indicator"><span class="factor-toggle-icon" aria-hidden="true">▾</span></span>
-            </summary>
-            <div class="factor-body">
-              <div class="factor-intro-box">
-                <strong>比较定义：</strong>记忆资产的底层存储结构、隔离粒度与检索机制。
-              </div>
-              <div class="detail-columns">
-                <div class="detail-block detail-block-highlight">
-                  <div class="detail-block-title"><span>Vela（当前源码）</span><span class="status-tag status-tag-partial">已实现子集</span></div>
-                  <p>明文 Markdown 文件 + 本地 SQLite 索引，严格按 7 类本地作用域（global/project/repo/branch/worktree/task/session）划分；Active-only 确定性词面召回，无云端嵌入服务。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Blume</span><span class="status-tag status-tag-unverified">本次未确认</span></div>
-                  <p>会话数据归档于本地 SQLite；独立跨会话记忆资产流转协议本次未在公开资料中确认。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Walrus Memory</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>通过 <code>owner + namespace</code> 约束，由 relayer 处理向量索引并存储于 Walrus 去中心化网络，支持 restore 重建索引。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>px0</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>本地 SQLite 与 Markdown 文件，区分可重建索引与不可重建记录，按工作流运行按需提取。</p>
-                </div>
-              </div>
-              <div class="detail-meta-bar">
-                <span>官方参考：<a href="https://github.com/MystenLabs/MemWal" class="source-link" target="_blank" rel="noopener noreferrer">MemWal README ↗</a> · <a href="https://docs.px0.ai/reference/privacy" class="source-link" target="_blank" rel="noopener noreferrer">px0 Privacy ↗</a></span>
-              </div>
-            </div>
-          </details>
-
-          <!-- Factor 5 -->
-          <details class="factor-detail-card" id="factor-context-execution">
-            <summary class="factor-summary">
-              <div class="factor-summary-left">
-                <span class="factor-num">05</span>
-                <span class="factor-heading">Context 注入：返回一段文本不等于已经采用</span>
-              </div>
-              <span class="factor-toggle-indicator"><span class="factor-toggle-icon" aria-hidden="true">▾</span></span>
-            </summary>
-            <div class="factor-body">
-              <div class="factor-intro-box">
-                <strong>比较定义：</strong>沉淀的经验与工程规约是否能真正可靠地进入后续编码会话并被模型采纳。
-              </div>
-              <div class="detail-columns">
-                <div class="detail-block detail-block-highlight">
-                  <div class="detail-block-title"><span>Vela（当前源码）</span><span class="status-tag status-tag-partial">已实现子集</span></div>
-                  <p>支持主动 Recall 与只读 MCP 检索；开发分支支持生成项目 SessionStart Hook 提案，需在 Codex 审阅信任后挂载。未证明模型普遍自动遵循，Guideline 当前仅为冻结快照。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Blume</span><span class="status-tag status-tag-unverified">本次未确认</span></div>
-                  <p>官方展示维护规则、技能与 Hook，自动跨 harness 记忆注入执行协议本次未在公开资料确认。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Walrus Memory</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>提供 AI SDK 中间件与 OpenClaw 插件，支持在会话流中挂载 recall/capture hooks。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>px0</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>文档说明用户所选的 Guidelines、Memory 与运行参数会直接组装进实际模型 prompt。</p>
-                </div>
-              </div>
-              <div class="detail-meta-bar">
-                <span>官方参考：<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" class="source-link" target="_blank" rel="noopener noreferrer">Vela status.md ↗</a> · <a href="https://docs.px0.ai/reference/privacy" class="source-link" target="_blank" rel="noopener noreferrer">px0 Data Flow ↗</a></span>
-              </div>
-            </div>
-          </details>
-
-          <!-- Factor 6 -->
-          <details class="factor-detail-card" id="factor-workflow-scheduling">
-            <summary class="factor-summary">
-              <div class="factor-summary-left">
-                <span class="factor-num">06</span>
-                <span class="factor-heading">工作流与调度：内置可执行定义和触发器</span>
-              </div>
-              <span class="factor-toggle-indicator"><span class="factor-toggle-icon" aria-hidden="true">▾</span></span>
-            </summary>
-            <div class="factor-body">
-              <div class="factor-intro-box">
-                <strong>比较定义：</strong>将重复性本地开发步骤编排为可追溯工作流，并支持定时或事件驱动执行。
-              </div>
-              <div class="detail-columns">
-                <div class="detail-block detail-block-highlight">
-                  <div class="detail-block-title"><span>Vela（当前源码）</span><span class="status-tag status-tag-partial">已实现子集</span></div>
-                  <p>支持 Markdown 工作流定义，关键词/项目脚本确定性 Draft；调度器仅在 helper/应用运行时工作，无独立后台 daemon，休眠/关机错过的时机不补跑。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Blume</span><span class="status-tag status-tag-unverified">本次未确认</span></div>
-                  <p>展示重复操作沉淀为 Skill 建议；通用多步骤工作流自动化调度引擎本次未确认。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Walrus Memory</span><span class="status-tag status-tag-unverified">本次未确认</span></div>
-                  <p>作为记忆层中间件提供，不包含工作流定义或定时任务调度执行系统。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>px0</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>提供自然语言访谈生成 Markdown 工作流、内置独立调度器及通过 Composio 接入外部工具。</p>
-                </div>
-              </div>
-              <div class="detail-meta-bar">
-                <span>官方参考：<a href="https://px0.ai/comparisons" class="source-link" target="_blank" rel="noopener noreferrer">px0 comparisons ↗</a> · <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" class="source-link" target="_blank" rel="noopener noreferrer">Vela status.md ↗</a></span>
-              </div>
-            </div>
-          </details>
-
-          <!-- Factor 7 -->
-          <details class="factor-detail-card" id="factor-configuration-governance">
-            <summary class="factor-summary">
-              <div class="factor-summary-left">
-                <span class="factor-num">07</span>
-                <span class="factor-heading">配置治理：检查 Rules/Skills/Hooks 与可审查改动</span>
-              </div>
-              <span class="factor-toggle-indicator"><span class="factor-toggle-icon" aria-hidden="true">▾</span></span>
-            </summary>
-            <div class="factor-body">
-              <div class="factor-intro-box">
-                <strong>比较定义：</strong>审查智能体提示词规约、技能扩展与钩子设置，提供确定性纠错建议与版本回滚。
-              </div>
-              <div class="detail-columns">
-                <div class="detail-block detail-block-highlight">
-                  <div class="detail-block-title"><span>Vela（当前源码）</span><span class="status-tag status-tag-partial">已实现子集</span></div>
-                  <p>Setup 扫描已知全局/项目配置并脱敏；Improve 聚类重复纠错信号（≥2 会话且 ≥3 次信号）生成规约草案，支持带 hash 校验的 Diff 审查、Apply 与 Undo。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Blume</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>官方展示 Rules/Skills/Hooks 扫描与带 evidence/diff 的改进建议；Auto-Fixes、Analytics 标为 Soon。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Walrus Memory</span><span class="status-tag status-tag-unverified">本次未确认</span></div>
-                  <p>不涉及 coding agent 本地工程规约配置或 Skills/Hooks 治理业务。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>px0</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>维护项目 Guidelines 与工作流版本修改历史；不作为多 harness 统一配置治理中心。</p>
-                </div>
-              </div>
-              <div class="detail-meta-bar">
-                <span>官方参考：<a href="https://blume.codes/" class="source-link" target="_blank" rel="noopener noreferrer">blume.codes ↗</a> · <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" class="source-link" target="_blank" rel="noopener noreferrer">Vela status.md ↗</a></span>
-              </div>
-            </div>
-          </details>
-
-          <!-- Factor 8 -->
-          <details class="factor-detail-card" id="factor-mutation-guard">
-            <summary class="factor-summary">
-              <div class="factor-summary-left">
-                <span class="factor-num">08</span>
-                <span class="factor-heading">修改前把关：批准的是哪一类动作</span>
-              </div>
-              <span class="factor-toggle-indicator"><span class="factor-toggle-icon" aria-hidden="true">▾</span></span>
-            </summary>
-            <div class="factor-body">
-              <div class="factor-intro-box">
-                <strong>比较定义：</strong>在智能体或工作流对系统产生副作用前，提供的安全演练与参数审查机制。
-              </div>
-              <div class="detail-columns">
-                <div class="detail-block detail-block-highlight">
-                  <div class="detail-block-title"><span>Vela（当前源码）</span><span class="status-tag status-tag-partial">已实现子集</span></div>
-                  <p>只读命令真实执行，写入与测试模拟 Dry Run；待办动作计算并冻结参数哈希，单次批准生效；CAS 原子抢占防并发冲突。不承诺任意远端副作用端到端 exactly-once。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Blume</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>配置调整建议支持 Diff 预览后人工 Apply，提供审阅把关。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Walrus Memory</span><span class="status-tag status-tag-unverified">本次未确认</span></div>
-                  <p>使用 delegate key 与 namespace 进行权限控制；逐工具调用的前置人工冻结审批未确认。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>px0</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>文档定义外部写操作暂存审批，批准后仅执行记录的特定参数调用，执行失败不会变回 pending。</p>
-                </div>
-              </div>
-              <div class="detail-meta-bar">
-                <span>官方参考：<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/verification.md" class="source-link" target="_blank" rel="noopener noreferrer">Vela verification.md ↗</a> · <a href="https://px0.ai/comparisons" class="source-link" target="_blank" rel="noopener noreferrer">px0 comparisons ↗</a></span>
-              </div>
-            </div>
-          </details>
-
-          <!-- Factor 9 -->
-          <details class="factor-detail-card" id="factor-eval-evidence">
-            <summary class="factor-summary">
-              <div class="factor-summary-left">
-                <span class="factor-num">09</span>
-                <span class="factor-heading">变化效果证据：有对照记录不等于未来必然改善</span>
-              </div>
-              <span class="factor-toggle-indicator"><span class="factor-toggle-icon" aria-hidden="true">▾</span></span>
-            </summary>
-            <div class="factor-body">
-              <div class="factor-intro-box">
-                <strong>比较定义：</strong>是否具备公开可核查的对照实验，证明沉淀经验或优化规约能真实降低未来开发错误。
-              </div>
-              <div class="detail-columns">
-                <div class="detail-block detail-block-highlight">
-                  <div class="detail-block-title"><span>Vela（当前源码）</span><span class="status-tag status-tag-partial">已实现子集</span></div>
-                  <p>开发分支内置 Agent Lab，支持同 commit 双 Worktree 配对执行与独立 verifier；已公开 6 次真实 Codex 任务结果无显著差异判定为 <strong>Inconclusive</strong> 且拒绝晋升。无未来纠错率改善证据，整机产品严守 No-Go 状态。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Blume</span><span class="status-tag status-tag-planned">规划中</span></div>
-                  <p>官网将 Analytics 标为 Soon、Auto-Improve Mode 标为 Next；不将演示效果作为第三方基准实测证据。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Walrus Memory</span><span class="status-tag status-tag-unverified">本次未确认</span></div>
-                  <p>具备去中心化存储完整性校验，但未公开面向 coding agent 代码生成质量改善的对照实验能力。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>px0</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>文档说明具备 Run health 指标与历史输入 replay 功能；未发布通用未来任务质量提升的基准实验。</p>
-                </div>
-              </div>
-              <div class="detail-meta-bar">
-                <span>官方参考：<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/evidence/2026-09-13-agent-lab.json" class="source-link" target="_blank" rel="noopener noreferrer">Agent Lab 实验证据 ↗</a></span>
-              </div>
-            </div>
-          </details>
-
-          <!-- Factor 10 -->
-          <details class="factor-detail-card" id="factor-usage">
-            <summary class="factor-summary">
-              <div class="factor-summary-left">
-                <span class="factor-num">10</span>
-                <span class="factor-heading">用量核算：订阅剩余额度与日志 token 是不同指标</span>
-              </div>
-              <span class="factor-toggle-indicator"><span class="factor-toggle-icon" aria-hidden="true">▾</span></span>
-            </summary>
-            <div class="factor-body">
-              <div class="factor-intro-box">
-                <strong>比较定义：</strong>对编码智能体产生的 Token 消耗、账户额度、单价及重置周期进行准确记录。
-              </div>
-              <div class="detail-columns">
-                <div class="detail-block detail-block-highlight">
-                  <div class="detail-block-title"><span>Vela（当前源码）</span><span class="status-tag status-tag-partial">已实现子集</span></div>
-                  <p>仅从本地已索引日志汇总 Token；缺失值显式返回 null，不推断零用量。官方订阅配额、单价与重置时间在本地不可用。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Blume</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>提供 Claude 用量指南，区分未登录与 Keychain 读取受阻，接入后直接展示官方账户额度窗口与重置时间。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>Walrus Memory</span><span class="status-tag status-tag-unverified">本次未确认</span></div>
-                  <p>未确认提供针对特定模型 provider 的会话 Token 订阅额度看板。</p>
-                </div>
-                <div class="detail-block">
-                  <div class="detail-block-title"><span>px0</span><span class="status-tag status-tag-supported">官方说明</span></div>
-                  <p>复用本地 coding CLI 的原生登录与配额，未确认提供独立的订阅剩余额度监控看板。</p>
-                </div>
-              </div>
-              <div class="detail-meta-bar">
-                <span>官方参考：<a href="https://blume.codes/docs/claude-usage-mac" class="source-link" target="_blank" rel="noopener noreferrer">Blume 用量指南 ↗</a> · <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" class="source-link" target="_blank" rel="noopener noreferrer">Vela status.md ↗</a></span>
-              </div>
-            </div>
-          </details>
+          </div>
         </section>
 
-        <!-- Preview Download Close Section -->
-        <section class="download-close-section" style="margin-top: 0; padding-top: 48px; border-top: 1px solid var(--border-subtle);">
-          <div class="download-close-inner">
+        <!-- Final Download CTA -->
+        <section class="download-close-section" style="padding: 48px 0 64px 0;">
+          <div class="download-close-card" style="text-align: center;">
             <div class="section-eyebrow" style="justify-content: center;">DEVELOPER PREVIEW</div>
             <h2 class="section-h2">
               在本地运行 Vela。<br>

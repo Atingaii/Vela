@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Memory: Preserve Constraints Worth Keeping — Vela Use Cases</title>
+  <meta name="description" content="Capture build conventions, verification rules, and engineering constraints as auditable candidates, activate them manually, retrieve within token budgets, and explicitly archive obsolete facts.">
+  <link rel="icon" href="../../../assets/mark.svg" type="image/svg+xml">
+  <link rel="canonical" href="https://vela-engineering.zzzsssaa.chatgpt.site/en/usecases/project-memory/">
+  <link rel="alternate" hreflang="zh-CN" href="https://vela-engineering.zzzsssaa.chatgpt.site/usecases/project-memory/">
+  <link rel="alternate" hreflang="en" href="https://vela-engineering.zzzsssaa.chatgpt.site/en/usecases/project-memory/">
+  <link rel="alternate" hreflang="x-default" href="https://vela-engineering.zzzsssaa.chatgpt.site/usecases/project-memory/">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="../../../assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../../../assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="../../../styles.css">
+
+  <!-- Immediate theme application to prevent flash -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Site Header (62px height, x70-1180 alignment) -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/en/" class="brand-link" aria-label="Vela Home">
+          <img src="../../../assets/mark.svg" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="Main Navigation">
+          <a href="/en/usecases/" class="nav-link active" aria-current="page">Use Cases</a>
+          <a href="/en/comparisons/" class="nav-link">Comparisons</a>
+        </nav>
+      </div>
+
+      <div class="header-actions">
+        <a href="/en/docs.html" class="header-docs-link">Docs</a>
+
+        <!-- Theme Toggle Button -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="Toggle light/dark theme" title="Toggle light/dark theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- Language Switcher -->
+        <a href="/usecases/project-memory/" class="header-lang-link" hreflang="zh-CN" lang="zh-CN" aria-label="切换至简体中文">简体中文</a>
+
+        <!-- GitHub Repository Button -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub repository" title="GitHub repository">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="Mobile menu">
+      <a href="/en/usecases/" class="nav-link active" aria-current="page">Use Cases</a>
+      <a href="/en/comparisons/" class="nav-link">Comparisons</a>
+      <a href="/en/docs.html" class="nav-link">Docs</a>
+      <a href="/en/releases.html" class="nav-link">Releases</a>
+      <a href="/en/privacy.html" class="nav-link">Privacy</a>
+      <a href="/usecases/project-memory/" class="nav-link lang-switch-link" hreflang="zh-CN" lang="zh-CN">简体中文</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub Repo ↗</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="usecases-hero">
+      <div class="container">
+        <!-- Breadcrumb Navigation -->
+        <div class="breadcrumb-nav">
+          <a href="/en/usecases/" class="breadcrumb-link">← Back to all use cases</a>
+        </div>
+
+        <div class="usecase-detail-header">
+          <div class="usecase-meta-badges">
+            <span class="version-badge-preview">preview.2 Core · Dev Extended</span>
+            <span class="tag-badge">Lifecycle Transitions</span>
+            <span class="tag-badge">7 Engineering Scopes</span>
+            <span class="tag-badge">No External Vector Service</span>
+          </div>
+          <h1 class="usecase-h1">Project Memory: Preserve Constraints Worth Keeping</h1>
+          <p class="usecase-problem-lead">
+            <strong>The Engineer's Dilemma:</strong> Build conventions, test prerequisites, and environment troubleshooting tricks often get trapped in individual heads or scattered across countless chat sessions. Engineers must re-explain rules every time they start a session. Worse, when build rules evolve, obsolete memories linger as invisible interference, hard to trace or decommission.
+          </p>
+        </div>
+
+        <!-- Step-by-Step Flow -->
+        <div class="step-flow">
+          <div class="step-flow-item">
+            <div class="step-flow-num">01</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">Extract from Messages or Manually Propose Candidate</div>
+              <div class="step-flow-desc">
+                Extract verified engineering facts (e.g., "run python3 scripts/check-repository.py before commit") directly from recorded session evidence, or draft a memory proposal manually. All initial entries default to <code>Candidate</code> state, preserving source session IDs and extraction timestamps.
+              </div>
+            </div>
+          </div>
+
+          <div class="step-flow-item">
+            <div class="step-flow-num">02</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">Verify Source &amp; Assign Engineering Scope</div>
+              <div class="step-flow-desc">
+                Every memory is assigned to an explicit scope (such as <code>test-practices</code>, <code>build-system</code>, or <code>workspace-rules</code>). The Private Library is maintained in strict isolation and never exposed to project memory streams or prompt retrieval contexts.
+              </div>
+            </div>
+          </div>
+
+          <div class="step-flow-item">
+            <div class="step-flow-num">03</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">Human Review &amp; State Activation (Active)</div>
+              <div class="step-flow-desc">
+                Adheres to the principle that "stored does not mean active for models." Engineers inspect and refine the recorded facts before manually promoting the entry to <code>Active</code>. Unaudited candidates never enter context retrieval.
+              </div>
+            </div>
+          </div>
+
+          <div class="step-flow-item">
+            <div class="step-flow-num">04</div>
+            <div class="step-flow-body">
+              <div class="step-flow-title">Scoped Retrieval &amp; Explicit Superseding (Supersede / Archive)</div>
+              <div class="step-flow-desc">
+                Perform pure local lexical retrieval within a controlled token budget via MCP tools or CLI. When project conventions evolve, explicitly designate new memories to supersede old ones (<code>Superseded</code>) or archive them entirely (<code>Archived</code>), preventing outdated rules from polluting prompts.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real Screenshot Frame -->
+        <div class="product-screenshot-frame" style="margin-bottom: 40px;">
+          <img
+            src="../../../assets/vela-sessions.png"
+            alt="Vela memory management and session review interface: showing memory list, lifecycle transitions, and source session associations"
+            width="1250"
+            height="800"
+            loading="lazy"
+            class="product-screenshot-img"
+          >
+          <div class="screenshot-caption">
+            <span>macOS native preview interface (0.1.0-preview.2) · Synthetic data</span>
+          </div>
+        </div>
+
+        <!-- Limitations & Boundaries Callout -->
+        <div class="callout-limits">
+          <div class="callout-limits-title">Boundaries &amp; Known Limitations</div>
+          <div class="callout-limits-content">
+            <ul style="padding-left: 18px; margin: 0;">
+              <li><strong>Lexical &amp; Scope Indexing:</strong> Vela uses pure local SQLite for scope, keyword, and lexical matching, with zero reliance on remote vector databases, embedding APIs, or external cloud persistence.</li>
+              <li><strong>Model Adherence Requires Independent Evidence:</strong> Retrieving Active memories within budget and injecting them into context does not guarantee that downstream coding agents will comprehend and strictly follow them. Adherence depends on task complexity and the harness itself.</li>
+              <li><strong>Strict Isolation for Private Library:</strong> The Private Library is reserved exclusively for personal sensitive notes and local private reference. It is strictly segregated from project memories and never exposed to agent retrieval protocols or model prompts.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Bottom CTA Bar -->
+        <div class="usecase-cta-bar">
+          <a href="/en/docs.html#memory" class="usecase-next-doc-link">Next: Read Project Memory Design &amp; Lifecycle Documentation →</a>
+          <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="btn btn-primary-amber" target="_blank" rel="noopener noreferrer">
+            Download macOS Preview →
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="/en/usecases/" class="footer-link">Use Cases</a>
+        <a href="/en/comparisons/" class="footer-link">Comparisons</a>
+        <a href="/en/docs.html" class="footer-link">Documentation</a>
+        <a href="/en/releases.html" class="footer-link">Releases</a>
+        <a href="/en/privacy.html" class="footer-link">Privacy</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">Security Advisory</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../../../site.js"></script>
+</body>
+</html>

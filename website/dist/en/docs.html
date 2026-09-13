@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Technical Documentation &amp; User Guide — Vela</title>
+  <meta name="description" content="Official technical documentation for Vela: installation, connecting projects, session observation, project memory, workflow approval, Agent Lab comparisons, CLI, stdio MCP, and local trust boundaries.">
+  <link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+  <link rel="canonical" href="https://vela-engineering.zzzsssaa.chatgpt.site/en/docs.html">
+  <link rel="alternate" hreflang="zh-CN" href="https://vela-engineering.zzzsssaa.chatgpt.site/docs.html">
+  <link rel="alternate" hreflang="en" href="https://vela-engineering.zzzsssaa.chatgpt.site/en/docs.html">
+  <link rel="alternate" hreflang="x-default" href="https://vela-engineering.zzzsssaa.chatgpt.site/docs.html">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="../assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="../styles.css">
+
+  <!-- Immediate theme application -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/en/" class="brand-link" aria-label="Vela Homepage">
+          <img src="../assets/mark.svg" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="Main Navigation">
+          <a href="/en/usecases/" class="nav-link">Use Cases</a>
+          <a href="/en/comparisons/" class="nav-link">Comparisons</a>
+        </nav>
+      </div>
+
+      <div class="header-actions">
+        <a href="/en/docs.html" class="header-docs-link active" aria-current="page">Docs</a>
+
+        <!-- Theme Toggle Button -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="Switch to dark mode" title="Switch to dark mode">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- Language Switcher -->
+        <a href="/docs.html" class="header-lang-link" hreflang="zh-CN" lang="zh-CN" aria-label="切换至简体中文">简体中文</a>
+
+        <!-- GitHub Repository Button -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub Repository" title="GitHub Repository">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="Mobile menu">
+      <a href="/en/usecases/" class="nav-link">Use Cases</a>
+      <a href="/en/comparisons/" class="nav-link">Comparisons</a>
+      <a href="/en/docs.html" class="nav-link active" aria-current="page">Docs</a>
+      <a href="/en/releases.html" class="nav-link">Releases</a>
+      <a href="/en/privacy.html" class="nav-link">Privacy</a>
+      <a href="/docs.html" class="nav-link lang-switch-link" hreflang="zh-CN" lang="zh-CN">简体中文</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub Repository ↗</a>
+    </div>
+  </header>
+
+  <!-- Docs Main Content Layout -->
+  <main class="docs-wrapper">
+    <div class="container docs-grid">
+      <!-- Sticky Sidebar Navigation (Collapsible on mobile) -->
+      <aside class="docs-sidebar" aria-label="Documentation Table of Contents">
+        <button type="button" class="docs-toc-toggle" aria-expanded="false" aria-controls="docs-toc-content">
+          <span class="docs-toc-toggle-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            <span>Table of Contents</span>
+          </span>
+          <span class="docs-toc-toggle-hint">Expand ▾</span>
+        </button>
+
+        <div class="docs-nav-content" id="docs-toc-content">
+          <div>
+            <div class="docs-nav-category">Getting Started &amp; Install</div>
+            <div class="docs-nav-links">
+              <a href="#system-reqs" class="docs-nav-link">System &amp; Code Signing</a>
+              <a href="#installation" class="docs-nav-link">Download &amp; Installation</a>
+              <a href="#build-from-source" class="docs-nav-link">Build from Source</a>
+              <a href="#first-project" class="docs-nav-link">Connect First Project</a>
+            </div>
+          </div>
+
+          <div>
+            <div class="docs-nav-category">Core Capabilities</div>
+            <div class="docs-nav-links">
+              <a href="#sessions" class="docs-nav-link">Sessions &amp; Log Ingestion</a>
+              <a href="#memory" class="docs-nav-link">Project Memory &amp; Lifecycle</a>
+              <a href="#workflows" class="docs-nav-link">Workflows &amp; Approvals</a>
+              <a href="#lab-reuse" class="docs-nav-link">Agent Lab &amp; Reuse (Dev Branch)</a>
+            </div>
+          </div>
+
+          <div>
+            <div class="docs-nav-category">Integration &amp; Trust</div>
+            <div class="docs-nav-links">
+              <a href="#cli-mcp" class="docs-nav-link">CLI &amp; stdio MCP Server</a>
+              <a href="#data-trust" class="docs-nav-link">Storage &amp; Trust Boundaries</a>
+            </div>
+          </div>
+
+          <div>
+            <div class="docs-nav-category">Reference Specs</div>
+            <div class="docs-nav-links">
+              <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/architecture.md" class="docs-nav-link" target="_blank" rel="noopener noreferrer">Architecture ADR ↗</a>
+              <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" class="docs-nav-link" target="_blank" rel="noopener noreferrer">Feature Status &amp; Limits ↗</a>
+              <a href="/en/privacy.html" class="docs-nav-link">Privacy &amp; Data Specs</a>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Documentation Article -->
+      <article class="docs-article">
+        <h1>Vela User Guide &amp; Technical Documentation</h1>
+        <p class="docs-intro">
+          Vela is a local-first engineering retention and evidence layer for coding agents. This guide covers system requirements, installation, core desktop modules, CLI and MCP integration, and data trust boundaries.
+        </p>
+
+        <!-- System Requirements -->
+        <section class="docs-section" id="system-reqs">
+          <h2>System Requirements &amp; Code Signing</h2>
+          <p>
+            Vela follows a local-first, system-native framework architecture using Swift, AppKit, and system WebKit backed by SQLite WAL. It does not bundle Node.js, Electron, or Chromium runtimes.
+          </p>
+          <ul>
+            <li><strong>Operating System:</strong> macOS 13.0 (Ventura) or later.</li>
+            <li><strong>Hardware:</strong> Apple Silicon (arm64) native architecture.</li>
+            <li><strong>Permissions:</strong> Standard user privileges. Connecting a repository requires standard filesystem read/write access to that directory.</li>
+          </ul>
+
+          <div class="callout-box">
+            <strong>Code Signing &amp; Gatekeeper Instructions:</strong> The current developer preview binary uses <strong>ad-hoc signing without a Developer ID signature or Apple notarization</strong>. When launching for the first time, macOS Gatekeeper will display a security notice.<br><br>
+            <strong>Proper authorization method:</strong> Open macOS <strong>System Settings ➔ Privacy &amp; Security</strong>, scroll to the Security section at the bottom, verify the application name, and click <strong>"Open Anyway"</strong> to grant a single-application approval. <strong>Never use global Gatekeeper bypass commands (such as disabling spctl) that compromise system-wide security.</strong>
+          </div>
+        </section>
+
+        <!-- Installation & Packaging -->
+        <section class="docs-section" id="installation">
+          <h2>Download &amp; Installation</h2>
+          <p>
+            We recommend obtaining the precompiled archive from the official GitHub Release page and verifying its SHA256 checksum:
+          </p>
+          <ol>
+            <li>Go to <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">GitHub Releases (v0.1.0-preview.2)</a>, and download <code class="inline-code">Vela-macOS-arm64.zip</code> and <code class="inline-code">SHA256SUMS</code> into the same directory.</li>
+            <li>In terminal, verify the checksum: <code class="inline-code">shasum -a 256 -c SHA256SUMS</code>, confirming an OK result.</li>
+            <li>Unzip the archive and drag <code class="inline-code">Vela.app</code> into your <code class="inline-code">/Applications</code> folder.</li>
+            <li>Launch the application, approve via "Open Anyway" in System Settings, and the local store will initialize automatically.</li>
+          </ol>
+        </section>
+
+        <!-- Build from Source -->
+        <section class="docs-section" id="build-from-source">
+          <h2>Build from Source</h2>
+          <p>
+            Vela is fully open source. You can compile, test, and run locally using Xcode Command Line Tools:
+          </p>
+
+          <div class="code-block-wrapper">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-build" aria-label="Copy code">Copy</button>
+            <pre id="code-build"># 1. Clone the repository
+git clone https://github.com/Atingaii/Vela.git
+cd Vela
+
+# 2. Build the project (Swift Package Manager)
+swift build
+
+# 3. Run the desktop host directly
+swift run VelaDesktop
+
+# 4. Package a standalone macOS application
+bash scripts/package-macos.sh</pre>
+          </div>
+
+          <p>
+            When packaging completes, standalone artifacts are placed in <code class="inline-code">releases/Vela.app</code>, <code class="inline-code">releases/Vela-macOS-arm64.zip</code>, and <code class="inline-code">releases/SHA256SUMS</code>, bundling the AppKit host and embedded CLI helper.
+          </p>
+        </section>
+
+        <!-- Connect First Project -->
+        <section class="docs-section" id="first-project">
+          <h2>Connect Your First Project</h2>
+          <p>
+            Vela organizes engineering context around specific repositories. The development preview defaults to the <code class="inline-code">dev</code> channel store at <code class="inline-code">~/.vela-dev</code>. Connecting a project initiates discovery of associated agent logs:
+          </p>
+          <ul>
+            <li><strong>Desktop UI:</strong> Click the <strong>+</strong> icon next to the project switcher in the upper-left corner of the window, and select your local Git repository root in the system file picker.</li>
+            <li><strong>CLI Command:</strong> Register a directory into the development store via the embedded helper:
+              <div class="code-block-wrapper" style="margin-top: 8px;">
+                <button type="button" class="code-block-copy-btn" data-copy-target="#code-project-add" aria-label="Copy code">Copy</button>
+                <pre id="code-project-add">/Applications/Vela.app/Contents/MacOS/vela call projects.add '{"path":"/Users/yourname/Projects/my-app"}' --home "$HOME/.vela-dev"</pre>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Core Module 1: Sessions -->
+        <section class="docs-section" id="sessions">
+          <h2>Sessions &amp; Log Ingestion (Available in 0.1.0-preview.2)</h2>
+          <p>
+            The Sessions workspace aggregates agent invocations for connected projects. Vela discovers and parses log streams via local filesystem monitoring:
+          </p>
+          <ul>
+            <li><strong>Claude Code Logs:</strong> Automatically reads JSONL session files under <code class="inline-code">~/.claude/projects/</code>, parsing user prompts, assistant turns, and tool calls (e.g. <code class="inline-code">file.write</code>, <code class="inline-code">bash</code>).</li>
+            <li><strong>Codex Sessions:</strong> Automatically discovers session state transitions under <code class="inline-code">~/.codex/sessions/</code>.</li>
+            <li><strong>Cursor Import:</strong> Supports read-only import of exported Cursor JSON transcripts using defensive, bounded parsing to accommodate structural revisions.</li>
+            <li><strong>Bounded Reads &amp; Resource Protection:</strong> Initial discovery scans at most 60 log files per provider, applying a 256 KB tail window and 32 KB header probe to prevent memory and I/O bloat.</li>
+            <li><strong>Inferred Status Principle:</strong> Status labels (Running, Idle, Needs Approval) are derived strictly from the latest recorded log events, not a live process monitor. Missing evidence is labeled as unknown.</li>
+            <li><strong>Export Checkpoints:</strong> Supports exporting current Git HEAD, completed tasks, and verification outputs as a Markdown handoff checkpoint.</li>
+          </ul>
+        </section>
+
+        <!-- Core Module 2: Memory -->
+        <section class="docs-section" id="memory">
+          <h2>Project Memory &amp; Lifecycle (Available in 0.1.0-preview.2)</h2>
+          <p>
+            Project Memory captures durable engineering constraints. Vela operates under the core principle that "saved context does not guarantee model adoption":
+          </p>
+          <ul>
+            <li><strong>Lifecycle State Model:</strong>
+              <ul>
+                <li><code class="inline-code">Candidate</code>: Initial state proposed from messages or entered manually; includes source session ID; excluded from context recall.</li>
+                <li><code class="inline-code">Active</code>: Manually reviewed and approved by an engineer; the only state eligible for token-budgeted recall.</li>
+                <li><code class="inline-code">Superseded</code>: Explicitly marked as replaced when conventions change, preserving an audit trail.</li>
+                <li><code class="inline-code">Archived</code>: Deprecated or obsolete entries, removed entirely from retrieval.</li>
+              </ul>
+            </li>
+            <li><strong>7 Engineering Scopes:</strong> Memories must belong to an explicit scope: <code class="inline-code">workspace-rules</code>, <code class="inline-code">build-system</code>, <code class="inline-code">lint-and-typecheck</code>, <code class="inline-code">test-practices</code>, <code class="inline-code">provider-constraints</code>, <code class="inline-code">environment-setup</code>, and <code class="inline-code">debugging-playbook</code>.</li>
+            <li><strong>Budget-Capped Lexical Recall:</strong> Driven entirely by local SQLite without remote vector embedding dependencies. Recalls active entries within a 1,000-token cap by default; never dumped automatically into session prompts.</li>
+            <li><strong>Strict Private Library Isolation:</strong> Reserved for sensitive personal credentials and private notes, strictly blocked from agent retrieval and prompt construction.</li>
+          </ul>
+        </section>
+
+        <!-- Core Module 3: Workflows -->
+        <section class="docs-section" id="workflows">
+          <h2>Workflows &amp; Approvals (Available in 0.1.0-preview.2)</h2>
+          <p>
+            Workflows organize recurring validation, building, and checking steps into reproducible pipelines. Authored in Markdown with YAML/JSON frontmatter (<code class="inline-code">*.md</code>):
+          </p>
+          <ul>
+            <li><strong>Read-Only vs. Mutating Tools:</strong> Clear separation between harmless inspect tools (<code class="inline-code">git.status</code>, <code class="inline-code">git.diff</code>, <code class="inline-code">git.log</code>) and gated tools (<code class="inline-code">shell.test</code>, <code class="inline-code">shell.typecheck</code>, <code class="inline-code">file.write</code>, <code class="inline-code">agent.run</code>).</li>
+            <li><strong>Dry Run Rehearsals:</strong> Read-only Git steps run against the real working copy; mutating and test commands are intercepted by stubs so you can verify parameters without modifying code. Note: a successful preview validates schema, not that tests actually passed.</li>
+            <li><strong>Inbox Gating &amp; Frozen Argument Hashes:</strong> Pending commands calculate a frozen parameter hash upon enqueueing. Approvals apply strictly once to those exact parameters.</li>
+            <li><strong>Local File Write Transactions &amp; Undo:</strong> Validates target roots and hashes before writes, logging Undo transaction records in SQLite WAL for safe rollbacks.</li>
+          </ul>
+        </section>
+
+        <!-- Core Module 4: Lab & Reuse -->
+        <section class="docs-section" id="lab-reuse">
+          <h2>Agent Lab &amp; Comparative Testing (Current Dev Branch)</h2>
+          <div class="callout-box" style="margin-bottom: 16px; border-left-color: var(--badge-dev-text);">
+            <strong>Version Boundary:</strong> The paired evaluation, isolated Git worktrees, SessionStart Hook, and SafeApply/Undo capabilities described here are under active development and <strong>not included in the 0.1.0-preview.2 binary</strong>.
+          </div>
+          <p>
+            Agent Lab provides empirical verification for prompt, memory, and rule modifications, rejecting the assumption that "every tweak automatically improves agent quality":
+          </p>
+          <ul>
+            <li><strong>Paired Git Worktree Isolation:</strong> Executes baseline and candidate variants in two separate worktrees branched from the exact same Git commit, preventing filesystem collisions.</li>
+            <li><strong>Three Grounded Outcomes:</strong> Scored by an independent verification script against frozen task criteria:
+              <ul>
+                <li><code class="inline-code">Improved</code>: Candidate demonstrably fixes tests or passes verification.</li>
+                <li><code class="inline-code">Worse</code>: Candidate introduces regressions or verification failures.</li>
+                <li><code class="inline-code">Inconclusive</code>: Insufficient evidence or identical scores. Given LLM stochasticity, Inconclusive is recognized as normal engineering reality.</li>
+              </ul>
+            </li>
+            <li><strong>Restricted Promotion:</strong> Only eligible memory-only candidates can be confirmed by an engineer; ties and unverified runs are barred from automatic activation.</li>
+            <li><strong>SessionStart Hook &amp; SafeApply / Undo:</strong> Generates deterministic hook configurations for Codex inspection. Applying changes creates hash snapshots for reversible Undo.</li>
+          </ul>
+        </section>
+
+        <!-- Integration: CLI & MCP -->
+        <section class="docs-section" id="cli-mcp">
+          <h2>CLI &amp; stdio MCP Integration</h2>
+          <p>
+            Vela embeds a read-only stdio MCP server and versatile CLI tools for integration with coding agents such as Claude Desktop, Claude Code, and Cursor.
+          </p>
+
+          <h3>stdio MCP Configuration</h3>
+          <p>
+            Add the following configuration to your agent's MCP settings file (e.g. <code class="inline-code">claude_desktop_config.json</code>). <strong>Note: JSON parameters do not expand shell variables; replace <code class="inline-code">/Users/YOUR_USERNAME/.vela-dev</code> with your absolute home directory path:</strong>
+          </p>
+
+          <div class="code-block-wrapper">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-mcp" aria-label="Copy code">Copy</button>
+            <pre id="code-mcp">{
+  "mcpServers": {
+    "vela": {
+      "command": "/Applications/Vela.app/Contents/MacOS/vela",
+      "args": [
+        "mcp",
+        "--home",
+        "/Users/YOUR_USERNAME/.vela-dev"
+      ]
+    }
+  }
+}</pre>
+          </div>
+
+          <h3>Common CLI Commands</h3>
+          <div class="code-block-wrapper" style="margin-top: 12px; margin-bottom: 20px;">
+            <button type="button" class="code-block-copy-btn" data-copy-target="#code-cli-cmds" aria-label="Copy code">Copy</button>
+            <pre id="code-cli-cmds"># Check environment health
+/Applications/Vela.app/Contents/MacOS/vela doctor --home "$HOME/.vela-dev"
+
+# Scan and refresh local session logs
+/Applications/Vela.app/Contents/MacOS/vela refresh --home "$HOME/.vela-dev"
+
+# Explicitly recall active memory within a 1,000-token budget
+/Applications/Vela.app/Contents/MacOS/vela recall "SQLite concurrency" --project /path/to/project --home "$HOME/.vela-dev"
+
+# Search local project evidence records
+/Applications/Vela.app/Contents/MacOS/vela search "worktree cleanup" --project /path/to/project --home "$HOME/.vela-dev"</pre>
+          </div>
+        </section>
+
+        <!-- Integration: Data & Trust -->
+        <section class="docs-section" id="data-trust">
+          <h2>Data Storage &amp; Trust Boundaries</h2>
+          <p>
+            The preview desktop app uses the <code class="inline-code">dev</code> channel, persisting assets under <code class="inline-code">~/.vela-dev/</code> in the user's home folder:
+          </p>
+
+          <div class="code-block-wrapper">
+            <pre>~/.vela-dev/
+├── vela.sqlite3           # SQLite database (indexes, run logs, approval snapshots)
+└── assets/
+    ├── memory/            # Project memory files (*.md)
+    ├── workflow/          # Workflow definitions (*.md with frontmatter)
+    ├── guideline/         # Guideline specification snapshots (*.md)
+    ├── library/           # Reference library (Private items excluded from agents)
+    └── checkpoint/        # Model handoff summary files</pre>
+          </div>
+
+          <div class="callout-box" style="margin-top: 16px;">
+            <strong>Network &amp; Trust Boundaries:</strong> Vela contains no commercial telemetry or cloud account sync. However: when an engineer explicitly imports a URL or approves an agent command with network flags, the underlying process makes outbound network requests. Local-first is not a physical network disconnect guarantee.
+          </div>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="/en/usecases/" class="footer-link">Use Cases</a>
+        <a href="/en/comparisons/" class="footer-link">Comparisons</a>
+        <a href="/en/docs.html" class="footer-link">Docs</a>
+        <a href="/en/releases.html" class="footer-link">Releases</a>
+        <a href="/en/privacy.html" class="footer-link">Privacy</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">Report Vulnerability</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../site.js"></script>
+</body>
+</html>

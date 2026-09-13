@@ -1,14 +1,31 @@
-![Vela — 智能体编程的工程工作台](docs/assets/vela-readme-banner.svg)
+<p align="center">
+  <img src="docs/assets/vela-readme-banner.svg" alt="Vela — 智能体编程的工程工作台" width="100%">
+</p>
 
-# Vela
+<h1 align="center">Vela</h1>
 
-[English](README.md) · [官方网站](https://vela-engineering.zzzsssaa.chatgpt.site) · [下载预览版 (v0.1.0-preview.2)](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2) · [功能状态](docs/status.md) · [系统架构](docs/architecture.md) · [贡献指南](CONTRIBUTING.md)
+<p align="center">
+  <strong>让一次 Agent Session 结束，但工程经验不结束。</strong>
+</p>
 
-[![CI](https://github.com/Atingaii/Vela/actions/workflows/ci.yml/badge.svg)](https://github.com/Atingaii/Vela/actions/workflows/ci.yml) · [MIT 许可证](LICENSE) · macOS 13+ (Apple Silicon)
+<p align="center">
+  <a href="README.md">English</a> ·
+  <a href="https://vela-engineering.zzzsssaa.chatgpt.site">官方网站</a> ·
+  <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2">下载预览版 (v0.1.0-preview.2)</a> ·
+  <a href="docs/status.md">功能状态</a> ·
+  <a href="docs/architecture.md">系统架构</a> ·
+  <a href="CONTRIBUTING.md">贡献指南</a>
+</p>
 
-让一次 Agent Session 结束，但工程经验不结束。
+<p align="center">
+  <a href="https://github.com/Atingaii/Vela/actions/workflows/ci.yml"><img src="https://github.com/Atingaii/Vela/actions/workflows/ci.yml/badge.svg" alt="CI"></a> ·
+  <a href="LICENSE">MIT 许可证</a> ·
+  <span>macOS 13+ (Apple Silicon)</span>
+</p>
 
-Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Codex、Cursor、Pi 和 OMP 会话数据，将对话证据、项目 Memory、可审批的 Workflow 和真实 Codex 对照记录放在一起，配合已有 Coding Agent 使用。
+<p align="center">
+  Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Codex、Cursor、Pi 和 OMP 会话数据，将对话证据、项目 Memory、可审批的 Workflow 和真实 Codex 对照记录放在一起，配合已有 Coding Agent 使用。
+</p>
 
 > **当前开发分支：验收与界面重构，尚未发布。**
 >
@@ -16,9 +33,13 @@ Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Co
 >
 > 核心路径已经实现，但适配、自动化和评测仍有明确限制；当前版本不代表完整产品路线图已经交付，也不是稳定版本。开发包使用 ad-hoc 签名，没有 Developer ID 签名，尚未通过 Apple 公证。使用前请阅读[功能状态与限制](docs/status.md)。
 
-![Vela 开发版工作区展示分组 Agent 会话与原始消息](docs/assets/vela-workspace.png)
+<p align="center">
+  <img src="docs/assets/vela-workspace.png" alt="Vela 开发版工作区展示分组 Agent 会话与原始消息" width="100%">
+</p>
 
-*真实 macOS 开发版截图，使用隔离的示例工程与合成会话日志，通过真实本地 helper 和数据库渲染；不含个人会话数据。本次工作区重构位于开发分支，尚未包含在 preview.2 下载中。*
+<p align="center">
+  <em>真实 macOS 开发版截图，使用隔离的示例工程与合成会话日志，通过真实本地 helper 和数据库渲染；不含个人会话数据。本次工作区重构位于开发分支，尚未包含在 preview.2 下载中。</em>
+</p>
 
 ## 当前可用能力
 

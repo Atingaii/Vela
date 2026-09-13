@@ -1,14 +1,31 @@
-![Vela — The engineering layer for coding agents](docs/assets/vela-readme-banner.svg)
+<p align="center">
+  <img src="docs/assets/vela-readme-banner.svg" alt="Vela — The engineering layer for coding agents" width="100%">
+</p>
 
-# Vela
+<h1 align="center">Vela</h1>
 
-[简体中文](README.zh-CN.md) · [Website](https://vela-engineering.zzzsssaa.chatgpt.site) · [Download preview (v0.1.0-preview.2)](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2) · [Status](docs/status.md) · [Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md)
+<p align="center">
+  <strong>An agent session ends. Your engineering context should not.</strong>
+</p>
 
-[![CI](https://github.com/Atingaii/Vela/actions/workflows/ci.yml/badge.svg)](https://github.com/Atingaii/Vela/actions/workflows/ci.yml) · [MIT License](LICENSE) · macOS 13+ (Apple Silicon)
+<p align="center">
+  <a href="README.zh-CN.md">简体中文</a> ·
+  <a href="https://vela-engineering.zzzsssaa.chatgpt.site">Website</a> ·
+  <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2">Download preview (v0.1.0-preview.2)</a> ·
+  <a href="docs/status.md">Status</a> ·
+  <a href="docs/architecture.md">Architecture</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
 
-An agent session ends. Your engineering context should not.
+<p align="center">
+  <a href="https://github.com/Atingaii/Vela/actions/workflows/ci.yml"><img src="https://github.com/Atingaii/Vela/actions/workflows/ci.yml/badge.svg" alt="CI"></a> ·
+  <a href="LICENSE">MIT License</a> ·
+  <span>macOS 13+ (Apple Silicon)</span>
+</p>
 
-Vela is a local macOS workspace for supported Claude Code, Codex, Cursor, Pi and OMP session data. It brings conversation evidence, project memory, reviewable workflows and measured Codex comparisons into one place, alongside the agents you already use.
+<p align="center">
+  Vela is a local macOS workspace for supported Claude Code, Codex, Cursor, Pi and OMP session data. It brings conversation evidence, project memory, reviewable workflows and measured Codex comparisons into one place, alongside the agents you already use.
+</p>
 
 > **Development branch — acceptance redesign, not yet released.**
 >
@@ -16,9 +33,13 @@ Vela is a local macOS workspace for supported Claude Code, Codex, Cursor, Pi and
 >
 > Core paths are implemented, with substantial compatibility and automation limits. This is not a complete implementation of the roadmap or a stable release. The development app is ad-hoc signed, has no Developer ID signature and is not Apple-notarized. Read [feature status and limitations](docs/status.md) before use.
 
-![Vela development workspace showing grouped agent sessions and their source messages](docs/assets/vela-workspace.png)
+<p align="center">
+  <img src="docs/assets/vela-workspace.png" alt="Vela development workspace showing grouped agent sessions and their source messages" width="100%">
+</p>
 
-*Actual macOS development build with an isolated example project and synthetic session logs. The interface uses the real local helper and database; no personal session data appears here. This workspace redesign is on the development branch and is not included in the preview.2 download.*
+<p align="center">
+  <em>Actual macOS development build with an isolated example project and synthetic session logs. The interface uses the real local helper and database; no personal session data appears here. This workspace redesign is on the development branch and is not included in the preview.2 download.</em>
+</p>
 
 ## What you can use
 
