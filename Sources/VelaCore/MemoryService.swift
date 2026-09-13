@@ -13,7 +13,7 @@ final class MemoryService {
             return try MemoryIntegrationService(store:store).handle(method,params)
         case "memory.archive.export", "memory.archive.validate", "memory.archive.import", "memory.archive.fromWalrusRecords":
             return try MemoryArchiveService(store:store).handle(method,params)
-        case "memory.semantic.index", "memory.semantic.status":
+        case "memory.semantic.index", "memory.semantic.status", "memory.semantic.embed", "memory.semantic.query", "memory.semantic.recent":
             return try SemanticMemory(store:store).handle(method,params)
         case "memory.list": return try store.list("memory",project: checkedProject(params))
         case "memory.save":

@@ -213,11 +213,15 @@ class SyncAcceptance(unittest.TestCase):
 
     def test_synchronous_preheader_cancel_is_bounded_by_sdk_timeout(self):
         f=self.f;f.mode='before-headers';_,m=f.sync(request_timeout=0.15);event=threading.Event();t=f.turn(m,cancel_event=event)
-        timer=threading.Timer(0.08,event.set);timer.start();start=time.monotonic()
+        cancellation_set=threading.Event()
+        def cancel_after_request_starts():
+            if f.started.wait(1):
+                event.set();cancellation_set.set()
+        canceller=threading.Thread(target=cancel_after_request_starts,daemon=True);canceller.start();start=time.monotonic()
         try:
             with self.assertRaises(VelaResponsesError):t.create(input=PROMPT)
-        finally:timer.cancel()
-        elapsed=time.monotonic()-start;self.assertLess(elapsed,1);self.assertGreaterEqual(elapsed,0.1);self.assertEqual(t.settled(1)['generation'],'cancelled');self.assertEqual(len(f.rows()),0)
+        finally:canceller.join(2)
+        elapsed=time.monotonic()-start;self.assertTrue(cancellation_set.is_set());self.assertLess(elapsed,1);self.assertGreaterEqual(elapsed,0.1);self.assertEqual(t.settled(1)['generation'],'cancelled');self.assertEqual(len(f.rows()),0)
 
     def test_same_turn_overlap_rejects_without_corrupting_original(self):
         f=self.f;started,release=threading.Event(),threading.Event()

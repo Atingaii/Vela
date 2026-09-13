@@ -27,8 +27,8 @@ Vela 代码定位：`M` = [MemoryService](../../Sources/VelaCore/MemoryService.s
 | WM-04 | LLM analyze 提取多个事实 [S1] | 自动提取后返回存储 jobs | 可选 Walrus SDK 已封装官方 analyze、显式 relayer 明文授权、accepted jobs 和一次性冻结操作；真实提炼质量与远端写入仍待账户验收 | 多事实/否定/引用/隐私 fixture；每条保留源区间，失败不制造事实 |
 | WM-05 | 语义 Recall [S3] | Embedding + pgvector/HNSW cosine 近邻 | E 已有真实本机 Apple en/zh-Hans embedding、版本化 SQLite Float BLOB 与流式 semantic/hybrid；远端 pgvector/provider 尚未接入 | 同义改写可召回，语义相近但错误项目不可召回；记录实际模型版本 |
 | WM-06 | similarity/distance cutoff、limit [S1] | 相似度阈值与限量查询 | E 有真实 cosine 阈值、top-K、保守 token budget 和截断标记；M 保留词面默认 | 检查阈值边界、空结果、明确 limit 和预算，同时不伪称词面分为 cosine |
-| WM-07 | 新近匹配、recency/importance 加权 [S1] | `recent` 从语义匹配中排序；weights 只重排候选 | E 在全部有效语义候选上执行显式 recency/importance 加权；缺测值中性；独立 recent 排序选项尚未实现 | 新旧矛盾 fixture，固定时钟重放，记录排序原因 |
-| WM-08 | 独立 embed 与预计算 vector 检索 [S2] | `/api/embed`、manual recall 返回 blob IDs | E 已有内部 provider 与预计算向量索引；独立公共 embed/manual blob-vector API 尚未实现 | 维度/NaN/模型不匹配拒绝，网络不可用显式降级 |
+| WM-07 | 新近匹配、recency/importance 加权 [S1] | `recent` 从语义匹配中排序；weights 只重排候选 | E 的 `memory.semantic.recent` 在所有合格向量上按创建时间、cosine、稳定 ID 排序；query relevance 仍可显式 recency/importance 加权，recent 拒绝权重。安装后 TS/Python consumer、source freshness 与 namespace 隔离已验收；远端排序未接入 | 新旧/缺失/未来时间 fixture，固定时钟，安装包 recent 调用与权重拒绝 |
+| WM-08 | 独立 embed 与预计算 vector 检索 [S2] | `/api/embed`、manual recall 返回 blob IDs | E 的 `memory.semantic.embed` 和 `memory.semantic.query` 已为只读公共 RPC；embed 不持久化，query 只接受当前本机模型兼容的有限非零 vector，未提供或伪称 Walrus blob ID。已安装 TS/Python consumer 验收；远端 manual blob 检索未接入 | 维度/NaN/模型不匹配、64 KiB、无持久化、模型 unavailable、namespace/source invalidation 的 Core 与安装包检查 |
 | WM-09 | owner + namespace 分区 [S4] | 检索与恢复匹配 namespace；不是 delegate 级 ACL | M 新增真实 namespace scope；integration API、词面/语义召回均严格隔离，已测；远端 adapter 显式 profile owner/account/namespace 并查 owner 后签名，待实网验收 | 两 owner 同 namespace、同 owner 两 namespace 均按合同隔离 |
 | WM-10 | namespace 枚举及数量/存储字节 [S5] | 游标分页、metadata-only，无需解密全文 | 可选 adapter 复用官方 SDK owner namespace 分页，真实签名协议 fixture 已过；实网完整遍历未验收 | 超过一页仍不漏/重、真实字节、权限拒绝、稳定增量水位 |
 | WM-11 | Memory 与 agent 元数据读 API [S5] | owner-scoped memories/agents，分页不依赖 page length | 可选 adapter ownerMemories/ownerAgents 已实现，使用公开签名 REST、字段白名单和 endpoint/account/owner 绑定游标；真实协议 fixture 已过，账户完整遍历待验收 | 遍历上限之外完整集合；agent 来自真实身份，不臆测 |
@@ -64,12 +64,12 @@ Vela 代码定位：`M` = [MemoryService](../../Sources/VelaCore/MemoryService.s
 
 | ID | 参考能力及证据 | 参考交付边界 | Vela 当前代码/缺口 | 完成验收 |
 | --- | --- | --- | --- | --- |
-| WM-34 | TypeScript SDK 工厂与类型化 API [S1] | 默认/手动/AI/account 多入口 | 新增 [本地 TS SDK](../../sdk/typescript/README.md)，可安装、候选 bulk、归档、语义 index/status/recall、取消/错误；另有可安装可选远端/manual/account/manifest adapter；AI middleware 与完整远端验收仍缺 | 打包安装、类型检查、错误分类、兼容性与完整流程测试 |
+| WM-34 | TypeScript SDK 工厂与类型化 API [S1] | 默认/手动/AI/account 多入口 | [本地 TS SDK](../../sdk/typescript/README.md) 有候选 bulk、归档、语义 index/status/recall、取消/错误；可选远端/manual/account/manifest adapter 已安装验收；[AI middleware 已完成实际安装验证](../../sdk/ai/VERIFICATION.md)，完整远端与跨客户端验收仍缺 | 打包安装、类型检查、错误分类、兼容性与完整流程测试 |
 | WM-35 | Python sync/async SDK [S21] | remember/bulk/recall/analyze/ask/restore；生命周期 close | 新增 [本地 Python sync/async SDK](../../sdk/python/README.md)，含本机语义 index/status/recall；远端 analyze/ask/SEAL 仍缺 | sync/async 等价，资源回收，取消/超时/失败正确 |
-| WM-36 | Vercel AI SDK 中间件 [S22] | 生成前召回注入，生成后可 analyze/save；配置阈值、数量 | R 只有 Codex 项目 Hook 受信入口；无通用 middleware | 真模型调用可核对注入输入；关闭 autosave 后没有隐式保存 |
-| WM-37 | Python LangChain/OpenAI wrapper [S23] | 同步与异步调用 hook；按需依赖 | 未实现 | wrapper 前后消息保真、异常不中断资源关闭、配置可控 |
+| WM-36 | Vercel AI SDK 中间件 [S22] | 生成前召回注入，生成后可 analyze/save；配置阈值、数量 | [可安装 middleware](../../sdk/ai/README.md) 已通过 17 项真实 AI SDK generate/stream→loopback HTTP/SSE→真实 helper 检查；默认零捕获、明确 namespace、终态候选与未知写入分离；[收据与版本](../../sdk/ai/VERIFICATION.md)。远端 analyze、真实模型质量与其他 provider 完整性不由该验收证明 | 真模型调用可核对注入输入；关闭 autosave 后没有隐式保存 |
+| WM-37 | Python LangChain/OpenAI wrapper [S23] | 同步与异步调用 hook；按需依赖 | [OpenAI Responses](../../sdk/python-ai/VERIFICATION.md) 30 项、[LangChain exact ChatOpenAI](../../sdk/python-langchain/VERIFICATION.md) 36 项 installed sync/async/stream 验收；真实 HTTP/SSE/helper，候选默认关、recipient 配置冻结、取消与 uncertain 已测。其他 OpenAI 入口、opaque Runnable/其他 provider、远端 analyze 仍未覆盖 | wrapper 前后消息保真、异常不中断资源关闭、配置可控 |
 | WM-38 | Grounded ask [S2][S21] | 召回后结合记忆回答 | C 本地 Ask 不是此完整语义检索+生成合同 | 无来源时不编造，有来源时列真实记录且不串项目 |
-| WM-39 | MCP remember/bulk/recall/analyze/restore/health [S24] | 文档化工具与参数；写入等待进度 | C 有 list/recall/checkpoint/signal/candidate 等；无 bulk/analyze/remote restore | MCP 工具发现、严格参数、错误/取消、默认权限、真实写后读 |
+| WM-39 | MCP remember/bulk/recall/analyze/restore/health [S24] | 文档化工具与参数；写入等待进度 | [有类型 stdio MCP](../implementation/mcp-stdio-contract.md) 已有严格逐工具 schema、四版本协商、fresh-source 读、原子候选 bulk 与明确本地 archive restore；[真实 stdio 验证脚本](../../scripts/test-mcp-stdio.py)。默认只读，贡献不激活；远端 analyze/restore/job 进度与多客户端安装仍未验收 | MCP 工具发现、严格参数、错误/取消、默认权限、真实写后读 |
 | WM-40 | MCP stdio 与 Streamable HTTP [S24] | HTTP session 生命周期与 legacy SSE | C 只有 stdio | 多连接互不串身份、关闭释放、session 限制、协议协商 |
 | WM-41 | MCP browser login/logout、multi-account [S24] | 本地 credentials；logout 不等于远端 revoke | 未实现远端登录 | 首次登录后不中断 stdin；取消保旧账户；logout与revoke区别明确 |
 | WM-42 | MCP OAuth/Claude connector [S24] | PKCE、refresh/revoke、注册 URI allowlist，受部署配置控制 | 未实现 | 错 redirect/PKCE/replay 拒绝，令牌续期与撤销端到端验证 |

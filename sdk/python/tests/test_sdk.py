@@ -165,6 +165,56 @@ class SDKTests(unittest.TestCase):
                     await api.recall("query", min_similarity=float("nan"))
         asyncio.run(scenario())
 
+    def test_installed_explicit_embed_query_recent_boundaries(self):
+        client = self.client()
+        client.register_project(str(self.project))
+        rows = client.save_candidates([{"title": "Older transport", "content": "The automobile requires maintenance."}, {"title": "Newer transport", "content": "The vehicle needs a repair."}])
+        client.close()
+        for index, row in enumerate(rows):
+            subprocess.run([BINARY, "call", "memory.transition", json.dumps({"id": row["id"], "state": "active"}), "--home", str(self.root / "store")], env={**os.environ, "VELA_DISABLE_DISCOVERY": "1"}, check=True, capture_output=True, timeout=15)
+            asset = Path(row["assetPath"])
+            asset.write_text(asset.read_text().replace("createdAt: ", f"createdAt: 2026-09-1{1 + index}T00:00:00Z"))
+        namespace = subprocess.run([BINARY, "call", "memory.save", json.dumps({"project": str(self.project), "title": "Isolated transport", "content": "The namespace automobile requires maintenance.", "scope": "namespace", "namespace": "consumer", "state": "active"}), "--home", str(self.root / "store")], env={**os.environ, "VELA_DISABLE_DISCOVERY": "1"}, check=True, capture_output=True, text=True, timeout=15)
+        namespace_id = json.loads(namespace.stdout)["id"]
+        private = subprocess.run([BINARY, "call", "memory.save", json.dumps({"project": str(self.project), "title": "Private transport", "content": "Private automobile maintenance.", "scope": "project", "state": "active", "private": True}), "--home", str(self.root / "store")], env={**os.environ, "VELA_DISABLE_DISCOVERY": "1"}, check=True, capture_output=True, text=True, timeout=15)
+        private_id = json.loads(private.stdout)["id"]
+        client = self.client()
+        status = client.semantic_status()
+        if status["status"] == "unavailable":
+            self.assertIsNone(client.semantic_embed("The vehicle needs repair.")["model"])
+            return
+        before = client.semantic_status()["indexed"]
+        embedded = client.semantic_embed("The vehicle needs repair.")
+        self.assertEqual(embedded["status"], "ok")
+        self.assertFalse(embedded["persisted"])
+        self.assertEqual(client.semantic_status()["indexed"], before)
+        with self.assertRaises(VelaError):
+            client.semantic_embed("x" * (64 * 1024 + 1))
+        cursor = None
+        while True:
+            page = client.semantic_index(batch_size=1, cursor=cursor)
+            if not page["hasMore"]:
+                break
+            cursor = page["nextCursor"]
+        queried = client.semantic_query(embedded, min_similarity=0, limit=10)
+        self.assertEqual(queried["querySource"], "precomputed-vector")
+        self.assertNotIn(namespace_id, {item["id"] for item in queried["items"]})
+        self.assertNotIn(private_id, {item["id"] for item in queried["items"]})
+        newest = client.semantic_recent("The vehicle needs repair.", min_similarity=0, limit=2)
+        self.assertEqual(newest["sort"], "recent")
+        self.assertEqual(newest["items"][0]["id"], rows[1]["id"])
+        isolated = client.semantic_recent("The vehicle needs repair.", namespace="consumer", min_similarity=0)
+        self.assertEqual([item["id"] for item in isolated["items"]], [namespace_id])
+        with self.assertRaises(VelaError):
+            client.semantic_recent("query", namespace="consumer", branch="main")
+        with self.assertRaises(VelaError):
+            client.semantic_query(embedded, sort="recent", scoring_weights={"semantic": 1})
+        stale_asset = Path(rows[1]["assetPath"])
+        stale_asset.write_text(stale_asset.read_text().replace("The vehicle needs a repair.", "Changed source evidence."))
+        stale = client.semantic_query(embedded, min_similarity=0)
+        self.assertNotIn(rows[1]["id"], {item["id"] for item in stale["items"]})
+        self.assertGreaterEqual(stale["staleVectorsExcluded"], 1)
+
     def test_prevalidation_rejects_activation_and_invalid_bulk(self):
         client = self.client()
         client.register_project(str(self.project))

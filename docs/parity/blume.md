@@ -43,7 +43,7 @@
 | B10 待审批与完成提醒 | O1/O2 已交付 | `NotificationPolicy`、原生通知已实现；权限失败实测保留 | 真 macOS 授权、banner、点回准确会话；五 provider 的真实等待/完成事件 |
 | B11 工具调用及结果 | R2 B5/B9：报告描述 | Claude/Codex 常见工具；Pi/OMP 关联 toolCallId、name、结果和错误 | 起止时间、结果缺失/重排、并行 call、多个 tool 类型、完整参数显示 |
 | B12 Todo / 计划进度 | O2 已交付 | `SessionPlanProjection`/`SessionPlanService`：Codex update_plan 与 Claude TodoWrite/四 Task 工具的已知调用/结构化结果→独立有界 ledger、确认计数及来源事件；CLI/会话详情可读。[合同](../implementation/session-plan-contract.md) | 普通正文/会话 Completed 不推导计划完成；提案、失败、未知与 provider 确认分开。完整 History 投影、全 provider/version（含未获官方合同的 Claude camelCase transcript）、完整 UI 仍待完成，不以此关闭 B12 全量验收 |
-| B13 子代理关系与状态 | R2 B9/O7：报告描述 | 工具文本可见；没有完整 parent/child 实体视图 | 子代理展开、父子独立状态、失败传播与去重 |
+| B13 子代理关系与状态 | R2 B9/O7：报告描述 | `SessionRelationProjection/Service` 新增 Codex 固定公开版本的直接父声明、独立 fork、配对 spawn 回执、同项目来源解析、关系 epoch、只读分页与父子独立状态；[合同](../implementation/session-relations-contract.md) | 当前是 Codex 已索引窗口的明确关系，不是完整历史图；其他 provider、v2/code-mode 输出、完整历史重建、实时子进程与 UI 展开仍待验收。缺失/私有/internal/冲突/重号不猜验证成功 |
 | B14 标题/摘要/元数据生成 | O5 描述功能处理；R2 B9 补充 | 首条用户消息或源标题；无模型摘要生成 | 显式处理设置、来源标题保护、模型可用性与错误；生成结果不能充当事实 |
 | B15 手动改名、恢复/回写标题 | R2 B9：报告描述；公开交付 U | OMP/Pi 标题只读，尚无修改接口 | Vela 名称与 provider 原名分离；冻结写入、原格式验证、Undo |
 | B16 项目/路径模式排除与恢复 | R2 B10：报告描述；公开交付 U | `projects.remove` 仅取消登记，不是 ingestion 排除 | 排除从摄取起生效、已有索引处理、glob/remote 多克隆一致性 |
@@ -101,6 +101,8 @@
 测试入口：[FoundationTests](../../Tests/VelaCoreTests/FoundationTests.swift) 包含日志增量、旧尾窗、Cursor 只读、脱敏与 FSEvents；[UsageIntegrityTests](../../Tests/VelaCoreTests/UsageIntegrityTests.swift) 包含未知/零/溢出；[ImproveAcceptanceTests](../../Tests/VelaCoreTests/ImproveAcceptanceTests.swift) 包含真实来源、重复程序和近似负例；[ProviderCompatibilityTests](../../Tests/VelaCoreTests/ProviderCompatibilityTests.swift) 新增 Pi/OMP 格式与边界检查。既有执行记录在 [verification](../verification.md)，本轮新增结果应引用实际执行日志，不能仅从测试文件存在推导通过。
 
 这些合成测试检验确定性数据解析和错误行为，不是运行 Blume，也不是五个真实 Agent 的完整版本认证。全产品完成还要通过用户的 Golden Scenario、后台生命周期、长时间摄取、真实账号额度、原生通知和签名发布验收。
+
+Codex 子代理只读关系切片（ADR0030）：20 个关系方法（含 2 个独立修前反例）与 Plan 18 / Provider 16 / History 16 方法共 **70/70 portable PASS**，不是 XCTest；冻结源码快照 `047ed304d732c14e36430062d533fc6e204e2a169f5eae9ff5a951b33ff8dad8`。实际 JSON-RPC consumer 在独立 helper 中完成 **57 请求 PASS**，只用合成 JSONL，0 provider/model 调用，父完成/子错误独立、缺失/跨项目/private/internal/重号/冲突拒绝、精确字节证据与 epoch 失效均有正反例。helper SHA256 `0f504932c9d35fe16bad807369671832ed24b9553f74ab7840d5858471e7aa8e`；见 [证据清单](session-relations-evidence-2026-09-13.json)。该本地验证混入同期 History Source 与 semantic 源码；结束时非关系 SemanticMemory 又有变化，不能当成正式集成 stage 全量结果。完整 UI 与其余 provider/历史关系仍未完成。
 
 本轮 provider 首切片通过 15/15 Core 与 7/7 实际 CLI 摄取检查；其后新增固定 mtime 的同长度写入回归，16/16 通过。该回归也抓出共享 completion trigger 与外层 UPSERT 的真实冲突；修复后再次进入 Completed 能正常发布状态。额度切片通过 9/9 Core 与 5/5 CLI 协议检查。首 checkpoint 共 24/24 方法、两组 CLI 使用同一二进制 SHA256；对应 `output/parity/blume/final-checks.json` 是该时刻的证据，不代替后续源更改验证。
 

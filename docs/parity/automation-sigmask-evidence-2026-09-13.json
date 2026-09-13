@@ -1,0 +1,37 @@
+{
+  "format": "vela-automation-sigmask-evidence-v1",
+  "date": "2026-09-13",
+  "scope": "macOS local Vela child-process signal inheritance; no provider calls in the automated mask regression",
+  "knownFailurePreserved": {
+    "helperSHA256": "6f9c4abccfbc6ad5a409694148a181202faa311945a75854b7b8f655e1a10cd5",
+    "observation": "A synthetic C agent invoked through the Lab RPC Dispatch worker observed SIGCHLD, SIGINT and SIGTERM blocked; direct invocation did not.",
+    "evidence": "output/parity/automation-sigmask-diagnosis-2026-09-13/receipt.json"
+  },
+  "fix": {
+    "source": "Sources/VelaCore/AutomationProcess.swift",
+    "sourceSHA256": "99434351bd73da86f8dc7b949df0bc6c10dc370a23f231ee8288ad799a1bc6e7",
+    "behavior": "posix_spawn now applies an explicit empty child signal mask with POSIX_SPAWN_SETSIGMASK, while retaining the existing default SIGINT/SIGTERM dispositions and dedicated process group."
+  },
+  "automatedRegression": {
+    "script": "scripts/test-automation-sigmask-rpc.py",
+    "scriptSHA256": "18ff29a83066d3b6802e8d516662c234893d454bda12e240a825fc1636c38900",
+    "helperSHA256": "f05dc75ad935b59828f46f296f1a5aa5e58439c44db03188dd842a71c3c0d86e",
+    "providerRuns": 0,
+    "checks": [
+      "direct synthetic C child mask is empty",
+      "RPC Dispatch-worker Lab baseline and candidate masks are empty",
+      "each synthetic child receives SIGCHLD in a handler and reaps its forked child with waitpid"
+    ],
+    "receipt": "output/parity/automation-sigmask-fixed-2026-09-13.json",
+    "receiptSHA256": "dc4ca540b24941fcd7983d75731380fa4c4d56e25f8386e9da4b5a6b8ba6d2bc"
+  },
+  "independentFollowup": {
+    "helperSHA256": "f05dc75ad935b59828f46f296f1a5aa5e58439c44db03188dd842a71c3c0d86e",
+    "summary": "Two real local file-edit Lab pair variants completed with exit 0, no timeout, observed command/turn completion, independent verifier exit 0, and worktree cleanup.",
+    "providerEvidenceRetainedSeparately": true
+  },
+  "limits": [
+    "The automated regression uses a local synthetic C agent; it establishes signal delivery and child reaping but does not characterize remote provider availability.",
+    "The historical 6f9c failure receipt remains preserved and is not rewritten."
+  ]
+}

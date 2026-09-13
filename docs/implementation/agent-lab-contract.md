@@ -42,6 +42,14 @@ Completed historical Codex evaluations are reanalyzed from retained raw events o
 
 `futureEffect=not_measured` in all cases. Null is unavailable, never 0. These are narrow local measurements, not proof of longitudinal correction reduction or release eligibility.
 
+## Interrupted helper execution
+
+EOF stops RPC admission and drains requests already accepted from stdin; it does not cancel an approved command just because a normal one-frame pipe client closes. `SIGINT` and `SIGTERM` close the local runtime gate before another child command starts. A running Lab retains any already-observed child receipt, stops before another variant or verifier starts, removes only its owned worktrees, and records `eval.state=interrupted` with `interruptionReason`, `interruptedAt`, and `partialResults`. The matching approval becomes `needs_review` with `result.outcomeUnknown=true`; it is not retried, promoted, or treated as a failed measurement.
+
+The helper waits for the active request to persist this terminal record. A bounded force-stop can target only Vela-created process groups if that wait does not complete; it does not prove cleanup or a terminal ledger write. Callers must inspect the persisted approval/eval after an interrupted transport instead of deriving state from a missing RPC response.
+
+Lab child processes start with an explicit empty signal mask. This prevents a Dispatch worker's private blocked `SIGCHLD`/control-signal mask from reaching the provider runtime, while retaining Vela's dedicated process group and its approved shutdown handling.
+
 ## `lab.promote {id}`
 
 Requires a completed `codex_agent` eval ready for review. Only a **memory-only candidate** can activate memory: no extra candidate file changes or unpromoted context. Source suggestion hash and current memory content/scope/privacy must still match. A guarded SQLite/Markdown batch rejects concurrent changes. Return shape:

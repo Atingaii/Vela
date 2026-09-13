@@ -12,6 +12,8 @@
 
 来源入口只能是已配置 provider roots 下发现的 ID，不接受 renderer/MCP 给任意文件路径。Manifest 记录 provider、相对路径、公开格式/decoder 版本、实际文件身份及来源项目。目录和文件逐级 no-follow 打开；符号链接、非普通文件和身份变化必须拒绝。项目由公开 header/cwd 元数据证明；未知或不一致的项目不推测归属。记录中显式改变 cwd 的事件按实际作用域处理，不能把其他项目原文放进本项目页面。
 
+2026-09-13 根锚定修正：上述逐级 no-follow 从已经配置并规范化的 provider root 开始。直接以 `O_DIRECTORY | O_NOFOLLOW` 打开该授权根，比较打开前后名称与持有 descriptor 的 device/inode/type，并用 `F_GETPATH` 核对物理根路径；只在根以下逐组件 `openat`。不从 `/` 逐级打开授权根之外的祖先，避免额外触发 macOS 对祖先目录的访问限制。根自身、后代符号链接、普通文件 hardlink 和重定向的物理根仍拒绝；原来源 descriptor 与重新打开的文件版本继续在每批前后核对。本修正不申请或更改系统权限。
+
 历史以独立 source epoch 冻结。文件身份至少包含 device/inode/size/纳秒 mtime/ctime，provider schema version 与 decoder revision 另行记录。每批开始和结束都核验，源变化将未完成任务标为 stale，保留此前证据但不能宣布完整。新版本创建新 epoch，旧 cursor 不静默跳到新内容。完成的旧 epoch 是历史快照，不因为原日志轮转而被重新写入。
 
 首版不把“文件只变长”当成前缀未改变的证明，也不对持续写入的文件冒充跨批一致快照。当前工作台继续显示尾部观察；用户可在源稳定后回填新 epoch。若未来增加 append 续接，应核验已保存前缀内容/分块 hash，独立记录稳定前缀与追加边界；不能仅检查 inode/size。
@@ -41,3 +43,5 @@ B12 需要解析实际 Todo/plan 事件及版本进度，B13 需要明确 parent
 ## English summary
 
 Full session history uses explicit, resumable imports into separate SQLite tables while the default dashboard stays bounded. Immutable source epochs, exact byte checkpoints, stable event cursors and chunked original records distinguish raw coverage from normalization and branch completeness. Source changes fail closed; missing timestamps, project identity and live process state remain unavailable. Known provider formats are adapted explicitly, and unknown Cursor schemas remain unsupported until independently verified.
+
+The configured canonical provider root is the authorized filesystem anchor. Its directory descriptor, named device/inode and physical path are checked before and after relative traversal; only descendants are opened component by component with no-follow. Opening unrelated ancestors is unnecessary. Root or descendant links, regular-file hardlinks and changed source versions remain rejected without changing macOS permissions.

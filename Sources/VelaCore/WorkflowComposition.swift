@@ -274,19 +274,24 @@ extension AutomationService {
         return try store.put("run",replay)
     }
 
-    func finalizeWorkflowOutput(_ source: JSON) throws -> JSON {
-        do { return try deliverWorkflowOutput(source) }
+    func finalizeWorkflowOutput(_ source: JSON, expectingRunHash: String? = nil) throws -> JSON {
+        do { return try deliverWorkflowOutput(source,expectingRunHash:expectingRunHash) }
         catch {
             var failed = source
             failed["state"] = "needs_review"; failed["failureStage"] = "output"; failed["error"] = error.localizedDescription
             failed["completedAt"] = isoNow()
-            return try store.put("run",failed)
+            return try persistFinalWorkflowRun(failed,expecting:expectingRunHash)
         }
     }
 
-    private func deliverWorkflowOutput(_ source: JSON) throws -> JSON {
+    private func persistFinalWorkflowRun(_ run: JSON, expecting: String?) throws -> JSON {
+        guard let expecting else { return try store.put("run",run) }
+        return try store.putBatch([("run",run)],expecting:[("run",string(run,"id"),expecting)])[0]
+    }
+
+    private func deliverWorkflowOutput(_ source: JSON, expectingRunHash: String? = nil) throws -> JSON {
         var run = source
-        guard string(run,"state") == "completed", let workflow = run["workflowSnapshot"] as? JSON else { return try store.put("run",run) }
+        guard string(run,"state") == "completed", let workflow = run["workflowSnapshot"] as? JSON else { return try persistFinalWorkflowRun(run,expecting:expectingRunHash) }
         let output = workflow["output"] as? JSON ?? ["target":"stdout"]
         if run["output"] == nil {
             let steps = run["steps"] as? [JSON] ?? []
@@ -299,9 +304,9 @@ extension AutomationService {
         run["outputHash"] = stableHash(text)
         guard string(run,"outputMode") != "memory", run["dryRun"] as? Bool != true, run["outputKnown"] as? Bool == true else {
             run["outputDelivery"] = string(run,"outputMode") == "memory" ? "memory" : "stubbed"
-            return try store.put("run",run)
+            return try persistFinalWorkflowRun(run,expecting:expectingRunHash)
         }
-        guard workflow["output"] != nil || run["compositionMode"] != nil else { run["outputDelivery"] = "record"; return try store.put("run",run) }
+        guard workflow["output"] != nil || run["compositionMode"] != nil else { run["outputDelivery"] = "record"; return try persistFinalWorkflowRun(run,expecting:expectingRunHash) }
         let id = string(run,"id")
         let existing = try store.get("run_output",id)
         func validateRecord(_ candidate: JSON) throws {
@@ -314,7 +319,7 @@ extension AutomationService {
         }
         if let existing {
             try validateRecord(existing)
-            if string(existing,"state") == "delivered" { run["outputDelivery"] = existing; return try store.put("run",run) }
+            if string(existing,"state") == "delivered" { run["outputDelivery"] = existing; return try persistFinalWorkflowRun(run,expecting:expectingRunHash) }
         }
         var record: JSON = existing ?? ["id":id,"runId":id,"project":string(run,"project"),"title":string(run,"title"),"target":string(output,"target","stdout"),"content":text,"contentHash":stableHash(text),"state":"prepared","unread":string(output,"target") == "inbox" || output["inbox"] as? Bool == true]
         if string(output,"target") == "file" {
@@ -344,6 +349,6 @@ extension AutomationService {
         }
         record["state"] = "delivered"; record["deliveredAt"] = record["deliveredAt"] ?? isoNow(); record = try store.put("run_output",record)
         run["outputDelivery"] = record
-        return try store.put("run",run)
+        return try persistFinalWorkflowRun(run,expecting:expectingRunHash)
     }
 }

@@ -1,0 +1,505 @@
+{
+  "format": "vela-core-development-evidence-v1",
+  "date": "2026-09-13",
+  "completeProductAcceptance": false,
+  "sourceBaselineCommit": "365ed41325dcaf9f0c8a41e216ca29be9d91ba3f",
+  "helperSHA256": "224bd499ef79cfb5060a2086a60cd782141f6c7f59052948c69023720f9f1a95",
+  "rawReceiptSHA256": "f626873fd425e11c5a016861eb2f97f5b5b03477ff0440e7f8a10f1cb65a8f64",
+  "sourceFiles": [
+    {
+      "path": "Sources/VelaCore/AgentEvaluation.swift",
+      "sha256": "a49f6c6ab1b49a0c1a08f1adfde8960b4f2cc18a78011d0fea44a6b04d976124"
+    },
+    {
+      "path": "Sources/VelaCore/AgentLoopService.swift",
+      "sha256": "2a81d6f8402cf9fa63dde522f5f7b9be17e937c8722678daf593af980a04224c"
+    },
+    {
+      "path": "Sources/VelaCore/AskRouteService.swift",
+      "sha256": "269c1d047a8a109f6919906756d461a271443e90bd929cd7a9a99b28046adec8"
+    },
+    {
+      "path": "Sources/VelaCore/AutomationProcess.swift",
+      "sha256": "5d5241f16e46e9469ae9a6fda96b196448e5651ca1244a67a78ea21f8043ad81"
+    },
+    {
+      "path": "Sources/VelaCore/AutomationService.swift",
+      "sha256": "617d2adae446ec82bc2f63b75c0bbf94562ee9cf738571fd8cd44a50b3decc09"
+    },
+    {
+      "path": "Sources/VelaCore/ConnectorService.swift",
+      "sha256": "469c4c045472e8dee36a0d621da8629ad2898f587170f10a06d4279d3cbdaeea"
+    },
+    {
+      "path": "Sources/VelaCore/ConnectorTransport.swift",
+      "sha256": "bacdaad57a574cd4d91ea48f15ae993d96e3dcc2ddd862318a836438f2238faf"
+    },
+    {
+      "path": "Sources/VelaCore/ContextService.swift",
+      "sha256": "c1f2b7f964858b43454d0ef585341c4ede99d274f075e61fd2852e341dee09d7"
+    },
+    {
+      "path": "Sources/VelaCore/DaemonService.swift",
+      "sha256": "e98c160792828d8167ac5afcd5233d9960f19e42a453badc87ab0f095e7d249d"
+    },
+    {
+      "path": "Sources/VelaCore/FoundationIO.swift",
+      "sha256": "08ac6fab1b37bd815b0ebb8ebfb16d009ea378c5b42cd08cad49556c7e5e1430"
+    },
+    {
+      "path": "Sources/VelaCore/FoundationService.swift",
+      "sha256": "cd8cca189c211d7ffa65a7be371b6781975eba4bdd2f06b5bd406dc4065613dc"
+    },
+    {
+      "path": "Sources/VelaCore/ImproveService.swift",
+      "sha256": "69f4f82164beb564359209eac2c81fb98de69ee1ee5c4004cfacc0900bfb046f"
+    },
+    {
+      "path": "Sources/VelaCore/KnowledgeQueryService.swift",
+      "sha256": "ba7da7dd3ec6ce336fb04e951c47908ae46501493ad0ca2c7100203147ec07d1"
+    },
+    {
+      "path": "Sources/VelaCore/LabService.swift",
+      "sha256": "24aca0818e0e9c61ce9e7b17046aaaf9ad80aa16c182dc676ab76c8a511e0757"
+    },
+    {
+      "path": "Sources/VelaCore/LibraryIndex.swift",
+      "sha256": "d881f0d5281d547804751f1158b0f16a085ce785a541adccf73bd0c9eafc8dba"
+    },
+    {
+      "path": "Sources/VelaCore/LibraryService.swift",
+      "sha256": "4910ab376d26873e8126754f5a45fce1cb192015d03ffc6af61967cfd7acb18f"
+    },
+    {
+      "path": "Sources/VelaCore/MCPToolAccess.swift",
+      "sha256": "6d871c06374b2a05be33abbc4079d335302c1dedaeaf5a86ae0f77d6b66ca3f6"
+    },
+    {
+      "path": "Sources/VelaCore/MCPTools.swift",
+      "sha256": "8de739428f077a8723b8769c069a568a5c795b94951a3672428763224f03afbe"
+    },
+    {
+      "path": "Sources/VelaCore/MemoryArchiveService.swift",
+      "sha256": "ed0cc297e5aa82d30cecc2240b83fe0843e648913c34d0d01020a89e4c7f2da6"
+    },
+    {
+      "path": "Sources/VelaCore/MemoryIntegrationService.swift",
+      "sha256": "f73d9bf7d1ae0602e1f65532c1e7aeaa843cbe159b31ef2e338251f33237174b"
+    },
+    {
+      "path": "Sources/VelaCore/MemoryService.swift",
+      "sha256": "9a1d5204cd11d6d39e4282f281ea568b040ad6b5014fbc962297db8fc8e4e95d"
+    },
+    {
+      "path": "Sources/VelaCore/ModelImprovement.swift",
+      "sha256": "f9ce47a34f2f7c2ee56471ce5743360c76098e8a977d5bfab701ff4f3141044d"
+    },
+    {
+      "path": "Sources/VelaCore/NotificationPolicy.swift",
+      "sha256": "6774c1e3af7467b4b831d38ab485e66623b93e4ce8b83e775ffedcbabcdcf192"
+    },
+    {
+      "path": "Sources/VelaCore/PiSessionReader.swift",
+      "sha256": "802917bf973ded9272797b35e3306330abff618b0f933c66662d248b7fc0c7c2"
+    },
+    {
+      "path": "Sources/VelaCore/Preferences.swift",
+      "sha256": "095a81498a6431b456403e9c2c1a861c8428f7da75adc621220d12b57d18edee"
+    },
+    {
+      "path": "Sources/VelaCore/ProviderQuotaService.swift",
+      "sha256": "de990dd6ee747454b0d34e2ff7c1077f63d39f512b85f2002c08af2c05169643"
+    },
+    {
+      "path": "Sources/VelaCore/ReplayExecutableSnapshot.swift",
+      "sha256": "9cd069ecf06a8451a6a9ac12133962b2927c36233732c0079c4f3b9894f6505c"
+    },
+    {
+      "path": "Sources/VelaCore/ReplayFixture.swift",
+      "sha256": "1c51348f90cd822a9d7adfb850e5154180c28c6b8a4b1e309023cc16b5ffb135"
+    },
+    {
+      "path": "Sources/VelaCore/RestrictedCodexProposal.swift",
+      "sha256": "9efd53cb027a84e0a78955ad3f94555839cfc7ce1c0c2d526e66b1b3237391b4"
+    },
+    {
+      "path": "Sources/VelaCore/ReuseService.swift",
+      "sha256": "bbd10112b49b163f7107a79317ae8bae76e8c38f47b4bc5d915fe2af5ae8ca24"
+    },
+    {
+      "path": "Sources/VelaCore/RuntimeLease.swift",
+      "sha256": "bd74ad464b7403680df5bf5741ba5c4ebab949f7ce56f104eb1c93a5036460da"
+    },
+    {
+      "path": "Sources/VelaCore/RuntimeShutdown.swift",
+      "sha256": "2816f7c36516a265207fc9df82b29507c6b32ca6a3fd1eac91181431af024be7"
+    },
+    {
+      "path": "Sources/VelaCore/SafeApply.swift",
+      "sha256": "c430163f8538d5ee9f9eaa527f014251d081d51c0286194631ce3246f5285d3c"
+    },
+    {
+      "path": "Sources/VelaCore/ScheduleControl.swift",
+      "sha256": "d2367b5bb90843bfe162f4995479e7f70f43128a010e23bc73bd508af44c614d"
+    },
+    {
+      "path": "Sources/VelaCore/SchedulePolicy.swift",
+      "sha256": "a5db1f04411d5a30970697300e1e787362ec29ea4aa4ade7d8e069bf592d846b"
+    },
+    {
+      "path": "Sources/VelaCore/SchedulerService.swift",
+      "sha256": "5c2cc81231e16ecf2baedc0d88697ef850a9c26dfa513e4aacbf6a1e756233d1"
+    },
+    {
+      "path": "Sources/VelaCore/SemanticMemory.swift",
+      "sha256": "b5fb6b6bdd6e21e2d4070e2cdc839aa84028612478418e9dd0c0943411bdf3bd"
+    },
+    {
+      "path": "Sources/VelaCore/SessionEngine.swift",
+      "sha256": "67600ef861825520d6d514421e8c6e3e27927bd8145c512b903986a5621c493f"
+    },
+    {
+      "path": "Sources/VelaCore/SessionHistoryDecoder.swift",
+      "sha256": "427765e423d9c9b2e3729ef06077e127fd6e0dfb819eb26d284173cee9e5612c"
+    },
+    {
+      "path": "Sources/VelaCore/SessionHistoryService.swift",
+      "sha256": "2080d2e3b1f9832c5fa462c4640f1cf07e200c71f2fe114ef455fcc0576ae0e5"
+    },
+    {
+      "path": "Sources/VelaCore/SessionHistorySource.swift",
+      "sha256": "394f28ca5bb8d5453274d13d18ec551eb2be2c4fbcad634be38fc495480e976d"
+    },
+    {
+      "path": "Sources/VelaCore/SessionHistoryStore.swift",
+      "sha256": "d51087c30c4f7611aed6c115198aaada824f9dd3ba4849cd9dc196270aa01d2a"
+    },
+    {
+      "path": "Sources/VelaCore/SessionPlanProjection.swift",
+      "sha256": "7c614ae19ea4aa3aabe12768bfc26a0caec9e0dd30b356e9c6d943b27f2859ae"
+    },
+    {
+      "path": "Sources/VelaCore/SessionPlanService.swift",
+      "sha256": "c51bc02242d9827d3b972b07f956e87cefc714e49e2de73512061ea3b74d506a"
+    },
+    {
+      "path": "Sources/VelaCore/SessionRelationProjection.swift",
+      "sha256": "2d17481aabc7ea05fdb36d5201a8dc18698d06b076838461efe5b354c7c92aaf"
+    },
+    {
+      "path": "Sources/VelaCore/SessionRelationService.swift",
+      "sha256": "ae4211591d3c27e0d315d9201b4b47338498af40bcd296dded458f629e47e7bb"
+    },
+    {
+      "path": "Sources/VelaCore/SetupCatalog.swift",
+      "sha256": "c6ea6120022739ede56e5083c84b070fc2947f740f0f89be08e91b5e72cbb358"
+    },
+    {
+      "path": "Sources/VelaCore/SetupInventoryService.swift",
+      "sha256": "64c6e2ef0ae632ad6e117efdf2849d56e66fba7a7ab3846a69f2e9989a956b53"
+    },
+    {
+      "path": "Sources/VelaCore/Store.swift",
+      "sha256": "ba6dc4a1a4e730b8adcc56865bc5e1b57eafe7904a4d7f5e343e7a07ca5dc16f"
+    },
+    {
+      "path": "Sources/VelaCore/WorkflowComposition.swift",
+      "sha256": "99a07480543c7e9932f8a8cb2cac639d76cd18bc42ad60a10c48604ec1aadb99"
+    },
+    {
+      "path": "Sources/VelaCore/WorkflowContext.swift",
+      "sha256": "e159d81cd8058823ceda0e52a9eb1714a827afcf3bb2f568aa21de76910eb23b"
+    },
+    {
+      "path": "Sources/VelaCore/WorkflowFileWatch.swift",
+      "sha256": "9e36ce8ab2e5f4c1c5fb3722ab9cab9dca4e4fa44e56bf4679592ffde2466934"
+    },
+    {
+      "path": "Sources/VelaCore/WorkflowHealth.swift",
+      "sha256": "31c72eacf6971be5e9e839094676d71234c59e2920f1aa975dfe0554cee44872"
+    },
+    {
+      "path": "Sources/VelaCore/WorkflowManagement.swift",
+      "sha256": "b405936fdfddc73be6422c65dff3185471f2598a8c167836286dbecdf59d4266"
+    },
+    {
+      "path": "Sources/VelaCore/WorkflowPlanning.swift",
+      "sha256": "edcb985343fe8d8dd2ee1a7869cfa1d3d94a1e19a1c9447e85e3d3e9a85a69fe"
+    },
+    {
+      "path": "Sources/VelaCore/WorkflowReplay.swift",
+      "sha256": "4fd6b613c0dcee35239d23e2e1ed71c9eed30200fa5b5f5ddf5dc501b521c93c"
+    },
+    {
+      "path": "Sources/VelaCore/WorkflowRetry.swift",
+      "sha256": "eaed1456d9ccb626e6c2ad693d904ecda8fec4d04e8b87b3ec5a029e7e277933"
+    },
+    {
+      "path": "Sources/VelaCore/WorkflowWatch.swift",
+      "sha256": "68a42051a0fbbee9ba4c0b44caf41572bc8aa7a7628dcd63708d0cbdc21ac184"
+    },
+    {
+      "path": "Sources/VelaCLI/BoundedInput.swift",
+      "sha256": "bf6e4fdd7dde09d9d1da0f10fb04bb9dbeb7e07559cc610e59fc46e7a98e00ba"
+    },
+    {
+      "path": "Sources/VelaCLI/main.swift",
+      "sha256": "52229b65c583296f187d5bfbbe9d70187df6e700c6ba401fc714d0a9df4f8fda"
+    },
+    {
+      "path": "Tests/VelaCoreTests/AgentEvaluationRevisionTests.swift",
+      "sha256": "5030f5f6e0026807b6224aa840af9653ea096a9c9fe2a8cf4019f479606186f0"
+    },
+    {
+      "path": "Tests/VelaCoreTests/AgentEvaluationTests.swift",
+      "sha256": "ce7dde14a12159950b1725cca296266401b54f27d0e21ebee4e23756d08ea44f"
+    },
+    {
+      "path": "Tests/VelaCoreTests/AgentLabIntegrityTests.swift",
+      "sha256": "47a15847e8979ec9d2625187057b539ca82c881a077abb088389f4f2000ab66e"
+    },
+    {
+      "path": "Tests/VelaCoreTests/AgentLoopReviewTests.swift",
+      "sha256": "dd1ba89b73d825fe3126ef990f990c9aa7dea84fe1f4421c4d419e83adfb63d3"
+    },
+    {
+      "path": "Tests/VelaCoreTests/AgentLoopTests.swift",
+      "sha256": "af8bae2f384f4c73ae54b3d646ba309362503cab75bca953935daa62ea1a95b0"
+    },
+    {
+      "path": "Tests/VelaCoreTests/ApprovalRecoveryTests.swift",
+      "sha256": "8cb99cc7dd094f97d48760e55f16b50d039fa0a03458998d6cb549ed7eaa5dd5"
+    },
+    {
+      "path": "Tests/VelaCoreTests/AskRouteTests.swift",
+      "sha256": "be7a041bb4c1ca46080297fe0a767921f445f311cb5ff10b746763665ed00eee"
+    },
+    {
+      "path": "Tests/VelaCoreTests/AutomationTests.swift",
+      "sha256": "ee279535cb7b463a84030f26cd64cbc422033589c17a52b6f71dccdb66712f85"
+    },
+    {
+      "path": "Tests/VelaCoreTests/CompositionReviewTests.swift",
+      "sha256": "8a4fe23129b774997e14afacb2ba37b477b119bcdabcabbbef63059a8ff91f86"
+    },
+    {
+      "path": "Tests/VelaCoreTests/ConnectorTests.swift",
+      "sha256": "a69393625354d22d742e00a575bb470d8f234327c2409a21376c7f6a90582fe7"
+    },
+    {
+      "path": "Tests/VelaCoreTests/ConnectorTransportTests.swift",
+      "sha256": "18038a0c6891a9dca08daa79f87f28e01bf3c0f1f3ab15d33d75de5fc1172f04"
+    },
+    {
+      "path": "Tests/VelaCoreTests/ContextTests.swift",
+      "sha256": "59a1d465fe2147eb5ea144558466f35ac6725f0daab41f5803a48a5ceab31c62"
+    },
+    {
+      "path": "Tests/VelaCoreTests/DaemonReviewTests.swift",
+      "sha256": "0762e0fd40fd5626a738ffb4752b5d4edfced58d24dc7f5decac6c9cea436927"
+    },
+    {
+      "path": "Tests/VelaCoreTests/FoundationTests.swift",
+      "sha256": "77dfa9083d1d682e2a74bde8f4885a34c5ec9c961f7250606fb8908ecffe007c"
+    },
+    {
+      "path": "Tests/VelaCoreTests/ImproveAcceptanceTests.swift",
+      "sha256": "789638684ae7e82f6d00f0d30b7f6665454421044d98852a585cc37eb3e06abc"
+    },
+    {
+      "path": "Tests/VelaCoreTests/IntegrityTests.swift",
+      "sha256": "040868e8d61d306ea7f2eebc410533ffc15804a409d43a0b4e7d43d9c9c130d2"
+    },
+    {
+      "path": "Tests/VelaCoreTests/KnowledgeQueryTests.swift",
+      "sha256": "6524e83c4bd4623bb6b7db9d52aef3a246282cf0237fc06feb3a7bc811a117c9"
+    },
+    {
+      "path": "Tests/VelaCoreTests/LibraryRetrievalTests.swift",
+      "sha256": "faa5e253397fe7bbdc2254001de430ca4cf33b5ca21af3bfd6dbbfcaf480912e"
+    },
+    {
+      "path": "Tests/VelaCoreTests/LibraryReviewTests.swift",
+      "sha256": "c6f665c728555f3c10f8ff9eedf0870470cc60f35b3e51de1d02f2d2b8eac28a"
+    },
+    {
+      "path": "Tests/VelaCoreTests/LibraryTests.swift",
+      "sha256": "933e48d02f6337cb04a9be50dd7324a53e723f078244678a68bdf30e72eb976f"
+    },
+    {
+      "path": "Tests/VelaCoreTests/LocalizationTests.swift",
+      "sha256": "31f0697a5b1d1dda23da355badf250f61ecfc5731fd19ecb61441d6c75e6db80"
+    },
+    {
+      "path": "Tests/VelaCoreTests/MCPReviewTests.swift",
+      "sha256": "466ca5dac5655e11a12fa8ba9ec9c1342e641ffd79a70cbac4f6bd465f025756"
+    },
+    {
+      "path": "Tests/VelaCoreTests/MCPToolsTests.swift",
+      "sha256": "390a76280399256c595c34fc9ed02a88a3064b86b57b0372daec41dfeef91704"
+    },
+    {
+      "path": "Tests/VelaCoreTests/MemoryArchiveTests.swift",
+      "sha256": "a4c251b31afb3da838a458dcfd4ee0cc8fc39a6274b4d4c812298fbdf4f53551"
+    },
+    {
+      "path": "Tests/VelaCoreTests/MemoryIntegrationTests.swift",
+      "sha256": "95e575996068e67ebbde6831a98f76cfdd41a19816abac9f592c64b63aa390c8"
+    },
+    {
+      "path": "Tests/VelaCoreTests/ModelImprovementTests.swift",
+      "sha256": "4647a88e2d47b11457e07a888ffab67caa6cc969c3ceb0a9a3620d3010c63656"
+    },
+    {
+      "path": "Tests/VelaCoreTests/NotificationTests.swift",
+      "sha256": "461a823325a69fa944247b8429bd1626fbfb438224f84d05a6e0682505d03c74"
+    },
+    {
+      "path": "Tests/VelaCoreTests/ProviderCompatibilityTests.swift",
+      "sha256": "dddad0222e73580697e179a54f884d22c7b71465aeac1586f57281eaa02741ff"
+    },
+    {
+      "path": "Tests/VelaCoreTests/ProviderQuotaTests.swift",
+      "sha256": "4a0f7922a7ff2d7a11cdbaedddd9ad07fcf37c82d39b7b8fae08ece61984c493"
+    },
+    {
+      "path": "Tests/VelaCoreTests/RestrictedCodexProposalTests.swift",
+      "sha256": "19146b97638df8396b66c16a14d75b5ac009870b4e4921e3e405d0149e89355c"
+    },
+    {
+      "path": "Tests/VelaCoreTests/RuntimeSummaryTests.swift",
+      "sha256": "59ea7d12096652067e199f3612b2affe281ef175123ff0d153903460ad0a6bcd"
+    },
+    {
+      "path": "Tests/VelaCoreTests/SchedulerReliabilityTests.swift",
+      "sha256": "3fc36e3a7cf8f9be9d5ce81c8e923681270244ed3d9379bf0048ecb83881b0c7"
+    },
+    {
+      "path": "Tests/VelaCoreTests/SchedulerReviewTests.swift",
+      "sha256": "19a54ffe2a6e914b81fac9b4e5bd3eb1d53efe6cac9ebc2dca88805e0b1378e6"
+    },
+    {
+      "path": "Tests/VelaCoreTests/SemanticMemoryTests.swift",
+      "sha256": "857ab64caf7b9de92fc4ddd7a29daa7c89821f32b4906703ab176cf72eb7e34b"
+    },
+    {
+      "path": "Tests/VelaCoreTests/SemanticVectorAPITests.swift",
+      "sha256": "fd58312d49d5ad6eb3cce454c6725d91419f37af6ef1ba531900ee9c2a11bfc5"
+    },
+    {
+      "path": "Tests/VelaCoreTests/SessionHistorySourceTests.swift",
+      "sha256": "755274f9bfd84be986a9f5fc4ed85617ef7dee2d78d89edb11c6ee6f10d7e20d"
+    },
+    {
+      "path": "Tests/VelaCoreTests/SessionHistoryTests.swift",
+      "sha256": "eff199fb05ba5214006514e229e142aa79437381a7a325a2ec871a3bf17e352a"
+    },
+    {
+      "path": "Tests/VelaCoreTests/SessionPlanTests.swift",
+      "sha256": "aecf128e7e2d19a0d6583bffe2ecf8742aca8d284ca8f918343151fe5d25abfd"
+    },
+    {
+      "path": "Tests/VelaCoreTests/SessionRelationReviewTests.swift",
+      "sha256": "bd097aebbebbdfe04cfac4d6652671ded59d1894293688b2e3a905777036f6b5"
+    },
+    {
+      "path": "Tests/VelaCoreTests/SessionRelationTests.swift",
+      "sha256": "32ddc5b5914c2926715eaf2637177dee64ebfcb437f3d3b71f0a22f74fab709d"
+    },
+    {
+      "path": "Tests/VelaCoreTests/SetupInventoryTests.swift",
+      "sha256": "b706310c8319aea3be07e012f77b4f5276fcd4feb87d63f8fb7a6b5ff36e1851"
+    },
+    {
+      "path": "Tests/VelaCoreTests/UsageIntegrityTests.swift",
+      "sha256": "96a17447e34370e0bf4f6cb3c4d3eed76bcef17b6760b53864d8dddb2b718ca3"
+    },
+    {
+      "path": "Tests/VelaCoreTests/WorkflowCompositionTests.swift",
+      "sha256": "48c2444a1becbec52ae45ac4411c8e209d84c50f3c7b0e0cf627cbc30523597b"
+    },
+    {
+      "path": "Tests/VelaCoreTests/WorkflowContextTests.swift",
+      "sha256": "e1246b53e35a12a60a79e0241a98c5531fbe7e3d640be16224033646d36cd8bb"
+    },
+    {
+      "path": "Tests/VelaCoreTests/WorkflowFileWatchTests.swift",
+      "sha256": "d7c9b86e297eca6e2321342ce85e4d58e0a388935a39b1f8c1a8c4b2a313e1d8"
+    },
+    {
+      "path": "Tests/VelaCoreTests/WorkflowHealthTests.swift",
+      "sha256": "4400ca5237e4271b42206721b980ec384ce6cb6401aa8e6e024542908208b74f"
+    },
+    {
+      "path": "Tests/VelaCoreTests/WorkflowManagementTests.swift",
+      "sha256": "15be46f5cf133ada854d5a2f47b4515cb20cdf0485ba5078808e46be1b39b02f"
+    },
+    {
+      "path": "Tests/VelaCoreTests/WorkflowPlanningTests.swift",
+      "sha256": "fd66b011e8d20ae129fbc721d1dc37b57530aaf56280c8352b000d73308717f0"
+    },
+    {
+      "path": "Tests/VelaCoreTests/WorkflowReplayTests.swift",
+      "sha256": "c6c0e900a7efc01bf237e3366d98d3a8af71e640fdcde538114cf2d7ae3cdd08"
+    },
+    {
+      "path": "Tests/VelaCoreTests/WorkflowRetryTests.swift",
+      "sha256": "c323b9f57f6b85cb2b9803ed4b8907d1d28ffddc30e967d954f7fa408404992a"
+    },
+    {
+      "path": "Tests/VelaCoreTests/WorkflowWatchReviewTests.swift",
+      "sha256": "2a134e20ba8ef70246216043638bd138e4085719b71bf3407c6b0380f8354a54"
+    },
+    {
+      "path": "Tests/VelaCoreTests/WorkflowWatchTests.swift",
+      "sha256": "8b617a5855dc3504b253392095fe3d71add9612bbc40ce92cb4102d2a689479d"
+    }
+  ],
+  "portable": {
+    "exitCode": 0,
+    "passed": true,
+    "actualMethods": 439,
+    "runner": "portable synchronous assertion compatibility layer; not XCTest",
+    "snapshotSHA256": "60e7fa74872862d3b423501e3efd9491c298562df53f24e29cc2e47c2c35c1e1",
+    "receipt": "output/parity/ask-retry-health-cas-final-portable-core.json"
+  },
+  "build": {
+    "buildVela": 0,
+    "buildVelaDesktop": 0,
+    "initialDesktopBuild": "failed_only_due_to_copied_stage_module_cache_absolute_path",
+    "moduleCacheRemovedFromNewStageOnly": true
+  },
+  "actualRPCChecks": [
+    {
+      "name": "workflow-health-actual-rpc",
+      "exitCode": 0
+    },
+    {
+      "name": "workflow-retry-actual-rpc",
+      "exitCode": 0
+    },
+    {
+      "name": "workflow-output-composition-actual-rpc",
+      "exitCode": 0
+    },
+    {
+      "name": "rpc-smoke",
+      "exitCode": 0
+    }
+  ],
+  "scope": [
+    "Frozen VelaCore/VelaCLI/test sources only; desktop resources and SDK are verified separately.",
+    "439 portable synchronous methods passed; this is not XCTest and does not replace the next hosted macOS CI.",
+    "Read-step finalization uses compare-and-swap and preserves concurrent records; six terminal-path conflict regressions are included.",
+    "Health global cap fixture covered 10000 runs and 10000 approvals in about 4052 ms; no performance gate is claimed.",
+    "Final checkout, complete feature parity, live external-account capabilities and product Golden Scenario remain unaccepted."
+  ],
+  "laterFindings": {
+    "finalAcceptance": "failed_additional_cases",
+    "details": [
+      "Later actual RPC tests found long Ask question title rejection, silent 500-record candidate scanning and stale private-source proposal response.",
+      "Same-source live Lab exposed missing graceful RPC signal shutdown; the helper could leave an independent child group and intermediate eval/approval states."
+    ],
+    "resolution": "Separate source fixes and new frozen verification are in progress; this historical 439-method result does not cover them."
+  }
+}

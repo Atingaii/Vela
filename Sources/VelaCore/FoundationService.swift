@@ -33,6 +33,7 @@ public final class FoundationService {
         if let result = try memory.handle(method,params) { return result }
         if let result = try setup.handle(method,params) { return result }
         if let result = try SessionPlanService.handle(method,params,store:store) { return result }
+        if let result = try SessionRelationService.handle(method,params,store:store) { return result }
         switch method {
         case "dashboard.get":
             var dashboard: JSON = [:]

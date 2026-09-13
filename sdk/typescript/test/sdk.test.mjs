@@ -96,6 +96,36 @@ test('real installed Apple semantic index, resumed pages, reopen and hybrid reca
   assert.throws(()=>reopened.recall('query',{retrievalMode:'semantic',minSimilarity:NaN}),VelaError);
 }));
 
+test('installed explicit embed/query/recent preserve scope, source freshness and no-persistence boundaries', async () => fixture(async ({root,project,client}) => {
+  const first=client(); await first.registerProject(project);
+  const rows=await first.saveCandidates([{title:'Older transport',content:'The automobile requires maintenance.'},{title:'Newer transport',content:'The vehicle needs a repair.'}]);
+  await first.close();
+  for (const [index,row] of rows.entries()) {
+    execFileSync(executable,['call','memory.transition',JSON.stringify({id:row.id,state:'active'}),'--home',resolve(root,'store')],{env:{...process.env,VELA_DISABLE_DISCOVERY:'1'}});
+    const asset=await readFile(row.assetPath,'utf8'); await writeFile(row.assetPath,asset.replace('createdAt: ',`createdAt: 2026-09-1${index+1}T00:00:00Z`));
+  }
+  const namespace=JSON.parse(execFileSync(executable,['call','memory.save',JSON.stringify({project,title:'Isolated transport',content:'The namespace automobile requires maintenance.',scope:'namespace',namespace:'consumer',state:'active'}),'--home',resolve(root,'store')],{env:{...process.env,VELA_DISABLE_DISCOVERY:'1'},encoding:'utf8'}));
+  const privateMemory=JSON.parse(execFileSync(executable,['call','memory.save',JSON.stringify({project,title:'Private transport',content:'Private automobile maintenance.',scope:'project',state:'active',private:true}),'--home',resolve(root,'store')],{env:{...process.env,VELA_DISABLE_DISCOVERY:'1'},encoding:'utf8'}));
+  const api=client(); const status=await api.semanticStatus();
+  if (status.status==='unavailable') { assert.equal((await api.semanticEmbed('The vehicle needs repair.')).model,null); return; }
+  const before=(await api.semanticStatus()).indexed;
+  const embedding=await api.semanticEmbed('The vehicle needs repair.');
+  assert.equal(embedding.status,'ok'); assert.equal(embedding.persisted,false); assert.equal((await api.semanticStatus()).indexed,before);
+  assert.throws(()=>api.semanticEmbed('x'.repeat(64*1024+1)),VelaError);
+  let cursor; do { const page=await api.semanticIndex({batchSize:1,...(cursor?{cursor}:{})}); cursor=page.hasMore ? page.nextCursor : undefined; } while(cursor);
+  const queried=await api.semanticQuery(embedding,{minSimilarity:0,limit:10});
+  assert.equal(queried.querySource,'precomputed-vector'); assert.ok(!queried.items.some(item=>item.id===namespace.id)); assert.ok(!queried.items.some(item=>item.id===privateMemory.id));
+  const newest=await api.semanticRecent('The vehicle needs repair.',{minSimilarity:0,limit:2});
+  assert.equal(newest.sort,'recent'); assert.equal(newest.items[0].id,rows[1].id);
+  const isolated=await api.semanticRecent('The vehicle needs repair.',{namespace:'consumer',minSimilarity:0});
+  assert.deepEqual(isolated.items.map(item=>item.id),[namespace.id]);
+  assert.throws(()=>api.semanticRecent('query',{namespace:'consumer',branch:'main'}),VelaError);
+  assert.throws(()=>api.semanticQuery(embedding,{sort:'recent',scoringWeights:{semantic:1}}),VelaError);
+  const stale=await readFile(rows[1].assetPath,'utf8'); await writeFile(rows[1].assetPath,stale.replace('The vehicle needs a repair.','Changed source evidence.'));
+  const result=await api.semanticQuery(embedding,{minSimilarity:0});
+  assert.ok(!result.items.some(item=>item.id===rows[1].id)); assert.ok(result.staleVectorsExcluded>=1);
+}));
+
 test('out of order responses correlate by request ID', async () => fixture(async ({root,client}) => {
   const helper=await fake(root,"a=json.loads(sys.stdin.readline());b=json.loads(sys.stdin.readline())\nprint(json.dumps({'id':b['id'],'result':[{'id':'second'}]}),flush=True)\nprint(json.dumps({'id':a['id'],'result':[{'id':'first'}]}),flush=True)\ntime.sleep(30)");
   const api=client(helper); const [a,b]=await Promise.all([api.listProjects(),api.listProjects()]);

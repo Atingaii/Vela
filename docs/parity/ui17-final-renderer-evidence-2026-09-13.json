@@ -1,0 +1,149 @@
+{
+  "format": "vela-ui17-final-renderer-evidence-v1",
+  "recordedAt": "2026-09-13",
+  "scope": "Three complete isolated synthetic renderer suites, not native interaction, provider/account execution, packaging, CI, or a completed Golden Scenario.",
+  "frozenUI": {
+    "app.js": "d4adec2078d08eaac41100b9d70b9dbccb9c496574d65714e28182f5b8a6a11f",
+    "app.css": "70cb9e547a0104eb81be98b2c53977722594797fb46b21faeea31cbb87691c6d",
+    "i18n.js": "265b6af7067b45bd1207bff56a134b9d1d267774cb99e1f616188db1a500947a",
+    "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+    "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+    "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058"
+  },
+  "frozenHelperSHA256": "6f9c4abccfbc6ad5a409694148a181202faa311945a75854b7b8f655e1a10cd5",
+  "helperCopyIntegrity": "SHA-256 was identical before and after all suites; the History/Plan runner does not independently emit binaryUnchanged.",
+  "suites": [
+    {
+      "suite": "relations",
+      "completeSuite": true,
+      "checkCount": 5,
+      "result": "output/playwright/session-relations-ui17-final/results.json",
+      "resultSHA256": "baaaec29254fbc6c03ac7dd68e1735b464c1fe3cf889c79f38952a8df2e3971b",
+      "runner": "scripts/test-session-relations-browser.py",
+      "runnerSHA256": "b51d3bcc204890502cc30ba6ab78fc6b7bc1e808869711ab14f17db3beb91224",
+      "runnerReportedBinaryUnchanged": true,
+      "sourceUnchanged": true,
+      "cleanup": {
+        "ownedFixtureRemoved": true,
+        "browserAndServerStopped": true
+      }
+    },
+    {
+      "suite": "history-plan",
+      "completeSuite": true,
+      "checkCount": 10,
+      "result": "output/playwright/history-plan-ui17-final/results.json",
+      "resultSHA256": "d963f4a9ae65c88a8f9e7e814747afd0e0750590a61eb63bd235790b0d573f22",
+      "runner": "scripts/test-history-plan-browser.py",
+      "runnerSHA256": "2a3900b9d96585bb749ccd604755d4fb2fbe8f2b4792fc038f735d136eeaf2df",
+      "runnerReportedBinaryUnchanged": null,
+      "sourceUnchanged": true,
+      "cleanup": {
+        "ownedFixtureRemoved": true,
+        "browserAndServerStopped": true
+      }
+    },
+    {
+      "suite": "workspace-actions",
+      "completeSuite": true,
+      "checkCount": 9,
+      "result": "output/playwright/workspace-actions-ui17-final/results.json",
+      "resultSHA256": "7caac2a75af0b9ea98000863c172da42c8081ae8017f0849c497ac47de98f953",
+      "runner": "scripts/test-workspace-actions-browser.py",
+      "runnerSHA256": "4fc76952e172cc9e58c910834e7bae997c7aa4f7f56be43bd9f16280a40534b3",
+      "runnerReportedBinaryUnchanged": true,
+      "sourceUnchanged": true,
+      "cleanup": {
+        "ownedFixtureRemoved": true,
+        "browserAndServerStopped": true
+      }
+    }
+  ],
+  "summary": {
+    "result": "output/playwright/ui17-final-renderer-summary.json",
+    "resultSHA256": "8b6f2d003eaf02fcc72bb93244e7edae2096cfdd555ee45cee943bb5a3e08f0d",
+    "allCompleteSuitesPassed": true
+  },
+  "limits": [
+    "All source records and browser fixtures were owned synthetic data.",
+    "A complete renderer suite does not establish native macOS behavior, NSSound audibility, OS notification delivery, real-provider behavior, final-checkout acceptance, or Golden completion."
+  ],
+  "signalMaskFixRerun": {
+    "format": "vela-ui17-final-renderer-rerun-summary-v1",
+    "scope": "Complete synthetic renderer rerun after AutomationProcess child signal-mask fix; not native, provider/account, package, CI, or Golden acceptance.",
+    "frozenUI": {
+      "app.js": "d4adec2078d08eaac41100b9d70b9dbccb9c496574d65714e28182f5b8a6a11f",
+      "app.css": "70cb9e547a0104eb81be98b2c53977722594797fb46b21faeea31cbb87691c6d",
+      "i18n.js": "265b6af7067b45bd1207bff56a134b9d1d267774cb99e1f616188db1a500947a",
+      "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+      "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058"
+    },
+    "helperSHA256Before": "f05dc75ad935b59828f46f296f1a5aa5e58439c44db03188dd842a71c3c0d86e",
+    "helperSHA256After": "f05dc75ad935b59828f46f296f1a5aa5e58439c44db03188dd842a71c3c0d86e",
+    "semanticPrecondition": {
+      "portableMethods": 443,
+      "portablePassed": true,
+      "actualRPCChains": [
+        "shutdown",
+        "signal-mask fork/handler/waitpid",
+        "Ask"
+      ],
+      "status": "confirmed before renderer copy"
+    },
+    "suites": [
+      {
+        "suite": "relations",
+        "result": "output/playwright/session-relations-ui17-final-f05/results.json",
+        "resultSHA256": "008a5cab3c2f094e25c547f01cf5c032bc388d0d5a7358a1af5f644da6cf2f0e",
+        "checkCount": 5,
+        "completeSuite": true,
+        "selectedChecksPassed": true,
+        "sourceUnchanged": true,
+        "runner": "scripts/test-session-relations-browser.py",
+        "runnerSHA256": "b51d3bcc204890502cc30ba6ab78fc6b7bc1e808869711ab14f17db3beb91224",
+        "runnerReportedBinaryUnchanged": true,
+        "cleanup": {
+          "ownedFixtureRemoved": true,
+          "browserAndServerStopped": true
+        }
+      },
+      {
+        "suite": "history-plan",
+        "result": "output/playwright/history-plan-ui17-final-f05/results.json",
+        "resultSHA256": "bf6d303244770bcf83963fc065edc75a5c5f0a7cfc0bdc59530cd6976cdbbec3",
+        "checkCount": 10,
+        "completeSuite": true,
+        "selectedChecksPassed": true,
+        "sourceUnchanged": true,
+        "runner": "scripts/test-history-plan-browser.py",
+        "runnerSHA256": "2a3900b9d96585bb749ccd604755d4fb2fbe8f2b4792fc038f735d136eeaf2df",
+        "runnerReportedBinaryUnchanged": null,
+        "cleanup": {
+          "ownedFixtureRemoved": true,
+          "browserAndServerStopped": true
+        }
+      },
+      {
+        "suite": "workspace-actions",
+        "result": "output/playwright/workspace-actions-ui17-final-f05/results.json",
+        "resultSHA256": "7e7e8dc728d05895d59e5fb6af5a209a5e47ad223a819a95edb45b4fcd5f259c",
+        "checkCount": 9,
+        "completeSuite": true,
+        "selectedChecksPassed": true,
+        "sourceUnchanged": true,
+        "runner": "scripts/test-workspace-actions-browser.py",
+        "runnerSHA256": "4fc76952e172cc9e58c910834e7bae997c7aa4f7f56be43bd9f16280a40534b3",
+        "runnerReportedBinaryUnchanged": true,
+        "cleanup": {
+          "ownedFixtureRemoved": true,
+          "browserAndServerStopped": true
+        }
+      }
+    ],
+    "allCompleteSuitesPassed": true,
+    "summaryResult": "output/playwright/ui17-final-renderer-summary-f05.json",
+    "summaryResultSHA256": "afc1518a8379154c2a2cd236c33ab550e632c25d693cecff75b94d3fc9ffbf2c",
+    "priorHelperStatus": "The earlier 6f9c4abc helper is retained as historical renderer evidence but is superseded for final UI17 regression by this f05dc75a rerun because a later real-provider investigation found a global child signal-mask defect."
+  }
+}

@@ -1,4 +1,5 @@
 """Frozen real Vela CLI -> isolated public-layout fixtures; no live provider or credentials."""
+import argparse
 import hashlib
 import json
 import os
@@ -8,11 +9,14 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--binary', type=Path, default=root / '.build/debug/vela')
+selected_binary = parser.parse_args().binary.resolve(strict=True)
 checks = []
 with tempfile.TemporaryDirectory(prefix='vela-setup-rpc-') as temporary:
     base = Path(temporary).resolve()
     helper = base / 'vela'
-    shutil.copy2(root / '.build/debug/vela', helper)
+    shutil.copy2(selected_binary, helper)
     digest = hashlib.sha256(helper.read_bytes()).hexdigest()
     project, home, store = base / 'project', base / 'synthetic-home', base / 'store'
     project.mkdir(); home.mkdir()

@@ -48,6 +48,8 @@ Run `PYTHONPATH=sdk/python/src python3 -m unittest discover -s sdk/python/tests 
 
 Both clients also expose `semantic_index(language="en", batch_size=32, cursor=None)` and `semantic_status(language="en")`. Resume by passing `nextCursor` until `hasMore` is false, then inspect status; per-item failures and concurrent edits can leave an incomplete index. `recall(..., retrieval_mode="semantic" | "hybrid", language="en" | "zh-Hans", limit=20, min_similarity=0.2, scoring_weights={"semantic": 1, "recency": 0, "importance": 0, "recency_half_life_days": 30})` adds typed semantic options. Branch/worktree/task/session_id scope parameters remain available. Default recall remains lexical. Optional Apple model assets are never automatically downloaded. Check `status`, `indexIncomplete`, and `fallbackReason`; do not interpret unavailable assets as successful semantic recall. Indexing does not activate candidate memory.
 
+`semantic_embed(text, language="en")` explicitly embeds caller-provided text of at most 64 KiB and returns an unpersisted `{model, vector}` pair. Pass that result to `semantic_query(embedding, ...)`; it accepts only the provider-compatible identity and finite nonzero vector, performs no text embedding and never adds the vector to the index. `semantic_recent(query, ...)` embeds at the local helper and returns newest qualifying semantic matches. Both query methods accept exactly one scope: `namespace`, or branch/worktree/task/session_id matching; a namespace cannot be combined with the latter four. `semantic_recent` fixes newest-first ordering and rejects scoring weights. All three calls are read-only, return `downloadRequested: false`, and explicitly return unavailable when the installed Apple model is absent.
+
 ## 简体中文
 
 此包提供 Python 3.10+ 同步和异步客户端，运行时只依赖标准库，连接明确选择的 macOS helper/store，目前未发布到 PyPI，也不会增加 Mac 客户端运行依赖。
@@ -58,7 +60,7 @@ Both clients also expose `semantic_index(language="en", batch_size=32, cursor=No
 
 SDK 固定关闭发现、监听和调度，不读取用户凭据或创建远端账户。它是接入层，不是新的权限系统；完整远端 owner、namespace ACL、加密同步仍按功能覆盖清单继续实现。
 
-语义接口支持本机 English / 简体中文模型、显式分页索引、状态检查、semantic/hybrid 召回与可选时间/重要性排名。默认仍为词面检索；模型缺失和索引不完整均显式返回，不下载模型、不自动激活候选，也不代表远端加密记忆已实现。
+语义接口支持本机 English / 简体中文模型、显式分页索引、状态检查、semantic/hybrid 召回与可选时间/重要性排名。`semantic_embed` 仅处理调用者显式给出的最多 64 KiB 文本，返回不持久化的模型身份和向量；`semantic_query` 只接受该兼容身份和有限非零预计算向量，绝不写入索引；`semantic_recent` 在全部合格语义匹配中按创建时间排序。namespace 与 branch/worktree/task/session_id 不可混用，recent 不接受权重。默认仍为词面检索；模型缺失和索引不完整均显式返回，不下载模型、不自动激活候选，也不代表远端加密记忆已实现。
 
 Sync and async clients expose `archive_from_walrus_records(source, records)`. It constructs an archive from explicitly selected non-private Walrus UTF-8 records (`blobID/title/content/sha256/private:False`, optional reader `receipt`) without writing memory. Core checks plaintext SHA; remote identity/receipt remain caller-reported. Validate/import separately into a registered project as idempotent candidates. 中文：同步/异步接口均支持原始 Walrus 文本先构造归档，再显式候选导入，不自动激活，不替代私有完整备份。
 

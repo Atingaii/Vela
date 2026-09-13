@@ -51,6 +51,8 @@ Run the real-helper and fault-fixture tests with `npm test` after `npm run build
 
 `semanticIndex({language, batchSize, cursor})` builds an explicit resumable local index; pass each `nextCursor` until `hasMore` is false. `semanticStatus({language})` reports actual model availability and stale/missing entries. `recall(query, {retrievalMode: 'semantic' | 'hybrid', language: 'en' | 'zh-Hans', limit, minSimilarity, scoringWeights})` uses that index. Default recall remains lexical. Model assets are optional, never automatically downloaded; inspect `status`, `indexIncomplete`, and `fallbackReason` rather than treating absent assets as success. Branch/worktree/task/sessionId scope parameters remain available. Index writes do not activate candidates.
 
+`semanticEmbed(text, {language})` returns an unpersisted compatible `{model, vector}` for explicit text up to 64 KiB. Pass it to `semanticQuery(embedding, parameters)`: it accepts finite nonzero vectors only, never re-embeds text, and never writes uploaded vectors into the index. `semanticRecent(query, parameters)` embeds at the local helper and returns newest qualifying semantic matches. Query/recent accept either `namespace` or branch/worktree/task/sessionId scope; namespace cannot be combined with those fields. Recent fixes newest-first ordering and rejects scoring weights. These calls are read-only and return explicit unavailable results if the installed Apple model is missing; they never request downloads.
+
 ```ts
 const status = await client.semanticStatus({language: 'en'});
 if (status.status === 'ok') {
@@ -74,7 +76,7 @@ if (status.status === 'ok') {
 
 SDK 固定关闭发现、监听和调度，不提供任意 shell/file/workflow 执行入口。它不是 owner/namespace ACL，也没有实现远端加密存储或同步身份。SDK/API 完整覆盖状态见仓库 `docs/parity/walrus-memory.md`。
 
-语义接口支持本机 English / 简体中文模型、显式分页索引、状态检查、semantic/hybrid 召回与可选时间/重要性排名。默认仍为词面检索；模型缺失和索引不完整均显式返回，不下载模型、不自动激活候选，也不代表远端加密记忆已实现。
+语义接口支持本机 English / 简体中文模型、显式分页索引、状态检查、semantic/hybrid 召回与可选时间/重要性排名。`semanticEmbed` 仅处理调用者显式给出的最多 64 KiB 文本，返回不持久化的模型身份和向量；`semanticQuery` 只接受该兼容身份和有限非零预计算向量，绝不写入索引；`semanticRecent` 在全部合格语义匹配中按创建时间排序。namespace 与 branch/worktree/task/sessionId 不可混用，recent 不接受权重。默认仍为词面检索；模型缺失和索引不完整均显式返回，不下载模型、不自动激活候选，也不代表远端加密记忆已实现。
 
 `archiveFromWalrusRecords(source, records)` constructs an integrity-checked archive from explicitly selected, non-private original Walrus UTF-8 text, without writing memory. Each record supplies `blobID/title/content/sha256/private:false` and an optional reader `receipt`. Remote source/receipt are caller-reported; Core authenticates only the plaintext checksum. Validate and import into an explicit registered project to create idempotent candidates. 中文：原始 Walrus 文本先构造归档，再显式导入候选；不把来源自报当成已认证，也不激活或导入私有备份。
 

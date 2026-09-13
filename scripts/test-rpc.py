@@ -1,9 +1,11 @@
 """Black-box JSONL/MCP tests with disposable Vela stores and synthetic data."""
-import json, pathlib, subprocess, tempfile, os
+import argparse, json, pathlib, subprocess, tempfile, os
 os.environ['VELA_DISABLE_DISCOVERY']='1'
 
 root=pathlib.Path(__file__).resolve().parents[1]
-binary=root/'.build/debug/vela'
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--binary',type=pathlib.Path,default=root/'.build/debug/vela')
+binary=parser.parse_args().binary.resolve(strict=True)
 assert binary.exists(), 'Run swift build first'
 
 def invoke(home, method, params=None):

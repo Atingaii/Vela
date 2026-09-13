@@ -10,26 +10,57 @@ enum SessionHistorySource {
     }
     /// Resolve only the already configured canonical root; reject every link below it.
     static func open(_ path: String, root: String, directory: Bool = false) throws -> (Int32, stat) {
-        let parts = path.split(separator: "/").map(String.init)
+        let parts = path.split(separator: "/").map(String.init), rootParts = root.split(separator: "/").map(String.init)
         // Foundation standardization rewrites macOS /private/var to /var. Do
         // lexical validation here; openat checks each real component itself.
         guard path == root || path.hasPrefix(root + "/"), path.utf8.count <= 4096,
               !path.contains("\0"), path == "/" + parts.joined(separator: "/"),
-              !parts.contains("."), !parts.contains("..") else { throw VelaError("History source is outside its configured root") }
-        var descriptor = Darwin.open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC)
-        guard descriptor >= 0 else { throw VelaError("History source root is unavailable") }
-        for (index, component) in parts.enumerated() {
-            let flags = O_RDONLY | O_NOFOLLOW | O_CLOEXEC | ((index < parts.count - 1 || directory) ? O_DIRECTORY : 0)
-            let next = openat(descriptor, component, flags); close(descriptor); descriptor = next
-            if descriptor < 0 { throw VelaError("History source cannot be opened without following links") }
+              root == "/" + rootParts.joined(separator: "/"), !root.contains("\0"),
+              !parts.contains("."), !parts.contains(".."), !rootParts.contains("."), !rootParts.contains("..") else { throw VelaError("History source is outside its configured root") }
+        // The configured root is the authorized entry point. Opening its ancestors
+        // individually can require macOS access that opening the root does not.
+        var beforeRoot = stat()
+        guard lstat(root, &beforeRoot) == 0 else { throw unavailable("root metadata") }
+        guard beforeRoot.st_mode & S_IFMT == S_IFDIR else { throw VelaError("History configured root is not a real directory") }
+        let rootDescriptor = Darwin.open(root, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard rootDescriptor >= 0 else { throw unavailable("configured root") }
+        defer { close(rootDescriptor) }
+        try verifyRoot(rootDescriptor, root: root, expected: beforeRoot)
+        var descriptor = fcntl(rootDescriptor, F_DUPFD_CLOEXEC, 0)
+        guard descriptor >= 0 else { throw unavailable("root descriptor") }
+        var transferred = false
+        defer { if !transferred { close(descriptor) } }
+        let descendants = Array(parts.dropFirst(rootParts.count))
+        for (index, component) in descendants.enumerated() {
+            let flags = O_RDONLY | O_NOFOLLOW | O_CLOEXEC | ((index < descendants.count - 1 || directory) ? O_DIRECTORY : 0)
+            let next = openat(descriptor, component, flags)
+            guard next >= 0 else { throw unavailable("relative source component") }
+            close(descriptor); descriptor = next
         }
         var info = stat()
         guard fstat(descriptor, &info) == 0,
               info.st_mode & S_IFMT == (directory ? S_IFDIR : S_IFREG),
               directory || info.st_nlink == 1, info.st_size >= 0 else {
-            close(descriptor); throw VelaError("History source is not a supported filesystem object")
+            throw VelaError("History source is not a supported filesystem object")
         }
+        try verifyRoot(rootDescriptor, root: root, expected: beforeRoot)
+        transferred = true
         return (descriptor, info)
+    }
+    private static func unavailable(_ stage: String) -> VelaError {
+        VelaError("History \(stage) could not be opened or inspected (errno \(errno))")
+    }
+    private static func verifyRoot(_ descriptor: Int32, root: String, expected: stat) throws {
+        var held = stat(), named = stat()
+        guard fstat(descriptor, &held) == 0, lstat(root, &named) == 0 else { throw unavailable("root identity") }
+        guard held.st_mode & S_IFMT == S_IFDIR, named.st_mode & S_IFMT == S_IFDIR,
+              held.st_dev == expected.st_dev, held.st_ino == expected.st_ino,
+              named.st_dev == held.st_dev, named.st_ino == held.st_ino else { throw VelaError("History configured root identity changed") }
+        var physical = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+        guard fcntl(descriptor, F_GETPATH, &physical) == 0 else { throw unavailable("root physical path") }
+        // Use the same URL spelling as canonicalProject, without resolving the
+        // configured name again and thereby accepting a newly redirected root.
+        guard URL(fileURLWithPath: String(cString: physical)).path == root else { throw VelaError("History configured root physical path changed") }
     }
     static func verify(_ descriptor: Int32, path: String, root: String, version: String, directory: Bool = false) throws {
         var held = stat()

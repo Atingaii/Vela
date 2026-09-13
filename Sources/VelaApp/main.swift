@@ -1605,7 +1605,12 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             "workflows.get", "workflows.validate", "workflows.clone", "workflows.setEnabled", "workflows.remove", "workflows.restore",
             "watches.describe", "watches.get", "watches.preview",
             "loops.describe", "loops.plan", "loops.list", "loops.get", "loops.cancel",
-            "ask.describe", "ask.create", "ask.followup", "ask.get", "ask.list", "ask.cancel", "ask.citations"
+            "ask.describe", "ask.create", "ask.followup", "ask.get", "ask.list", "ask.cancel", "ask.citations",
+            "history.describe", "history.discover", "history.sources", "history.start",
+            "history.advance", "history.get", "history.jobs", "history.pause",
+            "history.resume", "history.cancel", "history.page", "history.raw", "history.branch",
+            "sessions.plan.describe", "sessions.plan.get", "sessions.plan.events",
+            "sessions.relations.describe", "sessions.relations.get", "sessions.relations.children", "sessions.relations.events", "sessions.relations.resolve"
         ]
 
         if allowlistedMethods.contains(method) {

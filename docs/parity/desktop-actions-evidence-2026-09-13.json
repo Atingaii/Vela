@@ -1,0 +1,65 @@
+{
+  "format": "vela-desktop-actions-evidence-v1",
+  "recordedAt": "2026-09-13",
+  "status": "UI14 synthetic renderer evidence only; not a whole-product acceptance claim",
+  "nativeMinimumWindow": {
+    "width": 900,
+    "height": 620,
+    "source": "Sources/VelaApp/main.swift:356"
+  },
+  "fullSuite": {
+    "evidence": "output/playwright/workspace-actions-r14e/results.json",
+    "scope": [
+      "Actions default Search mode, private default, keyboard selection and no-project disablement",
+      "one late Search result invalidation path",
+      "three templates open unsaved; one template save then dry-run; fixture Git project unchanged",
+      "localized controls and notification-preview bridge mock at 1250 and below-native-minimum 375 stress width"
+    ],
+    "result": "5 selected checks passed",
+    "limits": [
+      "Browser preview mock records the three expected calls; it does not verify NSSound or OS notification delivery.",
+      "375px is a stress observation, not a supported macOS native window size."
+    ]
+  },
+  "differenceSuite": {
+    "evidence": "output/playwright/workspace-actions-r14diff/results.json",
+    "scope": [
+      "Late Search success and injected error invalidated on query, clear, mode, project and replaced-modal changes",
+      "Every template individually saved and dry-run with expected Git-read tools; fixture project bytes unchanged",
+      "Unsaved title/select/checkbox drafts retain the replacement modal",
+      "All three Action template entries and 900x620/1250 Settings, Workflows, Actions captures"
+    ],
+    "result": "5 selected difference checks passed",
+    "limits": [
+      "No horizontal document overflow at supported sizes is a narrow layout check, not proof of all visual quality."
+    ]
+  },
+  "ui15FullSuite": {
+    "evidence": "output/playwright/toast-ui15-full-3/results.json",
+    "result": "9 selected checks passed; completeSuite=true; selectedChecksPassed=true",
+    "frozenInputs": {
+      "appJsSHA256": "f322c440ad02a7e1cca088cded2e5b83682bb4f3c19be86d97acdde678f99685",
+      "helperSHA256": "224bd499ef79cfb5060a2086a60cd782141f6c7f59052948c69023720f9f1a95"
+    },
+    "addedCoverage": [
+      "Settings preview's three bridge kinds drive real loaded-page toast rendering; controlled page clock verifies a two-notice bound, expiry replacement identity, keyboard dismissal and Cmd-K responsiveness.",
+      "Locale checks wait for VelaI18n and the Settings save control to settle before asserting existing dismiss aria labels in English and zh-CN."
+    ],
+    "limits": [
+      "system.previewNotificationSound is a browser bridge mock in this runner; it does not verify NSSound, audible playback, notification banners or OS delivery.",
+      "The toast diagnostic receipt is retained separately and is not used as this full-suite result."
+    ]
+  },
+  "openObservations": [
+    {
+      "kind": "i18n-accessibility",
+      "status": "observed",
+      "detail": "Search result list aria-label is hardcoded as 'Search & Actions Results' and remains English in zh-CN.",
+      "evidence": "Sources/VelaApp/Resources/UI/app.js"
+    }
+  ],
+  "cleanup": {
+    "fixtures": "r14e and r14diff owned synthetic fixtures removed by their runners",
+    "evidence": "retained under output/playwright"
+  }
+}

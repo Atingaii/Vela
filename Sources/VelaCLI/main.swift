@@ -17,6 +17,72 @@ func emit(_ object: Any) {
 }
 func fail(_ message: String) -> Never { fputs("Vela: \(message)\n", stderr); exit(1) }
 
+/// RPC normally has no resident lifecycle. EOF first closes admission and drains
+/// requests already accepted by the pipe. SIGINT/SIGTERM instead close the runtime
+/// gate, stop only Vela-owned child process groups, and allow the in-flight request
+/// to persist its own terminal record. A bounded fallback never claims forced
+/// cleanup was graceful.
+final class RPCShutdown {
+    private enum State: Equatable { case accepting, draining, stopping, finished }
+    private let lock = NSLock()
+    private var state: State = .accepting
+    private let pending: DispatchGroup
+    private let timer: DispatchSourceTimer?
+    private let stopWatching: () -> Void
+    init(pending: DispatchGroup, timer: DispatchSourceTimer?, stopWatching: @escaping () -> Void) {
+        self.pending = pending; self.timer = timer; self.stopWatching = stopWatching
+    }
+    /// Admission and pending.enter share the same lock as shutdown state. A signal
+    /// therefore cannot make the wait group look drained while a request is racing
+    /// toward a queue.
+    func admit() -> Bool {
+        lock.lock()
+        guard state == .accepting else { lock.unlock(); return false }
+        pending.enter()
+        lock.unlock()
+        return true
+    }
+    /// EOF preserves legacy pipe behavior: it drains requests that were already
+    /// accepted, without cancelling an approved command simply because its writer
+    /// closed stdin after one JSONL frame.
+    func drainAfterEOF() {
+        lock.lock()
+        guard state == .accepting else { lock.unlock(); return }
+        state = .draining
+        lock.unlock()
+        DispatchQueue.global(qos:.userInitiated).async {
+            self.pending.wait(); self.finish(expected:.draining,code:0)
+        }
+    }
+    /// Signals differ from EOF: stop Vela-owned descendants and let the active
+    /// request persist an interrupted ledger state before the helper exits.
+    func interrupt() {
+        lock.lock()
+        guard state != .stopping && state != .finished else { lock.unlock(); return }
+        state = .stopping
+        lock.unlock()
+        VelaRuntimeShutdown.request()
+        DispatchQueue.global(qos:.userInitiated).async {
+            self.pending.wait(); self.finish(expected:.stopping,code:0)
+        }
+        DispatchQueue.global(qos:.userInitiated).asyncAfter(deadline:.now()+5) {
+            self.lock.lock(); let pending = self.state == .stopping; self.lock.unlock()
+            guard pending else { return }
+            VelaRuntimeShutdown.forceStopOwnedProcesses()
+            // The fallback only stops known process groups. The final state may still
+            // be unavailable if the helper itself cannot persist after this bound.
+            DispatchQueue.global(qos:.userInitiated).asyncAfter(deadline:.now()+1) { self.finish(expected:.stopping,code:1) }
+        }
+    }
+    private func finish(expected: State, code: Int32) {
+        lock.lock()
+        guard state == expected else { lock.unlock(); return }
+        state = .finished
+        lock.unlock()
+        timer?.cancel(); stopWatching(); exit(code)
+    }
+}
+
 final class Router {
     static let controlMethods: Set<String> = ["loops.get","loops.list","loops.cancel","ask.get","ask.list","ask.cancel","ask.citations",
         "replay.get","replay.list","replay.cancel","replay.fixtures.get","replay.fixtures.list","replay.fixtures.forget","replay.fixtures.prune"]
@@ -208,6 +274,12 @@ do {
             timer.setEventHandler { do { if try !VelaRuntimeLease.isHeld(root: router.store.root, name: "daemon") { try router.automation.tick() } } catch { fputs("Vela scheduler: \(error.localizedDescription)\n",stderr) } }
             timer.resume()
         }
+        let shutdown = RPCShutdown(pending:pending,timer:timer,stopWatching:{ if watchEnabled { router.foundation.stopWatching() } })
+        signal(SIGTERM, SIG_IGN); signal(SIGINT, SIG_IGN)
+        let termination = DispatchSource.makeSignalSource(signal:SIGTERM,queue:.global(qos:.userInitiated))
+        let interruption = DispatchSource.makeSignalSource(signal:SIGINT,queue:.global(qos:.userInitiated))
+        termination.setEventHandler { shutdown.interrupt() }; interruption.setEventHandler { shutdown.interrupt() }
+        termination.resume(); interruption.resume()
         let inputReader = BoundedInputReader()
         while let frame = try inputReader.next() {
             let data: Data
@@ -238,7 +310,13 @@ do {
                 if !isMCP || request["id"] != nil { emit(response) }
                 continue
             }
-            pending.enter()
+            guard shutdown.admit() else {
+                capacity.signal()
+                var response: JSON = ["id":request["id"] ?? NSNull(),"error":["code":-32001,"message":"Helper is stopping; the request was not accepted"]]
+                if isMCP { response["jsonrpc"] = "2.0" }
+                if !isMCP || request["id"] != nil { emit(response) }
+                continue
+            }
             let automationMethods = ["workflows.","runs.","improve.","lab.","reuse.","daemon.","schedules.","watches.","approvals.","inbox.","outputs.","connectors.","evidence.","ask.","loops.","replay."]
             let queue = isControl ? controlQueue : !isMCP && method == "history.advance" ? historyQueue : !isMCP && method == "usage.quota.read" ? providerQueue : (!isMCP && automationMethods.contains(where:method.hasPrefix) ? automationQueue : foundationQueue)
             queue.async {
@@ -257,9 +335,8 @@ do {
                 }
             }
         }
-        pending.wait()
-        timer?.cancel()
-        if watchEnabled { router.foundation.stopWatching() }
+        shutdown.drainAfterEOF()
+        dispatchMain()
     } else {
         var method = command, params: JSON = [:]
         switch command {

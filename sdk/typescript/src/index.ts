@@ -21,6 +21,13 @@ export interface RecallParameters {
 }
 export type IntegrationRecallParameters = Pick<RecallParameters,'project'|'budget'|'retrievalMode'|'language'|'limit'|'minSimilarity'>;
 export interface SemanticModel { id: string; language: SemanticLanguage; revision: number; dimension: number; runtime: string }
+export type SemanticModelIdentity = Omit<SemanticModel,'runtime'>;
+export interface SemanticEmbedding { model: SemanticModelIdentity; vector: number[] }
+export type SemanticEmbeddingResult = (SemanticEmbedding & {status:'ok'; inputBytes:number; persisted:false; downloadRequested:false; runtime:'local'}) | {status:'unavailable'; model:null; reason:string; persisted:false; downloadRequested:false};
+export interface SemanticScopeParameters { project?:string; namespace?:string; branch?:string; worktree?:string; task?:string; sessionId?:string; limit?:number; budget?:number; minSimilarity?:number }
+export interface SemanticQueryParameters extends SemanticScopeParameters { sort?:'relevance'|'recent'; scoringWeights?:ScoringWeights }
+export interface SemanticRecentParameters extends SemanticScopeParameters { language?:SemanticLanguage }
+export interface SemanticQueryResult extends RecallResult { querySource?:'text'|'precomputed-vector'; sort?:'relevance'|'recent'; matchedVectors?:number; validVectors?:number; staleVectorsExcluded?:number; scopeExcluded?:null; rankingPolicy?:string }
 export interface SemanticStatus { status: 'ok' | 'unavailable'; model: SemanticModel | null; indexIncomplete: boolean; eligible?: number; indexed?: number; stale?: number; missing?: number; scanned?: number; reason?: string; downloadRequested: false }
 export interface SemanticIndexParameters { project?: string; language?: SemanticLanguage; batchSize?: number; cursor?: string }
 export interface SemanticIndexResult { status: 'ok' | 'partial' | 'unavailable'; model: SemanticModel | null; processed?: number; indexed?: number; unchanged?: number; skipped?: number; failed?: number; nextCursor?: string | null; hasMore?: boolean; reason?: string; downloadRequested: false }
@@ -67,6 +74,23 @@ const numeric = (value: unknown, min: number, max: number, integer = false): voi
 };
 const language = (value: unknown): void => {
   if (value !== undefined && value !== 'en' && value !== 'zh-Hans') throw new VelaError('invalid_input');
+};
+const semanticScopeKeys = ['project','namespace','branch','worktree','task','sessionId','limit','budget','minSimilarity'];
+const semanticText = (text: unknown, bytes: number): void => {
+  if (typeof text !== 'string' || !text.trim() || Buffer.byteLength(text) > bytes) throw new VelaError('invalid_input');
+};
+const semanticScope = (params: SemanticScopeParameters): void => {
+  numeric(params.limit,1,100,true); numeric(params.budget,0,4000,true); numeric(params.minSimilarity,0,1);
+  for (const key of ['namespace','branch','worktree','task','sessionId'] as const) {
+    const value = params[key];
+    if (value !== undefined && (typeof value !== 'string' || !value.trim() || Buffer.byteLength(value) > (key === 'namespace' ? 256 : 4096) || /[\u0000-\u001f\u007f-\u009f]/u.test(value))) throw new VelaError('invalid_input');
+  }
+  if (params.namespace !== undefined && ['branch','worktree','task','sessionId'].some(key => params[key as keyof SemanticScopeParameters] !== undefined)) throw new VelaError('invalid_input');
+};
+const semanticWeights = (weights: ScoringWeights): void => {
+  exactKeys(weights,['semantic','recency','importance','recencyHalfLifeDays']);
+  numeric(weights.semantic,0,10); numeric(weights.recency,0,10); numeric(weights.importance,0,10); numeric(weights.recencyHalfLifeDays,0.01,3650);
+  if ((weights.semantic ?? 1) + (weights.recency ?? 0) + (weights.importance ?? 0) <= 0) throw new VelaError('invalid_input');
 };
 const candidate = (input: CandidateInput): void => {
   if (!input || typeof input !== 'object') throw new VelaError('invalid_input');
@@ -207,6 +231,28 @@ export class VelaClient {
     exactKeys(parameters,['project','language','batchSize','cursor']); language(parameters.language); numeric(parameters.batchSize,1,200,true);
     if (parameters.cursor !== undefined && (typeof parameters.cursor !== 'string' || parameters.cursor.length > 4096)) throw new VelaError('invalid_input');
     return this.request('memory.semantic.index',{...parameters,project:this.selected(parameters.project)},true,options);
+  }
+  semanticEmbed(text: string, parameters: Pick<SemanticIndexParameters,'project'|'language'> = {}, options?: RequestOptions): Promise<SemanticEmbeddingResult> {
+    exactKeys(parameters,['project','language']); language(parameters.language); semanticText(text,65536);
+    return this.request('memory.semantic.embed',{...parameters,project:this.selected(parameters.project),text},false,options);
+  }
+  semanticRecent(query: string, parameters: SemanticRecentParameters = {}, options?: RequestOptions): Promise<SemanticQueryResult> {
+    exactKeys(parameters,[...semanticScopeKeys,'language']); semanticScope(parameters); language(parameters.language); semanticText(query,16384);
+    return this.request('memory.semantic.recent',{...parameters,project:this.selected(parameters.project),query},false,options);
+  }
+  semanticQuery(embedding: SemanticEmbedding, parameters: SemanticQueryParameters = {}, options?: RequestOptions): Promise<SemanticQueryResult> {
+    exactKeys(parameters,[...semanticScopeKeys,'sort','scoringWeights']); semanticScope(parameters);
+    if (parameters.sort !== undefined && !['relevance','recent'].includes(parameters.sort)) throw new VelaError('invalid_input');
+    if (parameters.scoringWeights !== undefined) {
+      if (parameters.sort === 'recent') throw new VelaError('invalid_input');
+      semanticWeights(parameters.scoringWeights);
+    }
+    if (!embedding || typeof embedding !== 'object') throw new VelaError('invalid_input');
+    const {model,vector} = embedding; exactKeys(model,['id','language','revision','dimension']);
+    if (Object.keys(model).length !== 4 || typeof model.id !== 'string' || !model.id || Buffer.byteLength(model.id) > 160 || !['en','zh-Hans'].includes(model.language) || typeof model.revision !== 'number' || typeof model.dimension !== 'number') throw new VelaError('invalid_input');
+    numeric(model.revision,1,2147483647,true); numeric(model.dimension,1,4096,true);
+    if (!Array.isArray(vector) || vector.length !== model.dimension || !vector.every(value => typeof value === 'number' && Number.isFinite(value) && Number.isFinite(Math.fround(value))) || !vector.some(value => Math.fround(value) !== 0)) throw new VelaError('invalid_input');
+    return this.request('memory.semantic.query',{...parameters,project:this.selected(parameters.project),model:{...model},vector:[...vector],scoringWeights:parameters.scoringWeights === undefined ? undefined : {...parameters.scoringWeights}} as ObjectValue,false,options);
   }
   saveCandidate(input: CandidateInput, options?: RequestOptions): Promise<MemoryRecord> {
     candidate(input);

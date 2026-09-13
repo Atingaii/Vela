@@ -1,4 +1,5 @@
 """Real Vela CLI -> synthetic Codex app-server; no user credentials or model call."""
+import argparse
 import hashlib
 import json
 import os
@@ -8,7 +9,9 @@ import tempfile
 import shutil
 
 root = Path(__file__).resolve().parents[1]
-binary = root / '.build/debug/vela'
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--binary', type=Path, default=root / '.build/debug/vela')
+binary = parser.parse_args().binary.resolve(strict=True)
 checks = []
 
 with tempfile.TemporaryDirectory(prefix='vela-quota-rpc-') as temporary:

@@ -1,4 +1,5 @@
 """Frozen real Vela CLI, synthetic provider execution and isolated project/store."""
+import argparse
 import hashlib
 import json
 import os
@@ -8,11 +9,14 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--binary', type=Path, default=root / '.build/debug/vela')
+selected_binary = parser.parse_args().binary.resolve(strict=True)
 checks = []
 with tempfile.TemporaryDirectory(prefix='vela-model-improve-rpc-') as temporary:
     base = Path(temporary).resolve()
     binary = base / 'vela'
-    shutil.copy2(root / '.build/debug/vela', binary)
+    shutil.copy2(selected_binary, binary)
     binary_hash = hashlib.sha256(binary.read_bytes()).hexdigest()
     project = base / 'project'; project.mkdir()
     logs = base / 'logs'

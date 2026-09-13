@@ -340,6 +340,27 @@ public final class VelaStore {
         sql += " ORDER BY updatedAt DESC,id ASC LIMIT ?"; values.append(max(0,min(limit,10000)))
         return try select(sql,values)
     }
+    // Session relations use current, narrow summaries, never conversation bodies.
+    // Keep identities unfiltered until the service checks strict Boolean privacy
+    // and source scope; child paging advances over withheld identities as well.
+    private var relationSelect: String {
+        "SELECT json_object('session',json(json_remove(s.json,'$.messages','$.content','$.usageByMessage')),'relation',json(r.json)) FROM objects s LEFT JOIN objects r ON r.kind='session_relation' AND r.id=s.id AND r.project=s.project WHERE s.kind='session' AND s.project=?"
+    }
+    func relationSource(project: String, id: String) throws -> JSON? {
+        lock.lock(); defer { lock.unlock() }; try validateIdentifier(id)
+        return try select(relationSelect + " AND s.id=?",[canonicalProject(project),id]).first
+    }
+    func relationThreadSources(project: String, threadID: String) throws -> [JSON] {
+        lock.lock(); defer { lock.unlock() }
+        guard SessionRelationProjection.threadID(threadID) == threadID else { throw VelaError("Invalid provider thread identity") }
+        return try select(relationSelect + " AND json_extract(s.json,'$.provider')='codex' AND lower(json_extract(s.json,'$.sourceSessionId'))=? ORDER BY s.id LIMIT 65",[canonicalProject(project),threadID])
+    }
+    func relationChildren(project: String, threadID: String, after: String, limit: Int) throws -> [JSON] {
+        lock.lock(); defer { lock.unlock() }
+        guard SessionRelationProjection.threadID(threadID) == threadID, (1...101).contains(limit) else { throw VelaError("Invalid relation scan arguments") }
+        if !after.isEmpty { try validateIdentifier(after) }
+        return try select(relationSelect + " AND json_extract(s.json,'$.provider')='codex' AND s.id>? AND EXISTS(SELECT 1 FROM json_each(r.json,'$.parentCandidates') p WHERE p.value=?) ORDER BY s.id LIMIT ?",[canonicalProject(project),after,threadID,limit])
+    }
     public func get(_ kind: String, _ id: String) throws -> JSON? {
         lock.lock(); defer { lock.unlock() }
         guard let item = try select("SELECT json FROM objects WHERE kind=? AND id=?", [kind,id]).first else { return nil }

@@ -185,13 +185,31 @@ final class SessionEngine {
         }
         let sourceVersion = try piSourceVersion(url).version
         let planCompatible = string(cursor,"planDecoderVersion") == SessionPlanProjection.version
+            && (provider != "codex" || string(cursor,"relationDecoderVersion") == SessionRelationProjection.version)
         if oldOffset == size, string(cursor,"sourceVersion") == sourceVersion, planCompatible { return false }
         let rewritten = oldOffset == size && !string(cursor,"sourceVersion").isEmpty && string(cursor,"sourceVersion") != sourceVersion
-        let rotated = size < oldOffset || rewritten || !planCompatible || (!string(cursor,"fingerprint").isEmpty && string(cursor,"fingerprint") != fingerprint)
         let sessionId = stableHash(provider + ":" + url.path)
         let originalSession = try store.get("session",sessionId), originalPlan = try store.get("session_plan",sessionId)
+        let originalRelation = provider == "codex" ? try store.get("session_relation",sessionId) : nil
+        // Growth alone does not prove append-only behavior. Verify the exact
+        // captured header before keeping a parent relation across an append.
+        // This checks lineage identity, not integrity of every prior log byte.
+        var headerChanged = false
+        if provider == "codex", size > oldOffset, oldOffset > 0,
+           let evidence = originalRelation?["headerEvidence"] as? JSON {
+            let length = intValue(evidence,"byteLength"), offset = intValue(evidence,"byteOffset")
+            if length > 0, length <= tailWindow, offset >= 0, offset <= size-length {
+                let source = try FileHandle(forReadingFrom:url); defer { try? source.close() }
+                try source.seek(toOffset:UInt64(offset))
+                let bytes = try source.read(upToCount:length) ?? Data()
+                let hash = SHA256.hash(data:bytes).map{String(format:"%02x",$0)}.joined()
+                headerChanged = bytes.count != length || hash != string(evidence,"sha256")
+            } else { headerChanged = true }
+        }
+        let rotated = size < oldOffset || rewritten || headerChanged || !planCompatible || (!string(cursor,"fingerprint").isEmpty && string(cursor,"fingerprint") != fingerprint)
         var session = rotated ? [:] : (originalSession ?? [:])
         var plan = rotated ? SessionPlanProjection.empty(provider: provider) : (originalPlan ?? SessionPlanProjection.empty(provider: provider))
+        var relation = provider == "codex" ? (rotated ? SessionRelationProjection.empty() : (originalRelation ?? SessionRelationProjection.empty())) : [:]
         func planReference(_ bytes: Data, offset: Int) -> JSON {
             ["sourceIdentity": sessionId, "sourcePath": url.path, "sourceVersion": sourceVersion,
              "byteOffset": offset, "byteLength": bytes.count,
@@ -203,9 +221,14 @@ final class SessionEngine {
         let handle = try FileHandle(forReadingFrom:url); defer { try? handle.close() }
         if firstRead, offset > 0 {
             let header = try handle.read(upToCount:32768) ?? Data()
-            for line in header.split(separator:10) {
+            var headerOffset = 0
+            for line in header.split(separator:10,omittingEmptySubsequences:false) {
+                defer { headerOffset += line.count + 1 }
                 guard let row = (try? JSONSerialization.jsonObject(with:Data(line))) as? JSON else { continue }
                 SessionPlanProjection.consume(row, provider: provider, reference: [:], state: &plan, metadataOnly: true)
+                // A prefix can end on syntactically valid JSON before the real
+                // record ends. Only a newline proves this header row is whole.
+                if provider == "codex", headerOffset + line.count < header.count { SessionRelationProjection.consume(row,reference:planReference(Data(line),offset:headerOffset),state:&relation,metadataOnly:true) }
                 if provider == "codex", ["session_meta","turn_context"].contains(string(row,"type")) { mergeEvent(row,provider:provider,session:&session) }
                 if provider == "claude" {
                     if let cwd = row["cwd"] as? String, cwd.hasPrefix("/") { session["cwd"] = cwd; session["project"] = canonicalProject(cwd) }
@@ -217,6 +240,7 @@ final class SessionEngine {
                 }
             }
         }
+        if provider == "codex", firstRead, offset > 0 { SessionRelationProjection.noteGap(["unobservedBeforeOffset":offset],state:&relation) }
         try handle.seek(toOffset:UInt64(offset))
         let data = try handle.read(upToCount:min(readLimit,max(0,size-offset))) ?? Data()
         var start = data.startIndex
@@ -234,10 +258,11 @@ final class SessionEngine {
                     if recognizedRecord(object,provider:provider) {
                         mergeEvent(object,provider:provider,session:&session)
                         SessionPlanProjection.consume(object, provider: provider, reference: planReference(row, offset: offset + start), state: &plan)
+                        if provider == "codex" { SessionRelationProjection.consume(object,reference:planReference(row,offset:offset+start),state:&relation) }
                         parsed += 1
-                    } else { malformed += 1; SessionPlanProjection.noteGap(planReference(row, offset: offset + start), state: &plan) }
+                    } else { malformed += 1; SessionPlanProjection.noteGap(planReference(row, offset: offset + start), state: &plan); if provider == "codex" { SessionRelationProjection.noteGap(planReference(row,offset:offset+start),state:&relation) } }
                 } else if newline == nil { break }
-                else { malformed += 1; SessionPlanProjection.noteGap(planReference(row, offset: offset + start), state: &plan) }
+                else { malformed += 1; SessionPlanProjection.noteGap(planReference(row, offset: offset + start), state: &plan); if provider == "codex" { SessionRelationProjection.noteGap(planReference(row,offset:offset+start),state:&relation) } }
             }
             consumed = newline.map { data.index(after:$0) } ?? end
             start = consumed
@@ -268,13 +293,27 @@ final class SessionEngine {
         session["planSummary"] = SessionPlanProjection.summary(plan, provider: provider, historyTruncated: session["historyTruncated"] as? Bool == true)
         cursor["id"] = cursorId; cursor["offset"] = offset + consumed; cursor["sourcePath"] = url.path; cursor["fingerprint"] = fingerprint; cursor["modified"] = modified
         cursor["sourceVersion"] = sourceVersion; cursor["planDecoderVersion"] = SessionPlanProjection.version
-        let originals: [(String,String,JSON?)] = [("session",sessionId,originalSession),("session_plan",sessionId,originalPlan),("ingestion",cursorId,originalCursor.isEmpty ? nil : originalCursor)]
+        if provider == "codex" {
+            if string(relation,"project") != string(session,"project") {
+                relation = SessionRelationProjection.empty(); relation["project"] = string(session,"project")
+                relation["sourceThreadId"] = SessionRelationProjection.threadID(session["sourceSessionId"]) as Any? ?? NSNull()
+                relation["headerState"] = "scope_changed"; relation["coverageLimited"] = true
+            }
+            relation["id"] = sessionId; relation["observedSourceVersion"] = sourceVersion
+            relation["coverageLimited"] = relation["coverageLimited"] as? Bool == true || session["historyTruncated"] as? Bool == true
+            session["relationSummary"] = SessionRelationProjection.summary(relation)
+            cursor["relationDecoderVersion"] = SessionRelationProjection.version
+        }
+        var originals: [(String,String,JSON?)] = [("session",sessionId,originalSession),("session_plan",sessionId,originalPlan),("ingestion",cursorId,originalCursor.isEmpty ? nil : originalCursor)]
+        if provider == "codex" { originals.append(("session_relation",sessionId,originalRelation)) }
         var expected: [(String,String,String)] = []; var absent: [(String,String)] = []
         for (kind,id,original) in originals {
             if let original { expected.append((kind,id,stableHash(try jsonString(original)))) }
             else { absent.append((kind,id)) }
         }
-        _ = try store.putBatch([("session",session),("session_plan",plan),("ingestion",cursor)],expecting:expected,expectingAbsent:absent)
+        var writes: [(String,JSON)] = [("session",session),("session_plan",plan),("ingestion",cursor)]
+        if provider == "codex" { writes.append(("session_relation",relation)) }
+        _ = try store.putBatch(writes,expecting:expected,expectingAbsent:absent)
         if offset + data.count < size { changed.insert(url.path) }
         return true
     }

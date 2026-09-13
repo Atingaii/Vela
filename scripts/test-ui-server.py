@@ -25,10 +25,12 @@ READ = set('dashboard.get projects.list agents.list sessions.refresh sessions.li
 READ.update('memory.archive.export memory.archive.validate memory.semantic.status workflows.plan.get workflows.plan.list improve.model.describe improve.model.list improve.model.get daemon.status daemon.plan schedules.list usage.quota.status connectors.status connectors.action.list connectors.action.get outputs.list outputs.get outputs.inbox'.split())
 READ.update('setup.catalog setup.get setup.history setup.diff setup.relations workflows.get workflows.validate loops.describe loops.get loops.list ask.describe ask.get ask.list ask.citations'.split())
 READ.update('library.get library.history library.export library.index.status library.search watches.describe watches.get watches.preview'.split())
+READ.update('history.describe history.sources history.get history.jobs history.page history.raw history.branch sessions.plan.describe sessions.plan.get sessions.plan.events sessions.relations.describe sessions.relations.get sessions.relations.children sessions.relations.events sessions.relations.resolve'.split())
 WRITE = set('projects.add memory.save memory.transition guidelines.save library.add checkpoint.save workflows.build workflows.save workflows.run approvals.decide improve.analyze improve.apply improve.undo lab.run lab.promote reuse.preview settings.save'.split())
 WRITE.update('memory.archive.import memory.semantic.index outputs.markRead'.split())
 WRITE.update('workflows.clone workflows.setEnabled workflows.remove workflows.restore loops.plan loops.cancel ask.create ask.followup ask.cancel'.split())
 WRITE.update('library.update library.remove library.restore library.index'.split())
+WRITE.update('history.discover history.start history.advance history.pause history.resume history.cancel'.split())
 BRIDGE_JS = """
 window.__velaUITest={refreshReceived:0,dashboardResolved:0,dashboardEvent:0,dashboardProject:null,nextRead:null,controlledReads:0};
 window.addEventListener('vela:refresh',()=>window.__velaUITest.refreshReceived++);
@@ -189,6 +191,9 @@ class Bridge:
             raise ValueError('Method not available through the test harness: ' + method)
         if params.get('project') not in [None, '', *self.fixture['projects']]:
             raise ValueError('Project must be the isolated fixture project.')
+        if (method.startswith('history.') or method.startswith('sessions.plan.') or method.startswith('sessions.relations.')) and not method.endswith('.describe'):
+            if params.get('project') not in self.fixture['projects']:
+                raise ValueError('History, plan, and relation operations require an explicit isolated project.')
         if method == 'projects.add' and params.get('path') not in self.fixture['projects']:
             raise ValueError('Only the fixture project may be registered.')
         if method == 'library.add':

@@ -1,0 +1,52 @@
+{
+  "format": "vela-macos-development-package-evidence-v1",
+  "date": "2026-09-13",
+  "package": {
+    "channel": "dev",
+    "architecture": "arm64",
+    "zipSHA256": "658ae7939887e7d9f0649fc0e5fb7ecda0b835118b6a511d0c8600072a2f6d6f",
+    "zipBytes": 3474542,
+    "signature": "ad hoc",
+    "notarized": false
+  },
+  "bundle": {
+    "desktopSHA256": "593e58362da0cf08dd99c757974d84184352895e2b1a9937d9fe62f95f190bd0",
+    "helperSHA256": "be235ea587100e6882134549b1fc09e0f53cfca83a536b7411edae1bf1eea436",
+    "helperBytes": 3186160
+  },
+  "releaseChecks": [
+    {
+      "name": "codesign deep strict",
+      "exitCode": 0
+    },
+    {
+      "name": "release allowlist audit",
+      "exitCode": 0
+    },
+    {
+      "name": "bundle helper actual zero-provider RPC smoke",
+      "exitCode": 0,
+      "checks": [
+        "signal-mask Lab child delivery and waitpid",
+        "four shutdown modes including EOF drain",
+        "four MCP protocol versions"
+      ]
+    }
+  ],
+  "releaseHelperSmoke": {
+    "sigmaskReceiptSHA256": "42036efeb0a031cc572ad3017c707b49a0b20bd76209ba09fa2c5b8d1a93135c",
+    "shutdownReceiptSHA256": "fa2783399b41906179908890430ea1d897351b33e6a2af9d986717833f0cd1e0",
+    "mcpReceiptSHA256": "e3c913ea1da500d5fbe1e6e5b4f18a044e075275504b533417c1d85eb9598055",
+    "providerRuns": 0
+  },
+  "uiResources": {
+    "app.js": "d4adec2078d08eaac41100b9d70b9dbccb9c496574d65714e28182f5b8a6a11f",
+    "app.css": "70cb9e547a0104eb81be98b2c53977722594797fb46b21faeea31cbb87691c6d",
+    "i18n.js": "265b6af7067b45bd1207bff56a134b9d1d267774cb99e1f616188db1a500947a"
+  },
+  "limits": [
+    "Development package uses an ad-hoc signature and is not notarized.",
+    "The smoke suite invokes the bundled CLI helper only; it does not open the desktop GUI.",
+    "The package was built in an isolated source snapshot identified by input SHA-256 records, not a Git revision."
+  ]
+}

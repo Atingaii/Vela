@@ -8,7 +8,7 @@ Vela 的当前开发分支在 Swift/AppKit/WKWebView/SQLite 基础上扩展三�
 Vela.app — AppKit + 系统 WKWebView + 随包 UI
     │ 明确 RPC allowlist / 请求 ID / 双语固定文案
     ▼
-vela rpc — 本地 JSONL stdin/stdout
+vela rpc — 本地 JSONL stdin/stdout（EOF 排空已接收请求；SIGINT/SIGTERM 有界收束本地 child 并保留中断账本）
     ├─ Foundation queue：项目、Setup、Session、Memory、Library
     ├─ Automation queue：Workflow、Approval、Improve、Lab、Connector
     ├─ Provider queue：用户请求的 Codex 额度读取
@@ -38,9 +38,10 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 | `SessionEngine.swift` / `PiSessionReader.swift` | Claude/Codex、已知 Cursor、版本感知 Pi/OMP；流式偏移、分支来源、文件身份、轮转与截断诊断；[ADR 0009](adr/0009-session-provider-compatibility.md) |
 | `SessionHistory*.swift` | 显式来源清单、固定epoch、分批回填、断点/分页原文与分支关系；不扩大dashboard尾窗；[ADR 0025](adr/0025-explicit-session-history.md) |
 | `SessionPlanProjection.swift` / `SessionPlanService.swift` | 从已确认工具结果投影计划及有界变更事件；未知、提议与确认空计划分开，不将声明完成视为工作验证；[ADR 0027](adr/0027-observed-session-plans.md) |
+| `SessionRelationProjection.swift` / `SessionRelationService.swift` | 从 Codex 来源头与结构化工具事件观察父子关系；重验来源身份、项目与隐私，分页和保留窗口明确，未知存活状态不推断为运行中；[ADR 0030](adr/0030-observed-codex-session-relations.md) |
 | `FoundationService.swift` | 项目、harness发现、dashboard、脱敏 Setup、日志 token 聚合；[ADR 0004](adr/0004-nullable-observed-usage.md) |
 | `ProviderQuotaService.swift` | 显式 Codex app-server 只读额度请求；来源时间、失败/stale、多个 bucket/window，独立于日志 token；[ADR 0011](adr/0011-provider-quota-observation.md) |
-| `MemoryService.swift` / `SemanticMemory.swift` | 作用域与生命周期；词面或系统已安装语义模型的索引与召回；[ADR 0013](adr/0013-local-semantic-recall.md) |
+| `MemoryService.swift` / `SemanticMemory.swift` | 作用域与生命周期；词面或系统已安装语义模型的索引与召回、受限本地 embedding 与 recent/vector SDK API；[ADR 0013](adr/0013-local-semantic-recall.md)、[ADR 0031](adr/0031-local-embedding-and-recent-matches.md) |
 | `LibraryService.swift` / `LibraryIndex.swift` | 来源版本、审阅后编辑/归档/恢复/重抓、严格公开资料边界、可重建FTS5段落索引与引用；[ADR 0022](adr/0022-paragraph-library-retrieval.md) |
 | `SetupInventoryService.swift` / `SetupCatalog.swift` | 五harness公开路径、脱敏历史/差异、删除痕迹与不完整扫描；[ADR 0018](adr/0018-observed-setup-inventory.md) |
 | `MemoryArchiveService.swift` / `sdk/typescript` / `sdk/python` | 明文可移植候选归档与实际可安装本地 SDK；[ADR 0007](adr/0007-portable-memory-archives.md)、[ADR 0010](adr/0010-local-client-sdks.md) |
@@ -48,7 +49,10 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 | `MemoryIntegrationService.swift` / `sdk/openclaw` | 显式宿主agent/workspace→namespace、权限复核、受限上下文与候选捕获、操作去重；[ADR 0023](adr/0023-scoped-openclaw-memory-integration.md) |
 | `sdk/ai` / `sdk/python-ai` / `sdk/python-langchain` | 按需安装的 AI SDK v4、Python Responses 与 LangChain ChatOpenAI 适配；冻结调用配置、有界召回、完整终态后的可选候选捕获和不确定回执，不进入默认 Mac runtime；[ADR 0026](adr/0026-optional-model-memory-middleware.md) |
 | `ContextService.swift` / `WorkflowContext.swift` | Guideline、证据贡献、Workflow 输入与真正送入 argv 的冻结 prompt；[ADR 0008](adr/0008-workflow-context-execution.md) |
+| `AskRouteService.swift` / `KnowledgeQueryService.swift` | 持久化 Ask 决定与经显式 approval 的受限模型分类；冻结候选在 provider 前重验，结果只为建议，不会自动问答、规划或执行；[ADR 0032](adr/0032-persisted-safe-ask-routing.md)、[ADR 0021](adr/0021-reviewed-knowledge-answers.md) |
 | `AutomationService.swift` / `WorkflowComposition.swift` | Workflow 定义/版本、逐工具审批与账本、冻结依赖图、子运行、恢复、根产物；[ADR 0015](adr/0015-workflow-composition.md) |
+| `WorkflowRetry.swift` | 仅固定 Git 只读工具可显式开启有界 retry/backoff，逐 attempt 持久化；异常结果与中断证据不自动重放；[ADR 0033](adr/0033-bounded-read-step-retry.md) |
+| `WorkflowHealth.swift` | 按工作流/版本分析已记录运行与审批，明确采样缺失、扫描上限和项目范围；只读诊断不自动修改定义；[ADR 0034](adr/0034-structured-workflow-health-evidence.md) |
 | `WorkflowManagement.swift` | 逐资产验证、克隆、审阅后启停/归档/恢复、依赖和活跃运行保护；[ADR 0019](adr/0019-reviewed-workflow-management.md) |
 | `AgentLoopService.swift` | 受限多轮决策、实际只读工具结果、独立外部动作审批与取消；[ADR 0020](adr/0020-reviewed-model-tool-loops.md) |
 | `KnowledgeQueryService.swift` | 独立审批的来源问答、真实段落引用、重新核验的续问与原文隔离；[ADR 0021](adr/0021-reviewed-knowledge-answers.md) |
@@ -88,6 +92,10 @@ Renderer 的 CSP 禁止业务网络，原生 bridge 使用精确方法白名单�
 MCP 初始化和工具调用在同一串行入口处理，按协商协议版本返回兼容字段。工具参数不允许静默丢弃未知字段；项目、范围和来源在服务端核验。索引分页只查询需要的 ID，正文先对完整可见文本脱敏再按字符分页，后续分块绑定来源 hash；元数据同样脱敏。stdio 接口不隐含 HTTP、OAuth 或远端客户端兼容承诺。
 
 Workflow Context 将选定输入、Guideline 和 Active Memory 冻结并记录 hash；仅显式使用完整 `{{vela.prompt}}` argv 槽位的 Agent 命令接收最终文本。旧命令不静默重写。自然语言规划与 ModelImprove 使用冻结请求、明确模型/程序和受限结构化输出；提案不自动成为活动工作流或文件修改。
+
+Ask 路由与模型分类提案分别持久化。通用审批与运行账本仅引用 proposal ID/hash，候选变私有或失效后，读取接口也撤去冻结来源与结果；模型启动前再次核验。分类建议仍需用户选择后续问答、规划或运行入口。路由不是自动完成任务的会话代理。
+
+只读重试默认关闭，仅允许固定 `git.status`、`git.diff`、`git.log`，最多三次；写入、模型和外部连接操作不能借此重放。停止信号和退避检查不等于已有通用运行取消界面，attempt 之间的 deadline 也不替代单个进程的超时。Health 的成功率、可用耗时与状态计数各自保留分母和来源限制，不从未记录的数据推断零、不把跨版本差异当作因果改善。
 
 业务工具动作保存确切参数、项目、run、step 和 hash，经 pending→executing 的事务抢占后执行。pipeline/子输入冻结同项目依赖图，每个子动作仍独立审批。`runs.get` 纯读，显式 resume 只推进未启动结构或恢复已有确切账本；executing/needs_review 不重试。根产物可返回调用方、写 store 内 output 路径或进入产物 Inbox，子运行只返回 memory 文本。确定性组合不等同模型自主选工具循环。
 

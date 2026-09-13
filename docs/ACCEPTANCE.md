@@ -23,6 +23,22 @@
 | GS16/17 | 本次真实运行两边各 3/3 独立任务检查通过；计分修正后两边各 3/3 观察到测试调用，结果 **Inconclusive**；实际 `lab.promote` 拒绝，Memory 仍 Candidate | 此结果证明同分不应晋升，未证明 tests 增加、corrections 减少或有效候选的 Promote 正向主线 |
 | GS18–20 | Codex 项目 SessionStart Hook 可预览、经受审 Apply 安装，active Recall 可记录 provider Session 与 Context hash；后续关联提供来源记录 | Hook 的 stdout 仅证明提供上下文；真实 Codex trust/自动消费/行为遵循与未来 RFR 均未验收；一次 hook fixture 不能补齐三步 |
 
+### 同一真实来源链的增量验收（2026-09-13，helper 224bd499）
+
+本机新执行了四次真实 Codex `gpt-5.6-terra` / `high` turn，跨两个 provider Session；watcher 自动摄取后，四个 user Message ID 与原始 JSONL 一致。三个受控 verification 提醒自动形成三条 Candidate Memory、一个 Cluster、一个 Suggestion，三条 Evidence 可回查到原始 Session/Message；没有手工 refresh 或插入候选。这证明受控来源链的相关组件连接，**没有证明模型自然重复犯错、完整消息/工具/Todo 覆盖或 Native 来源点击主线**。
+
+随后从同一 Suggestion 的三条关联 Memory 冻结 Agent Lab：同 commit/task/requested model/reasoning，baseline 空上下文，两组各三次、单次 240 秒，两个独立 verifier 文件受保护。已实际批准。首个 baseline 修改了任务代码，独立 verifier 8/8 通过，但 provider 协议和工具事件未完整收尾，240 秒超时；第二个变体开始后中止。最终只有一条已持久化结果，**比较为 Unavailable，没有 Promote，也没有改善或节省结论**。
+
+这次暴露 RPC 收到终止信号时缺少完整优雅退出的问题：独立 Codex 子进程可能残留，approval/eval 仍停在 executing/running。已显式清理此次子进程与残余 worktree，临时认证链接已移除；原项目 regular-file manifest 与 Git 状态前后相同。修复与中断回归必须另行绑定新 helper，不能覆盖这次失败。详见[公开来源链记录](parity/golden-source-chain-evidence-2026-09-13.json)。完整产品仍为 **No-Go**。
+
+### 同一真实来源链 r2：完成对照但拒绝晋升（2026-09-13，helper f05dc75）
+
+r1 的中断失败证据仍保留，未被覆盖。修复后的新 owned fixture 运行四个真实 `gpt-5.6-terra` / `high` turn，跨两个 provider Session；零 provider post-verify 将四条 raw provider user Message 与 Vela Message ID 精确回链。三条受控 verification 提醒自动形成三条 Candidate Memory、一个跨 Session Cluster 和一个 evidence-linked Suggestion，没有手工 refresh 或候选写入。
+
+同一来源链随后冻结并批准 Agent Lab：同一 commit/task/requested model/reasoning，baseline 无 Memory，candidate 只含这三条 source-linked verification Memory；每边三次、每次 240 秒，`verify.py` 与 `README.md` 受保护，唯一输出允许为 `bounds.py`。六次真实运行均无 timeout、provider protocol 完整、独立 verifier 成功，原项目 manifest 与 Git 状态不变。
+
+结果严格为 **Reject**：两边 task success 都是 3/3；baseline 的 provider-reported input+output token 平均为 77,455.33，candidate 为 98,629.67（约 1.2734 倍），超过冻结 token 容差；candidate 另有一轮 test-execution observation unavailable，不能当作零。`lab.promote` 被实际拒绝。这证明拒绝门禁生效，**不证明有益候选、token 节省、减少纠错或 GS20 的未来改善**；GS17 的有效候选正向主线及 GS18–20 仍未完成。公开脱敏哈希记录见 [r2 来源链证据](parity/golden-source-chain-r2-evidence-2026-09-13.json)。
+
 ### 真实 Agent 实验：保留失败计分与更正
 
 Eval `938a7aa2-0bc7-416a-9437-e08b1240d9c4` 于 **2026-09-12 15:46:26–15:52:57 UTC** 执行，CLI 为 `codex-cli 0.154.0`，请求 `gpt-5.6-sol` / `high`，provider resolved version 未返回。任务是受控 `clamp` 实现 fixture；三次 baseline 与三次 candidate 交替运行，使用同一冻结 commit 与独立 verifier。六次原始 provider Session ID、JSONL、冻结审批和输出均保留。

@@ -14,7 +14,7 @@ import threading
 import time
 from typing import Any, Literal, TypedDict
 
-__all__ = ["VelaClient", "AsyncVelaClient", "LocalTransport", "CandidateInput", "SemanticLanguage", "ScoringWeights", "VelaError", "VelaBulkError", "VelaCancelledError", "MemoryIntegration", "MEMORY_INTEGRATIONS"]
+__all__ = ["VelaClient", "AsyncVelaClient", "LocalTransport", "CandidateInput", "SemanticLanguage", "ScoringWeights", "SemanticModelIdentity", "SemanticEmbedding", "VelaError", "VelaBulkError", "VelaCancelledError", "MemoryIntegration", "MEMORY_INTEGRATIONS"]
 
 MemoryIntegration = Literal["openclaw", "openai-responses", "langchain"]
 MEMORY_INTEGRATIONS: frozenset[str] = frozenset({"openclaw", "openai-responses", "langchain"})
@@ -27,6 +27,18 @@ class ScoringWeights(TypedDict, total=False):
     recency: float
     importance: float
     recency_half_life_days: float
+
+
+class SemanticModelIdentity(TypedDict):
+    id: str
+    language: SemanticLanguage
+    revision: int
+    dimension: int
+
+
+class SemanticEmbedding(TypedDict):
+    model: SemanticModelIdentity
+    vector: list[float]
 
 
 @dataclass(frozen=True)
@@ -116,6 +128,61 @@ def _number(value: Any, minimum: float, maximum: float, *, integer: bool = False
 def _language(value: Any) -> None:
     if value not in ("en", "zh-Hans"):
         raise VelaError("invalid_input")
+
+
+def _semantic_text(value: Any, maximum_bytes: int) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise VelaError("invalid_input")
+    try:
+        if len(value.encode("utf-8")) > maximum_bytes:
+            raise VelaError("invalid_input")
+    except UnicodeError:
+        raise VelaError("invalid_input") from None
+    return value
+
+
+def _semantic_scope(*, namespace: str | None, branch: str | None, worktree: str | None,
+                    task: str | None, session_id: str | None, limit: int | None,
+                    budget: int | None, min_similarity: float | None) -> dict[str, Any]:
+    _number(limit, 1, 100, integer=True); _number(budget, 0, 4000, integer=True); _number(min_similarity, 0, 1)
+    values = {"namespace": namespace, "branch": branch, "worktree": worktree, "task": task, "sessionId": session_id}
+    for key, value in values.items():
+        if value is None:
+            continue
+        try:
+            encoded = value.encode("utf-8") if isinstance(value, str) else b""
+        except UnicodeError:
+            raise VelaError("invalid_input") from None
+        if not isinstance(value, str) or not value.strip() or len(encoded) > (256 if key == "namespace" else 4096) or any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in value):
+            raise VelaError("invalid_input")
+    if namespace is not None and any(value is not None for value in (branch, worktree, task, session_id)):
+        raise VelaError("invalid_input")
+    return {key: value for key, value in {**values, "limit": limit, "budget": budget, "minSimilarity": min_similarity}.items() if value is not None}
+
+
+def _semantic_embedding(value: Any) -> tuple[dict[str, Any], list[float]]:
+    # Accept a successful semantic_embed result structurally, then forward only
+    # its model/vector pair. The helper response has read-only receipt fields.
+    if not isinstance(value, dict) or not {"model", "vector"}.issubset(value) or not isinstance(value["model"], dict):
+        raise VelaError("invalid_input")
+    model, vector = value["model"], value["vector"]
+    if set(model) != {"id", "language", "revision", "dimension"} or not isinstance(model["id"], str) or not model["id"]:
+        raise VelaError("invalid_input")
+    try:
+        if len(model["id"].encode("utf-8")) > 160:
+            raise VelaError("invalid_input")
+    except UnicodeError:
+        raise VelaError("invalid_input") from None
+    _language(model.get("language")); _number(model.get("revision"), 1, 2_147_483_647, integer=True); _number(model.get("dimension"), 1, 4096, integer=True)
+    if not isinstance(vector, list) or len(vector) != model["dimension"]:
+        raise VelaError("invalid_input")
+    try:
+        normalized = [float(item) for item in vector]
+    except (TypeError, ValueError, OverflowError):
+        raise VelaError("invalid_input") from None
+    if any(isinstance(item, bool) or not isinstance(item, (int, float)) or not math.isfinite(item) or abs(item) > 3.4028235e38 for item in vector) or not any(item != 0 for item in normalized):
+        raise VelaError("invalid_input")
+    return dict(model), normalized
 
 
 class VelaClient:
@@ -308,6 +375,47 @@ class VelaClient:
             params["cursor"] = cursor
         return self._request("memory.semantic.index", params, True, timeout)
 
+    def semantic_embed(self, text: str, *, project: str | None = None, language: SemanticLanguage = "en",
+                       timeout: float | None = None) -> dict[str, Any]:
+        _language(language)
+        return self._request("memory.semantic.embed", {"project": self._selected(project), "language": language,
+                                                       "text": _semantic_text(text, 64 * 1024)}, False, timeout)
+
+    def semantic_query(self, embedding: SemanticEmbedding, *, project: str | None = None, namespace: str | None = None,
+                       branch: str | None = None, worktree: str | None = None, task: str | None = None,
+                       session_id: str | None = None, limit: int | None = None, budget: int | None = None,
+                       min_similarity: float | None = None, sort: Literal["relevance", "recent"] = "relevance",
+                       scoring_weights: ScoringWeights | None = None, timeout: float | None = None) -> dict[str, Any]:
+        model, vector = _semantic_embedding(embedding)
+        if sort not in ("relevance", "recent"):
+            raise VelaError("invalid_input")
+        params = {"project": self._selected(project), "model": model, "vector": vector,
+                  **_semantic_scope(namespace=namespace, branch=branch, worktree=worktree, task=task,
+                                    session_id=session_id, limit=limit, budget=budget, min_similarity=min_similarity)}
+        if scoring_weights is not None:
+            if sort == "recent" or not isinstance(scoring_weights, dict) or set(scoring_weights) - {"semantic", "recency", "importance", "recency_half_life_days"} or any(value is None for value in scoring_weights.values()):
+                raise VelaError("invalid_input")
+            for key in ("semantic", "recency", "importance"):
+                _number(scoring_weights.get(key), 0, 10)
+            _number(scoring_weights.get("recency_half_life_days"), 0.01, 3650)
+            if sum(scoring_weights.get(key, default) for key, default in [("semantic", 1), ("recency", 0), ("importance", 0)]) <= 0:
+                raise VelaError("invalid_input")
+            params["scoringWeights"] = {"recencyHalfLifeDays" if key == "recency_half_life_days" else key: value for key, value in scoring_weights.items()}
+        if sort != "relevance":
+            params["sort"] = sort
+        return self._request("memory.semantic.query", params, False, timeout)
+
+    def semantic_recent(self, query: str, *, project: str | None = None, language: SemanticLanguage = "en",
+                        namespace: str | None = None, branch: str | None = None, worktree: str | None = None,
+                        task: str | None = None, session_id: str | None = None, limit: int | None = None,
+                        budget: int | None = None, min_similarity: float | None = None,
+                        timeout: float | None = None) -> dict[str, Any]:
+        _language(language)
+        return self._request("memory.semantic.recent", {"project": self._selected(project), "language": language,
+                                                         "query": _semantic_text(query, 16 * 1024),
+                                                         **_semantic_scope(namespace=namespace, branch=branch, worktree=worktree, task=task,
+                                                                           session_id=session_id, limit=limit, budget=budget, min_similarity=min_similarity)}, False, timeout)
+
     def save_candidate(self, memory: CandidateInput, *, timeout: float | None = None) -> dict[str, Any]:
         _candidate(memory)
         return self._request("memory.save", {"title": memory["title"], "content": memory["content"], "type": memory.get("type", "fact"), "project": self._selected(memory.get("project")), "scope": "project", "state": "candidate"}, True, timeout)
@@ -439,6 +547,15 @@ class AsyncVelaClient:
     async def semantic_index(self, *, project: str | None = None, language: SemanticLanguage = "en", batch_size: int = 32,
                              cursor: str | None = None, timeout: float | None = None) -> dict[str, Any]:
         return await self._run("semantic_index", project=project, language=language, batch_size=batch_size, cursor=cursor, timeout=timeout)
+
+    async def semantic_embed(self, text: str, **kwargs: Any) -> dict[str, Any]:
+        return await self._run("semantic_embed", text, **kwargs)
+
+    async def semantic_query(self, embedding: SemanticEmbedding, **kwargs: Any) -> dict[str, Any]:
+        return await self._run("semantic_query", embedding, **kwargs)
+
+    async def semantic_recent(self, query: str, **kwargs: Any) -> dict[str, Any]:
+        return await self._run("semantic_recent", query, **kwargs)
 
     async def save_candidate(self, memory: CandidateInput, **kwargs: Any) -> dict[str, Any]:
         return await self._run("save_candidate", memory, **kwargs)

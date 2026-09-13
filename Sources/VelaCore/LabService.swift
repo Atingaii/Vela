@@ -120,8 +120,30 @@ extension AutomationService {
         try FileManager.default.createDirectory(at:tempRoot,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
         var results: [JSON] = []
         var cleanupFailures: [String] = []
-        let originalStatus = try AutomationProcess.git(["status","--porcelain=v1"],cwd:root).output
+        var ownedWorktrees = Set<String>()
+        var interrupted = false
+        var originalStatus: String?
+        func removeKnownWorktree(_ worktree: URL) {
+            let removed: AutomationProcessResult?
+            do {
+                removed = try AutomationProcess.git(["worktree","remove","--force",worktree.path],cwd:root)
+            } catch {
+                // A normal Git observation may have raced with the shutdown gate.
+                // Only the exact, tracked Lab path may use the dedicated cleanup path.
+                removed = VelaRuntimeShutdown.isRequested ? try? AutomationProcess.removeOwnedWorktree(worktree.path,cwd:root) : nil
+            }
+            if removed?.exitCode != 0 && VelaRuntimeShutdown.isRequested {
+                let retry = try? AutomationProcess.removeOwnedWorktree(worktree.path,cwd:root)
+                if retry?.exitCode == 0 { ownedWorktrees.remove(worktree.path) }
+                else { cleanupFailures.append(worktree.path) }
+            } else if removed?.exitCode == 0 {
+                ownedWorktrees.remove(worktree.path)
+            } else {
+                cleanupFailures.append(worktree.path)
+            }
+        }
         do {
+            originalStatus = try AutomationProcess.git(["status","--porcelain=v1"],cwd:root).output
             if let agent {
                 let version = try AutomationProcess.run([try requireString(agent,"executable"),"--version"],cwd:root,timeout:10,maxOutput:4096)
                 guard version.exitCode == 0, !version.truncated, !version.timedOut else { throw VelaError("Could not record the approved Agent CLI version") }
@@ -132,19 +154,50 @@ extension AutomationService {
                 // Alternate order so the candidate does not always receive warmer filesystem caches.
                 let variants = repetition % 2 == 1 ? ["baseline","candidate"] : ["candidate","baseline"]
                 for variant in variants {
+                    guard !VelaRuntimeShutdown.isRequested else { throw VelaError("Lab evaluation interrupted before starting another variant") }
                     let worktree = tempRoot.appendingPathComponent("\(variant)-\(repetition)")
                     let added = try AutomationProcess.git(["worktree","add","--detach",worktree.path,commit],cwd:root,timeout:60)
-                    guard added.exitCode == 0 else { throw VelaError("Could not create isolated worktree: \(added.output)") }
-                    do {
-                        let variantSpec = frozen[variant] as? JSON ?? [:]
-                        for change in variantSpec["files"] as? [JSON] ?? [] {
-                            let relative = try requireString(change,"path")
-                            let before = try files.readSnapshot(project:worktree.path,path:relative)
-                            _ = try files.apply(project:worktree.path,operations:[["path":relative,"baseHash":string(before,"hash"),"content":string(change,"content")]])
+                    if FileManager.default.fileExists(atPath:worktree.path) { ownedWorktrees.insert(worktree.path) }
+                    guard added.exitCode == 0 else {
+                        if ownedWorktrees.contains(worktree.path) {
+                            let cleanup = try? AutomationProcess.removeOwnedWorktree(worktree.path,cwd:root)
+                            if cleanup?.exitCode != 0 { cleanupFailures.append(worktree.path) } else { ownedWorktrees.remove(worktree.path) }
                         }
-                        let baselineStatus = try AutomationProcess.git(["status","--porcelain=v1"],cwd:worktree.path).output
-                        let actualCommand = try agent.map { try AgentEvaluation.command($0,task:string(frozen,"task"),context:string(variantSpec,"context")) } ?? command
-                        var result = try AutomationProcess.run(actualCommand,cwd:worktree.path,timeout:timeout).json
+                        throw VelaError("Could not create isolated worktree: \(added.output)")
+                    }
+                    let variantSpec = frozen[variant] as? JSON ?? [:]
+                    for change in variantSpec["files"] as? [JSON] ?? [] {
+                        let relative = try requireString(change,"path")
+                        let before = try files.readSnapshot(project:worktree.path,path:relative)
+                        _ = try files.apply(project:worktree.path,operations:[["path":relative,"baseHash":string(before,"hash"),"content":string(change,"content")]])
+                    }
+                    let baselineStatus = try AutomationProcess.git(["status","--porcelain=v1"],cwd:worktree.path).output
+                    let actualCommand = try agent.map { try AgentEvaluation.command($0,task:string(frozen,"task"),context:string(variantSpec,"context")) } ?? command
+                    var result = try AutomationProcess.run(actualCommand,cwd:worktree.path,timeout:timeout).json
+                    var partialRecorded = false
+                    var phase = "post-agent-command"
+                    func recordPartial(_ phase: String) throws {
+                            guard !partialRecorded else { return }
+                            result["variant"] = variant; result["repetition"] = repetition; result["commit"] = commit; result["command"] = command
+                            result["configuredChanges"] = baselineStatus.split(separator:"\n").map(String.init)
+                            result["interrupted"] = true; result["outcomeUnknown"] = true; result["interruptionPhase"] = phase
+                            results.append(result); evaluation["results"] = results
+                            evaluation["state"] = "interrupted"; evaluation["interruptedAt"] = isoNow()
+                            evaluation["interruptionReason"] = "Runtime shutdown interrupted an approved Lab child; no later variant or verifier was started."
+                            evaluation["partialResults"] = results.count
+                            evaluation = try store.put("eval",evaluation)
+                            partialRecorded = true
+                    }
+                    func persistInterruption(_ phase: String) throws {
+                            try recordPartial(phase)
+                            throw VelaError("Lab evaluation interrupted while an approved child command was running")
+                    }
+                    do {
+                        if VelaRuntimeShutdown.isRequested {
+                            // Retain the real, partial child receipt, but do not start an independent
+                            // verifier or another variant while shutdown is in progress.
+                            try persistInterruption("agent")
+                        }
                         if let agent {
                             let metrics = AgentEvaluation.metrics(string(result,"output"),truncated:result["truncated"] as? Bool ?? true,verificationCommand:command)
                             result["agentMetrics"] = metrics; result["agent"] = agent
@@ -159,10 +212,21 @@ extension AutomationService {
                             }
                             result["verificationIntact"] = intact
                             if intact {
+                                phase = "pre-verifier-worktree"
+                                if VelaRuntimeShutdown.isRequested { try persistInterruption(phase) }
                                 let verifier = tempRoot.appendingPathComponent("verify-\(variant)-\(repetition)")
                                 let addedVerifier = try AutomationProcess.git(["worktree","add","--detach",verifier.path,commit],cwd:root,timeout:60)
-                                guard addedVerifier.exitCode == 0 else { throw VelaError("Could not create independent verifier worktree") }
+                                if FileManager.default.fileExists(atPath:verifier.path) { ownedWorktrees.insert(verifier.path) }
+                                guard addedVerifier.exitCode == 0 else {
+                                    if ownedWorktrees.contains(verifier.path) {
+                                        let cleanup = try? AutomationProcess.removeOwnedWorktree(verifier.path,cwd:root)
+                                        if cleanup?.exitCode != 0 { cleanupFailures.append(verifier.path) } else { ownedWorktrees.remove(verifier.path) }
+                                    }
+                                    throw VelaError("Could not create independent verifier worktree")
+                                }
+                                if VelaRuntimeShutdown.isRequested { try persistInterruption(phase) }
                                 do {
+                                    phase = "verifier"
                                     for relative in frozen["outputFiles"] as? [String] ?? [] {
                                         let source = try files.readSnapshot(project:worktree.path,path:relative)
                                         guard source["exists"] as? Bool == true, let content = source["content"] as? String, content.utf8.count <= 1_048_576 else { throw VelaError("Task output is missing or too large: " + relative) }
@@ -175,14 +239,18 @@ extension AutomationService {
                                     result["verification"] = ["exitCode":NSNull(),"output":error.localizedDescription] as JSON
                                     result["verificationIntact"] = false
                                 }
-                                let removedVerifier = try AutomationProcess.git(["worktree","remove","--force",verifier.path],cwd:root)
-                                if removedVerifier.exitCode != 0 { cleanupFailures.append(verifier.path) }
+                                removeKnownWorktree(verifier)
+                                if VelaRuntimeShutdown.isRequested { try persistInterruption("verifier") }
                             }
                             else { result["verification"] = ["exitCode":NSNull(),"output":"Verification files changed; comparison invalid and verifier was not executed."] as JSON }
                             result["tokens"] = metrics["tokens"]; result["tokensAvailable"] = metrics["tokens"] is Int
                         }
+                        if VelaRuntimeShutdown.isRequested { try persistInterruption("post-verifier") }
+                        phase = "diff"
                         let diff = try AutomationProcess.git(["diff","--no-ext-diff","--no-textconv","--stat",commit],cwd:worktree.path)
+                        phase = "status"
                         let status = try AutomationProcess.git(["status","--porcelain=v1"],cwd:worktree.path)
+                        if VelaRuntimeShutdown.isRequested { try persistInterruption("post-status") }
                         result["variant"] = variant; result["repetition"] = repetition; result["commit"] = commit; result["command"] = command
                         result["configuredChanges"] = baselineStatus.split(separator:"\n").map(String.init)
                         result["changedFiles"] = status.output.split(separator:"\n").map(String.init)
@@ -190,32 +258,58 @@ extension AutomationService {
                         if agent == nil { result["tokens"] = NSNull(); result["tokensAvailable"] = false }
                         results.append(result)
                         evaluation["results"] = results; evaluation = try store.put("eval",evaluation)
+                        if VelaRuntimeShutdown.isRequested {
+                            results.removeLast()
+                            try persistInterruption("post-append")
+                        }
                     } catch {
-                        let cleanup = try? AutomationProcess.git(["worktree","remove","--force",worktree.path],cwd:root)
-                        if cleanup?.exitCode != 0 { cleanupFailures.append(worktree.path) }
+                        if VelaRuntimeShutdown.isRequested && !partialRecorded { try? recordPartial(phase) }
+                        // This is the exact worktree created above for this evaluation. The
+                        // dedicated cleanup API is the sole shutdown-exempt child path.
+                        let cleanup = try? AutomationProcess.removeOwnedWorktree(worktree.path,cwd:root)
+                        if cleanup?.exitCode != 0 { cleanupFailures.append(worktree.path) } else { ownedWorktrees.remove(worktree.path) }
                         throw error
                     }
-                    let removed = try AutomationProcess.git(["worktree","remove","--force",worktree.path],cwd:root)
-                    if removed.exitCode != 0 { cleanupFailures.append(worktree.path) }
+                    removeKnownWorktree(worktree)
                 }
             }
+            guard !VelaRuntimeShutdown.isRequested else { throw VelaError("Lab evaluation interrupted before completion") }
             evaluation["state"] = "completed"
         } catch {
-            evaluation["state"] = "failed"; evaluation["error"] = error.localizedDescription
+            interrupted = VelaRuntimeShutdown.isRequested
+            evaluation["state"] = interrupted ? "interrupted" : "failed"; evaluation["error"] = error.localizedDescription
+            if interrupted {
+                if !results.isEmpty, results[results.count - 1]["interrupted"] as? Bool != true {
+                    results[results.count - 1]["interrupted"] = true
+                    results[results.count - 1]["outcomeUnknown"] = true
+                    results[results.count - 1]["interruptionPhase"] = "post-persist"
+                }
+                evaluation["interruptedAt"] = evaluation["interruptedAt"] ?? isoNow()
+                evaluation["interruptionReason"] = evaluation["interruptionReason"] ?? "Runtime shutdown interrupted an approved Lab child; no later variant or verifier was started."
+                evaluation["partialResults"] = results.count
+                evaluation["results"] = results
+            }
         }
-        let afterStatus = try? AutomationProcess.git(["status","--porcelain=v1"],cwd:root).output
-        evaluation["originalGitStatusUnchanged"] = afterStatus == originalStatus
+        if VelaRuntimeShutdown.isRequested {
+            evaluation["originalGitStatusUnchanged"] = NSNull()
+            evaluation["originalGitStatusReason"] = "Unavailable: runtime shutdown prevented a post-run original Git status observation."
+        } else {
+            let afterStatus = try? AutomationProcess.git(["status","--porcelain=v1"],cwd:root).output
+            if let originalStatus, let afterStatus { evaluation["originalGitStatusUnchanged"] = afterStatus == originalStatus }
+            else { evaluation["originalGitStatusUnchanged"] = NSNull(); evaluation["originalGitStatusReason"] = "Unavailable: original or post-run Git status observation failed." }
+        }
         evaluation["originalWorktreeUnchanged"] = NSNull() // Status equality is not a file-content snapshot.
         evaluation["results"] = results; evaluation["completedAt"] = isoNow(); evaluation["cleanupFailures"] = cleanupFailures
         evaluation["summary"] = agent == nil ? evaluationSummary(results) : agentEvaluationSummary(results,expectedRepetitions:repetitions)
         if agent != nil { evaluation["analysisVersion"] = "codex-test-observation-v3" }
         evaluation["tokensAvailable"] = agent != nil && !results.isEmpty && results.allSatisfy { $0["tokensAvailable"] as? Bool == true }
-        if cleanupFailures.isEmpty {
+        evaluation["ownedWorktreesRemaining"] = ownedWorktrees.sorted()
+        if cleanupFailures.isEmpty && ownedWorktrees.isEmpty {
             // Only this evaluation's known temporary directory is eligible for cleanup.
             try? FileManager.default.removeItem(at:tempRoot)
         }
         evaluation = try store.put("eval",evaluation)
-        return ["exitCode":string(evaluation,"state") == "completed" ? 0 : 1,"output":string(evaluation,"error","Paired evaluation completed"),"evaluation":evaluation,"durationMs":results.reduce(0) {$0+intValue($1,"durationMs")}]
+        return ["exitCode":string(evaluation,"state") == "completed" ? 0 : 1,"output":string(evaluation,"error","Paired evaluation completed"),"evaluation":evaluation,"durationMs":results.reduce(0) {$0+intValue($1,"durationMs")},"outcomeUnknown":interrupted]
     }
 
     func evaluationSummary(_ results: [JSON]) -> JSON {

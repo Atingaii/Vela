@@ -1,0 +1,85 @@
+{
+  "format": "vela-session-relation-evidence-v1",
+  "recordedAt": "2026-09-13T08:46:50.957487+00:00",
+  "baseCommit": "365ed41325dcaf9f0c8a41e216ca29be9d91ba3f",
+  "status": "bounded Core and synthetic runtime checks passed; full parity and UI pending",
+  "ownedFilesSHA256": {
+    "Sources/VelaCore/FoundationService.swift": "cd8cca189c211d7ffa65a7be371b6781975eba4bdd2f06b5bd406dc4065613dc",
+    "Sources/VelaCore/SessionEngine.swift": "67600ef861825520d6d514421e8c6e3e27927bd8145c512b903986a5621c493f",
+    "Sources/VelaCore/Store.swift": "ba6dc4a1a4e730b8adcc56865bc5e1b57eafe7904a4d7f5e343e7a07ca5dc16f",
+    "Sources/VelaCore/SessionRelationProjection.swift": "2d17481aabc7ea05fdb36d5201a8dc18698d06b076838461efe5b354c7c92aaf",
+    "Sources/VelaCore/SessionRelationService.swift": "ae4211591d3c27e0d315d9201b4b47338498af40bcd296dded458f629e47e7bb",
+    "Tests/VelaCoreTests/SessionRelationTests.swift": "32ddc5b5914c2926715eaf2637177dee64ebfcb437f3d3b71f0a22f74fab709d",
+    "Tests/VelaCoreTests/SessionRelationReviewTests.swift": "bd097aebbebbdfe04cfac4d6652671ded59d1894293688b2e3a905777036f6b5",
+    "docs/adr/0030-observed-codex-session-relations.md": "fb44dce6b2cdbfe877cb4103c5dfc50108565b29bd728e87e58d7a9302a1c1dd",
+    "docs/implementation/session-relations-contract.md": "ab669374145a72520442c44e8807e52900fa02e9a039c67787bda531c6ff50c1",
+    "scripts/test-session-relations-rpc.py": "dc92a6a8055ea2ab748ae4c35532e9e8b7a9fe36f228c1b22ea2f1b3aa22dc45",
+    "docs/parity/blume.md": "5a35981a2d21efed79354b62ec468890fbfd258c0dc377c6f8318595f6abed84"
+  },
+  "methods": [
+    "sessions.relations.describe",
+    "sessions.relations.get",
+    "sessions.relations.children",
+    "sessions.relations.events",
+    "sessions.relations.resolve"
+  ],
+  "officialReferenceCommit": "6b9826e3aa83b1a5947db50f4332cb9c65f1b340",
+  "focused": {
+    "receipt": "output/parity/session-relations-prefix-final.json",
+    "log": "output/parity/session-relations-prefix-final.log",
+    "snapshotSHA256": "047ed304d732c14e36430062d533fc6e204e2a169f5eae9ff5a951b33ff8dad8",
+    "methods": 70,
+    "relationMethods": 20,
+    "runner": "portable fallback, not XCTest",
+    "matchesWorkingTreeAtEnd": false,
+    "otherUncommittedSourcesInSnapshot": {
+      "Sources/VelaCore/MemoryService.swift": "9a1d5204cd11d6d39e4282f281ea568b040ad6b5014fbc962297db8fc8e4e95d",
+      "Sources/VelaCore/SemanticMemory.swift": "68c05dd8f3052fa88e65660236c916b0973aa408c89fa850564d03dc09b312f9",
+      "Sources/VelaCore/SessionHistorySource.swift": "394f28ca5bb8d5453274d13d18ec551eb2be2c4fbcad634be38fc495480e976d",
+      "Tests/VelaCoreTests/SessionHistorySourceTests.swift": "755274f9bfd84be986a9f5fc4ed85617ef7dee2d78d89edb11c6ee6f10d7e20d"
+    },
+    "laterChangedFile": "Sources/VelaCore/SemanticMemory.swift",
+    "laterChangedHash": "b5fb6b6bdd6e21e2d4070e2cdc839aa84028612478418e9dd0c0943411bdf3bd",
+    "ownedCoreAndTestHashesStillMatch": true
+  },
+  "runtime": {
+    "receipt": "output/parity/session-relations-rpc-final.json",
+    "script": "scripts/test-session-relations-rpc.py",
+    "helperSHA256": "0f504932c9d35fe16bad807369671832ed24b9553f74ab7840d5858471e7aa8e",
+    "requests": 57,
+    "modelsExecuted": 0,
+    "providerCalls": 0,
+    "source": "synthetic Codex JSONL",
+    "transport": "JSON-RPC over helper stdio; helper restarted for each request",
+    "helperUnchangedDuringCalls": true,
+    "fixtureAndHelperCleaned": true,
+    "buildLog": "output/parity/session-relations-prefix-build.log",
+    "provenanceLimit": "Helper came from an incremental working-tree build while another semantic module was being edited. The binary digest is verified; exact whole-source compiler provenance must be established by the separate integration stage."
+  },
+  "independentBefore": {
+    "receipt": "output/parity/session-relations-independent-before.json",
+    "log": "output/parity/session-relations-independent-before.log",
+    "expectedFailures": 2,
+    "issues": [
+      "Foreign namespace reused pending call ID",
+      "Conflicting headers resolved latest native UUID"
+    ]
+  },
+  "additionalChecks": [
+    "Repository and static asset checks passed",
+    "Existing scripts/test-rpc.py RPC/MCP integration passed: output/parity/session-relations-rpc-regression.log"
+  ],
+  "limits": [
+    "Codex explicit metadata and multi_agent_v1/unnamespaced success forms only",
+    "Bounded current source observation; not full historical relations or all providers",
+    "Header continuity is checked; other old bytes rely on append-only provider behavior",
+    "Log states do not establish process liveness",
+    "No frontend/native implementation or UI acceptance included"
+  ],
+  "cleanup": {
+    "disposableFixtures": "automatic temporary directories removed",
+    "portableCompilerScratch": "automatic temporary directory removed",
+    "retainedForRootIntegration": "withheld local retained integration fixture",
+    "retainedEvidence": "output/parity and this manifest"
+  }
+}

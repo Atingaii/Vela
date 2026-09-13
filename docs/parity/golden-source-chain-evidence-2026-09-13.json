@@ -1,0 +1,115 @@
+{
+  "format": "vela-golden-source-chain-development-evidence-v1",
+  "recordedAt": "2026-09-13",
+  "completeGoldenScenario": false,
+  "completeProductAcceptance": false,
+  "helperSHA256": "224bd499ef79cfb5060a2086a60cd782141f6c7f59052948c69023720f9f1a95",
+  "requestedModel": "gpt-5.6-terra",
+  "requestedReasoningEffort": "high",
+  "providerResolvedModelVersion": null,
+  "controlledProject": true,
+  "controlledCorrectionStimuli": true,
+  "observation": {
+    "actualProviderTurns": 4,
+    "distinctProviderSessions": 2,
+    "providerExitCodes": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "manualRefresh": false,
+    "manualCandidateWrites": false,
+    "sourceMessageIdentityMatches": 4,
+    "candidateMemories": 3,
+    "verificationClusters": 1,
+    "suggestions": 1,
+    "exactSourceEvidenceLinks": 3,
+    "postVerificationStatus": "passed",
+    "rawSourceSHA256": [
+      "4b23dd4398a728166f42bc05901142b044f283f71a4ea840ce28a47ae14b8890",
+      "af2649267df594153d5eb77a884f5ad489cb8c1322056c96d9fd3e2913bd2ebe"
+    ]
+  },
+  "labFreeze": {
+    "taskSHA256": "19c780495e86b74109d8ef1a14343486255fa37d37b0515de8a607d2d1eb16bb",
+    "commit": "4d173d446d9c5f3090b0222fde1952db9d25f800",
+    "sourceRelationship": "evaluates_linked_memory",
+    "candidateMemoryCount": 3,
+    "baselineMemoryCount": 0,
+    "requiredResults": 6,
+    "repetitionsPerVariant": 3,
+    "timeoutSeconds": 240,
+    "protectedVerifiers": [
+      {
+        "hash": "6fb2fd6fe12904a718ccb5843d80fb8ff992d6f059efac63d416dc5690450f8a",
+        "path": "verify.py"
+      },
+      {
+        "hash": "094e5f2d0a79772bbfde804e2764b0a55dc39bac9e197a6c4e102e8dd42e1f05",
+        "path": "README.md"
+      }
+    ],
+    "approved": true
+  },
+  "labExecution": {
+    "status": "aborted_unavailable",
+    "persistedResults": 1,
+    "requiredResults": 6,
+    "firstVariant": "baseline",
+    "firstDurationMs": 240431,
+    "firstExitCode": 124,
+    "firstTimedOut": true,
+    "firstIndependentVerifierExitCode": 0,
+    "firstIndependentVerifierTests": 8,
+    "providerProtocolComplete": false,
+    "secondVariant": "started_then_interrupted",
+    "promotionAttempted": false,
+    "observedApprovalState": "executing",
+    "observedEvaluationState": "running"
+  },
+  "limits": [
+    "The four initial real turns used controlled verification reminders; they do not establish naturally occurring repeated model mistakes.",
+    "Native same-source evidence navigation, complete source event/Todo reconciliation, positive promotion and later automatic consumption are not verified by this receipt.",
+    "The Lab evaluation is unavailable, not a completed comparison; passing independent output tests does not replace a completed provider protocol.",
+    "Graceful RPC interruption and terminal-state persistence are confirmed defects on this helper snapshot and require a separate fix/evidence.",
+    "No future correction reduction or token savings have been established."
+  ],
+  "cleanup": {
+    "originalProjectByteManifestUnchanged": true,
+    "originalGitStatusUnchanged": true,
+    "temporaryCredentialLinkRemoved": true,
+    "credentialCopied": false,
+    "orphanProcessGroupTerminated": true,
+    "remainingOwnedWorktrees": 0
+  },
+  "localEvidenceHashes": {
+    "output/parity/golden-live-r1-postverify-fixed/receipt.json": "b34aa8dee172965dc9b40fdc77a98b5e9aea1fdfcdfbb57f082f2fcf751d5589",
+    "output/parity/golden-live-r1-lab-execution/aborted-supplement.json": "0159c33a8b8b4eb58ccb5f9eb9be81481da395e5812c96f3cbc9a910dcde75ef",
+    "output/parity/golden-live-r1-lab-freeze/receipt.json": "8a1e50dafb32ee4cc22c5c14bec61913da7f6a45c6be44494711cf8ba278815c",
+    "output/parity/golden-live-r1-lab-execution/core-diagnosis.json": "440d5b175088bb7321468d0d1880fbf9a9d945354709a6064135bd39e0641a0d"
+  },
+  "laterHarnessCorrection": {
+    "script": "scripts/execute-golden-agent-lab.py",
+    "scriptSHA256": "395de94148af7cb4de9fbf81f0d1925a7250989cd320dbfd834c58987edb53c7",
+    "format": "vela-golden-agent-lab-execution-v2",
+    "behavior": "Persist approval dispatch/submission before waiting; interrupted approval remains outcome unknown; planned provider runs are distinct from observed counts.",
+    "checks": [
+      {
+        "signal": "sigint",
+        "passed": true,
+        "receiptSHA256": "01099dd690582b118e69e1fbf609181c1ba2c95d552ecd1962a538412914255e"
+      },
+      {
+        "signal": "sigterm",
+        "passed": true,
+        "receiptSHA256": "3566c5a8a290d14d98fc2d51599d62d54274a3f40c8839c9f00824d74247ab08"
+      }
+    ],
+    "evidenceSHA256": "077867f74c2160fd3d68f7c0b6ea6bcf2884275a0d0d7c838db78a2bfc91c2ee",
+    "syntheticOnly": true,
+    "realProviderRuns": 0,
+    "originalAbortedReceiptUnchanged": true,
+    "labProductFixVerified": false
+  }
+}

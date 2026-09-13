@@ -974,6 +974,26 @@
       "independentReceiptSHA256": "9e96e0259cab18dadda88b0d50faa8a8af5c49a17a55a7d261817196dfe53054",
       "realModelCalls": 0,
       "qualification": "Optional ChatOpenAI Chat Completions route; v1 ordering/default-mapping defects fixed; not complete Walrus parity or remote network identity."
+    },
+    {
+      "id": "ci-365ed41-langchain",
+      "commit": "365ed41325dcaf9f0c8a41e216ca29be9d91ba3f",
+      "runId": 34748070796,
+      "realXCTestMethods": 389,
+      "failures": 0,
+      "sdkJob": "passed",
+      "langchainInstalledMethods": 36,
+      "pythonBaseSDKMethods": 13,
+      "pythonResponsesInstalledMethods": 30,
+      "historicalWheelCases": "not_run_in_CI",
+      "macOSJob": "failed_legacy_uninitialized_mcp_archive_fixture",
+      "mcpProtocolAndFraming": "passed",
+      "renderer": "skipped",
+      "package": "skipped",
+      "logsSHA256": {
+        "macos-xctest.log": "6f77172cca287061f8ba5c0a12b88d80c5a7f8471e19bdc2386e431da03c1e70",
+        "installed-sdk.log": "c930fcc9b22e182e54ce39243f5996ef54aa43b66b114120431bac10d1ef9798"
+      }
     }
   ]
 }

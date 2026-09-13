@@ -47,6 +47,16 @@ enum AutomationProcess {
     }
 
     static func run(_ command: [String], cwd: String, timeout: Double = 60, maxOutput: Int = 1_048_576) throws -> AutomationProcessResult {
+        try run(command,cwd:cwd,timeout:timeout,maxOutput:maxOutput,allowDuringShutdown:false)
+    }
+
+    /// Internal-only cleanup path for a Lab worktree whose exact path was created
+    /// by LabService. No RPC argument can select this shutdown exemption.
+    static func removeOwnedWorktree(_ worktree: String, cwd: String) throws -> AutomationProcessResult {
+        try run(["/usr/bin/git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "diff.external=", "worktree", "remove", "--force", worktree],cwd:cwd,timeout:30,maxOutput:1_048_576,allowDuringShutdown:true)
+    }
+
+    private static func run(_ command: [String], cwd: String, timeout: Double, maxOutput: Int, allowDuringShutdown: Bool) throws -> AutomationProcessResult {
         guard let first = command.first else { throw VelaError("A command is required") }
         let started = Date()
         let binary = try executable(first)
@@ -79,14 +89,25 @@ enum AutomationProcess {
         posix_spawn_file_actions_addclose(&actions,descriptors[0])
         posix_spawn_file_actions_addclose(&actions,descriptors[1])
         // Start a new process group before exec, so timeout cancellation reaches descendants.
-        posix_spawnattr_setflags(&attributes,Int16(POSIX_SPAWN_SETPGROUP))
-        posix_spawnattr_setpgroup(&attributes,0)
+        // RPC itself ignores SIGINT/SIGTERM while dispatch sources observe them; do
+        // not leak that disposition to an approved child that must receive the gate's
+        // first graceful termination signal.
+        var defaultSignals = sigset_t(); sigemptyset(&defaultSignals)
+        sigaddset(&defaultSignals,SIGINT); sigaddset(&defaultSignals,SIGTERM)
+        guard posix_spawnattr_setsigdefault(&attributes,&defaultSignals) == 0 else { Darwin.close(descriptors[1]); throw VelaError("Could not configure child signal defaults") }
+        // A Dispatch worker can have SIGCHLD (and the RPC control signals) blocked.
+        // Do not inherit that private worker mask into an approved provider child:
+        // runtimes such as Tokio rely on SIGCHLD to observe command completion.
+        var childSignalMask = sigset_t(); sigemptyset(&childSignalMask)
+        guard posix_spawnattr_setsigmask(&attributes,&childSignalMask) == 0 else { Darwin.close(descriptors[1]); throw VelaError("Could not configure child signal mask") }
+        guard posix_spawnattr_setflags(&attributes,Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK)) == 0,
+              posix_spawnattr_setpgroup(&attributes,0) == 0 else { Darwin.close(descriptors[1]); throw VelaError("Could not configure child process group") }
         let args = ([binary] + command.dropFirst()).map { strdup($0) } + [nil]
         let env = environment.keys.sorted().map { strdup($0 + "=" + environment[$0]!) } + [nil]
         defer { args.forEach { free($0) }; env.forEach { free($0) } }
         let spawned: (Int32,pid_t)
         do {
-            spawned = try VelaRuntimeShutdown.spawn { pid in
+            spawned = try VelaRuntimeShutdown.spawn(allowDuringShutdown:allowDuringShutdown) { pid in
                 args.withUnsafeBufferPointer { argv in
                     env.withUnsafeBufferPointer { envp in
                         posix_spawn(&pid,binary,&actions,&attributes,UnsafeMutablePointer(mutating:argv.baseAddress!),UnsafeMutablePointer(mutating:envp.baseAddress!))
@@ -97,7 +118,7 @@ enum AutomationProcess {
         let (spawnError,pid) = spawned
         defer {
             if spawnError == 0 {
-                if VelaRuntimeShutdown.isRequested { _ = kill(-pid,SIGKILL) }
+                if VelaRuntimeShutdown.isRequested && !allowDuringShutdown { _ = kill(-pid,SIGKILL) }
                 VelaRuntimeShutdown.finished(pid)
             }
         }
@@ -121,7 +142,7 @@ enum AutomationProcess {
             let result = waitpid(pid,&status,WNOHANG)
             if result == pid { break }
             if result < 0 && errno != EINTR { kill(-pid,SIGKILL); throw VelaError("Could not read command exit status") }
-            if Date() >= deadline || VelaRuntimeShutdown.isRequested {
+            if Date() >= deadline || (VelaRuntimeShutdown.isRequested && !allowDuringShutdown) {
                 timedOut = Date() >= deadline
                 kill(-pid,SIGTERM)
                 let grace = Date().addingTimeInterval(0.3)

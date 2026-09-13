@@ -33,13 +33,14 @@ public final class AutomationService {
         case "workflows.run":
             guard params["inputs"] == nil || params["inputs"] is JSON, params["stdin"] == nil || params["stdin"] is String else { throw VelaError("Workflow inputs must be an object and stdin must be text") }
             return try startWorkflow(id: requireString(params,"id"), dryRun: params["dryRun"] as? Bool ?? true, suppliedInputs:params["inputs"] as? JSON ?? [:], stdin:params["stdin"] as? String)
-        case "workflows.health": return try workflowHealth(params)
+        case "workflows.health": return try workflowHealthReport(params)
         case "watches.describe": return ["protocol":WorkflowWatch.version,"sources":["tool","files"],"tools":try AgentLoop.builtinIDs.map(AgentLoop.builtin),"externalToolsSupported":false,"minimumIntervalSeconds":30,"fileEvents":"macOS FSEvents with bounded SHA256 observations"]
         case "watches.get": return try watchDetails(params)
         case "watches.preview": return try previewWatch(params)
         case "workflows.replay": return try replay(params)
         case "replay.describe","replay.fixtures.inspect","replay.fixtures.capture","replay.fixtures.get","replay.fixtures.list","replay.fixtures.forget","replay.fixtures.prune","replay.create","replay.get","replay.list","replay.cancel","replay.review","replay.results": return try handleWorkflowReplay(method,params)
         case "ask.describe","ask.create","ask.followup","ask.get","ask.list","ask.cancel","ask.citations": return try handleKnowledgeQuery(method,params)
+        case "ask.route","ask.route.get","ask.route.list","ask.route.propose","ask.route.proposal.get": return try handleAskRoute(method,params)
         case "loops.describe": return ["protocol":AgentLoop.protocolVersion,"builtinTools":try AgentLoop.builtinIDs.map(AgentLoop.builtin),"connectorAccess":"queued_approval_only"]
         case "loops.plan": return try createAgentLoop(params)
         case "loops.get": return try agentLoop(params)
@@ -73,7 +74,17 @@ public final class AutomationService {
             guard string(output,"project") == selected else { throw VelaError("Output belongs to another project") }
             if method == "outputs.markRead" { output["unread"] = false; output = try store.put("run_output",output) }
             return output
-        case "inbox.list": return try store.list("approval").filter { ["pending","executing","needs_review"].contains(string($0,"state")) }
+        case "inbox.list":
+            guard params.isEmpty || Set(params.keys) == Set(["project"]) else { throw VelaError("Unsupported inbox parameter") }
+            let selected = params["project"] == nil ? nil : try project(requireString(params,"project"))
+            return try store.list("approval").filter { approval in
+                guard ["pending","executing","needs_review"].contains(string(approval,"state")) else { return false }
+                // Existing global Inbox callers retain their non-Ask approvals. Ask
+                // proposals must opt into a registered project so their frozen
+                // evidence cannot cross the global project boundary.
+                if string(approval,"tool") == "ask.route.proposal.execute" { return selected != nil && string(approval,"project") == selected }
+                return selected == nil || string(approval,"project") == selected
+            }.map { askRouteInboxApproval($0) }
         case "approvals.decide": return try decideApproval(params)
         case "improve.analyze": return try analyze(params)
         case "improve.model.plan": return try createModelImprovement(params)
@@ -143,7 +154,9 @@ public final class AutomationService {
             guard readTools.contains(tool) || executableTools.contains(tool) || ["file.write","connector.call","agent.loop"].contains(tool) else { throw VelaError("Unsupported tool: \(tool)") }
             let args = step["arguments"] as? JSON ?? [:]
             try validateTool(tool, arguments:args, project:root, resolve:false)
-            return ["id": string(step,"id",UUID().uuidString.lowercased()),"title":string(step,"title","Step \(index+1)"),"tool":tool,"arguments":args]
+            var normalized: JSON = ["id": string(step,"id",UUID().uuidString.lowercased()),"title":string(step,"title","Step \(index+1)"),"tool":tool,"arguments":args]
+            if step["retry"] != nil { normalized["retry"] = try WorkflowRetry.policy(step:step,tool:tool).json }
+            return normalized
         }
         let id = string(params,"id",UUID().uuidString.lowercased())
         let prior = try persist ? store.get("workflow",id) : store.workflowRecord(id)
@@ -327,6 +340,11 @@ public final class AutomationService {
 
     func continueRun(_ source: JSON) throws -> JSON {
         var run = source
+        let sourceHash = stableHash(try jsonString(source))
+        guard let persistedSource = try store.get("run",string(source,"id")), stableHash(try jsonString(persistedSource)) == sourceHash else {
+            throw VelaError("Workflow run changed before continuation; review the latest state before retrying")
+        }
+        var finalExpectedHash = sourceHash
         var steps = run["steps"] as? [JSON] ?? []
         let root = try project(requireString(run,"project"))
         let dryRun = run["dryRun"] as? Bool ?? true
@@ -366,8 +384,22 @@ public final class AutomationService {
                         throw error
                     }
                 } else {
-                    let result = try executeTool(tool,arguments:args,project:root)
+                    let runID = string(run,"id")
+                    var retryStep = steps[index]
+                    let result = try WorkflowRetry.execute(step:&retryStep,tool:tool,deadline:Date().addingTimeInterval((args["timeoutSeconds"] as? NSNumber)?.doubleValue ?? 120),cancelled:{
+                        VelaRuntimeShutdown.isRequested
+                    },checkpoint:{ updated in
+                        guard var current = try self.store.get("run",runID), var persistedSteps = current["steps"] as? [JSON], persistedSteps.indices.contains(index), string(persistedSteps[index],"id") == string(updated,"id") else { throw VelaError("Workflow retry step changed; it will not replay") }
+                        let expected = stableHash(try jsonString(current))
+                        persistedSteps[index] = updated; current["steps"] = persistedSteps
+                        run = try self.store.putBatch([("run",current)],expecting:[("run",runID,expected)])[0]
+                        finalExpectedHash = stableHash(try jsonString(run))
+                        steps = run["steps"] as? [JSON] ?? steps
+                    },operation:{ try self.executeTool(tool,arguments:args,project:root) })
+                    steps[index] = retryStep
                     steps[index].merge(result) { _, new in new }
+                    if result["outcomeUnknown"] as? Bool == true { steps[index]["state"] = "needs_review"; run["state"] = "needs_review"; break }
+                    if string(retryStep,"retryState") == "cancelled" { steps[index]["state"] = "cancelled"; run["state"] = "cancelled"; break }
                     steps[index]["state"] = intValue(result,"exitCode") == 0 ? "completed" : "failed"
                     if string(steps[index],"state") == "failed" { run["state"] = "failed"; break }
                 }
@@ -375,13 +407,15 @@ public final class AutomationService {
                 steps[index]["state"] = "failed"; steps[index]["output"] = error.localizedDescription
                 run["state"] = "failed"; break
             }
-            run["steps"] = steps; run = try store.put("run",run)
+            let expectedRunHash = stableHash(try jsonString(run))
+            run["steps"] = steps; run = try store.putBatch([("run",run)],expecting:[("run",string(run,"id"),expectedRunHash)])[0]
+            finalExpectedHash = stableHash(try jsonString(run))
         }
         run["steps"] = steps
-        if string(run,"state") != "failed" { run["state"] = "completed" }
+        if !["failed","cancelled","needs_review"].contains(string(run,"state")) { run["state"] = "completed" }
         run["completedAt"] = isoNow()
         run["durationMs"] = steps.reduce(0) { $0 + intValue($1,"durationMs") }
-        return try finalizeWorkflowOutput(run)
+        return try finalizeWorkflowOutput(run,expectingRunHash:finalExpectedHash)
     }
 
     func executeTool(_ tool: String, arguments: JSON, project: String) throws -> JSON {
@@ -405,6 +439,7 @@ public final class AutomationService {
             return ["exitCode":0,"output":"Wrote \(string(arguments,"path"))","journalId":string(journal,"id"),"durationMs":Int(Date().timeIntervalSince(began)*1000)]
         case "lab.execute": return try executeEvaluation(arguments)
         case "knowledge.answer": return try executeKnowledgeQuery(arguments,project:project)
+        case "ask.route.proposal.execute": return try executeAskRouteProposal(arguments,project:project)
         case "workflow.replay.execute": return try executeWorkflowReplay(arguments,project:project)
         case "agent.loop": return try executeAgentLoop(arguments,project:project)
         case "workflow.plan.execute": return try executeWorkflowPlan(arguments,project:project)
@@ -461,6 +496,7 @@ public final class AutomationService {
             if tool != "lab.execute", let run = try store.get("run",string(approval,"runId")), run["parentRunId"] != nil {
                 do { approval["parentRun"] = try advanceAncestors(of:run) } catch { approval["continuationError"] = error.localizedDescription }
             }
+            if tool == "ask.route.proposal.execute" { try markAskRouteProposalRejected(approval["arguments"] as? JSON ?? [:],project:try project(requireString(approval,"project"))) }
             return approval
         }
         let root = try project(requireString(approval,"project"))
@@ -532,14 +568,6 @@ public final class AutomationService {
         return try store.put("run",run)
     }
 
-    func workflowHealth(_ params: JSON) throws -> JSON {
-        let id = string(params,"id")
-        let runs = try store.list("run",limit:10000).filter { (id.isEmpty || string($0,"workflowId") == id) && $0["dryRun"] as? Bool != true }
-        let finished = runs.filter { ["completed","failed","rejected"].contains(string($0,"state")) }
-        let successful = finished.filter { string($0,"state") == "completed" }.count
-        let approvals = try store.list("approval",limit:10000).filter { row in runs.contains { string($0,"id") == string(row,"runId") } }
-        return ["workflowId":id,"runs":runs.count,"completedRuns":finished.count,"successes":successful,"failures":finished.filter {string($0,"state") == "failed"}.count,"successRate":finished.isEmpty ? NSNull() : Double(successful)/Double(finished.count),"averageDurationMs":finished.isEmpty ? NSNull() : Double(finished.reduce(0) {$0+intValue($1,"durationMs")})/Double(finished.count),"approvalRejected":approvals.filter {string($0,"state") == "rejected"}.count,"tokens":NSNull(),"tokensAvailable":false,"guidelineInfluence":"not_measured"]
-    }
 
     func evidence(_ params: JSON) throws -> JSON {
         let id = try requireString(params,"id")

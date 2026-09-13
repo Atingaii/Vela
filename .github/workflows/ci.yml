@@ -41,6 +41,11 @@ jobs:
           python3 scripts/test-memory-archives.py
           python3 scripts/test-setup-rpc.py
           python3 scripts/test-model-improvement-rpc.py
+          python3 scripts/test-ask-route-rpc.py
+          python3 scripts/test-workflow-health-rpc.py
+          python3 scripts/test-workflow-retry-rpc.py
+          python3 scripts/test-rpc-lab-shutdown.py --binary .build/debug/vela --output output/parity/ci-rpc-lab-shutdown.json
+          python3 scripts/test-automation-sigmask-rpc.py --binary .build/debug/vela --output output/parity/ci-automation-sigmask.json
           python3 scripts/verify-knowledge-query.py --output output/parity/ci-knowledge-lexical
           python3 scripts/verify-knowledge-query.py --retrieval-mode library_fts --output output/parity/ci-knowledge-fts
           python3 scripts/test-loop-rpc-control.py --output output/parity/ci-loop-controls.json
@@ -73,9 +78,14 @@ jobs:
           python3 scripts/create-ui-fixture.py .task-tmp/ci-engineering --with-routing-project
           cp -R Sources/VelaApp/Resources/UI .task-tmp/ci-engineering/ui-snapshot
           cp .build/debug/vela .task-tmp/ci-engineering/vela-frozen
+          BROWSER_EXECUTABLE="$(node -e "console.log(require('./.task-tmp/ui-browser-tools/node_modules/playwright').chromium.executablePath())")"
+          test -x "$BROWSER_EXECUTABLE"
           python3 scripts/test-engineering-browser.py --fixture .task-tmp/ci-engineering --output output/playwright/ci-engineering
           python3 scripts/test-ask-consumer-contracts.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-ask-consumer --output output/playwright/ci-ask-consumer
           python3 scripts/test-library-watch-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-library-watch --output output/playwright/ci-library-watch
+          python3 scripts/test-history-plan-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-history-plan --output output/playwright/ci-history-plan --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-workspace-actions-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-workspace-actions --output output/playwright/ci-workspace-actions --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
+          python3 scripts/test-session-relations-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-session-relations --output output/playwright/ci-session-relations --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -100,12 +110,23 @@ jobs:
             output/playwright/ci-library-watch/*.json
             output/playwright/ci-library-watch/*.jsonl
             output/playwright/ci-library-watch/*.png
+            output/playwright/ci-history-plan/*.json
+            output/playwright/ci-history-plan/*.jsonl
+            output/playwright/ci-history-plan/*.png
+            output/playwright/ci-workspace-actions/*.json
+            output/playwright/ci-workspace-actions/*.jsonl
+            output/playwright/ci-workspace-actions/*.png
+            output/playwright/ci-session-relations/*.json
+            output/playwright/ci-session-relations/*.jsonl
+            output/playwright/ci-session-relations/*.png
             output/parity/ci-session-history.json
             output/parity/ci-session-plans.json
             output/parity/ci-mcp-stdio.json
             output/parity/ci-loop-controls*.json
             output/parity/ci-replay-controls*.json
             output/parity/ci-workflow-replay.json
+            output/parity/ci-rpc-lab-shutdown.json
+            output/parity/ci-automation-sigmask.json
             output/parity/ci-knowledge-*/receipt.json
           if-no-files-found: ignore
           retention-days: 14

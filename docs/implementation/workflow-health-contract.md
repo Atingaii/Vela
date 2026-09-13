@@ -1,0 +1,11 @@
+# Workflow health evidence contract
+
+`workflows.health` keeps the established aggregate fields: `workflowId`, `runs`, `completedRuns`, `successes`, `failures`, `successRate`, `averageDurationMs`, `approvalRejected`, `tokens`, `tokensAvailable`, and `guidelineInfluence`. `completedRuns` now explicitly means non-dry-run terminal samples in states `completed` or `failed`; rejected runs are reported in `stateCounts` and `approvalRejected`, never treated as failed samples.
+
+Optional parameters are `project`, `id`, `workflowVersion`, `since`, `limit` (1–100), and cursor. A project-scoped request adds paged `items`, `cursor`, `truncated`, `window`, `versionGroups`, `stateCounts`, and structured `findings`. Item summaries contain IDs, version, state, timestamps, duration, and step state/exit/timeout/truncation metadata only. They never include output, prompts, arguments, source content, credentials, or private material.
+
+Run and approval source scans are independently capped at 10,000 records. `sourceScan.runs` and `sourceScan.approvals` report their scanned count and cap state; `coverage` and `aggregateIncomplete` cover either cap, and `truncated` is true for either another page or an incomplete aggregate. Project filtering happens in each store query before its cap, so unrelated projects cannot hide a project's rejected approval. An all-project aggregate can be incomplete even when it has no detail page. `versionGroups` keys by both `workflowId` and `workflowVersion`; missing or malformed versions are `null` with `versionAvailability:"unknown"`.
+
+`averageDurationMs` uses only finite, non-negative recorded durations. `durationAvailable`, `durationSamples`, and `durationMissing` make missing duration distinct from a true zero; an empty duration sample has a null average. Missing step `timedOut` and `truncated` values remain null rather than false.
+
+Dry-runs are excluded from all rates and duration denominators. `cancelled`, `rejected`, `pending_approval`, `running`, and `needs_review` are never inferred as successes or failures. Findings are observations with a `runId`, never causal conclusions: `timeout_observed`, `tool_refused_observed`, `turn_cap_observed`, `uncertain_run`, and `inconsistent_completion` require matching persisted fields. Absent telemetry remains absent.
