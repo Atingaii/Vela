@@ -105,3 +105,5 @@ UI20 健康提案已由同一指定模型实现并合入开发源码：完整4�
 冻结后的最终 root 全量 portable 回归511/511通过（非本机XCTest），新编译 helper 的15项实际审批CLI通过；包含公开九入口、锁等待跨截止、旧helper兼容及无副作用断言。首轮全量曾因遗漏合入AskRoute factory而510/511，红例保留，补齐原实现后保持断言复跑转绿。此前整合helper的19项备份、4项不触发恢复、4项恶意格式及3组watch/lease/concurrency检查分别留证。准确来源与范围见[审批与备份整合证据](parity/approval-expiry-backup-canonical-evidence-2026-09-14.json)。
 
 本机原生 UI20 实际点击过期工作流审批，返回明确失败且未执行目标写入；退出后只读核验 approval/run/step 均 expired，重启后该卡片消失。即时刷新仍失败：错误后旧卡片和数量仍缓存为 pending，切换页面也未更新；该项仍需指定 Antigravity 模型实现修复。新包、最终提交CI、其他原生入口与整体产品验收继续单独记录，不能把511项通过视为228项功能与全部发布门槛通过。
+
+`14f188c` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34788378857)已全部通过，包含511项真实XCTest、15项旧helper升级/审批有效期检查、renderer、已安装SDK/OpenClaw与macOS打包审计；[CI证据](parity/ci-14f188c-evidence-2026-09-14.json)。本机另使用独立64MiB磁盘镜像验证了真实SQLITE_FULL：备份明确失败且未留下bundle，持久Store（包括WAL）、资产与项目内容未变，镜像已卸载并清理；[ENOSPC证据](parity/backup-enospc-evidence-2026-09-14.json)。这是一个实际磁盘满断点，不等于HG-5的恢复、权限、全部崩溃和并发矩阵通过。
