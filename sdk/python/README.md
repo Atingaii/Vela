@@ -67,3 +67,5 @@ Sync and async clients expose `archive_from_walrus_records(source, records)`. It
 Sync and async clients expose `capture_integration(namespace, source_id, records)`, `recall_integration(namespace, query)` and `integration_stats(namespace)`. Use an explicitly registered project. Capture creates candidate observations, never active facts; recall reads only the same namespace, active state and non-private content. This is a local process boundary, not remote authentication or a namespace ACL.
 
 中文：同步/异步客户端均提供命名空间捕获、召回和真实统计；候选需审核后才可召回，SDK 不冒充外部宿主身份认证或远端 ACL。
+
+`capture_integration(..., integration="openclaw" | "openai-responses")` now exposes the same exact keyword for sync and async callers. `MemoryIntegration` is the public Literal type; `MEMORY_INTEGRATIONS` is an immutable capability set. The compatible default remains OpenClaw. Unknown values fail before a write. Optional Responses middleware checks both the SDK capability and scoped Core `supportedIntegrations` before generation; the integration string is provenance, not host authentication. 中文：同步/异步捕获保留 OpenClaw 默认，并明确支持 Responses 来源；能力检查只读，未知来源在写入前拒绝，候选仍需审核。

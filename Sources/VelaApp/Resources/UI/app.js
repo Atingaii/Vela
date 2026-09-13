@@ -1226,6 +1226,20 @@
     }
   }
 
+  function getLoopStateBadge(st) {
+    switch (st) {
+      case 'pending_approval': return `<span class="status-badge status-amber" data-i18n="loops.statePendingApproval">${escapeHtml(t('loops.statePendingApproval'))}</span>`;
+      case 'running_or_uncertain': return `<span class="status-badge status-blue" data-i18n="loops.stateRunning">${escapeHtml(t('loops.stateRunning'))}</span>`;
+      case 'completed': return `<span class="status-badge status-sage" data-i18n="loops.stateCompleted">${escapeHtml(t('loops.stateCompleted'))}</span>`;
+      case 'budget_exhausted': return `<span class="status-badge status-neutral" data-i18n="loops.stateBudgetExhausted">${escapeHtml(t('loops.stateBudgetExhausted'))}</span>`;
+      case 'cancelled': return `<span class="status-badge status-neutral" data-i18n="loops.stateCancelled">${escapeHtml(t('loops.stateCancelled'))}</span>`;
+      case 'failed': return `<span class="status-badge status-red" data-i18n="loops.stateFailed">${escapeHtml(t('loops.stateFailed'))}</span>`;
+      case 'rejected': return `<span class="status-badge status-red" data-i18n="loops.stateRejected">${escapeHtml(t('loops.stateRejected'))}</span>`;
+      case 'needs_review': return `<span class="status-badge status-amber" data-i18n="loops.stateNeedsReview">${escapeHtml(t('loops.stateNeedsReview'))}</span>`;
+      default: return `<span class="status-badge status-neutral">${escapeHtml(st || '-')}</span>`;
+    }
+  }
+
   async function renderAgentLoopsSection(target) {
     const thisGen = renderGeneration;
     const thisProject = state.currentProject;
@@ -1258,20 +1272,6 @@
         `;
         document.getElementById('btn-empty-plan-loop')?.addEventListener('click', openPlanLoopModal);
         return;
-      }
-
-      function getLoopStateBadge(st) {
-        switch (st) {
-          case 'pending_approval': return `<span class="status-badge status-amber" data-i18n="loops.statePendingApproval">${escapeHtml(t('loops.statePendingApproval'))}</span>`;
-          case 'running_or_uncertain': return `<span class="status-badge status-blue" data-i18n="loops.stateRunning">${escapeHtml(t('loops.stateRunning'))}</span>`;
-          case 'completed': return `<span class="status-badge status-sage" data-i18n="loops.stateCompleted">${escapeHtml(t('loops.stateCompleted'))}</span>`;
-          case 'budget_exhausted': return `<span class="status-badge status-neutral" data-i18n="loops.stateBudgetExhausted">${escapeHtml(t('loops.stateBudgetExhausted'))}</span>`;
-          case 'cancelled': return `<span class="status-badge status-neutral" data-i18n="loops.stateCancelled">${escapeHtml(t('loops.stateCancelled'))}</span>`;
-          case 'failed': return `<span class="status-badge status-red" data-i18n="loops.stateFailed">${escapeHtml(t('loops.stateFailed'))}</span>`;
-          case 'rejected': return `<span class="status-badge status-red" data-i18n="loops.stateRejected">${escapeHtml(t('loops.stateRejected'))}</span>`;
-          case 'needs_review': return `<span class="status-badge status-amber" data-i18n="loops.stateNeedsReview">${escapeHtml(t('loops.stateNeedsReview'))}</span>`;
-          default: return `<span class="status-badge status-neutral">${escapeHtml(st || '-')}</span>`;
-        }
       }
 
       cont.innerHTML = `
@@ -1465,8 +1465,8 @@
             <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
               <div><strong>ID:</strong> <span class="font-mono">${escapeHtml(planned.id || '')}</span></div>
               <div><strong>Approval ID:</strong> <span class="font-mono">${escapeHtml(planned.approvalId || '')}</span></div>
-              <div><strong>State:</strong> <span class="status-badge status-amber">${escapeHtml(planned.state || 'pending_approval')}</span></div>
-              <div><strong>Model Calls:</strong> <span class="font-mono">${escapeHtml(String(planned.modelCalls ?? 0))}</span></div>
+              <div><strong data-i18n="loops.colState">${escapeHtml(t('loops.colState'))}:</strong> ${getLoopStateBadge(planned.state || 'pending_approval')}</div>
+              <div><strong data-i18n="loops.colCalls">${escapeHtml(t('loops.colCalls'))}:</strong> <span class="font-mono">${escapeHtml(String(planned.modelCalls ?? 0))}</span></div>
             </div>
           </div>
         `;
@@ -1521,12 +1521,12 @@
       <div class="card" style="margin-bottom: 12px;">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
           <div><strong>ID:</strong> <span class="font-mono">${escapeHtml(loop.id || '')}</span></div>
-          <div><strong>State:</strong> <span class="status-badge status-sage">${escapeHtml(loop.state || '-')}</span></div>
-          <div><strong>Model Calls:</strong> <span class="font-mono">${escapeHtml(String(loop.modelCalls ?? 0))}</span></div>
+          <div><strong data-i18n="loops.colState">${escapeHtml(t('loops.colState'))}:</strong> ${getLoopStateBadge(loop.state)}</div>
+          <div><strong data-i18n="loops.colCalls">${escapeHtml(t('loops.colCalls'))}:</strong> <span class="font-mono">${escapeHtml(String(loop.modelCalls ?? 0))}</span></div>
           <div><strong>Loop Hash:</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml((loop.loopHash || '').substring(0, 12))}</span></div>
         </div>
         <div style="margin-top: 8px; font-size: 12px;">
-          <strong>Task:</strong> <span>${escapeHtml(loop.title || (loop.request && loop.request.prompt) || '-')}</span>
+          <strong data-i18n="loops.colTitle">${escapeHtml(t('loops.colTitle'))}:</strong> <span>${escapeHtml(loop.title || (loop.request && loop.request.prompt) || '-')}</span>
         </div>
       </div>
 
@@ -2298,6 +2298,13 @@
   }
 
   document.addEventListener('click', (e) => {
+    if (!e.target.closest('.setup-more-dropdown')) {
+      document.querySelectorAll('.setup-more-menu:not([hidden])').forEach(menu => {
+        menu.hidden = true;
+        menu.closest('.setup-more-dropdown')?.querySelector('.btn-setup-more')?.setAttribute('aria-expanded', 'false');
+      });
+    }
+
     const btn = e.target.closest('.btn-open-source');
     if (btn) {
       e.preventDefault();
@@ -2313,7 +2320,10 @@
   // 2. WORKFLOWS VIEW (With deterministic workflow builder draft)
   // -------------------------------------------------------------------------
   function renderWorkflowsView(container) {
-    const workflows = (state.dashboard && state.dashboard.workflows) || [];
+    const allWorkflows = (state.dashboard && state.dashboard.workflows) || [];
+    const workflows = state.workflowsIncludeArchived
+      ? allWorkflows
+      : allWorkflows.filter(w => w.state !== 'archived');
     const runs = (state.dashboard && state.dashboard.runs) || [];
     const schedulesCount = workflows.filter(w => w.trigger === 'cron').length;
 
@@ -2348,6 +2358,7 @@
         state.workflowsActiveTab = tab.getAttribute('data-wftab');
         container.querySelectorAll('[data-wftab]').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
+        workflowTabGen++;
         renderWorkflowsTabContent();
       });
     });
@@ -2371,14 +2382,36 @@
     renderWorkflowsTabContent();
   }
 
+  let workflowTabGen = 0;
+
   function renderWorkflowsTabContent() {
     const target = document.getElementById('workflows-tab-content');
     if (!target) return;
 
     if (state.workflowsActiveTab === 'list') {
-      const workflows = (state.dashboard && state.dashboard.workflows) || [];
+      const allWorkflows = (state.dashboard && state.dashboard.workflows) || [];
+      const workflows = state.workflowsIncludeArchived
+        ? allWorkflows
+        : allWorkflows.filter(w => w.state !== 'archived');
+
+      const listTabBtn = document.querySelector('[data-wftab="list"]');
+      if (listTabBtn) {
+        listTabBtn.setAttribute('data-i18n-params', JSON.stringify({ count: workflows.length }));
+        listTabBtn.textContent = t('workflows.tabList', { count: workflows.length });
+      }
+
+      const topBarHtml = `
+        <div style="display: flex; align-items: center; justify-content: flex-end; margin-bottom: 8px;">
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+            <input type="checkbox" id="chk-include-archived" ${state.workflowsIncludeArchived ? 'checked' : ''} />
+            <span data-i18n="workflows.includeArchived">${escapeHtml(t('workflows.includeArchived'))}</span>
+          </label>
+        </div>
+      `;
+
       if (workflows.length === 0) {
         target.innerHTML = `
+          ${topBarHtml}
           <div class="empty-state">
             <div class="empty-state-title" data-i18n="workflows.emptyTitle">${escapeHtml(t('workflows.emptyTitle'))}</div>
             <div class="empty-state-desc" data-i18n="workflows.emptyDesc">${escapeHtml(t('workflows.emptyDesc'))}</div>
@@ -2388,18 +2421,29 @@
             </div>
           </div>
         `;
-        document.getElementById('btn-empty-create-wf').addEventListener('click', () => openEditWorkflowModal());
-        document.getElementById('btn-empty-build-wf').addEventListener('click', () => openWorkflowPromptBuilderModal());
+        document.getElementById('btn-empty-create-wf')?.addEventListener('click', () => openEditWorkflowModal());
+        document.getElementById('btn-empty-build-wf')?.addEventListener('click', () => openWorkflowPromptBuilderModal());
+        document.getElementById('chk-include-archived')?.addEventListener('change', async (e) => {
+          state.workflowsIncludeArchived = e.target.checked;
+          const thisProject = state.currentProject;
+          const thisGen = ++workflowTabGen;
+          try {
+            const list = await callBridge('workflows.list', { project: thisProject, includeArchived: state.workflowsIncludeArchived });
+            if (thisGen !== workflowTabGen || state.currentProject !== thisProject || state.currentPage !== 'workflows' || state.workflowsActiveTab !== 'list') return;
+            if (state.dashboard) {
+              state.dashboard.workflows = list;
+            }
+            renderWorkflowsTabContent();
+          } catch (err) {
+            if (thisGen !== workflowTabGen || state.currentProject !== thisProject) return;
+            showToast({ key: 'workflows.actionFailed', params: { error: err.message } }, 'error');
+          }
+        });
         return;
       }
 
       target.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: flex-end; margin-bottom: 8px;">
-          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
-            <input type="checkbox" id="chk-include-archived" ${state.workflowsIncludeArchived ? 'checked' : ''} />
-            <span data-i18n="workflows.includeArchived">${escapeHtml(t('workflows.includeArchived'))}</span>
-          </label>
-        </div>
+        ${topBarHtml}
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
@@ -2445,13 +2489,17 @@
 
       document.getElementById('chk-include-archived')?.addEventListener('change', async (e) => {
         state.workflowsIncludeArchived = e.target.checked;
+        const thisProject = state.currentProject;
+        const thisGen = ++workflowTabGen;
         try {
-          const list = await callBridge('workflows.list', { project: state.currentProject, includeArchived: state.workflowsIncludeArchived });
+          const list = await callBridge('workflows.list', { project: thisProject, includeArchived: state.workflowsIncludeArchived });
+          if (thisGen !== workflowTabGen || state.currentProject !== thisProject || state.currentPage !== 'workflows' || state.workflowsActiveTab !== 'list') return;
           if (state.dashboard) {
             state.dashboard.workflows = list;
           }
           renderWorkflowsTabContent();
         } catch (err) {
+          if (thisGen !== workflowTabGen || state.currentProject !== thisProject) return;
           showToast({ key: 'workflows.actionFailed', params: { error: err.message } }, 'error');
         }
       });
@@ -3086,6 +3134,13 @@
     }
   }
 
+  function formatByteSize(bytes) {
+    if (typeof bytes !== 'number' || isNaN(bytes) || bytes < 0) return '0 B';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
   async function openWorkflowInspectModal(wfId) {
     const currentProject = state.currentProject;
     openModal({ key: 'workflows.inspectTitle' }, `
@@ -3138,7 +3193,7 @@
             ${valid ? `<span class="status-badge status-sage" data-i18n="workflows.validTrue">${escapeHtml(t('workflows.validTrue'))}</span>` : `<span class="status-badge status-amber" data-i18n="workflows.validFalse">${escapeHtml(t('workflows.validFalse'))}</span>`}
           </div>
           <div>
-            <strong>State:</strong>
+            <strong data-i18n="common.status">${escapeHtml(t('common.status'))}:</strong>
             ${isArchived ? `<span class="status-badge status-neutral" data-i18n="workflows.badgeArchived">${escapeHtml(t('workflows.badgeArchived'))}</span>` : (isEnabled ? `<span class="status-badge status-sage" data-i18n="workflows.btnEnable">${escapeHtml(t('workflows.btnEnable'))}</span>` : `<span class="status-badge status-neutral" data-i18n="workflows.btnDisable">${escapeHtml(t('workflows.btnDisable'))}</span>`)}
           </div>
         </div>
@@ -3150,16 +3205,55 @@
             <strong data-i18n="watch.title">${escapeHtml(t('watch.title'))}</strong>
             <button type="button" class="btn btn-secondary btn-sm" id="btn-inspect-watch-preview" data-i18n="watch.btnPreview">${escapeHtml(t('watch.btnPreview'))}</button>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
-            <div><span class="text-secondary" data-i18n="watch.toolLabel">${escapeHtml(t('watch.toolLabel'))}</span> <span class="code-badge">${escapeHtml((watchInfo && watchInfo.definition && watchInfo.definition.tool) || (wf.definition && wf.definition.watch && wf.definition.watch.tool) || '-')}</span></div>
-            <div><span class="text-secondary" data-i18n="watch.modeLabel">${escapeHtml(t('watch.modeLabel'))}</span> ${escapeHtml((watchInfo && watchInfo.definition && watchInfo.definition.mode) || (wf.definition && wf.definition.watch && wf.definition.watch.mode) || '-')}</div>
-            <div><span class="text-secondary" data-i18n="watch.everyLabel">${escapeHtml(t('watch.everyLabel'))}</span> ${(watchInfo && watchInfo.definition && watchInfo.definition.everySeconds) || 60}s</div>
-            <div><span class="text-secondary" data-i18n="watch.debounceLabel">${escapeHtml(t('watch.debounceLabel'))}</span> ${(watchInfo && watchInfo.definition && watchInfo.definition.debounceSeconds) || 10}s</div>
-          </div>
+          ${(() => {
+            const watchDef = (watchInfo && watchInfo.definition) || (wf.definition && wf.definition.watch) || wf.watch || {};
+            const isFiles = watchDef.source === 'files';
+            if (isFiles) {
+              const pathsStr = Array.isArray(watchDef.paths) ? watchDef.paths.join(', ') : (watchDef.paths || '-');
+              const recursiveStr = watchDef.recursive ? t('watch.recursiveYes') : t('watch.recursiveNo');
+              const ignoreStr = (Array.isArray(watchDef.ignore) && watchDef.ignore.length > 0) ? watchDef.ignore.join(', ') : t('watch.ignoreDefault');
+              return `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
+                  <div><span class="text-secondary" data-i18n="watch.source">${escapeHtml(t('watch.source'))}:</span> <span class="code-badge">files</span></div>
+                  <div><span class="text-secondary" data-i18n="watch.recursive">${escapeHtml(t('watch.recursive'))}:</span> ${escapeHtml(recursiveStr)}</div>
+                  <div style="grid-column: 1 / -1;"><span class="text-secondary" data-i18n="watch.paths">${escapeHtml(t('watch.paths'))}:</span> <span class="font-mono">${escapeHtml(pathsStr)}</span></div>
+                  <div style="grid-column: 1 / -1;"><span class="text-secondary" data-i18n="watch.ignore">${escapeHtml(t('watch.ignore'))}:</span> <span class="font-mono text-secondary">${escapeHtml(ignoreStr)}</span></div>
+                  <div><span class="text-secondary" data-i18n="watch.minItemsLabel">${escapeHtml(t('watch.minItemsLabel'))}</span> ${watchDef.minItems || 1}</div>
+                  <div><span class="text-secondary" data-i18n="watch.debounceLabel">${escapeHtml(t('watch.debounceLabel'))}</span> ${(watchDef.debounceSeconds !== undefined ? watchDef.debounceSeconds : 5)}s</div>
+                </div>
+              `;
+            } else {
+              return `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
+                  <div><span class="text-secondary" data-i18n="watch.toolLabel">${escapeHtml(t('watch.toolLabel'))}</span> <span class="code-badge">${escapeHtml(watchDef.tool || (watchInfo && watchInfo.definition && watchInfo.definition.tool) || (wf.definition && wf.definition.watch && wf.definition.watch.tool) || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="watch.modeLabel">${escapeHtml(t('watch.modeLabel'))}</span> ${escapeHtml(watchDef.mode || (watchInfo && watchInfo.definition && watchInfo.definition.mode) || (wf.definition && wf.definition.watch && wf.definition.watch.mode) || '-')}</div>
+                  <div><span class="text-secondary" data-i18n="watch.everyLabel">${escapeHtml(t('watch.everyLabel'))}</span> ${(watchDef.everySeconds || (watchInfo && watchInfo.definition && watchInfo.definition.everySeconds) || 60)}s</div>
+                  <div><span class="text-secondary" data-i18n="watch.debounceLabel">${escapeHtml(t('watch.debounceLabel'))}</span> ${(watchDef.debounceSeconds !== undefined ? watchDef.debounceSeconds : ((watchInfo && watchInfo.definition && watchInfo.definition.debounceSeconds) || 10))}s</div>
+                </div>
+              `;
+            }
+          })()}
           ${(watchInfo && watchInfo.state) ? `
             <div style="margin-top: 6px; font-size: 11px; padding: 4px 6px; background: var(--bg-main); border-radius: 4px; border: 1px solid var(--border-color);">
-              <span class="text-secondary">State:</span> <span class="status-badge status-sage">${escapeHtml(watchInfo.state.status || 'watching')}</span>
-              ${typeof watchInfo.state.sequence === 'number' ? `<span style="margin-left: 8px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">seq: ${watchInfo.state.sequence}</span>` : ''}
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
+                <div>
+                  <span class="text-secondary" data-i18n="common.status">${escapeHtml(t('common.status'))}:</span>
+                  <span class="status-badge status-sage">${escapeHtml(watchInfo.state.state || watchInfo.state.status || 'watching')}</span>
+                  ${typeof watchInfo.state.sequence === 'number' ? `<span style="margin-left: 8px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">seq: ${watchInfo.state.sequence}</span>` : ''}
+                  ${typeof watchInfo.state.fileEventSerial === 'number' ? `<span style="margin-left: 8px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(t('watch.fileEventSerial'))}: ${watchInfo.state.fileEventSerial}</span>` : ''}
+                </div>
+                ${watchInfo.state.receipt ? `
+                  <div style="font-size: 10px; color: var(--text-secondary);">
+                    ${typeof watchInfo.state.receipt.filesRead === 'number' ? `<span>${escapeHtml(t('watch.previewFilesRead'))} ${watchInfo.state.receipt.filesRead}</span>` : ''}
+                    ${typeof watchInfo.state.receipt.bytesRead === 'number' ? `<span style="margin-left: 6px;">${escapeHtml(t('watch.previewBytesRead'))} ${formatByteSize(watchInfo.state.receipt.bytesRead)}</span>` : ''}
+                  </div>
+                ` : ''}
+              </div>
+              ${watchInfo.state.historyIncomplete === true ? `
+                <div class="alert-banner alert-warning" style="margin-top: 6px; font-size: 11px; margin-bottom: 0;" data-i18n="watch.historyIncompleteNotice">
+                  ${escapeHtml(t('watch.historyIncompleteNotice'))}
+                </div>
+              ` : ''}
             </div>
           ` : ''}
         </div>
@@ -3200,7 +3294,7 @@
 
     document.getElementById('btn-close-wf-inspect-2')?.addEventListener('click', closeModal);
     document.getElementById('btn-inspect-watch-preview')?.addEventListener('click', () => {
-      openWatchPreviewModal(wfId, currentProject);
+      openWatchPreviewModal(wfId, currentProject, watchInfo && watchInfo.state);
     });
 
     const msgEl = document.getElementById('wf-inspect-msg');
@@ -3276,25 +3370,33 @@
     });
   }
 
-  async function openWatchPreviewModal(wfId, project) {
+  async function openWatchPreviewModal(wfId, project, existingWatchState = null) {
     const proj = project || state.currentProject;
     openModal({ key: 'watch.previewTitle' }, `
       <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
     `, `<button class="btn btn-secondary" id="btn-close-watch-prev" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
 
     const thisModalInstance = currentModalInstance;
+    const thisProject = proj;
+    const thisGen = renderGeneration;
     document.getElementById('btn-close-watch-prev')?.addEventListener('click', closeModal);
 
     let res = null;
+    let watchDetails = null;
     try {
-      res = await callBridge('watches.preview', { id: wfId, project: proj });
+      const [previewRes, getRes] = await Promise.all([
+        callBridge('watches.preview', { id: wfId, project: proj }),
+        callBridge('watches.get', { id: wfId, project: proj }).catch(() => null)
+      ]);
+      res = previewRes;
+      watchDetails = getRes;
     } catch (e) {
-      if (currentModalInstance !== thisModalInstance) return;
+      if (currentModalInstance !== thisModalInstance || state.currentProject !== thisProject || thisGen !== renderGeneration) return;
       const b = document.getElementById('modal-body');
       if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
       return;
     }
-    if (currentModalInstance !== thisModalInstance) return;
+    if (currentModalInstance !== thisModalInstance || state.currentProject !== thisProject || thisGen !== renderGeneration) return;
 
     const b = document.getElementById('modal-body');
     if (!b) return;
@@ -3304,11 +3406,23 @@
     const pending = res.pending || {};
     const pendingKeys = Object.keys(pending);
     const meetsMin = res.wouldMeetMinimum === true;
+    const isFileSnapshot = res.snapshot && (res.snapshot.source === 'files' || typeof res.snapshot.filesRead === 'number');
+    const changesList = Array.isArray(res.changes) ? res.changes : pendingKeys.map(k => pending[k] || { key: k });
+    const fetchedState = (watchDetails && watchDetails.state) || null;
+    const isHistoryIncomplete = (existingWatchState && existingWatchState.historyIncomplete === true) ||
+                                (fetchedState && fetchedState.historyIncomplete === true) ||
+                                res.historyIncomplete === true;
 
     b.innerHTML = `
       <div class="alert-banner alert-info" style="font-size: 11px; margin-bottom: 12px;" data-i18n="watch.previewDesc">
         ${escapeHtml(t('watch.previewDesc'))}
       </div>
+
+      ${isHistoryIncomplete ? `
+        <div class="alert-banner alert-warning" style="font-size: 11px; margin-bottom: 12px;" data-i18n="watch.historyIncompleteNotice">
+          ${escapeHtml(t('watch.historyIncompleteNotice'))}
+        </div>
+      ` : ''}
 
       <div class="card" style="margin-bottom: 12px; font-size: 12px;">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
@@ -3326,7 +3440,7 @@
           </div>
           <div>
             <span class="text-secondary" data-i18n="watch.previewPendingCount">${escapeHtml(t('watch.previewPendingCount'))}</span>
-            <div style="font-weight: 500; margin-top: 2px;">${pendingKeys.length}</div>
+            <div style="font-weight: 500; margin-top: 2px;">${changesList.length}</div>
           </div>
           <div>
             <span class="text-secondary" data-i18n="watch.previewMeetsMin">${escapeHtml(t('watch.previewMeetsMin'))}</span>
@@ -3336,6 +3450,16 @@
                 : `<span class="status-badge status-neutral" data-i18n="watch.previewNo">${escapeHtml(t('watch.previewNo'))}</span>`}
             </div>
           </div>
+          ${isFileSnapshot ? `
+            <div>
+              <span class="text-secondary" data-i18n="watch.previewFilesRead">${escapeHtml(t('watch.previewFilesRead'))}</span>
+              <div style="font-weight: 500; margin-top: 2px;">${res.snapshot.filesRead || 0} (${res.snapshot.directoriesRead || 0} 目录)</div>
+            </div>
+            <div>
+              <span class="text-secondary" data-i18n="watch.previewBytesRead">${escapeHtml(t('watch.previewBytesRead'))}</span>
+              <div style="font-weight: 500; margin-top: 2px;">${formatByteSize(res.snapshot.bytesRead || 0)}</div>
+            </div>
+          ` : ''}
         </div>
       </div>
 
@@ -3343,7 +3467,7 @@
         ${escapeHtml(t('watch.pendingChangesTitle'))}
       </h4>
 
-      ${pendingKeys.length === 0 ? `
+      ${changesList.length === 0 ? `
         <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-color); border-radius: 4px;" data-i18n="watch.noPendingChanges">
           ${escapeHtml(t('watch.noPendingChanges'))}
         </div>
@@ -3359,21 +3483,41 @@
               </tr>
             </thead>
             <tbody>
-              ${pendingKeys.map(k => {
-                const item = pending[k] || {};
+              ${changesList.map(item => {
                 const type = item.type || 'modified';
                 let badgeClass = 'status-sage';
                 if (type === 'removed') badgeClass = 'status-red';
                 else if (type === 'modified') badgeClass = 'status-amber';
+                else if (type === 'renamed') badgeClass = 'status-blue';
+
+                const displayKey = (type === 'renamed' && item.previousKey)
+                  ? `${item.previousKey} → ${item.key}`
+                  : (item.key || '');
+
+                const renderEntrySummary = (entry) => {
+                  if (!entry) return '-';
+                  const val = entry.value || entry;
+                  if (typeof val === 'object' && val !== null) {
+                    if (val.path || val.kind || val.contentHash) {
+                      const kind = val.kind || 'file';
+                      const bytesStr = typeof val.bytes === 'number' ? formatByteSize(val.bytes) : '';
+                      const hashStr = val.contentHash ? `sha: ${val.contentHash.slice(0, 8)}` : '';
+                      return `[${kind}] ${bytesStr} ${hashStr}`.trim();
+                    }
+                    return JSON.stringify(val);
+                  }
+                  return String(val);
+                };
+
                 return `
                   <tr>
                     <td><span class="status-badge ${badgeClass}">${escapeHtml(type)}</span></td>
-                    <td class="font-mono">${escapeHtml(item.key || k)}</td>
+                    <td class="font-mono">${escapeHtml(displayKey)}</td>
                     <td class="font-mono text-secondary" style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      ${item.before ? escapeHtml(JSON.stringify(item.before)) : '-'}
+                      ${escapeHtml(renderEntrySummary(item.before))}
                     </td>
                     <td class="font-mono" style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      ${item.after ? escapeHtml(JSON.stringify(item.after)) : '-'}
+                      ${escapeHtml(renderEntrySummary(item.after))}
                     </td>
                   </tr>
                 `;
@@ -3751,8 +3895,8 @@
           <div style="font-weight: 500; margin-bottom: 4px;" data-i18n="workflows.planDescLabel">${escapeHtml(t('workflows.planDescLabel'))}:</div>
           <div style="white-space: pre-wrap; color: var(--text-main); font-size: 12px;">${escapeHtml(req.description || '—')}</div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; color: var(--text-secondary); margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border-color);">
-            <div>Model: <span class="font-mono">${escapeHtml(req.model || '—')}</span> (${escapeHtml(req.effort || 'high')})</div>
-            <div>CLI: <span class="font-mono">${escapeHtml(req.executable || '—')}</span></div>
+            <div><span data-i18n="ask.colModel">${escapeHtml(t('ask.colModel'))}:</span> <span class="font-mono">${escapeHtml(req.model || '—')}</span> (${escapeHtml(req.effort || 'high')})</div>
+            <div><span data-i18n="ask.colExecutable">${escapeHtml(t('ask.colExecutable'))}:</span> <span class="font-mono">${escapeHtml(req.executable || '—')}</span></div>
             <div>Approval ID: <span class="font-mono">${escapeHtml(plan.approvalId || '—')}</span></div>
             <div>Run ID: <span class="font-mono">${escapeHtml(plan.runId || '—')}</span></div>
           </div>
@@ -4282,13 +4426,17 @@
     const initialCatchUpLimit = (wf && typeof wf.catchUpLimit === 'number') ? wf.catchUpLimit : 10;
     const initialCatchUpWindowHours = (wf && typeof wf.catchUpWindowHours === 'number') ? wf.catchUpWindowHours : 24;
 
-    const initialWatch = (wf && wf.watch) || {};
+    const initialWatch = (wf && (wf.watch || (wf.definition && wf.definition.watch))) || {};
+    const initialWatchSource = initialWatch.source || (Array.isArray(initialWatch.paths) ? 'files' : 'tool');
+    const initialWatchPaths = Array.isArray(initialWatch.paths) ? initialWatch.paths.join('\n') : (typeof initialWatch.paths === 'string' ? initialWatch.paths : '');
+    const initialWatchRecursive = initialWatch.recursive !== undefined ? Boolean(initialWatch.recursive) : true;
+    const initialWatchIgnore = Array.isArray(initialWatch.ignore) ? initialWatch.ignore.join('\n') : (typeof initialWatch.ignore === 'string' ? initialWatch.ignore : '');
     const initialWatchTool = initialWatch.tool || 'git.status';
     const initialWatchMode = initialWatch.mode || (initialWatchTool.startsWith('git.') ? 'output' : 'items');
     const initialWatchKey = initialWatch.key || 'id';
     const initialWatchEvery = typeof initialWatch.everySeconds === 'number' ? initialWatch.everySeconds : 60;
     const initialWatchMin = typeof initialWatch.minItems === 'number' ? initialWatch.minItems : 1;
-    const initialWatchDebounce = typeof initialWatch.debounceSeconds === 'number' ? initialWatch.debounceSeconds : 10;
+    const initialWatchDebounce = typeof initialWatch.debounceSeconds === 'number' ? initialWatch.debounceSeconds : (initialWatchSource === 'files' ? 5 : 10);
     const initialWatchArgs = initialWatch.arguments || {};
     const initialWatchQuery = initialWatchArgs.query || '';
     const initialWatchTokens = typeof initialWatchArgs.budgetTokens === 'number' ? initialWatchArgs.budgetTokens : 1000;
@@ -4386,60 +4534,98 @@
         <div class="alert-banner alert-info" style="font-size: 11px; margin-bottom: 8px;" data-i18n="watch.baselineNotice">${escapeHtml(t('watch.baselineNotice'))}</div>
         <div class="alert-banner alert-warning" style="font-size: 11px; margin-bottom: 8px;" data-i18n="watch.approvalNotice">${escapeHtml(t('watch.approvalNotice'))}</div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" data-i18n="watch.toolLabel">${escapeHtml(t('watch.toolLabel'))}</label>
-            <select id="wf-watch-tool" class="form-select">
-              <option value="git.status" ${initialWatchTool === 'git.status' ? 'selected' : ''}>git.status (只读输出)</option>
-              <option value="git.diff" ${initialWatchTool === 'git.diff' ? 'selected' : ''}>git.diff (只读输出)</option>
-              <option value="git.log" ${initialWatchTool === 'git.log' ? 'selected' : ''}>git.log (只读输出)</option>
-              <option value="memory.recall" ${initialWatchTool === 'memory.recall' ? 'selected' : ''}>memory.recall (工程记忆召回)</option>
-              <option value="library.retrieve" ${initialWatchTool === 'library.retrieve' ? 'selected' : ''}>library.retrieve (知识库段落)</option>
-            </select>
-            <div class="form-hint" style="font-size: 10px; color: var(--text-muted);" data-i18n="watch.toolDesc">${escapeHtml(t('watch.toolDesc'))}</div>
+        <div class="form-group" style="margin-bottom: 8px;">
+          <label class="form-label" data-i18n="watch.sourceLabel">${escapeHtml(t('watch.sourceLabel'))}</label>
+          <select id="wf-watch-source" class="form-select">
+            <option value="tool" ${initialWatchSource === 'tool' ? 'selected' : ''} data-i18n="watch.sourceTool">${escapeHtml(t('watch.sourceTool'))}</option>
+            <option value="files" ${initialWatchSource === 'files' ? 'selected' : ''} data-i18n="watch.sourceFiles">${escapeHtml(t('watch.sourceFiles'))}</option>
+          </select>
+          <div class="form-hint" style="font-size: 10px; color: var(--text-muted);" id="wf-watch-source-desc" data-i18n="${initialWatchSource === 'files' ? 'watch.sourceFilesDesc' : 'watch.sourceToolDesc'}">${escapeHtml(t(initialWatchSource === 'files' ? 'watch.sourceFilesDesc' : 'watch.sourceToolDesc'))}</div>
+        </div>
+
+        <div id="wf-watch-tool-section" class="${initialWatchSource === 'tool' ? '' : 'hidden'}">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="watch.toolLabel">${escapeHtml(t('watch.toolLabel'))}</label>
+              <select id="wf-watch-tool" class="form-select">
+                <option value="git.status" ${initialWatchTool === 'git.status' ? 'selected' : ''}>git.status (只读输出)</option>
+                <option value="git.diff" ${initialWatchTool === 'git.diff' ? 'selected' : ''}>git.diff (只读输出)</option>
+                <option value="git.log" ${initialWatchTool === 'git.log' ? 'selected' : ''}>git.log (只读输出)</option>
+                <option value="memory.recall" ${initialWatchTool === 'memory.recall' ? 'selected' : ''}>memory.recall (工程记忆召回)</option>
+                <option value="library.retrieve" ${initialWatchTool === 'library.retrieve' ? 'selected' : ''}>library.retrieve (知识库段落)</option>
+              </select>
+              <div class="form-hint" style="font-size: 10px; color: var(--text-muted);" data-i18n="watch.toolDesc">${escapeHtml(t('watch.toolDesc'))}</div>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="watch.modeLabel">${escapeHtml(t('watch.modeLabel'))}</label>
+              <select id="wf-watch-mode" class="form-select" ${initialWatchTool.startsWith('git.') ? 'disabled' : ''}>
+                <option value="output" ${initialWatchMode === 'output' ? 'selected' : ''} data-i18n="watch.modeOutput">${escapeHtml(t('watch.modeOutput'))}</option>
+                <option value="items" ${initialWatchMode === 'items' ? 'selected' : ''} data-i18n="watch.modeItems">${escapeHtml(t('watch.modeItems'))}</option>
+              </select>
+            </div>
           </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" data-i18n="watch.modeLabel">${escapeHtml(t('watch.modeLabel'))}</label>
-            <select id="wf-watch-mode" class="form-select" ${initialWatchTool.startsWith('git.') ? 'disabled' : ''}>
-              <option value="output" ${initialWatchMode === 'output' ? 'selected' : ''} data-i18n="watch.modeOutput">${escapeHtml(t('watch.modeOutput'))}</option>
-              <option value="items" ${initialWatchMode === 'items' ? 'selected' : ''} data-i18n="watch.modeItems">${escapeHtml(t('watch.modeItems'))}</option>
-            </select>
+
+          <div id="wf-watch-args-group" style="margin-bottom: 8px;">
+            <div class="form-group ${['memory.recall', 'library.retrieve'].includes(initialWatchTool) ? '' : 'hidden'}" id="wf-watch-arg-query-group" style="margin-bottom: 6px;">
+              <label class="form-label" data-i18n="watch.argQueryLabel">${escapeHtml(t('watch.argQueryLabel'))}</label>
+              <input type="text" id="wf-watch-arg-query" class="form-input" value="${escapeHtml(initialWatchQuery)}" placeholder="release notes">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div class="form-group ${initialWatchTool === 'memory.recall' ? '' : 'hidden'}" id="wf-watch-arg-tokens-group" style="margin-bottom: 0;">
+                <label class="form-label" data-i18n="watch.argTokensLabel">${escapeHtml(t('watch.argTokensLabel'))}</label>
+                <input type="number" id="wf-watch-arg-tokens" class="form-input" min="1" max="2000" value="${escapeHtml(String(initialWatchTokens))}">
+              </div>
+              <div class="form-group ${initialWatchTool === 'library.retrieve' ? '' : 'hidden'}" id="wf-watch-arg-k-group" style="margin-bottom: 0;">
+                <label class="form-label" data-i18n="watch.argKLabel">${escapeHtml(t('watch.argKLabel'))}</label>
+                <input type="number" id="wf-watch-arg-k" class="form-input" min="1" max="10" value="${escapeHtml(String(initialWatchK))}">
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="watch.keyLabel">${escapeHtml(t('watch.keyLabel'))}</label>
+              <input type="text" id="wf-watch-key" class="form-input" value="${escapeHtml(initialWatchKey)}" ${initialWatchMode === 'output' ? 'disabled' : ''}>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="watch.everyLabel">${escapeHtml(t('watch.everyLabel'))}</label>
+              <input type="number" id="wf-watch-every" class="form-input" min="30" max="86400" value="${escapeHtml(String(initialWatchEvery))}">
+            </div>
           </div>
         </div>
 
-        <div id="wf-watch-args-group" style="margin-bottom: 8px;">
-          <div class="form-group ${['memory.recall', 'library.retrieve'].includes(initialWatchTool) ? '' : 'hidden'}" id="wf-watch-arg-query-group" style="margin-bottom: 6px;">
-            <label class="form-label" data-i18n="watch.argQueryLabel">${escapeHtml(t('watch.argQueryLabel'))}</label>
-            <input type="text" id="wf-watch-arg-query" class="form-input" value="${escapeHtml(initialWatchQuery)}" placeholder="release notes">
+        <div id="wf-watch-files-section" class="${initialWatchSource === 'files' ? '' : 'hidden'}">
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label class="form-label" data-i18n="watch.pathsLabel">${escapeHtml(t('watch.pathsLabel'))}</label>
+            <textarea id="wf-watch-paths" class="form-textarea code-editor" style="min-height: 60px; font-size: 11px; font-family: var(--font-mono);" data-i18n-placeholder="watch.pathsPlaceholder" placeholder="${escapeHtml(t('watch.pathsPlaceholder'))}">${escapeHtml(initialWatchPaths)}</textarea>
+            <div class="form-hint" style="font-size: 10px; color: var(--text-muted);" data-i18n="watch.pathsHint">${escapeHtml(t('watch.pathsHint'))}</div>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <div class="form-group ${initialWatchTool === 'memory.recall' ? '' : 'hidden'}" id="wf-watch-arg-tokens-group" style="margin-bottom: 0;">
-              <label class="form-label" data-i18n="watch.argTokensLabel">${escapeHtml(t('watch.argTokensLabel'))}</label>
-              <input type="number" id="wf-watch-arg-tokens" class="form-input" min="1" max="2000" value="${escapeHtml(String(initialWatchTokens))}">
-            </div>
-            <div class="form-group ${initialWatchTool === 'library.retrieve' ? '' : 'hidden'}" id="wf-watch-arg-k-group" style="margin-bottom: 0;">
-              <label class="form-label" data-i18n="watch.argKLabel">${escapeHtml(t('watch.argKLabel'))}</label>
-              <input type="number" id="wf-watch-arg-k" class="form-input" min="1" max="10" value="${escapeHtml(String(initialWatchK))}">
-            </div>
+
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label class="form-checkbox-label" style="font-size: 11px; margin-bottom: 0;">
+              <input type="checkbox" id="wf-watch-recursive" ${initialWatchRecursive ? 'checked' : ''}>
+              <span data-i18n="watch.recursiveLabel">${escapeHtml(t('watch.recursiveLabel'))}</span>
+            </label>
+            <div class="form-hint" style="font-size: 10px; color: var(--text-muted); margin-left: 20px;" data-i18n="watch.recursiveHint">${escapeHtml(t('watch.recursiveHint'))}</div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label class="form-label" data-i18n="watch.ignoreLabel">${escapeHtml(t('watch.ignoreLabel'))}</label>
+            <textarea id="wf-watch-ignore" class="form-textarea code-editor" style="min-height: 52px; font-size: 11px; font-family: var(--font-mono);" data-i18n-placeholder="watch.ignorePlaceholder" placeholder="${escapeHtml(t('watch.ignorePlaceholder'))}">${escapeHtml(initialWatchIgnore)}</textarea>
+            <div class="form-hint" style="font-size: 10px; color: var(--text-muted);" data-i18n="watch.ignoreHint">${escapeHtml(t('watch.ignoreHint'))}</div>
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" data-i18n="watch.keyLabel">${escapeHtml(t('watch.keyLabel'))}</label>
-            <input type="text" id="wf-watch-key" class="form-input" value="${escapeHtml(initialWatchKey)}" ${initialWatchMode === 'output' ? 'disabled' : ''}>
-          </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" data-i18n="watch.minItemsLabel">${escapeHtml(t('watch.minItemsLabel'))}</label>
-            <input type="number" id="wf-watch-min-items" class="form-input" min="1" max="100" value="${escapeHtml(String(initialWatchMin))}" ${initialWatchMode === 'output' ? 'disabled' : ''}>
-          </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" data-i18n="watch.everyLabel">${escapeHtml(t('watch.everyLabel'))}</label>
-            <input type="number" id="wf-watch-every" class="form-input" min="30" max="86400" value="${escapeHtml(String(initialWatchEvery))}">
+            <input type="number" id="wf-watch-min-items" class="form-input" min="1" max="100" value="${escapeHtml(String(initialWatchMin))}" ${initialWatchSource === 'tool' && initialWatchMode === 'output' ? 'disabled' : ''}>
+            <div class="form-hint" style="font-size: 10px; color: var(--text-muted);" data-i18n="watch.minItemsHint">${escapeHtml(t('watch.minItemsHint'))}</div>
           </div>
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" data-i18n="watch.debounceLabel">${escapeHtml(t('watch.debounceLabel'))}</label>
             <input type="number" id="wf-watch-debounce" class="form-input" min="0" max="300" value="${escapeHtml(String(initialWatchDebounce))}">
+            <div class="form-hint" style="font-size: 10px; color: var(--text-muted);" data-i18n="watch.debounceHint">${escapeHtml(t('watch.debounceHint'))}</div>
           </div>
         </div>
 
@@ -4572,9 +4758,25 @@
       if (watchConfigGroup) {
         watchConfigGroup.classList.toggle('hidden', val !== 'watch');
       }
+      if (val === 'cron' || val === 'watch') {
+        const outTargetSelect = document.getElementById('wf-output-target');
+        if (outTargetSelect && outTargetSelect.value === 'stdout') {
+          outTargetSelect.value = 'inbox';
+          const outputPathGroup = document.getElementById('wf-output-path-group');
+          const outputInboxGroup = document.getElementById('wf-output-inbox-group');
+          const outputStepIdGroup = document.getElementById('wf-output-stepid-group');
+          outputPathGroup?.classList.add('hidden');
+          outputInboxGroup?.classList.add('hidden');
+          if (wfType === 'steps') outputStepIdGroup?.classList.remove('hidden');
+        }
+      }
     });
 
-    // Watch Tool / Mode Dynamic Rules
+    // Watch Source / Tool / Mode Dynamic Rules
+    const watchSourceSelect = document.getElementById('wf-watch-source');
+    const watchToolSection = document.getElementById('wf-watch-tool-section');
+    const watchFilesSection = document.getElementById('wf-watch-files-section');
+    const watchSourceDesc = document.getElementById('wf-watch-source-desc');
     const watchToolSelect = document.getElementById('wf-watch-tool');
     const watchModeSelect = document.getElementById('wf-watch-mode');
     const watchKeyInput = document.getElementById('wf-watch-key');
@@ -4584,40 +4786,60 @@
     const watchKGroup = document.getElementById('wf-watch-arg-k-group');
 
     const updateWatchFieldVisibility = () => {
-      if (!watchToolSelect || !watchModeSelect) return;
-      const tool = watchToolSelect.value;
-      const isGit = tool.startsWith('git.');
-      if (isGit) {
-        watchModeSelect.value = 'output';
-        watchModeSelect.disabled = true;
-        if (watchMinInput) { watchMinInput.value = '1'; watchMinInput.disabled = true; }
-        if (watchKeyInput) { watchKeyInput.disabled = true; }
-        watchQueryGroup?.classList.add('hidden');
-        watchTokensGroup?.classList.add('hidden');
-        watchKGroup?.classList.add('hidden');
+      const src = watchSourceSelect ? watchSourceSelect.value : 'tool';
+      if (src === 'files') {
+        if (watchToolSection) watchToolSection.classList.add('hidden');
+        if (watchFilesSection) watchFilesSection.classList.remove('hidden');
+        if (watchMinInput) watchMinInput.disabled = false;
+        if (watchSourceDesc) {
+          watchSourceDesc.setAttribute('data-i18n', 'watch.sourceFilesDesc');
+          watchSourceDesc.textContent = t('watch.sourceFilesDesc');
+        }
       } else {
-        watchModeSelect.disabled = false;
-        const mode = watchModeSelect.value;
-        if (mode === 'output') {
+        if (watchToolSection) watchToolSection.classList.remove('hidden');
+        if (watchFilesSection) watchFilesSection.classList.add('hidden');
+        if (watchSourceDesc) {
+          watchSourceDesc.setAttribute('data-i18n', 'watch.sourceToolDesc');
+          watchSourceDesc.textContent = t('watch.sourceToolDesc');
+        }
+        if (!watchToolSelect || !watchModeSelect) return;
+        const tool = watchToolSelect.value;
+        const isGit = tool.startsWith('git.');
+        if (isGit) {
+          watchModeSelect.value = 'output';
+          watchModeSelect.disabled = true;
           if (watchMinInput) { watchMinInput.value = '1'; watchMinInput.disabled = true; }
           if (watchKeyInput) { watchKeyInput.disabled = true; }
-        } else {
-          if (watchMinInput) { watchMinInput.disabled = false; }
-          if (watchKeyInput) { watchKeyInput.disabled = false; }
-        }
-        watchQueryGroup?.classList.remove('hidden');
-        if (tool === 'memory.recall') {
-          watchTokensGroup?.classList.remove('hidden');
-          watchKGroup?.classList.add('hidden');
-        } else if (tool === 'library.retrieve') {
+          watchQueryGroup?.classList.add('hidden');
           watchTokensGroup?.classList.add('hidden');
-          watchKGroup?.classList.remove('hidden');
+          watchKGroup?.classList.add('hidden');
+        } else {
+          watchModeSelect.disabled = false;
+          const mode = watchModeSelect.value;
+          if (mode === 'output') {
+            if (watchMinInput) { watchMinInput.value = '1'; watchMinInput.disabled = true; }
+            if (watchKeyInput) { watchKeyInput.disabled = true; }
+          } else {
+            if (watchMinInput) { watchMinInput.disabled = false; }
+            if (watchKeyInput) { watchKeyInput.disabled = false; }
+          }
+          watchQueryGroup?.classList.remove('hidden');
+          if (tool === 'memory.recall') {
+            watchTokensGroup?.classList.remove('hidden');
+            watchKGroup?.classList.add('hidden');
+          } else if (tool === 'library.retrieve') {
+            watchTokensGroup?.classList.add('hidden');
+            watchKGroup?.classList.remove('hidden');
+          }
         }
       }
     };
 
+    watchSourceSelect?.addEventListener('change', updateWatchFieldVisibility);
     watchToolSelect?.addEventListener('change', updateWatchFieldVisibility);
     watchModeSelect?.addEventListener('change', updateWatchFieldVisibility);
+    updateWatchFieldVisibility();
+
     document.getElementById('btn-wf-modal-preview-watch')?.addEventListener('click', () => {
       if (wf && wf.id) {
         openWatchPreviewModal(wf.id, wf.project || state.currentProject);
@@ -5166,44 +5388,122 @@
         catchUpWindowHours = rawWindow;
       }
 
+      const wfTypeVal = document.getElementById('wf-modal-type')?.value || 'steps';
+      const outTarget = document.getElementById('wf-output-target')?.value || 'stdout';
+
+      if ((trigger === 'cron' || trigger === 'watch') && outTarget === 'stdout') {
+        showToast({ key: 'workflows.scheduledOutputMustBeDurable' }, 'error');
+        return;
+      }
+
       let watchObj = undefined;
       if (trigger === 'watch') {
-        const wTool = document.getElementById('wf-watch-tool')?.value || 'git.status';
-        const wMode = document.getElementById('wf-watch-mode')?.value || (wTool.startsWith('git.') ? 'output' : 'items');
-        const wKey = wMode === 'items' ? (document.getElementById('wf-watch-key')?.value.trim() || 'id') : undefined;
-        const wEvery = Math.max(30, Math.min(86400, parseInt(document.getElementById('wf-watch-every')?.value, 10) || 60));
-        const wMin = wMode === 'output' ? 1 : Math.max(1, Math.min(100, parseInt(document.getElementById('wf-watch-min-items')?.value, 10) || 1));
-        const wDebounce = Math.max(0, Math.min(300, parseInt(document.getElementById('wf-watch-debounce')?.value, 10) || 10));
+        const wSource = document.getElementById('wf-watch-source')?.value || 'tool';
+        if (wSource === 'files') {
+          const rawPathsText = (document.getElementById('wf-watch-paths')?.value || '').trim();
+          const paths = rawPathsText.split('\n').map(s => s.trim()).filter(Boolean);
+          if (paths.length === 0) {
+            showToast({ key: 'watch.pathsRequired' }, 'error');
+            return;
+          }
+          if (paths.length > 16) {
+            showToast({ key: 'watch.pathsLimitExceeded' }, 'error');
+            return;
+          }
+          if (new Set(paths).size !== paths.length) {
+            showToast({ key: 'watch.pathsDuplicate' }, 'error');
+            return;
+          }
+          const defaultEx = ['.git', '.vela', '.build', 'node_modules', '.DS_Store'];
+          for (const p of paths) {
+            if (p === '.') continue;
+            if (p.startsWith('/') || p.endsWith('/') || p.includes('\0') || p.length > 1024) {
+              showToast({ key: 'watch.pathsInvalidFormat' }, 'error');
+              return;
+            }
+            const parts = p.split('/');
+            if (parts.length > 32 || parts.some(part => !part || part === '.' || part === '..')) {
+              showToast({ key: 'watch.pathsInvalidFormat' }, 'error');
+              return;
+            }
+            if (parts.some(part => defaultEx.includes(part))) {
+              showToast({ key: 'watch.pathsExcluded' }, 'error');
+              return;
+            }
+          }
+          for (const p of paths) {
+            const hasOverlap = paths.some(other => {
+              if (other === p) return false;
+              if (p === '.') return true;
+              return other.startsWith(p + '/');
+            });
+            if (hasOverlap) {
+              showToast({ key: 'watch.pathsOverlap' }, 'error');
+              return;
+            }
+          }
 
-        let wArgs = {};
-        if (wTool === 'memory.recall') {
-          const q = (document.getElementById('wf-watch-arg-query')?.value || '').trim();
-          const tok = Math.max(1, Math.min(2000, parseInt(document.getElementById('wf-watch-arg-tokens')?.value, 10) || 1000));
-          wArgs = { query: q, budgetTokens: tok };
-        } else if (wTool === 'library.retrieve') {
-          const q = (document.getElementById('wf-watch-arg-query')?.value || '').trim();
-          const kVal = Math.max(1, Math.min(10, parseInt(document.getElementById('wf-watch-arg-k')?.value, 10) || 10));
-          wArgs = { query: q, k: kVal };
+          const recursive = Boolean(document.getElementById('wf-watch-recursive')?.checked);
+          const rawIgnoreText = (document.getElementById('wf-watch-ignore')?.value || '').trim();
+          const ignore = rawIgnoreText.split('\n').map(s => s.trim()).filter(Boolean);
+          if (ignore.length > 32) {
+            showToast({ key: 'watch.ignoreLimitExceeded' }, 'error');
+            return;
+          }
+          for (const ig of ignore) {
+            if (ig.startsWith('/') || ig.includes('\0') || ig.split('/').includes('..') || ig.length > 160) {
+              showToast({ key: 'watch.ignoreInvalid' }, 'error');
+              return;
+            }
+          }
+
+          const wMin = Math.max(1, Math.min(100, parseInt(document.getElementById('wf-watch-min-items')?.value, 10) || 1));
+          const wDebounce = Math.max(0, Math.min(300, parseInt(document.getElementById('wf-watch-debounce')?.value, 10) || 5));
+
+          watchObj = {
+            source: 'files',
+            paths: [...paths].sort(),
+            recursive: recursive,
+            ignore: ignore,
+            minItems: wMin,
+            debounceSeconds: wDebounce
+          };
         } else {
-          wArgs = {};
-        }
+          const wTool = document.getElementById('wf-watch-tool')?.value || 'git.status';
+          const wMode = document.getElementById('wf-watch-mode')?.value || (wTool.startsWith('git.') ? 'output' : 'items');
+          const wKey = wMode === 'items' ? (document.getElementById('wf-watch-key')?.value.trim() || 'id') : undefined;
+          const wEvery = Math.max(30, Math.min(86400, parseInt(document.getElementById('wf-watch-every')?.value, 10) || 60));
+          const wMin = wMode === 'output' ? 1 : Math.max(1, Math.min(100, parseInt(document.getElementById('wf-watch-min-items')?.value, 10) || 1));
+          const wDebounce = Math.max(0, Math.min(300, parseInt(document.getElementById('wf-watch-debounce')?.value, 10) || 10));
 
-        watchObj = {
-          source: 'tool',
-          tool: wTool,
-          arguments: wArgs,
-          mode: wMode,
-          everySeconds: wEvery,
-          minItems: wMin,
-          debounceSeconds: wDebounce
-        };
-        if (wKey) {
-          watchObj.key = wKey;
+          let wArgs = {};
+          if (wTool === 'memory.recall') {
+            const q = (document.getElementById('wf-watch-arg-query')?.value || '').trim();
+            const tok = Math.max(1, Math.min(2000, parseInt(document.getElementById('wf-watch-arg-tokens')?.value, 10) || 1000));
+            wArgs = { query: q, budgetTokens: tok };
+          } else if (wTool === 'library.retrieve') {
+            const q = (document.getElementById('wf-watch-arg-query')?.value || '').trim();
+            const kVal = Math.max(1, Math.min(10, parseInt(document.getElementById('wf-watch-arg-k')?.value, 10) || 10));
+            wArgs = { query: q, k: kVal };
+          } else {
+            wArgs = {};
+          }
+
+          watchObj = {
+            source: 'tool',
+            tool: wTool,
+            arguments: wArgs,
+            mode: wMode,
+            everySeconds: wEvery,
+            minItems: wMin,
+            debounceSeconds: wDebounce
+          };
+          if (wKey) {
+            watchObj.key = wKey;
+          }
         }
       }
 
-      const wfTypeVal = document.getElementById('wf-modal-type')?.value || 'steps';
-      const outTarget = document.getElementById('wf-output-target')?.value || 'stdout';
       let outputObj = undefined;
       if (outTarget === 'file') {
         const outPath = (document.getElementById('wf-output-path')?.value || '').trim();
@@ -5512,6 +5812,180 @@
     }
   }
 
+  function openArtifactDrawer(art) {
+    openDrawer(art.title || { key: 'setupL.artifacts.drawerTitle' }, art.path);
+    const drawerContent = document.getElementById('drawer-content');
+    if (!drawerContent) return;
+
+    drawerContent.innerHTML = `
+      <div class="card" style="margin-bottom: 12px;">
+        <div class="card-header"><span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span></div>
+        <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div><span class="text-secondary" data-i18n="setup.colType">${escapeHtml(t('setup.colType'))}:</span> ${escapeHtml(art.type || 'configuration')}</div>
+          <div><span class="text-secondary" data-i18n="setup.colProvider">${escapeHtml(t('setup.colProvider'))}:</span> <span class="code-badge">${escapeHtml(art.provider || 'generic')}</span></div>
+          <div><span class="text-secondary" data-i18n="setup.colScope">${escapeHtml(t('setup.colScope'))}:</span> <span class="code-badge">${escapeHtml(art.scope || 'project')}</span></div>
+          <div><span class="text-secondary" data-i18n="setupL.drawer.tokens">${escapeHtml(t('setupL.drawer.tokens'))}:</span> ${escapeHtml(String(art.tokens || '-'))}</div>
+        </div>
+        <details class="memory-meta-details" style="margin-top: 8px;">
+          <summary style="font-size: 11px; color: var(--text-secondary); cursor: pointer;" data-i18n="memory.techMetaSummary">${escapeHtml(t('memory.techMetaSummary'))}</summary>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; font-size: 11px; margin-top: 6px; color: var(--text-secondary);">
+            <div><span>ID:</span> <span class="font-mono">${escapeHtml(art.id || '-')}</span></div>
+            <div><span>Hash:</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
+            <div style="grid-column: 1 / -1;"><span data-i18n="setup.colPath">${escapeHtml(t('setup.colPath'))}:</span> <span class="font-mono" style="font-size: 10px; word-break: break-all;">${escapeHtml(art.path || '-')}</span></div>
+          </div>
+        </details>
+        <div style="display: flex; gap: 6px; margin-top: 10px;">
+          <button class="btn btn-secondary btn-sm btn-drawer-setup-history" data-id="${escapeHtml(art.id)}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
+          <button class="btn btn-secondary btn-sm btn-drawer-setup-relations" data-id="${escapeHtml(art.id)}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
+          ${art.path ? `<button class="btn btn-ghost btn-sm btn-drawer-reveal-path" data-path="${escapeHtml(art.path)}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.drawer.readonlyPreview">${escapeHtml(t('setupL.drawer.readonlyPreview'))}</h3>
+        <div class="code-view">${art.content ? escapeHtml(art.content) : tHtml('setupL.drawer.noContent')}</div>
+      </div>
+    `;
+
+    drawerContent.querySelector('.btn-drawer-setup-history')?.addEventListener('click', () => {
+      openSetupHistoryAndDiffModal(art);
+    });
+    drawerContent.querySelector('.btn-drawer-setup-relations')?.addEventListener('click', () => {
+      openSetupRelationsModal(art);
+    });
+    drawerContent.querySelector('.btn-drawer-reveal-path')?.addEventListener('click', async (e) => {
+      const path = e.currentTarget.getAttribute('data-path');
+      if (path) {
+        try {
+          await callBridge('system.reveal', { path });
+        } catch (err) {
+          showToast({ key: 'setupL.toast.revealFailed', params: { error: err.message } }, 'error');
+        }
+      }
+    });
+  }
+
+  function bindSetupRowActions(container, artifactsList) {
+    if (!container) return;
+
+    container.querySelectorAll('.btn-preview-artifact').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const art = artifactsList.find(a => a.id === id);
+        if (art) openArtifactDrawer(art);
+      });
+    });
+
+    container.querySelectorAll('.btn-setup-more').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const dropdown = btn.closest('.setup-more-dropdown');
+        const menu = dropdown?.querySelector('.setup-more-menu');
+        if (!menu) return;
+        const isOpen = !menu.hidden;
+
+        document.querySelectorAll('.setup-more-menu:not([hidden])').forEach(m => {
+          if (m !== menu) {
+            m.hidden = true;
+            m.closest('.setup-more-dropdown')?.querySelector('.btn-setup-more')?.setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        if (isOpen) {
+          menu.hidden = true;
+          btn.setAttribute('aria-expanded', 'false');
+        } else {
+          menu.hidden = false;
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+
+      btn.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const dropdown = btn.closest('.setup-more-dropdown');
+          const menu = dropdown?.querySelector('.setup-more-menu');
+          if (menu) {
+            menu.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            const firstItem = menu.querySelector('.dropdown-item');
+            firstItem?.focus();
+          }
+        }
+      });
+    });
+
+    container.querySelectorAll('.setup-more-menu').forEach(menu => {
+      menu.addEventListener('keydown', (e) => {
+        const items = Array.from(menu.querySelectorAll('.dropdown-item'));
+        const currentIndex = items.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const nextIndex = (currentIndex + 1) % items.length;
+          items[nextIndex]?.focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prevIndex = (currentIndex - 1 + items.length) % items.length;
+          items[prevIndex]?.focus();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          menu.hidden = true;
+          const btn = menu.closest('.setup-more-dropdown')?.querySelector('.btn-setup-more');
+          if (btn) {
+            btn.setAttribute('aria-expanded', 'false');
+            btn.focus();
+          }
+        } else if (e.key === 'Tab') {
+          menu.hidden = true;
+          menu.closest('.setup-more-dropdown')?.querySelector('.btn-setup-more')?.setAttribute('aria-expanded', 'false');
+        }
+      });
+    });
+
+    container.querySelectorAll('.btn-setup-history').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const menu = btn.closest('.setup-more-menu');
+        if (menu) {
+          menu.hidden = true;
+          menu.closest('.setup-more-dropdown')?.querySelector('.btn-setup-more')?.setAttribute('aria-expanded', 'false');
+        }
+        const id = btn.getAttribute('data-id');
+        const art = artifactsList.find(a => a.id === id);
+        if (art) openSetupHistoryAndDiffModal(art);
+      });
+    });
+
+    container.querySelectorAll('.btn-setup-relations').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const menu = btn.closest('.setup-more-menu');
+        if (menu) {
+          menu.hidden = true;
+          menu.closest('.setup-more-dropdown')?.querySelector('.btn-setup-more')?.setAttribute('aria-expanded', 'false');
+        }
+        const id = btn.getAttribute('data-id');
+        const art = artifactsList.find(a => a.id === id);
+        if (art) openSetupRelationsModal(art);
+      });
+    });
+
+    container.querySelectorAll('.btn-reveal-path').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const menu = btn.closest('.setup-more-menu');
+        if (menu) {
+          menu.hidden = true;
+          menu.closest('.setup-more-dropdown')?.querySelector('.btn-setup-more')?.setAttribute('aria-expanded', 'false');
+        }
+        const path = btn.getAttribute('data-path');
+        if (path) {
+          try {
+            await callBridge('system.reveal', { path });
+          } catch (err) {
+            showToast({ key: 'setupL.toast.revealFailed', params: { error: err.message } }, 'error');
+          }
+        }
+      });
+    });
+  }
+
   function renderArtifactsSection(target, typeName) {
     const artifacts = (state.dashboard && state.dashboard.artifacts) || [];
     const filtered = artifacts.filter(a => {
@@ -5541,10 +6015,8 @@
               <tr>
                 <th data-i18n="setupL.table.titleOrId">${escapeHtml(t('setupL.table.titleOrId'))}</th>
                 <th data-i18n="setupL.table.providerOrScope">${escapeHtml(t('setupL.table.providerOrScope'))}</th>
-                <th data-i18n="setupL.table.estimatedTokens">${escapeHtml(t('setupL.table.estimatedTokens'))}</th>
-                <th data-i18n="setupL.table.hash">${escapeHtml(t('setupL.table.hash'))}</th>
                 <th data-i18n="setupL.table.diagnostics">${escapeHtml(t('setupL.table.diagnostics'))}</th>
-                <th style="text-align: right; width: 280px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
+                <th style="text-align: right; width: 140px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
               </tr>
             </thead>
             <tbody>
@@ -5552,25 +6024,33 @@
                 <tr>
                   <td>
                     <strong>${escapeHtml(a.title || a.id)}</strong>
-                    <div style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(a.path || '')}</div>
+                    <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); word-break: break-all;">${escapeHtml(a.path || '')}</div>
                   </td>
                   <td>
                     <span class="code-badge">${escapeHtml(a.provider || 'generic')}</span>
                     <span style="font-size: 12px; color: var(--text-secondary); margin-left: 4px;">${escapeHtml(a.scope || 'project')}</span>
                     ${a.contentStatus ? `<div style="margin-top: 4px;">${getSetupContentStatusBadge(a.contentStatus)}</div>` : ''}
                   </td>
-                  <td><span class="font-mono">${escapeHtml(String(a.tokens || '-'))}</span></td>
-                  <td><span class="font-mono" style="font-size: 12px;">${a.hash ? escapeHtml(a.hash.substring(0, 10)) : '-'}</span></td>
                   <td>
                     ${a.diagnostics && a.diagnostics.length > 0
                       ? `<span class="status-badge status-amber" data-i18n="setupL.artifacts.warningCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: a.diagnostics.length }))}">${escapeHtml(t('setupL.artifacts.warningCount', { count: a.diagnostics.length }))}</span>`
                       : `<span class="status-badge status-sage" data-i18n="setupL.artifacts.statusNormal">${escapeHtml(t('setupL.artifacts.statusNormal'))}</span>`}
                   </td>
-                  <td style="text-align: right;">
-                    <button class="btn btn-ghost btn-sm btn-setup-history" data-id="${escapeHtml(a.id)}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
-                    <button class="btn btn-ghost btn-sm btn-setup-relations" data-id="${escapeHtml(a.id)}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
-                    <button class="btn btn-secondary btn-sm btn-preview-artifact" data-id="${escapeHtml(a.id)}" data-i18n="setupL.artifacts.preview">${escapeHtml(t('setupL.artifacts.preview'))}</button>
-                    ${a.path ? `<button class="btn btn-ghost btn-sm btn-reveal-path" data-path="${escapeHtml(a.path)}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
+                  <td style="text-align: right; position: relative;">
+                    <div class="setup-actions-cell">
+                      <button class="btn btn-secondary btn-sm btn-preview-artifact btn-setup-view" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.viewAria', { name: a.title || a.id }) || (t('common.view') + ' ' + (a.title || a.id)))}" data-i18n="common.view">${escapeHtml(t('common.view'))}</button>
+                      <div class="setup-more-dropdown dropdown">
+                        <button class="btn btn-ghost btn-sm btn-setup-more" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="${escapeHtml(t('setup.moreActions'))}" data-id="${escapeHtml(a.id)}">
+                          <span aria-hidden="true">···</span>
+                          <span class="sr-only" data-i18n="setup.moreActions">${escapeHtml(t('setup.moreActions'))}</span>
+                        </button>
+                        <div class="dropdown-menu setup-more-menu" role="menu" hidden>
+                          <button role="menuitem" class="dropdown-item btn-setup-history btn-setup-action-history" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.historyBtn'))}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
+                          <button role="menuitem" class="dropdown-item btn-setup-relations btn-setup-action-relations" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.relationsBtn'))}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
+                          ${a.path ? `<button role="menuitem" class="dropdown-item btn-reveal-path btn-setup-action-reveal" data-path="${escapeHtml(a.path)}" aria-label="${escapeHtml(t('setupL.artifacts.reveal'))}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
+                        </div>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               `).join('')}
@@ -5580,58 +6060,7 @@
       `}
     `;
 
-    target.querySelectorAll('.btn-setup-history').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
-        const art = filtered.find(a => a.id === id);
-        if (art) openSetupHistoryAndDiffModal(art);
-      });
-    });
-
-    target.querySelectorAll('.btn-setup-relations').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
-        const art = filtered.find(a => a.id === id);
-        if (art) openSetupRelationsModal(art);
-      });
-    });
-
-    target.querySelectorAll('.btn-preview-artifact').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
-        const art = filtered.find(a => a.id === id);
-        if (art) {
-          openDrawer(art.title || { key: 'setupL.artifacts.drawerTitle' }, art.path);
-          document.getElementById('drawer-content').innerHTML = `
-            <div class="card">
-              <div class="card-header"><span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span></div>
-              <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <div><span class="text-secondary" data-i18n="setupL.drawer.type">${escapeHtml(t('setupL.drawer.type'))}</span> ${escapeHtml(art.type)}</div>
-                <div><span class="text-secondary" data-i18n="setupL.drawer.provider">${escapeHtml(t('setupL.drawer.provider'))}</span> ${escapeHtml(art.provider)}</div>
-                <div><span class="text-secondary" data-i18n="setupL.drawer.tokens">${escapeHtml(t('setupL.drawer.tokens'))}</span> ${escapeHtml(String(art.tokens || '-'))}</div>
-                <div><span class="text-secondary" data-i18n="setupL.drawer.hash">${escapeHtml(t('setupL.drawer.hash'))}</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
-              </div>
-              <div style="margin-top: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);"><span data-i18n="setupL.drawer.pathPrefix">${escapeHtml(t('setupL.drawer.pathPrefix'))}</span>: ${escapeHtml(art.path || '-')}</div>
-            </div>
-            <div>
-              <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.drawer.readonlyPreview">${escapeHtml(t('setupL.drawer.readonlyPreview'))}</h3>
-              <div class="code-view">${art.content ? escapeHtml(art.content) : tHtml('setupL.drawer.noContent')}</div>
-            </div>
-          `;
-        }
-      });
-    });
-
-    target.querySelectorAll('.btn-reveal-path').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const path = btn.getAttribute('data-path');
-        try {
-          await callBridge('system.reveal', { path });
-        } catch (e) {
-          showToast({ key: 'setupL.toast.revealFailed', params: { error: e.message } }, 'error');
-        }
-      });
-    });
+    bindSetupRowActions(target, filtered);
   }
 
   async function openSetupCatalogModal() {
@@ -5677,11 +6106,11 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Path</th>
-                <th>Provider</th>
-                <th>Type</th>
-                <th>Scope</th>
-                <th>Recursive</th>
+                <th data-i18n="setup.colPath">${escapeHtml(t('setup.colPath'))}</th>
+                <th data-i18n="setup.colProvider">${escapeHtml(t('setup.colProvider'))}</th>
+                <th data-i18n="setup.colType">${escapeHtml(t('setup.colType'))}</th>
+                <th data-i18n="setup.colScope">${escapeHtml(t('setup.colScope'))}</th>
+                <th data-i18n="setup.colRecursive">${escapeHtml(t('setup.colRecursive'))}</th>
               </tr>
             </thead>
             <tbody>
@@ -5744,27 +6173,90 @@
     const b = document.getElementById('modal-body');
     if (!b) return;
 
-    const revisions = Array.isArray(hist.revisions) ? hist.revisions : [];
+    let allRevisions = Array.isArray(hist.revisions) ? [...hist.revisions] : [];
+    let nextBefore = hist.nextBefore;
+    let isLoadingEarlier = false;
+    let setupHistoryGen = 0;
+
+    const fileName = art.path ? art.path.split('/').pop() : (art.id || '');
+    const relPath = art.path || '';
+
+    function renderRevisionsRows() {
+      return allRevisions.map(r => `
+        <tr>
+          <td><span class="font-mono">v${escapeHtml(String(r.revision ?? 1))}</span></td>
+          <td><span class="font-mono">${escapeHtml(String(r.sourceBytes ?? '-'))} B</span></td>
+          <td><span class="font-mono" style="font-size: 11px;">${r.sanitizedHash ? escapeHtml(r.sanitizedHash.substring(0, 10)) : '-'}</span></td>
+          <td><span class="font-mono" style="font-size: 11px;">${formatTime(r.observedAt)}</span></td>
+          <td><span class="status-badge status-neutral">${escapeHtml(r.contentStatus || r.state || '-')}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    function updateCompareSelects(preferredFrom, preferredTo) {
+      const fromEl = document.getElementById('diff-from-select');
+      const toEl = document.getElementById('diff-to-select');
+      if (!fromEl || !toEl) return;
+      const curFrom = preferredFrom !== undefined ? preferredFrom : fromEl.value;
+      const curTo = preferredTo !== undefined ? preferredTo : toEl.value;
+
+      fromEl.innerHTML = allRevisions.map(r => `<option value="${r.revision}">v${r.revision}</option>`).join('');
+      toEl.innerHTML = allRevisions.map(r => `<option value="${r.revision}">v${r.revision}</option>`).join('');
+
+      if (curFrom && allRevisions.some(r => String(r.revision) === String(curFrom))) {
+        fromEl.value = String(curFrom);
+      } else {
+        fromEl.value = String(allRevisions[1] ? allRevisions[1].revision : (allRevisions[0]?.revision ?? 1));
+      }
+
+      if (curTo && allRevisions.some(r => String(r.revision) === String(curTo))) {
+        toEl.value = String(curTo);
+      } else {
+        toEl.value = String(allRevisions[0]?.revision ?? 1);
+      }
+    }
 
     b.innerHTML = `
-      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="setup.historyDesc">${escapeHtml(t('setup.historyDesc'))}</p>
+      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;" data-i18n="setup.historyDesc">${escapeHtml(t('setup.historyDesc'))}</p>
 
-      <div class="card" style="margin-bottom: 12px; padding: 10px 12px;">
-        <div style="font-size: 12px; display: grid; grid-template-columns: 2fr 1fr; gap: 8px;">
-          <div><strong>ID:</strong> <span class="font-mono">${escapeHtml(art.id)}</span></div>
-          <div><strong>Scope:</strong> <span class="code-badge">${escapeHtml(art.scope || 'project')}</span></div>
-          <div style="grid-column: span 2;"><strong>Path:</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml(art.path || '')}</span></div>
+      <div class="card" style="margin-bottom: 10px; padding: 8px 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+          <div>
+            <strong style="font-size: 13px;">${escapeHtml(fileName)}</strong>
+            <span class="code-badge" style="font-size: 11px; margin-left: 6px;">v${escapeHtml(String(art.revision ?? 1))}</span>
+            <span class="code-badge" style="font-size: 10px; margin-left: 4px;">${escapeHtml(art.scope || 'project')}</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-secondary); max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(relPath)}</div>
         </div>
+        <details class="memory-meta-details" style="margin-top: 6px;">
+          <summary style="font-size: 11px; color: var(--text-secondary); cursor: pointer;" data-i18n="memory.techMetaSummary">${escapeHtml(t('memory.techMetaSummary'))}</summary>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; font-size: 11px; margin-top: 4px; color: var(--text-secondary);">
+            <div><span data-i18n="setup.colScope">${escapeHtml(t('setup.colScope'))}:</span> <span class="code-badge">${escapeHtml(art.scope || 'project')}</span></div>
+            <div><span>ID:</span> <span class="font-mono">${escapeHtml(art.id)}</span></div>
+            <div><span>Hash:</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
+            <div style="grid-column: 1 / -1;"><span data-i18n="setup.colPath">${escapeHtml(t('setup.colPath'))}:</span> <span class="font-mono" style="font-size: 10px; word-break: break-all;">${escapeHtml(art.path || '')}</span></div>
+          </div>
+        </details>
       </div>
 
-      <div style="margin-bottom: 14px;">
+      <div style="margin-bottom: 12px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <h4 style="font-size: 13px; font-weight: 600; margin: 0;" data-i18n="setup.revision">${escapeHtml(t('setup.revision'))} (${revisions.length})</h4>
+          <h4 style="font-size: 13px; font-weight: 600; margin: 0;">
+            <span data-i18n="setup.revision">${escapeHtml(t('setup.revision'))}</span>
+            <span id="setup-revisions-count">(${allRevisions.length})</span>
+          </h4>
+          <div id="setup-earlier-container">
+            ${nextBefore ? `
+              <button id="btn-load-earlier-setup-revisions" class="btn btn-secondary btn-xs" data-i18n="setup.loadEarlierRevisions">${escapeHtml(t('setup.loadEarlierRevisions'))}</button>
+            ` : (allRevisions.length > 0 ? `
+              <span class="text-secondary" style="font-size: 11px;" data-i18n="setup.allRevisionsLoaded">${escapeHtml(t('setup.allRevisionsLoaded'))}</span>
+            ` : '')}
+          </div>
         </div>
-        ${revisions.length === 0 ? `
+        ${allRevisions.length === 0 ? `
           <div class="text-secondary" style="font-size: 12px; padding: 12px 0;" data-i18n="setup.historyEmpty">${escapeHtml(t('setup.historyEmpty'))}</div>
         ` : `
-          <div class="table-wrapper" style="max-height: 180px; overflow-y: auto;">
+          <div class="table-wrapper" style="max-height: 160px; overflow-y: auto;">
             <table class="data-table">
               <thead>
                 <tr>
@@ -5772,19 +6264,11 @@
                   <th data-i18n="setup.sourceBytes">${escapeHtml(t('setup.sourceBytes'))}</th>
                   <th data-i18n="setup.sanitizedHash">${escapeHtml(t('setup.sanitizedHash'))}</th>
                   <th data-i18n="setup.observedAt">${escapeHtml(t('setup.observedAt'))}</th>
-                  <th>Status</th>
+                  <th data-i18n="common.status">${escapeHtml(t('common.status'))}</th>
                 </tr>
               </thead>
-              <tbody>
-                ${revisions.map(r => `
-                  <tr>
-                    <td><span class="font-mono">v${escapeHtml(String(r.revision ?? 1))}</span></td>
-                    <td><span class="font-mono">${escapeHtml(String(r.sourceBytes ?? '-'))} B</span></td>
-                    <td><span class="font-mono" style="font-size: 11px;">${r.sanitizedHash ? escapeHtml(r.sanitizedHash.substring(0, 10)) : '-'}</span></td>
-                    <td><span class="font-mono" style="font-size: 11px;">${formatTime(r.observedAt)}</span></td>
-                    <td><span class="status-badge status-neutral">${escapeHtml(r.contentStatus || r.state || '-')}</span></td>
-                  </tr>
-                `).join('')}
+              <tbody id="setup-history-tbody">
+                ${renderRevisionsRows()}
               </tbody>
             </table>
           </div>
@@ -5797,13 +6281,13 @@
           <div>
             <label style="font-size: 11px; color: var(--text-secondary);" data-i18n="setup.diffFrom">${escapeHtml(t('setup.diffFrom'))}</label>
             <select id="diff-from-select" class="form-select" style="min-width: 90px;">
-              ${revisions.map(r => `<option value="${r.revision}" ${r.revision === (revisions[1] ? revisions[1].revision : revisions[0]?.revision) ? 'selected' : ''}>v${r.revision}</option>`).join('')}
+              ${allRevisions.map(r => `<option value="${r.revision}" ${r.revision === (allRevisions[1] ? allRevisions[1].revision : allRevisions[0]?.revision) ? 'selected' : ''}>v${r.revision}</option>`).join('')}
             </select>
           </div>
           <div>
             <label style="font-size: 11px; color: var(--text-secondary);" data-i18n="setup.diffTo">${escapeHtml(t('setup.diffTo'))}</label>
             <select id="diff-to-select" class="form-select" style="min-width: 90px;">
-              ${revisions.map(r => `<option value="${r.revision}" ${r.revision === revisions[0]?.revision ? 'selected' : ''}>v${r.revision}</option>`).join('')}
+              ${allRevisions.map(r => `<option value="${r.revision}" ${r.revision === allRevisions[0]?.revision ? 'selected' : ''}>v${r.revision}</option>`).join('')}
             </select>
           </div>
           <button id="btn-run-setup-diff" class="btn btn-secondary btn-sm" data-i18n="setup.btnRunDiff">${escapeHtml(t('setup.btnRunDiff'))}</button>
@@ -5812,6 +6296,60 @@
 
       <div id="setup-diff-result"></div>
     `;
+
+    function bindEarlierBtn() {
+      const btn = document.getElementById('btn-load-earlier-setup-revisions');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        if (!nextBefore || isLoadingEarlier) return;
+        isLoadingEarlier = true;
+        btn.disabled = true;
+        btn.textContent = t('setup.loadingEarlier');
+        const curFrom = document.getElementById('diff-from-select')?.value;
+        const curTo = document.getElementById('diff-to-select')?.value;
+        const thisGen = ++setupHistoryGen;
+
+        try {
+          const more = await callBridge('setup.history', { ...identity, before: nextBefore, limit: 30 });
+          if (currentModalInstance !== thisModalInstance || thisGen !== setupHistoryGen) return;
+
+          nextBefore = more.nextBefore;
+          const map = new Map();
+          for (const r of allRevisions) map.set(r.revision, r);
+          for (const r of (more.revisions || [])) {
+            if (!map.has(r.revision)) map.set(r.revision, r);
+          }
+          allRevisions = Array.from(map.values()).sort((a, b) => b.revision - a.revision);
+
+          const tbody = document.getElementById('setup-history-tbody');
+          if (tbody) tbody.innerHTML = renderRevisionsRows();
+
+          const countEl = document.getElementById('setup-revisions-count');
+          if (countEl) countEl.textContent = `(${allRevisions.length})`;
+
+          updateCompareSelects(curFrom, curTo);
+
+          const earlierCont = document.getElementById('setup-earlier-container');
+          if (earlierCont) {
+            if (nextBefore) {
+              earlierCont.innerHTML = `<button id="btn-load-earlier-setup-revisions" class="btn btn-secondary btn-xs" data-i18n="setup.loadEarlierRevisions">${escapeHtml(t('setup.loadEarlierRevisions'))}</button>`;
+              bindEarlierBtn();
+            } else {
+              earlierCont.innerHTML = `<span class="text-secondary" style="font-size: 11px;" data-i18n="setup.allRevisionsLoaded">${escapeHtml(t('setup.allRevisionsLoaded'))}</span>`;
+            }
+          }
+        } catch (err) {
+          if (currentModalInstance !== thisModalInstance || thisGen !== setupHistoryGen) return;
+          showToast({ key: 'common.error', params: { error: err.message } }, 'error');
+          btn.disabled = false;
+          btn.textContent = t('setup.loadEarlierRevisions');
+        } finally {
+          isLoadingEarlier = false;
+        }
+      });
+    }
+
+    bindEarlierBtn();
 
     document.getElementById('btn-run-setup-diff')?.addEventListener('click', async () => {
       const fromVal = parseInt(document.getElementById('diff-from-select')?.value || '1', 10);
@@ -5835,6 +6373,15 @@
 
         const removed = Array.isArray(diffRes.removed) ? diffRes.removed : [];
         const added = Array.isArray(diffRes.added) ? diffRes.added : [];
+
+        if (diffRes.sourceChanged && !diffRes.sanitizedTextChanged) {
+          diffContainer.innerHTML = `
+            <div class="alert-banner alert-warning">
+              <span data-i18n="setup.diffSourceChangedOnly">${escapeHtml(t('setup.diffSourceChangedOnly'))}</span>
+            </div>
+          `;
+          return;
+        }
 
         if (removed.length === 0 && added.length === 0) {
           diffContainer.innerHTML = `
@@ -5909,9 +6456,9 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Relation</th>
-                <th>Target Artifact</th>
-                <th>Path</th>
+                <th data-i18n="setup.colRelation">${escapeHtml(t('setup.colRelation'))}</th>
+                <th data-i18n="setup.colTargetArtifact">${escapeHtml(t('setup.colTargetArtifact'))}</th>
+                <th data-i18n="setup.colPath">${escapeHtml(t('setup.colPath'))}</th>
               </tr>
             </thead>
             <tbody>
@@ -7426,6 +7973,7 @@
 
   async function openKnowledgeAskModal() {
     const currentProject = state.currentProject;
+    const currentPage = state.currentPage;
     if (!currentProject) {
       openModal({ key: 'ask.modalTitle' }, `
         <div class="alert-banner alert-warning">
@@ -7514,7 +8062,7 @@
 
     async function renderActiveTab() {
       const thisGen = ++askTabGeneration;
-      if (!tabBody || currentModalInstance !== thisModalInstance || state.currentProject !== currentProject) return;
+      if (!tabBody || currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
 
       if (activeTab === 'new') {
         if (submitBtn) {
@@ -7524,16 +8072,7 @@
         }
 
         tabBody.innerHTML = `
-          <div class="card" style="margin-bottom: 12px; background: var(--bg-surface-secondary); padding: 10px 12px;">
-            <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;" data-i18n="ask.protocolLimits">${escapeHtml(t('ask.protocolLimits'))}</div>
-            <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.4;" data-i18n="ask.modalDesc">${escapeHtml(t('ask.modalDesc'))}</div>
-            <div id="ask-bounds-summary" style="margin-top: 6px; font-size: 11px; color: var(--text-secondary); display: flex; gap: 12px; flex-wrap: wrap;">
-              <span>maxCallsPerRound: 1</span>
-              <span>timeout: 1–300s</span>
-              <span>maxSources: 1–12</span>
-              <span>maxBytes: 1K–32K</span>
-            </div>
-          </div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4;" data-i18n="ask.modalDesc">${escapeHtml(t('ask.modalDesc'))}</div>
 
           <div class="form-group">
             <label class="form-label" data-i18n="ask.questionLabel">${escapeHtml(t('ask.questionLabel'))}</label>
@@ -7576,18 +8115,29 @@
 
           <details class="memory-meta-details" style="margin-bottom: 12px;">
             <summary data-i18n="ask.advancedLimits">${escapeHtml(t('ask.advancedLimits'))}</summary>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 8px;">
-              <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label" data-i18n="ask.maxSourcesLabel">${escapeHtml(t('ask.maxSourcesLabel'))}</label>
-                <input type="number" id="ask-max-sources" class="form-control" min="1" max="12" value="${escapeHtml(String(newDraft.maxSources || 8))}" />
+            <div style="margin-top: 8px;">
+              <div class="card" style="margin-bottom: 10px; background: var(--bg-surface-secondary); padding: 8px 10px;">
+                <div style="font-size: 11px; font-weight: 600; margin-bottom: 2px;" data-i18n="ask.protocolLimits">${escapeHtml(t('ask.protocolLimits'))}</div>
+                <div id="ask-bounds-summary" style="font-size: 11px; color: var(--text-secondary); display: flex; gap: 12px; flex-wrap: wrap;">
+                  <span>maxCallsPerRound: 1</span>
+                  <span>timeout: 1–300s</span>
+                  <span>maxSources: 1–12</span>
+                  <span>maxBytes: 1K–32K</span>
+                </div>
               </div>
-              <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label" data-i18n="ask.maxBytesLabel">${escapeHtml(t('ask.maxBytesLabel'))}</label>
-                <input type="number" id="ask-max-bytes" class="form-control" min="1000" max="32000" value="${escapeHtml(String(newDraft.maxSourceBytes || 24000))}" />
-              </div>
-              <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label" data-i18n="ask.timeoutLabel">${escapeHtml(t('ask.timeoutLabel'))}</label>
-                <input type="number" id="ask-timeout" class="form-control" min="1" max="300" value="${escapeHtml(String(newDraft.timeoutSeconds || 120))}" />
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label" data-i18n="ask.maxSourcesLabel">${escapeHtml(t('ask.maxSourcesLabel'))}</label>
+                  <input type="number" id="ask-max-sources" class="form-control" min="1" max="12" value="${escapeHtml(String(newDraft.maxSources || 8))}" />
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label" data-i18n="ask.maxBytesLabel">${escapeHtml(t('ask.maxBytesLabel'))}</label>
+                  <input type="number" id="ask-max-bytes" class="form-control" min="1000" max="32000" value="${escapeHtml(String(newDraft.maxSourceBytes || 24000))}" />
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label" data-i18n="ask.timeoutLabel">${escapeHtml(t('ask.timeoutLabel'))}</label>
+                  <input type="number" id="ask-timeout" class="form-control" min="1" max="300" value="${escapeHtml(String(newDraft.timeoutSeconds || 120))}" />
+                </div>
               </div>
             </div>
           </details>
@@ -7611,7 +8161,7 @@
 
         try {
           const desc = await callBridge('ask.describe', {});
-          if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || askTabGeneration !== thisGen || activeTab !== 'new') return;
+          if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage || askTabGeneration !== thisGen || activeTab !== 'new') return;
           const boundsEl = document.getElementById('ask-bounds-summary');
           if (boundsEl && desc) {
             boundsEl.innerHTML = `
@@ -7636,11 +8186,11 @@
         try {
           list = await callBridge('ask.list', { project: currentProject });
         } catch (e) {
-          if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || askTabGeneration !== thisGen || activeTab !== 'history') return;
+          if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage || askTabGeneration !== thisGen || activeTab !== 'history') return;
           tabBody.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
           return;
         }
-        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || askTabGeneration !== thisGen || activeTab !== 'history') return;
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage || askTabGeneration !== thisGen || activeTab !== 'history') return;
 
         if (!Array.isArray(list) || list.length === 0) {
           tabBody.innerHTML = `
@@ -7665,8 +8215,8 @@
                   <th>ID</th>
                   <th data-i18n="ask.questionLabel">${escapeHtml(t('ask.questionLabel'))}</th>
                   <th data-i18n="common.status">${escapeHtml(t('common.status'))}</th>
-                  <th>Rounds</th>
-                  <th>Calls</th>
+                  <th data-i18n="ask.colRounds">${escapeHtml(t('ask.colRounds'))}</th>
+                  <th data-i18n="ask.colCalls">${escapeHtml(t('ask.colCalls'))}</th>
                   <th data-i18n="loops.colCreated">${escapeHtml(t('loops.colCreated'))}</th>
                   <th style="text-align: right;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
                 </tr>
@@ -7733,7 +8283,7 @@
           timeoutSeconds
         });
 
-        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject) return;
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
 
         if (res.state === 'no_sources') {
           const resEl = document.getElementById('ask-submit-result');
@@ -7755,13 +8305,13 @@
           openAskDetailModal(res.id);
         }
       } catch (e) {
-        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject) return;
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
         const resEl = document.getElementById('ask-submit-result');
         if (resEl) {
           resEl.innerHTML = `<div class="alert-banner alert-warning" style="margin-top: 12px;">${escapeHtml(e.message)}</div>`;
         }
       } finally {
-        if (currentModalInstance === thisModalInstance && state.currentProject === currentProject && activeTab === 'new') {
+        if (currentModalInstance === thisModalInstance && state.currentProject === currentProject && state.currentPage === currentPage && activeTab === 'new') {
           submitBtn.disabled = false;
           submitBtn.textContent = t('ask.btnSubmit');
         }
@@ -7773,6 +8323,7 @@
 
   async function openAskDetailModal(askId) {
     const currentProject = state.currentProject;
+    const currentPage = state.currentPage;
     if (!currentProject || !askId) return;
 
     openModal({ key: 'ask.modalTitle' }, `
@@ -7786,18 +8337,19 @@
     try {
       item = await callBridge('ask.get', { project: currentProject, id: askId });
     } catch (e) {
-      if (currentModalInstance !== thisModalInstance) return;
+      if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
       const b = document.getElementById('modal-body');
       if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
       return;
     }
-    if (currentModalInstance !== thisModalInstance) return;
+    if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
 
     const b = document.getElementById('modal-body');
     const f = document.getElementById('modal-footer');
     if (!b || !f) return;
 
     const req = item.request || {};
+    const history = Array.isArray(req.history) ? req.history : [];
     const agent = req.agent || {};
     const sources = Array.isArray(req.sources) ? req.sources : [];
     const result = item.result || {};
@@ -7858,6 +8410,42 @@
       </div>
 
       ${statusBanner}
+
+      ${history.length > 0 ? `
+        <div class="card" style="margin-bottom: 12px; padding: 10px 12px; background: var(--bg-surface-secondary);">
+          <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span><span data-i18n="ask.frozenHistoryTitle">${escapeHtml(t('ask.frozenHistoryTitle'))}</span> (${history.length})</span>
+            <span style="font-size: 11px; color: var(--text-secondary);" data-i18n="ask.historyReviewNotice">${escapeHtml(t('ask.historyReviewNotice'))}</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${history.map((h, idx) => `
+              <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px 10px;">
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">
+                  <span data-i18n="ask.historyRoundLabel" data-i18n-params="${escapeHtml(JSON.stringify({ round: idx + 1 }))}">${escapeHtml(t('ask.historyRoundLabel', { round: idx + 1 }))}</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                  <span style="font-size: 11px; color: var(--text-muted);" data-i18n="ask.previousQuestion">${escapeHtml(t('ask.previousQuestion'))}:</span>
+                  <div style="font-size: 12px; font-weight: 500; color: var(--text-primary); margin-top: 2px; white-space: pre-wrap;">${escapeHtml(h.question || '-')}</div>
+                </div>
+                ${h.answer ? `
+                  <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border-subtle);">
+                    <span style="font-size: 11px; color: var(--text-muted);" data-i18n="ask.previousAnswer">${escapeHtml(t('ask.previousAnswer'))}:</span>
+                    <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.45; margin-top: 2px; white-space: pre-wrap;">${escapeHtml(h.answer)}</div>
+                  </div>
+                ` : ''}
+                ${Array.isArray(h.unanswered) && h.unanswered.length > 0 ? `
+                  <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border-subtle); font-size: 11px; color: var(--status-amber-text);">
+                    <span data-i18n="ask.previousUnanswered">${escapeHtml(t('ask.previousUnanswered'))}:</span>
+                    <ul style="margin: 2px 0 0 16px; padding: 0;">
+                      ${h.unanswered.map(u => `<li>${escapeHtml(u)}</li>`).join('')}
+                    </ul>
+                  </div>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
 
       ${req.question ? `
         <div class="card" style="margin-bottom: 12px; padding: 10px 12px;">
@@ -8022,9 +8610,11 @@
       if (!confirm(t('ask.cancelConfirm'))) return;
       try {
         await callBridge('ask.cancel', { project: currentProject, id: askId, askHash: item.askHash });
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
         showToast({ key: 'ask.cancelSuccess' });
         openAskDetailModal(askId);
       } catch (err) {
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
         showToast(err.message, 'error');
       }
     });
@@ -8041,9 +8631,11 @@
           decision: 'approve',
           snapshotHash: item.approval.snapshotHash
         });
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
         showToast({ key: 'inbox.approvedToast' });
         openAskDetailModal(askId);
       } catch (err) {
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
         showToast({ key: 'inbox.approveFailedToast', params: { error: err.message } }, 'error');
         if (btn) {
           btn.disabled = false;
@@ -8106,9 +8698,11 @@
           }
         }
         const res = await callBridge('ask.followup', followParams);
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
         showToast({ key: 'ask.followupSuccess' });
         openAskDetailModal(res.id);
       } catch (err) {
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
         showToast(err.message, 'error');
         if (submitFollowBtn) {
           submitFollowBtn.disabled = false;
@@ -8120,6 +8714,7 @@
 
   async function openAskCitationsModal(askId, askHash) {
     const currentProject = state.currentProject;
+    const currentPage = state.currentPage;
     if (!currentProject || !askId) return;
 
     openModal({ key: 'ask.citationsTitle' }, `
@@ -8133,7 +8728,7 @@
     try {
       data = await callBridge('ask.citations', { project: currentProject, id: askId, askHash });
     } catch (e) {
-      if (currentModalInstance !== thisModalInstance) return;
+      if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
       const b = document.getElementById('modal-body');
       if (b) {
         b.innerHTML = `
@@ -8146,7 +8741,7 @@
       }
       return;
     }
-    if (currentModalInstance !== thisModalInstance) return;
+    if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
 
     const b = document.getElementById('modal-body');
     const f = document.getElementById('modal-footer');
@@ -8171,22 +8766,29 @@
         ` : citations.map(c => {
           const parts = (c.sourceId || '').split('#');
           const anchor = parts[1];
+          const baseSourceId = parts[0];
+          const matchedSource = sources.find(s => s.sourceId === c.sourceId || s.sourceId === baseSourceId);
+          const sourceTitle = (matchedSource && matchedSource.title) || c.title || c.sourceId;
+
           return `
-            <div class="card" style="margin-bottom: 8px; padding: 10px; background: var(--bg-surface-secondary);">
-              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 4px;">
-                <div>
-                  <span class="text-secondary" data-i18n="ask.sourceIdLabel">${escapeHtml(t('ask.sourceIdLabel'))}</span>
-                  <span class="font-mono font-semibold" style="margin-left: 4px;">${escapeHtml(c.sourceId)}</span>
-                  ${anchor ? `<span class="code-badge" style="margin-left: 6px;"><span data-i18n="ask.anchorLabel">${escapeHtml(t('ask.anchorLabel'))}</span> ${escapeHtml(anchor)}</span>` : ''}
-                </div>
-                <div class="font-mono text-secondary" style="font-size: 10px;">${escapeHtml((c.sourceHash || '').substring(0, 16))}</div>
+            <div class="card" style="margin-bottom: 8px; padding: 10px 12px; background: var(--bg-surface-secondary);">
+              <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">
+                ${escapeHtml(sourceTitle)}
               </div>
               <blockquote style="border-left: 3px solid var(--accent); margin: 6px 0; padding: 6px 10px; background: var(--bg-surface); font-size: 12px; font-style: italic; line-height: 1.4;">
                 “${escapeHtml(c.quote)}”
               </blockquote>
-              <div style="font-size: 11px; color: var(--status-sage-text);" data-i18n="ask.exactQuoteVerified">
+              <div style="font-size: 11px; color: var(--status-sage-text); margin-top: 4px;" data-i18n="ask.exactQuoteVerified">
                 ${escapeHtml(t('ask.exactQuoteVerified'))}
               </div>
+              <details class="memory-meta-details" style="margin-top: 6px;">
+                <summary style="font-size: 11px; color: var(--text-secondary); cursor: pointer;" data-i18n="memory.techMetaSummary">${escapeHtml(t('memory.techMetaSummary'))}</summary>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; font-size: 11px; margin-top: 4px; color: var(--text-secondary);">
+                  <div><span data-i18n="ask.sourceIdLabel">${escapeHtml(t('ask.sourceIdLabel'))}</span>: <span class="font-mono">${escapeHtml(c.sourceId)}</span></div>
+                  <div><span>sourceHash:</span> <span class="font-mono">${escapeHtml((c.sourceHash || '').substring(0, 16))}</span></div>
+                  ${anchor ? `<div><span data-i18n="ask.anchorLabel">${escapeHtml(t('ask.anchorLabel'))}</span>: <span class="code-badge">${escapeHtml(anchor)}</span></div>` : ''}
+                </div>
+              </details>
             </div>
           `;
         }).join('')}
@@ -9689,9 +10291,21 @@
                       ? `<span class="status-badge status-amber" data-i18n="setupL.artifacts.warningCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: a.diagnostics.length }))}">${escapeHtml(t('setupL.artifacts.warningCount', { count: a.diagnostics.length }))}</span>`
                       : `<span class="status-badge status-sage" data-i18n="setupL.artifacts.statusNormal">${escapeHtml(t('setupL.artifacts.statusNormal'))}</span>`}
                   </td>
-                  <td style="text-align: right;">
-                    <button class="btn btn-secondary btn-sm btn-preview-artifact" data-id="${escapeHtml(a.id)}" data-i18n="setupL.artifacts.preview">${escapeHtml(t('setupL.artifacts.preview'))}</button>
-                    ${a.path ? `<button class="btn btn-ghost btn-sm btn-reveal-path" data-path="${escapeHtml(a.path)}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
+                  <td style="text-align: right; position: relative;">
+                    <div class="setup-actions-cell">
+                      <button class="btn btn-secondary btn-sm btn-preview-artifact btn-setup-view" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.viewAria', { name: a.title || a.id }) || (t('common.view') + ' ' + (a.title || a.id)))}" data-i18n="common.view">${escapeHtml(t('common.view'))}</button>
+                      <div class="setup-more-dropdown dropdown">
+                        <button class="btn btn-ghost btn-sm btn-setup-more" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="${escapeHtml(t('setup.moreActions'))}" data-id="${escapeHtml(a.id)}">
+                          <span aria-hidden="true">···</span>
+                          <span class="sr-only" data-i18n="setup.moreActions">${escapeHtml(t('setup.moreActions'))}</span>
+                        </button>
+                        <div class="dropdown-menu setup-more-menu" role="menu" hidden>
+                          <button role="menuitem" class="dropdown-item btn-setup-history btn-setup-action-history" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.historyBtn'))}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
+                          <button role="menuitem" class="dropdown-item btn-setup-relations btn-setup-action-relations" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.relationsBtn'))}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
+                          ${a.path ? `<button role="menuitem" class="dropdown-item btn-reveal-path btn-setup-action-reveal" data-path="${escapeHtml(a.path)}" aria-label="${escapeHtml(t('setupL.artifacts.reveal'))}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
+                        </div>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               `).join('')}
@@ -9700,45 +10314,7 @@
         </div>
       `;
 
-      container.querySelectorAll('.btn-preview-artifact').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const id = btn.getAttribute('data-id');
-          const art = artifacts.find(a => a.id === id);
-          if (art) {
-            openDrawer(art.title || { key: 'setupL.mcp.drawerTitle' }, art.path);
-            const drawerContent = document.getElementById('drawer-content');
-            if (drawerContent) {
-              drawerContent.innerHTML = `
-                <div class="card">
-                  <div class="card-header"><span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span></div>
-                  <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <div><span class="text-secondary" data-i18n="setupL.drawer.type">${escapeHtml(t('setupL.drawer.type'))}</span> ${escapeHtml(art.type || 'mcp')}</div>
-                    <div><span class="text-secondary" data-i18n="setupL.drawer.provider">${escapeHtml(t('setupL.drawer.provider'))}</span> ${escapeHtml(art.provider || '-')}</div>
-                    <div><span class="text-secondary" data-i18n="setupL.drawer.tokens">${escapeHtml(t('setupL.drawer.tokens'))}</span> ${escapeHtml(String(art.tokens || '-'))}</div>
-                    <div><span class="text-secondary" data-i18n="setupL.drawer.hash">${escapeHtml(t('setupL.drawer.hash'))}</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
-                  </div>
-                  <div style="margin-top: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);"><span data-i18n="setupL.drawer.pathPrefix">${escapeHtml(t('setupL.drawer.pathPrefix'))}</span>: ${escapeHtml(art.path || '-')}</div>
-                </div>
-                <div>
-                  <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.drawer.readonlyPreview">${escapeHtml(t('setupL.drawer.readonlyPreview'))}</h3>
-                  <div class="code-view">${art.content ? escapeHtml(art.content) : tHtml('setupL.drawer.noContent')}</div>
-                </div>
-              `;
-            }
-          }
-        });
-      });
-
-      container.querySelectorAll('.btn-reveal-path').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const path = btn.getAttribute('data-path');
-          try {
-            await callBridge('system.reveal', { path });
-          } catch (e) {
-            showToast({ key: 'setupL.toast.revealFailed', params: { error: e.message } }, 'error');
-          }
-        });
-      });
+      bindSetupRowActions(container, artifacts);
     }
 
     target.innerHTML = `

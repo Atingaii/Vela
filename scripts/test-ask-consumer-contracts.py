@@ -49,7 +49,7 @@ def main():
     output.mkdir(parents=True)
     results = []
     evidence = {
-        'format': 'vela-ask-consumer-contracts-v2', 'synthetic': True,
+        'format': 'vela-ask-consumer-contracts-v3', 'synthetic': True,
         'expectations': args.expectations, 'checks': results,
         'sourceDirectory': str(ui_source), 'fixtureDirectory': str(base),
         'realProviderExecuted': False, 'syntheticProviderProcess': True,
@@ -240,11 +240,36 @@ def main():
                 'actualCoreError': actual_error, 'newQueryScope': actual_scope,
                 'newApprovalCreated': bool(child and child.get('approvalId')), 'syntheticProviderCalls': provider_calls})
         assert provider_calls == 1, 'The new follow-up must remain unexecuted'
+        # The follow-up sends prior questions and retained answer text as
+        # well as new sources. Approval must show that actual retained content.
+        # Run only when scope creation succeeded; a failed dependency must not
+        # be converted into a passing review case.
+        if child is not None and correct_scope:
+            wait('!!document.querySelector("#btn-approve-ask")')
+            value('document.querySelectorAll("#modal-body details").forEach(element=>element.open=true);true')
+            history_body = value('document.querySelector("#modal-body").innerText')
+            history = child['request']['history']
+            assert history, 'A real follow-up must retain its prior request history.'
+            expected_history = []
+            for turn in history:
+                assert isinstance(turn['question'], str) and turn['question']
+                assert isinstance(turn['answer'], str) and turn['answer'], 'The synthetic first answer must be retained.'
+                expected_history.append(turn['question'])
+                expected_history.append(turn['answer'])
+                expected_history.extend(turn.get('unanswered', []))
+            present = [text in history_body for text in expected_history]
+            record('followup-reviews-frozen-history', bool(expected_history) and all(present), not all(present),
+                   {'retainedTurns': len(history), 'expectedContentCount': len(expected_history),
+                    'contentPresent': present, 'newApprovalId': child['approval']['id'],
+                    'syntheticProviderCalls': provider_calls})
         evidence['fixtureSourceAfter'] = source_hashes(ui)
         evidence['sourceAfter'] = source_hashes(ui_source)
         evidence['sourceUnchanged'] = (evidence['sourceBefore'] == evidence['sourceAfter'] ==
                                        evidence['fixtureSourceBefore'] == evidence['fixtureSourceAfter'])
-        evidence['checksMatchedExpectations'] = len(results) == 3 and all(row['passed'] for row in results) and evidence['sourceUnchanged']
+        # Historical known-bug diagnostics cannot reach the fourth case when
+        # follow-up creation itself fails. Default acceptance requires all four.
+        required_count = 4 if args.expectations == 'correct' or correct_scope else 3
+        evidence['checksMatchedExpectations'] = len(results) == required_count and all(row['passed'] for row in results) and evidence['sourceUnchanged']
         evidence['completeSuite'] = args.expectations == 'correct' and evidence['checksMatchedExpectations']
     except Exception as error:
         evidence['harnessError'] = str(error)

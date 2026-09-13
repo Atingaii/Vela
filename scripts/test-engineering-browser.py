@@ -55,6 +55,11 @@ def main():
         raise AssertionError(reason)
     def click(selector):
         browser('snapshot','-i'); browser('click',selector); browser('snapshot','-i')
+    def open_setup_history(item):
+        more = '.btn-setup-more[data-id="'+item['id']+'"]'
+        if value('!!document.querySelector('+json.dumps(more)+')'):
+            click(more)
+        click('.btn-setup-history[data-id="'+item['id']+'"]')
     def page(name):
         browser('press','Escape'); browser('press','Escape')
         click('.nav-link[data-page="'+name+'"]')
@@ -102,13 +107,96 @@ def main():
             records=rpc('setup.list',{'project':project})
             item=next(a for a in records if a.get('path')==str(path))
             assert any(e['method']=='setup.scan' and e['ok'] for e in events()[before:])
-            click('.btn-setup-history[data-id="'+item['id']+'"]')
+            open_setup_history(item)
             wait("document.querySelectorAll('#diff-from-select option').length>=2",'Observed revisions absent')
             click('#btn-run-setup-diff')
             wait("document.querySelector('#setup-diff-result').textContent.includes('UI_REVIEW_ADDED')",'Actual source diff did not render')
             assert 'synthetic-secret-do-not-display' not in modal_text()
             browser('screenshot',str(output/'setup-observed-diff.png'))
         check('setup-real-source-change-history-and-diff',setup_history)
+
+        def setup_earlier_revisions():
+            browser('press','Escape')
+            path=Path(project)/'AGENTS.md'
+            original=path.read_text()
+            for revision in range(32):
+                path.write_text(original+'\nPAGINATED_REVISION_'+str(revision)+'\n')
+                rpc('setup.scan',{'project':project})
+            item=next(a for a in rpc('setup.list',{'project':project}) if a.get('path')==str(path))
+            history=rpc('setup.history',{'project':project,'id':item['id']})
+            assert len(history['revisions'])==30 and history['nextBefore'] is not None
+            page('setup')
+            open_setup_history(item)
+            wait("document.querySelectorAll('#diff-from-select option').length===30",'First observed history page absent')
+            selected=str(history['revisions'][-1]['revision'])
+            browser('select','#diff-from-select',selected)
+            before=len(events())
+            click('#btn-load-earlier-setup-revisions')
+            wait("document.querySelectorAll('#diff-from-select option').length>30",'Earlier observed versions were not appended')
+            options=value("Array.from(document.querySelectorAll('#diff-from-select option')).map(x=>x.value)")
+            assert len(options)==len(set(options)) and '1' in options
+            assert value("document.querySelector('#diff-from-select').value")==selected, 'Loading history discarded the selected comparison'
+            pages=[e for e in events()[before:] if e['method']=='setup.history']
+            assert len(pages)==1 and pages[0]['ok'] and pages[0]['params'].get('before')==history['nextBefore'], 'UI did not use the actual history cursor'
+            browser('select','#diff-from-select','1')
+            click('#btn-run-setup-diff')
+            wait("document.querySelector('#setup-diff-result').textContent.includes('PAGINATED_REVISION_31')",'Oldest observed version is not usable for comparison')
+            browser('screenshot',str(output/'setup-earlier-revisions.png'))
+        check('setup-history-pagination-retains-comparison-and-oldest-version',setup_earlier_revisions)
+
+        def setup_redacted_change():
+            browser('press','Escape')
+            path=Path(project)/'.mcp.json'
+            document=json.loads(path.read_text())
+            document['mcpServers']['fixture-read-only']['env']['API_KEY']='synthetic-rotated-mcp-secret'
+            path.write_text(json.dumps(document)+'\n')
+            rpc('setup.scan',{'project':project})
+            item=next(a for a in rpc('setup.list',{'project':project}) if a.get('path')==str(path))
+            diff=rpc('setup.diff',{'project':project,'id':item['id']})
+            assert diff['sourceChanged'] is True and diff['sanitizedTextChanged'] is False
+            page('setup')
+            click('[data-setuptab="mcp"]')
+            open_setup_history(item)
+            wait("!!document.querySelector('#btn-run-setup-diff')",'Configuration history not available')
+            click('#btn-run-setup-diff')
+            wait("!!document.querySelector('#setup-diff-result [data-i18n=\"setup.diffSourceChangedOnly\"]')",'Source change was incorrectly presented as no change')
+            notice=value("document.querySelector('#setup-diff-result [data-i18n=\"setup.diffSourceChangedOnly\"]').innerText")
+            assert notice and notice!='setup.diffSourceChangedOnly'
+            assert 'synthetic-rotated-mcp-secret' not in modal_text() and 'synthetic-mcp-secret-do-not-display' not in modal_text()
+            browser('screenshot',str(output/'setup-redacted-source-change.png'))
+        check('setup-secret-rotation-explained-without-secret-content',setup_redacted_change)
+
+        def setup_action_menu():
+            page('setup'); click('[data-setuptab="rules"]')
+            wait('!!document.querySelector(".btn-setup-more")','Setup secondary actions have no menu')
+            more='.btn-setup-more[data-id="'+value('document.querySelector(".btn-setup-more").dataset.id')+'"]'
+            state_js='''(() => {
+                const button=document.querySelector('.btn-setup-more');
+                const row=button.closest('tr');
+                const menu=button.closest('.setup-more-dropdown').querySelector('.setup-more-menu');
+                return {expanded:button.getAttribute('aria-expanded'),hidden:menu.hidden,
+                    visibleRowButtons:[...row.querySelectorAll('button')].filter(b=>b.getClientRects().length>0).length,
+                    focusedMore:document.activeElement===button,
+                    focusedItem:menu.contains(document.activeElement),
+                    itemCount:menu.querySelectorAll('[role="menuitem"]').length};
+            })()'''
+            initial=value(state_js)
+            assert initial['hidden'] and initial['expanded']=='false' and initial['visibleRowButtons']==2,initial
+            click(more)
+            assert value(state_js)['expanded']=='true'
+            click('.page-header h1')
+            assert value(state_js)['hidden'],'Outside click left the menu open'
+            # Set focus only, then drive the real keyboard handlers.
+            value('document.querySelector(".btn-setup-more").focus();true')
+            browser('press','ArrowDown')
+            opened=value(state_js)
+            assert opened['expanded']=='true' and opened['focusedItem'] and opened['itemCount']>=2,opened
+            browser('press','ArrowDown'); browser('press','Escape')
+            closed=value(state_js)
+            assert closed['hidden'] and closed['focusedMore'] and closed['expanded']=='false',closed
+            assert count_calls()==0
+            browser('screenshot',str(output/'setup-restrained-row-actions.png'))
+        check('setup-secondary-actions-menu-keyboard-and-dismissal',setup_action_menu)
 
         workflow=rpc('workflows.save',{'project':project,'title':'UI reviewed workflow','enabled':False,'trigger':'manual',
                     'steps':[{'tool':'git.status','arguments':{}}]})
@@ -157,6 +245,35 @@ def main():
             wait('document.querySelector("#modal-body").textContent.includes('+json.dumps(clone_id)+')','Per-file validation missing')
             assert count_calls()==0 and {a['id'] for a in rpc('inbox.list',{})}==initial_approvals, 'Management unexpectedly executed a task'
         check('workflow-archive-restore-and-readonly-validation',archive_restore)
+
+        def all_archived_reachable():
+            browser('press','Escape')
+            if value("document.querySelector('#chk-include-archived')?.checked===true"):
+                click('#chk-include-archived')
+                wait("document.querySelector('#chk-include-archived')?.checked===false",'Archive filter did not reset')
+            before_runs={r['id'] for r in rpc('runs.list',{'project':project})}
+            for approval in rpc('inbox.list',{}):
+                if approval.get('project')==project:
+                    rpc('approvals.decide',{'id':approval['id'],'decision':'reject','snapshotHash':approval['snapshotHash']})
+            for row in rpc('workflows.list',{'project':project}):
+                detail=rpc('workflows.get',{'project':project,'id':row['id']})
+                rpc('workflows.remove',{'project':project,'id':row['id'],'snapshotHash':detail['snapshotHash']})
+            assert not rpc('workflows.list',{'project':project})
+            page('workflows'); click('[data-wftab="list"]')
+            wait("document.querySelectorAll('.btn-wf-inspect').length===0",'Archived workflows remained in the active list')
+            assert value("!!document.querySelector('#chk-include-archived')"), 'Empty active list hides the only archive entry point'
+            click('#chk-include-archived')
+            selector='.btn-wf-inspect[data-id="'+workflow['id']+'"]'
+            wait('!!document.querySelector('+json.dumps(selector)+')','Archived workflow was not reachable from empty state')
+            click(selector)
+            wait("!!document.querySelector('#btn-inspect-restore')",'Archived workflow could not be inspected')
+            click('#btn-inspect-restore')
+            wait("!!document.querySelector('#btn-inspect-archive')",'Restore did not finish')
+            restored=rpc('workflows.get',{'project':project,'id':workflow['id']})['definition']
+            assert restored.get('state')!='archived' and restored['enabled'] is False
+            assert {r['id'] for r in rpc('runs.list',{'project':project})}==before_runs
+            browser('screenshot',str(output/'workflow-restore-from-empty-list.png'))
+        check('workflow-empty-active-list-can-find-and-restore-archive',all_archived_reachable)
 
         rpc('library.add',{'project':project,'title':'UI public Harbor release','content':'A Harbor release requires passing the focused parser tests.','private':False})
         rpc('library.add',{'project':project,'title':'UI private Harbor release','content':'UI_PRIVATE_SENTINEL Harbor must never be injected.','private':True})
@@ -234,7 +351,7 @@ def main():
 
         evidence['providerCalls']=count_calls()
         evidence['sourceAfter']=hashes(); evidence['sourceUnchanged']=evidence['sourceBefore']==evidence['sourceAfter']
-        evidence['completeSuite']=len(results)==7 and all(row['passed'] for row in results) and evidence['sourceUnchanged']
+        evidence['completeSuite']=len(results)==11 and all(row['passed'] for row in results) and evidence['sourceUnchanged']
         (output/'results.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2)+'\n')
         (output/'rpc.jsonl').write_text((base/'harness-rpc.jsonl').read_text())
         if not evidence['completeSuite']: raise SystemExit(1)

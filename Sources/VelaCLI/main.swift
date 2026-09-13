@@ -18,7 +18,8 @@ func emit(_ object: Any) {
 func fail(_ message: String) -> Never { fputs("Vela: \(message)\n", stderr); exit(1) }
 
 final class Router {
-    static let controlMethods: Set<String> = ["loops.get","loops.list","loops.cancel","ask.get","ask.list","ask.cancel","ask.citations"]
+    static let controlMethods: Set<String> = ["loops.get","loops.list","loops.cancel","ask.get","ask.list","ask.cancel","ask.citations",
+        "replay.get","replay.list","replay.cancel","replay.fixtures.get","replay.fixtures.list","replay.fixtures.forget","replay.fixtures.prune"]
     let store: VelaStore
     let foundation: FoundationService
     let automation: AutomationService
@@ -43,7 +44,10 @@ final class Router {
     }
     func call(_ method: String, _ params: JSON) throws -> Any {
         guard method.count < 100, params.count < 80 else { throw VelaError("Invalid request") }
-        if Self.controlMethods.contains(method) { return try controlAutomation.handle(method,params) ?? [:] }
+        if Self.controlMethods.contains(method) {
+            guard let result = try controlAutomation.handle(method,params) else { throw VelaError("Unsupported control method") }
+            return result
+        }
         switch method {
         case "reuse.preview":
             var input = params
@@ -283,7 +287,7 @@ do {
                 emit(response); continue
             }
             pending.enter()
-            let automationMethods = ["workflows.","runs.","improve.","lab.","reuse.","daemon.","schedules.","watches.","approvals.","inbox.","outputs.","connectors.","evidence.","ask.","loops."]
+            let automationMethods = ["workflows.","runs.","improve.","lab.","reuse.","daemon.","schedules.","watches.","approvals.","inbox.","outputs.","connectors.","evidence.","ask.","loops.","replay."]
             let queue = isControl ? controlQueue : !isMCP && method == "history.advance" ? historyQueue : !isMCP && method == "usage.quota.read" ? providerQueue : (!isMCP && automationMethods.contains(where:method.hasPrefix) ? automationQueue : foundationQueue)
             queue.async {
                 defer { pending.leave(); capacity.signal() }

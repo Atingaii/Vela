@@ -19,11 +19,12 @@
 | 归档与 SDK | 有界 JSON 导出/校验/候选导入、跨项目身份与幂等；可安装 TypeScript/Python 本地 SDK，含语义接口 | 归档为明文，排除 private/global。SDK 安装产物已隔离验收；本地归档不等于加密跨设备同步 |
 | 可选 Walrus 后端 | 独立TypeScript包、固定官方SDK、显式profile/隔离worker、owner交易准备/签名核验、端侧manifest与原文恢复/候选构造 | 真实安装包、公开兼容性与testnet只读交易模拟已通过；官方faucet限流，测试地址无gas。真实加密写入/恢复与owner/delegate链上提交仍待验证；模拟不是链上成功，不默认给桌面增加Node |
 | OpenClaw集成 | 可选独立插件、宿主agent/workspace映射、namespace召回、候选捕获、注入框与持久操作日志 | 真实隔离宿主加载/CLI/hook与完整会话通过；模型响应使用本地合成provider。两条新记忆均为候选，不等于真实模型采纳或远端加密写入。自动捕获默认关闭，远端提取另需明确明文接收与预算 |
-| 模型记忆中间件 | 独立可选TypeScript AI SDK v4包；精确scope召回、受限注入、完整终态才捕获候选、取消/不确定回执 | 真实安装AI SDK与loopbackHTTP/SSE的17项及基础TS12项通过，GitHub独立任务已复验；Python与remote analyze仍在后续切片，不代表真实模型质量 |
+| 模型记忆中间件 | 独立可选TypeScript AI SDK v4与Python Responses包；精确scope召回、受限注入、完整终态才捕获候选、取消/不确定回执 | AI SDK安装17项及基础TS12项通过；Python Responses修后安装30项、基础SDK12项与旧wheel兼容1项通过；独立四入口复核通过。均为真实SDK与loopbackHTTP/SSE，不代表真实模型质量；LangChain与remote analyze仍待完成 |
 | Checkpoint / Reuse | 用户工程记录及真实 Git 快照；中立交接；项目 Codex SessionStart Hook 的预览、Apply/Undo 与提供上下文收据 | 原生 Session Transfer、更多官方 lifecycle hooks 和完整真实下一会话闭环仍需验证。收据证明已提供，不证明模型遵守 |
 | Workflow Context | 已选择 Guideline、Active Memory、只读 Git/Library/stdin/literal 输入，冻结来源/hash；显式 `{{vela.prompt}}` 参数实际交给 Agent | 旧 raw argv 不被静默改写。记录 prompt 消费路径不等于证明模型采纳约束 |
 | 自然语言规划 | 明确选择 Codex 程序/模型/effort，冻结请求，经审批生成问题或默认停用草案，再显式保存 | 真实提供方已产出有效草案；规划工具目录仍需拓展，与自主多轮工具执行是不同能力 |
 | 执行与组合 | 工具步骤、Markdown版本、Dry Run、逐工具审批；冻结pipeline/子工作流、条件透传、子输入、根产物文件/Inbox；审阅后克隆/启停/归档/恢复 | 四项独立恢复/并发反例已修后通过，历史证据保留。完整双版本Replay与更多工具仍按台账推进 |
+| 历史输入Replay | 显式同意保留fixture、两保存模板版本的独立审批/最多两次模型调用、输出差异、取消、到期与分页清理；A/B使用同一已核hash原生入口副本 | 24项定点、两独立CLI fixture和普通/饱和RPC控制通过；0真实模型调用，语义效果保持未知。当前只支持单contextual agent.run；组合回放、解释器包装兼容与桌面入口仍未关闭 |
 | 模型工具循环 | 有界多轮结构化决策、真实只读工具结果回传、外部动作独立排队审批、响应式查询/取消 | 真实Codex两轮+一次Git读取通过；同RPC普通/饱和队列取消通过。工具覆盖、全部账户、严格成本预算等仍未完成，初始循环审批不授权外部写 |
 | 外部工具 | 可选 Composio v3.1：Keychain 凭据、分页发现、固定版本 schema/账户、审批后执行、连接/撤销等动作、`connector.call` 步骤 | 无凭据真实 HTTPS 拒绝路径已测；尚无真实测试账户正向执行证据。结果不确定不重试；失败回包不证明无部分副作用，已知凭据回显在入库前拒绝 |
 | Improve | 保留确定性检测；新增三阶段模型提取/聚类/规划，最多三次审批内调用、原消息证据、五类候选载体、带 hash 的审阅与 Apply/Undo | 真实提供方三阶段协议与候选链通过，候选未自动应用。尚不能证明真实项目纠错率改善或所有治理诊断覆盖 |
@@ -39,11 +40,9 @@
 
 先前提交 `ea8fbd257f813c604a93e070d5f98a6337829d81` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34715619455)为历史基线：99 项 XCTest、24 组 renderer 检查。先前 1,453,375 bytes 开发包也只是该阶段产物，不能作为新增能力的包体或界面验证结果。更早的原生、Lab、私有检索、通知拒绝与失败复现保留于 verification 文档，不以新测试覆盖删除历史问题。
 
-新增开发检查点 `b94707f` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34742282084)中，SDK/OpenClaw独立安装任务通过；真正XCTest执行334项但出现158次断言失败，后续界面/打包步骤跳过。157次来自测试helper与portable运行器对`XCTUnwrap`异常计数的差异，另1次额度洪泛错误分类仍在核对。已修运行器及helper并保留旧反例；旧334项portable通过不能推广为XCTest验收。该检查点仍未通过整体CI。
+最新正式检查点 `93486e3` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34744216705)通过354项XCTest（0失败）、RPC/能力合同、原renderer验收与SDK/AI SDK/OpenClaw安装任务。整条CI仍失败：文件Watch界面缺少来源选择器，打包步骤跳过。此前的断言兼容层、Watch首tick一致性及额度重复扫描问题均保留原失败和修后证据于[验证记录](verification.md#hosted-checkpoint-correction)，不把旧失败删除或改标成功。
 
-第二轮纠正提交 `cf00a48` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34742860219)仍未通过：334项XCTest执行后仅文件Watch离线重启方法有2次断言失败（首次tick未派发）；157次异常计数问题已消除，额度9项本轮通过。SDK/OpenClaw任务再次通过，后续界面与打包仍跳过。Watch重启问题正独立复现，不将单次复跑成功视为已解决。
-
-第三轮开发提交 `61bf8d7` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34743771288)执行353项XCTest，剩1次额度洪泛断言失败，明确返回timeout；会话计划和Watch已通过。SDK/AI SDK/OpenClaw安装任务全通过。额度长行处理现已改为只扫描新增字节，保持原字节界限和2秒测试预算；本机10项定点通过，待新的正式CI。
+后续冻结源码包含Replay与Python Responses合同，371项本地portable全过；冻结界面另通过11项工程流程与4项Ask消费者检查。它们不是新的正式XCTest结果，也不是已发布安装包。指定Antigravity模型完成文件Watch入口后，冻结第9版界面通过完整6项Library/Watch、11项工程和4项Ask检查；所有新增入口仍需原生客户端和新CI验收。
 
 本机为 Command Line Tools 环境，`swift build` 可用但缺 XCTest；`scripts/test-portable.py` 编译真实 Core 与原同步测试方法，使用小型断言兼容层，**不是 XCTest**。完整 Xcode/CI 使用 `swift test`。
 

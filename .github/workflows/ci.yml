@@ -44,6 +44,9 @@ jobs:
           python3 scripts/verify-knowledge-query.py --retrieval-mode library_fts --output output/parity/ci-knowledge-fts
           python3 scripts/test-loop-rpc-control.py --output output/parity/ci-loop-controls.json
           python3 scripts/test-loop-rpc-control.py --saturate --output output/parity/ci-loop-controls-saturated.json
+          python3 scripts/test-workflow-replay-rpc.py --output output/parity/ci-workflow-replay.json
+          python3 scripts/test-replay-rpc-control.py --output output/parity/ci-replay-controls.json
+          python3 scripts/test-replay-rpc-control.py --saturate --output output/parity/ci-replay-controls-saturated.json
       - name: Install isolated browser test dependencies
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.task-tmp/ci-browser
@@ -99,6 +102,8 @@ jobs:
             output/parity/ci-session-history.json
             output/parity/ci-session-plans.json
             output/parity/ci-loop-controls*.json
+            output/parity/ci-replay-controls*.json
+            output/parity/ci-workflow-replay.json
             output/parity/ci-knowledge-*/receipt.json
           if-no-files-found: ignore
           retention-days: 14
@@ -138,6 +143,10 @@ jobs:
         env:
           VELA_AI_TEST_OUTPUT: ${{ github.workspace }}/output/parity/ci-ai
         run: python3 scripts/test-ai-integrations.py
+      - name: Verify installed Python Responses wrappers with real helper and local HTTP
+        env:
+          VELA_PYTHON_AI_TEST_OUTPUT: ${{ github.workspace }}/output/parity/ci-python-ai
+        run: python3 scripts/test-python-ai-integrations.py
       - name: Install the pinned isolated OpenClaw host
         run: npm install --ignore-scripts --omit=optional --no-audit --no-fund --prefix .task-tmp/ci-openclaw openclaw@2026.9.4
       - name: Verify real host loading, CLI and hooks with local fixtures
@@ -157,5 +166,7 @@ jobs:
             output/parity/openclaw/*.log
             output/parity/ci-ai/*.json
             output/parity/ci-ai/*.log
+            output/parity/ci-python-ai/*.json
+            output/parity/ci-python-ai/*.log
           if-no-files-found: ignore
           retention-days: 14

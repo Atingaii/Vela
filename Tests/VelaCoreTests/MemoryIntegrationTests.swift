@@ -65,7 +65,7 @@ final class MemoryIntegrationTests: XCTestCase {
     func testAIIntegrationKeepsActualSourceAndRejectsUnknownWithoutWrites() throws {
         try fixture { project,store,service in
             let stats = try service.handle("memory.integration.stats",["project":project.path,"namespace":"main"])
-            XCTAssertEqual(stats["supportedIntegrations"] as? [String],["openclaw","ai-sdk-v4"])
+            XCTAssertEqual(stats["supportedIntegrations"] as? [String],["openclaw","ai-sdk-v4","openai-responses"])
             var args: JSON = ["project":project.path,"namespace":"main","integration":"invented","sourceID":"same-turn","records":[["id":"input","role":"user","content":"The project retains SQLite WAL for offline memory."]]]
             XCTAssertThrowsError(try service.handle("memory.integration.capture",args));XCTAssertEqual(try store.list("memory").count,0)
             args["integration"] = "ai-sdk-v4"
@@ -81,4 +81,21 @@ final class MemoryIntegrationTests: XCTestCase {
             XCTAssertEqual(intValue(other,"created"),1);XCTAssertFalse((other["ids"] as? [String])?.contains(id) == true)
         }
     }
+    func testResponsesCaptureRetainsIndependentProvenanceAndCandidateReview() throws {
+        try fixture { project,store,service in
+            let args: JSON = ["project":project.path,"namespace":"main","integration":"openai-responses","sourceID":"turn-1","records":[["id":"input","role":"user","content":"SQLite uses durable WAL for the selected project."]]]
+            let result = try service.handle("memory.integration.capture",args)
+            let id = try XCTUnwrap((result["ids"] as? [String])?.first)
+            let saved = try store.get("memory",id), item = try XCTUnwrap(saved)
+            let provenance = try XCTUnwrap(item["provenance"] as? JSON), identity = try XCTUnwrap(provenance["integrationIdentity"] as? JSON)
+            XCTAssertEqual(string(identity,"integration"),"openai-responses")
+            XCTAssertEqual(string(item,"state"),"candidate")
+            XCTAssertEqual(provenance["hostAuthenticatedByCore"] as? Bool,false)
+            let recall = try service.handle("memory.integration.recall",["project":project.path,"namespace":"main","query":"SQLite"])
+            XCTAssertTrue((recall["items"] as? [JSON])?.isEmpty == true)
+            let replay = try service.handle("memory.integration.capture",args)
+            XCTAssertEqual(intValue(replay,"skipped"),1)
+        }
+    }
+
 }

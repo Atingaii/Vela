@@ -1,6 +1,6 @@
 # ADR 0026: Optional model memory middleware / 可选模型记忆中间件
 
-- Status: Accepted for local TypeScript AI SDK v4; Python and reviewed remote analyze remain proposed
+- Status: Accepted for local TypeScript AI SDK v4 and Python Responses; LangChain and reviewed remote analyze remain proposed
 - Date: 2026-09-13
 - Scope: Optional TypeScript/Python packages, model input and candidate capture boundary
 
@@ -12,9 +12,9 @@ Walrus Memory 的公开集成在生成前取最后一条用户文本、召回记
 
 ## Decision / 决策
 
-新增可选 TypeScript `sdk/ai` 包，使用公开 `wrapLanguageModel` 和 `LanguageModelMiddleware`；新增独立 Python 集成包 `sdk/python-ai`，以公开 OpenAI Chat Completions 调用和 LangChain `Runnable` 组合封装模型。两个包只依赖各自所需的 SDK；Python 框架依赖按 extras 安装、延迟导入。它们不修改调用者模型对象，不替换类的私有方法，不新增服务器或 agent framework。
+新增可选 TypeScript `sdk/ai` 包，使用公开 `wrapLanguageModel` 和 `LanguageModelMiddleware`；独立 Python 集成包 `sdk/python-ai` 使用 OpenAI Python Responses 的公开 create、APIResponse 和 Stream 生命周期；LangChain `Runnable` 组合是下一独立切片。Python 首入口从最初计划的 Chat Completions 调整为 Responses，原因是本阶段明确选择官方当前 Responses 同步/异步/流式闭环，并按它的语义终态验收。两个包只依赖各自所需的 SDK；Python 框架依赖按 extras 安装、延迟导入。它们不修改调用者模型对象，不替换类的私有方法，不新增服务器或 agent framework。
 
-首个固定测试基线为 `ai 7.0.99`、`@ai-sdk/provider 4.0.14`、`@ai-sdk/openai 4.0.66`，Node >=22；Python `openai 3.13.0`、`langchain-core 1.6.3`、`langchain-openai 1.6.2`，Python >=3.10。这些是 2026-09-13 registry 查询及实际发布包类型读取的结果，TypeScript 组合已完成真实安装验证；Python 组合尚待实现与验证。AI SDK 当前公开中间件类型为 `specificationVersion: 'v4'`，该类型仍标为 experimental。Vela 先对固定版本完成真实安装/类型/运行测试；后续主版本必须重新验收，不能用 `any` 或宽松版本号宣称兼容。
+首个固定测试基线为 `ai 7.0.99`、`@ai-sdk/provider 4.0.14`、`@ai-sdk/openai 4.0.66`，Node >=22；Python `openai 3.13.0`、`langchain-core 1.6.3`、`langchain-openai 1.6.2`，Python >=3.10。这些是 2026-09-13 registry 查询及实际发布包类型读取的结果，TypeScript 与 Python OpenAI Responses 组合已完成真实安装验证；LangChain 组合尚待实现与验证。AI SDK 当前公开中间件类型为 `specificationVersion: 'v4'`，该类型仍标为 experimental。Vela 先对固定版本完成真实安装/类型/运行测试；后续主版本必须重新验收，不能用 `any` 或宽松版本号宣称兼容。
 
 当前 TypeScript binding 固定显式 project/namespace 与本地 helper/store；显式远端 profile 是后续独立接口，不在当前包中伪造支持。模型、provider 凭据和连接由应用传入。调用方必须声明模型接收方；中间件会把经筛选的记忆交给该模型，但不会把自报名称当作已经证明的网络接收方。可取得的公开 provider/model ID 或 OpenAI base URL 必须和冻结描述核对；不能检查的自定义模型会在 receipt 中明确 `recipientVerified: false`。该声明不取代应用自己的 provider/网络控制。
 
@@ -28,7 +28,9 @@ Walrus Memory 的公开集成在生成前取最后一条用户文本、召回记
 
 流式结果逐块转发，不积累完整模型输出；捕获依据模型流实际终态，不以获取 stream 对象当成功。调用者通过 AbortSignal 或 close 关闭本次 owned stream 和本次 helper；AI SDK 的下游 tee/iterator 提前退出未必取消 provider，不能把它等同于显式取消，保留原模型 client 所有权。取消表示本地停止消费；不能声称核心副作用或远端模型任务已回滚。模型的重试行为由应用配置，Vela 不新增重试；合成验收将 provider retry 设为 0。
 
-当前 Core `memory.integration.capture` 只接受明确的 `openclaw` 和 `ai-sdk-v4` 标识，写入实际 provenance；scoped stats 返回支持列表。SDK 导出冻结列表，AI 捕获在模型调用前核对 SDK/Core 支持。未知和旧来源组合明确拒绝，绝不降级标成 OpenClaw。名称是来源声明，不是宿主认证或 ACL。
+当前 Core `memory.integration.capture` 只接受明确的 `openclaw`、`ai-sdk-v4` 和 `openai-responses` 标识，写入实际 provenance；scoped stats 返回支持列表。SDK 导出冻结列表，AI 捕获在模型调用前核对 SDK/Core 支持。未知和旧来源组合明确拒绝，绝不降级标成 OpenClaw。名称是来源声明，不是宿主认证或 ACL。
+
+Python 在任何记忆 filter 前核对公开 client.base_url，并通过官方 with_options(base_url=冻结配置) 创建每次请求的客户端副本。真正发送只使用该副本，原 shared client 后续改址不改变本次请求；副本共享 HTTP transport，因此只关闭响应、不 close 副本或调用者 client。该保证仅绑定 SDK URL 配置，不将 DNS、重定向或自定义 transport 当作网络身份认证。同步 SDK 在 headers 到达前没有公共单次强制取消句柄：取消标记在 SDK 边界检查，已取得响应则关闭该响应；等待受每次请求 timeout 和调用者 SDK 重试策略限制，不能以关闭共享 client 冒充单次取消。异步传播 task cancellation 并释放响应/helper。完整终态捕获中的取消仍保留已提交写入的 uncertain 回执；stream EOF 分支也必须在 finally 中完成回执。详见 Python 包合同，不将某个 Python 迭代器被丢弃等同于资源已关闭。
 
 ## Alternatives / 取舍
 
@@ -39,10 +41,12 @@ Walrus Memory 的公开集成在生成前取最后一条用户文本、召回记
 
 ## Verification / 验证
 
-验收使用打包后的真实 consumer，不直接 import 源文件；执行实际 AI SDK `generateText/streamText`、OpenAI sync/async 和 LangChain `invoke/ainvoke/stream/astream`。模型服务为隔离 loopback HTTP/SSE 合成 provider，接收端核对实际请求中的同 namespace 引用、顺序/工具/附件保真及敏感/跨域负例。合成响应只证明宿主与协议路径，不构成真实模型质量证据。
+验收使用打包后的真实 consumer，不直接 import 源文件；执行实际 AI SDK `generateText/streamText`、OpenAI Responses sync/async；LangChain 下一步需要 `invoke/ainvoke/stream/astream`。模型服务为隔离 loopback HTTP/SSE 合成 provider，接收端核对实际请求中的同 namespace 引用、顺序/工具/附件保真及敏感/跨域负例。合成响应只证明宿主与协议路径，不构成真实模型质量证据。
 
-必须覆盖关闭捕获零写、完整终态 candidate、提前结束/失败零写、同 turn 重放幂等、流式背压与关闭、并发作用域隔离、过滤器拒绝/异常、未知格式拒绝、超限截断和错误脱敏。remote reviewed callback 独立测试接受/拒绝/未知结果、无隐式上传。安装计划和完整矩阵见 [接口合同](../implementation/model-memory-middleware-contract.md)。当前 TypeScript 的 17 项安装后真实宿主测试、12 项本地 SDK 兼容测试及 5 项 Core 定点已经通过，精确包和 helper SHA 见 `sdk/ai/VERIFICATION.md`。它们覆盖真实 HTTP/SSE、候选提交后响应丢失的 uncertain 回执和未发送重试；Core 定点在本机为 portable fallback，不能称为 XCTest。Python、远端 analyze 与外部模型质量仍待独立验收。
+必须覆盖关闭捕获零写、完整终态 candidate、提前结束/失败零写、同 turn 重放幂等、流式背压与关闭、并发作用域隔离、过滤器拒绝/异常、未知格式拒绝、超限截断和错误脱敏。remote reviewed callback 独立测试接受/拒绝/未知结果、无隐式上传。安装计划和完整矩阵见 [接口合同](../implementation/model-memory-middleware-contract.md)。当前 TypeScript 的 17 项安装后真实宿主测试、12 项本地 SDK 兼容测试及 5 项 Core 定点已经通过，精确包和 helper SHA 见 `sdk/ai/VERIFICATION.md`。它们覆盖真实 HTTP/SSE、候选提交后响应丢失的 uncertain 回执和未发送重试；Core 定点在本机为 portable fallback，不能称为 XCTest。Python Responses 已通过 30 项安装后的 HTTP/SSE 集成、12 项基础 SDK 兼容、1 项真实旧 wheel 兼容；最终包和源码固定 helper 见 `sdk/python-ai/VERIFICATION.md`。新增 Core 来源的 6 项定点使用 portable fallback。LangChain、远端 analyze 与外部模型质量仍待独立验收。
 
 ## English summary
 
-The implemented optional TypeScript package uses public AI SDK v4 middleware; Python OpenAI/LangChain composition remains proposed, with pinned host versions verified before broader compatibility claims. Explicit scope and model recipients, extensible text filters, bounded untrusted framing, default-off candidate capture, terminal-stream handling and reviewed remote analysis preserve Vela's memory boundary. Existing model objects are never monkeypatched. Installed TypeScript package tests exercise real AI SDK requests to a synthetic loopback provider and actual helper reads/candidate writes. Python, model quality and remote encrypted persistence require separate implementation and evidence.
+The implemented optional TypeScript package uses public AI SDK v4 middleware; Python OpenAI Responses composition is also implemented, while LangChain remains proposed, with pinned host versions verified before broader compatibility claims. Explicit scope and model recipients, extensible text filters, bounded untrusted framing, default-off candidate capture, terminal-stream handling and reviewed remote analysis preserve Vela's memory boundary. Existing model objects are never monkeypatched. Installed TypeScript package tests exercise real AI SDK requests to a synthetic loopback provider and actual helper reads/candidate writes. LangChain, model quality and remote encrypted persistence require separate implementation and evidence.
+
+独立消费者复核要求：预检尝试与 SDK dispatch 分开计数，网络请求/重试次数未知时为 null；已提交 capture 后若成功 ack 的语义/ID/namespace 结构无法验证，结果必须为 uncertain，不能报告确定失败且无副作用。原 v4 包的两个 endpoint 负例、零请求误计数及已 commit 畸形 ack 负例均保留，修后按真实安装包重新验收。

@@ -27,6 +27,19 @@ class SDKTests(unittest.TestCase):
         self.assertEqual(reopened.integration_stats("main")["observedRecords"], 0)
         self.assertEqual(reopened.recall_integration("researcher", "SQLite")["items"], [])
 
+    def test_responses_source_is_explicit_and_unknown_source_has_zero_writes(self):
+        client = self.client()
+        client.register_project(str(self.project))
+        records = [{"id": "user", "role": "user", "content": "SQLite Responses captures remain reviewable observations."}]
+        with self.assertRaises(VelaError) as error:
+            client.capture_integration("main", "turn", records, integration="invented")
+        self.assertEqual(error.exception.code, "invalid_input")
+        self.assertEqual(client.list_memories(), [])
+        client.capture_integration("main", "turn", records, integration="openai-responses")
+        item = client.list_memories()[0]
+        self.assertEqual(item["state"], "candidate")
+        self.assertEqual(item["provenance"]["integrationIdentity"]["integration"], "openai-responses")
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="vela-python-sdk-")
         self.root = Path(self.temporary.name)

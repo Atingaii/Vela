@@ -232,6 +232,10 @@ class Bridge:
             approval = next((a for a in self.rpc('inbox.list', {}) if a['id'] == params.get('id')), None)
             if not approval or approval.get('project') not in self.fixture['projects']:
                 raise ValueError('Unknown fixture approval.')
+            if params.get('decision') == 'reject':
+                # Explicit rejection cannot invoke the reviewed tool. Keep the
+                # fixture-project identity gate, including for seeded commands.
+                return self.rpc(method, params)
             tool, arguments = approval.get('tool'), approval.get('arguments', {})
             if tool == 'knowledge.answer':
                 query = self.rpc('ask.get', {'id': arguments.get('askId'), 'project': approval['project']})

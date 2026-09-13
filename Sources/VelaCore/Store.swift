@@ -354,6 +354,17 @@ public final class VelaStore {
     }
     // Workflow management enumerates identities without opening every asset.
     // One malformed Markdown file must not hide all other validation results.
+    // Replay cleanup reads identities only, after filtering the exact retained
+    // fixture. Unrelated newer rows cannot hide a payload from deletion.
+    func replayPayloadIDs(fixtureId: String, project: String, limit: Int = 129) throws -> [String] {
+        lock.lock(); defer { lock.unlock() }; try validateIdentifier(fixtureId)
+        return try select("SELECT json_object('id',p.id) FROM objects m JOIN objects p ON p.kind='replay_payload' AND p.id=m.id AND p.project=m.project WHERE m.kind='replay' AND m.project=? AND json_extract(m.json,'$.fixtureId')=? ORDER BY p.id LIMIT ?",[canonicalProject(project),fixtureId,max(1,min(limit,129))]).map { string($0,"id") }
+    }
+    func replayFixturePage(project: String, after: String = "", limit: Int = 33) throws -> [JSON] {
+        lock.lock(); defer { lock.unlock() }
+        if !after.isEmpty { try validateIdentifier(after) }
+        return try select("SELECT json_object('id',id,'project',project,'state',json_extract(json,'$.state'),'expiresAt',json_extract(json,'$.expiresAt')) FROM objects WHERE kind='replay_fixture' AND project=? AND id>? ORDER BY id LIMIT ?",[canonicalProject(project),after,max(1,min(limit,33))])
+    }
     func workflowIdentities(project: String, after: String = "", limit: Int = 100) throws -> [JSON] {
         lock.lock(); defer { lock.unlock() }
         return try select("SELECT json_object('id',id,'title',title,'project',project,'state',json_extract(json,'$.state'),'version',json_extract(json,'$.version'),'enabled',json_extract(json,'$.enabled')) FROM objects WHERE kind='workflow' AND project=? AND id>? ORDER BY id LIMIT ?",[canonicalProject(project),after,max(1,min(limit,1001))])

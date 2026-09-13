@@ -38,6 +38,7 @@ public final class AutomationService {
         case "watches.get": return try watchDetails(params)
         case "watches.preview": return try previewWatch(params)
         case "workflows.replay": return try replay(params)
+        case "replay.describe","replay.fixtures.inspect","replay.fixtures.capture","replay.fixtures.get","replay.fixtures.list","replay.fixtures.forget","replay.fixtures.prune","replay.create","replay.get","replay.list","replay.cancel","replay.review","replay.results": return try handleWorkflowReplay(method,params)
         case "ask.describe","ask.create","ask.followup","ask.get","ask.list","ask.cancel","ask.citations": return try handleKnowledgeQuery(method,params)
         case "loops.describe": return ["protocol":AgentLoop.protocolVersion,"builtinTools":try AgentLoop.builtinIDs.map(AgentLoop.builtin),"connectorAccess":"queued_approval_only"]
         case "loops.plan": return try createAgentLoop(params)
@@ -404,6 +405,7 @@ public final class AutomationService {
             return ["exitCode":0,"output":"Wrote \(string(arguments,"path"))","journalId":string(journal,"id"),"durationMs":Int(Date().timeIntervalSince(began)*1000)]
         case "lab.execute": return try executeEvaluation(arguments)
         case "knowledge.answer": return try executeKnowledgeQuery(arguments,project:project)
+        case "workflow.replay.execute": return try executeWorkflowReplay(arguments,project:project)
         case "agent.loop": return try executeAgentLoop(arguments,project:project)
         case "workflow.plan.execute": return try executeWorkflowPlan(arguments,project:project)
         case "improve.model.execute": return try executeModelImprovement(arguments,project:project)

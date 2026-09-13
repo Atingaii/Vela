@@ -588,6 +588,322 @@
       "existingAccountsUsed": false,
       "temporaryFilesRemoved": true,
       "qualification": "Four runs per synthetic mode on this host; diagnostic range, not a performance guarantee or final packaged benchmark."
+    },
+    {
+      "id": "hosted-quota-linear-93486e3",
+      "commit": "93486e3a90e4dcb9fe8df56e4ecb7b178f1514c6",
+      "workflowRun": 34744216705,
+      "workflowURL": "https://github.com/Atingaii/Vela/actions/runs/34744216705",
+      "actualXCTestMethods": 354,
+      "assertionFailures": 0,
+      "unexpectedFailures": 0,
+      "coreStatus": "passed",
+      "installedSDKJob": "passed",
+      "macOSJob": "failed",
+      "failure": "File-Watch renderer selector #wf-watch-source is not implemented in this commit.",
+      "packaging": "skipped",
+      "localLog": "output/parity/ci-checkpoint-93486e3/macos-xctest.log",
+      "logSHA256": "15ff79a7dd3f06781ae11df5814ce6d151543e9b52d57dcaa531e73657af2ac7",
+      "qualification": "Frozen committed Core only; overall CI failed. Ongoing Replay, Python Responses and newer UI sources are outside this checkpoint."
+    },
+    {
+      "id": "core-round8",
+      "localReceipt": "output/parity/core-round8-snapshot.json",
+      "receiptSHA256": "20bbd523507fcfb9d495b301d05bfb200b644366399d337eccacad27b906a232",
+      "passed": true,
+      "snapshotSHA256": "5817144514a9237d174bf13efbeff91ab5766763bae3f3886642bcf6373b3aa1",
+      "runnerSHA256": "792d9c7648c18d86966a80327d28872fea02c1816963ae56d7df74bd6e691fa7",
+      "runner": "portable synchronous assertion compatibility layer; not XCTest",
+      "matchesWorkingTreeAtEnd": true,
+      "testMethods": 371,
+      "qualification": "Frozen Core/test snapshot only; portable fallback is not XCTest and UI sources were not accepted by this check."
+    },
+    {
+      "id": "engineering-ui-round8b",
+      "localReceipt": "output/playwright/engineering-after-r8b/results.json",
+      "receiptSHA256": "c66c569343adde66d56d8e04ec29ee632b072d990caecde63f61002da7fcc2a9",
+      "completeSuite": true,
+      "sourceUnchanged": true,
+      "helperSHA256": "c004d1901d36582af6fcf34b7dac912567e02dcfbecd0783504a190a8673bac8",
+      "checks": [
+        {
+          "name": "setup-real-source-change-history-and-diff",
+          "passed": true
+        },
+        {
+          "name": "setup-history-pagination-retains-comparison-and-oldest-version",
+          "passed": true
+        },
+        {
+          "name": "setup-secret-rotation-explained-without-secret-content",
+          "passed": true
+        },
+        {
+          "name": "setup-secondary-actions-menu-keyboard-and-dismissal",
+          "passed": true
+        },
+        {
+          "name": "workflow-stale-review-rejected-and-explicit-clone",
+          "passed": true
+        },
+        {
+          "name": "workflow-archive-restore-and-readonly-validation",
+          "passed": true
+        },
+        {
+          "name": "workflow-empty-active-list-can-find-and-restore-archive",
+          "passed": true
+        },
+        {
+          "name": "ask-empty-retrieval-never-starts-provider",
+          "passed": true
+        },
+        {
+          "name": "ask-explicit-approval-actual-answer-and-exact-citations",
+          "passed": true
+        },
+        {
+          "name": "ask-followup-new-approval-and-cancel-without-call",
+          "passed": true
+        },
+        {
+          "name": "loop-reviewed-capabilities-and-cancel-before-execution",
+          "passed": true
+        }
+      ],
+      "qualification": "Frozen Antigravity UI and synthetic real helper; no native dialog or file-Watch acceptance.",
+      "sourceSHA256": {
+        "app.js": "8dbfc9d15a741627deb66b32b4abde7149acbe0751fa0dea388f312acd273496",
+        "i18n.js": "8eb539eebb42c87df9b3636a13cf5e8f9317ffe39789b5f0b43e9ab8f22b8af0",
+        "app.css": "5f3bc5c6e39bd24a39e847b81ea8ab4e20f88ac71bb7f014c25af8eb661f7fc8",
+        "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458"
+      }
+    },
+    {
+      "id": "ask-history-ui-round8",
+      "localReceipt": "output/playwright/ask-history-after-r8/results.json",
+      "receiptSHA256": "ab8d52b2831d3f3d444789738bcd8ae7bbb2f8997d09501fbcbfd231f963e7dd",
+      "completeSuite": true,
+      "sourceUnchanged": true,
+      "helperSHA256": "c004d1901d36582af6fcf34b7dac912567e02dcfbecd0783504a190a8673bac8",
+      "checks": [
+        {
+          "name": "history-return-preserves-new-input",
+          "passed": true
+        },
+        {
+          "name": "approval-reviews-frozen-input",
+          "passed": true
+        },
+        {
+          "name": "followup-preserves-frozen-scope",
+          "passed": true
+        },
+        {
+          "name": "followup-reviews-frozen-history",
+          "passed": true
+        }
+      ],
+      "qualification": "Frozen Antigravity UI and synthetic real helper; no native dialog or file-Watch acceptance.",
+      "sourceSHA256": {
+        "app.js": "8dbfc9d15a741627deb66b32b4abde7149acbe0751fa0dea388f312acd273496",
+        "i18n.js": "8eb539eebb42c87df9b3636a13cf5e8f9317ffe39789b5f0b43e9ab8f22b8af0",
+        "app.css": "5f3bc5c6e39bd24a39e847b81ea8ab4e20f88ac71bb7f014c25af8eb661f7fc8",
+        "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+        "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+        "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058"
+      }
+    },
+    {
+      "id": "replay-control-final",
+      "localReceipt": "output/parity/replay-control-final.json",
+      "receiptSHA256": "a4851a25bb64ad3a023e04afdf5704bcbd7d03224ae4445f2e305b3e6bdaba4b",
+      "status": "pass",
+      "frozenHelperSHA256": "c004d1901d36582af6fcf34b7dac912567e02dcfbecd0783504a190a8673bac8",
+      "helperUnchanged": true,
+      "temporaryFixturesRemoved": true,
+      "realModelCalls": 0,
+      "businessToolCalls": 0,
+      "checks": [
+        {
+          "action": "cancel",
+          "status": "pass",
+          "ordinaryRequests": 0,
+          "allMetadataBeforeProviderRelease": true,
+          "controlBeforeProviderRelease": true,
+          "state": "cancelled",
+          "providerInvocations": 1,
+          "processExited": true
+        },
+        {
+          "action": "forget",
+          "status": "pass",
+          "ordinaryRequests": 0,
+          "allMetadataBeforeProviderRelease": true,
+          "controlBeforeProviderRelease": true,
+          "state": "executing",
+          "providerInvocations": 1,
+          "processExited": true
+        }
+      ],
+      "qualification": "Actual one-connection RPC controls with a native barrier fixture; no real provider or business tool."
+    },
+    {
+      "id": "replay-control-saturated-final",
+      "localReceipt": "output/parity/replay-control-saturated-final.json",
+      "receiptSHA256": "7e0e7c151a6aedf4028c8060ab2c918a4337c878992af6b764bcf5af3278418b",
+      "status": "pass",
+      "frozenHelperSHA256": "c004d1901d36582af6fcf34b7dac912567e02dcfbecd0783504a190a8673bac8",
+      "helperUnchanged": true,
+      "temporaryFixturesRemoved": true,
+      "realModelCalls": 0,
+      "businessToolCalls": 0,
+      "checks": [
+        {
+          "action": "cancel",
+          "status": "pass",
+          "ordinaryRequests": 32,
+          "allMetadataBeforeProviderRelease": true,
+          "controlBeforeProviderRelease": true,
+          "state": "cancelled",
+          "providerInvocations": 1,
+          "processExited": true
+        },
+        {
+          "action": "forget",
+          "status": "pass",
+          "ordinaryRequests": 32,
+          "allMetadataBeforeProviderRelease": true,
+          "controlBeforeProviderRelease": true,
+          "state": "executing",
+          "providerInvocations": 1,
+          "processExited": true
+        }
+      ],
+      "qualification": "Actual one-connection RPC controls with a native barrier fixture; no real provider or business tool."
+    },
+    {
+      "id": "python-responses-installed-v4",
+      "localReceipt": "sdk/python-ai/evidence/installed-v4/package-results.json",
+      "receiptSHA256": "713d173ae6ef64615331bc2d02f743b71b9c86a741faa4a026b0441d04859895",
+      "helperSHA256": "af5bdfd282ab8a69e21c67b5a8d750c880018d1451096b23367f6ccf104212d0",
+      "testsPassed": 24,
+      "baseSDKCompatibilityTests": 12,
+      "actualOpenAIPython": "3.13.0",
+      "packages": [
+        {
+          "name": "vela_engineering-0.1.0.dev1-py3-none-any.whl",
+          "sha256": "5d91784970fdf32c76bcce7e5ffabab52e702df8bbf5ef580e98a1e8d74dd77e",
+          "bytes": 12335
+        },
+        {
+          "name": "vela_engineering_ai-0.1.0.dev1-py3-none-any.whl",
+          "sha256": "c2628ce40aa82f23ef62d453feba9340e64b74a0b4860226cae73657e1e54df5",
+          "bytes": 18367
+        }
+      ],
+      "legacySDKCompatibility": {
+        "state": "passed",
+        "testsPassed": 1,
+        "packageSHA256": "964752ffb5ecf3ee708345e9b76a32ded455fcabe712ace4651cf4d2a7bb3ce9"
+      },
+      "qualification": "Installed Responses/base wheels with pinned actual OpenAI Python 3.13.0 and loopback HTTP/SSE; real model quality and remote memory not tested. Later independent review confirmed endpoint TOCTOU, preflight dispatch miscount, and malformed capture-ack uncertainty loss; this historical test pass is not acceptance of that wheel.",
+      "supersededBy": "python-responses-installed-v6"
+    },
+    {
+      "id": "python-responses-installed-v6",
+      "localReceipt": "sdk/python-ai/evidence/installed-v6/package-results.json",
+      "receiptSHA256": "62a0c1e71a46125daf044035e8322f84fed569ac7b9f4ee0005f94c2679b3439",
+      "helperSHA256": "af5bdfd282ab8a69e21c67b5a8d750c880018d1451096b23367f6ccf104212d0",
+      "testsPassed": 30,
+      "baseSDKCompatibilityTests": 12,
+      "actualOpenAIPython": "3.13.0",
+      "packages": [
+        {
+          "name": "vela_engineering-0.1.0.dev1-py3-none-any.whl",
+          "sha256": "5d7435e54bf444a55da206f10208a54e28d7222f6de33a5c2cee54f59a51d165",
+          "bytes": 12335
+        },
+        {
+          "name": "vela_engineering_ai-0.1.0.dev1-py3-none-any.whl",
+          "sha256": "02a4824af5b169949c1345090cbd7eb3d3026f41d6348ab0837bda515ef54430",
+          "bytes": 19038
+        }
+      ],
+      "legacySDKCompatibility": {
+        "state": "passed",
+        "testsPassed": 1,
+        "packageSHA256": "964752ffb5ecf3ee708345e9b76a32ded455fcabe712ace4651cf4d2a7bb3ce9"
+      },
+      "independentReview": {
+        "entryPoints": 4,
+        "matrix": "sync/async create/stream",
+        "approvedEndpointRequestsPerEntry": 1,
+        "mutatedEndpointRequestsDuringTurn": 0,
+        "preflightRejectionsPerEntry": 2,
+        "preflightSDKDispatches": 0,
+        "committedCandidateBeforeMalformedAck": true,
+        "captureState": "uncertain",
+        "effectsUnknown": true,
+        "sharedTransportStillUsableAfterClose": true,
+        "additionalInstalledRegressionTests": 6
+      },
+      "qualification": "Frozen installed wheel and actual OpenAI Python 3.13.0; loopback HTTP/SSE and real isolated helper. Network attempts, redirect/DNS identity, custom transport identity and real model quality are not established."
+    },
+    {
+      "id": "library-watch-r9",
+      "localReceipt": "output/playwright/library-watch-r9/results.json",
+      "receiptSHA256": "9fe67e1c56a0f9c60b5ff012c00de523a4078ba5efd1232bb94379443756e3a0",
+      "completeSuite": true,
+      "checksPassed": 6,
+      "sourceUnchanged": true,
+      "sourceSHA256": {
+        "app.js": "19268a905ceb3b1ad9d2845b6f36d8d55938678ebc4b3a4a16746167242db1d9",
+        "i18n.js": "8607de10af1c1244aafe9dc0412f95ff34f3500cc10c393a9cfdd63c21ce49dd",
+        "app.css": "62dca6af1c5a11fb240222b914e37a205b7372e7a97a49d3ad45ff22eaff33d2",
+        "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+        "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+        "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058"
+      },
+      "helperSHA256": "c004d1901d36582af6fcf34b7dac912567e02dcfbecd0783504a190a8673bac8",
+      "realProviderExecuted": false,
+      "qualification": "Actual renderer plus isolated frozen CLI; synthetic source data. Browser verification does not establish native controls or release-package acceptance."
+    },
+    {
+      "id": "engineering-r9",
+      "localReceipt": "output/playwright/engineering-r9/results.json",
+      "receiptSHA256": "94068de8a0696a80160ea93ba29beb7ddb36da9f34471bad7556734e725d7d39",
+      "completeSuite": true,
+      "checksPassed": 11,
+      "sourceUnchanged": true,
+      "sourceSHA256": {
+        "app.js": "19268a905ceb3b1ad9d2845b6f36d8d55938678ebc4b3a4a16746167242db1d9",
+        "i18n.js": "8607de10af1c1244aafe9dc0412f95ff34f3500cc10c393a9cfdd63c21ce49dd",
+        "app.css": "62dca6af1c5a11fb240222b914e37a205b7372e7a97a49d3ad45ff22eaff33d2",
+        "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458"
+      },
+      "helperSHA256": "c004d1901d36582af6fcf34b7dac912567e02dcfbecd0783504a190a8673bac8",
+      "realProviderExecuted": false,
+      "qualification": "Actual renderer plus isolated frozen CLI; synthetic source data. Browser verification does not establish native controls or release-package acceptance."
+    },
+    {
+      "id": "ask-r9",
+      "localReceipt": "output/playwright/ask-r9/results.json",
+      "receiptSHA256": "a3b7dd952bcb862162e2519085a464e6a6a40bbce63610f4083c4ea86b4d42ed",
+      "completeSuite": true,
+      "checksPassed": 4,
+      "sourceUnchanged": true,
+      "sourceSHA256": {
+        "app.js": "19268a905ceb3b1ad9d2845b6f36d8d55938678ebc4b3a4a16746167242db1d9",
+        "i18n.js": "8607de10af1c1244aafe9dc0412f95ff34f3500cc10c393a9cfdd63c21ce49dd",
+        "app.css": "62dca6af1c5a11fb240222b914e37a205b7372e7a97a49d3ad45ff22eaff33d2",
+        "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+        "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+        "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058"
+      },
+      "helperSHA256": "c004d1901d36582af6fcf34b7dac912567e02dcfbecd0783504a190a8673bac8",
+      "realProviderExecuted": false,
+      "qualification": "Actual renderer plus isolated frozen CLI; synthetic source data. Browser verification does not establish native controls or release-package acceptance."
     }
   ]
 }

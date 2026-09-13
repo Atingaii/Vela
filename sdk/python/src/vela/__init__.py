@@ -14,7 +14,10 @@ import threading
 import time
 from typing import Any, Literal, TypedDict
 
-__all__ = ["VelaClient", "AsyncVelaClient", "LocalTransport", "CandidateInput", "SemanticLanguage", "ScoringWeights", "VelaError", "VelaBulkError", "VelaCancelledError"]
+__all__ = ["VelaClient", "AsyncVelaClient", "LocalTransport", "CandidateInput", "SemanticLanguage", "ScoringWeights", "VelaError", "VelaBulkError", "VelaCancelledError", "MemoryIntegration", "MEMORY_INTEGRATIONS"]
+
+MemoryIntegration = Literal["openclaw", "openai-responses"]
+MEMORY_INTEGRATIONS: frozenset[str] = frozenset({"openclaw", "openai-responses"})
 
 SemanticLanguage = Literal["en", "zh-Hans"]
 
@@ -338,8 +341,10 @@ class VelaClient:
     def import_archive(self, archive: dict[str, Any], project: str | None = None, *, timeout: float | None = None) -> dict[str, Any]:
         return self._request("memory.archive.import", {"project": self._selected(project), "archive": archive}, True, timeout)
 
-    def capture_integration(self, namespace: str, source_id: str, records: list[dict[str, Any]], *, project: str | None = None, timeout: float | None = None) -> dict[str, Any]:
-        return self._request("memory.integration.capture", {"project": self._selected(project), "namespace": namespace, "integration": "openclaw", "sourceID": source_id, "records": records}, True, timeout)
+    def capture_integration(self, namespace: str, source_id: str, records: list[dict[str, Any]], *, project: str | None = None, timeout: float | None = None, integration: MemoryIntegration = "openclaw") -> dict[str, Any]:
+        if not isinstance(integration, str) or integration not in MEMORY_INTEGRATIONS:
+            raise VelaError("invalid_input")
+        return self._request("memory.integration.capture", {"project": self._selected(project), "namespace": namespace, "integration": integration, "sourceID": source_id, "records": records}, True, timeout)
 
     def recall_integration(self, namespace: str, query: str, *, project: str | None = None, budget: int = 2000, limit: int = 5, timeout: float | None = None) -> dict[str, Any]:
         return self._request("memory.integration.recall", {"project": self._selected(project), "namespace": namespace, "query": query, "budget": budget, "limit": limit}, False, timeout)
@@ -465,8 +470,8 @@ class AsyncVelaClient:
     async def import_archive(self, archive: dict[str, Any], project: str | None = None, **kwargs: Any) -> dict[str, Any]:
         return await self._run("import_archive", archive, project, **kwargs)
 
-    async def capture_integration(self, namespace: str, source_id: str, records: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
-        return await self._run("capture_integration", namespace, source_id, records, **kwargs)
+    async def capture_integration(self, namespace: str, source_id: str, records: list[dict[str, Any]], *, project: str | None = None, timeout: float | None = None, integration: MemoryIntegration = "openclaw") -> dict[str, Any]:
+        return await self._run("capture_integration", namespace, source_id, records, project=project, timeout=timeout, integration=integration)
 
     async def recall_integration(self, namespace: str, query: str, **kwargs: Any) -> dict[str, Any]:
         return await self._run("recall_integration", namespace, query, **kwargs)

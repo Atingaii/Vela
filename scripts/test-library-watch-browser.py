@@ -351,10 +351,41 @@ def main():
             identifier = workflow['id']
             assert workflow['trigger'] == 'watch' and workflow['watch']['source'] == source
             if source == 'files':
-                assert workflow['watch']['paths'] == ['src', 'README.md']
+                # The Core contract canonicalizes the set of watched roots.
+                assert workflow['watch']['paths'] == sorted(['src', 'README.md'])
                 assert workflow['watch']['recursive'] is True and workflow['watch']['ignore'] == ['**/cache/**', '*.tmp']
             else:
                 assert workflow['watch']['tool'] == 'git.status' and workflow['watch']['mode'] == 'output'
+            # Reload the persisted definition through the actual edit control.
+            # Source switching must preserve the draft, and saves must not mix
+            # file-specific and polling-specific fields.
+            click('.btn-wf-edit[data-id="' + identifier + '"]')
+            wait('!!document.querySelector("#wf-watch-source")', 'Watch source edit control absent')
+            assert value('document.querySelector("#wf-watch-source").value') == source
+            if source == 'files':
+                original_paths = value('document.querySelector("#wf-watch-paths").value')
+                original_ignore = value('document.querySelector("#wf-watch-ignore").value')
+                assert sorted(original_paths.splitlines()) == sorted(['src', 'README.md'])
+                assert original_ignore.splitlines() == ['**/cache/**', '*.tmp']
+                assert value('document.querySelector("#wf-watch-recursive").checked') is True
+                browser('select', '#wf-watch-source', 'tool')
+                browser('select', '#wf-watch-source', 'files')
+                assert value('document.querySelector("#wf-watch-paths").value') == original_paths
+                assert value('document.querySelector("#wf-watch-ignore").value') == original_ignore
+                checkbox('#wf-watch-recursive', False)
+            else:
+                assert value('document.querySelector("#wf-watch-every").value') == '30'
+                assert value('document.querySelector("#wf-watch-tool").value') == 'git.status'
+            browser('fill', '#wf-watch-debounce', '7')
+            click('#btn-save-wf')
+            wait('document.querySelector("#modal-container").classList.contains("hidden")', 'Edited Watch did not save')
+            edited = rpc('workflows.get', {'id': identifier, 'project': project})['definition']['watch']
+            assert edited['source'] == source and edited['debounceSeconds'] == 7
+            if source == 'files':
+                assert edited['recursive'] is False and edited['paths'] == workflow['watch']['paths']
+                assert not {'tool', 'mode', 'key', 'everySeconds'} & edited.keys(), edited
+            else:
+                assert not {'paths', 'recursive', 'ignore'} & edited.keys(), edited
             selector = '.btn-wf-preview-watch[data-id="' + identifier + '"]'
             wait('!!document.querySelector(' + json.dumps(selector) + ')', 'Watch preview row absent')
             click(selector)
@@ -379,6 +410,7 @@ def main():
             assert {row['id'] for row in rpc('runs.list', {})} == initial_runs
             assert {row['id'] for row in rpc('inbox.list', {})} == initial_approvals
             return {'workflowId': identifier, 'createdThroughUI': True, 'source': source,
+                    'editedThroughUI': True, 'persistedFieldsAndSourceSwitchVerified': True,
                     'previewMutated': False, 'newRuns': 0, 'newApprovals': 0,
                     'watchWatermarkCreated': False, 'enabledStatesVerified': [not enabled_before, enabled_before]}
         check('tool-watch', lambda: watch_journey('tool'))
