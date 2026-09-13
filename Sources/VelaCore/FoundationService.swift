@@ -32,6 +32,7 @@ public final class FoundationService {
         lock.lock(); defer { lock.unlock() }
         if let result = try memory.handle(method,params) { return result }
         if let result = try setup.handle(method,params) { return result }
+        if let result = try SessionPlanService.handle(method,params,store:store) { return result }
         switch method {
         case "dashboard.get":
             var dashboard: JSON = [:]
@@ -68,6 +69,10 @@ public final class FoundationService {
             return try store.sessionSummaries(project:checkedProject(params),query:query).map(sessionSummary)
         case "sessions.get":
             guard var session = try store.get("session",try requireString(params,"id")) else { throw VelaError("Session not found") }
+            let plan = try store.get("session_plan",string(session,"id")) ?? [:]
+            if plan.isEmpty || string(plan,"project") == string(session,"project") {
+                session["plan"] = SessionPlanProjection.visible(plan, provider:string(session,"provider"),historyTruncated:session["historyTruncated"] as? Bool == true)
+            }
             session.removeValue(forKey:"usageByMessage"); return inferredSession(session)
         case "usage.get": return try usage(params)
         default: return nil

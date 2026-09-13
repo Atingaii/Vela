@@ -83,3 +83,7 @@ SDK 固定关闭发现、监听和调度，不提供任意 shell/file/workflow �
 `captureIntegration(namespace, sourceID, records)` creates only candidate observations; `recallIntegration(namespace, query, parameters)` retrieves only active non-private records in that exact namespace and selected project. `integrationStats(namespace)` returns bounded observed counts and completeness. These local process methods do not authenticate a host or implement remote ACL. The optional OpenClaw plugin selects the namespace from trusted host context.
 
 中文：集成捕获只创建候选原文观察；普通项目召回与 namespace 召回隔离。宿主身份认证不是本地 SDK 的能力，OpenClaw 插件由可信宿主上下文决定 namespace。
+
+`recallIntegration(namespace, query, parameters)` and `integrationStats(namespace)` read the explicit project/namespace. `captureIntegration(namespace, sourceID, records, project?, options?)` writes candidates with a strict `options.integration` union: `openclaw` (compatible default) or `ai-sdk-v4`. `MEMORY_INTEGRATIONS` is a frozen capability list. Scoped Core statistics report `supportedIntegrations`; optional AI middleware checks both lists before model dispatch, never guesses support by writing. The integration name records provenance, not host authentication or an ACL.
+
+中文：集成捕获的来源只允许 OpenClaw 或 AI SDK v4，默认保持现有 OpenClaw 调用兼容。AI 中间件先核对 SDK 与 Core 的明确能力，再运行模型；未知标识在写入前拒绝。来源不代表宿主已经被认证，候选仍需审核激活。

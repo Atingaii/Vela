@@ -336,6 +336,42 @@
       "filter": [],
       "matchesWorkingTreeAtEnd": true,
       "scope": "Frozen b94707f Core plus corrected assertion support/test helpers; excludes next AI/Plan slices and UI. Not XCTest."
+    },
+    {
+      "id": "hosted-ci-cf00a48",
+      "commit": "cf00a48bd17efa24a9e86ac6fa39554e3bc594e4",
+      "url": "https://github.com/Atingaii/Vela/actions/runs/34742860219",
+      "status": "failed",
+      "xctestMethods": 334,
+      "xctestAssertionFailures": 2,
+      "xctestUnexpectedFailures": 0,
+      "failedMethod": "WorkflowFileWatchTests.testRestartReconcilesByteChangesWithoutInventingIntermediateEventsOrRepeatingOldDispatch",
+      "installedSDKJob": "passed",
+      "providerQuotaMethods": 9,
+      "providerQuotaFailures": 0,
+      "rendererAndPackageSteps": "skipped",
+      "localReceipt": "output/parity/ci-checkpoint-cf00a48/macos-xctest.log",
+      "receiptSHA256": "7aef44c4a4b96e93e78f8379cdc03126dee61193a159b8b5eeebe13d02e264ee"
+    },
+    {
+      "id": "ask-consumer-r6b",
+      "localReceipt": "output/playwright/ask-consumer-after-r6b/results.json",
+      "receiptSHA256": "9e65dc95216c122c0ebfa7ac0c16bbb530f33823d90d8136b2a6416bd586f65f",
+      "passedChecks": 3,
+      "completeSuite": true,
+      "frozenUI": {
+        "app.js": "21fd1cc0b275a36bad7de269c646042da14b298d5f95ac6437d24d686983d577",
+        "i18n.js": "3372c90fc4bca0ff3b484c03e10446b6f99f272a8a83b69572690d70905e54fb",
+        "app.css": "be0017eaa83e3970396cac9233187b4f72dd622a5dea9bc597f2b800b8025640",
+        "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+        "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+        "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058"
+      },
+      "helperSHA256": "3dd60c6dea13868ad2f5006152f6acaa417d493dc89516ef51301b0097628e1e",
+      "realProviderExecuted": false,
+      "syntheticProviderProcess": true,
+      "nativeDialogsTested": false,
+      "qualification": "The same labelled-control assertion still fails all three old-UI scenarios; the first revised-UI timeout check misread template whitespace and was corrected using its rendered labelled field."
     }
   ]
 }

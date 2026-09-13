@@ -42,7 +42,7 @@
 | B09 Running/Idle/Completed/Stopped/Error | O1/O2 已交付 | Claude/Codex 活动推断；Pi/OMP 仅明确 stopReason 终止态 | 五真实进程并发、停止/重启/中断/旧日志，不将推断视作进程存活 |
 | B10 待审批与完成提醒 | O1/O2 已交付 | `NotificationPolicy`、原生通知已实现；权限失败实测保留 | 真 macOS 授权、banner、点回准确会话；五 provider 的真实等待/完成事件 |
 | B11 工具调用及结果 | R2 B5/B9：报告描述 | Claude/Codex 常见工具；Pi/OMP 关联 toolCallId、name、结果和错误 | 起止时间、结果缺失/重排、并行 call、多个 tool 类型、完整参数显示 |
-| B12 Todo / 计划进度 | O2 已交付 | 无统一 Todo 存储/解析模型 | Codex/Claude 各事件→计划项→进度，不能从普通文本猜实际完成 |
+| B12 Todo / 计划进度 | O2 已交付 | `SessionPlanProjection`/`SessionPlanService`：Codex update_plan 与 Claude TodoWrite/四 Task 工具的已知调用/结构化结果→独立有界 ledger、确认计数及来源事件；CLI/会话详情可读。[合同](../implementation/session-plan-contract.md) | 普通正文/会话 Completed 不推导计划完成；提案、失败、未知与 provider 确认分开。完整 History 投影、全 provider/version（含未获官方合同的 Claude camelCase transcript）、完整 UI 仍待完成，不以此关闭 B12 全量验收 |
 | B13 子代理关系与状态 | R2 B9/O7：报告描述 | 工具文本可见；没有完整 parent/child 实体视图 | 子代理展开、父子独立状态、失败传播与去重 |
 | B14 标题/摘要/元数据生成 | O5 描述功能处理；R2 B9 补充 | 首条用户消息或源标题；无模型摘要生成 | 显式处理设置、来源标题保护、模型可用性与错误；生成结果不能充当事实 |
 | B15 手动改名、恢复/回写标题 | R2 B9：报告描述；公开交付 U | OMP/Pi 标题只读，尚无修改接口 | Vela 名称与 provider 原名分离；冻结写入、原格式验证、Undo |

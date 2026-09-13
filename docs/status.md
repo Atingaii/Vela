@@ -39,6 +39,8 @@
 
 新增开发检查点 `b94707f` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34742282084)中，SDK/OpenClaw独立安装任务通过；真正XCTest执行334项但出现158次断言失败，后续界面/打包步骤跳过。157次来自测试helper与portable运行器对`XCTUnwrap`异常计数的差异，另1次额度洪泛错误分类仍在核对。已修运行器及helper并保留旧反例；旧334项portable通过不能推广为XCTest验收。该检查点仍未通过整体CI。
 
+第二轮纠正提交 `cf00a48` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34742860219)仍未通过：334项XCTest执行后仅文件Watch离线重启方法有2次断言失败（首次tick未派发）；157次异常计数问题已消除，额度9项本轮通过。SDK/OpenClaw任务再次通过，后续界面与打包仍跳过。Watch重启问题正独立复现，不将单次复跑成功视为已解决。
+
 本机为 Command Line Tools 环境，`swift build` 可用但缺 XCTest；`scripts/test-portable.py` 编译真实 Core 与原同步测试方法，使用小型断言兼容层，**不是 XCTest**。完整 Xcode/CI 使用 `swift test`。
 
 ```sh

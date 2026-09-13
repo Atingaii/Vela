@@ -7437,6 +7437,39 @@
     }
 
     let activeTab = 'new';
+    let askTabGeneration = 0;
+    const newDraft = {
+      question: '',
+      searchQuery: '',
+      retrievalMode: 'lexical',
+      executable: '/usr/local/bin/codex',
+      model: 'gpt-5.6-sol',
+      effort: 'low',
+      maxSources: 8,
+      maxSourceBytes: 24000,
+      timeoutSeconds: 120
+    };
+
+    function saveNewDraft() {
+      const qInput = document.getElementById('ask-question-input');
+      if (qInput) newDraft.question = qInput.value;
+      const sInput = document.getElementById('ask-search-input');
+      if (sInput) newDraft.searchQuery = sInput.value;
+      const rSelect = document.getElementById('ask-retrieval-mode');
+      if (rSelect) newDraft.retrievalMode = rSelect.value;
+      const eInput = document.getElementById('ask-exec-input');
+      if (eInput) newDraft.executable = eInput.value;
+      const mInput = document.getElementById('ask-model-input');
+      if (mInput) newDraft.model = mInput.value;
+      const efSelect = document.getElementById('ask-effort-select');
+      if (efSelect) newDraft.effort = efSelect.value;
+      const msInput = document.getElementById('ask-max-sources');
+      if (msInput) newDraft.maxSources = parseInt(msInput.value, 10) || 8;
+      const mbInput = document.getElementById('ask-max-bytes');
+      if (mbInput) newDraft.maxSourceBytes = parseInt(mbInput.value, 10) || 24000;
+      const tInput = document.getElementById('ask-timeout');
+      if (tInput) newDraft.timeoutSeconds = parseInt(tInput.value, 10) || 120;
+    }
 
     const modalBody = `
       <div class="tabs-nav" style="margin-bottom: 12px;">
@@ -7463,6 +7496,7 @@
     closeBtn?.addEventListener('click', closeModal);
 
     tabNew?.addEventListener('click', () => {
+      if (activeTab === 'new') return;
       activeTab = 'new';
       tabNew.classList.add('active');
       tabHistory?.classList.remove('active');
@@ -7470,6 +7504,8 @@
     });
 
     tabHistory?.addEventListener('click', () => {
+      if (activeTab === 'history') return;
+      saveNewDraft();
       activeTab = 'history';
       tabHistory.classList.add('active');
       tabNew?.classList.remove('active');
@@ -7477,7 +7513,8 @@
     });
 
     async function renderActiveTab() {
-      if (!tabBody || currentModalInstance !== thisModalInstance) return;
+      const thisGen = ++askTabGeneration;
+      if (!tabBody || currentModalInstance !== thisModalInstance || state.currentProject !== currentProject) return;
 
       if (activeTab === 'new') {
         if (submitBtn) {
@@ -7500,39 +7537,39 @@
 
           <div class="form-group">
             <label class="form-label" data-i18n="ask.questionLabel">${escapeHtml(t('ask.questionLabel'))}</label>
-            <textarea id="ask-question-input" class="form-control" rows="3" maxlength="4000" data-i18n-placeholder="ask.questionPlaceholder" placeholder="${escapeHtml(t('ask.questionPlaceholder'))}"></textarea>
+            <textarea id="ask-question-input" class="form-control" rows="3" maxlength="4000" data-i18n-placeholder="ask.questionPlaceholder" placeholder="${escapeHtml(t('ask.questionPlaceholder'))}">${escapeHtml(newDraft.question || '')}</textarea>
           </div>
 
           <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px;">
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label" data-i18n="ask.searchQueryLabel">${escapeHtml(t('ask.searchQueryLabel'))}</label>
-              <input type="text" id="ask-search-input" class="form-control" maxlength="1000" />
+              <input type="text" id="ask-search-input" class="form-control" maxlength="1000" value="${escapeHtml(newDraft.searchQuery || '')}" />
             </div>
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label" data-i18n="ask.retrievalModeLabel">${escapeHtml(t('ask.retrievalModeLabel'))}</label>
               <select id="ask-retrieval-mode" class="form-select">
-                <option value="lexical" selected data-i18n="ask.modeLexical">${escapeHtml(t('ask.modeLexical'))}</option>
-                <option value="library_fts" data-i18n="ask.modeLibraryFts">${escapeHtml(t('ask.modeLibraryFts'))}</option>
+                <option value="lexical"${newDraft.retrievalMode === 'lexical' ? ' selected' : ''} data-i18n="ask.modeLexical">${escapeHtml(t('ask.modeLexical'))}</option>
+                <option value="library_fts"${newDraft.retrievalMode === 'library_fts' ? ' selected' : ''} data-i18n="ask.modeLibraryFts">${escapeHtml(t('ask.modeLibraryFts'))}</option>
               </select>
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-bottom: 10px;">
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label">Executable</label>
-              <input type="text" id="ask-exec-input" class="form-control" value="/usr/local/bin/codex" />
+              <label class="form-label" data-i18n="ask.colExecutable">${escapeHtml(t('ask.colExecutable'))}</label>
+              <input type="text" id="ask-exec-input" class="form-control" value="${escapeHtml(newDraft.executable || '/usr/local/bin/codex')}" />
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label">Model</label>
-              <input type="text" id="ask-model-input" class="form-control" value="gpt-5.6-sol" />
+              <label class="form-label" data-i18n="ask.colModel">${escapeHtml(t('ask.colModel'))}</label>
+              <input type="text" id="ask-model-input" class="form-control" value="${escapeHtml(newDraft.model || 'gpt-5.6-sol')}" />
             </div>
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label" data-i18n="loops.reasoningEffortLabel">${escapeHtml(t('loops.reasoningEffortLabel'))}</label>
               <select id="ask-effort-select" class="form-select">
-                <option value="low" selected>low</option>
-                <option value="medium">medium</option>
-                <option value="high">high</option>
-                <option value="xhigh">xhigh</option>
+                <option value="low"${newDraft.effort === 'low' ? ' selected' : ''}>low</option>
+                <option value="medium"${newDraft.effort === 'medium' ? ' selected' : ''}>medium</option>
+                <option value="high"${newDraft.effort === 'high' ? ' selected' : ''}>high</option>
+                <option value="xhigh"${newDraft.effort === 'xhigh' ? ' selected' : ''}>xhigh</option>
               </select>
             </div>
           </div>
@@ -7542,15 +7579,15 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 8px;">
               <div class="form-group" style="margin-bottom: 0;">
                 <label class="form-label" data-i18n="ask.maxSourcesLabel">${escapeHtml(t('ask.maxSourcesLabel'))}</label>
-                <input type="number" id="ask-max-sources" class="form-control" min="1" max="12" value="8" />
+                <input type="number" id="ask-max-sources" class="form-control" min="1" max="12" value="${escapeHtml(String(newDraft.maxSources || 8))}" />
               </div>
               <div class="form-group" style="margin-bottom: 0;">
                 <label class="form-label" data-i18n="ask.maxBytesLabel">${escapeHtml(t('ask.maxBytesLabel'))}</label>
-                <input type="number" id="ask-max-bytes" class="form-control" min="1000" max="32000" value="24000" />
+                <input type="number" id="ask-max-bytes" class="form-control" min="1000" max="32000" value="${escapeHtml(String(newDraft.maxSourceBytes || 24000))}" />
               </div>
               <div class="form-group" style="margin-bottom: 0;">
                 <label class="form-label" data-i18n="ask.timeoutLabel">${escapeHtml(t('ask.timeoutLabel'))}</label>
-                <input type="number" id="ask-timeout" class="form-control" min="1" max="300" value="120" />
+                <input type="number" id="ask-timeout" class="form-control" min="1" max="300" value="${escapeHtml(String(newDraft.timeoutSeconds || 120))}" />
               </div>
             </div>
           </details>
@@ -7558,9 +7595,23 @@
           <div id="ask-submit-result"></div>
         `;
 
+        const qEl = document.getElementById('ask-question-input');
+        if (qEl) {
+          if (newDraft.question) qEl.value = newDraft.question;
+          qEl.addEventListener('input', (e) => { newDraft.question = e.target.value; });
+        }
+        document.getElementById('ask-search-input')?.addEventListener('input', (e) => { newDraft.searchQuery = e.target.value; });
+        document.getElementById('ask-retrieval-mode')?.addEventListener('change', (e) => { newDraft.retrievalMode = e.target.value; });
+        document.getElementById('ask-exec-input')?.addEventListener('input', (e) => { newDraft.executable = e.target.value; });
+        document.getElementById('ask-model-input')?.addEventListener('input', (e) => { newDraft.model = e.target.value; });
+        document.getElementById('ask-effort-select')?.addEventListener('change', (e) => { newDraft.effort = e.target.value; });
+        document.getElementById('ask-max-sources')?.addEventListener('input', (e) => { newDraft.maxSources = parseInt(e.target.value, 10) || 8; });
+        document.getElementById('ask-max-bytes')?.addEventListener('input', (e) => { newDraft.maxSourceBytes = parseInt(e.target.value, 10) || 24000; });
+        document.getElementById('ask-timeout')?.addEventListener('input', (e) => { newDraft.timeoutSeconds = parseInt(e.target.value, 10) || 120; });
+
         try {
           const desc = await callBridge('ask.describe', {});
-          if (currentModalInstance !== thisModalInstance) return;
+          if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || askTabGeneration !== thisGen || activeTab !== 'new') return;
           const boundsEl = document.getElementById('ask-bounds-summary');
           if (boundsEl && desc) {
             boundsEl.innerHTML = `
@@ -7585,11 +7636,11 @@
         try {
           list = await callBridge('ask.list', { project: currentProject });
         } catch (e) {
-          if (currentModalInstance !== thisModalInstance) return;
+          if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || askTabGeneration !== thisGen || activeTab !== 'history') return;
           tabBody.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
           return;
         }
-        if (currentModalInstance !== thisModalInstance) return;
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || askTabGeneration !== thisGen || activeTab !== 'history') return;
 
         if (!Array.isArray(list) || list.length === 0) {
           tabBody.innerHTML = `
@@ -7649,22 +7700,21 @@
     }
 
     submitBtn?.addEventListener('click', async () => {
-      const qInput = document.getElementById('ask-question-input');
-      const question = qInput?.value.trim();
+      saveNewDraft();
+      const question = (newDraft.question || '').trim();
       if (!question) {
-        qInput?.focus();
+        document.getElementById('ask-question-input')?.focus();
         return;
       }
 
-      const sInput = document.getElementById('ask-search-input');
-      const searchQuery = sInput?.value.trim() || question;
-      const retrievalMode = document.getElementById('ask-retrieval-mode')?.value || 'lexical';
-      const executable = document.getElementById('ask-exec-input')?.value.trim() || '/usr/local/bin/codex';
-      const model = document.getElementById('ask-model-input')?.value.trim() || 'gpt-5.6-sol';
-      const effort = document.getElementById('ask-effort-select')?.value || 'low';
-      const maxSources = parseInt(document.getElementById('ask-max-sources')?.value, 10) || 8;
-      const maxSourceBytes = parseInt(document.getElementById('ask-max-bytes')?.value, 10) || 24000;
-      const timeoutSeconds = parseInt(document.getElementById('ask-timeout')?.value, 10) || 120;
+      const searchQuery = (newDraft.searchQuery || '').trim() || question;
+      const retrievalMode = newDraft.retrievalMode || 'lexical';
+      const executable = (newDraft.executable || '').trim() || '/usr/local/bin/codex';
+      const model = (newDraft.model || '').trim() || 'gpt-5.6-sol';
+      const effort = newDraft.effort || 'low';
+      const maxSources = parseInt(newDraft.maxSources, 10) || 8;
+      const maxSourceBytes = parseInt(newDraft.maxSourceBytes, 10) || 24000;
+      const timeoutSeconds = parseInt(newDraft.timeoutSeconds, 10) || 120;
 
       submitBtn.disabled = true;
       submitBtn.textContent = t('common.loading');
@@ -7683,7 +7733,7 @@
           timeoutSeconds
         });
 
-        if (currentModalInstance !== thisModalInstance) return;
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject) return;
 
         if (res.state === 'no_sources') {
           const resEl = document.getElementById('ask-submit-result');
@@ -7705,13 +7755,13 @@
           openAskDetailModal(res.id);
         }
       } catch (e) {
-        if (currentModalInstance !== thisModalInstance) return;
+        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject) return;
         const resEl = document.getElementById('ask-submit-result');
         if (resEl) {
           resEl.innerHTML = `<div class="alert-banner alert-warning" style="margin-top: 12px;">${escapeHtml(e.message)}</div>`;
         }
       } finally {
-        if (currentModalInstance === thisModalInstance) {
+        if (currentModalInstance === thisModalInstance && state.currentProject === currentProject && activeTab === 'new') {
           submitBtn.disabled = false;
           submitBtn.textContent = t('ask.btnSubmit');
         }
@@ -7748,11 +7798,26 @@
     if (!b || !f) return;
 
     const req = item.request || {};
+    const agent = req.agent || {};
     const sources = Array.isArray(req.sources) ? req.sources : [];
     const result = item.result || {};
     const claims = Array.isArray(result.claims) ? result.claims : [];
     const unanswered = Array.isArray(result.unanswered) ? result.unanswered : [];
     const citations = Array.isArray(result.citations) ? result.citations : (Array.isArray(item.citations) ? item.citations : []);
+
+    const scopeObj = req.scope || {};
+    const scopeEntries = Object.entries(scopeObj).filter(([_, v]) => v !== undefined && v !== null && v !== '');
+    const scopeHtml = `
+      <div style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border-subtle); font-size: 11px;">
+        <span style="color: var(--text-secondary);" data-i18n="ask.colScope">${escapeHtml(t('ask.colScope'))}:</span>
+        ${scopeEntries.length > 0 ? scopeEntries.map(([k, v]) => `
+          <span style="margin-left: 6px;">
+            <span class="text-secondary">${escapeHtml(k)}:</span>
+            <span class="font-mono font-semibold">${escapeHtml(String(v))}</span>
+          </span>
+        `).join('') : `<span class="text-secondary" style="margin-left: 6px;" data-i18n="ask.scopeProjectDefault">${escapeHtml(t('ask.scopeProjectDefault'))}</span>`}
+      </div>
+    `;
 
     let statusBanner = '';
     if (item.state === 'sources_unavailable') {
@@ -7801,6 +7866,29 @@
         </div>
       ` : ''}
 
+      <div class="card" style="margin-bottom: 12px; padding: 10px 12px; background: var(--bg-surface-secondary);">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px;" data-i18n="ask.invocationTitle">${escapeHtml(t('ask.invocationTitle'))}</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; font-size: 12px;">
+          <div>
+            <span style="color: var(--text-secondary);" data-i18n="ask.colModel">${escapeHtml(t('ask.colModel'))}:</span>
+            <strong class="font-mono" style="margin-left: 4px;">${escapeHtml(agent.model || '-')}</strong>
+          </div>
+          <div>
+            <span style="color: var(--text-secondary);" data-i18n="loops.reasoningEffortLabel">${escapeHtml(t('loops.reasoningEffortLabel'))}:</span>
+            <span class="code-badge" style="margin-left: 4px;">${escapeHtml(agent.reasoningEffort || 'low')}</span>
+          </div>
+          <div>
+            <span style="color: var(--text-secondary);" data-i18n="ask.maxCallsLimit">${escapeHtml(t('ask.maxCallsLimit'))}:</span>
+            <span class="font-mono" style="margin-left: 4px;">1</span>
+          </div>
+          <div>
+            <span style="color: var(--text-secondary);" data-i18n="ask.timeoutLabel">${escapeHtml(t('ask.timeoutLabel'))}</span>
+            <span class="font-mono" style="margin-left: 4px;">${escapeHtml(String(req.timeoutSeconds ?? 120))}</span>
+          </div>
+        </div>
+        ${scopeHtml}
+      </div>
+
       ${claims.length > 0 ? `
         <div style="margin-bottom: 14px;">
           <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;" data-i18n="ask.claimsTitle">${escapeHtml(t('ask.claimsTitle'))} (${claims.length})</div>
@@ -7843,28 +7931,45 @@
       ` : ''}
 
       ${sources.length > 0 ? `
-        <details class="memory-meta-details" style="margin-bottom: 12px;">
-          <summary style="font-size: 12px; font-weight: 500;">
-            <span data-i18n="ask.frozenSourcesTitle">${escapeHtml(t('ask.frozenSourcesTitle'))}</span> (${sources.length})
-          </summary>
-          <div style="margin-top: 8px;">
-            ${sources.map(s => `
-              <div style="padding: 6px 8px; font-size: 11px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                  <span class="code-badge">${escapeHtml(s.kind)}</span>
-                  <span class="font-mono font-semibold" style="margin-left: 4px;">${escapeHtml(s.sourceId)}</span>
-                  <span style="margin-left: 6px; color: var(--text-secondary);">${escapeHtml(s.title || '')}</span>
-                </div>
-                <div class="font-mono text-secondary">${escapeHtml(String(s.fullSourceBytes || 0))} B</div>
-              </div>
-            `).join('')}
+        <div style="margin-bottom: 12px;">
+          <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span><span data-i18n="ask.frozenSourcesTitle">${escapeHtml(t('ask.frozenSourcesTitle'))}</span> (${sources.length})</span>
+            <span style="font-size: 11px; color: var(--text-secondary);" data-i18n="ask.sourcesReviewNotice">${escapeHtml(t('ask.sourcesReviewNotice'))}</span>
           </div>
-        </details>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${sources.map(s => {
+              const content = s.content || '';
+              const preview = content.length > 200 ? content.substring(0, 200) + '...' : content;
+              return `
+                <div class="card" style="padding: 10px 12px; background: var(--bg-surface-secondary);">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                    <div>
+                      <span class="code-badge">${escapeHtml(s.kind)}</span>
+                      <span class="font-mono font-semibold" style="margin-left: 4px;">${escapeHtml(s.sourceId || '')}</span>
+                      ${s.title ? `<span style="margin-left: 6px; color: var(--text-primary); font-weight: 500;">${escapeHtml(s.title)}</span>` : ''}
+                    </div>
+                    <span class="font-mono text-secondary" style="font-size: 11px;">${escapeHtml(String(s.fullSourceBytes || content.length || 0))} B</span>
+                  </div>
+                  ${preview ? `
+                    <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.4; margin-top: 4px; white-space: pre-wrap;">${escapeHtml(preview)}</div>
+                  ` : ''}
+                  ${content ? `
+                    <details class="memory-meta-details" style="margin-top: 6px;">
+                      <summary style="font-size: 11px; color: var(--color-primary); cursor: pointer;" data-i18n="ask.viewFullFrozenContent">${escapeHtml(t('ask.viewFullFrozenContent'))}</summary>
+                      <div style="margin-top: 6px; padding: 8px 10px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 11px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; max-height: 280px; overflow-y: auto;">${escapeHtml(content)}</div>
+                    </details>
+                  ` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
       ` : ''}
 
       <details class="memory-meta-details" style="margin-bottom: 12px;">
         <summary data-i18n="memory.techMetaSummary">${escapeHtml(t('memory.techMetaSummary'))}</summary>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px; font-size: 11px; margin-top: 8px; color: var(--text-secondary);">
+          <div><span data-i18n="ask.colExecutable">${escapeHtml(t('ask.colExecutable'))}:</span> <span class="font-mono" style="word-break: break-all;">${escapeHtml(agent.executable || '-')}</span></div>
           <div><span>askHash:</span> <span class="font-mono" style="user-select: all;">${escapeHtml(item.askHash || '-')}</span></div>
           <div><span>runId:</span> <span class="font-mono">${escapeHtml(item.runId || '-')}</span></div>
           <div><span>approvalId:</span> <span class="font-mono">${escapeHtml(item.approvalId || '-')}</span></div>
@@ -7980,7 +8085,7 @@
 
       try {
         const agent = req.agent || {};
-        const res = await callBridge('ask.followup', {
+        const followParams = {
           id: askId,
           askHash: item.askHash,
           project: currentProject,
@@ -7993,7 +8098,14 @@
           timeoutSeconds: req.timeoutSeconds || 120,
           maxSources: req.retrieval?.maxSources || 8,
           maxSourceBytes: req.retrieval?.maxSourceBytes || 24000
-        });
+        };
+        const origScope = req.scope || {};
+        for (const k of ['branch', 'worktree', 'task', 'sessionId']) {
+          if (origScope[k] !== undefined && origScope[k] !== null && origScope[k] !== '') {
+            followParams[k] = origScope[k];
+          }
+        }
+        const res = await callBridge('ask.followup', followParams);
         showToast({ key: 'ask.followupSuccess' });
         openAskDetailModal(res.id);
       } catch (err) {

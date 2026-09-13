@@ -1,6 +1,6 @@
 # Model memory middleware contract / 模型记忆中间件合同
 
-状态：下一阶段拟实现公共合同，**尚无 `sdk/ai` 或 `sdk/python-ai` 实现与测试通过声明**。架构决策见 [ADR 0026](../adr/0026-optional-model-memory-middleware.md)。本合同只规定非 UI 接口，不要求或代表客户端 UI 已完成。
+状态：`sdk/ai` 的本地 TypeScript AI SDK v4 已实现，安装后的 17 项真实宿主测试、12 项基础 SDK 兼容测试通过；Python 与 reviewed remote analyze 尚待实现。精确证据见仓库 `sdk/ai/VERIFICATION.md`。架构决策见 [ADR 0026](../adr/0026-optional-model-memory-middleware.md)。本合同只规定非 UI 接口，不要求或代表客户端 UI 已完成。
 
 ## Fixed compatibility targets / 固定兼容基线
 
@@ -14,9 +14,9 @@
 
 ## Binding and call context / 固定绑定与单次上下文
 
-建议公开 TypeScript 入口 `createVelaMemoryMiddleware(binding)` 返回 `{middleware, close}`，供 `wrapLanguageModel` 使用；每次应用 turn 通过 `forTurn(context)` 创建 middleware 上下文，明确 session/turn 身份。不把 scope 或审批状态放进可被模型生成的 tool 参数。Python 提供独立 `VelaOpenAIChat` 和 `VelaLangChainModel`，构造时绑定 memory config；调用时显式 `MemoryTurn`，不修改原始模型对象。
+公开 TypeScript 入口 `createVelaMemoryMiddleware(binding)` 返回 `{forTurn, close}`；`forTurn(context)` 返回 `{middleware, receipt, settled, close}`，供 `wrapLanguageModel` 使用，明确 session/turn 身份。不把 scope 或审批状态放进可被模型生成的 tool 参数。Python 提供独立 `VelaOpenAIChat` 和 `VelaLangChainModel`，构造时绑定 memory config；调用时显式 `MemoryTurn`，不修改原始模型对象。
 
-`binding` 必填：
+当前 TypeScript binding：project/namespace/helperPath/storeHome/modelRecipient 与 `acknowledgeMemoryDisclosure: true` 必填，其余下表字段可选并有默认值。
 
 | Field | Meaning and boundary |
 | --- | --- |
@@ -29,7 +29,7 @@
 | `filterText` | optional phase-aware callback `(phase, text, sourceMetadata) -> text | null`; no filesystem or credential scanning |
 | `failurePolicy` | explicit `failClosed` default; optional `continueWithoutMemory` returns a degraded receipt, never silent success |
 
-远端 memory binding 作为显式 union 分支：使用被冻结的 Walrus profile 与 factory，由当前远端 SDK 管理凭据/Worker/预览；不从本地 binding 自动升级。该分支的 namespace 是组织分区，不是 delegate ACL。模型与 embedding/relayer 接收方分别列出，不能混成一个隐含云服务。
+后续远端 memory binding 将作为显式 union 分支，当前包尚不接受此配置：使用被冻结的 Walrus profile 与 factory，由当前远端 SDK 管理凭据/Worker/预览；不从本地 binding 自动升级。该分支的 namespace 是组织分区，不是 delegate ACL。模型与 embedding/relayer 接收方分别列出，不能混成一个隐含云服务。
 
 `MemoryTurn` 必填 `sessionID`、`turnID`；可选 caller abort/deadline。UTF-8 长度有界，不作为任意文件路径。source ID 是对这些标识、scope 和原始用户文本的摘要，不含原文。工具循环内相同 turn 保持相同 source ID；新用户输入必须新 turn，避免跨请求记忆和捕获状态混用。
 
@@ -46,33 +46,33 @@
 
 ## Completion, capture and receipts / 终态、捕获与回执
 
-公开 `MemoryReceipt` 拟包含：
+当前 TypeScript 公开 `MemoryReceipt` 包含：
 
 ```ts
 type MemoryReceipt = {
   version: 1;
-  turnID: string;
+  turnID: string; modelCalls: number;
   scope: { project: string; namespace: string };
-  modelRecipient: { provider: string; model?: string; origin?: string; recipientVerified: boolean };
-  recall: { state: 'used' | 'empty' | 'skipped' | 'degraded' | 'failed'; ids: string[];
+  modelRecipient: { provider: string; model: string; origin?: string; identityVerified: boolean; recipientVerified: false };
+  recall: { state: 'pending' | 'used' | 'empty' | 'skipped' | 'degraded' | 'failed'; ids: string[];
     usedBytes: number; filteredCount: number; truncated: boolean; indexComplete: boolean | null };
   generation: 'pending' | 'finished' | 'failed' | 'cancelled' | 'incomplete';
-  capture: { state: 'disabled' | 'skipped' | 'candidate' | 'awaitingReview' | 'acceptedJobs' | 'failed' | 'uncertain';
-    candidateIDs: string[]; jobIDs: string[]; effectsUnknown: boolean };
+  capture: { state: 'pending' | 'disabled' | 'skipped' | 'candidate' | 'failed' | 'uncertain';
+    candidateIDs: string[]; effectsUnknown: boolean; integration: 'ai-sdk-v4'; reason?: string };
 };
 ```
 
-具体代码类型以实际固定宿主类型检查为准；不能以该草案承诺已经导出符号。Receipt 的普通日志不包含 prompt、记忆原文、模型输出、key、原始 provider error。`forTurn` 返回单次 `receipt()` 和可等待 `settled()`；`settled()` 必须在生成/流/capture 结束、失败或取消后完成，不留下永久 pending promise。
+类型以安装包 `.d.ts` 为准；当前版本没有远端 jobs/analyze 字段，不将后续设计冒称已导出。Receipt 的普通日志不包含 prompt、记忆原文、模型输出、key、原始 provider error。`forTurn` 返回单次 `receipt()` 和可等待 `settled()`；`settled()` 必须在生成/流/capture 结束、失败或取消后完成，不留下永久 pending promise。每个 turn 只允许一个进行中模型调用；sequential reuse 的 `settled()` 代表最近已启动的模型调用，不代表整个 agent/tool workflow，必须先启动生成再等待。最多保留 32 个未关闭 turn。
 
 成功终态后、本地 `autoCapture: true`：只保存本次原始用户文本的筛选结果，使用 `memory.integration.capture` 原子 create-only。candidate 不进入下一次召回，直到用户审核 active；记录不是 analyze 模型事实。模型返回空值/拒绝/错误/未知 finish 类型、流未读尽或中止时不自动保存。保留输出/工具/usage 原样，禁止为了提取事实额外发一次模型调用。
 
-远端 analyze 需单独 `reviewAnalyze(preview)` callback。预览冻结原始用户文本、namespace、relayer/embedding recipients、operation ID 与预算；callback 明确返回同 preview 的批准结果才 execute，拒绝和取消无上传。callback 不得自行调用隐藏写方法绕开 receipt。返回 jobs 仅表示服务接受，durable 需后续 status。远端未知副作用禁止自动 retry。
+后续远端 analyze（当前未实现）需单独 `reviewAnalyze(preview)` callback。预览冻结原始用户文本、namespace、relayer/embedding recipients、operation ID 与预算；callback 明确返回同 preview 的批准结果才 execute，拒绝和取消无上传。callback 不得自行调用隐藏写方法绕开 receipt。返回 jobs 仅表示服务接受，durable 需后续 status。远端未知副作用禁止自动 retry。
 
-流式封装保持背压，不聚合完整输出；观察公开 finish/error/abort 事件以定终态。提前停止迭代、reader.cancel 或显式 close 会关闭本次底层 stream。只关闭本包装器创建的 helper/stream，不关闭应用传入的模型 client。模型或网络端仍可能继续工作，receipt 不伪称已撤销费用或远端任务。
+流式封装保持背压，不聚合完整输出；观察公开 finish/error/abort 事件以定终态。显式 AbortSignal 或 turn.close 会取消并释放本次底层 reader；AI SDK 的下游 tee 提前停止/reader.cancel 可能不会取消 provider，调用方必须使用上述显式取消入口。任意自定义 provider 拒绝 cancel 时，释放等待限一秒，不宣称远端工作已终止。只关闭本包装器创建的 helper/stream，不关闭应用传入的模型 client。模型或网络端仍可能继续工作，receipt 不伪称已撤销费用或远端任务。
 
 ## Package acceptance matrix / 安装验收矩阵
 
-所有项目目前均为**待执行**。单独 optional-SDK job，不作为默认 Mac runtime 依赖。测试使用固定新 helper SHA、临时 stores/venv/Node consumer、合成模型凭据、loopback URL；不读取真实用户 home/config/key，不连接外部模型、Walrus 或 faucet。
+TypeScript 当前 17 项真实宿主安装测试已通过；Python 和远端 analyze 各行仍待实现/验收。单独 optional-SDK job，不作为默认 Mac runtime 依赖。测试使用固定新 helper SHA、临时 stores/venv/Node consumer、合成模型凭据、loopback URL；不读取真实用户 home/config/key，不连接外部模型、Walrus 或 faucet。
 
 | Scenario | Actual host path | Expected evidence |
 | --- | --- | --- |
@@ -88,8 +88,8 @@ type MemoryReceipt = {
 | Remote analyze review | synthetic approved/rejected callback and signed loopback SDK | exact preview once, jobs accepted meaning, uncertainty and no automatic resend |
 | Installed package | npm pack/temp consumer/tsc and wheel/temp venv imports | explicit package member allowlist, package/helper/version hashes, no source/tests/credentials shipped |
 
-根 SDK 当前 12 TS / 10 Python 与可选 Walrus 32 项验证是已有证据；它们不能用作本合同尚未实现的 middleware 验收。Python Responses、Realtime、旧 AI SDK v2/v3、任意 LangChain 私有扩展或多模态内容理解需各自后续合同与实际运行测试，不能通过代理对象转发就宣称完成。用户要求的完整参考覆盖继续保留；此处只明确本次固定宿主实现顺序和精确验收边界。
+其他 SDK、OpenClaw、Walrus 的历史检查点不能代替本合同的宿主验收。本轮 TypeScript 安装收据与以前检查点分别保留。Python Responses、Realtime、旧 AI SDK v2/v3、任意 LangChain 私有扩展或多模态内容理解需各自后续合同与实际运行测试，不能通过代理对象转发就宣称完成。用户要求的完整参考覆盖继续保留；此处只明确本次固定宿主实现顺序和精确验收边界。
 
 ## English summary
 
-This is a planned public contract, not an implemented package claim. Each call binds explicit project/namespace and model recipients, preserves the original model request, injects bounded filtered references, and reports recall, generation and capture separately. Capture defaults off; successful local capture creates candidates only, while remote analysis requires an exact reviewed callback. Public framework methods, actual installed packages, synthetic loopback model requests, abort/resource behavior and scope-negative cases are required acceptance.
+The local TypeScript AI SDK v4 package is implemented and has passed 17 real installed-host integration tests plus 12 base SDK compatibility tests; Python and reviewed remote analyze remain planned. Each call binds explicit project/namespace and model recipients, preserves the original model request, injects bounded filtered references, and reports recall, generation and capture separately. Capture defaults off; successful local capture creates candidates only, while remote analysis requires an exact reviewed callback. Public framework methods, actual installed packages, synthetic loopback model requests, abort/resource behavior and scope-negative cases are required acceptance.

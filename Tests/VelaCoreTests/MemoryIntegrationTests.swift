@@ -62,4 +62,23 @@ final class MemoryIntegrationTests: XCTestCase {
             for invalid: Any in [0,51,1.5,true,"1"] { var changed = params;changed["limit"] = invalid;XCTAssertThrowsError(try service.handle("memory.integration.recall",changed)) }
         }
     }
+    func testAIIntegrationKeepsActualSourceAndRejectsUnknownWithoutWrites() throws {
+        try fixture { project,store,service in
+            let stats = try service.handle("memory.integration.stats",["project":project.path,"namespace":"main"])
+            XCTAssertEqual(stats["supportedIntegrations"] as? [String],["openclaw","ai-sdk-v4"])
+            var args: JSON = ["project":project.path,"namespace":"main","integration":"invented","sourceID":"same-turn","records":[["id":"input","role":"user","content":"The project retains SQLite WAL for offline memory."]]]
+            XCTAssertThrowsError(try service.handle("memory.integration.capture",args));XCTAssertEqual(try store.list("memory").count,0)
+            args["integration"] = "ai-sdk-v4"
+            let first = try service.handle("memory.integration.capture",args), id = try XCTUnwrap((first["ids"] as? [String])?.first)
+            var item = try XCTUnwrap(store.get("memory",id));XCTAssertEqual(string(item,"state"),"candidate")
+            let provenance = try XCTUnwrap(item["provenance"] as? JSON), identity = try XCTUnwrap(provenance["integrationIdentity"] as? JSON)
+            XCTAssertEqual(string(identity,"integration"),"ai-sdk-v4");XCTAssertEqual(provenance["hostAuthenticatedByCore"] as? Bool,false)
+            item["state"] = "active";_ = try store.put("memory",item)
+            XCTAssertEqual(intValue(try service.handle("memory.integration.capture",args),"skipped"),1)
+            XCTAssertEqual(string(try XCTUnwrap(store.get("memory",id)),"state"),"active")
+            args["integration"] = "openclaw"
+            let other = try service.handle("memory.integration.capture",args)
+            XCTAssertEqual(intValue(other,"created"),1);XCTAssertFalse((other["ids"] as? [String])?.contains(id) == true)
+        }
+    }
 }

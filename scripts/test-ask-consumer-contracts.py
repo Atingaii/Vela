@@ -200,12 +200,20 @@ def main():
         fields = {key: text in body for key, text in expected.items()}
         # A UUID, timestamp or source body containing the digits 47 is not a
         # rendered timeout control. Require its label and a standalone value.
-        fields['timeoutSeconds'] = re.search(r'(?:timeout(?:Seconds)?|超时|时间上限)[^\n]{0,80}(?<!\d)47(?!\d)', body, re.IGNORECASE) is not None
+        timeout_control = value(r'document.querySelector("#modal-body [data-i18n=\"ask.timeoutLabel\"]")?.parentElement?.innerText ?? ""')
+        # Inspect the rendered labelled field, not template-source whitespace.
+        # A sibling span can start on a new source line without changing its
+        # visible association; unrelated IDs or source excerpts cannot satisfy it.
+        fields['timeoutSeconds'] = (
+            re.search(r'timeout(?:Seconds)?|超时|时间上限', timeout_control, re.IGNORECASE) is not None
+            and re.search(r'(?<!\d)' + re.escape(str(request['timeoutSeconds'])) + r'(?!\d)', timeout_control) is not None
+        )
         review_usable = all(fields.values()) and value('!document.querySelector("#btn-approve-ask").disabled')
         incomplete = not all(fields.values()) and value('!document.querySelector("#btn-approve-ask").disabled')
         record('approval-reviews-frozen-input', review_usable, incomplete,
                {'fieldsPresentAfterExpandingDetails': fields, 'approvalId': ask['approval']['id'],
-                'sourceExcerptExistsInActualCLI': True, 'expectedTimeoutSeconds': request['timeoutSeconds']})
+                'sourceExcerptExistsInActualCLI': True, 'expectedTimeoutSeconds': request['timeoutSeconds'],
+                'renderedTimeoutControl': timeout_control})
 
         # Only the byte-pinned, network-free provider can execute through the
         # harness. One approved synthetic first answer establishes a real scope.

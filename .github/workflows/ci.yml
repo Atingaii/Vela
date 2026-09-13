@@ -35,6 +35,7 @@ jobs:
         run: |
           python3 scripts/test-provider-rpc.py
           python3 scripts/test-session-history-rpc.py --output output/parity/ci-session-history.json
+          python3 scripts/test-session-plans-rpc.py --output output/parity/ci-session-plans.json
           python3 scripts/test-quota-rpc.py
           python3 scripts/test-memory-archives.py
           python3 scripts/test-setup-rpc.py
@@ -96,6 +97,7 @@ jobs:
             output/playwright/ci-library-watch/*.jsonl
             output/playwright/ci-library-watch/*.png
             output/parity/ci-session-history.json
+            output/parity/ci-session-plans.json
             output/parity/ci-loop-controls*.json
             output/parity/ci-knowledge-*/receipt.json
           if-no-files-found: ignore
@@ -127,10 +129,15 @@ jobs:
         run: |
           npm ci --ignore-scripts --no-audit --no-fund --prefix sdk/typescript
           npm ci --ignore-scripts --no-audit --no-fund --prefix sdk/walrus
+          npm ci --ignore-scripts --no-audit --no-fund --prefix sdk/ai
       - name: Verify installed packages outside their source directories
         run: |
           python3 scripts/test-sdks.py
           python3 scripts/test-walrus-sdk.py
+      - name: Verify installed AI SDK middleware with real helper and local HTTP
+        env:
+          VELA_AI_TEST_OUTPUT: ${{ github.workspace }}/output/parity/ci-ai
+        run: python3 scripts/test-ai-integrations.py
       - name: Install the pinned isolated OpenClaw host
         run: npm install --ignore-scripts --omit=optional --no-audit --no-fund --prefix .task-tmp/ci-openclaw openclaw@2026.9.4
       - name: Verify real host loading, CLI and hooks with local fixtures
@@ -148,5 +155,7 @@ jobs:
             output/parity/walrus-sdk/*.log
             output/parity/openclaw/*.json
             output/parity/openclaw/*.log
+            output/parity/ci-ai/*.json
+            output/parity/ci-ai/*.log
           if-no-files-found: ignore
           retention-days: 14

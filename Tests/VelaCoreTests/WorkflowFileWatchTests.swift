@@ -32,6 +32,21 @@ final class WorkflowFileWatchTests: XCTestCase {
         }
         XCTFail("Real FSEvents did not observe the synthetic change")
     }
+    private func waitForCoherentRestartDispatch(_ service: AutomationService, store: VelaStore, id: String, at: Date) throws {
+        let deadline = Date().addingTimeInterval(4)
+        let reason = "A newer file event arrived during capture; waiting for the next coherent observation"
+        while try store.list("run").isEmpty {
+            let schedule = try store.get("schedule",id) ?? [:]
+            guard string(schedule,"reason") == reason else {
+                throw VelaError("Restart produced no run for an unexpected reason: " + (try jsonString(schedule)))
+            }
+            guard Date() < deadline else { throw VelaError("FSEvents restart did not reach a coherent observation within four seconds") }
+            // Kernel delivery can advance the serial during capture. Wait only
+            // for that verified deferral; other failures must surface immediately.
+            Thread.sleep(forTimeInterval:0.01)
+            try service.tick(at:at)
+        }
+    }
     func testByteHashesDetectSameSizeSameMtimeAndAtomicReplacementWithoutFalseSameContentChange() throws {
         try fixture { root,_,_ in
             let policy = try policy(), path = root.appendingPathComponent("binary.dat")
@@ -121,6 +136,7 @@ final class WorkflowFileWatchTests: XCTestCase {
             try Data("middle".utf8).write(to:root.appendingPathComponent("offline.txt")); try Data("after".utf8).write(to:root.appendingPathComponent("offline.txt"))
             let reopened = AutomationService(store:try VelaStore(root:store.root)); defer { reopened.fileWatchEvents.stop() }
             try reopened.tick(at:base.addingTimeInterval(30))
+            try waitForCoherentRestartDispatch(reopened,store:store,id:string(workflow,"id"),at:base.addingTimeInterval(30))
             XCTAssertEqual(try store.list("run").count,1)
             let event = try XCTUnwrap(store.list("schedule_event").first), input = try XCTUnwrap(event["watchInput"] as? JSON)
             XCTAssertEqual((input["changes"] as? [JSON])?.count,1)

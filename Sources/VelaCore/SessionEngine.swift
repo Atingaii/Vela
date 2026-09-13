@@ -2,6 +2,7 @@ import Foundation
 import CoreServices
 import CSQLite
 import Darwin
+import CryptoKit
 
 // Token counts cross JSON into WebKit, so require exact nonnegative integers
 // within both Swift and JavaScript's supported integer range. Never coerce bools,
@@ -155,6 +156,7 @@ final class SessionEngine {
         if provider == "cursor", url.pathExtension == "json" { return try ingestCursorExport(url) }
         let size = metadata.fileSize ?? 0
         let cursorId = stableHash(url.path); var cursor = try store.get("ingestion",cursorId) ?? [:]
+        let originalCursor = cursor
         let fingerprint = metadata.fileResourceIdentifier.map { String(describing:$0) } ?? ""
         let oldOffset = intValue(cursor,"offset")
         let modified = metadata.contentModificationDate?.timeIntervalSince1970 ?? 0
@@ -181,10 +183,20 @@ final class SessionEngine {
             _ = try store.putBatch([("session",session),("ingestion",cursor)])
             return true
         }
-        if oldOffset == size, (cursor["modified"] as? Double) == modified, string(cursor,"fingerprint") == fingerprint { return false }
-        let rotated = size < oldOffset || (!string(cursor,"fingerprint").isEmpty && string(cursor,"fingerprint") != fingerprint)
+        let sourceVersion = try piSourceVersion(url).version
+        let planCompatible = string(cursor,"planDecoderVersion") == SessionPlanProjection.version
+        if oldOffset == size, string(cursor,"sourceVersion") == sourceVersion, planCompatible { return false }
+        let rewritten = oldOffset == size && !string(cursor,"sourceVersion").isEmpty && string(cursor,"sourceVersion") != sourceVersion
+        let rotated = size < oldOffset || rewritten || !planCompatible || (!string(cursor,"fingerprint").isEmpty && string(cursor,"fingerprint") != fingerprint)
         let sessionId = stableHash(provider + ":" + url.path)
-        var session = rotated ? [:] : (try store.get("session",sessionId) ?? [:])
+        let originalSession = try store.get("session",sessionId), originalPlan = try store.get("session_plan",sessionId)
+        var session = rotated ? [:] : (originalSession ?? [:])
+        var plan = rotated ? SessionPlanProjection.empty(provider: provider) : (originalPlan ?? SessionPlanProjection.empty(provider: provider))
+        func planReference(_ bytes: Data, offset: Int) -> JSON {
+            ["sourceIdentity": sessionId, "sourcePath": url.path, "sourceVersion": sourceVersion,
+             "byteOffset": offset, "byteLength": bytes.count,
+             "sha256": SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()]
+        }
         var offset: Int = rotated ? 0 : oldOffset
         let firstRead = cursor.isEmpty || rotated
         if firstRead, size > tailWindow { offset = size - tailWindow; session["historyTruncated"] = true }
@@ -193,6 +205,7 @@ final class SessionEngine {
             let header = try handle.read(upToCount:32768) ?? Data()
             for line in header.split(separator:10) {
                 guard let row = (try? JSONSerialization.jsonObject(with:Data(line))) as? JSON else { continue }
+                SessionPlanProjection.consume(row, provider: provider, reference: [:], state: &plan, metadataOnly: true)
                 if provider == "codex", ["session_meta","turn_context"].contains(string(row,"type")) { mergeEvent(row,provider:provider,session:&session) }
                 if provider == "claude" {
                     if let cwd = row["cwd"] as? String, cwd.hasPrefix("/") { session["cwd"] = cwd; session["project"] = canonicalProject(cwd) }
@@ -218,15 +231,19 @@ final class SessionEngine {
             let row = Data(data[start..<end])
             if !row.isEmpty {
                 if let value = try? JSONSerialization.jsonObject(with:row), let object = value as? JSON {
-                    if recognizedRecord(object,provider:provider) { mergeEvent(object,provider:provider,session:&session); parsed += 1 } else { malformed += 1 }
+                    if recognizedRecord(object,provider:provider) {
+                        mergeEvent(object,provider:provider,session:&session)
+                        SessionPlanProjection.consume(object, provider: provider, reference: planReference(row, offset: offset + start), state: &plan)
+                        parsed += 1
+                    } else { malformed += 1; SessionPlanProjection.noteGap(planReference(row, offset: offset + start), state: &plan) }
                 } else if newline == nil { break }
-                else { malformed += 1 }
+                else { malformed += 1; SessionPlanProjection.noteGap(planReference(row, offset: offset + start), state: &plan) }
             }
             consumed = newline.map { data.index(after:$0) } ?? end
             start = consumed
         }
         if consumed == 0, data.count >= readLimit { throw VelaError("A log record exceeds the 8 MB streaming record limit; source left unchanged") }
-        if parsed == 0, !firstRead { return false }
+        if parsed == 0, malformed == 0, !firstRead { return false }
         guard parsed > 0 || !session.isEmpty else {
             if malformed > 0 { throw VelaError("No recognized JSONL records in bounded log window") }
             return false
@@ -243,9 +260,21 @@ final class SessionEngine {
         session["messageCount"] = messages.count; session["content"] = messages.map { string($0,"content") }.joined(separator:"\n")
         finalizeUsage(provider:provider,session:&session)
         if malformed > 0 { session["parseWarning"] = "Skipped \(malformed) malformed records" }
-        _ = try store.put("session",session)
+        guard try piSourceVersion(url).version == sourceVersion else {
+            changed.insert(url.path); throw VelaError("Session source changed while reading; prior session and plan retained")
+        }
+        if string(plan,"project") != string(session,"project") { plan = SessionPlanProjection.empty(provider: provider); plan["id"] = sessionId; plan["project"] = string(session,"project"); plan["coverageLimited"] = true }
+        plan["id"] = sessionId; plan["sourceIdentity"] = sessionId
+        session["planSummary"] = SessionPlanProjection.summary(plan, provider: provider, historyTruncated: session["historyTruncated"] as? Bool == true)
         cursor["id"] = cursorId; cursor["offset"] = offset + consumed; cursor["sourcePath"] = url.path; cursor["fingerprint"] = fingerprint; cursor["modified"] = modified
-        _ = try store.put("ingestion",cursor)
+        cursor["sourceVersion"] = sourceVersion; cursor["planDecoderVersion"] = SessionPlanProjection.version
+        let originals: [(String,String,JSON?)] = [("session",sessionId,originalSession),("session_plan",sessionId,originalPlan),("ingestion",cursorId,originalCursor.isEmpty ? nil : originalCursor)]
+        var expected: [(String,String,String)] = []; var absent: [(String,String)] = []
+        for (kind,id,original) in originals {
+            if let original { expected.append((kind,id,stableHash(try jsonString(original)))) }
+            else { absent.append((kind,id)) }
+        }
+        _ = try store.putBatch([("session",session),("session_plan",plan),("ingestion",cursor)],expecting:expected,expectingAbsent:absent)
         if offset + data.count < size { changed.insert(url.path) }
         return true
     }

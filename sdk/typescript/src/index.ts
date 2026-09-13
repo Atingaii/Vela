@@ -7,6 +7,9 @@ export type MemoryType = 'decision' | 'constraint' | 'preference' | 'failure' | 
 export interface LocalTransport { type: 'local'; executable: string; home: string }
 export interface ClientOptions { transport: LocalTransport; project?: string; timeoutMs?: number }
 export interface RequestOptions { signal?: AbortSignal; timeoutMs?: number }
+export const MEMORY_INTEGRATIONS = Object.freeze(['openclaw', 'ai-sdk-v4'] as const);
+export type MemoryIntegration = typeof MEMORY_INTEGRATIONS[number];
+export interface CaptureIntegrationOptions extends RequestOptions { integration?: MemoryIntegration }
 export interface CandidateInput { title: string; content: string; type?: MemoryType; project?: string }
 export interface MemoryRecord extends ObjectValue { id: string; title: string; content: string; state: string; project: string }
 export type SemanticLanguage = 'en' | 'zh-Hans';
@@ -226,8 +229,10 @@ export class VelaClient {
   archiveFromWalrusRecords(source: ObjectValue, records: ObjectValue[], options?: RequestOptions): Promise<ArchiveExport> {
     return this.request('memory.archive.fromWalrusRecords', {source, records, intendedUse:'candidate-review'}, false, options);
   }
-  captureIntegration(namespace:string, sourceID:string, records:ObjectValue[], project?:string, options?:RequestOptions):Promise<ObjectValue>{
-    return this.request('memory.integration.capture',{project:this.selected(project),namespace,integration:'openclaw',sourceID,records},true,options);
+  captureIntegration(namespace:string, sourceID:string, records:ObjectValue[], project?:string, options:CaptureIntegrationOptions={}):Promise<ObjectValue>{
+    exactKeys(options,['integration','signal','timeoutMs']);const {integration='openclaw',...requestOptions}=options;
+    if(!(MEMORY_INTEGRATIONS as readonly string[]).includes(integration))throw new VelaError('invalid_input');
+    return this.request('memory.integration.capture',{project:this.selected(project),namespace,integration,sourceID,records},true,requestOptions);
   }
   recallIntegration(namespace:string,query:string,parameters:IntegrationRecallParameters={},options?:RequestOptions):Promise<RecallResult>{
     return this.request('memory.integration.recall',{...parameters,project:this.selected(parameters.project),namespace,query} as ObjectValue,false,options);
