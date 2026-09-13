@@ -95,6 +95,10 @@ swift run vela recall 'project constraints' --project /absolute/path/to/project
 
 Use `VELA_HOME` or `--home /absolute/path/to/store` to select a store. The standalone CLI defaults to `~/.vela`. Packaged desktop channels use separate stores; point the CLI and MCP at the desktop store you want to use.
 
+## Local backup
+
+The development CLI can create a complete local Store bundle and restore it into a new directory. It preserves private/public assets, History and managed outputs while revoking old execution requests. The bundle is unencrypted and excludes external agent credentials, original log directories and project working trees. See the [backup and restore guide](docs/implementation/local-store-backup-contract.md) for commands, limits and index rebuilding. This is separate from portable Memory interchange and remote recovery.
+
 ## MCP
 
 Add a stdio MCP server to your agent configuration using the installed helper and your desktop store:

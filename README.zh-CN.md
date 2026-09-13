@@ -95,6 +95,10 @@ swift run vela recall '项目约束' --project /absolute/path/to/project
 
 通过 `VELA_HOME` 或 `--home /absolute/path/to/store` 选择数据目录。独立 CLI 默认使用 `~/.vela`；打包桌面应用的不同通道使用独立目录。让 CLI 和 MCP 指向你实际使用的桌面数据目录。
 
+## 本地备份
+
+开发版 CLI 可以备份完整本地 Store，并恢复到新目录，保留私有/公开资产、History 原文和受管交付文件，同时撤销旧请求的执行资格。bundle 未加密，不包含外部 Agent 凭证、原始日志目录或项目工作树。命令、容量限制与索引重建见[备份与恢复说明](docs/implementation/local-store-backup-contract.md)。此功能独立于受限 Memory interchange 和远端恢复。
+
 ## MCP 接入
 
 在 Agent 配置中添加 stdio MCP 服务，指定安装后的 helper 和桌面数据目录：

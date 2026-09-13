@@ -168,6 +168,8 @@ if arguments.isEmpty || arguments.contains("--help") || arguments.first == "help
     vela recall QUERY --project PATH            召回 1000 tokens 内的有效 Memory
     vela sessions                              查看已导入会话
     vela refresh                               增量更新会话
+    vela backup create --destination PATH       创建完整本地 Store bundle（仅 CLI）
+    vela backup restore --bundle PATH --target PATH  恢复到新的空 Store（仅 CLI）
     vela hook --project PATH [--home PATH]      Codex SessionStart 上下文 Hook
     vela daemon run [--home PATH]              独立运行观察与调度（不依赖窗口或 stdin）
     vela daemon plan|status [--home PATH]       查看用户级后台服务配置与运行证据
@@ -182,8 +184,24 @@ if arguments.isEmpty || arguments.contains("--help") || arguments.first == "help
 if arguments.first == "--version" { print(version); exit(0) }
 
 do {
-    let router = try Router()
     let command = arguments[0]
+    // Backup must not initialize AutomationService: startup recovery can write
+    // project files. Restore must also avoid opening the caller's default Store.
+    if command == "backup" {
+        guard arguments.count >= 2 else { fail("Backup requires create or restore") }
+        switch arguments[1] {
+        case "create":
+            guard let destination = option("--destination") else { fail("Backup create requires --destination PATH") }
+            let store = try VelaStore(root:root)
+            emit(try StoreBackupService(store:store).create(destination:URL(fileURLWithPath:destination)))
+        case "restore":
+            guard let bundle = option("--bundle"), let target = option("--target") else { fail("Backup restore requires --bundle PATH --target PATH") }
+            emit(try StoreBackupService.restore(bundle:URL(fileURLWithPath:bundle),target:URL(fileURLWithPath:target)))
+        default: fail("Backup requires create or restore")
+        }
+        exit(0)
+    }
+    let router = try Router()
     if command == "daemon" {
         guard arguments.count > 1 else { fail("Daemon requires run, plan, status, install, start, stop or uninstall") }
         let daemon = try VelaDaemonService(store: router.store, executable: CommandLine.arguments[0])

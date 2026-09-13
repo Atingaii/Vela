@@ -631,14 +631,197 @@ public final class VelaStore {
         lock.lock(); defer { lock.unlock() }
         return try select("SELECT json_object('id',id,'project',project,'provider',json_extract(json,'$.provider'),'sourcePath',json_extract(json,'$.sourcePath')) FROM objects WHERE kind='session' AND project=? AND id>? ORDER BY id LIMIT 256", [canonicalProject(project),afterID])
     }
+    /// Creates a complete SQLite-and-canonical-asset snapshot while blocking Vela writers.
+    /// The backup source must be a separate read-only connection: SQLite rejects a backup
+    /// sourced from this connection while it owns BEGIN IMMEDIATE (covered by ADR 0044 probe).
+    func writeCompleteBackupSnapshot(to bundle: URL) throws -> (databaseSHA256: String, assets: [JSON], outputs: [JSON]) {
+        lock.lock(); defer { lock.unlock() }
+        guard !isBatching else { throw VelaError("Store is busy; complete backup cannot nest a write transaction") }
+        // SafeApply takes this flock before it writes its audit object or touches
+        // store/output. Take it before BEGIN IMMEDIATE too, so backup and apply
+        // share one order rather than deadlocking DB -> flock versus flock -> DB.
+        let applyLockPath = root.appendingPathComponent("apply.lock").path
+        let applyFD = Darwin.open(applyLockPath, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0o600)
+        guard applyFD >= 0 else { throw VelaError("Cannot acquire SafeApply lock for complete backup") }
+        var applyInfo = stat()
+        guard fstat(applyFD, &applyInfo) == 0, (applyInfo.st_mode & S_IFMT) == S_IFREG, applyInfo.st_nlink == 1, flock(applyFD, LOCK_EX | LOCK_NB) == 0 else { Darwin.close(applyFD); throw VelaError("Complete backup is unavailable while SafeApply owns its transaction lock") }
+        defer { _ = flock(applyFD, LOCK_UN); Darwin.close(applyFD) }
+        let snapshotDeadline = Date().addingTimeInterval(60)
+        let maximumFileBytes = StoreBackupFiles.maximumFileBytes
+        let maximumTotalBytes = StoreBackupFiles.maximumTotalBytes
+        var copiedBytes = 0
+        var runtimeLeases: [VelaRuntimeLease] = []
+        for name in ["scheduler", "daemon", "composition"] {
+            guard let lease = try VelaRuntimeLease.acquire(root:root,name:name) else { throw VelaError("Complete backup is unavailable while the \(name) runtime lease is held") }
+            runtimeLeases.append(lease)
+        }
+        defer { runtimeLeases.forEach { $0.release() } }
+        let manager = FileManager.default
+        let database = bundle.appendingPathComponent("vela.sqlite3")
+        guard !manager.fileExists(atPath: database.path) else { throw VelaError("Backup database destination already exists") }
+        try execute("BEGIN IMMEDIATE"); isBatching = true
+        do {
+            // This check deliberately occurs after the barrier. A competing claim cannot
+            // pass a preflight then start an external process before the snapshot begins.
+            let unsafe = try select("SELECT json_object('count',COUNT(*)) FROM objects WHERE kind IN ('approval','connector_action','run','eval','agent_loop','replay','workflow_plan','ask_route_proposal','knowledge_query','model_improvement') AND json_extract(json,'$.state') IN ('executing','needs_review','running','running_or_uncertain','executing_or_uncertain','accepting','claimed') AND NOT (json_extract(json,'$.state')='needs_review' AND COALESCE(json_extract(json,'$.restoreRevoked'),0)=1)").first ?? [:]
+            guard intValue(unsafe,"count") == 0 else { throw VelaError("Complete backup requires review of active or uncertain execution records") }
+            var source: OpaquePointer?, destination: OpaquePointer?
+            let sourcePath = root.appendingPathComponent("vela.sqlite3").path
+            guard sqlite3_open_v2(sourcePath, &source, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_NOFOLLOW, nil) == SQLITE_OK, let source else { throw VelaError("Cannot open a read-only SQLite backup source") }
+            defer { sqlite3_close(source) }
+            guard sqlite3_open_v2(database.path, &destination, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_NOFOLLOW, nil) == SQLITE_OK, let destination else { throw VelaError("Cannot create SQLite backup destination") }
+            defer { sqlite3_close(destination) }
+            sqlite3_busy_timeout(source, 5000); sqlite3_busy_timeout(destination, 5000)
+            guard let backup = sqlite3_backup_init(destination, "main", source, "main") else { throw VelaError("SQLite backup initialization failed: \(String(cString: sqlite3_errmsg(destination)))") }
+            // Do not use a single unbounded backup_step(-1) while holding the writer
+            // barrier. Each bounded page batch gets a deadline check; BUSY/LOCKED is
+            // a failed snapshot, never a partial bundle.
+            let deadline = Date().addingTimeInterval(30)
+            var stepped = SQLITE_OK
+            repeat {
+                guard Date() <= deadline else { _ = sqlite3_backup_finish(backup); throw VelaError("SQLite backup exceeded the 30 second snapshot deadline") }
+                stepped = sqlite3_backup_step(backup, 256)
+            } while stepped == SQLITE_OK
+            let finished = sqlite3_backup_finish(backup)
+            guard stepped == SQLITE_DONE, finished == SQLITE_OK else { throw VelaError("SQLite backup did not complete (step \(stepped), finish \(finished))") }
+            try manager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: database.path)
+            let rows = try select("SELECT json FROM objects WHERE kind IN ('memory','workflow','guideline','library','checkpoint') ORDER BY kind,id LIMIT 50001")
+            guard rows.count <= StoreBackupFiles.maximumFiles else { throw VelaError("Complete backup exceeds the file count bound") }
+            var manifestAssets: [JSON] = []; var sourceChecks: [(String,String)] = []
+            for item in rows {
+                guard Date() <= snapshotDeadline else { throw VelaError("Complete backup exceeded the 60 second deadline") }
+                let kind = string(item,"kind"), id = string(item,"id")
+                guard assetKinds.contains(kind), !id.isEmpty,
+                      string(item,"assetPath") == root.appendingPathComponent("assets/\(kind)/\(id).md").path else { throw VelaError("Canonical asset metadata is invalid") }
+                let relative = "assets/\(kind)/\(id).md"
+                let copied = try StoreBackupFiles.copy(root:root,path:relative,destination:bundle,limit:min(maximumFileBytes,maximumTotalBytes-copiedBytes),deadline:snapshotDeadline)
+                copiedBytes += copied.bytes
+                manifestAssets.append(["path":relative,"sha256":copied.sha256,"bytes":copied.bytes,"kind":kind,"id":id])
+                sourceChecks.append((relative,copied.sha256))
+            }
+            // Managed delivery output is canonical user result data, separate from
+            // Markdown assets and protected by the SafeApply flock above. Preserve
+            // only regular files below the fixed store/output root.
+            var outputs: [JSON] = []
+            let outputRoot = root.appendingPathComponent("output")
+            if manager.fileExists(atPath: outputRoot.path) {
+                guard (try? outputRoot.resourceValues(forKeys:[.isDirectoryKey,.isSymbolicLinkKey]).isDirectory) == true,
+                      (try? outputRoot.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink) != true else { throw VelaError("Managed output directory is unsafe") }
+                let keys: Set<URLResourceKey> = [.isRegularFileKey,.isDirectoryKey,.isSymbolicLinkKey]
+                guard let files = manager.enumerator(at:outputRoot,includingPropertiesForKeys:Array(keys),options:[]) else { throw VelaError("Cannot enumerate managed output") }
+                for case let file as URL in files {
+                    guard Date() <= snapshotDeadline else { throw VelaError("Complete backup exceeded the 60 second deadline") }
+                    let values=try file.resourceValues(forKeys:keys)
+                    guard values.isSymbolicLink != true else { throw VelaError("Managed output contains a symbolic link") }
+                    if values.isDirectory == true { continue }
+                    guard values.isRegularFile == true else { throw VelaError("Managed output contains a non-regular file") }
+                    let relative = "output/" + file.path.dropFirst(outputRoot.path.count + 1)
+                    let components = relative.split(separator:"/",omittingEmptySubsequences:false)
+                    guard components.count >= 2, !components.contains("."), !components.contains(".."), !components.contains(where: { $0.isEmpty }), manifestAssets.count + outputs.count < StoreBackupFiles.maximumFiles else { throw VelaError("Managed output path or file count exceeds the complete-backup bound") }
+                    let copied = try StoreBackupFiles.copy(root:root,path:relative,destination:bundle,limit:min(maximumFileBytes,maximumTotalBytes-copiedBytes),deadline:snapshotDeadline)
+                    copiedBytes += copied.bytes
+                    outputs.append(["path":relative,"sha256":copied.sha256,"bytes":copied.bytes])
+                    sourceChecks.append((relative,copied.sha256))
+                }
+            }
+            // Vela writers are blocked by the barrier; this final pass catches a human
+            // editor changing any earlier Markdown or managed-output file while later
+            // files were copied.
+            for (original, expected) in sourceChecks {
+                let current = try StoreBackupFiles.digest(root:root,path:original,limit:maximumFileBytes,deadline:snapshotDeadline).sha256
+                guard current == expected else { throw VelaError("Canonical data changed during complete backup") }
+            }
+            try execute("COMMIT"); isBatching = false
+            let databaseHash = try StoreBackupFiles.digest(root:bundle,path:"vela.sqlite3",limit:StoreBackupFiles.maximumDatabaseBytes,deadline:snapshotDeadline).sha256
+            return (databaseHash, manifestAssets, outputs)
+        } catch { try? execute("ROLLBACK"); isBatching = false; throw error }
+    }
+
+    func rebindRestoredBackupAssets(_ entries: [JSON], assetRoot: URL? = nil) throws {
+        let reboundRoot = assetRoot ?? root
+        lock.lock(); defer { lock.unlock() }
+        let expected = try Set(entries.map { entry -> String in
+            let kind=string(entry,"kind"), id=string(entry,"id"), path=string(entry,"path")
+            try validateIdentifier(kind); try validateIdentifier(id)
+            guard assetKinds.contains(kind), path == "assets/\(kind)/\(id).md" else { throw VelaError("Backup asset manifest identity is invalid") }
+            return kind + ":" + id
+        })
+        guard expected.count == entries.count else { throw VelaError("Backup asset manifest repeats an identity") }
+        let rows = try select("SELECT json FROM objects WHERE kind IN ('memory','workflow','guideline','library','checkpoint')")
+        guard Set(rows.map { string($0,"kind") + ":" + string($0,"id") }) == expected else { throw VelaError("Backup asset manifest does not exactly match restored canonical objects") }
+        try execute("BEGIN IMMEDIATE")
+        do { for item in rows { let kind=string(item,"kind"), id=string(item,"id"); var rebound=item; rebound["assetPath"]=reboundRoot.appendingPathComponent("assets/\(kind)/\(id).md").path; try execute("UPDATE objects SET json=? WHERE kind=? AND id=?",[try jsonString(rebound),kind,id]) }; try execute("COMMIT") }
+        catch { try? execute("ROLLBACK"); throw error }
+    }
+
+    /// A restored store retains audit evidence but cannot resume an in-flight action.
+    func revokeRestoredRuntimeEligibility() throws -> JSON {
+        lock.lock(); defer { lock.unlock() }
+        try execute("BEGIN IMMEDIATE")
+        do {
+            let at = isoNow()
+            let reviewKinds = ["run","approval","agent_loop","replay","workflow_plan","ask_route_proposal","connector_action","schedule","schedule_event","knowledge_query","watch_state","apply_journal","model_improvement"]
+            let revocable = Set(["pending","pending_approval","executing","running","running_or_uncertain","executing_or_uncertain","waiting_child","claimed","accepting","ready","queued","watching","accumulating","deferred","committing","prepared"])
+            for kind in reviewKinds {
+                for var record in try select("SELECT json FROM objects WHERE kind=?",[kind]) where revocable.contains(string(record,"state")) {
+                    record["state"]="needs_review"; record["restoreRevoked"]=true; record["restoredAt"]=at; record["restoreReason"]="Restored local backup; automatic execution was revoked"
+                    // A run cannot later resume a nested pending step merely because an
+                    // old approval ID survived in its frozen steps array.
+                    if kind == "run", var steps=record["steps"] as? [JSON] {
+                        for index in steps.indices where revocable.contains(string(steps[index],"state")) { steps[index]["state"]="needs_review"; steps[index]["restoreReason"]="Restored local backup" }
+                        record["steps"]=steps
+                    }
+                    try execute("UPDATE objects SET json=? WHERE kind=? AND id=?",[try jsonString(record),kind,string(record,"id")])
+                }
+            }
+            // Lab and health proposal state names have different terminal semantics;
+            // preserve their evidence but never retain an executable claim.
+            for var record in try select("SELECT json FROM objects WHERE kind IN ('eval','workflow_health_proposal')") {
+                let state=string(record,"state")
+                guard ["pending","pending_approval","running","accepting"].contains(state) else { continue }
+                record["state"] = string(record,"kind") == "workflow_health_proposal" ? "invalidated" : "needs_review"
+                record["restoreRevoked"]=true; record["restoredAt"]=at; record["restoreReason"]="Restored local backup; execution eligibility was revoked"
+                try execute("UPDATE objects SET json=? WHERE kind=? AND id=?",[try jsonString(record),string(record,"kind"),string(record,"id")])
+            }
+            try execute("UPDATE objects SET json=json_set(json,'$.enabled',0,'$.restoredAt',?,'$.restoreReason','Restored local backup; automatic trigger disabled') WHERE kind='workflow' AND json_extract(json,'$.trigger') <> 'manual'",[at])
+            try execute("DELETE FROM objects WHERE kind='runtime'")
+            try execute("DELETE FROM memory_embeddings")
+            try execute("UPDATE session_change_counter SET revision=0 WHERE singleton=1")
+            try execute("DELETE FROM session_completions")
+            try execute("COMMIT")
+            return ["runtimeRecordsRevoked":true,"semanticVectorsRetained":false,"sessionCompletionStateRetained":false,"restoredAt":at]
+        } catch { try? execute("ROLLBACK"); throw error }
+    }
+
     public func remove(_ kind: String, _ id: String) throws {
         lock.lock(); defer { lock.unlock() }
         try validateIdentifier(kind); try validateIdentifier(id)
-        if assetKinds.contains(kind) {
-            let asset = try assetURL(kind: kind, id: id)
-            if FileManager.default.fileExists(atPath: asset.path) { try FileManager.default.removeItem(at: asset) }
+        // Derived-session withdrawal already owns a policy transaction. Its records
+        // have no filesystem asset, so preserve that atomic caller contract.
+        if isBatching {
+            guard !assetKinds.contains(kind) else { throw VelaError("Canonical asset removal cannot nest a store transaction") }
+            try execute("DELETE FROM objects WHERE kind=? AND id=?", [kind,id]); return
         }
-        try execute("DELETE FROM objects WHERE kind=? AND id=?", [kind,id])
+        let asset = assetKinds.contains(kind) ? try assetURL(kind:kind,id:id) : nil
+        try execute("BEGIN IMMEDIATE"); isBatching=true
+        var original: Data?
+        do {
+            // Read after the writer barrier. If the SQL delete fails, rollback
+            // restores exactly the bytes this transaction removed.
+            if let asset, FileManager.default.fileExists(atPath:asset.path) {
+                original = try Data(contentsOf:asset)
+                try FileManager.default.removeItem(at:asset)
+            }
+            try execute("DELETE FROM objects WHERE kind=? AND id=?", [kind,id])
+            try execute("COMMIT"); isBatching=false
+        } catch {
+            try? execute("ROLLBACK"); isBatching=false
+            if let asset, let original, !FileManager.default.fileExists(atPath:asset.path) {
+                do { try original.write(to:asset,options:.atomic) }
+                catch let recovery { throw VelaError("Asset removal failed (\(error.localizedDescription)); restoring its bytes also failed (\(recovery.localizedDescription))") }
+            }
+            throw error
+        }
     }
     public func search(_ query: String, project: String? = nil, includePrivate: Bool = false, limit: Int = 50) throws -> [JSON] {
         lock.lock(); defer { lock.unlock() }

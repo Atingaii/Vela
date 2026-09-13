@@ -92,3 +92,8 @@ UI20 健康提案已由同一指定模型实现并合入开发源码：完整4�
 `b0e27282` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34781547477)已通过两个作业，实际执行490项XCTest、零失败，并通过安装后SDK、RPC、renderer及macOS打包审计；[CI证据](parity/ci-b0e27282-evidence-2026-09-14.json)。本机另构建了该检查点的开发包（ZIP 3,696,119 bytes），五项原生QA检查通过，包括启动/增量刷新、双语与菜单同步、来源预览取消、退出重启语言保留、退出清理；[原生证据](parity/native-b0-package-evidence-2026-09-14.json)。这份包包含召回修复，但仍为独立身份QA包装器验证与ad-hoc开发发行，不等于正式安装、公证、系统通知或全产品验收。
 
 同一b0本地开发包内的release helper也已实际复跑旧版升级7组、consumer28项、loop16项与Lab8项，59项全部通过，helper/源码哈希前后一致，隔离进程与fixture清理完成；对应收据见上述原生与交付证据文件。该复测覆盖发行配置下的真实本地执行路径，不代表真实外部模型或系统通知。
+
+
+完整本地 Store 备份与恢复已接入开发版 CLI：保存 private/public 资产、History 原文与来源收据、偏好、版本和 managed output；恢复到新目录并重绑资产路径，撤销旧审批/运行资格，禁用自动工作流。文件以64 KiB流式复制，数据库/资产容量、文件数和时间有明确上限。它不会初始化会自动恢复文件的 Router；修前“备份触发中断事务回滚并漏掉 output”的真实反例已保留，修后通过。[使用说明](implementation/local-store-backup-contract.md)与[证据](parity/local-store-backup-evidence-2026-09-14.json)。
+
+匹配本机源码的498项 portable Core 方法通过；root真实构建后，完整CLI19项、无恢复副作用4项、恶意格式4项以及watch/锁/并发目标三组运行态验收均通过。恢复后Library显式重建索引再搜索、private Recall/MCP隔离和默认home不被打开均有实际证据。此结果关闭完整本地备份的该组缺口，不关闭桌面数据管理、secret-free interchange/merge、远端加密恢复、通用repair/同步或六项Hard Gate；产品总验收仍为No-Go，新检查点CI及发行包另记。

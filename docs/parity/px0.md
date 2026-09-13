@@ -173,8 +173,8 @@
 | --- | --- | --- | --- |
 | PX0-100 | 单目录、可选store位置、无托管账号/遥测 | 具备 DB/CLI，平台边界见README | 全新store、移动/备份后可读，网络实测无遥测 |
 | PX0-101 | workflow/guideline/memory/config版本化原子changes | 部分 DB/A：不同资产/项目文件分散机制 | 一次多文件事件整体提交、revert也入历史 |
-| PX0-102 | secret-free store export/import，冲突merge/force | 缺失；Checkpoint导出不等价 | 凭据及其历史blob均排除；导入不损本机secret |
-| PX0-103 | 可移动路径、内容/版本一致性store verify | 部分 DB：资产存绝对path | 换根后引用仍对，丢blob/坏schema明确失败 |
+| PX0-102 | secret-free store export/import，冲突merge/force | 新增含 private 的本地完整 bundle；这不等价于 secret-free interchange，merge/force 仍缺失 | 凭据及其历史blob均排除；导入不损本机secret |
+| PX0-103 | 可移动路径、内容/版本一致性store verify | 本地 backup restore 重绑新根资产路径，校验 DB/manifest/资产集合；通用 verify/同步仍待补齐 | 换根后引用仍对，丢blob/坏schema明确失败 |
 | PX0-104 | 文件夹双向sync/pull/push/dryrun与机器冲突副本 | 缺失 | 不同步SQLite/凭据/fixture；不靠缺失推删除 |
 | PX0-105 | 冲突解决后收敛，文件相同不再反复冲突 | 缺失 | 两store并发编辑/重新同步真实复现 |
 | PX0-106 | typed config list/get/set/unset/edit/path与默认说明 | 部分 Preferences/CLI | 枚举/布尔/数值错误整体拒绝；秘密遮盖 |

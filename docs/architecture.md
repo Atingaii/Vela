@@ -45,6 +45,7 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 | `MemoryService.swift` / `SemanticMemory.swift` | 作用域与生命周期；词面或系统已安装语义模型的索引与召回、受限本地 embedding 与 recent/vector SDK API；每次批量读取共享有界排除策略快照，执行入口另做当前资格核验；已索引同项目 Session 消息可经 hash/identity 重验后捕获为候选 observation，普通编辑不会伪造其来源；受控 ingestion exclusion 可限制自动使用而不删除管理中的 Memory；[ADR 0013](adr/0013-local-semantic-recall.md)、[ADR 0031](adr/0031-local-embedding-and-recent-matches.md)、[ADR 0036](adr/0036-observed-session-memory-capture.md)、[ADR 0043](adr/0043-exclusion-aware-memory-recall.md) |
 | `LibraryService.swift` / `LibraryIndex.swift` | 来源版本、审阅后编辑/归档/恢复/重抓、严格公开资料边界、可重建FTS5段落索引与引用；[ADR 0022](adr/0022-paragraph-library-retrieval.md) |
 | `SetupInventoryService.swift` / `SetupCatalog.swift` | 五harness公开路径、脱敏历史/差异、删除痕迹与不完整扫描；[ADR 0018](adr/0018-observed-setup-inventory.md) |
+| `StoreBackupService.swift` / `StoreBackupFiles.swift` | CLI 独占的完整本地 Store bundle；写屏障、受限流式文件、只恢复到新根、旧执行资格撤销与无覆盖发布；[ADR 0044](adr/0044-complete-local-store-backup-and-recovery.md) |
 | `MemoryArchiveService.swift` / `sdk/typescript` / `sdk/python` | 明文可移植候选归档与实际可安装本地 SDK；[ADR 0007](adr/0007-portable-memory-archives.md)、[ADR 0010](adr/0010-local-client-sdks.md) |
 | `sdk/walrus` | 固定官方依赖的可选远端 adapter，公开接口、受限 worker、冻结 profile 和身份/网络边界；[ADR 0017](adr/0017-optional-walrus-adapter.md) |
 | `MemoryIntegrationService.swift` / `sdk/openclaw` | 显式宿主agent/workspace→namespace、权限复核、受限上下文与候选捕获、操作去重；[ADR 0023](adr/0023-scoped-openclaw-memory-integration.md) |
