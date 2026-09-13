@@ -40,6 +40,7 @@ with tempfile.TemporaryDirectory(prefix='vela-rpc-') as tmp:
     invoke(home,'library.add',{'title':'Private fixture','content':'velatestprivate secret evidence','project':str(project),'private':True})
     results=exchange(home,'mcp',[
         {'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2024-11-05','clientInfo':{'name':'test','version':'1'},'capabilities':{}}},
+        {'jsonrpc':'2.0','method':'notifications/initialized'},
         {'jsonrpc':'2.0','id':2,'method':'tools/list'},
         {'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'vela_search','arguments':{'query':'velatestprivate','project':str(project),'includePrivate':True}}},
         {'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'vela_recall','arguments':{'query':'velatestactive','project':str(project),'budget':1000}}},
@@ -53,18 +54,24 @@ with tempfile.TemporaryDirectory(prefix='vela-rpc-') as tmp:
     names={t['name'] for t in results[2]['result']['tools']}
     assert 'vela_memory_contribute' not in names
     assert not any('run' in name or 'apply' in name for name in names)
+    assert results[3]['result']['isError'] is True, 'Forbidden includePrivate must fail schema validation'
     assert 'velatestprivate' not in json.dumps(results[3]['result'])
     assert 'velatestactive' in json.dumps(results[4]['result'])
     assert 'error' in results[5]
     assert 'velatestprivatememory' not in json.dumps(results[6]['result'])
-    assert 'error' in results[7] and 'error' in results[8]
+    assert results[7]['result']['isError'] is True and results[8]['result']['isError'] is True
     assert 'velatestsession' in json.dumps(results[9]['result'])
     contributed=exchange(home,'mcp',[
-        {'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'vela_memory_contribute','arguments':{'id':memory['id'],'title':'Candidate','content':'New proposed evidence','type':'Fact','scope':'Project','project':str(project),'state':'Active'}}}
+        {'jsonrpc':'2.0','id':10,'method':'initialize','params':{'protocolVersion':'2024-11-05','clientInfo':{'name':'test','version':'1'},'capabilities':{}}},
+        {'jsonrpc':'2.0','method':'notifications/initialized'},
+        {'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'vela_memory_contribute','arguments':{'id':memory['id'],'title':'Rejected overwrite','content':'Must not save','type':'Fact','scope':'Project','project':str(project),'state':'Active'}}},
+        {'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'vela_memory_contribute','arguments':{'title':'Candidate','content':'New proposed evidence','type':'Fact','scope':'Project','project':str(project)}}}
     ],'--contribute')
-    assert 'error' not in contributed[1], contributed
+    assert contributed[1]['result']['isError'] is True, contributed
+    assert contributed[2]['result']['isError'] is False, contributed
     records=invoke(home,'memory.list',{'project':str(project)})
     assert any(r['id']==memory['id'] and r['state'].lower()=='active' for r in records)
+    assert not any(r['title']=='Rejected overwrite' for r in records)
     assert any(r['title']=='Candidate' and r['state'].lower()=='candidate' for r in records)
     workflow=invoke(home,'workflows.save',{'title':'Safe fixture','project':str(project),'description':'Write after review','trigger':'manual','steps':[{'title':'Write fixture','tool':'file.write','arguments':{'path':'approved.txt','content':'frozen value'}}]})
     run=invoke(home,'workflows.run',{'id':workflow['id'],'dryRun':True})

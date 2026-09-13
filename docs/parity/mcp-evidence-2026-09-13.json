@@ -1,0 +1,80 @@
+{
+  "format": "vela-typed-stdio-mcp-evidence-v1",
+  "completedAt": "2026-09-13T08:08:43.172744+00:00",
+  "scope": "Local typed stdio surface only; no remote MCP/OAuth/provider-model execution",
+  "protocolVersions": [
+    "2024-11-05",
+    "2025-03-26",
+    "2025-06-18",
+    "2025-11-25"
+  ],
+  "tools": {
+    "read": 15,
+    "contributeOnly": 7
+  },
+  "sourceSHA256": {
+    "Sources/VelaCore/MCPTools.swift": "8de739428f077a8723b8769c069a568a5c795b94951a3672428763224f03afbe",
+    "Sources/VelaCore/MCPToolAccess.swift": "6d871c06374b2a05be33abbc4079d335302c1dedaeaf5a86ae0f77d6b66ca3f6",
+    "Sources/VelaCore/Store.swift": "62186378f7eb57615e7c8f6ae315b78dada3b7f8cb8e7a0f554f7850e6ab92e9",
+    "Sources/VelaCLI/main.swift": "52229b65c583296f187d5bfbbe9d70187df6e700c6ba401fc714d0a9df4f8fda",
+    "Tests/VelaCoreTests/MCPToolsTests.swift": "390a76280399256c595c34fc9ed02a88a3064b86b57b0372daec41dfeef91704",
+    "Tests/VelaCoreTests/MCPReviewTests.swift": "466ca5dac5655e11a12fa8ba9ec9c1342e641ffd79a70cbac4f6bd465f025756",
+    "scripts/test-mcp-stdio.py": "88d59ef6eaaec5fa2c29ab721094edb13e1b6ce328f5d8a298b07df683de632d",
+    "scripts/test-rpc.py": "7badf1a178ff4afc8e4002a351a9b8a7f59f63756def0195ffd58fdde8649680",
+    "docs/adr/0029-typed-stdio-mcp-tools.md": "203bf63f254c197d511769488b225c3d7a6667ef3160bc49bd16998936167c75",
+    "docs/implementation/mcp-stdio-contract.md": "505e2d37457a7b75fabf3720d5d91507fa81b4ffc71df3c29363dd70287ee5d7"
+  },
+  "validation": {
+    "portableCore": {
+      "methods": 17,
+      "passed": true,
+      "sourceSnapshot": "026f24422d5e8cf35fefcc7db8ad1ec5e6b8cd63b51e9e09b253eddd256b8d63",
+      "receipt": "output/parity/mcp-focused-final.json",
+      "log": "output/parity/mcp-focused-final.log",
+      "notXCTest": true
+    },
+    "realStdio": {
+      "passed": true,
+      "receipt": "output/parity/mcp-stdio-verified.json",
+      "helperSHA256": "9f19a37e957c3a9bde183fb5f120ef52aba92bb590344a7846983fdd0678cde6",
+      "all22ToolPositivePaths": true,
+      "realProviderCalls": 0
+    },
+    "legacyRPC": {
+      "passed": true,
+      "log": "output/parity/mcp-rpc-final.log"
+    },
+    "swiftBuild": {
+      "passed": true,
+      "log": "output/parity/mcp-final-build.log"
+    },
+    "repositoryCheck": {
+      "passed": true,
+      "command": "python3 scripts/check-repository.py"
+    }
+  },
+  "independentReview": [
+    "Whole-source redaction before grapheme paging; original small pages reconstructed synthetic key",
+    "Source URL credential query removed from summaries; synthetic key no longer returned"
+  ],
+  "additionalRealConsumerFix": "ASCII key boundary catches recognized tokens adjacent to Chinese text",
+  "retainedFailures": [
+    "output/parity/mcp-build-first.log",
+    "output/parity/mcp-stdio-first.json",
+    "output/parity/mcp-stdio-second.json",
+    "output/parity/mcp-stdio-final.json"
+  ],
+  "failureContext": [
+    "First build local compilation errors fixed",
+    "First stdio fixture used unsupported library.add.sourceURL; corrected fixture without network",
+    "Second stdio found genuine CJK credential-boundary regression; added local sanitizer and regression",
+    "Third stdio fixture attempted messages from summaries; corrected to sessions.get"
+  ],
+  "cleanup": {
+    "removed": [
+      "scripts/__pycache__/test-mcp-stdio.cpython-314.pyc"
+    ],
+    "temporaryProcessesAndStores": "All test helpers and own isolated temp fixtures cleaned by fixture/context managers",
+    "retained": "Source, evidence and reusable .build dependencies"
+  }
+}

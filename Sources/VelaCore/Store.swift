@@ -365,6 +365,22 @@ public final class VelaStore {
         if !after.isEmpty { try validateIdentifier(after) }
         return try select("SELECT json_object('id',id,'project',project,'state',json_extract(json,'$.state'),'expiresAt',json_extract(json,'$.expiresAt')) FROM objects WHERE kind='replay_fixture' AND project=? AND id>? ORDER BY id LIMIT ?",[canonicalProject(project),after,max(1,min(limit,33))])
     }
+    // MCP pages carry identities only. Every asset is refreshed and checked by
+    // the MCP gate before it contributes text to a model-facing result.
+    func mcpSourceIDs(kind: String, project: String, after: String = "", limit: Int = 21) throws -> [JSON] {
+        lock.lock(); defer { lock.unlock() }
+        let kinds = ["memory","library","guideline","workflow","checkpoint","artifact","eval","session"]
+        guard kinds.contains(kind) || kind == "search", after.utf8.count <= 640 else { throw VelaError("Unsupported MCP source page") }
+        if kind == "search" {
+            let split = after.split(separator:":",maxSplits:1,omittingEmptySubsequences:false)
+            let priorKind = after.isEmpty ? "" : String(split[0]), priorID = split.count == 2 ? String(split[1]) : ""
+            guard after.isEmpty || (split.count == 2 && kinds.contains(priorKind)) else { throw VelaError("Invalid MCP search cursor") }
+            if !priorID.isEmpty { try validateIdentifier(priorID) }
+            return try select("SELECT json_object('id',id,'kind',kind) FROM objects WHERE project=? AND kind IN ('memory','library','guideline','workflow','checkpoint','artifact','session') AND (kind>? OR (kind=? AND id>?)) ORDER BY kind,id LIMIT ?",[canonicalProject(project),priorKind,priorKind,priorID,max(1,min(limit,101))])
+        }
+        if !after.isEmpty { try validateIdentifier(after) }
+        return try select("SELECT json_object('id',id,'kind',kind) FROM objects WHERE kind=? AND project=? AND id>? ORDER BY id LIMIT ?",[kind,canonicalProject(project),after,max(1,min(limit,101))])
+    }
     func workflowIdentities(project: String, after: String = "", limit: Int = 100) throws -> [JSON] {
         lock.lock(); defer { lock.unlock() }
         return try select("SELECT json_object('id',id,'title',title,'project',project,'state',json_extract(json,'$.state'),'version',json_extract(json,'$.version'),'enabled',json_extract(json,'$.enabled')) FROM objects WHERE kind='workflow' AND project=? AND id>? ORDER BY id LIMIT ?",[canonicalProject(project),after,max(1,min(limit,1001))])

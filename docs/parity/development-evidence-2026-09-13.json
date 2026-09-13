@@ -904,6 +904,52 @@
       "helperSHA256": "c004d1901d36582af6fcf34b7dac912567e02dcfbecd0783504a190a8673bac8",
       "realProviderExecuted": false,
       "qualification": "Actual renderer plus isolated frozen CLI; synthetic source data. Browser verification does not establish native controls or release-package acceptance."
+    },
+    {
+      "id": "hosted-checkpoint-1a0e69b",
+      "commit": "1a0e69ba1a31d1fe2ac9fb7b95fba4c785c97f07",
+      "url": "https://github.com/Atingaii/Vela/actions/runs/34746619462",
+      "status": "pass",
+      "macOSJob": 103695603672,
+      "installedSDKJob": 103695603803,
+      "actualXCTest": {
+        "tests": 371,
+        "failures": 0,
+        "unexpectedFailures": 0,
+        "testBodySeconds": 78.738
+      },
+      "rendererSuites": "passed",
+      "packageAndAudit": "passed",
+      "pythonResponsesInstalled": 30,
+      "pythonBaseSDKInstalled": 12,
+      "historicalPythonWheel": "not_run_in_CI",
+      "logsSHA256": {
+        "installed-sdk.log": "de5ca443ea4bf35dc6ca6fad0f093ff326636dbe1e3f3d475f441a68b38ba5e8",
+        "macos-xctest.log": "b699d9dafdc15d7737325b9b5e8dda4064ee5fd00681c074be04ea41c2bca4ef"
+      },
+      "qualification": "Immutable development checkpoint. Not new public release, notarization, real-account coverage or complete parity."
+    },
+    {
+      "id": "mcp-isolated-checkpoint",
+      "base": "1a0e69ba1a31d1fe2ac9fb7b95fba4c785c97f07",
+      "portableMethods": 388,
+      "notXCTest": true,
+      "sourceSnapshot": "445abbbeda9c77d38ca58d760293fa02b14841bb902a4b39310573158e220513",
+      "sourceUnchanged": true,
+      "helperSHA256": "0bbc9c2b2ec58730943630c93a75bd9af81b9a47474ab3042d16a966ecc068c8",
+      "protocolVersions": [
+        "2024-11-05",
+        "2025-03-26",
+        "2025-06-18",
+        "2025-11-25"
+      ],
+      "realStdioStatus": "passed",
+      "realProviderCalls": 0,
+      "receiptSHA256": {
+        "output/parity/mcp-checkpoint-core.json": "53713daebce7f6049c3749d8056a9b2658bed4760c3a6a90f9b087a26d520359",
+        "output/parity/mcp-checkpoint-stdio.json": "9ccd5d07c268a39087421a4ba5d97cd0a84d0d033604c5d7b1175f1eefc3c0f3"
+      },
+      "qualification": "Separate MCP-only overlay; excludes ongoing LangChain and UI. Full product acceptance remains open."
     }
   ]
 }

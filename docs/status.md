@@ -20,6 +20,7 @@
 | 可选 Walrus 后端 | 独立TypeScript包、固定官方SDK、显式profile/隔离worker、owner交易准备/签名核验、端侧manifest与原文恢复/候选构造 | 真实安装包、公开兼容性与testnet只读交易模拟已通过；官方faucet限流，测试地址无gas。真实加密写入/恢复与owner/delegate链上提交仍待验证；模拟不是链上成功，不默认给桌面增加Node |
 | OpenClaw集成 | 可选独立插件、宿主agent/workspace映射、namespace召回、候选捕获、注入框与持久操作日志 | 真实隔离宿主加载/CLI/hook与完整会话通过；模型响应使用本地合成provider。两条新记忆均为候选，不等于真实模型采纳或远端加密写入。自动捕获默认关闭，远端提取另需明确明文接收与预算 |
 | 模型记忆中间件 | 独立可选TypeScript AI SDK v4与Python Responses包；精确scope召回、受限注入、完整终态才捕获候选、取消/不确定回执 | AI SDK安装17项及基础TS12项通过；Python Responses修后安装30项、基础SDK12项与旧wheel兼容1项通过；独立四入口复核通过。均为真实SDK与loopbackHTTP/SSE，不代表真实模型质量；LangChain与remote analyze仍待完成 |
+| 本地 MCP | 强类型 stdio、四协议版本协商、15只读/7显式贡献工具、项目与fresh-source隔离、可见正文分页及候选批量写入 | 17项定点与四版本22工具实际消费者通过；Root独立完整Core388项portable及再次stdio通过，尚待该检查点真实XCTest。远端HTTP/OAuth及完整Agent客户端接入另验 |
 | Checkpoint / Reuse | 用户工程记录及真实 Git 快照；中立交接；项目 Codex SessionStart Hook 的预览、Apply/Undo 与提供上下文收据 | 原生 Session Transfer、更多官方 lifecycle hooks 和完整真实下一会话闭环仍需验证。收据证明已提供，不证明模型遵守 |
 | Workflow Context | 已选择 Guideline、Active Memory、只读 Git/Library/stdin/literal 输入，冻结来源/hash；显式 `{{vela.prompt}}` 参数实际交给 Agent | 旧 raw argv 不被静默改写。记录 prompt 消费路径不等于证明模型采纳约束 |
 | 自然语言规划 | 明确选择 Codex 程序/模型/effort，冻结请求，经审批生成问题或默认停用草案，再显式保存 | 真实提供方已产出有效草案；规划工具目录仍需拓展，与自主多轮工具执行是不同能力 |
@@ -40,9 +41,9 @@
 
 先前提交 `ea8fbd257f813c604a93e070d5f98a6337829d81` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34715619455)为历史基线：99 项 XCTest、24 组 renderer 检查。先前 1,453,375 bytes 开发包也只是该阶段产物，不能作为新增能力的包体或界面验证结果。更早的原生、Lab、私有检索、通知拒绝与失败复现保留于 verification 文档，不以新测试覆盖删除历史问题。
 
-最新正式检查点 `93486e3` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34744216705)通过354项XCTest（0失败）、RPC/能力合同、原renderer验收与SDK/AI SDK/OpenClaw安装任务。整条CI仍失败：文件Watch界面缺少来源选择器，打包步骤跳过。此前的断言兼容层、Watch首tick一致性及额度重复扫描问题均保留原失败和修后证据于[验证记录](verification.md#hosted-checkpoint-correction)，不把旧失败删除或改标成功。
+最新正式检查点 `1a0e69b` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34746619462)已全部通过：371项真实XCTest（0失败）、RPC/能力合同、Replay普通及饱和控制、全部renderer流程、SDK/AI SDK/Python Responses/OpenClaw安装任务、macOS打包与产物审计。旧检查点失败和修后证据仍保留于[验证记录](verification.md#hosted-checkpoint-correction)。这是开发分支检查点，不改变公开下载版本与产品总验收状态。
 
-后续冻结源码包含Replay与Python Responses合同，371项本地portable全过；冻结界面另通过11项工程流程与4项Ask消费者检查。它们不是新的正式XCTest结果，也不是已发布安装包。指定Antigravity模型完成文件Watch入口后，冻结第9版界面通过完整6项Library/Watch、11项工程和4项Ask检查；所有新增入口仍需原生客户端和新CI验收。
+冻结第9版界面另通过完整6项Library/Watch、11项工程和4项Ask浏览器检查；原生窗口已验证文件Watch创建、编辑和真实预览。原生动态字段的完整可访问性、其余新增入口、最终发布签名及资源预算继续分别验收。正在进行的MCP扩展与LangChain不在该提交中。
 
 本机为 Command Line Tools 环境，`swift build` 可用但缺 XCTest；`scripts/test-portable.py` 编译真实 Core 与原同步测试方法，使用小型断言兼容层，**不是 XCTest**。完整 Xcode/CI 使用 `swift test`。
 

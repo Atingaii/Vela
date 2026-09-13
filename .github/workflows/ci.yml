@@ -29,6 +29,7 @@ jobs:
       - name: JSONL and MCP integration
         run: |
           python3 scripts/test-rpc.py
+          python3 scripts/test-mcp-stdio.py --output output/parity/ci-mcp-stdio.json
           python3 scripts/test-rpc-limits.py
           python3 scripts/test-restart.py
       - name: Capability contracts and responsive controls
@@ -101,6 +102,7 @@ jobs:
             output/playwright/ci-library-watch/*.png
             output/parity/ci-session-history.json
             output/parity/ci-session-plans.json
+            output/parity/ci-mcp-stdio.json
             output/parity/ci-loop-controls*.json
             output/parity/ci-replay-controls*.json
             output/parity/ci-workflow-replay.json

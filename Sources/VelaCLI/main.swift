@@ -89,60 +89,6 @@ final class Router {
     }
 }
 
-let mcpRead: [(String, String, String)] = [
-    ("vela_search", "Search local engineering evidence; private library is always excluded.", "search"),
-    ("vela_recall", "Recall active scoped memories within a token budget. Requires project and query.", "recall"),
-    ("vela_memory_list", "List nonprivate project memories.", "memory.list"),
-    ("vela_setup_list", "Read sanitized setup artifacts.", "setup.list"),
-    ("vela_workflows_list", "Read workflow definitions without executing them.", "workflows.list"),
-    ("vela_evals_list", "Read recorded evaluation evidence.", "lab.list"),
-    ("vela_checkpoints_list", "Read provider-neutral checkpoints.", "checkpoint.list")
-]
-let mcpContribute: [(String, String, String)] = [
-    ("vela_memory_contribute", "Create a candidate memory; cannot activate or replace existing memory.", "memory.save"),
-    ("vela_checkpoint_save", "Save a new checkpoint in Vela's store.", "checkpoint.save"),
-    ("vela_signal_record", "Contribute evidence tied to an existing project session.", "signals.record"),
-    ("vela_suggestion_draft", "Create a suggestion draft without file operations or promotion.", "suggestions.draft")
-]
-
-func handleMCP(_ request: JSON, router: Router, contribute: Bool) throws -> Any? {
-    guard let method = request["method"] as? String else { throw VelaError("Missing JSON-RPC method") }
-    let params = request["params"] as? JSON ?? [:]
-    let available = mcpRead + (contribute ? mcpContribute : [])
-    switch method {
-    case "initialize": return ["protocolVersion":"2024-11-05","capabilities":["tools":[:]],"serverInfo":["name":"Vela","version":version],"instructions":"Local engineering context. Scope all requests by project. Private library is inaccessible. Execution and applying changes are never exposed."] as JSON
-    case "notifications/initialized", "notifications/cancelled": return nil
-    case "ping": return JSON()
-    case "tools/list":
-        return ["tools":available.map { tool -> JSON in
-            var properties: JSON = ["query":["type":"string"],"project":["type":"string"],"budget":["type":"integer","minimum":0,"maximum":4000],"title":["type":"string"],"content":["type":"string"],"type":["type":"string"],"scope":["type":"string"],"sourceSession":["type":"string"],"sourceMessage":["type":"string"],"goal":["type":"string"],"completed":["type":"string"],"pending":["type":"string"],"nextActions":["type":"string"],"branch":["type":"string"],"worktree":["type":"string"],"task":["type":"string"],"sessionId":["type":"string"],"files":["type":"array","items":["type":"string"]],"symbols":["type":"array","items":["type":"string"]]]
-            if tool.0 == "vela_recall" {
-                properties["retrievalMode"] = ["type":"string","enum":["lexical","semantic","hybrid"]]
-                properties["language"] = ["type":"string","enum":["en","zh-Hans"]]
-                properties["minSimilarity"] = ["type":"number","minimum":0,"maximum":1]
-                properties["limit"] = ["type":"integer","minimum":1,"maximum":100]
-                properties["scoringWeights"] = ["type":"object","additionalProperties":false,"properties":["semantic":["type":"number","minimum":0,"maximum":10],"recency":["type":"number","minimum":0,"maximum":10],"importance":["type":"number","minimum":0,"maximum":10],"recencyHalfLifeDays":["type":"number","minimum":0.01,"maximum":3650]]]
-            }
-            return ["name":tool.0,"description":tool.1,"inputSchema":["type":"object","properties":properties,"required":["project"],"additionalProperties":false],"annotations":["readOnlyHint": mcpRead.contains(where: { $0.0 == tool.0 }),"destructiveHint":false,"openWorldHint":false]]
-        }]
-    case "tools/call":
-        guard let name = params["name"] as? String, let tool = available.first(where: { $0.0 == name }) else { throw VelaError("Tool unavailable in this MCP permission mode") }
-        var input = params["arguments"] as? JSON ?? [:]
-        guard let rawProject = input["project"] as? String, rawProject.hasPrefix("/") else { throw VelaError("MCP tools require an absolute registered project path") }
-        let project = canonicalProject(rawProject)
-        guard try router.store.list("project").contains(where: { canonicalProject($0["path"] as? String ?? "") == project }) else { throw VelaError("Register this project in Vela before using MCP") }
-        input["project"] = project
-        input.removeValue(forKey:"includePrivate"); input.removeValue(forKey:"id")
-        input.removeValue(forKey:"path"); input.removeValue(forKey:"supersedes")
-        if name == "vela_memory_contribute" { input["state"] = "Candidate" }
-        if name == "vela_search" { input["includePrivate"] = false }
-        var result = try router.call(tool.2, input)
-        if name == "vela_memory_list", let memories = result as? [JSON] { result = memories.filter { $0["private"] as? Bool != true } }
-        return ["content":[["type":"text","text":try jsonString(result)]],"isError":false]
-    default: throw VelaError("Unknown MCP method")
-    }
-}
-
 if arguments.isEmpty || arguments.contains("--help") || arguments.first == "help" {
     print("""
     Vela \(version) — The engineering layer for coding agents
@@ -244,6 +190,7 @@ do {
         if let object = result as? JSON, !object.isEmpty { emit(object) }
     } else if command == "rpc" || command == "mcp" {
         let isMCP = command == "mcp"
+        let mcpTools = MCPTools(store: router.store, contribute: arguments.contains("--contribute"), serverVersion: version, coreCall: { try router.call($0, $1) })
         let watchEnabled = !isMCP && !arguments.contains("--no-watch")
         if watchEnabled { router.foundation.onChange = { emit(["event":"data.changed"]) } }
         if watchEnabled { router.foundation.startWatching() }
@@ -276,7 +223,11 @@ do {
                 else { emit(["error":["message":"Invalid JSON request"]]) }
                 continue
             }
-            guard let method = request["method"] as? String else { emit(["id":request["id"] ?? NSNull(),"error":["message":"Missing method"]]); continue }
+            guard let method = request["method"] as? String else {
+                if isMCP { emit(["jsonrpc":"2.0","id":NSNull(),"error":["code":-32600,"message":"Invalid request: method must be a string"]]) }
+                else { emit(["id":request["id"] ?? NSNull(),"error":["message":"Missing method"]]) }
+                continue
+            }
             let isControl = !isMCP && Router.controlMethods.contains(method)
             let capacity = isControl ? controlBound : queueBound
             // Do not block stdin while admitting work: doing so would also
@@ -284,7 +235,8 @@ do {
             guard capacity.wait(timeout:.now()) == .success else {
                 var response: JSON = ["id":request["id"] ?? NSNull(),"error":["code":-32001,"message":"Helper request queue is full; inspect status before retrying a mutation"]]
                 if isMCP { response["jsonrpc"] = "2.0" }
-                emit(response); continue
+                if !isMCP || request["id"] != nil { emit(response) }
+                continue
             }
             pending.enter()
             let automationMethods = ["workflows.","runs.","improve.","lab.","reuse.","daemon.","schedules.","watches.","approvals.","inbox.","outputs.","connectors.","evidence.","ask.","loops.","replay."]
@@ -293,9 +245,7 @@ do {
                 defer { pending.leave(); capacity.signal() }
                 do {
                     if isMCP {
-                        if let result = try handleMCP(request, router:router, contribute:arguments.contains("--contribute")), request["id"] != nil {
-                            emit(["jsonrpc":"2.0","id":request["id"]!,"result":result])
-                        }
+                        if let response = mcpTools.handle(request: request) { emit(response) }
                     } else {
                         let result = try router.call(method,request["params"] as? JSON ?? [:])
                         emit(["id":request["id"] ?? NSNull(),"result":result])
