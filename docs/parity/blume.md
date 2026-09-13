@@ -129,6 +129,8 @@ Codex 子代理只读关系切片（ADR0030）：20 个关系方法（含 2 个�
 
 Vela is not yet a functional superset of Blume. This inventory keeps 52 capability items and distinguishes published beta, roadmap and report-only observations. Current slices add versioned Pi/OMP ingestion, a Codex quota adapter with one real account verification, and a reviewed three-stage improvement pipeline. Both synthetic-provider tests and one real Codex run over synthetic source material passed; the latter produced an unapplied Rule candidate with verified citations. Other providers, real task effectiveness, configuration, continuation, desktop behavior and remaining parity items stay open.
 
+2026-09-14 增量证据：Session Capture 的 Core/RPC 与 UI19/20 fixture consumer 已实通；Workflow Health UI20 有 4 组浏览器与 7 组原生边界记录。手动 Run Feedback 的 Core/API/Bridge 已测，但 UI21 consumer 仍是缺入口红例。100 MiB synthetic Codex 前缀/RSS 仅为单 helper 的有限观察；不构成完整摄取、全应用性能或 Golden 通过。详见 [Health 证据](ui20-health-proposal-evidence-2026-09-14.json) 与 [集成收据](feedback-lab-session-core-evidence-2026-09-14.json)。
+
 
 ## 关联模块独立审阅记录（2026-09-13）
 

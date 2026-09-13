@@ -1,0 +1,270 @@
+{
+  "format": "vela-feedback-lab-session-core-integration-v1",
+  "recordedAt": "2026-09-14",
+  "baseCommit": "46595a72bc12650e3aabd83bd6c4103caa464b7e",
+  "sourceSHA256": {
+    "Sources/VelaCore/SessionEngine.swift": "d24ef55fe91fafaec52e6600dd507d85683fdf1158419661bbf96fd005ddfc2b",
+    "Tests/VelaCoreTests/FoundationTests.swift": "4a3b9e9c4ce8a2b803ee3663b92979664c625a34661865d85e58e522eae25fc9",
+    "scripts/test-session-growing-rewrite-rpc.py": "1f79bd8b8653c6de3c5be1b140aa6663401757ea6581375fd4c613e18873f6d1",
+    "docs/adr/0040-indexed-prefix-integrity-for-growing-session-sources.md": "b2a208e2c61fbf2585d20473d2d1807d1c446361a50fdfd211a9d398490a8a7f",
+    "docs/implementation/session-relations-contract.md": "9fbd55646438ddfc8820840050d0e77f6c0e8470f5c64f5db840c670807003c6",
+    "docs/architecture.md": "c7971f64963eeb4c856aef30e749ad7590fb3f94ea382e251519add8707ff25c",
+    "Sources/VelaCore/AutomationService.swift": "e8c13870870a1bd6cb76b460a88084051928f253b99a7e024e0b004d8e72a04f",
+    "Sources/VelaCore/LabService.swift": "864b4108e2c6e26292e60608e627ed9b94f1a8a7ca1e16011a80ea9729b4580c",
+    "Sources/VelaCore/RunFeedback.swift": "9aa9af34804715ca9a2ef8877228369af05cfa1065be3ffef492398132d22d88",
+    "Sources/VelaCore/WorkflowHealth.swift": "f855250f3e723ba5001ad9686db8e977f58ae53e3e95b3c96643bb8ac6d4b9ab",
+    "Tests/VelaCoreTests/LabRecallVariantTests.swift": "4f861c9f5dca02b5775c3d8eaa772f6c53c86b8501175d40422747d09f1963ae",
+    "Tests/VelaCoreTests/RunFeedbackTests.swift": "d5fc737608b0050439a793d6df5b077ebf983df92d065fc3bf6a6e2dc67719f8",
+    "Tests/VelaCoreTests/WorkflowHealthTests.swift": "a6ae2c5c82feea2df3fe2f71eb9857b5b10054cb1b48bfd9b6f9a4f601f47a48",
+    "scripts/test-lab-recall-variant-rpc.py": "83c900f7d42e4c16683db36e680e6380a9cc87a07a9c75ce1cba872cb9b35ea3",
+    "scripts/test-run-feedback-rpc.py": "ec4ec6bd726c3d676526bd9ac41c0ed88936f67fcbbe2ca618d969eccace01dd",
+    "docs/adr/0038-manual-run-feedback-observation.md": "f2781f3574e94988a3353a69adab13e06bf1199abf148e17057de4d557e076ba",
+    "docs/adr/0039-lab-recall-variants.md": "eabcf01b723779d2a6e58cb31cc9efc2504c1b5c4e40231e6b2451305ca209ef",
+    "docs/implementation/agent-lab-contract.md": "6c75bbc0c82007cbc89599c237c1de98dccb440d888e2651b5f311fa2f7d0950",
+    "docs/implementation/workflow-health-contract.md": "ba10e168eb80a5b233d27cd273c83e34ccd155baceaf87c14fab25d8a48f6ee5",
+    "scripts/test-lab-explicit-memory-guard-rpc.py": "e56209f9b1b4ef27929c5bf160d6088b89f9ecf6ddaae70fbbc1026f5f608a9b"
+  },
+  "helperSHA256": "5e2cb566e709221e75a8bf6941d561499210835522364a10c5520caf156390ee",
+  "validation": {
+    "portableFullMethods": 463,
+    "actualRPC": [
+      "explicit guard",
+      "growing",
+      "capture",
+      "feedback",
+      "lab recall"
+    ],
+    "repositoryCheck": "passed"
+  },
+  "stagedEvidence": [
+    {
+      "stage": ".task-tmp/feedback-lab-session-integration-r1",
+      "manifest": ".task-tmp/feedback-lab-session-integration-r1/output/parity/feedback-lab-session-integration-r1.json",
+      "sourceReceipt": {
+        "format": "vela-feedback-lab-session-integration-r1",
+        "baseCommit": "46595a72bc12650e3aabd83bd6c4103caa464b7e",
+        "stage": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/feedback-lab-session-integration-r1",
+        "scope": {
+          "sessionIntegrity": "streamed completed-prefix SHA computed before final sourceVersion guard; no source reads after guard",
+          "feedbackLab": "approved RunFeedback/Lab whitelist; SemanticMemory.swift remains base-identical",
+          "architecture": "mechanical ADR 0038/0039/0040 row merge only"
+        },
+        "sourceAfterSHA256": {
+          "Sources/VelaCore/SessionEngine.swift": "cae63ebbd808ed3ce33802388f21177d42f56f9353018d0455ba71b28b6f897d",
+          "Tests/VelaCoreTests/FoundationTests.swift": "4a3b9e9c4ce8a2b803ee3663b92979664c625a34661865d85e58e522eae25fc9",
+          "scripts/test-session-growing-rewrite-rpc.py": "1f79bd8b8653c6de3c5be1b140aa6663401757ea6581375fd4c613e18873f6d1",
+          "docs/adr/0040-indexed-prefix-integrity-for-growing-session-sources.md": "9ab43dd30b06d3d3104f46c513b1fa998927539240faa93f2da7198a5ab1d78a",
+          "docs/implementation/session-relations-contract.md": "9fbd55646438ddfc8820840050d0e77f6c0e8470f5c64f5db840c670807003c6",
+          "docs/architecture.md": "c7971f64963eeb4c856aef30e749ad7590fb3f94ea382e251519add8707ff25c",
+          "Sources/VelaCore/AutomationService.swift": "e8c13870870a1bd6cb76b460a88084051928f253b99a7e024e0b004d8e72a04f",
+          "Sources/VelaCore/LabService.swift": "a7083e83737690b10718dbedafb5a320ec7533269aa75a791e6734c8a9520499",
+          "Sources/VelaCore/RunFeedback.swift": "9aa9af34804715ca9a2ef8877228369af05cfa1065be3ffef492398132d22d88",
+          "Sources/VelaCore/WorkflowHealth.swift": "f855250f3e723ba5001ad9686db8e977f58ae53e3e95b3c96643bb8ac6d4b9ab",
+          "Tests/VelaCoreTests/LabRecallVariantTests.swift": "4f861c9f5dca02b5775c3d8eaa772f6c53c86b8501175d40422747d09f1963ae",
+          "Tests/VelaCoreTests/RunFeedbackTests.swift": "d5fc737608b0050439a793d6df5b077ebf983df92d065fc3bf6a6e2dc67719f8",
+          "Tests/VelaCoreTests/WorkflowHealthTests.swift": "a6ae2c5c82feea2df3fe2f71eb9857b5b10054cb1b48bfd9b6f9a4f601f47a48",
+          "scripts/test-lab-recall-variant-rpc.py": "83c900f7d42e4c16683db36e680e6380a9cc87a07a9c75ce1cba872cb9b35ea3",
+          "scripts/test-run-feedback-rpc.py": "ec4ec6bd726c3d676526bd9ac41c0ed88936f67fcbbe2ca618d969eccace01dd",
+          "docs/adr/0038-manual-run-feedback-observation.md": "f2781f3574e94988a3353a69adab13e06bf1199abf148e17057de4d557e076ba",
+          "docs/adr/0039-lab-recall-variants.md": "eabcf01b723779d2a6e58cb31cc9efc2504c1b5c4e40231e6b2451305ca209ef",
+          "docs/implementation/agent-lab-contract.md": "6c75bbc0c82007cbc89599c237c1de98dccb440d888e2651b5f311fa2f7d0950",
+          "docs/implementation/workflow-health-contract.md": "ba10e168eb80a5b233d27cd273c83e34ccd155baceaf87c14fab25d8a48f6ee5"
+        },
+        "semanticMemorySHA256": "b5fb6b6bdd6e21e2d4070e2cdc839aa84028612478418e9dd0c0943411bdf3bd",
+        "receipts": {
+          "output/parity/feedback-lab-session-integration-growing-rpc-r3.json": "5638ddaa953353246ec2ce31a58eaea2b610cd4f925275a90cb1937d7955023f",
+          "output/parity/feedback-lab-session-integration-feedback-rpc.json": "93182b82ff964cf4818f8655c1bd10c70eaace029475e6e553a511a5fa07f337",
+          "output/parity/feedback-lab-session-integration-lab-recall-rpc.json": "60c41329a9fdba3edaf34f53481f7977dd34e5a9d9dd9a1cd4846c0c09c2d5f0",
+          "output/parity/feedback-lab-session-integration-capture-rpc.json": "781b89b552e99ec9158d89700d0e66cc983bbb6de6da28decf5a6df4d0aaff77",
+          "output/parity/feedback-lab-session-integration-full-portable.json": "666b1a491cf48fa4b12a96665852c5819cd12def31d758e7f1b2eb5c16af7448",
+          "output/parity/session-growing-rewrite-100m-cost-r3.json": "5ae9392e1d7cc28f038106777d3da95cc44ebcdb45990f5bc9fba106e58f2475"
+        },
+        "helperSHA256": "49e43c63690b16d268847e15d4f8edf3c31a15c1da31b189f9d4939aa2191f1e",
+        "sourceBeforeAfter": {
+          "baseCommit": "46595a72bc12650e3aabd83bd6c4103caa464b7e",
+          "baseArchiveCreatedBeforeCopy": true,
+          "sourceAfterSnapshotSHA256": "c117dc8aa1619db27a56fc78c67a3499a31a7591138e7dfb2164f1081aad1065",
+          "sourceAfterMatchesFullPortableSnapshot": true,
+          "semanticMemoryMatchesBase": true
+        },
+        "validation": {
+          "swiftBuild": "passed",
+          "portableFullMethodsExpected": 463,
+          "portableFull": "passed",
+          "actualRPC": [
+            "growing rewrite",
+            "run feedback",
+            "lab recall",
+            "session memory capture"
+          ],
+          "performanceObservation": "100 MiB owned synthetic Codex source; timing/RSS only, no performance threshold"
+        },
+        "sourceBeforeSHA256": {
+          "Sources/VelaCore/SessionEngine.swift": "67600ef861825520d6d514421e8c6e3e27927bd8145c512b903986a5621c493f",
+          "Tests/VelaCoreTests/FoundationTests.swift": "77dfa9083d1d682e2a74bde8f4885a34c5ec9c961f7250606fb8908ecffe007c",
+          "scripts/test-session-growing-rewrite-rpc.py": null,
+          "docs/adr/0040-indexed-prefix-integrity-for-growing-session-sources.md": null,
+          "docs/implementation/session-relations-contract.md": "871d38715599885f76a065d8ab81ffecf9dd56893ca58033a17d9f369f36e159",
+          "docs/architecture.md": "be2199d24fca602e2adf567b76cfc32ac19ae7edb9fae6f242e65c60c8ac7c61",
+          "Sources/VelaCore/AutomationService.swift": "ef9e42d5a7f0591f1f1d2d091e592e403f67de31ce7e75f35cea1db5056582aa",
+          "Sources/VelaCore/LabService.swift": "17fddc1b99008a580dd41fdeb346b8968e85eb8daf48883193e9d82b635fa429",
+          "Sources/VelaCore/RunFeedback.swift": null,
+          "Sources/VelaCore/WorkflowHealth.swift": "4258f9163b9cbbbbc465cece3da420940d6b0a03b29014949250f9d33c4cd600",
+          "Tests/VelaCoreTests/LabRecallVariantTests.swift": null,
+          "Tests/VelaCoreTests/RunFeedbackTests.swift": null,
+          "Tests/VelaCoreTests/WorkflowHealthTests.swift": "4400ca5237e4271b42206721b980ec384ce6cb6401aa8e6e024542908208b74f",
+          "scripts/test-lab-recall-variant-rpc.py": null,
+          "scripts/test-run-feedback-rpc.py": null,
+          "docs/adr/0038-manual-run-feedback-observation.md": null,
+          "docs/adr/0039-lab-recall-variants.md": null,
+          "docs/implementation/agent-lab-contract.md": "d64516b85e28b784e8111b7094e8a5d7fb60cae08fcdf243fc406e5c072b5ada",
+          "docs/implementation/workflow-health-contract.md": "2767f9c98041cd08b7cb07d56812cfc7a50b880bb615d3d242e3c1a080f907d2"
+        }
+      }
+    },
+    {
+      "stage": ".task-tmp/session-prefix-memory-r2",
+      "manifest": ".task-tmp/session-prefix-memory-r2/output/parity/session-prefix-memory-r2.json",
+      "sourceReceipt": {
+        "format": "vela-session-prefix-memory-r2",
+        "baseIntegrationStage": "feedback-lab-session-integration-r1",
+        "scope": "SessionEngine completed-prefix digest temporary Foundation Data release only; full digest and final source-version guard retained.",
+        "sourceAfterSHA256": {
+          "Sources/VelaCore/SessionEngine.swift": "d24ef55fe91fafaec52e6600dd507d85683fdf1158419661bbf96fd005ddfc2b",
+          "Tests/VelaCoreTests/FoundationTests.swift": "4a3b9e9c4ce8a2b803ee3663b92979664c625a34661865d85e58e522eae25fc9",
+          "scripts/test-session-growing-rewrite-rpc.py": "1f79bd8b8653c6de3c5be1b140aa6663401757ea6581375fd4c613e18873f6d1",
+          "docs/adr/0040-indexed-prefix-integrity-for-growing-session-sources.md": "b2a208e2c61fbf2585d20473d2d1807d1c446361a50fdfd211a9d398490a8a7f",
+          "docs/implementation/session-relations-contract.md": "9fbd55646438ddfc8820840050d0e77f6c0e8470f5c64f5db840c670807003c6",
+          "docs/architecture.md": "c7971f64963eeb4c856aef30e749ad7590fb3f94ea382e251519add8707ff25c"
+        },
+        "helperSHA256": "68d6c88e96919636e724d00558927c3032c27967b97d0e7ae12c9297be034c15",
+        "receipts": {
+          "output/parity/session-prefix-memory-r2-before.json": "ff160f199e800da0101a9a5412454c97a90f76b89c28382de71922ddede71dd1",
+          "output/parity/session-prefix-memory-r2-after.json": "18e14e40f49c73cd9ca15543aced2f8ec25337b6b40e3ee3501515b79449f0c2",
+          "output/parity/session-prefix-memory-r2-focused.json": "c0ece006253417e44e0abade639af8ef520b8008f06c8dcbb81e05106b5e4b75",
+          "output/parity/session-prefix-memory-r2-growing-rpc.json": "781c3b6f30ef16d1f84539968c3581a62c503c143437dbeaf422f8bfdd27db61",
+          "output/parity/session-prefix-memory-r2-feedback-rpc.json": "51b6a0ebe7b6df1319019a796cbc111c4caf923676e6d62e15eede608cd24d4d",
+          "output/parity/session-prefix-memory-r2-lab-rpc.json": "8c604573d3f80cec202191d3b4b7a53338cc8ce95e71bc1677a15be857eeeced",
+          "output/parity/session-prefix-memory-r2-capture-rpc.json": "600223372957d540c9bcc0afec94062c13c308c64e3af2060fdd419821441a53",
+          "output/parity/session-prefix-memory-r2-full.json": "de62c4caf1cc796ec83807b2fbb646a072fc0757152505d9c7fe83be45870aed"
+        },
+        "rssComparisonKiB": {
+          "before": {
+            "initial": 120400,
+            "append-1": 223328,
+            "append-2": 225696,
+            "append-3": 243600,
+            "append-4": 322000,
+            "append-5": 383344,
+            "unchanged": 383344
+          },
+          "after": {
+            "initial": 17664,
+            "append-1": 17952,
+            "append-2": 18080,
+            "append-3": 18144,
+            "append-4": 18176,
+            "append-5": 18176,
+            "unchanged": 18192
+          }
+        },
+        "elapsedComparisonMs": {
+          "before": {
+            "initial": 129.504,
+            "append-1": 130.002,
+            "append-2": 131.457,
+            "append-3": 141.092,
+            "append-4": 141.915,
+            "append-5": 145.423,
+            "unchanged": 1.482
+          },
+          "after": {
+            "initial": 125.413,
+            "append-1": 124.587,
+            "append-2": 130.808,
+            "append-3": 127.163,
+            "append-4": 131.489,
+            "append-5": 144.619,
+            "unchanged": 7.63
+          }
+        },
+        "fullPortable": {
+          "passed": true,
+          "methodCount": 463,
+          "snapshotSHA256": "1ec563d97bd9330c0f9176f7274d53c42a82e6cae4bfa22ca048de72eeef7074"
+        },
+        "limits": "100 MiB owned synthetic Codex JSONL, one helper process, RSS from ps. Observational evidence only; no performance threshold or whole-app claim."
+      }
+    },
+    {
+      "stage": ".task-tmp/lab-explicit-memory-guard-r1",
+      "manifest": ".task-tmp/lab-explicit-memory-guard-r1/output/parity/lab-explicit-memory-guard-r1.json",
+      "sourceReceipt": {
+        "format": "vela-lab-explicit-memory-guard-r1",
+        "baseStage": "session-prefix-memory-r2",
+        "sourceSHA256": {
+          "Sources/VelaCore/LabService.swift": "864b4108e2c6e26292e60608e627ed9b94f1a8a7ca1e16011a80ea9729b4580c",
+          "Tests/VelaCoreTests/LabRecallVariantTests.swift": "4f861c9f5dca02b5775c3d8eaa772f6c53c86b8501175d40422747d09f1963ae",
+          "scripts/test-lab-explicit-memory-guard-rpc.py": "e56209f9b1b4ef27929c5bf160d6088b89f9ecf6ddaae70fbbc1026f5f608a9b",
+          "docs/adr/0039-lab-recall-variants.md": "eabcf01b723779d2a6e58cb31cc9efc2504c1b5c4e40231e6b2451305ca209ef",
+          "docs/implementation/agent-lab-contract.md": "6c75bbc0c82007cbc89599c237c1de98dccb440d888e2651b5f311fa2f7d0950",
+          "Sources/VelaCore/SessionEngine.swift": "d24ef55fe91fafaec52e6600dd507d85683fdf1158419661bbf96fd005ddfc2b",
+          "docs/adr/0040-indexed-prefix-integrity-for-growing-session-sources.md": "b2a208e2c61fbf2585d20473d2d1807d1c446361a50fdfd211a9d398490a8a7f"
+        },
+        "helperSHA256": "5e2cb566e709221e75a8bf6941d561499210835522364a10c5520caf156390ee",
+        "receipts": {
+          "output/parity/lab-explicit-memory-guard-before.json": "3714ad1e69681b4b43b7fe362ffd82aeb79a80504aa891a61bb77432db638c13",
+          "output/parity/lab-explicit-memory-guard-rpc-r2.json": "c13e66ab8b3e8c51c7a423672ed39ab32df02737c8fcd778ad7e262c83c02305",
+          "output/parity/lab-explicit-memory-guard-focused.json": "0fd4769d59f26ca0e36d64fba47df9b21dbebe3c7e12785e9e3a741c2c68fe81",
+          "output/parity/lab-explicit-memory-guard-full.json": "abea8aa1de5e83e59389c69bf59b23841dd65895978116c930ac0402f9e0859c",
+          "output/parity/lab-explicit-memory-guard-growing.json": "f1266d265c4f796af83419f85f7af1ed57dcafb493e3cfbb9f440b440310362a",
+          "output/parity/lab-explicit-memory-guard-capture.json": "4158d67fd851c510fce18ec76347e952aad8fb31aef9bc0d7e0e7b8a04a0d8b6",
+          "output/parity/lab-explicit-memory-guard-feedback.json": "c68797e83f96993a9c8febe79d39dfc5cce3ec52db87d9cc0bace924b77b4328",
+          "output/parity/lab-explicit-memory-guard-lab.json": "926267a9e5657cb2097c01be1fbf9aa7b10874c0fda40b10be7a8fe966ad1b7a"
+        },
+        "validation": {
+          "portableFullMethods": 463,
+          "actualRPC": [
+            "explicit guard",
+            "growing",
+            "capture",
+            "feedback",
+            "lab recall"
+          ],
+          "repositoryCheck": "passed"
+        }
+      }
+    }
+  ],
+  "limits": [
+    "463 portable test methods are local assertion-compatibility tests, not XCTest.",
+    "Synthetic local agents/fixtures only; provider quality and Golden not newly exercised.",
+    "100 MiB prefix RSS comparison is a scoped helper observation, not a full-app performance budget result.",
+    "Native and renderer tests name their own helper/source snapshots; root final build and CI are separate."
+  ],
+  "rootIntegration": {
+    "swiftBuild": "passed",
+    "helperSHA256": "d1a1e969c53ae3368b564fc10912c22aa8c7a221403b50a69ff023246bd1f12b",
+    "all116PortableInputFilesMatchFinalStage": true,
+    "postIntegrationCorrections": {
+      "scripts/test-lab-explicit-memory-guard-rpc.py": "1c35d35409a4ce53058afd103daa672017c05e51bf88b3a83c5da566dc2eebef",
+      "docs/adr/0039-lab-recall-variants.md": "cfd48822d5a64d563004716b517bac27608a41d6df66e27604775beaf0fecb2f",
+      "docs/implementation/agent-lab-contract.md": "20197f219b28d742422a8d5494ffc27b6a3a149bd62532e51a01c3e243556366"
+    },
+    "actualRootReceipts": {
+      "output/parity/lab-explicit-memory-guard-root-r5.json": "8eebaf8014d6b519f8955076373f4f0f1124cc2fbbc369bc44a968cba414432d",
+      "output/parity/run-feedback-bridge-root-r3.json": "4b3af91dd471b9dd3f99e8a99587c6e6669a492f54682b3b1d4b25b14b67ad2d",
+      "output/parity/run-feedback-root-r1.json": "d095a119f86b88d46ac2d6ed5798dacffac4a47850285fe0c364daa64b25b5b3",
+      "output/parity/lab-recall-root-r1.json": "66cb4dd055c5fe469167f7dd2b8b15831551b4d5a47fbcfed1770836a0ac2e48",
+      "output/parity/lab-semantic-recall-root-r3.json": "1ee21e1f132f993851fd63be0fbdf5ac20db76ccff81358248fc083d0f04f597",
+      "output/parity/session-growing-rewrite-root-r1.json": "0054c6ba0c1aaf07b74159eb30d63e41e2b16c167bac785fc48250e083f9f055"
+    },
+    "explicitGuardEvidence": "Actual synthetic agent writes an owned marker per executed variant; four source mutations leave only baseline marker, unchanged legacy explicit IDs leave both, and worktrees are removed. Root r4 used a reserved private directory name and failed before preparation; its failure remains retained."
+  },
+  "semanticPositiveReceipt": {
+    "path": "output/parity/lab-semantic-recall-r2.json",
+    "sha256": "bbad79d240b2bb3ebf1c76eb3e1cf0f3e76916742abb8973e94b002c6053fb08",
+    "scope": "Real installed Apple English embedding; actual semantic/hybrid frozen selection, no approval or provider execution",
+    "helperSHA256": "68d6c88e96919636e724d00558927c3032c27967b97d0e7ae12c9297be034c15"
+  }
+}

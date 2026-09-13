@@ -1,0 +1,455 @@
+{
+  "format": "vela-ci-commit-result-v1",
+  "recordedAt": "2026-09-14",
+  "commit": "46595a72bc12650e3aabd83bd6c4103caa464b7e",
+  "sourceTree": "dd21b9dae0c507cda36b9b01a9802b7d701f002b",
+  "runId": 34770795639,
+  "runURL": "https://github.com/Atingaii/Vela/actions/runs/34770795639",
+  "event": "pull_request",
+  "attempt": 1,
+  "createdAt": "2026-09-13T17:10:41Z",
+  "updatedAt": "2026-09-13T17:17:44Z",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": 103759900174,
+      "name": "macOS build and tests",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and test the real core",
+          "conclusion": "success"
+        },
+        {
+          "name": "Repository and website checks",
+          "conclusion": "success"
+        },
+        {
+          "name": "JSONL and MCP integration",
+          "conclusion": "success"
+        },
+        {
+          "name": "Capability contracts and responsive controls",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install isolated browser test dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Real-helper renderer acceptance",
+          "conclusion": "success"
+        },
+        {
+          "name": "Frozen capability and engineering renderer flows",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package and audit macOS application",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 103759900335,
+      "name": "Installed SDKs and OpenClaw integration",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build the real local helper",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install optional package development dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed packages outside their source directories",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed AI SDK middleware with real helper and local HTTP",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed Python Responses wrappers with real helper and local HTTP",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed LangChain wrappers with real helper and local HTTP",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the pinned isolated OpenClaw host",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify real host loading, CLI and hooks with local fixtures",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "actualXCTest": "Executed 454 tests, with 0 failures (0 unexpected) in 90.878 (90.907) seconds",
+  "rendererChecks": [
+    {
+      "check": "filtering",
+      "passed": true
+    },
+    {
+      "check": "setup",
+      "passed": true
+    },
+    {
+      "check": "memory",
+      "passed": true
+    },
+    {
+      "check": "workflow",
+      "passed": true
+    },
+    {
+      "check": "draft",
+      "passed": true
+    },
+    {
+      "check": "keyboard",
+      "passed": true
+    },
+    {
+      "check": "rapid-navigation",
+      "passed": true
+    },
+    {
+      "check": "live-detail",
+      "passed": true
+    },
+    {
+      "check": "routing",
+      "passed": true
+    },
+    {
+      "check": "routing-failure",
+      "passed": true
+    },
+    {
+      "check": "routing-unknown",
+      "passed": true
+    },
+    {
+      "check": "routing-aggregate",
+      "passed": true
+    },
+    {
+      "check": "memory-lifecycle",
+      "passed": true
+    },
+    {
+      "check": "exact-source",
+      "passed": true
+    },
+    {
+      "check": "cross-project-source",
+      "passed": true
+    },
+    {
+      "check": "lab-frozen-approval",
+      "passed": true
+    },
+    {
+      "check": "reuse-apply-undo",
+      "passed": true
+    },
+    {
+      "check": "usage-missing",
+      "passed": true
+    },
+    {
+      "check": "core-locale-contract",
+      "passed": true
+    },
+    {
+      "check": "settings-switch-preserves-draft",
+      "passed": true
+    },
+    {
+      "check": "selected-records-and-user-content",
+      "passed": true
+    },
+    {
+      "check": "unsaved-workflow-and-argv",
+      "passed": true
+    },
+    {
+      "check": "restart-and-roundtrip",
+      "passed": true
+    },
+    {
+      "check": "english-surface-coverage",
+      "passed": true
+    },
+    {
+      "check": "opening-views-does-not-connect-execute-or-enable",
+      "passed": true
+    },
+    {
+      "check": "archive-selection-race-and-candidate-import",
+      "passed": true
+    },
+    {
+      "check": "archive-preview-fixed-text-in-english",
+      "passed": true
+    },
+    {
+      "check": "local-semantic-index-and-paraphrase-recall",
+      "passed": true
+    },
+    {
+      "check": "index-cancellation-keeps-partial-progress-without-success",
+      "passed": true
+    },
+    {
+      "check": "setup-real-source-change-history-and-diff",
+      "passed": true
+    },
+    {
+      "check": "setup-history-pagination-retains-comparison-and-oldest-version",
+      "passed": true
+    },
+    {
+      "check": "setup-secret-rotation-explained-without-secret-content",
+      "passed": true
+    },
+    {
+      "check": "setup-secondary-actions-menu-keyboard-and-dismissal",
+      "passed": true
+    },
+    {
+      "check": "workflow-stale-review-rejected-and-explicit-clone",
+      "passed": true
+    },
+    {
+      "check": "workflow-archive-restore-and-readonly-validation",
+      "passed": true
+    },
+    {
+      "check": "workflow-empty-active-list-can-find-and-restore-archive",
+      "passed": true
+    },
+    {
+      "check": "ask-empty-retrieval-never-starts-provider",
+      "passed": true
+    },
+    {
+      "check": "ask-explicit-approval-actual-answer-and-exact-citations",
+      "passed": true
+    },
+    {
+      "check": "ask-followup-new-approval-and-cancel-without-call",
+      "passed": true
+    },
+    {
+      "check": "loop-reviewed-capabilities-and-cancel-before-execution",
+      "passed": true
+    },
+    {
+      "check": "library-private-edit",
+      "passed": true
+    },
+    {
+      "check": "library-stale-review",
+      "passed": true
+    },
+    {
+      "check": "library-archive-restore",
+      "passed": true
+    },
+    {
+      "check": "library-paged-index-search",
+      "passed": true
+    },
+    {
+      "check": "tool-watch",
+      "passed": true
+    },
+    {
+      "check": "files-watch",
+      "passed": true
+    },
+    {
+      "check": "discovery-pagination",
+      "passed": true
+    },
+    {
+      "check": "source-start",
+      "passed": true
+    },
+    {
+      "check": "pause-resume-persistence",
+      "passed": true
+    },
+    {
+      "check": "cancel-resume",
+      "passed": true
+    },
+    {
+      "check": "event-pages-unicode-raw",
+      "passed": true
+    },
+    {
+      "check": "plan-states",
+      "passed": true
+    },
+    {
+      "check": "plan-event-pagination",
+      "passed": true
+    },
+    {
+      "check": "project-isolation",
+      "passed": true
+    },
+    {
+      "check": "delayed-plan-routing",
+      "passed": true
+    },
+    {
+      "check": "branch-pagination",
+      "passed": true
+    },
+    {
+      "check": "hierarchy-and-privacy",
+      "passed": true
+    },
+    {
+      "check": "reported-is-not-child",
+      "passed": true
+    },
+    {
+      "check": "event-pagination",
+      "passed": true
+    },
+    {
+      "check": "stale-and-duplicate-guards",
+      "passed": true
+    },
+    {
+      "check": "locale-and-supported-size",
+      "passed": true
+    },
+    {
+      "check": "all-projects-harbor-plan",
+      "passed": true
+    },
+    {
+      "check": "all-projects-beacon-plan",
+      "passed": true
+    },
+    {
+      "check": "all-projects-codex-relations-pagination",
+      "passed": true
+    },
+    {
+      "check": "stale-bridge-results",
+      "passed": true
+    },
+    {
+      "check": "live-refresh-preserves-detail-intent",
+      "passed": true
+    },
+    {
+      "check": "all-projects-live-anchor-and-stale-guards",
+      "passed": true
+    },
+    {
+      "check": "search-actions-listbox",
+      "passed": true
+    },
+    {
+      "check": "search-actions-tablist",
+      "passed": true
+    }
+  ],
+  "installedSDKs": {
+    "typescript": 15,
+    "python": 16,
+    "ai": 17,
+    "responses": 30,
+    "langchain": 36,
+    "walrusPackage": 33,
+    "openClaw": 7,
+    "transport": "synthetic local fixtures; real installed consumers",
+    "remoteWalrus": "not_run"
+  },
+  "limits": {
+    "en": "Exact hosted commit only. Does not verify UI19/20, native interaction, real model improvement, remote accounts, Developer ID or notarization. Public download is still preview.2.",
+    "zhCN": "仅覆盖此准确提交的 hosted CI，不证明 UI19/20、原生交互、真实模型改善、远端账号、Developer ID 或公证通过。公开下载仍为 preview.2。"
+  }
+}

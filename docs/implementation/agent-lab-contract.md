@@ -73,3 +73,20 @@ After applying, Codex must trust the exact definition in `/hooks`. Vela does not
 ## CLI-only `vela hook --project PATH --home PATH`
 
 Consumes a bounded SessionStart JSON event on stdin, validates project/cwd, and returns the official `hookSpecificOutput.additionalContext` shape for active nonprivate scoped memory. Records an idempotent receipt. It ignores transcript paths and runs no model or workflow. Internal Lab children receive no live Vela context. `reuse.context` is **not** exposed to the renderer or MCP tool surface.
+
+## Optional frozen Memory Recall variants (FR72)
+
+A `baseline` or `candidate` can include a backward-compatible `recall` object:
+
+```json
+{"enabled": true, "query": "bounded clamp", "mode": "lexical", "scope": "project", "budget": 800}
+```
+
+- Omitted `recall` records `enabled:false, selection:not_requested` and retains legacy behavior. `{"enabled":false}` is explicit OFF. `strictOff:true` is allowed only with OFF and rejects `memoryIds`, for an actual Recall-OFF comparison. Non-strict OFF with `memoryIds` remains an explicit-ID injection and is labelled `memoryInjection:explicit_ids`, not Recall.
+- ON accepts only MemoryService's closed `lexical`, `semantic`, or `hybrid` modes, bounded query text, exact `scope:"project"`, and an integer 1–4000 budget. Lab calls `MemoryService.recall`; it then keeps only Active, nonprivate, non-Private-Library, same-project, **project-scope** results. Candidate, global and cross-project records are not automatically included.
+- The approval freezes query/mode/scope, requested/used token budget, selected IDs, content and lifecycle-source hashes, and the exact final context hash. Before each variant allocates a worktree or starts an agent, those selected sources are revalidated. A changed body, scope, lifecycle, privacy flag/path or project rejects that variant without rerunning Recall or selecting a replacement.
+- `memoryIds` remains the caller-selected Active/Candidate project-memory path. Before each variant creates a worktree, execution rechecks each frozen explicit source against project/scope, privacy/path, lifecycle, content and source hash, and verifies the final context hash. Older nonempty explicit receipts without source hashes must be prepared again; a source becoming private, archived, foreign or edited rejects the variant before it starts. It is not evidence that MemoryService Recall ran. A Recall result is labelled `selection:memory_service_recall`; legacy selections are labelled `selection:explicit_memory_id`.
+
+## 可供 UI 实现的简要合同
+
+Show a compact Recall switch, query, real supported mode, project-only scope and budget; show OFF / explicit IDs / Recall as separate states. Preview the selected count and used/requested budget from the frozen response. The approval screen must say that execution will revalidate sources and may reject stale/private/lifecycle-changed results. Do not expose raw source hashes by default, auto-enable candidate memory, or imply a measured benefit.

@@ -63,6 +63,7 @@ final class WorkflowHealthTests: XCTestCase {
             let sourceScan = report["sourceScan"] as? JSON
             XCTAssertTrue((((sourceScan?["runs"] as? JSON)?["capReached"]) as? Bool) == false)
             XCTAssertTrue((((sourceScan?["approvals"] as? JSON)?["capReached"]) as? Bool) == false)
+            XCTAssertTrue((((sourceScan?["manualFeedback"] as? JSON)?["capReached"]) as? Bool) == false)
             XCTAssertEqual(intValue(report,"approvalRejected"),1)
             XCTAssertEqual(intValue(report,"durationSamples"),0); XCTAssertEqual(intValue(report,"durationMissing"),1); XCTAssertTrue(report["averageDurationMs"] is NSNull)
             let firstStep = ((report["items"] as? [JSON])?.first?["stepStates"] as? [JSON])?.first

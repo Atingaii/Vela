@@ -158,6 +158,8 @@
 | PX0-093 | Health：refused/erroring/dead tool、timeout/turn cap | 缺失 W | dryrun排除分母、工具调用有准确次数 |
 | PX0-094 | Health：输入长期空、bad notes、parked、跨版本窗口 | 缺失 W | 每发现都能回到实际run，不因版本混算伪推因果 |
 | PX0-095 | Health narrow fix：移除unused工具、提高timeout | 缺失 W | 先确认、只改相应字段、可撤销，不擅加能力 |
+
+2026-09-14 增量：手动 Run Feedback 已有 terminal/non-private/non-dry-run 的 prepare、CAS revision/history 与 Bridge 实测，且不改变 Health 的客观 successRate；UI21 尚未实现。Health 的 timeout proposal UI20 已覆盖 browser/native 限定路径。它们都不关闭 PX0-091–095 的完整反馈归因、跨版本趋势或通用可撤销修复验收。
 | PX0-096 | 按实际证据生成改进request，diff、重建、单独guideline建议 | 部分 Improve：确定性工程建议 | 证据可预览、权限不自动扩大、保用户原文 |
 | PX0-097 | opt-in捕获历史输入、fixture list/forget/到期 | 缺失 W | 默认不额外留敏感内容；删除不触及审计事实 |
 | PX0-098 | 历史输入双版本模型回放、输出diff/churn | 缺失 W：旧定义dryrun仍重新读取今天Git | 输入工具和业务工具都不调用，独立两fixture验证 |

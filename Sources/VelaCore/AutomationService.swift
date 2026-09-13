@@ -65,6 +65,7 @@ public final class AutomationService {
             return summary
         }
         case "runs.get": return try object("run", requireString(params,"id"))
+        case "runs.feedback.prepare", "runs.feedback.record", "runs.feedback.list", "runs.feedback.get", "runs.feedback.history.list", "runs.feedback.history.get": return try runFeedback(method,params)
         case "runs.resume": return try resumeComposition(params)
         case "outputs.list", "outputs.inbox":
             let selected = try project(requireString(params,"project"))

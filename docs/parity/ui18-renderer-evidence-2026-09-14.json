@@ -124,7 +124,7 @@
     "rendererFreeze": "r4 app.js b3ede9f56acb15ad4ab543393da92964a55fe18627dfe96d54f763f897692004",
     "conclusion": "partial native AX/WKWebView scope sequence only; it does not cover r6 live-anchor code, new capture or Health UI, full native accessibility, Golden Scenario, signing/notarization, provider work or release acceptance"
   },
-  "ciBoundary": "The latest green hosted CI is 83689c8a and predates UI18 integration. The current CI renderer step invokes the complete frozen eight-check runner with --frozen-selectors, but no UI18 r7 CI run has been accepted.",
+  "ciBoundary": "Commit 46595a72 completed hosted CI run 34770795639 successfully, including 454 actual XCTest methods and the complete UI18 r7 eight-check renderer runner. This does not verify native interaction, UI19/20, real model improvement, or release acceptance.",
   "nestedLoaderR7Repair": {
     "provenancePath": ".task-tmp/ui18-anchor-fix-r7/author-provenance.json",
     "provenanceSHA256": "2547815337e70bbd3fd978f537489d20180cc38b55de55cb7596b76b5a202776",
@@ -150,5 +150,18 @@
     "mechanismBoundary": "The source guard, event sequence and r7 overflow-anchor-only repair support an inference that Chromium native scroll anchoring caused the r6 jump. No scrollTop setter/event trace directly proves that conclusion or excludes every JavaScript restoration path.",
     "nativeBoundary": "The local verification host is macOS/Safari 26.5.1 (WebKit 21624). WebKit announced CSS Scroll Anchoring/overflow-anchor support for Safari 27 beta, so this Chrome result neither establishes support nor passes the equivalent WKWebView behavior. Native verification remains required.",
     "webkitAnnouncement": "https://webkit.org/blog/17967/news-from-wwdc26-webkit-in-safari-27-beta/"
+  },
+  "ciEvidencePath": "docs/parity/ci-46595a72-evidence-2026-09-14.json",
+  "nativeR7OrdinaryLive": {
+    "path": "output/playwright/native-ui18-r7-r3/results.json",
+    "sha256": "2a51cd719bb33a5bd32f4fd2fb899c10688f264fa65ceeff2d530b7f257d67dd",
+    "passed": [
+      "All Projects relation first/next page and parent-child return",
+      "actual empty Plan and change events",
+      "ordinary source append + five-second poll retains disclosures (transient CUA observation)",
+      "CmdK Search/Actions",
+      "zh-CN/en switching"
+    ],
+    "limits": "No held nested-loader native response. Only one post-refresh Agents screenshot was retained; there is no persisted before/after pair. No nonempty Plan pagination."
   }
 }

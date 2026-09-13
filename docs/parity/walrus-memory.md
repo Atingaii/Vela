@@ -97,6 +97,8 @@ Vela 代码定位：`M` = [MemoryService](../../Sources/VelaCore/MemoryService.s
 
 本轮新增 A 的 `memory.archive.export / validate / import`，ADR 为 [0007](../adr/0007-portable-memory-archives.md)。它改善 WM-18/19 的本地可移植基础，并为 WM-02/14 提供后续可复用的验证边界。9 个同源 portable Core 测试及 4 项真实 CLI/RPC 完整往返检查通过。Archive 自身源码在测试期间保持不变；其他代理并行修改了 Automation/WorkflowContext，因此此结果不冒充整仓最终冻结快照。测试源码为 [MemoryArchiveTests](../../Tests/VelaCoreTests/MemoryArchiveTests.swift) 与 [CLI 验证脚本](../../scripts/test-memory-archives.py)。
 
+2026-09-14：本地 Lab Recall 的 explicit 执行 guard、词面 recall 冻结及安装的 Apple English semantic/hybrid 检索均有隔离 helper 收据；semantic/hybrid 只证明 active、非私有、同项目记忆的本地选择和冻结上下文，不证明模型采用、远端 Walrus 能力或后续任务改善。Lab UI22 仍是缺入口红例，private/source 失效执行 guard 属 Core 验证范围。详见 [集成收据](feedback-lab-session-core-evidence-2026-09-14.json)。
+
 后续同轮增加 [ADR 0010](../adr/0010-local-client-sdks.md) 定义的可安装 SDK：TypeScript `.tgz` 在临时安装目录完成 consumer 类型检查及 9 项检查，Python wheel 在临时 venv 安装后完成 7 项检查；包含真实 helper 读写/恢复、候选隔离，以及单独故障 fixture 的输出上限/超时/取消/批次部分结果。SDK 固定关闭 discovery/watch/scheduler，没有给 macOS app 新增 Node/Python 运行时。此事实更新 WM-34/35 的本地接入状态，仍未宣称远端 SDK 全功能覆盖或发布到 npm/PyPI。
 
 后续增加 [ADR 0013](../adr/0013-local-semantic-recall.md) 定义的本地语义索引与召回。9 个 Core 定点测试通过，编译输入 hash 在执行期间全部稳定；5 项真实 CLI 检查通过，English 模型 512 维/revision 1、中文 640 维/revision 1。真实同义句 cosine 分别为 0.647859 和 0.932333，仅证明这些 synthetic 场景，不是置信度或普遍质量评估。安装后的 TS 10 项、Python 8 项检查及 consumer 类型检查全部通过，与 CLI 验证使用同一冻结 helper SHA `7a907841ebc57cf4cf97972e4e01dd30285ac141dd8035a917d3a2001786f769`。脚本为 [SDK 验证](../../scripts/test-sdks.py) 和 [语义 CLI 验证](../../scripts/test-semantic-rpc.py)。首次语义 SDK fixture 错误假设无关句 cosine 非负；实际模型按阈值正确排除该句，已修正测试假设并保留初次失败记录。

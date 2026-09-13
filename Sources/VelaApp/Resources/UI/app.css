@@ -2920,3 +2920,208 @@ html, body {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm, 4px);
 }
+
+/* UI19: Session Capture Preview */
+#session-capture-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.session-capture-alert-banner {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  gap: 4px !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.session-capture-notice-title {
+  width: 100%;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.session-capture-notice-desc {
+  width: 100%;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+}
+
+[data-capture-content] {
+  max-height: 260px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.session-capture-technical-details {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--bg-subtle);
+}
+
+.form-input[readonly],
+.form-input:disabled,
+.form-select:disabled {
+  opacity: 0.85;
+  cursor: not-allowed;
+  background-color: var(--bg-subtle);
+}
+
+/* Health Timeout Proposal UI (UI20) */
+.health-findings-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.health-finding-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm, 6px);
+  gap: 12px;
+}
+
+.health-finding-row.eligible {
+  border-left: 3px solid var(--color-accent);
+}
+
+.health-finding-row.ineligible {
+  border-left: 3px solid var(--border-subtle);
+  opacity: 0.85;
+}
+
+.finding-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.finding-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.finding-code {
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.finding-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.health-proposal-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+#health-timeout-proposal-preview,
+#health-timeout-proposal-review {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.health-evidence-grid {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px 12px;
+  font-size: 13px;
+  padding: 12px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border-subtle);
+}
+
+.health-evidence-label {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.health-evidence-value {
+  color: var(--text-main);
+}
+
+.technical-evidence-details {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-surface);
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.technical-evidence-details summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.technical-evidence-body {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+}
+
+.health-proposal-review-card {
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.health-uncertainty-block {
+  padding: 10px;
+  background: var(--status-amber-bg, #fef3c7);
+  border: 1px solid var(--status-amber-border, #fde68a);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.health-proposals-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.health-proposal-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm, 6px);
+  gap: 12px;
+}
+
+

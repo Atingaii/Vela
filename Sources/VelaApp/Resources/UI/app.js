@@ -884,6 +884,9 @@
     const priorProject = state.currentProject;
     state.priorProject = priorProject;
     if (resolvedProject !== priorProject) {
+      if (typeof dismissActiveHealthProposalModal === 'function') {
+        dismissActiveHealthProposalModal();
+      }
       resetHistoryState();
       invalidateSessionDisclosures();
     }
@@ -1015,6 +1018,10 @@
     const projSel = document.getElementById('project-selector');
     if (projSel) {
       projSel.addEventListener('change', (e) => {
+        if (typeof dismissActiveHealthProposalModal === 'function') {
+          dismissActiveHealthProposalModal();
+        }
+        dismissActiveCaptureModal();
         activeRouteEpoch++; // User project change invalidates pending notification routes
         renderGeneration++;
         closeDrawer(); // Explicit project selector change should close stale detail
@@ -4543,6 +4550,296 @@
     }
   }
 
+  let activeCaptureModalInstance = null;
+  let activeCaptureCleanup = null;
+
+  function dismissActiveCaptureModal() {
+    if (!activeCaptureModalInstance) return;
+    const targetInstance = activeCaptureModalInstance;
+    activeCaptureModalInstance = null;
+
+    if (currentModalInstance === targetInstance) {
+      const modal = document.getElementById('modal-container');
+      const captureEl = document.getElementById('session-capture-preview');
+      if (modal && !modal.classList.contains('hidden') && captureEl) {
+        closeModal();
+      }
+    }
+
+    const cleanup = activeCaptureCleanup;
+    activeCaptureCleanup = null;
+    if (typeof cleanup === 'function') {
+      try {
+        cleanup();
+      } catch {}
+    }
+  }
+
+  async function openSessionCapturePreviewModal({ session, message }) {
+    if (!session || !message) return;
+    const isTool = !!message.tool || message.role === 'tool';
+    const isPrivate = !!(message.private || message.isPrivate || session.private || session.isPrivate);
+    const hasValidRole = (message.role === 'user' || message.role === 'assistant') && !isTool;
+    const hasValidMsgId = typeof message.id === 'string' && message.id.trim().length > 0;
+    const hasValidProject = typeof session.project === 'string' && session.project.trim().length > 0;
+    if (!hasValidRole || !hasValidMsgId || !hasValidProject || isPrivate) return;
+
+    dismissActiveCaptureModal();
+
+    const captureScope = {
+      project: String(session.project),
+      sessionId: String(session.id),
+      messageId: String(message.id),
+      role: String(message.role || 'message')
+    };
+
+    const capturedUIProject = state.currentProject;
+    const capturedSelectedSessionId = state.selectedSessionId;
+    const capturedSessionDetailSeq = sessionDetailSequence;
+    const capturedDrawerInstance = currentDrawerInstance;
+
+    const modalBodyHtml = `
+      <div id="session-capture-preview" class="session-capture-preview">
+        <div class="alert-banner alert-info session-capture-alert-banner" style="margin-bottom: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+          <div class="session-capture-notice-title" style="font-weight: 600; line-height: 1.4;" data-i18n="sessions.capture.candidateNoticeTitle">${escapeHtml(t('sessions.capture.candidateNoticeTitle'))}</div>
+          <div class="session-capture-notice-desc" style="font-size: 12px; line-height: 1.45; word-break: break-word;" data-i18n="sessions.capture.candidateNoticeDesc">${escapeHtml(t('sessions.capture.candidateNoticeDesc'))}</div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 8px;">
+          <label class="form-label" data-i18n="sessions.capture.sourceTextLabel">${escapeHtml(t('sessions.capture.sourceTextLabel'))}</label>
+          <div id="session-capture-loading" style="padding: 24px 0; text-align: center; color: var(--text-secondary); font-size: 13px;">
+            <span class="loading-spinner" style="display: inline-block; vertical-align: middle; margin-right: 6px;"></span>
+            <span data-i18n="sessions.capture.loadingPrepare">${escapeHtml(t('sessions.capture.loadingPrepare'))}</span>
+          </div>
+          <div id="session-capture-content" data-capture-content class="code-view session-capture-content-view hidden" style="white-space: pre-wrap; word-break: break-word; user-select: text; max-height: 240px; overflow-y: auto; font-family: var(--font-system); line-height: 1.55; font-size: 13px; background: var(--bg-subtle); padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-color);"></div>
+        </div>
+
+        <div id="session-capture-meta" class="hidden"></div>
+        <div id="session-capture-error" class="hidden" style="margin-top: 10px;"></div>
+      </div>
+    `;
+
+    const modalFooterHtml = `
+      <button class="btn btn-secondary" id="btn-cancel-session-capture" data-i18n="sessions.capture.btnCancel">${escapeHtml(t('sessions.capture.btnCancel'))}</button>
+      <button class="btn btn-primary" id="btn-confirm-session-capture" disabled data-i18n="sessions.capture.btnConfirm">${escapeHtml(t('sessions.capture.btnConfirm'))}</button>
+    `;
+
+    openModal({ key: 'sessions.capture.previewModalTitle' }, modalBodyHtml, modalFooterHtml);
+
+    const capturedModalInstance = currentModalInstance;
+    activeCaptureModalInstance = capturedModalInstance;
+
+    let isCapturePending = false;
+
+    activeCaptureCleanup = () => {
+      isCapturePending = false;
+      const curConfirmBtn = document.getElementById('btn-confirm-session-capture');
+      if (curConfirmBtn) {
+        curConfirmBtn.onclick = null;
+        curConfirmBtn.disabled = true;
+      }
+      const curCancelBtn = document.getElementById('btn-cancel-session-capture');
+      if (curCancelBtn) {
+        curCancelBtn.onclick = null;
+        curCancelBtn.disabled = true;
+      }
+      const retryPrepBtn = document.getElementById('btn-retry-prepare');
+      if (retryPrepBtn) retryPrepBtn.onclick = null;
+      const retryActBtn = document.getElementById('btn-retry-capture-action');
+      if (retryActBtn) retryActBtn.onclick = null;
+      const closeErrPrep = document.getElementById('btn-error-close-prepare');
+      if (closeErrPrep) closeErrPrep.onclick = null;
+      const closeErrAct = document.getElementById('btn-error-close-capture');
+      if (closeErrAct) closeErrAct.onclick = null;
+      const captureEl = document.getElementById('session-capture-preview');
+      if (captureEl && captureEl.parentNode) {
+        captureEl.parentNode.removeChild(captureEl);
+      }
+    };
+
+    function isCaptureScopeStillValid() {
+      if (currentModalInstance !== capturedModalInstance) return false;
+      const modal = document.getElementById('modal-container');
+      if (!modal || modal.classList.contains('hidden')) return false;
+      if (!document.getElementById('session-capture-preview')) return false;
+      if (state.currentProject !== capturedUIProject) return false;
+      if (state.selectedSessionId !== capturedSelectedSessionId) return false;
+      if (sessionDetailSequence !== capturedSessionDetailSeq) return false;
+      if (currentDrawerInstance !== capturedDrawerInstance) return false;
+      return true;
+    }
+
+    const cancelBtn = document.getElementById('btn-cancel-session-capture');
+    if (cancelBtn) {
+      cancelBtn.onclick = closeModal;
+    }
+
+    async function executePrepare() {
+      if (!isCaptureScopeStillValid()) return;
+
+      const loadingEl = document.getElementById('session-capture-loading');
+      const contentEl = document.getElementById('session-capture-content');
+      const metaEl = document.getElementById('session-capture-meta');
+      const errorEl = document.getElementById('session-capture-error');
+      const confirmBtn = document.getElementById('btn-confirm-session-capture');
+
+      if (loadingEl) loadingEl.classList.remove('hidden');
+      if (contentEl) contentEl.classList.add('hidden');
+      if (metaEl) metaEl.classList.add('hidden');
+      if (errorEl) {
+        errorEl.classList.add('hidden');
+        errorEl.innerHTML = '';
+      }
+      if (confirmBtn) confirmBtn.disabled = true;
+
+      try {
+        const prep = await callBridge('memory.capture.prepare', {
+          project: captureScope.project,
+          sessionId: captureScope.sessionId,
+          messageId: captureScope.messageId
+        });
+
+        if (!isCaptureScopeStillValid()) return;
+
+        if (
+          !prep ||
+          prep.protocol !== 'vela-session-memory-capture-v1' ||
+          prep.project !== captureScope.project ||
+          prep.sessionId !== captureScope.sessionId ||
+          prep.messageId !== captureScope.messageId ||
+          typeof prep.role !== 'string' ||
+          !prep.role.trim() ||
+          typeof prep.content !== 'string' ||
+          typeof prep.sourceIdentity !== 'string' ||
+          !prep.sourceIdentity.trim() ||
+          typeof prep.expectedSourceHash !== 'string' ||
+          !prep.expectedSourceHash.trim()
+        ) {
+          throw new Error(t('sessions.capture.invalidPrepareResponse'));
+        }
+
+        const frozenCapturePayload = Object.freeze({
+          project: String(prep.project),
+          sessionId: String(prep.sessionId),
+          messageId: String(prep.messageId),
+          sourceIdentity: String(prep.sourceIdentity),
+          expectedSourceHash: String(prep.expectedSourceHash)
+        });
+
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (contentEl) {
+          contentEl.textContent = prep.content;
+          contentEl.classList.remove('hidden');
+        }
+
+        if (metaEl) {
+          metaEl.innerHTML = `
+            <details class="session-capture-technical-details" style="margin-top: 10px; font-size: 11px;">
+              <summary style="cursor: pointer; font-weight: 500; color: var(--text-secondary); user-select: none;" data-i18n="sessions.capture.techDetailsSummary">${escapeHtml(t('sessions.capture.techDetailsSummary'))}</summary>
+              <div style="margin-top: 8px; padding: 8px 10px; background: var(--bg-subtle); border-radius: 4px; border: 1px solid var(--border-color); display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-family: var(--font-mono); font-size: 11px; word-break: break-all;">
+                <div><span class="text-secondary" data-i18n="sessions.capture.metaIdentity">${escapeHtml(t('sessions.capture.metaIdentity'))}:</span> ${escapeHtml(frozenCapturePayload.sourceIdentity)}</div>
+                <div><span class="text-secondary" data-i18n="sessions.capture.metaHash">${escapeHtml(t('sessions.capture.metaHash'))}:</span> ${escapeHtml(frozenCapturePayload.expectedSourceHash)}</div>
+                <div><span class="text-secondary" data-i18n="sessions.capture.metaMsgId">${escapeHtml(t('sessions.capture.metaMsgId'))}:</span> ${escapeHtml(frozenCapturePayload.messageId)}</div>
+                <div><span class="text-secondary" data-i18n="sessions.capture.metaSessionId">${escapeHtml(t('sessions.capture.metaSessionId'))}:</span> ${escapeHtml(frozenCapturePayload.sessionId)}</div>
+                <div><span class="text-secondary" data-i18n="sessions.capture.metaProject">${escapeHtml(t('sessions.capture.metaProject'))}:</span> ${escapeHtml(frozenCapturePayload.project)}</div>
+                <div><span class="text-secondary" data-i18n="sessions.capture.metaRole">${escapeHtml(t('sessions.capture.metaRole'))}:</span> ${escapeHtml(prep.role || captureScope.role || '-')}</div>
+              </div>
+            </details>
+          `;
+          metaEl.classList.remove('hidden');
+        }
+
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+
+          confirmBtn.onclick = async () => {
+            if (isCapturePending) return;
+            if (!isCaptureScopeStillValid()) return;
+
+            isCapturePending = true;
+            confirmBtn.disabled = true;
+            const curCancelBtn = document.getElementById('btn-cancel-session-capture');
+            if (curCancelBtn) curCancelBtn.disabled = true;
+
+            try {
+              const res = await callBridge('memory.capture', {
+                project: frozenCapturePayload.project,
+                sessionId: frozenCapturePayload.sessionId,
+                messageId: frozenCapturePayload.messageId,
+                sourceIdentity: frozenCapturePayload.sourceIdentity,
+                expectedSourceHash: frozenCapturePayload.expectedSourceHash
+              });
+
+              if (!isCaptureScopeStillValid()) return;
+
+              closeModal();
+
+              const isIdempotent = Boolean(res && (res.idempotent || (!res.created && res.idempotent !== false)));
+              if (isIdempotent) {
+                showToast({ key: 'sessions.capture.idempotentToast' });
+              } else {
+                showToast({ key: 'sessions.capture.successToast' });
+              }
+
+              await refreshDashboard(true, true);
+            } catch (err) {
+              if (!isCaptureScopeStillValid()) return;
+              isCapturePending = false;
+              confirmBtn.disabled = false;
+              if (curCancelBtn) curCancelBtn.disabled = false;
+
+              showToast({ key: 'sessions.capture.failedToast', params: { error: err.message } }, 'error');
+              if (errorEl) {
+                errorEl.innerHTML = `
+                  <div class="alert-banner alert-danger" style="display: flex; flex-direction: column; gap: 6px;">
+                    <div>${escapeHtml(err.message || t('sessions.capture.failedToast'))}</div>
+                    <div style="display: flex; gap: 8px; margin-top: 4px;">
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-retry-capture-action" data-i18n="common.retry">${escapeHtml(t('common.retry'))}</button>
+                      <button type="button" class="btn btn-ghost btn-sm" id="btn-error-close-capture" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+                    </div>
+                  </div>
+                `;
+                errorEl.classList.remove('hidden');
+                const retryBtn = document.getElementById('btn-retry-capture-action');
+                if (retryBtn) retryBtn.onclick = () => { confirmBtn.click(); };
+                const closeBtn = document.getElementById('btn-error-close-capture');
+                if (closeBtn) closeBtn.onclick = closeModal;
+              }
+            } finally {
+              isCapturePending = false;
+            }
+          };
+        }
+      } catch (err) {
+        if (!isCaptureScopeStillValid()) return;
+
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (contentEl) contentEl.classList.add('hidden');
+        if (metaEl) metaEl.classList.add('hidden');
+        if (confirmBtn) confirmBtn.disabled = true;
+
+        if (errorEl) {
+          errorEl.innerHTML = `
+            <div class="alert-banner alert-danger" style="display: flex; flex-direction: column; gap: 6px;">
+              <div>${escapeHtml(err.message || t('sessions.capture.prepareFailed'))}</div>
+              <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-retry-prepare" data-i18n="common.retry">${escapeHtml(t('common.retry'))}</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-error-close-prepare" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+              </div>
+            </div>
+          `;
+          errorEl.classList.remove('hidden');
+          const retryBtn = document.getElementById('btn-retry-prepare');
+          if (retryBtn) retryBtn.onclick = executePrepare;
+          const closeBtn = document.getElementById('btn-error-close-prepare');
+          if (closeBtn) closeBtn.onclick = closeModal;
+        }
+      }
+    }
+
+    await executePrepare();
+  }
+
   function renderSessionDetailContent(session, drawerBody) {
     if (isSameSessionDrawerScope(session)) {
       const existingRel = drawerBody.querySelector('#session-relations-section');
@@ -4671,6 +4968,14 @@
             const msgId = m.id ? String(m.id) : '';
             const msgIdAttr = msgId ? `id="session-msg-${escapeHtml(msgId)}"` : '';
             const msgDataAttr = msgId ? `data-message-id="${escapeHtml(msgId)}"` : `data-message-index="${idx}"`;
+            const isTool = !!m.tool || m.role === 'tool';
+            const isPrivate = !!(m.private || m.isPrivate || session.private || session.isPrivate);
+            const hasValidRole = (m.role === 'user' || m.role === 'assistant') && !isTool;
+            const hasValidMsgId = typeof m.id === 'string' && m.id.trim().length > 0;
+            const hasValidProject = typeof session.project === 'string' && session.project.trim().length > 0;
+            const canCapture = !isPrivate && hasValidRole && hasValidMsgId && hasValidProject;
+            const btnTitleKey = isTool ? 'sessions.toolCannotCapture' : 'sessions.saveMsgMemoryTitle';
+            const btnTitle = t(btnTitleKey);
             return `
             <div class="card session-message-card" ${msgIdAttr} ${msgDataAttr} tabindex="-1" style="margin-bottom: 0; padding: 12px 14px;">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -4678,9 +4983,11 @@
                   <span class="status-badge status-neutral">${escapeHtml(m.role || 'message')}</span>
                   <span style="font-size: 12px; color: var(--text-muted);">${formatTime(m.timestamp)}</span>
                 </div>
-                <button class="btn btn-ghost btn-sm btn-save-msg-memory" data-idx="${idx}" data-i18n-title="sessions.saveMsgMemoryTitle" title="${escapeHtml(t('sessions.saveMsgMemoryTitle'))}" data-i18n="sessions.btnSaveMsgMemory">
-                  ${escapeHtml(t('sessions.btnSaveMsgMemory'))}
-                </button>
+                ${canCapture ? `
+                  <button class="btn btn-ghost btn-sm btn-save-msg-memory" data-idx="${idx}" data-i18n-title="sessions.saveMsgMemoryTitle" title="${escapeHtml(t('sessions.saveMsgMemoryTitle'))}" data-i18n="sessions.btnSaveMsgMemory">
+                    ${escapeHtml(t('sessions.btnSaveMsgMemory'))}
+                  </button>
+                ` : ''}
               </div>
               <div style="font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: var(--text-main); font-family: var(--font-system);">${escapeHtml(m.content || '')}</div>
               ${m.tool ? `
@@ -4722,17 +5029,20 @@
 
     drawerBody.querySelectorAll('.btn-save-msg-memory').forEach(btn => {
       btn.addEventListener('click', () => {
+        if (btn.disabled) return;
         const idx = parseInt(btn.getAttribute('data-idx'), 10);
         const msg = messages[idx];
-        openCreateOrEditMemoryModal({
-          title: t('sessions.memoryExcerptSuffix', { title: session.title || t('sessions.unnamedSession') }),
-          content: msg.content || '',
-          type: 'fact',
-          scope: 'project',
-          project: session.project || '',
-          branch: session.branch || '',
-          sourceSession: session.id,
-          sourceMessage: msg.id ? String(msg.id) : ''
+        if (!msg) return;
+        const isTool = !!msg.tool || msg.role === 'tool';
+        const isPrivate = !!(msg.private || msg.isPrivate || session.private || session.isPrivate);
+        const hasValidRole = (msg.role === 'user' || msg.role === 'assistant') && !isTool;
+        const hasValidMsgId = typeof msg.id === 'string' && msg.id.trim().length > 0;
+        const hasValidProject = typeof session.project === 'string' && session.project.trim().length > 0;
+        if (!hasValidRole || !hasValidMsgId || !hasValidProject || isPrivate) return;
+
+        openSessionCapturePreviewModal({
+          session,
+          message: msg
         });
       });
     });
@@ -4864,6 +5174,7 @@
   }
 
   async function openSessionDetail(sessionId, triggerEl = null, targetMessageId = null) {
+    dismissActiveCaptureModal();
     const thisSeq = ++sessionDetailSequence;
     sessionRelationSequence++;
     const thisProject = state.currentProject;
@@ -5262,6 +5573,9 @@
         container.querySelectorAll('[data-wftab]').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         workflowTabGen++;
+        if (state.workflowsActiveTab !== 'health' && typeof dismissActiveHealthProposalModal === 'function') {
+          dismissActiveHealthProposalModal();
+        }
         renderWorkflowsTabContent();
       });
     });
@@ -5589,6 +5903,23 @@
               </div>
             </div>
           </div>
+        </div>
+        <div class="card" style="margin-top: 16px;">
+          <div class="card-header">
+            <span class="card-title" data-i18n="workflows.healthFindingsTitle">${escapeHtml(t('workflows.healthFindingsTitle'))}</span>
+          </div>
+          <div id="workflow-health-findings" class="health-findings-container">
+            <div class="empty-state" style="padding: 24px 0;">
+              <div class="empty-state-title" data-i18n="common.loading">${escapeHtml(t('common.loading') || 'Loading...')}</div>
+            </div>
+          </div>
+        </div>
+        <div id="workflow-health-proposals-section" class="card" style="margin-top: 16px; display: none;">
+          <div class="card-header">
+            <span class="card-title" data-i18n="workflows.healthProposalsTitle">${escapeHtml(t('workflows.healthProposalsTitle'))}</span>
+            <span id="health-proposals-incomplete-badge" class="badge badge-amber" style="display: none;" data-i18n="workflows.healthProposalsIncomplete">${escapeHtml(t('workflows.healthProposalsIncomplete'))}</span>
+          </div>
+          <div id="workflow-health-proposals-list" class="health-proposals-container"></div>
         </div>
       `;
 
@@ -6934,9 +7265,93 @@
     }
   }
 
+  let activeHealthProposalModalInstance = null;
+  let activeHealthProposalCleanup = null;
+  let healthProposalGen = 0;
+  let healthProposalSession = null;
+  let healthLoadGen = 0;
+
+  function dismissActiveHealthProposalModal() {
+    healthProposalGen++;
+    healthProposalSession = null;
+    if (!activeHealthProposalModalInstance) return;
+    const targetInstance = activeHealthProposalModalInstance;
+    activeHealthProposalModalInstance = null;
+
+    if (currentModalInstance === targetInstance) {
+      const modal = document.getElementById('modal-container');
+      const proposalEl = modal && modal.querySelector('#health-timeout-proposal-preview, #health-timeout-proposal-review');
+      if (modal && !modal.classList.contains('hidden') && proposalEl) {
+        closeModal();
+      }
+    }
+
+    const cleanup = activeHealthProposalCleanup;
+    activeHealthProposalCleanup = null;
+    if (typeof cleanup === 'function') {
+      try {
+        cleanup();
+      } catch {}
+    }
+  }
+
+  function isHealthComplete(h) {
+    if (!h) return false;
+    if (h.aggregateIncomplete === true) return false;
+    if (h.coverage !== 'complete_within_selected_store_scope') return false;
+    return true;
+  }
+
+  function isSourceScanCapReached(h, finding) {
+    if (finding && finding.capReached) return true;
+    if (finding && finding.sourceScan && finding.sourceScan.capReached) return true;
+    if (!h) return false;
+    if (h.capReached) return true;
+    const scan = h.sourceScan;
+    if (scan) {
+      if (scan.capReached) return true;
+      if (Array.isArray(scan)) {
+        if (scan.some(s => s && s.capReached)) return true;
+      } else if (typeof scan === 'object') {
+        if (Object.values(scan).some(s => s && (s.capReached || (typeof s === 'object' && s.capReached)))) return true;
+      }
+    }
+    return false;
+  }
+
+  function isHealthFindingEligible(finding, h) {
+    if (!finding) return false;
+    if (!isHealthComplete(h)) return false;
+    if (isSourceScanCapReached(h, finding)) return false;
+    if (finding.code !== 'timeout_observed') return false;
+    const stateVal = String(finding.state || finding.stepState || '').toLowerCase();
+    if (stateVal !== 'failed' && stateVal !== 'needs_review') return false;
+    const eligibleTools = ['shell.test', 'shell.typecheck', 'agent.run'];
+    if (!finding.tool || !eligibleTools.includes(finding.tool)) return false;
+    return true;
+  }
+
   async function loadHealthData() {
+    const thisLoadGen = ++healthLoadGen;
+    const thisTabGen = workflowTabGen;
+    const thisProject = state.currentProject;
+
+    const elFindings = document.getElementById('workflow-health-findings');
+    const elProposalsSection = document.getElementById('workflow-health-proposals-section');
+    const elProposalsList = document.getElementById('workflow-health-proposals-list');
+    const elProposalsIncomplete = document.getElementById('health-proposals-incomplete-badge');
+
     try {
-      const h = await callBridge('workflows.health', state.currentProject ? { id: undefined, project: state.currentProject } : {});
+      // Item 7: AllProjects 不要发 proposal.list {}，显示需选项目
+      const [h, propListData] = await Promise.all([
+        callBridge('workflows.health', thisProject ? { project: thisProject } : {}),
+        thisProject ? callBridge('workflows.health.proposal.list', { project: thisProject }).catch(() => null) : Promise.resolve(null)
+      ]);
+
+      if (thisLoadGen !== healthLoadGen || thisTabGen !== workflowTabGen || state.currentProject !== thisProject || state.currentPage !== 'workflows' || state.workflowsActiveTab !== 'health') {
+        return;
+      }
+
       if (h) {
         const elRuns = document.getElementById('health-total-runs');
         const elDetail = document.getElementById('health-success-detail');
@@ -6987,14 +7402,878 @@
             setElementDescriptor(elTok, { key: 'workflows.statTokensUnavailable' });
           }
         }
+
+        // Render health findings
+        if (elFindings) {
+          const findings = Array.isArray(h.findings) ? h.findings : [];
+          if (findings.length === 0) {
+            elFindings.innerHTML = `
+              <div class="empty-state" style="padding: 24px 0;">
+                <div class="empty-state-title" data-i18n="workflows.healthFindingsEmpty">${escapeHtml(t('workflows.healthFindingsEmpty'))}</div>
+              </div>
+            `;
+          } else {
+            let rowsHtml = '';
+            findings.forEach(finding => {
+              const eligible = isHealthFindingEligible(finding, h);
+              const fid = String(finding.id || '');
+              const rid = String(finding.runId || '');
+              const code = String(finding.code || 'finding');
+              const stepId = String(finding.stepId || '');
+              const tool = String(finding.tool || '');
+              const version = finding.workflowVersion;
+
+              rowsHtml += `
+                <div class="health-finding-row ${eligible ? 'eligible' : 'ineligible'}" data-finding-id="${escapeHtml(fid)}" data-run-id="${escapeHtml(rid)}">
+                  <div class="finding-info">
+                    <div class="finding-header">
+                      <span class="finding-code">${escapeHtml(code)}</span>
+                      ${eligible ? `<span class="badge badge-subtle" data-i18n="workflows.healthFindingEligible">${escapeHtml(t('workflows.healthFindingEligible'))}</span>` : `<span class="badge badge-subtle" data-i18n="workflows.healthFindingIneligible">${escapeHtml(t('workflows.healthFindingIneligible'))}</span>`}
+                    </div>
+                    <div class="finding-meta">
+                      ${stepId ? `<span>${escapeHtml(t('workflows.healthFindingStep', { stepId: stepId, tool: tool || 'unknown' }))}</span>` : ''}
+                      ${rid ? `<span>${escapeHtml(t('workflows.healthFindingRun', { runId: rid }))}</span>` : ''}
+                      ${version !== undefined ? `<span>${escapeHtml(t('workflows.healthFindingVersion', { version: version }))}</span>` : ''}
+                    </div>
+                  </div>
+                  <div class="finding-actions">
+                    ${eligible ? `
+                      <button class="btn btn-sm btn-primary btn-propose-health-timeout" data-finding-id="${escapeHtml(fid)}" aria-label="${escapeHtml(t('workflows.btnProposeTimeoutAria', { id: fid }))}" data-i18n="workflows.btnProposeTimeout">
+                        ${escapeHtml(t('workflows.btnProposeTimeout'))}
+                      </button>
+                    ` : `
+                      <span class="text-muted" style="font-size: 12px;" data-i18n="workflows.healthFindingIneligible">${escapeHtml(t('workflows.healthFindingIneligible'))}</span>
+                    `}
+                  </div>
+                </div>
+              `;
+            });
+            elFindings.innerHTML = rowsHtml;
+
+            elFindings.querySelectorAll('.btn-propose-health-timeout').forEach(btn => {
+              btn.addEventListener('click', () => {
+                const targetFid = btn.getAttribute('data-finding-id');
+                const matchedFinding = findings.find(f => String(f.id) === String(targetFid));
+                if (targetFid && matchedFinding) {
+                  openHealthTimeoutProposal(targetFid, matchedFinding, h);
+                }
+              });
+            });
+          }
+        }
+
+        // Render proposals list
+        // Item 7: AllProjects不要发proposal.list {}，显示需选项目。
+        if (elProposalsSection && elProposalsList) {
+          if (!thisProject) {
+            elProposalsSection.style.display = 'block';
+            if (elProposalsIncomplete) {
+              elProposalsIncomplete.style.display = 'none';
+            }
+            elProposalsList.innerHTML = `
+              <div class="empty-state" style="padding: 16px 0;">
+                <span class="text-muted" data-i18n="workflows.selectProjectFirst">${escapeHtml(t('workflows.selectProjectFirst'))}</span>
+              </div>
+            `;
+          } else if (propListData && Array.isArray(propListData.items) && propListData.items.length > 0) {
+            elProposalsSection.style.display = 'block';
+            if (elProposalsIncomplete) {
+              elProposalsIncomplete.style.display = (propListData.complete === false) ? 'inline-block' : 'none';
+            }
+            let propRowsHtml = '';
+            propListData.items.forEach(prop => {
+              const pid = String(prop.id || '');
+              const st = String(prop.state || '');
+              let stBadgeClass = 'badge-subtle';
+              let stI18nKey = '';
+              let stLabel = '';
+              if (st === 'pending_review') {
+                stBadgeClass = 'badge-amber';
+                stI18nKey = 'workflows.healthProposalStatePending';
+              } else if (st === 'accepting') {
+                stBadgeClass = 'badge-amber';
+                stI18nKey = 'workflows.healthProposalStateAccepting';
+              } else if (st === 'accepted') {
+                stBadgeClass = 'badge-sage';
+                stI18nKey = 'workflows.healthProposalStateAccepted';
+              } else if (st === 'rejected') {
+                stBadgeClass = 'badge-subtle';
+                stI18nKey = 'workflows.healthProposalStateRejected';
+              } else if (st === 'invalidated') {
+                stBadgeClass = 'badge-subtle';
+                stI18nKey = 'workflows.healthProposalStateInvalidated';
+              } else {
+                stBadgeClass = 'badge-subtle';
+                stLabel = st || 'unknown';
+              }
+
+              const isRecoverable = (st === 'accepting');
+              const isReviewable = (st === 'pending_review' || st === 'accepting');
+
+              propRowsHtml += `
+                <div class="health-proposal-item-row" data-proposal-id="${escapeHtml(pid)}" data-state="${escapeHtml(st)}">
+                  <div class="finding-info">
+                    <div class="finding-header">
+                      <span class="finding-code">${escapeHtml(pid)}</span>
+                      <span class="badge ${stBadgeClass}" ${stI18nKey ? `data-i18n="${stI18nKey}"` : ''}>${escapeHtml(stI18nKey ? t(stI18nKey) : stLabel)}</span>
+                    </div>
+                    <div class="finding-meta">
+                      ${prop.stepId ? `<span>${escapeHtml(t('workflows.healthFindingStep', { stepId: prop.stepId, tool: prop.tool || '' }))}</span>` : ''}
+                      <span>${escapeHtml(t('workflows.healthProposalTimeoutChangeVal', { from: prop.fromTimeoutSeconds, to: prop.toTimeoutSeconds }))}</span>
+                    </div>
+                  </div>
+                  <div class="finding-actions">
+                    ${isReviewable ? `
+                      <button class="btn btn-sm ${isRecoverable ? 'btn-warning' : 'btn-secondary'} btn-open-proposal-item" data-proposal-id="${escapeHtml(pid)}" aria-label="${escapeHtml(t(isRecoverable ? 'workflows.btnRecoverProposalAria' : 'workflows.btnReviewProposalAria', { id: pid }))}">
+                        ${escapeHtml(t(isRecoverable ? 'workflows.btnRecoverProposal' : 'workflows.btnReviewProposal'))}
+                      </button>
+                    ` : ''}
+                  </div>
+                </div>
+              `;
+            });
+            elProposalsList.innerHTML = propRowsHtml;
+
+            // Item 8: 已有proposal review用actual proposal.get，不要合成needs_review finding。
+            elProposalsList.querySelectorAll('.btn-open-proposal-item').forEach(btn => {
+              btn.addEventListener('click', () => {
+                const pid = btn.getAttribute('data-proposal-id');
+                if (pid) {
+                  openExistingHealthProposalReview(pid);
+                }
+              });
+            });
+          } else {
+            elProposalsSection.style.display = 'none';
+          }
+        }
       }
     } catch {
+      if (thisLoadGen !== healthLoadGen || thisTabGen !== workflowTabGen || state.currentProject !== thisProject) return;
       const elRuns = document.getElementById('health-total-runs');
       const elRate = document.getElementById('health-success-rate');
       const elDur = document.getElementById('health-avg-duration');
       if (elRuns) setElementDescriptor(elRuns, { key: 'common.none' });
       if (elRate) setElementDescriptor(elRate, { key: 'common.none' });
       if (elDur) setElementDescriptor(elDur, { key: 'common.none' });
+      if (elFindings) {
+        elFindings.innerHTML = `
+          <div class="empty-state" style="padding: 24px 0;">
+            <div class="empty-state-title" data-i18n="workflows.healthFindingsEmpty">${escapeHtml(t('workflows.healthFindingsEmpty'))}</div>
+          </div>
+        `;
+      }
+    }
+  }
+
+  // Item 8: 独立且真实的已有提案审阅入口，调用实际 proposal.get
+  async function openExistingHealthProposalReview(proposalId) {
+    const capturedProject = state.currentProject;
+    if (!capturedProject) {
+      showToast({ key: 'workflows.selectProjectFirst' }, 'warning');
+      return;
+    }
+
+    dismissActiveHealthProposalModal();
+
+    openModal(
+      { key: 'workflows.healthProposalReviewTitle' },
+      `<div id="health-timeout-proposal-review" class="health-proposal-modal-content" role="region" aria-label="${escapeHtml(t('workflows.healthProposalReviewAria'))}">
+        <div class="empty-state" style="padding: 32px 0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <div class="empty-state-title" data-i18n="common.loading" style="margin-top: 8px;">${escapeHtml(t('common.loading') || 'Loading...')}</div>
+        </div>
+      </div>`,
+      `<button id="btn-cancel-health-proposal" class="btn btn-secondary" data-i18n="workflows.btnCancel" aria-label="${escapeHtml(t('workflows.btnCancelAria'))}">${escapeHtml(t('workflows.btnCancel'))}</button>`
+    );
+
+    const capturedModalInstance = currentModalInstance;
+    activeHealthProposalModalInstance = capturedModalInstance;
+    const thisGen = ++healthProposalGen;
+
+    function isScopeValid() {
+      if (thisGen !== healthProposalGen) return false;
+      if (currentModalInstance !== capturedModalInstance) return false;
+      if (activeHealthProposalModalInstance !== capturedModalInstance) return false;
+      if (state.currentProject !== capturedProject) return false;
+      if (state.currentPage !== 'workflows' || state.workflowsActiveTab !== 'health') return false;
+      const modal = document.getElementById('modal-container');
+      if (!modal || modal.classList.contains('hidden')) return false;
+      return true;
+    }
+
+    document.getElementById('btn-cancel-health-proposal')?.addEventListener('click', () => {
+      dismissActiveHealthProposalModal();
+    });
+
+    try {
+      const propRes = await callBridge('workflows.health.proposal.get', { project: capturedProject, id: proposalId });
+      if (!isScopeValid()) return;
+      if (!propRes) {
+        renderProposalModalMutationError(new Error('Proposal not found'));
+        return;
+      }
+
+      healthProposalSession = {
+        gen: thisGen,
+        modalInstance: capturedModalInstance,
+        project: capturedProject,
+        proposalId: propRes.id,
+        findingId: propRes.findingId,
+        runId: propRes.runId,
+        workflowId: propRes.workflowId,
+        workflowVersion: propRes.workflowVersion,
+        stepId: propRes.stepId,
+        proposal: propRes,
+        proposalHash: propRes.proposalHash,
+        snapshotHash: '',
+        isMutating: false
+      };
+
+      renderHealthProposalReviewView(healthProposalSession);
+    } catch (err) {
+      if (!isScopeValid()) return;
+      renderProposalModalMutationError(err);
+    }
+  }
+
+  async function openHealthTimeoutProposal(findingId, cachedFinding = null, healthData = null) {
+    const capturedProject = state.currentProject;
+    if (!capturedProject) {
+      showToast({ key: 'workflows.selectProjectFirst' }, 'warning');
+      return;
+    }
+
+    dismissActiveHealthProposalModal();
+
+    openModal(
+      { key: 'workflows.healthProposalPreviewTitle' },
+      `<div id="health-timeout-proposal-preview" class="health-proposal-modal-content" role="region" aria-label="${escapeHtml(t('workflows.healthProposalPreviewAria'))}">
+        <div class="empty-state" style="padding: 32px 0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <div class="empty-state-title" data-i18n="common.loading" style="margin-top: 8px;">${escapeHtml(t('common.loading') || 'Loading...')}</div>
+        </div>
+      </div>`,
+      `<button id="btn-cancel-health-proposal" class="btn btn-secondary" data-i18n="workflows.btnCancel" aria-label="${escapeHtml(t('workflows.btnCancelAria'))}">${escapeHtml(t('workflows.btnCancel'))}</button>`
+    );
+
+    const capturedModalInstance = currentModalInstance;
+    activeHealthProposalModalInstance = capturedModalInstance;
+    const thisGen = ++healthProposalGen;
+
+    function isProposalScopeStillValid() {
+      if (thisGen !== healthProposalGen) return false;
+      if (currentModalInstance !== capturedModalInstance) return false;
+      if (activeHealthProposalModalInstance !== capturedModalInstance) return false;
+      if (state.currentProject !== capturedProject) return false;
+      if (state.currentPage !== 'workflows' || state.workflowsActiveTab !== 'health') return false;
+      const modal = document.getElementById('modal-container');
+      if (!modal || modal.classList.contains('hidden')) return false;
+      return true;
+    }
+
+    document.getElementById('btn-cancel-health-proposal')?.addEventListener('click', () => {
+      dismissActiveHealthProposalModal();
+    });
+
+    function renderIneligibleModalView() {
+      const modalBody = document.getElementById('modal-body');
+      if (modalBody) {
+        modalBody.innerHTML = `
+          <div id="health-timeout-proposal-preview" class="health-proposal-modal-content" role="region" aria-label="${escapeHtml(t('workflows.healthProposalPreviewAria'))}">
+            <div class="alert alert-subtle" data-i18n="workflows.healthFindingIneligibleDesc">${escapeHtml(t('workflows.healthFindingIneligibleDesc'))}</div>
+          </div>
+        `;
+      }
+    }
+
+    let finding = cachedFinding;
+    let h = healthData;
+    let runData = null;
+    let wfData = null;
+    let propListData = null;
+
+    try {
+      if (!finding || !h) {
+        h = await callBridge('workflows.health', { project: capturedProject });
+        if (!isProposalScopeStillValid()) return;
+        finding = (h && Array.isArray(h.findings)) ? h.findings.find(f => String(f.id) === String(findingId)) : null;
+      }
+
+      if (!finding) {
+        if (!isProposalScopeStillValid()) return;
+        renderIneligibleModalView();
+        return;
+      }
+
+      // Check proposal.list first
+      propListData = await callBridge('workflows.health.proposal.list', { project: capturedProject });
+      if (!isProposalScopeStillValid()) return;
+
+      const existingProp = (propListData && Array.isArray(propListData.items))
+        ? propListData.items.find(p => String(p.findingId) === String(finding.id) || (finding.runId && p.runId === finding.runId && p.stepId === finding.stepId))
+        : null;
+
+      if (existingProp && ['pending_review', 'accepting', 'accepted', 'rejected', 'invalidated'].includes(existingProp.state)) {
+        // Item 8: 已有proposal review用actual proposal.get，不要合成needs_review finding
+        const actualProp = await callBridge('workflows.health.proposal.get', { project: capturedProject, id: existingProp.id });
+        if (!isProposalScopeStillValid()) return;
+        if (!actualProp) {
+          renderProposalModalMutationError(new Error('Proposal not found'));
+          return;
+        }
+        healthProposalSession = {
+          gen: thisGen,
+          modalInstance: capturedModalInstance,
+          project: capturedProject,
+          proposalId: actualProp.id,
+          findingId: actualProp.findingId,
+          runId: actualProp.runId,
+          workflowId: actualProp.workflowId,
+          workflowVersion: actualProp.workflowVersion,
+          stepId: actualProp.stepId,
+          proposal: actualProp,
+          proposalHash: actualProp.proposalHash,
+          snapshotHash: '',
+          isMutating: false
+        };
+        renderHealthProposalReviewView(healthProposalSession);
+        return;
+      }
+
+      // Item 2: Core workflows.health findings 实际没有 workflowId，必须真实 runs.get {project, id: finding.runId}
+      // 确认 run.project === capturedProject，再以 run.workflowId 读取 workflows.get
+      if (!finding.runId) {
+        if (!isProposalScopeStillValid()) return;
+        renderIneligibleModalView();
+        return;
+      }
+
+      runData = await callBridge('runs.get', { project: capturedProject, id: finding.runId });
+      if (!isProposalScopeStillValid()) return;
+
+      if (!runData || runData.project !== capturedProject) {
+        if (!isProposalScopeStillValid()) return;
+        renderIneligibleModalView();
+        return;
+      }
+
+      const workflowId = finding.workflowId || runData.workflowId || '';
+      if (!workflowId) {
+        if (!isProposalScopeStillValid()) return;
+        renderIneligibleModalView();
+        return;
+      }
+
+      wfData = await callBridge('workflows.get', { project: capturedProject, id: workflowId });
+      if (!isProposalScopeStillValid()) return;
+    } catch (err) {
+      if (!isProposalScopeStillValid()) return;
+      renderProposalModalMutationError(err);
+      return;
+    }
+
+    const workflowId = finding.workflowId || (runData && runData.workflowId) || (wfData && wfData.id) || '';
+
+    // Workflow validation before offering creation
+    const isWfValid = wfData && wfData.valid === true;
+    const isWfActive = wfData && wfData.state === 'active';
+    const isVersionMatch = wfData && wfData.definition && wfData.definition.version === finding.workflowVersion;
+    const defStep = (wfData && wfData.definition && Array.isArray(wfData.definition.steps))
+      ? wfData.definition.steps.find(s => s.id === finding.stepId)
+      : null;
+    const isToolEligible = defStep && ['shell.test', 'shell.typecheck', 'agent.run'].includes(defStep.tool);
+
+    // Item 1: Health 完整性真实字段是 aggregateIncomplete 与 coverage=complete_within_selected_store_scope；sourceScan任一capReached应隐藏创建
+    const isComplete = isHealthComplete(h);
+    const hasCapReached = isSourceScanCapReached(h, finding);
+
+    const currentTimeout = (defStep && defStep.arguments && typeof defStep.arguments.timeoutSeconds === 'number')
+      ? defStep.arguments.timeoutSeconds
+      : 120;
+    const isTimeoutDefaulted = !(defStep && defStep.arguments && typeof defStep.arguments.timeoutSeconds === 'number');
+
+    // Item 4: max=min(current*2,300)，若min=current+1>max则不可创建，不能Math.max抬到301
+    const minAllowed = currentTimeout + 1;
+    const maxAllowed = Math.min(currentTimeout * 2, 300);
+    const isRangeValid = (minAllowed <= maxAllowed);
+
+    const canCreate = Boolean(isWfValid && isWfActive && isVersionMatch && isToolEligible && isRangeValid && isComplete && !hasCapReached);
+
+    const initialValue = isRangeValid ? maxAllowed : minAllowed;
+
+    // Item 3: observedSeconds 缺失时显示未知，不能用 configured timeout 当实际 duration
+    let observedSeconds = null;
+    if (runData && Array.isArray(runData.steps)) {
+      const rStep = runData.steps.find(s => s.id === finding.stepId);
+      if (rStep && typeof rStep.durationMs === 'number' && rStep.durationMs > 0) {
+        observedSeconds = Math.round(rStep.durationMs / 1000);
+      }
+    }
+    if (observedSeconds === null && runData && typeof runData.durationMs === 'number' && runData.durationMs > 0) {
+      observedSeconds = Math.round(runData.durationMs / 1000);
+    }
+    if (observedSeconds === null && typeof finding.stepDuration === 'number' && finding.stepDuration > 0) {
+      observedSeconds = Math.round(finding.stepDuration / 1000);
+    }
+
+    const sourceOutcomeUnknown = Boolean((runData && runData.outcomeUnknown) || finding.outcomeUnknown || finding.state === 'needs_review');
+
+    if (!isProposalScopeStillValid()) return;
+
+    healthProposalSession = {
+      gen: thisGen,
+      modalInstance: capturedModalInstance,
+      project: capturedProject,
+      findingId: finding.id,
+      runId: finding.runId,
+      workflowId: workflowId,
+      workflowVersion: (wfData && wfData.definition) ? wfData.definition.version : finding.workflowVersion,
+      stepId: finding.stepId,
+      snapshotHash: wfData ? wfData.snapshotHash : '',
+      currentTimeout: currentTimeout,
+      timeoutDefaulted: isTimeoutDefaulted,
+      minAllowed: minAllowed,
+      maxAllowed: maxAllowed,
+      sourceOutcomeUnknown: sourceOutcomeUnknown,
+      isMutating: false
+    };
+
+    const modalTitleEl = document.getElementById('modal-title');
+    if (modalTitleEl) setElementDescriptor(modalTitleEl, { key: 'workflows.healthProposalPreviewTitle' });
+
+    const modalBody = document.getElementById('modal-body');
+    const modalFooter = document.getElementById('modal-footer');
+
+    if (modalBody) {
+      modalBody.innerHTML = `
+        <div id="health-timeout-proposal-preview" class="health-proposal-modal-content" role="region" aria-label="${escapeHtml(t('workflows.healthProposalPreviewAria'))}">
+          <div class="health-evidence-grid">
+            <div class="health-evidence-label" data-i18n="workflows.healthProposalObservedTimeout">${escapeHtml(t('workflows.healthProposalObservedTimeout'))}</div>
+            <div class="health-evidence-value">${observedSeconds !== null ? `${observedSeconds}s` : `<span class="text-muted" data-i18n="common.unknown">${escapeHtml(t('common.unknown') || 'Unknown')}</span>`}</div>
+
+            <div class="health-evidence-label" data-i18n="workflows.healthProposalOriginalTimeout">${escapeHtml(t('workflows.healthProposalOriginalTimeout'))}</div>
+            <div class="health-evidence-value">
+              ${currentTimeout}s
+              ${isTimeoutDefaulted ? `<span class="badge badge-subtle" style="margin-left: 6px;" data-i18n="workflows.healthProposalDefaultedNotice">${escapeHtml(t('workflows.healthProposalDefaultedNotice'))}</span>` : ''}
+            </div>
+
+            <div class="health-evidence-label" data-i18n="workflows.healthProposalPermittedRange">${escapeHtml(t('workflows.healthProposalPermittedRange'))}</div>
+            <div class="health-evidence-value">${isRangeValid ? `${minAllowed}s - ${maxAllowed}s` : `<span class="text-muted" data-i18n="workflows.healthFindingIneligibleDesc">${escapeHtml(t('workflows.healthFindingIneligibleDesc'))}</span>`}</div>
+
+            <div class="health-evidence-label" data-i18n="workflows.healthProposalSourceOutcome">${escapeHtml(t('workflows.healthProposalSourceOutcome'))}</div>
+            <div class="health-evidence-value">
+              <span class="badge ${sourceOutcomeUnknown ? 'badge-amber' : 'badge-subtle'}">${escapeHtml(finding.state || (runData && runData.state) || 'needs_review')}</span>
+              ${sourceOutcomeUnknown ? '<span style="font-size: 11px; color: var(--status-amber-text); margin-left: 6px;">(sourceOutcomeUnknown: true)</span>' : ''}
+            </div>
+          </div>
+
+          <div class="alert alert-info" data-i18n="workflows.healthProposalNotice" style="font-size: 12px; line-height: 1.5;">
+            ${escapeHtml(t('workflows.healthProposalNotice'))}
+          </div>
+
+          <details class="technical-evidence-details" id="health-timeout-technical-evidence">
+            <summary data-i18n="workflows.healthProposalTechnicalSummary">${escapeHtml(t('workflows.healthProposalTechnicalSummary'))}</summary>
+            <div class="technical-evidence-body">
+              <div>${escapeHtml(t('workflows.healthProposalFindingId', { findingId: finding.id }))}</div>
+              ${finding.runId ? `<div>${escapeHtml(t('workflows.healthProposalRunId', { runId: finding.runId }))}</div>` : ''}
+              <div>${escapeHtml(t('workflows.healthProposalStep', { stepId: finding.stepId }))}</div>
+              <div>${escapeHtml(t('workflows.healthProposalTool', { tool: finding.tool || (defStep && defStep.tool) || 'unknown' }))}</div>
+              ${wfData && wfData.definition ? `<div>${escapeHtml(t('workflows.healthProposalWorkflowVersion', { version: wfData.definition.version }))}</div>` : ''}
+            </div>
+          </details>
+
+          ${canCreate ? `
+            <div class="form-group" style="margin-top: 10px;">
+              <label for="health-timeout-new-seconds" style="font-weight: 500; font-size: 13px; display: block; margin-bottom: 6px;" data-i18n="workflows.healthProposalNewTimeoutLabel">${escapeHtml(t('workflows.healthProposalNewTimeoutLabel'))}</label>
+              <input id="health-timeout-new-seconds" type="number" class="form-input" min="${minAllowed}" max="${maxAllowed}" value="${initialValue}" aria-label="${escapeHtml(t('workflows.healthProposalNewTimeoutAria'))}" style="width: 100%; max-width: 220px;" />
+              <div class="form-hint" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${escapeHtml(t('workflows.healthProposalRangeHint', { min: minAllowed, max: maxAllowed }))}</div>
+            </div>
+          ` : `
+            <div class="alert alert-subtle" data-i18n="workflows.healthFindingIneligibleDesc">
+              ${escapeHtml(t('workflows.healthFindingIneligibleDesc'))}
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    if (modalFooter) {
+      modalFooter.innerHTML = `
+        <button id="btn-cancel-health-proposal" class="btn btn-secondary" data-i18n="workflows.btnCancel" aria-label="${escapeHtml(t('workflows.btnCancelAria'))}">${escapeHtml(t('workflows.btnCancel'))}</button>
+        ${canCreate ? `<button id="btn-create-health-timeout-proposal" class="btn btn-primary" data-i18n="workflows.btnCreateProposal" aria-label="${escapeHtml(t('workflows.btnCreateProposalAria'))}">${escapeHtml(t('workflows.btnCreateProposal'))}</button>` : ''}
+      `;
+    }
+
+    document.getElementById('btn-cancel-health-proposal')?.addEventListener('click', () => {
+      dismissActiveHealthProposalModal();
+    });
+
+    if (canCreate) {
+      const inputEl = document.getElementById('health-timeout-new-seconds');
+      const btnCreate = document.getElementById('btn-create-health-timeout-proposal');
+
+      function parseTimeoutVal() {
+        if (!inputEl) return null;
+        const raw = inputEl.value.trim();
+        if (!/^\d+$/.test(raw)) return null;
+        const val = parseInt(raw, 10);
+        if (isNaN(val) || !Number.isInteger(val)) return null;
+        if (val < minAllowed || val > maxAllowed) return null;
+        return val;
+      }
+
+      if (inputEl && btnCreate) {
+        inputEl.addEventListener('input', () => {
+          const val = parseTimeoutVal();
+          btnCreate.disabled = (val === null);
+        });
+        btnCreate.disabled = (parseTimeoutVal() === null);
+
+        // Item 5: create catch 先检查 generation/当前 closure 再写状态，使用当前闭包对象，晚错误不能抛 TypeError
+        btnCreate.addEventListener('click', async () => {
+          const localSession = healthProposalSession;
+          if (!localSession || !isProposalScopeStillValid()) return;
+          if (localSession.isMutating) return;
+          const finalVal = parseTimeoutVal();
+          if (finalVal === null) {
+            btnCreate.disabled = true;
+            return;
+          }
+          localSession.isMutating = true;
+          btnCreate.disabled = true;
+
+          try {
+            const res = await callBridge('workflows.health.proposeTimeout', {
+              project: localSession.project,
+              workflowId: localSession.workflowId,
+              workflowVersion: localSession.workflowVersion,
+              snapshotHash: localSession.snapshotHash,
+              runId: localSession.runId,
+              stepId: localSession.stepId,
+              findingId: localSession.findingId,
+              newTimeoutSeconds: finalVal
+            });
+
+            if (!isProposalScopeStillValid()) return;
+
+            localSession.proposal = res;
+            localSession.proposalHash = res.proposalHash;
+            localSession.isMutating = false;
+
+            renderHealthProposalReviewView(localSession);
+            loadHealthData();
+          } catch (err) {
+            if (localSession) {
+              localSession.isMutating = false;
+            }
+            if (!isProposalScopeStillValid()) return;
+            if (btnCreate) btnCreate.disabled = false;
+            renderProposalModalMutationError(err);
+          }
+        });
+      }
+    }
+  }
+
+  function isSessionScopeValid(session) {
+    if (!session) return false;
+    if (session.gen !== healthProposalGen) return false;
+    if (currentModalInstance !== session.modalInstance) return false;
+    if (activeHealthProposalModalInstance !== session.modalInstance) return false;
+    if (state.currentProject !== session.project) return false;
+    if (state.currentPage !== 'workflows' || state.workflowsActiveTab !== 'health') return false;
+    const modal = document.getElementById('modal-container');
+    if (!modal || modal.classList.contains('hidden')) return false;
+    return true;
+  }
+
+  function renderHealthProposalReviewView(session) {
+    if (!session || !session.proposal) return;
+
+    const modalTitleEl = document.getElementById('modal-title');
+    if (modalTitleEl) setElementDescriptor(modalTitleEl, { key: 'workflows.healthProposalReviewTitle' });
+
+    const modalBody = document.getElementById('modal-body');
+    const modalFooter = document.getElementById('modal-footer');
+    if (!modalBody || !modalFooter) return;
+
+    const prop = session.proposal;
+    const st = String(prop.state || '');
+
+    // Item 6: review 根节点增加 data-state 为实际 prop.state，invalidated/未知状态不能标成 rejected
+    let stBadgeClass = 'badge-subtle';
+    let stI18nKey = '';
+    let stLabel = '';
+    if (st === 'pending_review') {
+      stBadgeClass = 'badge-amber';
+      stI18nKey = 'workflows.healthProposalStatePending';
+    } else if (st === 'accepting') {
+      stBadgeClass = 'badge-amber';
+      stI18nKey = 'workflows.healthProposalStateAccepting';
+    } else if (st === 'accepted') {
+      stBadgeClass = 'badge-sage';
+      stI18nKey = 'workflows.healthProposalStateAccepted';
+    } else if (st === 'rejected') {
+      stBadgeClass = 'badge-subtle';
+      stI18nKey = 'workflows.healthProposalStateRejected';
+    } else if (st === 'invalidated') {
+      stBadgeClass = 'badge-subtle';
+      stI18nKey = 'workflows.healthProposalStateInvalidated';
+    } else {
+      stBadgeClass = 'badge-subtle';
+      stLabel = st || 'unknown';
+    }
+
+    modalBody.innerHTML = `
+      <div id="health-timeout-proposal-review" data-proposal-id="${escapeHtml(prop.id)}" data-state="${escapeHtml(st)}" role="region" aria-label="${escapeHtml(t('workflows.healthProposalReviewAria'))}" class="health-proposal-review-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
+          <div>
+            <span style="font-weight: 600; font-size: 13px;">${escapeHtml(prop.id)}</span>
+            <span style="font-size: 12px; color: var(--text-muted); margin-left: 8px;">v${prop.workflowVersion}</span>
+          </div>
+          <div>
+            <span class="badge ${stBadgeClass}" ${stI18nKey ? `data-i18n="${stI18nKey}"` : ''}>${escapeHtml(stI18nKey ? t(stI18nKey) : stLabel)}</span>
+          </div>
+        </div>
+
+        <div class="health-evidence-grid" style="margin-top: 6px;">
+          <div class="health-evidence-label" data-i18n="workflows.healthProposalTimeoutChange">${escapeHtml(t('workflows.healthProposalTimeoutChange'))}</div>
+          <div class="health-evidence-value">${escapeHtml(t('workflows.healthProposalTimeoutChangeVal', { from: prop.fromTimeoutSeconds, to: prop.toTimeoutSeconds }))}</div>
+
+          <div class="health-evidence-label" data-i18n="workflows.healthProposalStep">${escapeHtml(t('workflows.healthProposalStep', { stepId: prop.stepId }))}</div>
+          <div class="health-evidence-value">${escapeHtml(prop.tool || 'step')}</div>
+        </div>
+
+        ${(st === 'pending_review' && prop.sourceOutcomeUnknown) ? `
+          <div class="health-uncertainty-block">
+            <div id="health-timeout-uncertainty-warning" class="alert alert-warning" role="alert" data-i18n="workflows.healthUncertainWarning" style="margin-bottom: 8px;">
+              ${escapeHtml(t('workflows.healthUncertainWarning'))}
+            </div>
+            <label class="checkbox-label" for="health-timeout-uncertain-ack" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+              <input type="checkbox" id="health-timeout-uncertain-ack" aria-describedby="health-timeout-uncertainty-warning" aria-label="${escapeHtml(t('workflows.healthUncertainAckLabel'))}" />
+              <span data-i18n="workflows.healthUncertainAck">${escapeHtml(t('workflows.healthUncertainAck'))}</span>
+            </label>
+          </div>
+        ` : ''}
+
+        ${st === 'accepting' ? `
+          <div class="alert alert-warning" data-i18n="workflows.healthProposalStateAccepting">
+            ${escapeHtml(t('workflows.healthProposalStateAccepting'))}
+          </div>
+        ` : ''}
+
+        ${st === 'accepted' ? `
+          <div class="alert alert-success" data-i18n="workflows.healthProposalAcceptedSummary" data-i18n-params="${escapeHtml(JSON.stringify({ candidateId: prop.acceptedWorkflowId, version: prop.acceptedWorkflowVersion }))}">
+            ${escapeHtml(t('workflows.healthProposalAcceptedSummary', { candidateId: prop.acceptedWorkflowId, version: prop.acceptedWorkflowVersion }))}
+          </div>
+          <div style="padding: 10px; background: var(--bg-subtle); border-radius: 4px; font-size: 12px; color: var(--text-secondary);">
+            <div data-i18n="workflows.healthProposalCandidateId" data-i18n-params="${escapeHtml(JSON.stringify({ candidateId: prop.acceptedWorkflowId }))}">
+              ${escapeHtml(t('workflows.healthProposalCandidateId', { candidateId: prop.acceptedWorkflowId }))}
+            </div>
+            <div data-i18n="workflows.healthProposalCandidateState" style="margin-top: 4px;">
+              ${escapeHtml(t('workflows.healthProposalCandidateState'))}
+            </div>
+          </div>
+        ` : ''}
+
+        ${st === 'rejected' ? `
+          <div class="alert alert-subtle" data-i18n="workflows.healthProposalRejectedSummary">
+            ${escapeHtml(t('workflows.healthProposalRejectedSummary'))}
+          </div>
+        ` : ''}
+
+        ${st === 'invalidated' ? `
+          <div class="alert alert-subtle" data-i18n="workflows.healthProposalInvalidatedSummary">
+            ${escapeHtml(t('workflows.healthProposalInvalidatedSummary'))}
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    if (st === 'pending_review') {
+      modalFooter.innerHTML = `
+        <button id="btn-cancel-health-proposal" class="btn btn-secondary" data-i18n="workflows.btnCancel" aria-label="${escapeHtml(t('workflows.btnCancelAria'))}">${escapeHtml(t('workflows.btnCancel'))}</button>
+        <button id="btn-reject-health-proposal" class="btn btn-secondary" data-i18n="workflows.btnRejectProposal" aria-label="${escapeHtml(t('workflows.btnRejectProposalAria'))}">${escapeHtml(t('workflows.btnRejectProposal'))}</button>
+        <button id="btn-accept-health-proposal" class="btn btn-primary" data-i18n="workflows.btnAcceptProposal" aria-label="${escapeHtml(t('workflows.btnAcceptProposalAria'))}" ${prop.sourceOutcomeUnknown ? 'disabled' : ''}>${escapeHtml(t('workflows.btnAcceptProposal'))}</button>
+      `;
+
+      const btnCancel = document.getElementById('btn-cancel-health-proposal');
+      const btnReject = document.getElementById('btn-reject-health-proposal');
+      const btnAccept = document.getElementById('btn-accept-health-proposal');
+      const ackCheckbox = document.getElementById('health-timeout-uncertain-ack');
+
+      btnCancel?.addEventListener('click', () => {
+        dismissActiveHealthProposalModal();
+      });
+
+      if (ackCheckbox && btnAccept) {
+        ackCheckbox.addEventListener('change', () => {
+          btnAccept.disabled = !ackCheckbox.checked;
+        });
+      }
+
+      btnReject?.addEventListener('click', async () => {
+        const localSession = session;
+        if (!localSession || !isSessionScopeValid(localSession)) return;
+        if (localSession.isMutating) return;
+        localSession.isMutating = true;
+        btnReject.disabled = true;
+        if (btnAccept) btnAccept.disabled = true;
+
+        try {
+          const res = await callBridge('workflows.health.proposal.decide', {
+            project: localSession.project,
+            id: localSession.proposal.id,
+            proposalHash: localSession.proposalHash,
+            decision: 'reject'
+          });
+
+          if (!isSessionScopeValid(localSession)) return;
+
+          localSession.isMutating = false;
+          localSession.proposal = res;
+          localSession.proposalHash = res.proposalHash;
+          renderHealthProposalReviewView(localSession);
+          loadHealthData();
+        } catch (err) {
+          if (localSession) {
+            localSession.isMutating = false;
+          }
+          if (!isSessionScopeValid(localSession)) return;
+          btnReject.disabled = false;
+          if (btnAccept) btnAccept.disabled = prop.sourceOutcomeUnknown ? !ackCheckbox?.checked : false;
+          renderProposalModalMutationError(err);
+        }
+      });
+
+      btnAccept?.addEventListener('click', async () => {
+        const localSession = session;
+        if (!localSession || !isSessionScopeValid(localSession)) return;
+        if (localSession.isMutating) return;
+        if (prop.sourceOutcomeUnknown) {
+          if (!ackCheckbox || !ackCheckbox.checked) return;
+        }
+        localSession.isMutating = true;
+        btnAccept.disabled = true;
+        if (btnReject) btnReject.disabled = true;
+
+        try {
+          const res = await callBridge('workflows.health.proposal.decide', {
+            project: localSession.project,
+            id: localSession.proposal.id,
+            proposalHash: localSession.proposalHash,
+            decision: 'accept',
+            acknowledgeUncertainSource: Boolean(prop.sourceOutcomeUnknown)
+          });
+
+          if (!isSessionScopeValid(localSession)) return;
+
+          localSession.isMutating = false;
+          localSession.proposal = res;
+          localSession.proposalHash = res.proposalHash;
+          renderHealthProposalReviewView(localSession);
+          loadHealthData();
+        } catch (err) {
+          if (localSession) {
+            localSession.isMutating = false;
+          }
+          if (!isSessionScopeValid(localSession)) return;
+          btnAccept.disabled = false;
+          if (btnReject) btnReject.disabled = false;
+          renderProposalModalMutationError(err);
+        }
+      });
+
+    } else if (st === 'accepting') {
+      modalFooter.innerHTML = `
+        <button id="btn-cancel-health-proposal" class="btn btn-secondary" data-i18n="workflows.btnCancel" aria-label="${escapeHtml(t('workflows.btnCancelAria'))}">${escapeHtml(t('workflows.btnCancel'))}</button>
+        <button id="btn-recover-health-proposal" class="btn btn-warning" data-i18n="workflows.btnRecoverProposal" aria-label="${escapeHtml(t('workflows.btnRecoverProposalAria'))}">${escapeHtml(t('workflows.btnRecoverProposal'))}</button>
+      `;
+
+      const btnCancel = document.getElementById('btn-cancel-health-proposal');
+      const btnRecover = document.getElementById('btn-recover-health-proposal');
+
+      btnCancel?.addEventListener('click', () => {
+        dismissActiveHealthProposalModal();
+      });
+
+      btnRecover?.addEventListener('click', async () => {
+        const localSession = session;
+        if (!localSession || !isSessionScopeValid(localSession)) return;
+        if (localSession.isMutating) return;
+        localSession.isMutating = true;
+        btnRecover.disabled = true;
+
+        try {
+          const res = await callBridge('workflows.health.proposal.decide', {
+            project: localSession.project,
+            id: localSession.proposal.id,
+            proposalHash: localSession.proposalHash,
+            decision: 'recover'
+          });
+
+          if (!isSessionScopeValid(localSession)) return;
+
+          localSession.isMutating = false;
+          localSession.proposal = res;
+          localSession.proposalHash = res.proposalHash;
+          renderHealthProposalReviewView(localSession);
+          loadHealthData();
+        } catch (err) {
+          if (localSession) {
+            localSession.isMutating = false;
+          }
+          if (!isSessionScopeValid(localSession)) return;
+          btnRecover.disabled = false;
+          renderProposalModalMutationError(err);
+        }
+      });
+
+    } else {
+      modalFooter.innerHTML = `
+        <button id="btn-close-health-modal" class="btn btn-secondary" data-i18n="common.close" aria-label="${escapeHtml(t('common.close'))}">${escapeHtml(t('common.close') || 'Close')}</button>
+      `;
+      document.getElementById('btn-close-health-modal')?.addEventListener('click', () => {
+        dismissActiveHealthProposalModal();
+      });
+    }
+  }
+
+  function renderProposalModalMutationError(err) {
+    const errText = String(err && (err.message || err.code || err) || '');
+    const isStale = /stale|scan|private|cas|conflict/i.test(errText);
+
+    const modalBody = document.getElementById('modal-body');
+    if (!modalBody) return;
+
+    const existingAlert = modalBody.querySelector('.health-mutation-error-container');
+    if (existingAlert) existingAlert.remove();
+
+    const errContainer = document.createElement('div');
+    errContainer.className = 'health-mutation-error-container';
+    if (isStale) {
+      errContainer.innerHTML = `
+        <div class="alert alert-danger" role="alert" style="margin-top: 14px;">
+          <div style="margin-bottom: 8px;" data-i18n="workflows.healthProposalStaleError">${escapeHtml(t('workflows.healthProposalStaleError'))}</div>
+          <button id="btn-recover-stale-health" class="btn btn-sm btn-secondary" data-i18n="workflows.healthProposalReviewLatestEvidence">${escapeHtml(t('workflows.healthProposalReviewLatestEvidence'))}</button>
+        </div>
+      `;
+    } else {
+      errContainer.innerHTML = `
+        <div class="alert alert-danger" role="alert" style="margin-top: 14px;">
+          <div>${escapeHtml(errText || t('workflows.healthProposalStaleError'))}</div>
+        </div>
+      `;
+    }
+    modalBody.appendChild(errContainer);
+
+    const btnRecover = errContainer.querySelector('#btn-recover-stale-health');
+    if (btnRecover) {
+      btnRecover.addEventListener('click', () => {
+        dismissActiveHealthProposalModal();
+        loadHealthData();
+      });
     }
   }
 
@@ -10105,15 +11384,17 @@
         ` : displayedMemories.map(m => {
           const st = (m.state || 'candidate').toLowerCase();
           let provenanceHtml = '';
-          if (m.sourceSession) {
-            const knownSession = ((state.dashboard && state.dashboard.sessions) || []).find(s => s.id === m.sourceSession);
+          const memSrcSession = m.sourceSession || (m.provenance && (m.provenance.session || m.provenance.sessionId));
+          const memSrcMsg = m.sourceMessage || (m.provenance && (m.provenance.message || m.provenance.messageId));
+          if (memSrcSession) {
+            const knownSession = ((state.dashboard && state.dashboard.sessions) || []).find(s => s.id === memSrcSession);
             const sessionLabel = (knownSession && knownSession.title) ? knownSession.title : t('memory.sourceSessionDefault');
-            const tooltipTitle = m.sourceMessage
-              ? t('memory.sourceSessionTooltip', { sessionId: m.sourceSession, messageId: m.sourceMessage })
-              : t('memory.sourceSessionTooltipShort', { sessionId: m.sourceSession });
+            const tooltipTitle = memSrcMsg
+              ? t('memory.sourceSessionTooltip', { sessionId: memSrcSession, messageId: memSrcMsg })
+              : t('memory.sourceSessionTooltipShort', { sessionId: memSrcSession });
             provenanceHtml = `
               <span data-i18n="memory.sourcePrefix">${t('memory.sourcePrefix')}</span>
-              <button type="button" class="btn-open-source" data-session-id="${escapeHtml(m.sourceSession)}" ${m.sourceMessage ? `data-message-id="${escapeHtml(m.sourceMessage)}"` : ''} title="${escapeHtml(tooltipTitle)}">
+              <button type="button" class="btn-open-source" data-session-id="${escapeHtml(memSrcSession)}" ${memSrcMsg ? `data-message-id="${escapeHtml(memSrcMsg)}"` : ''} title="${escapeHtml(tooltipTitle)}">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                 <span>${escapeHtml(sessionLabel)}</span>
               </button>
@@ -10272,16 +11553,16 @@
                   <div><span class="text-secondary" data-i18n="memory.metaTask">${t('memory.metaTask')}</span> ${escapeHtml(m.task || '-')}</div>
                   <div><span class="text-secondary" data-i18n="memory.metaSourceFile">${t('memory.metaSourceFile')}</span> <span class="font-mono">${escapeHtml(m.sourceFile || '-')}</span></div>
                   <div><span class="text-secondary" data-i18n="memory.metaSourceCommit">${t('memory.metaSourceCommit')}</span> <span class="font-mono">${escapeHtml(m.sourceCommit || '-')}</span></div>
-                  <div><span class="text-secondary" data-i18n="memory.metaSourceSession">${t('memory.metaSourceSession')}</span> <span class="font-mono">${escapeHtml(m.sourceSession || '-')}</span></div>
-                  <div><span class="text-secondary" data-i18n="memory.metaSourceMessage">${t('memory.metaSourceMessage')}</span> <span class="font-mono">${escapeHtml(m.sourceMessage || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaSourceSession">${t('memory.metaSourceSession')}</span> <span class="font-mono">${escapeHtml(m.sourceSession || (m.provenance && (m.provenance.session || m.provenance.sessionId)) || '-')}</span></div>
+                  <div><span class="text-secondary" data-i18n="memory.metaSourceMessage">${t('memory.metaSourceMessage')}</span> <span class="font-mono">${escapeHtml(m.sourceMessage || (m.provenance && (m.provenance.message || m.provenance.messageId)) || '-')}</span></div>
                 </div>
                 <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border-color); display: flex; gap: 8px; flex-wrap: wrap;">
                   <button type="button" class="btn btn-secondary btn-sm btn-drawer-memory-outcomes" data-memory-id="${escapeHtml(m.id)}">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                     <span data-i18n="memory.btnViewReuseOutcomes">${t('memory.btnViewReuseOutcomes')}</span>
                   </button>
-                  ${m.sourceSession ? `
-                    <button type="button" class="btn-open-source" data-session-id="${escapeHtml(m.sourceSession)}" ${m.sourceMessage ? `data-message-id="${escapeHtml(m.sourceMessage)}"` : ''}>
+                  ${(m.sourceSession || (m.provenance && (m.provenance.session || m.provenance.sessionId))) ? `
+                    <button type="button" class="btn-open-source" data-session-id="${escapeHtml(m.sourceSession || (m.provenance && (m.provenance.session || m.provenance.sessionId)))}" ${(m.sourceMessage || (m.provenance && (m.provenance.message || m.provenance.messageId))) ? `data-message-id="${escapeHtml(m.sourceMessage || (m.provenance && (m.provenance.message || m.provenance.messageId)))}"` : ''}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                       <span data-i18n="memory.btnLocateSourceMsg">${t('memory.btnLocateSourceMsg')}</span>
                     </button>
@@ -11772,6 +13053,18 @@
 
   function openCreateOrEditMemoryModal(initial = {}) {
     const isEdit = !!initial.id;
+    const provenanceOrigin = (initial.provenance && initial.provenance.origin) || initial.provenanceOrigin || initial.origin;
+    const isObservedCapture = (provenanceOrigin === 'observed_session_capture');
+    const isUserEdit = Boolean(
+      (initial.provenance && (initial.provenance.user_edit || initial.provenance.edited || initial.provenance.lastModifiedBy === 'user_edit' || initial.provenance.editOrigin === 'user_edit')) ||
+      (initial.provenance && Array.isArray(initial.provenance.history) && initial.provenance.history.some(h => h.origin === 'user_edit' || h.type === 'user_edit'))
+    );
+
+    const initialSrcSession = initial.sourceSession || (initial.provenance && (initial.provenance.session || initial.provenance.sessionId)) || '';
+    const initialSrcMsg = initial.sourceMessage || (initial.provenance && (initial.provenance.message || initial.provenance.messageId)) || '';
+    const initialSrcCommit = initial.sourceCommit || (initial.provenance && initial.provenance.commit) || '';
+    const initialSrcFile = initial.sourceFile || (initial.provenance && (initial.provenance.file || initial.provenance.filePath)) || '';
+
     const validTypes = [
       'decision', 'constraint', 'preference', 'failure', 'fact',
       'workflow knowledge', 'observation', 'hypothesis', 'checkpoint'
@@ -11806,12 +13099,13 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
           <label class="form-label" data-i18n="memory.formProject">${t('memory.formProject')}</label>
-          <select id="mem-project" class="form-select">
+          <select id="mem-project" class="form-select" ${isObservedCapture ? 'disabled' : ''}>
             <option value="" data-i18n="memory.formProjectGlobal">${t('memory.formProjectGlobal')}</option>
             ${state.registeredProjects.map(p => `
               <option value="${escapeHtml(p.path || p.id)}" ${(initial.project === (p.path || p.id)) ? 'selected' : ''}>${escapeHtml(p.title || p.path)}</option>
             `).join('')}
           </select>
+          ${isObservedCapture ? `<div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;" data-i18n="memory.formProjectLockedNotice">${escapeHtml(t('memory.formProjectLockedNotice'))}</div>` : ''}
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="memory.formState">${t('memory.formState')}</label>
@@ -11841,23 +13135,38 @@
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="memory.formSrcSession">${t('memory.formSrcSession')}</label>
-          <input type="text" id="mem-src-session" class="form-input" value="${escapeHtml(initial.sourceSession || '')}" placeholder="${t('memory.formSrcSessionPlaceholder')}" data-i18n-placeholder="memory.formSrcSessionPlaceholder">
+          <input type="text" id="mem-src-session" class="form-input" value="${escapeHtml(initialSrcSession)}" placeholder="${t('memory.formSrcSessionPlaceholder')}" data-i18n-placeholder="memory.formSrcSessionPlaceholder" ${isObservedCapture ? 'readonly disabled' : ''}>
         </div>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
           <label class="form-label" data-i18n="memory.formSrcMsg">${t('memory.formSrcMsg')}</label>
-          <input type="text" id="mem-src-msg" class="form-input" value="${escapeHtml(initial.sourceMessage || '')}" placeholder="${t('memory.formSrcMsgPlaceholder')}" data-i18n-placeholder="memory.formSrcMsgPlaceholder">
+          <input type="text" id="mem-src-msg" class="form-input" value="${escapeHtml(initialSrcMsg)}" placeholder="${t('memory.formSrcMsgPlaceholder')}" data-i18n-placeholder="memory.formSrcMsgPlaceholder" ${isObservedCapture ? 'readonly disabled' : ''}>
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="memory.formSrcCommit">${t('memory.formSrcCommit')}</label>
-          <input type="text" id="mem-src-commit" class="form-input" value="${escapeHtml(initial.sourceCommit || '')}" placeholder="${t('memory.formSrcCommitPlaceholder')}" data-i18n-placeholder="memory.formSrcCommitPlaceholder">
+          <input type="text" id="mem-src-commit" class="form-input" value="${escapeHtml(initialSrcCommit)}" placeholder="${t('memory.formSrcCommitPlaceholder')}" data-i18n-placeholder="memory.formSrcCommitPlaceholder" ${isObservedCapture ? 'readonly disabled' : ''}>
         </div>
       </div>
       <div class="form-group">
         <label class="form-label" data-i18n="memory.formSrcFile">${t('memory.formSrcFile')}</label>
-        <input type="text" id="mem-src-file" class="form-input" value="${escapeHtml(initial.sourceFile || '')}" placeholder="${t('memory.formSrcFilePlaceholder')}" data-i18n-placeholder="memory.formSrcFilePlaceholder">
+        <input type="text" id="mem-src-file" class="form-input" value="${escapeHtml(initialSrcFile)}" placeholder="${t('memory.formSrcFilePlaceholder')}" data-i18n-placeholder="memory.formSrcFilePlaceholder" ${isObservedCapture ? 'readonly disabled' : ''}>
       </div>
+      ${isObservedCapture ? `
+        <div class="card" style="margin-top: 8px; padding: 10px 12px; background: var(--bg-subtle); border-left: 3px solid var(--accent-color, #3b82f6); font-size: 11px;">
+          <div style="font-weight: 600; margin-bottom: 2px;" data-i18n="memory.observedCaptureNoticeTitle">${escapeHtml(t('memory.observedCaptureNoticeTitle'))}</div>
+          <div class="text-secondary" style="line-height: 1.45;" data-i18n="memory.observedCaptureNotice">${escapeHtml(t('memory.observedCaptureNotice'))}</div>
+          ${isUserEdit ? `
+            <div style="margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; color: var(--status-amber-text, #f59e0b);" data-i18n="memory.observedCaptureEditedBadge">
+              <span class="status-badge status-amber">${escapeHtml(t('memory.observedCaptureEditedBadge'))}</span>
+            </div>
+          ` : `
+            <div style="margin-top: 4px; color: var(--text-secondary); font-size: 10px;" data-i18n="memory.observedCaptureWillAttributeNotice">
+              ${escapeHtml(t('memory.observedCaptureWillAttributeNotice'))}
+            </div>
+          `}
+        </div>
+      ` : ''}
     `;
 
     openModal({ key: isEdit ? 'memory.editModalTitle' : 'memory.newModalTitle' }, modalBody, `
@@ -11871,7 +13180,7 @@
       const content = document.getElementById('mem-content').value.trim();
       const type = document.getElementById('mem-type').value.toLowerCase();
       const scope = document.getElementById('mem-scope').value.toLowerCase();
-      const project = document.getElementById('mem-project').value;
+      const project = isObservedCapture ? (initial.project || '') : document.getElementById('mem-project').value;
       const normalizedInitialState = (initial.state || 'candidate').toLowerCase();
       const memState = isEdit ? normalizedInitialState : document.getElementById('mem-state').value.toLowerCase();
       const branch = document.getElementById('mem-branch').value.trim();
@@ -11907,23 +13216,28 @@
         return;
       }
 
+      const savePayload = {
+        id: isEdit ? initial.id : undefined,
+        title,
+        content,
+        type,
+        scope,
+        project: project || undefined,
+        state: memState,
+        branch: branch || undefined,
+        worktree: worktree || undefined,
+        task: task || undefined
+      };
+
+      if (!isObservedCapture) {
+        if (sourceFile) savePayload.sourceFile = sourceFile;
+        if (sourceCommit) savePayload.sourceCommit = sourceCommit;
+        if (sourceSession) savePayload.sourceSession = sourceSession;
+        if (sourceMessage) savePayload.sourceMessage = sourceMessage;
+      }
+
       try {
-        await callBridge('memory.save', {
-          id: isEdit ? initial.id : undefined,
-          title,
-          content,
-          type,
-          scope,
-          project: project || undefined,
-          state: memState,
-          branch: branch || undefined,
-          worktree: worktree || undefined,
-          task: task || undefined,
-          sourceFile: sourceFile || undefined,
-          sourceCommit: sourceCommit || undefined,
-          sourceSession: sourceSession || undefined,
-          sourceMessage: sourceMessage || undefined
-        });
+        await callBridge('memory.save', savePayload);
         showToast({ key: 'memory.savedToast' });
         closeModal();
         await refreshDashboard(true, true);
@@ -18882,6 +20196,7 @@
   }
 
   function openDrawer(title = '', subtitle = '', triggerEl = null) {
+    dismissActiveCaptureModal();
     const thisDrawerInstance = ++drawerInstanceCounter;
     currentDrawerInstance = thisDrawerInstance;
     const originalActive = document.activeElement;
@@ -18965,6 +20280,7 @@
   }
 
   function closeDrawer() {
+    dismissActiveCaptureModal();
     currentDrawerInstance = ++drawerInstanceCounter;
     invalidateSessionDisclosures();
     const drawer = document.getElementById('detail-drawer');
@@ -19003,6 +20319,12 @@
         searchLocaleCleanup();
       } catch {}
       searchLocaleCleanup = null;
+    }
+    if (activeCaptureModalInstance) {
+      dismissActiveCaptureModal();
+    }
+    if (typeof activeHealthProposalModalInstance !== 'undefined' && activeHealthProposalModalInstance) {
+      dismissActiveHealthProposalModal();
     }
     const thisModalInstance = ++modalInstanceCounter;
     currentModalInstance = thisModalInstance;
@@ -19060,6 +20382,26 @@
         searchLocaleCleanup();
       } catch {}
       searchLocaleCleanup = null;
+    }
+    if (activeCaptureModalInstance) {
+      activeCaptureModalInstance = null;
+      if (typeof activeCaptureCleanup === 'function') {
+        try {
+          activeCaptureCleanup();
+        } catch {}
+        activeCaptureCleanup = null;
+      }
+    }
+    if (typeof activeHealthProposalModalInstance !== 'undefined' && activeHealthProposalModalInstance) {
+      activeHealthProposalModalInstance = null;
+      healthProposalGen++;
+      healthProposalSession = null;
+      if (typeof activeHealthProposalCleanup === 'function') {
+        try {
+          activeHealthProposalCleanup();
+        } catch {}
+        activeHealthProposalCleanup = null;
+      }
     }
     currentModalInstance = ++modalInstanceCounter;
     const modal = document.getElementById('modal-container');

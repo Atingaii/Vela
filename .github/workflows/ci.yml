@@ -45,6 +45,12 @@ jobs:
           python3 scripts/test-workflow-health-rpc.py
           python3 scripts/test-workflow-health-proposal-rpc.py --binary .build/debug/vela --output output/parity/ci-health-proposal
           python3 scripts/test-session-memory-capture-rpc.py --binary .build/debug/vela --output output/parity/ci-session-memory-capture.json
+          python3 scripts/test-session-growing-rewrite-rpc.py --binary .build/debug/vela --output output/parity/ci-session-growing-rewrite.json
+          python3 scripts/test-run-feedback-rpc.py --binary .build/debug/vela --output output/parity/ci-run-feedback.json
+          python3 scripts/test-run-feedback-bridge.py --binary .build/debug/vela --output output/parity/ci-run-feedback-bridge.json
+          python3 scripts/test-lab-recall-variant-rpc.py --binary .build/debug/vela --output output/parity/ci-lab-recall.json
+          python3 scripts/test-lab-explicit-memory-guard-rpc.py --binary .build/debug/vela --output output/parity/ci-lab-explicit-memory-guard.json
+          python3 scripts/test-lab-semantic-recall-rpc.py --binary .build/debug/vela --output output/parity/ci-lab-semantic-recall.json
           python3 scripts/test-workflow-retry-rpc.py
           python3 scripts/test-rpc-lab-shutdown.py --binary .build/debug/vela --output output/parity/ci-rpc-lab-shutdown.json
           python3 scripts/test-automation-sigmask-rpc.py --binary .build/debug/vela --output output/parity/ci-automation-sigmask.json
@@ -89,6 +95,8 @@ jobs:
           python3 scripts/test-workspace-actions-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-workspace-actions --output output/playwright/ci-workspace-actions --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
           python3 scripts/test-session-relations-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-session-relations --output output/playwright/ci-session-relations --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
           python3 scripts/test-workspace-scope-accessibility-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-workspace-scope --output output/playwright/ci-workspace-scope --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
+          python3 scripts/test-session-memory-capture-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-session-capture --output output/playwright/ci-session-capture --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-workflow-health-proposal-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-health-proposal-ui --output output/playwright/ci-health-proposal-ui --browser-executable "$BROWSER_EXECUTABLE"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -125,6 +133,12 @@ jobs:
             output/playwright/ci-workspace-scope/*.json
             output/playwright/ci-workspace-scope/*.jsonl
             output/playwright/ci-workspace-scope/*.png
+            output/playwright/ci-session-capture/*.json
+            output/playwright/ci-session-capture/*.jsonl
+            output/playwright/ci-session-capture/*.png
+            output/playwright/ci-health-proposal-ui/*.json
+            output/playwright/ci-health-proposal-ui/*.jsonl
+            output/playwright/ci-health-proposal-ui/*.png
             output/parity/ci-session-history.json
             output/parity/ci-session-plans.json
             output/parity/ci-mcp-stdio.json
@@ -135,6 +149,9 @@ jobs:
             output/parity/ci-automation-sigmask.json
             output/parity/ci-health-proposal/*.json
             output/parity/ci-session-memory-capture.json
+            output/parity/ci-session-growing-rewrite.json
+            output/parity/ci-run-feedback*.json
+            output/parity/ci-lab-*.json
             output/parity/ci-knowledge-*/receipt.json
           if-no-files-found: ignore
           retention-days: 14

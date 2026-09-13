@@ -76,7 +76,12 @@ extension AutomationService {
         return try store.put("eval",evaluation)
     }
 
+    /// Legacy `memoryIds` remain an explicit caller-selected context channel.  Recall is
+    /// opt-in and always carries its own frozen receipt so a record whose kind happens
+    /// to be memory is never represented as a retrieval result.
     func evaluationVariant(_ input: JSON, project: String) throws -> JSON {
+        let allowed: Set<String> = ["files","label","context","memoryIds","recall"]
+        guard Set(input.keys).isSubset(of: allowed) else { throw VelaError("Unsupported Lab variant field") }
         let files = input["files"] as? [JSON] ?? []
         guard files.count <= 16 else { throw VelaError("An evaluation variant supports at most 16 files") }
         var seen = Set<String>()
@@ -96,12 +101,98 @@ extension AutomationService {
         guard ids.count <= 16, Set(ids).count == ids.count else { throw VelaError("At most 16 distinct memories per variant") }
         let memories = try ids.map { id -> JSON in
             let memory = try object("memory",id)
-            guard string(memory,"project") == project, string(memory,"scope") == "project", memory["private"] as? Bool != true, ["active","candidate"].contains(string(memory,"state")) else { throw VelaError("Evaluation memory must be active/candidate, nonprivate and in this project scope") }
-            return ["id":id,"title":string(memory,"title"),"content":string(memory,"content"),"contentHash":stableHash(string(memory,"title") + "\n" + string(memory,"content")),"state":string(memory,"state")]
+            guard string(memory,"project") == project, string(memory,"scope") == "project", memory["private"] as? Bool != true, !privateLibraryPath(string(memory,"sourceFile")), ["active","candidate"].contains(string(memory,"state")) else { throw VelaError("Evaluation memory must be active/candidate, nonprivate and in this project scope") }
+            return explicitMemoryReceipt(memory)
         }
-        let combined = ([context] + memories.map { string($0,"title") + "\n" + string($0,"content") }).filter {!$0.isEmpty}.joined(separator:"\n\n")
+        let recall = try evaluationRecall(input["recall"], project:project, explicitIDs:Set(ids))
+        if recall["strictOff"] as? Bool == true, !memories.isEmpty { throw VelaError("A strict Recall-OFF variant cannot also carry explicit memoryIds") }
+        let recalled = recall["items"] as? [JSON] ?? []
+        let sections = [context] + memories.map { string($0,"title") + "\n" + string($0,"content") } + recalled.map { string($0,"title") + "\n" + string($0,"content") }
+        let combined = sections.filter {!$0.isEmpty}.joined(separator:"\n\n")
         guard combined.utf8.count <= 32_000 else { throw VelaError("Combined variant context exceeds 32 KB") }
-        return ["files":validated,"label":string(input,"label"),"context":combined,"memories":memories]
+        return ["files":validated,"label":string(input,"label"),"context":combined,"finalContextHash":stableHash(combined),"memories":memories,"recall":recall,
+                "memoryInjection": memories.isEmpty ? (recalled.isEmpty ? "none" : "recall") : (recalled.isEmpty ? "explicit_ids" : "explicit_ids_plus_recall")]
+    }
+
+    private func explicitMemoryReceipt(_ memory: JSON) -> JSON {
+        ["id":string(memory,"id"),"title":string(memory,"title"),"content":string(memory,"content"),
+         "contentHash":stableHash(string(memory,"title") + "\n" + string(memory,"content")),"state":string(memory,"state"),
+         "sourceHash":labMemorySourceHash(memory),"selection":"explicit_memory_id"]
+    }
+
+    private func labMemorySourceHash(_ memory: JSON) -> String {
+        let source: JSON = ["id":string(memory,"id"),"project":string(memory,"project"),"scope":string(memory,"scope"),
+                            "state":string(memory,"state"),"private":memory["private"] as? Bool ?? false,
+                            "sourceFile":string(memory,"sourceFile"),"title":string(memory,"title"),"content":string(memory,"content")]
+        return stableHash((try? jsonString(source)) ?? "")
+    }
+
+    private func evaluationRecall(_ raw: Any?, project: String, explicitIDs: Set<String>) throws -> JSON {
+        guard let raw else { return ["enabled":false,"strictOff":false,"selection":"not_requested","items":[],"usedTokens":0,"budget":NSNull(),"finalContextHash":stableHash("")] }
+        guard let input = raw as? JSON, Set(input.keys).isSubset(of:["enabled","strictOff","query","mode","scope","budget"]) else { throw VelaError("Unsupported Lab Recall field") }
+        let enabled = input["enabled"] as? Bool ?? false
+        guard input["enabled"] == nil || input["enabled"] is Bool, input["strictOff"] == nil || input["strictOff"] is Bool else { throw VelaError("Lab Recall enabled and strictOff must be booleans") }
+        let strictOff = input["strictOff"] as? Bool ?? false
+        guard !enabled || !strictOff else { throw VelaError("Lab Recall cannot be enabled and strictOff") }
+        if !enabled {
+            guard Set(input.keys).isSubset(of:["enabled","strictOff"]) else { throw VelaError("A disabled Lab Recall accepts no query, mode, scope or budget") }
+            return ["enabled":false,"strictOff":strictOff,"selection":"explicitly_disabled","items":[],"usedTokens":0,"budget":NSNull(),"finalContextHash":stableHash("")]
+        }
+        guard Set(input.keys).isSubset(of:["enabled","query","mode","scope","budget"]), let query = input["query"] as? String,
+              !query.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty, query.utf8.count <= 4_000, query.rangeOfCharacter(from:.controlCharacters) == nil else { throw VelaError("An enabled Lab Recall requires bounded query text") }
+        let mode = string(input,"mode","lexical")
+        guard ["lexical","semantic","hybrid"].contains(mode) else { throw VelaError("Unsupported Lab Recall mode") }
+        guard string(input,"scope") == "project" else { throw VelaError("Lab Recall is limited to project scope") }
+        guard let budgetNumber = input["budget"] as? NSNumber, CFGetTypeID(budgetNumber) != CFBooleanGetTypeID(), budgetNumber.doubleValue.rounded() == budgetNumber.doubleValue,
+              (1...4_000).contains(budgetNumber.intValue) else { throw VelaError("Lab Recall budget must be an integer from 1 to 4000") }
+        let budget = budgetNumber.intValue
+        let result = try MemoryService(store:store).recall(["project":project,"query":query,"retrievalMode":mode,"budget":budget])
+        let actualMode = string(result,"retrievalMode", mode), status = string(result,"status","ok")
+        guard actualMode == mode, status == "ok", result["indexIncomplete"] as? Bool != true else {
+            throw VelaError("Lab Recall did not obtain the requested \(mode) retrieval; choose lexical explicitly or retry when semantic indexing is available")
+        }
+        let items = (result["items"] as? [JSON] ?? []).filter { memory in
+            string(memory,"project") == project && string(memory,"scope").lowercased() == "project" && string(memory,"state").lowercased() == "active" &&
+            memory["private"] as? Bool != true && !privateLibraryPath(string(memory,"sourceFile")) && !explicitIDs.contains(string(memory,"id"))
+        }.map { memory -> JSON in
+            ["id":string(memory,"id"),"title":string(memory,"title"),"content":string(memory,"content"),
+             "contentHash":stableHash(string(memory,"title") + "\n" + string(memory,"content")),"sourceHash":labMemorySourceHash(memory),
+             "state":string(memory,"state"),"scope":string(memory,"scope"),"project":string(memory,"project"),
+             "recallTokens":intValue(memory,"recallTokens"),"relevance":memory["relevance"] ?? NSNull(),"selection":"memory_service_recall"]
+        }
+        let used = items.reduce(0) { $0 + intValue($1,"recallTokens") }
+        // A mode may return an ineligible/global item. It is deliberately dropped; the
+        // retained receipt says the actual Recall result was filtered to Lab's narrower boundary.
+        guard used <= budget else { throw VelaError("Lab Recall result exceeded its frozen budget") }
+        let recalledContext = items.map { string($0,"title") + "\n" + string($0,"content") }.joined(separator:"\n\n")
+        return ["enabled":true,"strictOff":false,"query":query,"mode":mode,"scope":"project","budget":budget,"usedTokens":used,
+                "tokenAccounting":string(result,"tokenAccounting"),"retrievalMode":actualMode,"requestedRetrievalMode":mode,"status":status,"indexIncomplete":result["indexIncomplete"] as? Bool ?? false,"truncated":result["truncated"] as? Bool ?? false,
+                "items":items,"finalContextHash":stableHash(recalledContext),"selection":"memory_service_recall_project_active_only"]
+    }
+
+    private func revalidateVariantRecall(_ variant: JSON, project: String) throws {
+        let explicit = variant["memories"] as? [JSON] ?? []
+        for frozen in explicit {
+            // Older Lab records stored direct IDs/content without a source receipt. They
+            // cannot establish that a later private/lifecycle change is safe to send.
+            guard !string(frozen,"sourceHash").isEmpty else { throw VelaError("Frozen explicit Lab memory lacks a source receipt; prepare a new evaluation") }
+            let current = try object("memory",try requireString(frozen,"id"))
+            guard string(current,"project") == project, string(current,"scope").lowercased() == "project", ["active","candidate"].contains(string(current,"state").lowercased()),
+                  current["private"] as? Bool != true, !privateLibraryPath(string(current,"sourceFile")),
+                  stableHash(string(current,"title") + "\n" + string(current,"content")) == string(frozen,"contentHash"),
+                  labMemorySourceHash(current) == string(frozen,"sourceHash") else { throw VelaError("Frozen explicit Lab memory changed, became private or is no longer eligible; prepare a new evaluation") }
+        }
+        let recall = variant["recall"] as? JSON ?? [:]
+        for frozen in recall["items"] as? [JSON] ?? [] {
+            let current = try object("memory",try requireString(frozen,"id"))
+            guard string(current,"project") == project, string(current,"scope").lowercased() == "project", string(current,"state").lowercased() == "active",
+                  current["private"] as? Bool != true, !privateLibraryPath(string(current,"sourceFile")),
+                  stableHash(string(current,"title") + "\n" + string(current,"content")) == string(frozen,"contentHash"),
+                  labMemorySourceHash(current) == string(frozen,"sourceHash") else { throw VelaError("Frozen Lab Recall source changed, became private or is no longer active; prepare a new evaluation") }
+        }
+        if !explicit.isEmpty || recall["enabled"] as? Bool == true {
+            guard !string(variant,"finalContextHash").isEmpty, stableHash(string(variant,"context")) == string(variant,"finalContextHash") else { throw VelaError("Frozen Lab memory context is invalid") }
+        }
     }
 
     func executeEvaluation(_ frozen: JSON) throws -> JSON {
@@ -155,6 +246,10 @@ extension AutomationService {
                 let variants = repetition % 2 == 1 ? ["baseline","candidate"] : ["candidate","baseline"]
                 for variant in variants {
                     guard !VelaRuntimeShutdown.isRequested else { throw VelaError("Lab evaluation interrupted before starting another variant") }
+                    let variantSpec = frozen[variant] as? JSON ?? [:]
+                    // Revalidate before allocating a worktree: a stale Recall source must not
+                    // launch an agent or leave a new child workspace behind.
+                    try revalidateVariantRecall(variantSpec,project:root)
                     let worktree = tempRoot.appendingPathComponent("\(variant)-\(repetition)")
                     let added = try AutomationProcess.git(["worktree","add","--detach",worktree.path,commit],cwd:root,timeout:60)
                     if FileManager.default.fileExists(atPath:worktree.path) { ownedWorktrees.insert(worktree.path) }
@@ -165,7 +260,6 @@ extension AutomationService {
                         }
                         throw VelaError("Could not create isolated worktree: \(added.output)")
                     }
-                    let variantSpec = frozen[variant] as? JSON ?? [:]
                     for change in variantSpec["files"] as? [JSON] ?? [] {
                         let relative = try requireString(change,"path")
                         let before = try files.readSnapshot(project:worktree.path,path:relative)

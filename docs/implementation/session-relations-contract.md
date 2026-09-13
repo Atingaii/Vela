@@ -30,10 +30,10 @@
 
 关系拥有 decoderVersion 和独立 relationEpoch，与 session/plan/ingestion 同一 CAS batch 保存。`headerEvidence` 与调用/回执 reference 含 sourceIdentity、sourcePath、sourceVersion、byteOffset、byteLength 和原记录 SHA-256；byteLength 不含行末 LF，调用回执附 proposalReference。字节证据可在合成原文或显式 History 路径中回查；查询本身不读全文。sourceVersion 是文件身份/修改版本，不冒充完整文件内容摘要。
 
-迁移、文件轮转、缩短、同长重写或原 header 字节改写后建立新 epoch。大文件的 32 KiB 前缀只接受完整换行记录，不能把恰好可解析的截断 JSON 当成完整 header。文件变长时额外核对已记录 header 的精确字节摘要，因此同 inode 的 header 改写不会借旧 offset 留住旧父节点。**其余过去记录仍依赖 provider 的 append-only 行为**；这不是任意文件重写检测，也不保证所有历史 spawn 事件完整。默认文件数、256 KiB 尾窗及 History 显式回填保持原边界，不通过简单扩大 cap 冒称全历史。
+迁移、文件轮转、缩短、同长重写或原 header 字节改写后建立新 epoch。大文件的 32 KiB 前缀只接受完整换行记录，不能把恰好可解析的截断 JSON 当成完整 header。文件变长时，SessionEngine 流式复核整个已完成 offset 的 `indexedPrefixSHA256`，因此同 inode 的任何已索引 header 或非 header 字节改写都不会借旧 offset 留住旧父节点；digest 缺失的旧 cursor 在下一次增长保守重建。此复核为 O(此前 completed offset) I/O、64 KiB 块内存，未变化文件不额外扫描；它仍不保证未索引尾窗、全部历史 spawn 事件完整或当前进程存活。默认文件数、256 KiB 尾窗及 History 显式回填保持原边界，不通过简单扩大 cap 冒称全历史。详见 [ADR 0040](../adr/0040-indexed-prefix-integrity-for-growing-session-sources.md)。
 
 当前确认的成功路径是 `function_call`（name 为 spawn_agent，namespace 缺省或 multi_agent_v1）和同 call_id 的 `function_call_output` 文本 JSON `{agent_id,nickname?}`。普通 forked_from_id、根 session_id、目录相邻、自然语言提及、未成功的工具请求均不推断父子。本轮 Codex 关系抽屉已通过合成数据浏览器验收，覆盖分页、隐私、竞态与支持尺寸下的抽屉头部几何；未核验的 v2/code-mode 输出、其他 provider、完整历史图、持续运行进程与 native 交互仍独立验收。
 
 ## English summary
 
-The five project-scoped methods expose bounded Codex metadata and paired spawn observations without executing a provider. Vela source IDs and native thread UUIDs remain distinct; fork provenance, parent links and each session's own lifecycle state stay separate. Private/internal/conflicting sources do not resolve. Epoch-bound pagination, exact record references and header continuity protect observed lineage, while older non-header bytes still rely on the provider's append-only contract. The API does not claim a complete historical graph or process liveness.
+The five project-scoped methods expose bounded Codex metadata and paired spawn observations without executing a provider. Vela source IDs and native thread UUIDs remain distinct; fork provenance, parent links and each session's own lifecycle state stay separate. Private/internal/conflicting sources do not resolve. Epoch-bound pagination, exact record references and streamed completed-prefix integrity protect observed lineage; the API still does not claim a complete historical graph or process liveness.

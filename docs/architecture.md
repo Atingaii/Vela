@@ -35,7 +35,7 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 | `Sources/VelaCLI/main.swift` | JSONL/JSON-RPC framing、队列准入、方法路由、一次性 call 与 daemon 生命周期；敏感 JSON 可经 `call METHOD --params-stdin` 提交，避免出现在 argv |
 | `MCPTools.swift` / `MCPToolAccess.swift` | stdio 协议协商、严格工具 schema、只读/候选贡献目录、按来源重新核验的窄分页与完整脱敏后正文分块；[ADR 0029](adr/0029-typed-stdio-mcp-tools.md) |
 | `Store.swift` | 系统 sqlite3、WAL、参数化窄查询、Markdown 人工编辑、版本、批次补偿、CAS 与持久化变化/完成事件 |
-| `SessionEngine.swift` / `PiSessionReader.swift` | Claude/Codex、已知 Cursor、版本感知 Pi/OMP；流式偏移、分支来源、文件身份、轮转与截断诊断；[ADR 0009](adr/0009-session-provider-compatibility.md) |
+| `SessionEngine.swift` / `PiSessionReader.swift` | Claude/Codex、已知 Cursor、版本感知 Pi/OMP；流式偏移、增长前已索引前缀 SHA-256、分支来源、文件身份、轮转与截断诊断；增长检查以 O(已完成偏移) 流式 I/O 换取旧区重写不复用陈旧投影；[ADR 0009](adr/0009-session-provider-compatibility.md)、[ADR 0040](adr/0040-indexed-prefix-integrity-for-growing-session-sources.md) |
 | `SessionHistory*.swift` | 显式来源清单、固定epoch、分批回填、断点/分页原文与分支关系；不扩大dashboard尾窗；[ADR 0025](adr/0025-explicit-session-history.md) |
 | `SessionPlanProjection.swift` / `SessionPlanService.swift` | 从已确认工具结果投影计划及有界变更事件；未知、提议与确认空计划分开，不将声明完成视为工作验证；[ADR 0027](adr/0027-observed-session-plans.md) |
 | `SessionRelationProjection.swift` / `SessionRelationService.swift` | 从 Codex 来源头与结构化工具事件观察父子关系；重验来源身份、项目与隐私，分页和保留窗口明确，未知存活状态不推断为运行中；[ADR 0030](adr/0030-observed-codex-session-relations.md) |
@@ -53,6 +53,8 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 | `AutomationService.swift` / `WorkflowComposition.swift` | Workflow 定义/版本、逐工具审批与账本、冻结依赖图、子运行、恢复、根产物；[ADR 0015](adr/0015-workflow-composition.md) |
 | `WorkflowRetry.swift` | 仅固定 Git 只读工具可显式开启有界 retry/backoff，逐 attempt 持久化；异常结果与中断证据不自动重放；[ADR 0033](adr/0033-bounded-read-step-retry.md) |
 | `WorkflowHealth.swift` | 按工作流/版本分析已记录运行与审批，明确采样缺失、扫描上限和项目范围；只读诊断不自动修改定义；[ADR 0034](adr/0034-structured-workflow-health-evidence.md) |
+| `RunFeedback.swift` | 对终态非私有运行以审阅哈希 CAS 记录人工观察；Health 单列观察，不改成功率或执行；[ADR 0038](adr/0038-manual-run-feedback-observation.md) |
+| `LabService.swift` | 冻结 Recall OFF/ON 变体及实际检索状态；语义降级、不可用或索引不完整会在审批前拒绝；[ADR 0039](adr/0039-lab-recall-variants.md) |
 | `WorkflowHealthProposal.swift` | 完整 timeout 观察→冻结候选提案→显式确认后原子创建新 ID 的停用工作流；保留原运行与权限，不自动执行；[ADR 0037](adr/0037-health-timeout-disabled-candidates.md) |
 | `WorkflowManagement.swift` | 逐资产验证、克隆、审阅后启停/归档/恢复、依赖和活跃运行保护；[ADR 0019](adr/0019-reviewed-workflow-management.md) |
 | `AgentLoopService.swift` | 受限多轮决策、实际只读工具结果、独立外部动作审批与取消；[ADR 0020](adr/0020-reviewed-model-tool-loops.md) |

@@ -51,6 +51,7 @@
 | T-UI | [test-ui-browser.py](../scripts/test-ui-browser.py)；12 项见 [UX review](implementation/ux-review.md#最终-renderer-复验2026-09-12-1416-utc) | renderer→真实 CLI；原生通知注入/native stub 已明确；不运行完整 Golden |
 | T-UI2（增量） | [test-acceptance-browser.py](../scripts/test-acceptance-browser.py) | 六组真实 CLI：Memory 生命周期/确切来源/跨项目、Lab pending 冻结、Reuse Apply/Undo、缺失→真实零；拒绝 Agent approval，不执行 Hook |
 | T-UI18（增量） | [test-workspace-scope-accessibility-browser.py](../scripts/test-workspace-scope-accessibility-browser.py) | 冻结 UI18→真实隔离 helper 的 All Projects Plan/relations、live disclosure/anchor、实际 wheel 意图/切换 guard、Search/Actions ARIA；r6 nested-loader wheel 红例已由 r7 同一路径真实 held response 回归通过，保留两份证据；不测原生全量、Capture/Health UI、Golden 或 provider 行为 |
+| T-UI19（增量） | [Session capture browser consumer](../scripts/test-session-memory-capture-browser.py) | 实际 helper 的5项采集与来源/项目隔离；整合后另过8项 scope/live/ARIA。仅浏览器，不代表原生或 Golden；[证据](parity/ui19-session-capture-evidence-2026-09-14.json) |
 | T-PKG | [test-release-resources.py](../scripts/test-release-resources.py)、[release-audit.py](../scripts/release-audit.py) | 原创资源与实际包排除；不等 notarization/update |
 | T-PERF | [benchmark-read.py](../scripts/benchmark-read.py) | 100k synthetic records 的 warm RPC 搜索；不含 UI/冷启动/大日志 |
 | T-IMP2（增量） | [ImproveAcceptanceTests](../Tests/VelaCoreTests/ImproveAcceptanceTests.swift)：`testFeatureSpecificationsQuotedExamplesAndAgainDoNotCreateSignals`、`testThreeParsedCodexToolSequencesCreateDisabledWorkflowDraftWithoutExecution`、`testCopiedProviderLogsDoNotMultiplySessionsOrCandidateMemories`，共九项专项方法 | 受控确切来源、near-miss 与有界读取；不是泛化 precision 或未来改善 |
@@ -74,7 +75,7 @@
 | E-USAGE（增量） | [本轮 Usage 反例与修复](reference-comparison.md#concrete-review-findings-and-follow-up)，本地 `acceptance-usage-integrity.json` | 缺失与两个历史 SIGTRAP 反例、修后六类 helper 行为及持续响应；不是所有 usage 来源完整 |
 | E-CORE2（增量） | [本轮验证记录](verification.md#unreleased-acceptance-redesign--13-september-2026)、[最终源码 CI](evidence/2026-09-13-ci-final.json) | 当前 95/95 portable；最终提交 `91d34e2` hosted 95 项 XCTest 与 18 组 renderer 全过；此前 93 项保留为历史检查点 |
 | E-UI2（增量） | [六组 UI/CLI 验收记录](verification.md#six-renderer-to-cli-acceptance-checks)，最终本地 `output/playwright/acceptance-flow-final` | 17:37:16 UTC 同次 fresh fixture 6/6、56 次 Core RPC 无错误；最终 UI `01104e7f…ee3af0b` / helper `bbeb97c8…e14d24483`，完整 hash 见验证记录；未执行真实 Agent、Hook 或 OS 通知，非完整 Golden |
-| E-UI18（增量） | [UI18 renderer evidence](parity/ui18-renderer-evidence-2026-09-14.json) | r6 UI `6a77a300…03a717` 的 8 项基线与同字节 12 项 legacy renderer 通过；r6 nested relations loader 的真实 user-wheel 红例保留，并由 r7 `71db445a…7660a4` 完整 8 项同路径回归通过。机制仅是 Chrome native scroll anchoring 的证据支持推断；原生仅 r4 局部，UI18 r7 未进新 CI，非完整 Golden |
+| E-UI18（增量） | [UI18 renderer evidence](parity/ui18-renderer-evidence-2026-09-14.json) | r6 UI `6a77a300…03a717` 的 8 项基线与同字节 12 项 legacy renderer 通过；r6 nested relations loader 的真实 user-wheel 红例保留，并由 r7 `71db445a…7660a4` 完整 8 项同路径回归通过。机制仅是 Chrome native scroll anchoring 的证据支持推断；原生仍在复验，UI18 r7 已进 46595a72 的成功 CI，非完整 Golden |
 | E-NATIVE2（增量） | [UI 与原生证据](evidence/2026-09-13-ui.json)、[开发包审核](evidence/2026-09-13-package.json) | 开发 wrapper 两尺寸实际交互、Reuse Apply/Undo 独立落库确认；最终包静态检查通过。没有正式包安装/公证/OS 通知或完整 Golden 证明 |
 
 一次性旧 UI fixture 的 raw `browser-results.json` 不作为公开仓库长期工件；本次只核对到持久化报告与复验脚本，不假称原始文件仍保留。CI 配置存在不等于本次托管 CI 已通过；新候选应固定 run URL/commit 和工件哈希。E-CORE/E-RPC/E-UI 的合成数据不能作为真实用户长期改善样本。
@@ -248,6 +249,8 @@ R 编号对应 PRD 同号 D 约束及其 Goal；代码/测试覆盖的是“已�
 对应 `FR-22/43/46/47/52` 的窄项实现已补入 `ImproveService.swift`，`FR-49/NFR-16/17` 增加 internal `SafeApplyService.readSnapshot` 的读取边界。尚未建立总体 precision、三个 provider 的完整 procedure 支持或真实用户未来改善。该次 **81 方法中的三个新 Lab 执行场景失败**，暴露 Agent 配置标量 JSON 构造错误；只有 78 项通过，不将其记成一次完整成功套件。后续 [AgentLabIntegrityTests](../Tests/VelaCoreTests/AgentLabIntegrityTests.swift) 增加构造测试，统一复验结果待补。
 
 2026-09-13 更新：上述配置编码错误修正后，**90 方法的中间 portable 快照通过**；之后新增 Reuse provider/复制关联反例、复合命令计量与旧结果刷新检查，达到后述 93 方法检查点；再加入本次两项预览回归后，当前 **95/95 通过**。各次范围分别保留，不用中间总数替代当前工作树验收。
+
+2026-09-14 增量证据：Session Capture Core/RPC 与 UI19/20 fixture consumer 已实通；Health UI20 有 4 组浏览器与 7 组 native 证据。Run Feedback Core/API/Bridge 的 17 项 root HTTP 回归通过，但 UI21 consumer 仍缺入口；Lab Recall explicit guard、词面及安装 Apple English semantic/hybrid 的本地冻结选择已测，UI22 仍缺入口。100 MiB session prefix/RSS 是单 helper 的有限 synthetic 测量，不升级任何 Golden、完整摄取、全应用性能、真实模型改善或 228 项总目标状态；旧失败证据继续保留。见 [Health](parity/ui20-health-proposal-evidence-2026-09-14.json) 与 [Core 集成](parity/feedback-lab-session-core-evidence-2026-09-14.json)。
 
 | 本轮 Goal → Req / Design | Code → Test → Evidence | 实现和验收边界 |
 | --- | --- | --- |

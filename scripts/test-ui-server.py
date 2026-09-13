@@ -26,11 +26,17 @@ READ.update('memory.archive.export memory.archive.validate memory.semantic.statu
 READ.update('setup.catalog setup.get setup.history setup.diff setup.relations workflows.get workflows.validate loops.describe loops.get loops.list ask.describe ask.get ask.list ask.citations'.split())
 READ.update('library.get library.history library.export library.index.status library.search watches.describe watches.get watches.preview'.split())
 READ.update('history.describe history.sources history.get history.jobs history.page history.raw history.branch sessions.plan.describe sessions.plan.get sessions.plan.events sessions.relations.describe sessions.relations.get sessions.relations.children sessions.relations.events sessions.relations.resolve'.split())
+READ.add('memory.capture.prepare')
+READ.update('runs.feedback.prepare runs.feedback.get runs.feedback.list runs.feedback.history.list runs.feedback.history.get'.split())
+READ.update('workflows.health.proposal.get workflows.health.proposal.list'.split())
 WRITE = set('projects.add memory.save memory.transition guidelines.save library.add checkpoint.save workflows.build workflows.save workflows.run approvals.decide improve.analyze improve.apply improve.undo lab.run lab.promote reuse.preview settings.save'.split())
 WRITE.update('memory.archive.import memory.semantic.index outputs.markRead'.split())
 WRITE.update('workflows.clone workflows.setEnabled workflows.remove workflows.restore loops.plan loops.cancel ask.create ask.followup ask.cancel'.split())
 WRITE.update('library.update library.remove library.restore library.index'.split())
 WRITE.update('history.discover history.start history.advance history.pause history.resume history.cancel'.split())
+WRITE.add('memory.capture')
+WRITE.add('runs.feedback.record')
+WRITE.update('workflows.health.proposeTimeout workflows.health.proposal.decide'.split())
 BRIDGE_JS = """
 window.__velaUITest={refreshReceived:0,dashboardResolved:0,dashboardEvent:0,dashboardProject:null,nextRead:null,controlledReads:0};
 window.addEventListener('vela:refresh',()=>window.__velaUITest.refreshReceived++);
@@ -149,6 +155,17 @@ class Bridge:
                 or not path.is_file() or path.read_bytes() != (ROOT / 'scripts/ui-fixture-provider.py').read_bytes()):
             raise ValueError('UI model checks only permit the exact network-free fixture provider.')
 
+    def lab_recall_request(self, params):
+        if not isinstance(params,dict) or params.get('project') != self.fixture['project'] or params.get('kind') != 'memory': raise ValueError('Lab Recall must use the Harbor fixture.')
+        allowed={'title','project','kind','agent','task','verificationCommand','verificationFiles','outputFiles','timeoutSeconds','repetitions','baseline','candidate'}
+        if not set(params).issubset(allowed): raise ValueError('Lab Recall request has unsupported fields.')
+        agent=params.get('agent'); path=self.base/'synthetic-lab-recall-agent.py'
+        if agent != {'provider':'codex','executable':str(path),'model':'fixed-local-jsonl','reasoningEffort':'high'} or path.is_symlink() or not path.is_file(): raise ValueError('Lab Recall only permits its owned synthetic agent.')
+        if params.get('verificationCommand') != ['/usr/bin/python3','verify.py'] or params.get('verificationFiles') != ['verify.py'] or params.get('outputFiles') != ['observed-context.txt'] or params.get('timeoutSeconds') != 20 or params.get('repetitions') != 1: raise ValueError('Lab Recall fixture command differs.')
+        for side in ('baseline','candidate'):
+            v=params.get(side); recall=v.get('recall') if isinstance(v,dict) else None
+            if not isinstance(v,dict) or not set(v).issubset({'files','label','context','memoryIds','recall'}) or v.get('files') != [] or ('memoryIds'in v and not isinstance(v['memoryIds'],list)) or (recall is not None and(not isinstance(recall,dict) or not set(recall).issubset({'enabled','strictOff','query','mode','scope','budget'}))): raise ValueError('Lab Recall variant is invalid.')
+
     def watch(self, workflow):
         """Permit only fixture-local passive snapshots, with no scheduler."""
         if not workflow or workflow.get('project') not in self.fixture['projects'] or workflow.get('trigger') != 'watch':
@@ -191,6 +208,78 @@ class Bridge:
             raise ValueError('Method not available through the test harness: ' + method)
         if params.get('project') not in [None, '', *self.fixture['projects']]:
             raise ValueError('Project must be the isolated fixture project.')
+        if method.startswith('runs.feedback.'):
+            project = params.get('project')
+            if project not in self.fixture['projects']:
+                raise ValueError('Run feedback requires the actual isolated project.')
+            exact = {'runs.feedback.prepare': {'project','runId'}, 'runs.feedback.record': {'project','runId','runHash','previousFeedbackHash','outcome','reason'}, 'runs.feedback.get': {'project','id'}, 'runs.feedback.history.get': {'project','id'}}
+            if method in exact and set(params) != exact[method]: raise ValueError('Run feedback request does not match its frozen shape.')
+            if method in ('runs.feedback.list','runs.feedback.history.list'):
+                allowed={'project','runId','limit','cursor'}
+                if not {'project'} <= set(params) <= allowed: raise ValueError('Run feedback list has unsupported fields.')
+                if 'limit' in params and (type(params['limit']) is not int or not 1 <= params['limit'] <= 100): raise ValueError('Run feedback list limit must be an integer from 1 to 100.')
+                if 'cursor' in params and (type(params['cursor']) is not str or not params['cursor'] or len(params['cursor'].encode()) > 2048): raise ValueError('Run feedback cursor is invalid.')
+            if method == 'runs.feedback.record':
+                if params['outcome'] not in ('good','bad','clear') or type(params['reason']) is not str or not params['reason'].strip() or len(params['reason'].encode()) > 1000 or any(ord(x)<32 or ord(x)==127 for x in params['reason']): raise ValueError('Run feedback outcome or reason is invalid.')
+                import re
+                if not isinstance(params['runHash'],str) or not re.fullmatch(r'[a-f0-9]{64}',params['runHash']): raise ValueError('Run feedback hash is invalid.')
+                prior=params['previousFeedbackHash']
+                if prior is not None and (not isinstance(prior,str) or not re.fullmatch(r'[a-f0-9]{64}',prior)): raise ValueError('Run feedback previous hash is invalid.')
+            record = None
+            if method in ('runs.feedback.get','runs.feedback.history.get'):
+                record = self.rpc(method,params)
+                run_id = record.get('runId')
+            else: run_id = params.get('runId')
+            if run_id:
+                run = self.rpc('runs.get', {'id':run_id})
+                if run.get('project') != project or (record and record.get('project') != project): raise ValueError('Run feedback must use run.actualproject.')
+        if method in ('memory.capture.prepare', 'memory.capture'):
+            fields = {'project', 'sessionId', 'messageId'}
+            if method == 'memory.capture':
+                fields |= {'sourceIdentity', 'expectedSourceHash'}
+            if set(params) != fields or params.get('project') not in self.fixture['projects']:
+                raise ValueError('Session capture requires an exact request in an explicit isolated project.')
+        if method.startswith('workflows.health.'):
+            if params.get('project') not in self.fixture['projects']:
+                raise ValueError('Health proposals require an explicit isolated project.')
+            if method == 'workflows.health.proposal.get':
+                if set(params) != {'project', 'id'}:
+                    raise ValueError('Health proposal lookup requires project and id only.')
+            elif method == 'workflows.health.proposal.list':
+                if (not {'project'} <= set(params) <= {'project', 'limit'}
+                        or type(params.get('limit', 50)) is not int
+                        or not 1 <= params.get('limit', 50) <= 100):
+                    raise ValueError('Health proposal list requires a bounded fixture request.')
+            elif method == 'workflows.health.proposeTimeout':
+                fields = {'project', 'workflowId', 'workflowVersion', 'snapshotHash',
+                          'runId', 'stepId', 'findingId', 'newTimeoutSeconds'}
+                if (set(params) != fields or type(params.get('newTimeoutSeconds')) is not int
+                        or not 1 <= params['newTimeoutSeconds'] <= 300):
+                    raise ValueError('Health timeout proposals require exact frozen evidence.')
+                inspected = self.rpc('workflows.get', {'project': params['project'], 'id': params['workflowId']})
+                definition = inspected.get('definition', {})
+                if (definition.get('project') != params['project']
+                        or definition.get('version') != params['workflowVersion']
+                        or inspected.get('snapshotHash') != params['snapshotHash']):
+                    raise ValueError('Health proposal must match the current fixture workflow.')
+                health = self.rpc('workflows.health', {'project': params['project'], 'id': params['workflowId']})
+                if not any(f.get('code') == 'timeout_observed' and f.get('id') == params['findingId']
+                           and f.get('runId') == params['runId'] and f.get('stepId') == params['stepId']
+                           for f in health.get('findings', [])):
+                    raise ValueError('Health proposal must match an actual fixture timeout finding.')
+            elif method == 'workflows.health.proposal.decide':
+                required = {'project', 'id', 'proposalHash', 'decision'}
+                allowed = required | {'acknowledgeUncertainSource'}
+                decision = params.get('decision')
+                if (not required <= set(params) <= allowed or decision not in ('accept', 'reject', 'recover')
+                        or ('acknowledgeUncertainSource' in params
+                            and (decision != 'accept' or type(params['acknowledgeUncertainSource']) is not bool))):
+                    raise ValueError('Health proposal decision has unsupported fields or acknowledgement.')
+                proposal = self.rpc('workflows.health.proposal.get', {'project': params['project'], 'id': params['id']})
+                if proposal.get('proposalHash') != params['proposalHash']:
+                    raise ValueError('Health proposal does not match the reviewed fixture evidence.')
+                if decision == 'recover' and proposal.get('state') != 'accepting':
+                    raise ValueError('Only an interrupted fixture proposal may be recovered.')
         if (method.startswith('history.') or method.startswith('sessions.plan.') or method.startswith('sessions.relations.')) and not method.endswith('.describe'):
             if params.get('project') not in self.fixture['projects']:
                 raise ValueError('History, plan, and relation operations require an explicit isolated project.')
@@ -229,6 +318,7 @@ class Bridge:
                 self.local_path(operation.get('path', ''), suggestion['project'])
         if method in ('lab.run', 'reuse.preview', 'improve.analyze') and params.get('project') not in self.fixture['projects']:
             raise ValueError('Select an isolated fixture project explicitly.')
+        if method == 'lab.run': self.lab_recall_request(params)
         if method == 'lab.promote':
             evaluation = self.rpc('lab.compare', {'id': params.get('id')})
             if evaluation.get('project') not in self.fixture['projects']:

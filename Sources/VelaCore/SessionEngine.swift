@@ -188,12 +188,25 @@ final class SessionEngine {
             && (provider != "codex" || string(cursor,"relationDecoderVersion") == SessionRelationProjection.version)
         if oldOffset == size, string(cursor,"sourceVersion") == sourceVersion, planCompatible { return false }
         let rewritten = oldOffset == size && !string(cursor,"sourceVersion").isEmpty && string(cursor,"sourceVersion") != sourceVersion
+        // A source that grew may still have rewritten bytes before the prior
+        // completed offset.  Stat identity/version changes for normal appends
+        // too, so it cannot distinguish that case.  Re-hash the complete
+        // already-indexed prefix on growth.  This is deliberately O(prefix)
+        // I/O but streams fixed chunks and never retains the prefix in memory.
+        // Legacy cursors without the digest rotate once on their next growth
+        // rather than treating an unverifiable prefix as append-only.
+        var indexedPrefixChanged = false
+        if size > oldOffset, oldOffset > 0 {
+            let expectedPrefix = string(cursor,"indexedPrefixSHA256")
+            if expectedPrefix.isEmpty { indexedPrefixChanged = true }
+            else { indexedPrefixChanged = try indexedPrefixSHA256(url,length:oldOffset) != expectedPrefix }
+        }
         let sessionId = stableHash(provider + ":" + url.path)
         let originalSession = try store.get("session",sessionId), originalPlan = try store.get("session_plan",sessionId)
         let originalRelation = provider == "codex" ? try store.get("session_relation",sessionId) : nil
-        // Growth alone does not prove append-only behavior. Verify the exact
-        // captured header before keeping a parent relation across an append.
-        // This checks lineage identity, not integrity of every prior log byte.
+        // Keep the relation-specific header evidence as provenance.  The
+        // complete indexed-prefix digest above now protects every previously
+        // accepted byte before this append path is reused.
         var headerChanged = false
         if provider == "codex", size > oldOffset, oldOffset > 0,
            let evidence = originalRelation?["headerEvidence"] as? JSON {
@@ -206,7 +219,7 @@ final class SessionEngine {
                 headerChanged = bytes.count != length || hash != string(evidence,"sha256")
             } else { headerChanged = true }
         }
-        let rotated = size < oldOffset || rewritten || headerChanged || !planCompatible || (!string(cursor,"fingerprint").isEmpty && string(cursor,"fingerprint") != fingerprint)
+        let rotated = size < oldOffset || rewritten || indexedPrefixChanged || headerChanged || !planCompatible || (!string(cursor,"fingerprint").isEmpty && string(cursor,"fingerprint") != fingerprint)
         var session = rotated ? [:] : (originalSession ?? [:])
         var plan = rotated ? SessionPlanProjection.empty(provider: provider) : (originalPlan ?? SessionPlanProjection.empty(provider: provider))
         var relation = provider == "codex" ? (rotated ? SessionRelationProjection.empty() : (originalRelation ?? SessionRelationProjection.empty())) : [:]
@@ -285,6 +298,10 @@ final class SessionEngine {
         session["messageCount"] = messages.count; session["content"] = messages.map { string($0,"content") }.joined(separator:"\n")
         finalizeUsage(provider:provider,session:&session)
         if malformed > 0 { session["parseWarning"] = "Skipped \(malformed) malformed records" }
+        // Compute the completed-prefix digest before the final source-version guard.  No
+        // source reads are permitted after that guard: otherwise a concurrent rewrite
+        // could pair this projection with a digest of a different source revision.
+        let completedPrefixSHA256 = try indexedPrefixSHA256(url,length:offset + consumed)
         guard try piSourceVersion(url).version == sourceVersion else {
             changed.insert(url.path); throw VelaError("Session source changed while reading; prior session and plan retained")
         }
@@ -292,7 +309,7 @@ final class SessionEngine {
         plan["id"] = sessionId; plan["sourceIdentity"] = sessionId
         session["planSummary"] = SessionPlanProjection.summary(plan, provider: provider, historyTruncated: session["historyTruncated"] as? Bool == true)
         cursor["id"] = cursorId; cursor["offset"] = offset + consumed; cursor["sourcePath"] = url.path; cursor["fingerprint"] = fingerprint; cursor["modified"] = modified
-        cursor["sourceVersion"] = sourceVersion; cursor["planDecoderVersion"] = SessionPlanProjection.version
+        cursor["sourceVersion"] = sourceVersion; cursor["indexedPrefixSHA256"] = completedPrefixSHA256; cursor["planDecoderVersion"] = SessionPlanProjection.version
         if provider == "codex" {
             if string(relation,"project") != string(session,"project") {
                 relation = SessionRelationProjection.empty(); relation["project"] = string(session,"project")
@@ -324,6 +341,22 @@ final class SessionEngine {
               information.st_size >= 0, information.st_size <= Int64(Int.max) else { throw VelaError("Pi/OMP source is not an available regular file") }
         let version = "\(information.st_dev):\(information.st_ino):\(information.st_size):\(information.st_mtimespec.tv_sec):\(information.st_mtimespec.tv_nsec):\(information.st_ctimespec.tv_sec):\(information.st_ctimespec.tv_nsec)"
         return (Int(information.st_size),version)
+    }
+    private func indexedPrefixSHA256(_ url: URL, length: Int) throws -> String {
+        guard length >= 0 else { throw VelaError("Indexed source offset is invalid") }
+        let handle = try FileHandle(forReadingFrom:url); defer { try? handle.close() }
+        var remaining = length, digest = SHA256()
+        while remaining > 0 {
+            // FileHandle's Foundation bridge can autorelease its Data result.  This
+            // scope drains every 64 KiB chunk before the next read, so a long-lived
+            // RPC helper does not retain one temporary Data object per prefix chunk.
+            try autoreleasepool { () throws -> Void in
+                let data = try handle.read(upToCount:min(64 * 1024,remaining)) ?? Data()
+                guard !data.isEmpty else { throw VelaError("Session source became shorter while verifying indexed prefix") }
+                digest.update(data:data); remaining -= data.count
+            }
+        }
+        return digest.finalize().map { String(format:"%02x",$0) }.joined()
     }
     private func recognizedRecord(_ row: JSON, provider: String) -> Bool {
         if provider == "codex" { return ["session_meta","turn_context","response_item","event_msg"].contains(string(row,"type")) && row["payload"] is JSON }
