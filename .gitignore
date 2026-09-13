@@ -13,3 +13,6 @@ docs/implementation/antigravity-*.md
 !docs/implementation/antigravity-ui.md
 __pycache__/
 output/parity/
+
+# Wrangler local cache and deployment metadata
+.wrangler/
