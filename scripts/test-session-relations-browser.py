@@ -129,11 +129,18 @@ def main():
             assert rpc('sessions.relations.get', {'project': project, 'id': rel['conflictSourceId']})['relation']['headerState'] == 'conflict'
             return {'parentAndVisibleChild': True, 'privateWithheld': True, 'crossProjectWithheld': True, 'orphanUnresolved': True, 'conflictPlainState': True}
         def load_events():
+            before = len(calls('sessions.relations.events'))
             click('#session-relation-events-summary')
-            wait('!!document.querySelector("#btn-load-relation-events") || document.querySelectorAll(".session-relation-event-item").length>0', 'Evidence disclosure did not load')
-            if value('!!document.querySelector("#btn-load-relation-events")'):
-                click('#btn-load-relation-events')
+            # Opening the disclosure triggers its own asynchronous first page.
+            # Its fallback button is transient: it can disappear after a DOM
+            # sample but before Playwright attempts the next click.
+            wait('document.querySelector("#session-relation-events-container")?.open===true', 'Evidence disclosure did not open')
             wait('document.querySelectorAll(".session-relation-event-item").length>0', 'Evidence page missing')
+            loaded = calls('sessions.relations.events')[before:]
+            assert len(loaded) == 1, 'Opening evidence must complete exactly one first-page request'
+            request = loaded[0]
+            assert request['params'] == {'project': project, 'id': rel['parentSourceId'], 'limit': 50}, 'Evidence loaded from the wrong source or continuation'
+            assert not request.get('error') and len(request.get('result', {}).get('items', [])) == 50, 'Evidence did not render a successful real first page'
         def reported():
             open_parent(); load_events()
             wait('document.querySelectorAll(".session-relation-event-item").length===50', 'First evidence page missing')
