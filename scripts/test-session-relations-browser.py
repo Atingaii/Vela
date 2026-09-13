@@ -84,6 +84,9 @@ def main():
             evidence['checks'].append({'check': name, 'passed': True, **(fn() or {})})
         except Exception as error:
             evidence['checks'].append({'check': name, 'passed': False, 'error': str(error), 'traceback': traceback.format_exc(limit=5)})
+        finally:
+            if name == 'stale-and-duplicate-guards':
+                value('window.__relationsPauseDashboard=false;(window.__relationsPausedDashboards||[]).splice(0).forEach(resolve=>resolve());true')
         evidence['checks'][-1]['pageErrors'] = value('window.__relationsErrors || []')
         browser('screenshot', str(output / (name + '.png')))
         (output / (name + '.txt')).write_text(browser('snapshot', '-i'))
@@ -108,7 +111,7 @@ def main():
         browser('open', url); browser('wait', '#project-selector'); browser('select', '#project-selector', project)
         # The wrapper calls the real bridge first, then can hold exactly one selected
         # relation response. This exposes stale UI writes without manufacturing data.
-        value("""window.__relationsCalls=[];window.__relationsDispatch=window.dispatchEvent.bind(window);window.dispatchEvent=(event)=>window.__relationsSuppressRefresh&&event?.type==='vela:refresh'?true:window.__relationsDispatch(event);window.__relationsOriginal=window.vela.call;window.vela.call=async(method,params={})=>{try{const result=await window.__relationsOriginal(method,params);window.__relationsCalls.push({method,params,result});const hold=window.__relationsHold;if(hold&&hold.method===method&&(!hold.id||hold.id===params.id)){window.__relationsHold=null;window.__relationsHeld=true;await new Promise(resolve=>window.__relationsRelease=resolve);window.__relationsHeld=false;if(hold.fail)throw Error('Injected test-only relation failure after real result');}return result;}catch(error){window.__relationsCalls.push({method,params,error:error.message});throw error;}};true""")
+        value("""window.__relationsCalls=[];window.__relationsDispatch=window.dispatchEvent.bind(window);window.dispatchEvent=(event)=>window.__relationsSuppressRefresh&&event?.type==='vela:refresh'?true:window.__relationsDispatch(event);window.__relationsOriginal=window.vela.call;window.vela.call=async(method,params={})=>{try{const result=await window.__relationsOriginal(method,params);window.__relationsCalls.push({method,params,result});if(method==='dashboard.get'&&window.__relationsPauseDashboard){await new Promise(resolve=>(window.__relationsPausedDashboards||(window.__relationsPausedDashboards=[])).push(resolve));}const hold=window.__relationsHold;if(hold&&hold.method===method&&(!hold.id||hold.id===params.id)){window.__relationsHold=null;window.__relationsHeld=true;await new Promise(resolve=>window.__relationsRelease=resolve);window.__relationsHeld=false;if(hold.fail)throw Error('Injected test-only relation failure after real result');}return result;}catch(error){window.__relationsCalls.push({method,params,error:error.message});throw error;}};true""")
         # Stable UI15 identifiers supplied by the author. Open the known parent
         # through the normal Sessions UI, then expand its lazy disclosure.
         def open_parent():
@@ -155,7 +158,13 @@ def main():
             assert value('!!document.querySelector("[data-i18n=\\"sessions.relations.eventsTruncated\\"]")')
             return {'retainedEvents': 128, 'pages': 3, 'truncationVisible': True}
         def stale():
-            open_parent(); before_get = len(calls('sessions.relations.get')); value('window.__relationsHold={method:"sessions.relations.get",id:' + json.dumps(rel['parentSourceId']) + '};true')
+            open_parent()
+            # A background dashboard refresh legitimately replaces a session's
+            # old source epoch. Hold those actual read responses during this
+            # deliberately stale-cursor check; do not synthesize their payload.
+            value('window.__relationsPauseDashboard=true;window.__relationsPausedDashboards=[];true')
+            before_get = len(calls('sessions.relations.get'))
+            value('window.__relationsHold={method:"sessions.relations.get",id:' + json.dumps(rel['parentSourceId']) + '};true')
             click('#btn-refresh-session-relations'); wait('window.__relationsHeld===true', 'Controlled first real get response was not held')
             parent_source = Path(rel['parentSourcePath']); original = parent_source.read_text(); assert '"source": "cli"' in original
             parent_source.write_text(original.replace('"source": "cli"', '"source":{"subagent":"epoch-one"}', 1))
@@ -172,6 +181,7 @@ def main():
                 refresh_mode = 'latest-generation-wins'
             # Double-click continuation is required to yield at most one cursor request.
             wait('!!document.querySelector("#btn-load-more-relation-children")', 'Child continuation missing')
+            initial_children = value('[...document.querySelectorAll("#session-relations-children-list .session-relation-link")].map(x=>x.dataset.sessionId)')
             before = len(calls('sessions.relations.children'))
             value('window.__relationsHeld=false;window.__relationsHold={method:"sessions.relations.children",id:' + json.dumps(rel['parentSourceId']) + '};true')
             click('#btn-load-more-relation-children'); wait('window.__relationsHeld===true', 'Controlled real child continuation was not held')
@@ -182,7 +192,13 @@ def main():
             time.sleep(.2)
             same_cursor = [call for call in calls('sessions.relations.children')[before:] if call['params'].get('after') == first_after]
             assert len(same_cursor) == 1, 'Same child cursor was requested more than once before its response settled'
+            returned_page = same_cursor[0]['result']
+            expected_children = set(initial_children) | {item['source']['id'] for item in returned_page['items']}
+            assert returned_page['nextCursor'], 'Fixture must retain another page after the held continuation'
             value('window.__relationsRelease();true'); wait('!window.__relationsHeld', 'Held child continuation did not release')
+            wait('JSON.stringify([...document.querySelectorAll("#session-relations-children-list .session-relation-link")].map(x=>x.dataset.sessionId).sort())===' + json.dumps(json.dumps(sorted(expected_children),separators=(',',':'))), 'Held continuation did not render its actual source identities')
+            wait('!!document.querySelector("#btn-load-more-relation-children")&&!document.querySelector("#btn-load-more-relation-children").disabled', 'Next child page was not ready after the held continuation')
+            wait('(window.__relationsPausedDashboards||[]).length>0', 'No actual background dashboard response was held')
             old_epoch = rpc('sessions.relations.get', {'project': project, 'id': rel['parentSourceId']})['relation']['relationEpoch']
             epoch_one = parent_source.read_text(); assert '"source":{"subagent":"epoch-one"}' in epoch_one
             parent_source.write_text(epoch_one.replace('"source":{"subagent":"epoch-one"}', '"source":{"subagent":"epoch-two"}', 1))
@@ -199,7 +215,9 @@ def main():
             wait('document.querySelector("#project-selector").value===' + json.dumps(fixture['routingProject']), 'Project replacement did not settle')
             value('window.__relationsRelease();true'); time.sleep(.25)
             assert not value('document.body.innerText.includes(' + json.dumps(rel['parentThreadId']) + ')'), 'Late relation response replaced the new project view'
-            return {'sameDrawerRefresh': refresh_mode, 'duplicateContinuationSuppressed': True, 'lateProjectAndFailureIgnored': True, 'staleGetChildrenEpochReset': True}
+            held_dashboards = value('(window.__relationsPausedDashboards||[]).length')
+            value('window.__relationsPauseDashboard=false;(window.__relationsPausedDashboards||[]).splice(0).forEach(resolve=>resolve());true')
+            return {'sameDrawerRefresh': refresh_mode, 'duplicateContinuationSuppressed': True, 'lateProjectAndFailureIgnored': True, 'staleGetChildrenEpochReset': True, 'actualBackgroundDashboardResponsesHeld': held_dashboards, 'payloadMocked': False, 'heldContinuationVisibleChildren': len(expected_children)}
         def locale_size():
             def save_locale(locale):
                 # Selecting the current option does not emit a change event. Flip
