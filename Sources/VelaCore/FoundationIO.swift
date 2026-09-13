@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 struct FoundationCommand {
     struct Result { let output: String; let code: Int32 }
@@ -61,5 +62,64 @@ final class FoundationDownload: NSObject, URLSessionDataDelegate, @unchecked Sen
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) { lock.lock(); if failure == nil { failure = error }; lock.unlock(); semaphore.signal() }
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
         guard let url = request.url, ["http","https"].contains(url.scheme?.lowercased() ?? ""), url.user == nil, url.password == nil else { completionHandler(nil); return }; completionHandler(request)
+    }
+}
+
+/// Bounded text reads relative to verified directory descriptors. This helper
+/// does not create files, initialize services, or synchronize database assets.
+enum FoundationFile {
+    static func readUTF8(root: URL, path: String, limit: Int = 2_097_152) throws -> String? {
+        guard !path.isEmpty, !path.hasPrefix("/"), !path.contains("\0"), !path.split(separator:"/").contains(where:{ $0 == "." || $0 == ".." }) else { throw VelaError("Invalid relative text path") }
+        let components = path.split(separator:"/").map(String.init)
+        guard components.count <= 64, let name = components.last else { throw VelaError("Text path is too deep") }
+        let rootFD = Darwin.open(root.path,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard rootFD >= 0 else { throw VelaError("Text root is unavailable or unsafe") }
+        var descriptors = [rootFD], anchors: [(Int32,String,Int32)] = []
+        defer { descriptors.reversed().forEach { Darwin.close($0) } }
+        var parent = rootFD
+        for component in components.dropLast() {
+            let next = openat(parent,component,O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            if next < 0 { if errno == ENOENT { return nil }; throw VelaError("Text path contains an unsafe directory") }
+            anchors.append((parent,component,next)); descriptors.append(next); parent = next
+        }
+        let result = try readUTF8(parent:parent,name:name,limit:limit)
+        var opened = stat(), linked = stat()
+        guard fstat(rootFD,&opened) == 0, lstat(root.path,&linked) == 0, opened.st_dev == linked.st_dev, opened.st_ino == linked.st_ino else { throw VelaError("Text root changed during read") }
+        for (directory,component,child) in anchors {
+            guard fstat(child,&opened) == 0, fstatat(directory,component,&linked,AT_SYMLINK_NOFOLLOW) == 0, linked.st_mode & S_IFMT == S_IFDIR, opened.st_dev == linked.st_dev, opened.st_ino == linked.st_ino else { throw VelaError("Text directory changed during read") }
+        }
+        return result
+    }
+
+    static func readUTF8(parent: Int32, name: String, limit: Int = 2_097_152) throws -> String? {
+        guard let data = try readData(parent:parent,name:name,limit:limit) else { return nil }
+        guard let text = String(data:data,encoding:.utf8) else { throw VelaError("Text file is not UTF-8") }
+        return text
+    }
+
+    static func readData(parent: Int32, name: String, limit: Int = 2_097_152) throws -> Data? {
+        guard limit > 0, limit <= 2_097_152, !name.isEmpty, !name.contains("/"), !name.contains("\0"), name != ".", name != ".." else { throw VelaError("Invalid bounded text read") }
+        let descriptor = openat(parent,name,O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        if descriptor < 0 { if errno == ENOENT { return nil }; throw VelaError("Refusing unsafe or unreadable text file") }
+        defer { Darwin.close(descriptor) }
+        var before = stat(), linked = stat()
+        guard fstat(descriptor,&before) == 0, fstatat(parent,name,&linked,AT_SYMLINK_NOFOLLOW) == 0,
+              before.st_mode & S_IFMT == S_IFREG, before.st_nlink == 1, before.st_dev == linked.st_dev,
+              before.st_ino == linked.st_ino, before.st_size >= 0, before.st_size <= limit else { throw VelaError("Text target is not a safe bounded regular file") }
+        var data = Data(), buffer = [UInt8](repeating:0,count:8192)
+        while true {
+            let count = Darwin.read(descriptor,&buffer,buffer.count)
+            if count == 0 { break }
+            if count < 0 { if errno == EINTR { continue }; throw VelaError("Could not read bounded text") }
+            guard data.count + count <= limit else { throw VelaError("Text file grew beyond its read limit") }
+            data.append(contentsOf:buffer.prefix(count))
+        }
+        var after = stat()
+        guard fstat(descriptor,&after) == 0, fstatat(parent,name,&linked,AT_SYMLINK_NOFOLLOW) == 0,
+              before.st_dev == linked.st_dev, before.st_ino == linked.st_ino, after.st_nlink == 1,
+              before.st_size == after.st_size, before.st_mtimespec.tv_sec == after.st_mtimespec.tv_sec,
+              before.st_mtimespec.tv_nsec == after.st_mtimespec.tv_nsec,
+              before.st_ctimespec.tv_sec == after.st_ctimespec.tv_sec, before.st_ctimespec.tv_nsec == after.st_ctimespec.tv_nsec else { throw VelaError("File changed during read") }
+        return data
     }
 }

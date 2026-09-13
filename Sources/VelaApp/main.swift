@@ -1580,7 +1580,7 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             "setup.list", "setup.scan", "setup.audit", "usage.get",
             "memory.list", "memory.save", "memory.transition", "recall", "search",
             "checkpoint.save", "checkpoint.list", "checkpoint.export",
-            "library.add", "library.list",
+            "library.add", "library.list", "library.get", "library.update", "library.remove", "library.restore", "library.refresh", "library.history", "library.export", "library.index", "library.index.status", "library.search",
             "workflows.list", "workflows.save", "workflows.run", "runs.list", "runs.get",
             "workflows.health", "workflows.replay", "workflows.build",
             "guidelines.list", "guidelines.save", "regression.list",
@@ -1588,7 +1588,24 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             "improve.analyze", "improve.list", "improve.preview", "improve.apply", "improve.undo", "improve.dismiss",
             "lab.list", "lab.run", "lab.compare", "lab.promote",
             "reuse.preview", "reuse.outcomes",
-            "evidence.get", "settings.get"
+            "evidence.get", "settings.get",
+            "memory.archive.export", "memory.archive.validate", "memory.archive.import",
+            "schedules.list", "schedules.resolve",
+            "daemon.status", "daemon.plan", "daemon.start", "daemon.stop", "daemon.uninstall",
+            "usage.quota.status", "usage.quota.read",
+            "workflows.plan", "workflows.plan.get", "workflows.plan.list", "workflows.plan.cancel",
+            "memory.semantic.status", "memory.semantic.index",
+            "improve.model.describe", "improve.model.plan", "improve.model.list", "improve.model.get", "improve.model.transition",
+            "connectors.status", "connectors.configure", "connectors.forget",
+            "connectors.tools.search", "connectors.tools.get", "connectors.tools.list",
+            "connectors.toolkits.list", "connectors.accounts.list", "connectors.authConfigs.list",
+            "connectors.action.preview", "connectors.action.plan", "connectors.action.get", "connectors.action.list", "connectors.action.resolve",
+            "runs.resume", "outputs.list", "outputs.get", "outputs.inbox", "outputs.markRead",
+            "setup.catalog", "setup.get", "setup.history", "setup.diff", "setup.relations",
+            "workflows.get", "workflows.validate", "workflows.clone", "workflows.setEnabled", "workflows.remove", "workflows.restore",
+            "watches.describe", "watches.get", "watches.preview",
+            "loops.describe", "loops.plan", "loops.list", "loops.get", "loops.cancel",
+            "ask.describe", "ask.create", "ask.followup", "ask.get", "ask.list", "ask.cancel", "ask.citations"
         ]
 
         if allowlistedMethods.contains(method) {
@@ -1867,6 +1884,91 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             // Authoritative global counts are tracked via 5s host poll with notificationScope == "*".
             // Acknowledge compatibility call without overwriting global counts with project-filtered counts.
             respondToJS(id: id, result: true, error: nil)
+
+        case "system.saveMemoryArchive":
+            guard let archive = params["archive"] as? [String: Any] else {
+                respondToJS(id: id, result: nil, error: VelaLocalization.string("error.invalidArchivePayload", locale: currentLocale))
+                return
+            }
+            guard archive["format"] as? String == "vela.memory-archive" else {
+                respondToJS(id: id, result: nil, error: VelaLocalization.string("error.invalidArchiveFormat", locale: currentLocale))
+                return
+            }
+            let versionNum = (archive["version"] as? NSNumber)?.intValue
+            guard versionNum == 1 else {
+                respondToJS(id: id, result: nil, error: VelaLocalization.string("error.unsupportedArchiveVersion", locale: currentLocale))
+                return
+            }
+            guard let jsonData = try? JSONSerialization.data(withJSONObject: archive, options: [.prettyPrinted, .sortedKeys]) else {
+                respondToJS(id: id, result: nil, error: VelaLocalization.string("error.serializationFailed", locale: currentLocale))
+                return
+            }
+            guard jsonData.count <= 1024 * 1024 else {
+                respondToJS(id: id, result: nil, error: VelaLocalization.string("error.archiveSizeLimitExceeded", locale: currentLocale))
+                return
+            }
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                let panel = NSSavePanel()
+                panel.title = VelaLocalization.string("panel.saveMemoryArchive.title", locale: self.currentLocale)
+                panel.prompt = VelaLocalization.string("panel.saveMemoryArchive.prompt", locale: self.currentLocale)
+                panel.message = VelaLocalization.string("panel.saveMemoryArchive.message", locale: self.currentLocale)
+                if #available(macOS 11.0, *) {
+                    panel.allowedContentTypes = [UTType.json]
+                } else {
+                    panel.allowedFileTypes = ["json"]
+                }
+                let sourceProj = (archive["source"] as? [String: Any])?["project"] as? String ?? "project"
+                let projName = URL(fileURLWithPath: sourceProj).lastPathComponent
+                let cleanProjName = projName.isEmpty ? "project" : projName
+                panel.nameFieldStringValue = "vela-memory-archive-\(cleanProjName).json"
+
+                panel.beginSheetModal(for: self.window) { response in
+                    if response == .OK, let targetURL = panel.url {
+                        do {
+                            try jsonData.write(to: targetURL, options: .atomic)
+                            self.respondToJS(id: id, result: ["saved": true, "path": targetURL.path, "bytes": jsonData.count], error: nil)
+                        } catch {
+                            self.respondToJS(id: id, result: nil, error: error.localizedDescription)
+                        }
+                    } else {
+                        self.respondToJS(id: id, result: ["saved": false, "cancelled": true], error: nil)
+                    }
+                }
+            }
+
+        case "system.saveLibraryExport":
+            guard let content = params["content"] as? String else {
+                respondToJS(id: id, result: nil, error: VelaLocalization.string("error.serializationFailed", locale: currentLocale))
+                return
+            }
+            let defaultName = params["filename"] as? String ?? "library-export.md"
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                let panel = NSSavePanel()
+                panel.title = VelaLocalization.string("panel.saveLibraryExport.title", locale: self.currentLocale)
+                panel.prompt = VelaLocalization.string("panel.saveLibraryExport.prompt", locale: self.currentLocale)
+                panel.message = VelaLocalization.string("panel.saveLibraryExport.message", locale: self.currentLocale)
+                if #available(macOS 11.0, *) {
+                    panel.allowedContentTypes = [UTType.plainText]
+                } else {
+                    panel.allowedFileTypes = ["md", "markdown", "txt"]
+                }
+                panel.nameFieldStringValue = defaultName
+
+                panel.beginSheetModal(for: self.window) { response in
+                    if response == .OK, let targetURL = panel.url {
+                        do {
+                            try content.write(to: targetURL, atomically: true, encoding: .utf8)
+                            self.respondToJS(id: id, result: ["saved": true, "path": targetURL.path, "bytes": content.utf8.count], error: nil)
+                        } catch {
+                            self.respondToJS(id: id, result: nil, error: error.localizedDescription)
+                        }
+                    } else {
+                        self.respondToJS(id: id, result: ["saved": false, "cancelled": true], error: nil)
+                    }
+                }
+            }
 
         default:
             let msg = VelaLocalization.string("error.unknownSystemMethod", locale: currentLocale, placeholders: ["method": method])

@@ -76,9 +76,14 @@ public final class VelaStore {
         try execute("PRAGMA synchronous=NORMAL")
         try execute("CREATE TABLE IF NOT EXISTS objects(kind TEXT NOT NULL,id TEXT NOT NULL,project TEXT NOT NULL DEFAULT '',title TEXT NOT NULL DEFAULT '',content TEXT NOT NULL DEFAULT '',private INTEGER NOT NULL DEFAULT 0,updatedAt TEXT NOT NULL,json TEXT NOT NULL,PRIMARY KEY(kind,id))")
         try execute("CREATE INDEX IF NOT EXISTS objects_project ON objects(project,kind,updatedAt)")
+        try execute("CREATE INDEX IF NOT EXISTS objects_runtime_workflow ON objects(kind,project,json_extract(json,'$.workflowId'),json_extract(json,'$.state')) WHERE kind IN ('schedule_event','run')")
         // Read substring candidates in row order instead of following the
         // time-ordered listing index through every matching project's content.
         try execute("CREATE INDEX IF NOT EXISTS objects_search_project ON objects(project,private,kind)")
+        try execute("CREATE TABLE IF NOT EXISTS memory_embeddings(memory_id TEXT NOT NULL,project TEXT NOT NULL,language TEXT NOT NULL,model TEXT NOT NULL,revision INTEGER NOT NULL,dimension INTEGER NOT NULL,source_hash TEXT NOT NULL,vector BLOB NOT NULL,PRIMARY KEY(memory_id,language))")
+        try execute("CREATE INDEX IF NOT EXISTS memory_embeddings_scope ON memory_embeddings(project,language)")
+        try execute("CREATE TRIGGER IF NOT EXISTS vela_memory_vector_delete AFTER DELETE ON objects WHEN OLD.kind='memory' BEGIN DELETE FROM memory_embeddings WHERE memory_id=OLD.id; END")
+        try execute("CREATE TRIGGER IF NOT EXISTS vela_memory_vector_private AFTER UPDATE ON objects WHEN NEW.kind='memory' AND NEW.private<>0 BEGIN DELETE FROM memory_embeddings WHERE memory_id=NEW.id; END")
         // A one-row change counter keeps background analysis from rescanning session history
         // every timer tick. Triggers also observe writes made by another helper connection.
         try execute("CREATE TABLE IF NOT EXISTS session_change_counter(singleton INTEGER PRIMARY KEY CHECK(singleton=1),revision INTEGER NOT NULL)")
@@ -86,9 +91,48 @@ public final class VelaStore {
         try execute("CREATE TRIGGER IF NOT EXISTS vela_session_insert AFTER INSERT ON objects WHEN NEW.kind='session' BEGIN UPDATE session_change_counter SET revision=revision+1 WHERE singleton=1; END")
         try execute("CREATE TRIGGER IF NOT EXISTS vela_session_update AFTER UPDATE OF json ON objects WHEN NEW.kind='session' AND OLD.json<>NEW.json BEGIN UPDATE session_change_counter SET revision=revision+1 WHERE singleton=1; END")
         try execute("CREATE TRIGGER IF NOT EXISTS vela_session_delete AFTER DELETE ON objects WHEN OLD.kind='session' BEGIN UPDATE session_change_counter SET revision=revision+1 WHERE singleton=1; END")
+        // Compact completion identities provide an unbounded durable cursor;
+        // scheduling never rescans or loads entire session transcripts.
+        try execute("CREATE TABLE IF NOT EXISTS session_completions(sequence INTEGER PRIMARY KEY AUTOINCREMENT,project TEXT NOT NULL,session_id TEXT NOT NULL,activity TEXT NOT NULL,UNIQUE(project,session_id,activity))")
+        try execute("CREATE INDEX IF NOT EXISTS session_completions_project ON session_completions(project,sequence)")
+        // An outer UPSERT can override INSERT OR IGNORE inside a trigger;
+        // explicit UPSERT DO NOTHING preserves completion deduplication.
+        let completionInsert = "INSERT INTO session_completions(project,session_id,activity) VALUES(NEW.project,NEW.id,COALESCE(json_extract(NEW.json,'$.lastActivity'),NEW.updatedAt)) ON CONFLICT(project,session_id,activity) DO NOTHING;"
+        try execute("DROP TRIGGER IF EXISTS vela_completion_insert")
+        try execute("DROP TRIGGER IF EXISTS vela_completion_update")
+        try execute("CREATE TRIGGER IF NOT EXISTS vela_completion_insert_v2 AFTER INSERT ON objects WHEN NEW.kind='session' AND lower(json_extract(NEW.json,'$.state'))='completed' BEGIN " + completionInsert + " END")
+        try execute("CREATE TRIGGER IF NOT EXISTS vela_completion_update_v2 AFTER UPDATE ON objects WHEN NEW.kind='session' AND lower(json_extract(NEW.json,'$.state'))='completed' AND (COALESCE(lower(json_extract(OLD.json,'$.state')),'')<>'completed' OR COALESCE(json_extract(OLD.json,'$.lastActivity'),OLD.updatedAt)<>COALESCE(json_extract(NEW.json,'$.lastActivity'),NEW.updatedAt)) BEGIN " + completionInsert + " END")
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
     }
     deinit { sqlite3_close(db) }
+    /// Lists must not deserialize bounded-but-large provider transcripts merely
+    /// to discard them. Keep the allowed kinds and selected fields explicit.
+    func runtimeSummaries(_ kind: String, project: String, limit: Int = 100) throws -> [JSON] {
+        guard ["agent_loop","knowledge_query"].contains(kind), (1...100).contains(limit) else { throw VelaError("Unsupported runtime summary request") }
+        lock.lock(); defer { lock.unlock() }
+        // The approval journal is authoritative even when rejecting a pending
+        // task never entered its executor to update the raw runtime record.
+        let sql = """
+        SELECT json_object(
+          'id',r.id,'title',r.title,'kind',r.kind,'project',r.project,
+          'state',CASE
+            WHEN json_extract(a.json,'$.state')='rejected' THEN 'rejected'
+            WHEN r.kind='knowledge_query' AND json_extract(a.json,'$.state') IN ('executing','needs_review') THEN 'executing_or_uncertain'
+            WHEN r.kind='knowledge_query' AND json_extract(a.json,'$.state')='failed' THEN 'failed'
+            WHEN r.kind='agent_loop' AND json_extract(a.json,'$.state')='needs_review' THEN 'needs_review'
+            WHEN r.kind='agent_loop' AND json_extract(a.json,'$.state')='executing'
+              AND json_extract(r.json,'$.state') NOT IN ('completed','failed','cancelled','budget_exhausted','needs_review') THEN 'running_or_uncertain'
+            ELSE json_extract(r.json,'$.state') END,
+          'runId',json_extract(r.json,'$.runId'),'approvalId',json_extract(r.json,'$.approvalId'),
+          'createdAt',json_extract(r.json,'$.createdAt'),'updatedAt',r.updatedAt,
+          'modelCalls',json_extract(r.json,'$.modelCalls'),'round',json_extract(r.json,'$.round'),
+          'providerAttempts',json_extract(r.json,'$.providerAttempts'),'completedModelCalls',json_extract(r.json,'$.completedModelCalls'),
+          'completedAt',json_extract(r.json,'$.completedAt'),'error',substr(json_extract(r.json,'$.error'),1,512))
+        FROM objects r LEFT JOIN objects a ON a.kind='approval' AND a.id=json_extract(r.json,'$.approvalId') AND a.project=r.project
+        WHERE r.kind=? AND r.project=? ORDER BY r.updatedAt DESC,r.id ASC LIMIT ?
+        """
+        return try select(sql,[kind,canonicalProject(project),limit])
+    }
     public func sessionRevision() throws -> Int64 {
         lock.lock(); defer { lock.unlock() }
         let pointer = try statement("SELECT revision FROM session_change_counter WHERE singleton=1")
@@ -101,6 +145,7 @@ public final class VelaStore {
         guard sqlite3_prepare_v2(db, sql, -1, &pointer, nil) == SQLITE_OK, let pointer else { throw VelaError("SQLite: \(String(cString: sqlite3_errmsg(db)))") }
         for (index, value) in values.enumerated() {
             if let number = value as? Int { sqlite3_bind_int64(pointer, Int32(index + 1), Int64(number)) }
+            else if let data = value as? Data { _ = data.withUnsafeBytes { sqlite3_bind_blob(pointer, Int32(index + 1), $0.baseAddress, Int32($0.count), transient) } }
             else { sqlite3_bind_text(pointer, Int32(index + 1), String(describing: value), -1, transient) }
         }
         return pointer
@@ -188,7 +233,7 @@ public final class VelaStore {
         }
         return item
     }
-    @discardableResult public func putBatch(_ objects: [(String,JSON)], expecting: [(String,String,String)] = []) throws -> [JSON] {
+    @discardableResult public func putBatch(_ objects: [(String,JSON)], expecting: [(String,String,String)] = [], expectingAbsent: [(String,String)] = [], createOnly: Bool = false) throws -> [JSON] {
         lock.lock(); defer { lock.unlock() }
         guard !isBatching else { throw VelaError("Nested store batches are unsupported") }
         var prepared: [(String,JSON)] = []
@@ -208,6 +253,10 @@ public final class VelaStore {
                     throw VelaError("Batch source changed or is missing; review the latest state before retrying")
                 }
             }
+            for (kind,id) in expectingAbsent {
+                try validateIdentifier(kind); try validateIdentifier(id)
+                guard try get(kind,id) == nil else { throw VelaError("A new batch identity already exists; no object was overwritten") }
+            }
             var result: [JSON] = []
             for (kind,object) in prepared {
                 var backup: (URL,Data?)?
@@ -215,7 +264,7 @@ public final class VelaStore {
                     let asset = try assetURL(kind:kind,id:string(object,"id"))
                     backup = (asset,try? Data(contentsOf:asset))
                 }
-                let saved = try put(kind,object)
+                let saved = try put(kind,object,createOnly:createOnly)
                 // A failing put restores its own partial asset write. Only a
                 // completed write belongs to the outer batch rollback.
                 if let backup { writtenBackups.append(backup) }
@@ -246,9 +295,29 @@ public final class VelaStore {
         try execute("INSERT OR IGNORE INTO objects(kind,id,project,title,content,private,updatedAt,json) VALUES(?,?,?,?,?,?,?,?)",[kind,id,string(object,"project"),string(object,"title"),string(object,"content"),0,string(object,"updatedAt"),try jsonString(object)])
         return sqlite3_changes(db) == 1
     }
+    func sessionCompletionRevision() throws -> Int64 {
+        lock.lock(); defer { lock.unlock() }
+        let row = try select("SELECT json_object('revision',COALESCE(MAX(sequence),0)) FROM session_completions").first
+        return (row?["revision"] as? NSNumber)?.int64Value ?? 0
+    }
+    func sessionCompletionPage(project: String, after: Int64, limit: Int = 100) throws -> [JSON] {
+        lock.lock(); defer { lock.unlock() }
+        guard after >= 0, (1...200).contains(limit) else { throw VelaError("Invalid session completion cursor") }
+        return try select("SELECT json_object('sequence',c.sequence,'sessionId',c.session_id,'activity',c.activity,'present',o.id IS NOT NULL,'project',COALESCE(o.project,''),'private',COALESCE(o.private,1),'scope',COALESCE(json_extract(o.json,'$.scope'),''),'internalRun',COALESCE(json_extract(o.json,'$.internalRun'),0),'sourcePath',COALESCE(json_extract(o.json,'$.sourcePath'),'')) FROM session_completions c LEFT JOIN objects o ON o.kind='session' AND o.id=c.session_id WHERE c.project=? AND c.sequence>? ORDER BY c.sequence LIMIT ?",[canonicalProject(project),after,limit])
+    }
+    func unresolvedScheduleEvent(workflowId: String, project: String) throws -> JSON? {
+        lock.lock(); defer { lock.unlock() }
+        return try select("SELECT json FROM objects WHERE kind='schedule_event' AND project=? AND json_extract(json,'$.workflowId')=? AND json_extract(json,'$.state') IN ('claimed','needs_review') ORDER BY updatedAt,id LIMIT 1",[canonicalProject(project),workflowId]).first
+    }
+    func activeWorkflowRun(workflowId: String, project: String, states: [String] = ["running","pending_approval","waiting_child","needs_review"]) throws -> JSON? {
+        lock.lock(); defer { lock.unlock() }
+        guard !states.isEmpty, states.allSatisfy({ ["running","pending_approval","waiting_child","needs_review"].contains($0) }) else { throw VelaError("Invalid active run states") }
+        let placeholders = Array(repeating:"?",count:states.count).joined(separator:",")
+        return try select("SELECT json FROM objects WHERE kind='run' AND project=? AND json_extract(json,'$.workflowId')=? AND json_extract(json,'$.state') IN (\(placeholders)) LIMIT 1",[canonicalProject(project),workflowId] + states).first
+    }
     @discardableResult public func claimState(kind: String, id: String, expected: String, newState: String, fields: JSON = [:]) throws -> JSON? {
         lock.lock(); defer { lock.unlock() }
-        guard ["approval","schedule","run"].contains(kind), !isBatching else { throw VelaError("State claims are limited to runtime objects outside a batch") }
+        guard ["approval","schedule","schedule_event","run"].contains(kind), !isBatching else { throw VelaError("State claims are limited to runtime objects outside a batch") }
         try validateIdentifier(id)
         guard fields["id"] == nil, fields["kind"] == nil, fields["project"] == nil, fields["createdAt"] == nil else { throw VelaError("State claim cannot replace object identity") }
         try execute("BEGIN IMMEDIATE")
@@ -283,12 +352,88 @@ public final class VelaStore {
         sql += " ORDER BY updatedAt DESC,id ASC LIMIT ?"; values.append(max(0,min(limit,10000)))
         return try select(sql,values).map { try readEditedAsset($0) }
     }
+    // Workflow management enumerates identities without opening every asset.
+    // One malformed Markdown file must not hide all other validation results.
+    func workflowIdentities(project: String, after: String = "", limit: Int = 100) throws -> [JSON] {
+        lock.lock(); defer { lock.unlock() }
+        return try select("SELECT json_object('id',id,'title',title,'project',project,'state',json_extract(json,'$.state'),'version',json_extract(json,'$.version'),'enabled',json_extract(json,'$.enabled')) FROM objects WHERE kind='workflow' AND project=? AND id>? ORDER BY id LIMIT ?",[canonicalProject(project),after,max(1,min(limit,1001))])
+    }
+    func loopConnectorActions(loopId: String, project: String) throws -> [JSON] {
+        lock.lock(); defer { lock.unlock() }; try validateIdentifier(loopId)
+        return try select("SELECT json FROM objects WHERE kind='connector_action' AND project=? AND json_extract(json,'$.request.origin.kind')='agent_loop' AND json_extract(json,'$.request.origin.id')=? ORDER BY json_extract(json,'$.request.origin.round'),id LIMIT 16",[canonicalProject(project),loopId])
+    }
+    func workflowRecord(_ id: String) throws -> JSON? {
+        lock.lock(); defer { lock.unlock() }; try validateIdentifier(id)
+        return try select("SELECT json FROM objects WHERE kind='workflow' AND id=?",[id]).first
+    }
+    // Internal, typed Memory-index access. No caller-supplied SQL or database handles.
+    func semanticMemoryPage(project: String, after: String = "", limit: Int = 32) throws -> (items: [JSON], hasMore: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        guard (1...200).contains(limit) else { throw VelaError("Invalid semantic page size") }
+        if !after.isEmpty { try validateIdentifier(after) }
+        let pointer = try statement("SELECT json FROM objects WHERE kind='memory' AND (project=? OR project='') AND id>? ORDER BY id LIMIT ?",[project,after,limit+1])
+        defer { sqlite3_finalize(pointer) }
+        var items: [JSON] = []; var bytes = 0
+        while true {
+            let step = sqlite3_step(pointer)
+            if step == SQLITE_DONE { return (items,false) }
+            guard step == SQLITE_ROW, let raw = sqlite3_column_text(pointer,0) else { throw VelaError("Memory page is unavailable") }
+            let count = Int(sqlite3_column_bytes(pointer,0))
+            if items.count == limit || (!items.isEmpty && bytes + count > 2 * 1024 * 1024) { return (items,true) }
+            guard count <= 2 * 1024 * 1024,
+                  let item = try JSONSerialization.jsonObject(with:Data(bytes:raw,count:count)) as? JSON else { throw VelaError("Memory page contains an invalid record") }
+            items.append(try readEditedAsset(item)); bytes += count
+        }
+    }
+    func putSemanticVector(_ row: SemanticVectorRecord) throws {
+        lock.lock(); defer { lock.unlock() }
+        try validateIdentifier(row.memoryID)
+        guard ["en","zh-Hans"].contains(row.language), row.model.count <= 256, row.revision > 0,
+              row.dimension > 0, row.dimension <= 4096, row.vector.count == row.dimension,
+              row.sourceHash.count == 64 else { throw VelaError("Invalid semantic vector identity") }
+        _ = try SemanticVectorMath.normalized(row.vector)
+        let bits = row.vector.map { $0.bitPattern.littleEndian }
+        let blob = bits.withUnsafeBytes { Data($0) }
+        guard !isBatching else { throw VelaError("Semantic indexing cannot run inside a store batch") }
+        try execute("BEGIN IMMEDIATE")
+        do {
+            guard let source = try get("memory",row.memoryID), SemanticMemory.isIndexable(source,project:row.project),
+                  string(source,"project") == row.project, try SemanticMemory.sourceHash(source) == row.sourceHash else { throw VelaError("Memory changed before indexing; index it again") }
+            try execute("INSERT INTO memory_embeddings(memory_id,project,language,model,revision,dimension,source_hash,vector) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(memory_id,language) DO UPDATE SET project=excluded.project,model=excluded.model,revision=excluded.revision,dimension=excluded.dimension,source_hash=excluded.source_hash,vector=excluded.vector",[row.memoryID,row.project,row.language,row.model,row.revision,row.dimension,row.sourceHash,blob])
+            try execute("COMMIT")
+        } catch { try? execute("ROLLBACK"); throw error }
+    }
+    func semanticVectorMetadata(memoryID: String, language: String) throws -> JSON? {
+        lock.lock(); defer { lock.unlock() }
+        return try select("SELECT json_object('model',model,'revision',revision,'dimension',dimension,'sourceHash',source_hash,'bytes',length(vector)) FROM memory_embeddings WHERE memory_id=? AND language=?",[memoryID,language]).first
+    }
+    func removeSemanticVector(memoryID: String, language: String) throws {
+        lock.lock(); defer { lock.unlock() }
+        try execute("DELETE FROM memory_embeddings WHERE memory_id=? AND language=?",[memoryID,language])
+    }
+    func forEachSemanticVector(project: String, language: String, _ visit: (SemanticVectorRecord) throws -> Void) throws {
+        lock.lock(); defer { lock.unlock() }
+        let pointer = try statement("SELECT memory_id,project,language,model,revision,dimension,source_hash,vector FROM memory_embeddings WHERE (project=? OR project='') AND language=? ORDER BY memory_id",[project,language])
+        defer { sqlite3_finalize(pointer) }
+        func text(_ column: Int32) -> String { sqlite3_column_text(pointer,column).map { String(cString:$0) } ?? "" }
+        while true {
+            let step = sqlite3_step(pointer)
+            if step == SQLITE_DONE { return }
+            guard step == SQLITE_ROW else { throw VelaError("Semantic index is unavailable") }
+            let dimension = Int(sqlite3_column_int(pointer,5)), bytes = Int(sqlite3_column_bytes(pointer,7))
+            guard dimension > 0, dimension <= 4096, bytes == dimension * 4, let blob = sqlite3_column_blob(pointer,7) else { throw VelaError("Semantic index contains invalid vector bytes") }
+            let data = Data(bytes:blob,count:bytes)
+            let vector: [Float] = data.withUnsafeBytes { raw in (0..<dimension).map { Float(bitPattern:UInt32(littleEndian:raw.loadUnaligned(fromByteOffset:$0*4,as:UInt32.self))) } }
+            try visit(SemanticVectorRecord(memoryID:text(0),project:text(1),language:text(2),model:text(3),revision:Int(sqlite3_column_int(pointer,4)),dimension:dimension,sourceHash:text(6),vector:vector))
+        }
+    }
     private func readEditedAsset(_ item: JSON) throws -> JSON {
         let kind = string(item,"kind")
         guard assetKinds.contains(kind), let storedPath = item["assetPath"] as? String else { return item }
         let expected = root.appendingPathComponent("assets/\(kind)/\(string(item,"id")).md")
         guard expected.path == storedPath, canonicalProject(expected.path) == expected.path, (try? expected.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink) != true else { throw VelaError("Asset path is unsafe") }
-        guard let meta = try? expected.resourceValues(forKeys:[.fileSizeKey]), (meta.fileSize ?? Int.max) <= 2 * 1024 * 1024, let markdown = try? String(contentsOf:expected,encoding:.utf8), let headerEnd = markdown.range(of:" -->\n\n# "), let titleEnd = markdown.range(of:"\n\n",range:headerEnd.upperBound..<markdown.endIndex) else { return item }
+        guard let markdown = try FoundationFile.readUTF8(root:root,path:"assets/\(kind)/\(string(item,"id")).md"),
+              let headerEnd = markdown.range(of:" -->\n\n# "), let titleEnd = markdown.range(of:"\n\n",range:headerEnd.upperBound..<markdown.endIndex) else { return item }
         let title = String(markdown[headerEnd.upperBound..<titleEnd.lowerBound])
         var content = String(markdown[titleEnd.upperBound...]); if content.hasSuffix("\n") { content.removeLast() }
         guard title != string(item,"title") || content != string(item,"content") else { return item }
@@ -314,6 +459,14 @@ public final class VelaStore {
         if let project { sql += " AND project=?"; values.append(canonicalProject(project)) }
         if !includePrivate { sql += " AND private=0" }
         sql += " ORDER BY updatedAt DESC,id ASC LIMIT ?"; values.append(max(0,min(limit,500)))
-        return try select(sql,values).filter { includePrivate || (string($0,"kind") != "library" || !privateLibraryPath(string($0,"sourcePath"))) }
+        return try select(sql,values).compactMap { item in
+            guard string(item,"kind") == "library" else { return item }
+            guard let current = try? LibrarySource.fresh(store:self,id:string(item,"id")),
+                  string(current,"state","active") == "active",
+                  includePrivate || LibraryIndex.isPublic(current,project:string(current,"project")),
+                  string(current,"title").range(of:query,options:.caseInsensitive) != nil ||
+                  string(current,"content").range(of:query,options:.caseInsensitive) != nil else { return nil }
+            return current
+        }
     }
 }

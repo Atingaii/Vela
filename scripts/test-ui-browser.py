@@ -62,6 +62,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('manifest', type=Path)
     parser.add_argument('--binary', type=Path, default=ROOT / '.build/debug/vela')
+    parser.add_argument('--ui-directory', type=Path, help='Optional frozen <fixture>/ui-snapshot copy; recorded in source hashes.')
     parser.add_argument('--agent-browser', default='agent-browser')
     parser.add_argument('--browser-executable', type=Path, help='Optional explicit Chrome executable for isolated local QA.')
     parser.add_argument('--driver', choices=['agent-browser', 'playwright'], default='playwright', help='Playwright is recommended; no driver is installed automatically.')
@@ -79,7 +80,7 @@ def main():
     if args.browser_executable and not args.browser_executable.is_file():
         parser.error('The specified Chrome executable does not exist.')
     server = subprocess.Popen(['python3', str(ROOT / 'scripts/test-ui-server.py'), str(args.manifest),
-                               '--binary', str(args.binary)], stdout=subprocess.PIPE, text=True)
+                               '--binary', str(args.binary), *(['--ui-directory', str(args.ui_directory)] if args.ui_directory else [])], stdout=subprocess.PIPE, text=True)
     session = 'vela-ui-test-' + uuid.uuid4().hex[:8]
     results = []
     selected_checks = set(args.checks.split(',')) if args.checks else None
@@ -175,7 +176,7 @@ def main():
         report = base / ('browser-results-diagnostic.json' if selected_checks else 'browser-results.json')
         metadata_path = base / ('browser-metadata-diagnostic.json' if selected_checks else 'browser-metadata.json')
         def source_hashes():
-            files = {name: ROOT / 'Sources/VelaApp/Resources/UI' / name for name in ('index.html', 'app.js', 'i18n.js', 'app.css')}
+            files = {name: (args.ui_directory or ROOT / 'Sources/VelaApp/Resources/UI') / name for name in ('index.html', 'app.js', 'i18n.js', 'app.css')}
             files['helper'] = args.binary
             return {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in files.items()}
         source_before = source_hashes()

@@ -1,6 +1,8 @@
 # Vela 当前 API 契约
 
-本文对应 `0.1.0-preview.1` 的实际实现，供原生壳、Web UI、CLI 和 MCP 集成使用。完整产品需求见 [requirements.md](../requirements.md)，交付状态见 [status.md](../status.md)。本文不代表 P0–P2 全部功能已完成；不支持的能力不能用模拟结果替代。
+本文维护基础 API；2026-09-13 当前开发源码的扩展见下方专门合同，正式安装包版本以发行说明为准。完整产品需求见 [requirements.md](../requirements.md)，交付状态见 [status.md](../status.md)。不支持或未经验证的能力不能用模拟结果替代。
+
+扩展合同：[工作流规划](workflow-planning-contract.md)、[组合与产物](workflow-composition-contract.md)、[工作流管理](workflow-management-contract.md)、[工具与文件变化触发](workflow-watch-contract.md)、[模型工具循环](agent-loop-contract.md)、[带来源问答](knowledge-query-contract.md)、[连接器](connectors-contract.md)、[Library管理与检索](library-contract.md)、[语义Memory](semantic-memory-contract.md)、[模型调优](model-improvement-contract.md)、[Setup历史](setup-inventory-contract.md)、[会话历史回填](session-history-contract.md)、[OpenClaw记忆集成](openclaw-memory-contract.md)、[可选Walrus适配器](walrus-remote-contract.md)。这些合同覆盖下文相同入口的新增行为，并分别记录环境与验收边界。
 
 所有前端 UI、样式与原生界面由用户指定的 Antigravity CLI `gemini-3.8-flash-high`（High）实现。核心实现不复制 Blume 私有源码、提示词或品牌。以下类型中的 `?` 表示可选字段，`JSON` 表示 JSON 对象。
 
@@ -9,7 +11,7 @@
 ### JSONL helper
 
 ```text
-vela rpc [--home PATH] [--no-watch]
+vela rpc [--home PATH] [--no-watch] [--no-schedule]
 stdin  → {"id":"request-1","method":"sessions.list","params":{}}
 stdout ← {"id":"request-1","result":[]}
 stdout ← {"id":"request-1","error":{"message":"...","code":-32602}}
@@ -17,8 +19,9 @@ stdout ← {"event":"data.changed"}
 ```
 
 - 请求、响应各占一行，stdout 只输出 JSON，诊断写 stderr。无效 JSON 返回错误；解析后的单行上限为 2,000,000 字节，路由方法名少于 100 字符、params 少于 80 个键，服务进一步验证类型、大小和权限。
-- helper 内有两条串行队列：`workflows.* / runs.* / improve.* / lab.* / approvals.* / inbox.* / evidence.*` 进入 Automation 队列，其余请求进入 Foundation 队列。两队列可并行，跨队列响应可能乱序，客户端必须按 `id` 关联，不能按发送顺序解包。
-- 最多 32 个已进入处理队列的请求。长 Workflow / Lab 不占用 Foundation 请求队列，但共享 SQLite 和进程资源，不等于完全性能隔离。
+- helper 分开 Foundation、Automation 与配额读取队列：工作流、运行、审批、调优、实验、daemon、调度、产物、连接器、Ask与Loop进入 Automation 队列；`usage.quota.read` 使用独立 Provider 队列。响应可能乱序，客户端必须按 `id` 关联。`--no-schedule` 禁止该helper自动tick，用于SDK和隔离测试，不修改持久化调度设置。
+- 普通请求最多32个，队列满时立即返回`-32001`，不阻塞后续控制帧的读取。`loops.get/list/cancel`与`ask.get/list/cancel/citations`使用独立控制队列（最多8个）及独立服务锁；模型运行时仍可查询和请求取消。两实例共享线程安全Store，文件恢复仅在主服务启动时运行。长操作仍共享SQLite和进程资源，不等于完全性能隔离。
+- 显式`history.advance`使用独立 utility 队列；会话历史服务按实例锁协调作业与游标，不占用 Foundation 的通用服务锁。历史读取与默认近期会话列表分开，不隐式把全部转录装进 dashboard。
 - RPC 默认启动 FSEvents 和初次受限索引；摄取确实更新数据后发送无 `id` 的 `data.changed`。这不是每次对象修改的通用变更总线，客户端仍须处理方法响应与必要刷新。
 - Scheduler 在 Automation 队列上于启动约 10 秒后开始、每 30 秒 tick；长自动化期间排队，不与同 helper 中的执行重叠。
 - stdin EOF 后等待已提交请求完成，再停止 watcher 和 timer。`vela mcp` 不启动 watcher 或 Scheduler；MCP 请求全部走 Foundation 队列。
@@ -94,7 +97,7 @@ public final class VelaStore {
 | `projects.list` | `{}` | project 数组 |
 | `projects.add` | `{path}` | 登记存在的绝对目录或 `~/` 路径，返回 `{id,title,path,project,state}`；不要求必须是 Git 仓库 |
 | `projects.remove` | `{id}` | 仅移除登记，`{removed:true,filesDeleted:false}`；不是删除工程、清空所有历史或永久排除摄取 |
-| `agents.list` | `{}` | 三个 harness 的检测结果：`provider,installed,executable,sourceDirectories,quotaAvailable:false,liveStatusAvailable:false,capabilities`；当前运行卡片来自 Session，不能把此列表误当进程清单 |
+| `agents.list` | `{}` | Claude/Codex/Cursor/Pi/OMP 五个 harness 的检测结果；当前运行卡片来自 Session，不能把此列表误当进程清单；Codex额度由专用显式接口读取 |
 | `sessions.refresh` | `{}` | `{sourceFilesChecked,sourcesUpdated,sessionCount,historyFullyIndexed:false,initialFileLimit,initialTailBytes,diagnostics}` |
 | `sessions.list` | `{project?,query?}` | 轻量 session 数组；query 匹配标题/正文索引 |
 | `sessions.get` | `{id}` | session 及保留范围内的 messages；移除内部 usageByMessage |
@@ -142,7 +145,7 @@ daily.tokens 与 totalTokens 同义，daily.observedTokens 与 observedTotalToke
 | `recall` | `{project,query?,branch?,worktree?,task?,sessionId?,files?:string[],symbols?:string[],budget?}` | `{items,usedTokens,budget,tokenAccounting,truncated}`；没有单独的scope字符串筛选器 |
 | `search` | `{query,project?,includePrivate?}` | 人类本地搜索，默认排除private；当前索引类别为 session/memory/workflow/guideline/library/checkpoint/artifact |
 | `library.list` | `{project?}` | 人类管理用 Library 数组 |
-| `library.add` | `{id?,title,project?,content?,path?,url?,private?}` | 返回 Library；url 优先于path，导入上限2 MiB，当前默认private=true |
+| `library.add` | `{id?,title,project?,content?,path?,url?,private?,folder?}` | 返回 Library；content/path/url必须且只能选一个，导入上限2 MiB，默认private=true；管理和段落检索见专门合同 |
 | `checkpoint.list` | `{project?}` | Checkpoint 数组 |
 | `checkpoint.save` | `{id?,project,title?,goal,completed?,pending?,tests?,nextActions?,decisions?:string[],failures?:string[],changedFiles?:string[],sessionId?}` | 本地 Markdown及对象；completed/pending/tests/nextActions支持字符串或字符串数组，并尝试捕获真实Git branch/commit/status |
 | `checkpoint.export` | `{id,provider?}` | `{path,content,command,provider,executed:false}`；provider默认codex，可选claude/cursor；command是交接提示文本，不是已执行的原生session迁移或保证可直接运行的shell命令 |

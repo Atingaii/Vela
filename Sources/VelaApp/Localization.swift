@@ -442,6 +442,46 @@ public enum VelaLocalization {
         "error.invalidLocale": [
             VelaLocale.zhCN: "设置包含无效的语言代码",
             VelaLocale.en: "Settings contain an invalid locale"
+        ],
+        "panel.saveMemoryArchive.title": [
+            VelaLocale.zhCN: "导出工程记忆归档",
+            VelaLocale.en: "Export Memory Archive"
+        ],
+        "panel.saveMemoryArchive.prompt": [
+            VelaLocale.zhCN: "存储归档",
+            VelaLocale.en: "Save Archive"
+        ],
+        "panel.saveMemoryArchive.message": [
+            VelaLocale.zhCN: "将导出的工程记忆归档保存为 JSON 文件（明文存储，不包含私密与全局记忆）",
+            VelaLocale.en: "Save exported memory archive as a JSON file (plaintext, excludes private and global memories)"
+        ],
+        "panel.saveLibraryExport.title": [
+            VelaLocale.zhCN: "导出知识库文档 (Markdown)",
+            VelaLocale.en: "Export Library Document (Markdown)"
+        ],
+        "panel.saveLibraryExport.prompt": [
+            VelaLocale.zhCN: "存储文档",
+            VelaLocale.en: "Save Document"
+        ],
+        "panel.saveLibraryExport.message": [
+            VelaLocale.zhCN: "将受审知识库文档保存为 Markdown 文件（不修改原始源文件）",
+            VelaLocale.en: "Save reviewed library document as a Markdown file (without modifying source files)"
+        ],
+        "error.invalidArchivePayload": [
+            VelaLocale.zhCN: "归档数据格式错误，必须为包含有效归档的字典对象",
+            VelaLocale.en: "Invalid archive payload; must be an object containing valid archive data"
+        ],
+        "error.invalidArchiveFormat": [
+            VelaLocale.zhCN: "不支持的归档格式，必须为 vela.memory-archive",
+            VelaLocale.en: "Unsupported archive format; must be vela.memory-archive"
+        ],
+        "error.unsupportedArchiveVersion": [
+            VelaLocale.zhCN: "不支持的归档版本，目前仅支持版本 1",
+            VelaLocale.en: "Unsupported archive version; currently only version 1 is supported"
+        ],
+        "error.archiveSizeLimitExceeded": [
+            VelaLocale.zhCN: "归档文件超出 1 MiB 大小限制",
+            VelaLocale.en: "Archive file exceeds 1 MiB size limit"
         ]
     ]
 

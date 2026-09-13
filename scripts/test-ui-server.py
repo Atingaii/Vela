@@ -22,13 +22,19 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / 'Sources/VelaApp/Resources/UI'
 READ = set('dashboard.get projects.list agents.list sessions.refresh sessions.list sessions.get setup.list setup.scan setup.audit usage.get memory.list recall search guidelines.list library.list checkpoint.list checkpoint.export workflows.list workflows.health runs.list runs.get inbox.list improve.list improve.preview lab.list lab.compare regression.list evidence.get reuse.outcomes settings.get system.version'.split())
+READ.update('memory.archive.export memory.archive.validate memory.semantic.status workflows.plan.get workflows.plan.list improve.model.describe improve.model.list improve.model.get daemon.status daemon.plan schedules.list usage.quota.status connectors.status connectors.action.list connectors.action.get outputs.list outputs.get outputs.inbox'.split())
+READ.update('setup.catalog setup.get setup.history setup.diff setup.relations workflows.get workflows.validate loops.describe loops.get loops.list ask.describe ask.get ask.list ask.citations'.split())
+READ.update('library.get library.history library.export library.index.status library.search watches.describe watches.get watches.preview'.split())
 WRITE = set('projects.add memory.save memory.transition guidelines.save library.add checkpoint.save workflows.build workflows.save workflows.run approvals.decide improve.analyze improve.apply improve.undo lab.run lab.promote reuse.preview settings.save'.split())
+WRITE.update('memory.archive.import memory.semantic.index outputs.markRead'.split())
+WRITE.update('workflows.clone workflows.setEnabled workflows.remove workflows.restore loops.plan loops.cancel ask.create ask.followup ask.cancel'.split())
+WRITE.update('library.update library.remove library.restore library.index'.split())
 BRIDGE_JS = """
 window.__velaUITest={refreshReceived:0,dashboardResolved:0,dashboardEvent:0,dashboardProject:null,nextRead:null,controlledReads:0};
 window.addEventListener('vela:refresh',()=>window.__velaUITest.refreshReceived++);
 window.vela={call:async(method,params={})=>{
   const test=window.__velaUITest,event=test.refreshReceived,candidate=test.nextRead;
-  const control=candidate&&candidate.method===method&&['dashboard.get','usage.get'].includes(method)&&
+  const control=candidate&&candidate.method===method&&['dashboard.get','usage.get','memory.archive.validate','memory.semantic.status','memory.semantic.index'].includes(method)&&
     (candidate.project===undefined||candidate.project===(params.project||''))?candidate:null;
   if(control)test.nextRead=null;
   const r=await fetch('__rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method,params})});
@@ -76,7 +82,7 @@ class Bridge:
         env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'HOME': str(base), 'LANG': 'en_US.UTF-8',
                'VELA_HOME': fixture['home'], 'VELA_SESSION_ROOT': fixture['sessionRoot'],
                'VELA_DISABLE_DISCOVERY': '1', 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull}
-        self.process = subprocess.Popen([str(binary), 'rpc', '--home', fixture['home']],
+        self.process = subprocess.Popen([str(binary), 'rpc', '--no-schedule', '--home', fixture['home']],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=subprocess.DEVNULL, text=True, env=env, cwd=base)
         threading.Thread(target=self.read, daemon=True).start()
@@ -134,6 +140,42 @@ class Bridge:
             raise ValueError('Harness only executes Git reads and fixture file.write, never shell/agent tools.')
         self.local_path(arguments.get('path', ''), project)
 
+    def synthetic_provider(self, agent):
+        path = self.base / 'synthetic-codex'
+        if (not isinstance(agent, dict) or agent.get('executable') != str(path)
+                or agent.get('model') != 'synthetic-ui' or path.is_symlink()
+                or not path.is_file() or path.read_bytes() != (ROOT / 'scripts/ui-fixture-provider.py').read_bytes()):
+            raise ValueError('UI model checks only permit the exact network-free fixture provider.')
+
+    def watch(self, workflow):
+        """Permit only fixture-local passive snapshots, with no scheduler."""
+        if not workflow or workflow.get('project') not in self.fixture['projects'] or workflow.get('trigger') != 'watch':
+            raise ValueError('Watch must belong to the isolated fixture project.')
+        policy = workflow.get('watch')
+        if not isinstance(policy, dict):
+            raise ValueError('Watch policy must be an object.')
+        source = policy.get('source', 'tool')
+        if source == 'files':
+            paths = policy.get('paths')
+            if not isinstance(paths, list) or not 1 <= len(paths) <= 16:
+                raise ValueError('File watch requires bounded fixture-local paths.')
+            for path in paths:
+                if not isinstance(path, str) or Path(path).is_absolute():
+                    raise ValueError('File watch paths must be relative to the fixture project.')
+                self.local_path(path, workflow['project'])
+        elif source == 'tool':
+            if policy.get('tool') not in ('git.status', 'git.diff', 'git.log', 'memory.recall', 'library.retrieve'):
+                raise ValueError('Watch only permits the built-in local read catalog.')
+        else:
+            raise ValueError('Unknown fixture watch source.')
+        # Keep graph/provider/connector execution outside this test surface.
+        if workflow.get('pipeline') or workflow.get('context') or not workflow.get('steps'):
+            raise ValueError('Fixture watches use explicit Git-read steps only.')
+        for step in workflow['steps']:
+            if not isinstance(step, dict) or step.get('tool') not in ('git.status', 'git.diff', 'git.log'):
+                raise ValueError('Fixture watch steps must be Git reads.')
+            self.tool(step['tool'], step.get('arguments', {}), workflow['project'])
+
     def call(self, method, params):
         if method in ('system.ready', 'system.updateStatus'):
             return True  # Explicit native UI stubs, not claimed as native integration tests.
@@ -154,15 +196,26 @@ class Bridge:
                 raise ValueError('Network imports are disabled in UI tests.')
             if params.get('path'):
                 self.local_path(params['path'], params.get('project'))
+        if method in ('ask.create', 'ask.followup'):
+            self.synthetic_provider(params)
+        if method == 'loops.plan':
+            self.synthetic_provider(params.get('agent'))
+            if params.get('tools') != ['git.status']:
+                raise ValueError('Synthetic loop checks only permit the actual Git status read.')
         if method in ('workflows.save', 'workflows.run'):
             workflow = params if method.endswith('save') else next(
                 (w for w in self.rpc('workflows.list', {}) if w['id'] == params.get('id')), None)
-            if not workflow or workflow.get('project') not in self.fixture['projects'] or workflow.get('trigger', 'manual') != 'manual':
-                raise ValueError('Use a manual fixture workflow; scheduled triggers are disabled.')
+            if method == 'workflows.save' and workflow and workflow.get('trigger') == 'watch':
+                self.watch(workflow)
+            elif not workflow or workflow.get('project') not in self.fixture['projects'] or workflow.get('trigger', 'manual') != 'manual':
+                raise ValueError('Only manual execution or passive watch definitions are permitted; the helper disables scheduling.')
             for step in workflow.get('steps', []):
                 if not isinstance(step, dict):
                     raise ValueError('Workflow steps must be objects.')
                 self.tool(step.get('tool'), step.get('arguments', {}), workflow['project'])
+        if method in ('watches.get', 'watches.preview'):
+            workflow = self.rpc('workflows.get', {'id': params.get('id'), 'project': params.get('project')})
+            self.watch(workflow.get('definition'))
         if method in ('improve.preview', 'improve.apply', 'improve.undo'):
             suggestion = next((s for s in self.rpc('improve.list', {}) if s['id'] == params.get('id')), None)
             if not suggestion or suggestion.get('project') not in self.fixture['projects']:
@@ -179,7 +232,17 @@ class Bridge:
             approval = next((a for a in self.rpc('inbox.list', {}) if a['id'] == params.get('id')), None)
             if not approval or approval.get('project') not in self.fixture['projects']:
                 raise ValueError('Unknown fixture approval.')
-            self.tool(approval.get('tool'), approval.get('arguments', {}), approval['project'])
+            tool, arguments = approval.get('tool'), approval.get('arguments', {})
+            if tool == 'knowledge.answer':
+                query = self.rpc('ask.get', {'id': arguments.get('askId'), 'project': approval['project']})
+                self.synthetic_provider(query.get('request', {}).get('agent'))
+            elif tool == 'agent.loop':
+                request = arguments.get('request', {})
+                self.synthetic_provider(request.get('agent'))
+                if [entry.get('id') for entry in request.get('catalog', [])] != ['git.status']:
+                    raise ValueError('Fixture loop catalog changed.')
+            else:
+                self.tool(tool, arguments, approval['project'])
         return self.rpc(method, params)
 
     def close(self):
@@ -195,8 +258,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('manifest', type=Path)
     parser.add_argument('--binary', type=Path, default=ROOT / '.build/debug/vela')
+    parser.add_argument('--ui-directory', type=Path, help='Optional frozen UI copy at <fixture>/ui-snapshot; never arbitrary files.')
     args = parser.parse_args()
     fixture, base = fixture_paths(args.manifest)
+    ui_directory = UI
+    if args.ui_directory:
+        candidate = args.ui_directory.absolute()
+        if candidate.is_symlink() or candidate.resolve(strict=True) != base / 'ui-snapshot':
+            raise ValueError('A frozen UI must be the owned fixture ui-snapshot directory.')
+        for name in ('index.html', 'app.js', 'i18n.js', 'app.css', 'app-icon.svg'):
+            if (candidate / name).is_symlink() or not (candidate / name).is_file():
+                raise ValueError('Frozen UI resources must be ordinary files.')
+        ui_directory = candidate
     bridge = Bridge(args.binary.resolve(strict=True), fixture, base)
     prefix = '/' + secrets.token_urlsafe(32) + '/'
 
@@ -240,7 +313,7 @@ def main():
                 path = path or 'index.html'
                 if path not in types:
                     raise ValueError('Not a test UI resource.')
-                body = (UI / path).read_bytes()
+                body = (ui_directory / path).read_bytes()
                 if path == 'index.html':
                     body = body.replace(b"connect-src 'none'", b"connect-src 'self'").replace(
                         b'</head>', b'<script src="__bridge.js"></script></head>', 1)

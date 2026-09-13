@@ -1,0 +1,22 @@
+{
+  "id":"vela-memory", "name":"Vela Memory", "version":"0.1.0-dev.1", "kind":"memory",
+  "description":"Scoped local-first memory and optional Walrus persistence",
+  "contracts":{"tools":["memory_search","memory_store"]},
+  "toolMetadata":{"memory_search":{"optional":true,"replaySafe":true,"sideEffecting":false},"memory_store":{"optional":true,"replaySafe":false,"sideEffecting":true}},
+  "cliCommands":[{"name":"vela-memory","description":"Vela namespace memory","hasSubcommands":true}],
+  "configSchema":{
+    "type":"object","additionalProperties":false,
+    "required":["version","backend","stateDirectory","agents","maxCaptureOperations","maxCaptureBytes"],
+    "properties":{
+      "version":{"const":1},"backend":{"enum":["local","walrus"]},"stateDirectory":{"type":"string","minLength":1},
+      "agents":{"type":"object","minProperties":1,"maxProperties":100,"additionalProperties":{"type":"object","additionalProperties":false,"required":["project","namespace"],"properties":{"project":{"type":"string"},"namespace":{"type":"string","minLength":1,"maxLength":256}}}},
+      "helper":{"type":"string"},"home":{"type":"string"},
+      "remote":{"type":"object","additionalProperties":false,"required":["profile","delegateKeyHex"],"properties":{"profile":{"type":"object"},"delegateKeyHex":{"type":"string","pattern":"^[a-fA-F0-9]{64}$"},"suiPrivateKey":{"type":"string"},"embeddingApiKey":{"type":"string"}}},
+      "autoRecall":{"type":"boolean","default":true},"autoCapture":{"type":"boolean","default":false},"captureAssistant":{"type":"boolean","default":false},"remotePlaintextAcknowledged":{"type":"boolean","default":false},
+      "maxRecallResults":{"type":"integer","minimum":1,"maximum":20},"maxDistance":{"type":"number","minimum":0,"maximum":2},"maxContextBytes":{"type":"integer","minimum":512,"maximum":32768},
+      "captureMaxMessages":{"type":"integer","minimum":1,"maximum":20},"requestTimeoutMs":{"type":"integer","minimum":1,"maximum":120000},
+      "maxCaptureOperations":{"type":"integer","minimum":0,"maximum":10000},"maxCaptureBytes":{"type":"integer","minimum":0,"maximum":10485760}
+    }
+  },
+  "uiHints":{"remote.delegateKeyHex":{"sensitive":true},"remote.suiPrivateKey":{"sensitive":true},"remote.embeddingApiKey":{"sensitive":true}}
+}

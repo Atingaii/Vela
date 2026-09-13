@@ -1,6 +1,7 @@
 import Foundation
 import CoreServices
 import CSQLite
+import Darwin
 
 // Token counts cross JSON into WebKit, so require exact nonnegative integers
 // within both Swift and JavaScript's supported integer range. Never coerce bools,
@@ -48,7 +49,9 @@ final class SessionEngine {
         let configuredRoots = sourceRoots ?? [
             "claude":[home.appendingPathComponent(".claude/projects")],
             "codex":[home.appendingPathComponent(".codex/sessions"),home.appendingPathComponent(".codex/archived_sessions")],
-            "cursor":[home.appendingPathComponent(".cursor/exports"),home.appendingPathComponent("Library/Application Support/Cursor/User/globalStorage"),home.appendingPathComponent("Library/Application Support/Cursor/User/workspaceStorage")]
+            "cursor":[home.appendingPathComponent(".cursor/exports"),home.appendingPathComponent("Library/Application Support/Cursor/User/globalStorage"),home.appendingPathComponent("Library/Application Support/Cursor/User/workspaceStorage")],
+            "pi":[home.appendingPathComponent(".pi/agent/sessions")],
+            "omp":[home.appendingPathComponent(".omp/agent/sessions")]
         ]
         self.sourceRoots = configuredRoots.mapValues { $0.map { URL(fileURLWithPath:canonicalProject($0.path)) } }
     }
@@ -141,18 +144,43 @@ final class SessionEngine {
         return ["sourceFilesChecked":seen.count,"sourcesUpdated":updated,"sessionCount":try store.sessionSummaries(limit:10000).count,"historyFullyIndexed":false,"initialFileLimit":initialFiles,"initialTailBytes":tailWindow,"diagnostics":diagnostics]
     }
     private func supports(_ url: URL, provider: String) -> Bool {
-        ["jsonl","ndjson"].contains(url.pathExtension.lowercased()) || (provider == "cursor" && ["json","vscdb","sqlite","sqlite3"].contains(url.pathExtension.lowercased()))
+        guard ["claude","codex","cursor","pi","omp"].contains(provider) else { return false }
+        return ["jsonl","ndjson"].contains(url.pathExtension.lowercased()) || (provider == "cursor" && ["json","vscdb","sqlite","sqlite3"].contains(url.pathExtension.lowercased()))
     }
     private func ingest(_ url: URL, provider: String) throws -> Bool {
+        guard ["claude","codex","cursor","pi","omp"].contains(provider) else { throw VelaError("Unsupported session provider") }
         let metadata = try url.resourceValues(forKeys:[.isRegularFileKey,.isSymbolicLinkKey,.fileSizeKey,.contentModificationDateKey,.fileResourceIdentifierKey])
         guard metadata.isRegularFile == true, metadata.isSymbolicLink != true else { throw VelaError("Only regular log files are read") }
-        if ["vscdb","sqlite","sqlite3"].contains(url.pathExtension) { return try ingestCursorDatabase(url) }
-        if url.pathExtension == "json" { return try ingestCursorExport(url) }
+        if provider == "cursor", ["vscdb","sqlite","sqlite3"].contains(url.pathExtension) { return try ingestCursorDatabase(url) }
+        if provider == "cursor", url.pathExtension == "json" { return try ingestCursorExport(url) }
         let size = metadata.fileSize ?? 0
         let cursorId = stableHash(url.path); var cursor = try store.get("ingestion",cursorId) ?? [:]
         let fingerprint = metadata.fileResourceIdentifier.map { String(describing:$0) } ?? ""
         let oldOffset = intValue(cursor,"offset")
         let modified = metadata.contentModificationDate?.timeIntervalSince1970 ?? 0
+        if provider == "pi" || provider == "omp" {
+            // URL resource values may be cached, and a Double timestamp cannot
+            // retain filesystem nanoseconds. OMP edits its fixed title slot and
+            // providers can rewrite same-size records while preserving mtime.
+            let before = try piSourceVersion(url)
+            if oldOffset == before.size, string(cursor,"sourceVersion") == before.version { return false }
+            var session: JSON
+            do { session = try PiSessionReader(provider:provider,url:url,size:before.size).read() }
+            catch {
+                if (try? piSourceVersion(url).version) != before.version { changed.insert(url.path) }
+                throw error
+            }
+            guard try piSourceVersion(url).version == before.version else {
+                changed.insert(url.path); throw VelaError("Pi/OMP source changed during scan; previous snapshot retained")
+            }
+            session["id"] = stableHash(provider + ":" + url.path); session["provider"] = provider
+            session["sourcePath"] = url.path; session["project"] = session["project"] ?? ""
+            session["title"] = session["title"] ?? url.deletingPathExtension().lastPathComponent
+            finalizeUsage(provider:provider,session:&session)
+            cursor = ["id":cursorId,"offset":intValue(session,"indexedBytes"),"sourcePath":url.path,"fingerprint":fingerprint,"modified":modified,"sourceVersion":before.version]
+            _ = try store.putBatch([("session",session),("ingestion",cursor)])
+            return true
+        }
         if oldOffset == size, (cursor["modified"] as? Double) == modified, string(cursor,"fingerprint") == fingerprint { return false }
         let rotated = size < oldOffset || (!string(cursor,"fingerprint").isEmpty && string(cursor,"fingerprint") != fingerprint)
         let sessionId = stableHash(provider + ":" + url.path)
@@ -221,10 +249,18 @@ final class SessionEngine {
         if offset + data.count < size { changed.insert(url.path) }
         return true
     }
+
+    private func piSourceVersion(_ url: URL) throws -> (size: Int, version: String) {
+        var information = stat()
+        guard lstat(url.path,&information) == 0, information.st_mode & S_IFMT == S_IFREG,
+              information.st_size >= 0, information.st_size <= Int64(Int.max) else { throw VelaError("Pi/OMP source is not an available regular file") }
+        let version = "\(information.st_dev):\(information.st_ino):\(information.st_size):\(information.st_mtimespec.tv_sec):\(information.st_mtimespec.tv_nsec):\(information.st_ctimespec.tv_sec):\(information.st_ctimespec.tv_nsec)"
+        return (Int(information.st_size),version)
+    }
     private func recognizedRecord(_ row: JSON, provider: String) -> Bool {
         if provider == "codex" { return ["session_meta","turn_context","response_item","event_msg"].contains(string(row,"type")) && row["payload"] is JSON }
         if provider == "claude" { return row["message"] is JSON || ["result","error","permission_request","approval_requested"].contains(string(row,"type")) }
-        return row["content"] != nil || row["text"] != nil || row["message"] != nil
+        return provider == "cursor" && (row["content"] != nil || row["text"] != nil || row["message"] != nil)
     }
     private func textContent(_ content: Any?) -> String {
         if let text = content as? String { return text }
@@ -327,7 +363,7 @@ final class SessionEngine {
                 default: break
                 }
             }
-        } else {
+        } else if provider == "cursor" {
             let role = string(row,"role",string(row,"type","assistant"))
             addMessage(row,role:role,content:textContent(row["content"] ?? row["text"] ?? row["message"]),timestamp:timestamp,session:&session)
             if let model = row["model"] as? String { session["model"] = model }
@@ -346,7 +382,7 @@ final class SessionEngine {
             session["tokenOutput"] = (!truncated && outputs.count == entries.count ? output : nil) as Any? ?? NSNull()
             session["usageOverflow"] = entries.contains { $0["overflow"] as? Bool == true } || (!inputs.isEmpty && input == nil) || (!outputs.isEmpty && output == nil)
             session["usageCoverage"] = truncated ? "bounded usage ledger; older counters unavailable" : (session["historyTruncated"] as? Bool == true ? "indexed tail only" : "indexed assistant messages only")
-        } else {
+        } else if provider != "pi" && provider != "omp" {
             session["tokenInput"] = usageTokenCount(session["tokenInput"]) as Any? ?? NSNull()
             session["tokenOutput"] = usageTokenCount(session["tokenOutput"]) as Any? ?? NSNull()
             session["observedTokenInput"] = session["tokenInput"]

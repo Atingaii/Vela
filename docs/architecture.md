@@ -1,105 +1,102 @@
 # 当前架构
 
-当前开发分支基于 `0.1.0-preview.2`，是一个以本地数据为中心的macOS开发预览：Swift核心、独立CLI/helper、AppKit壳与系统WKWebView，附独立静态官网。它已建立观察、工程资产、审批执行和真实命令对照的基础闭环，未实现完整P0–P2产品范围。功能状态见 [status.md](status.md)，API见 [implementation/contracts.md](implementation/contracts.md)，选型依据见 [ADR 0001](adr/0001-native-macos-core.md)。
+Vela 的当前开发分支在 Swift/AppKit/WKWebView/SQLite 基础上扩展三参考产品的完整能力。原有轻量默认运行时继续保留；可选远端能力通过明确的网络与身份边界接入。当前源码尚未发布，完整范围仍未验收。功能状态见 [status](status.md)，完整范围见 [parity](parity/README.md)，初始选择见 [ADR 0001](adr/0001-native-macos-core.md)。
 
-## 进程与请求路径
+## 进程与请求
 
 ```text
-Vela.app（AppKit + WKWebView，VelaDesktop可执行文件）
-    │ 本地页面；枚举RPC方法；请求ID
+Vela.app — AppKit + 系统 WKWebView + 随包 UI
+    │ 明确 RPC allowlist / 请求 ID / 双语固定文案
     ▼
-vela rpc（独立Swift helper，JSONL stdin/stdout）
-    ├─ Foundation串行队列
-    │    Context / Foundation / Memory查询、项目、Setup、Library、Recall
-    ├─ Automation串行队列
-    │    Workflow / Approval / Improve / Lab / Run / Evidence
-    │    Scheduler：首次约10秒，之后每30秒tick
-    └─ VelaStore：SQLite WAL + FULLMUTEX + 实例锁
-           ├─ 长期Markdown资产
-           └─ 索引、版本、运行、审批、评测和恢复日志
+vela rpc — 本地 JSONL stdin/stdout
+    ├─ Foundation queue：项目、Setup、Session、Memory、Library
+    ├─ Automation queue：Workflow、Approval、Improve、Lab、Connector
+    ├─ Provider queue：用户请求的 Codex 额度读取
+    ├─ History utility queue：用户显式发起的历史回填短批次
+    ├─ Control queue：运行中 Ask/Loop 详情与取消，独立实例锁与准入额度
+    ├─ FSEvents：来源变化 → 有界读取 → Session 索引提交
+    └─ SQLite WAL + Markdown / 版本 / 运行与审批 ledger
 
-FSEvents专用队列 → 变更路径 + 文件游标 → provider解析 → Session提交
-                                                    │
-                                                    ▼
-                               {event:"data.changed"} → 原生150ms防抖
-                                                    → 页面vela:refresh
+用户显式启用 launchd → vela daemon run → 调度 tick / 持久化事件
+本地 SDK → vela rpc --no-watch --no-schedule
+MCP → 独立只读或候选贡献入口，不启动调度
+可选 Walrus SDK → 单独按需 worker → 明确的远端与签名请求
 ```
 
-两条RPC队列可并行，响应允许乱序并按ID对应，最多32个已排队请求。长自动化不占用Foundation请求队列，但二者共享数据库和helper进程，并非完全隔离的故障域。SessionEngine另有FSEvents队列和锁；初次摄取在后台开始。当前没有九个常驻worker，也没有额外Node/Chromium运行时。
+RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但共享 helper 与数据库，不是独立故障域。默认不增加常驻 Node、Chromium 或 Python 服务；可选 Walrus 包的 Node 依赖不进入默认 Mac 应用。后台服务显式安装和启动，不因打开设置、SDK 或 MCP 被启用。
 
-helper通知只表示摄取更新，未构成覆盖所有写操作的事件总线。WebKit对普通/长操作采用180秒/1,800秒超时；超时不会授权重复执行，也不等同取消核心任务。原生壳每5秒轮询全局dashboard，包括窗口可见期间，以维护跨项目计数和通知基线。通知区分本次新建的快速Run与历史导入，会话首次待审批仅采用带provider来源的源时间；聚合显式区分混合来源与跨项目范围，详见 [ADR 0002](adr/0002-native-notification-policy.md)。关闭窗口保留sidecar，退出应用终止helper；实际退出和重启行为以原生壳实现为准。
+多个 helper/daemon/CLI 可以使用同一 store，因此执行授权、事件领取和恢复依赖 SQLite CAS 与跨进程 lease，不能只用 Swift 对象锁。关闭窗口和退出应用的行为与独立 launchd 服务分开；停止服务在信号控制队列关闭启动 gate，清理拥有的进程组，等待有界状态持久化，不能提前伪报已停止。详见 [ADR 0006](adr/0006-independent-scheduling.md)。
 
-`vela mcp`是独立启动模式，使用同一核心与store，但不启动watcher或Scheduler；当前MCP请求按Foundation队列处理。CLI一次性`call`适合明确操作和集成验证。多个进程可访问同一数据库，因此审批和事件领取不能只依赖Swift实例锁。
+## 模块责任
 
-## 代码和数据责任
-
-| 边界 | 责任 |
+| 位置 | 责任与决策 |
 | --- | --- |
-| `Sources/VelaApp` | Antigravity实现的原生窗口、菜单栏、通知、登录启动、WebKit bridge和UI资源；没有通用shell/file API |
-| `Sources/VelaCLI/main.swift` | JSONL/JSON-RPC协议、两队列路由、MCP权限、设置、诊断、本地Ask入口、调度timer |
-| `Sources/VelaCore/Store.swift` | 系统sqlite3、参数化查询、轻量session summary、Markdown资产、批次补偿、CAS、事件唯一插入与Session变化计数器 |
-| `SessionEngine.swift` | Claude/Codex日志及已知Cursor记录、受限发现、FSEvents、增量偏移、截断/轮转/坏记录诊断 |
-| `FoundationService.swift` | 项目登记、harness检测、dashboard、脱敏Setup扫描、基础审计、日志Usage聚合 |
-| `Preferences.swift` / `NotificationPolicy.swift` | 共享偏好默认值、严格布尔及语言枚举校验；纯逻辑通知分类、基线、有限去重和批量合并，原生壳负责系统投递；见 [ADR 0002](adr/0002-native-notification-policy.md) 与 [ADR 0005](adr/0005-desktop-localization.md) |
-| `MemoryService.swift` | Memory生命周期与Scope、保守预算Recall、人类Search、Library文本提取、Checkpoint和中立交接 |
-| `ContextService.swift` | Guideline版本、本地规则Workflow Builder、来源绑定Signal贡献、无操作Suggestion草案、观测回归统计 |
-| `AutomationService.swift` | Workflow版本、Markdown定义校验、工具注册表、冻结审批、运行账本、健康统计、Replay和证据引用 |
-| `SafeApply.swift` | 项目根与文件身份验证、staging/fsync/rename、多文件失败补偿、Undo、跨进程锁和中断恢复 |
-| `AutomationProcess.swift` | 明确可执行文件和参数、净化环境、独立进程组、时间/输出上限与后代清理 |
-| `ImproveService.swift` | 确定性明确纠错检测、真实证据去重、代码晋升、可审阅的Markdown建议 |
-| `LabService.swift` / `AgentEvaluation.swift` | 冻结审批后的命令/Codex 对照、同提交独立验证和版本化观察计量 |
-| `ReuseService.swift` | Memory-only 晋升、项目 Hook 草案、受限 stdout 上下文和按 provider/session 关联的收据；见 [ADR 0003](adr/0003-evaluation-and-reuse-evidence.md) |
-| `SchedulerService.swift` | 有限 cron/事件触发与持久化领取 |
-| `website/dist` | 独立官网静态资源，不连接用户本地Session、Memory或Workflow数据库 |
+| `Sources/VelaApp` | 指定 Antigravity 作者实现的窗口、菜单、通知与 bridge；没有任意 shell/file/network API。固定文案只支持 zh-CN/en，正文保持原文；[ADR 0005](adr/0005-desktop-localization.md) |
+| `Sources/VelaCLI/main.swift` | JSONL/JSON-RPC、方法路由、MCP权限、一次性 call 与 daemon 生命周期；敏感 JSON 可经 `call METHOD --params-stdin` 提交，避免出现在 argv |
+| `Store.swift` | 系统 sqlite3、WAL、参数化窄查询、Markdown 人工编辑、版本、批次补偿、CAS 与持久化变化/完成事件 |
+| `SessionEngine.swift` / `PiSessionReader.swift` | Claude/Codex、已知 Cursor、版本感知 Pi/OMP；流式偏移、分支来源、文件身份、轮转与截断诊断；[ADR 0009](adr/0009-session-provider-compatibility.md) |
+| `SessionHistory*.swift` | 显式来源清单、固定epoch、分批回填、断点/分页原文与分支关系；不扩大dashboard尾窗；[ADR 0025](adr/0025-explicit-session-history.md) |
+| `FoundationService.swift` | 项目、harness发现、dashboard、脱敏 Setup、日志 token 聚合；[ADR 0004](adr/0004-nullable-observed-usage.md) |
+| `ProviderQuotaService.swift` | 显式 Codex app-server 只读额度请求；来源时间、失败/stale、多个 bucket/window，独立于日志 token；[ADR 0011](adr/0011-provider-quota-observation.md) |
+| `MemoryService.swift` / `SemanticMemory.swift` | 作用域与生命周期；词面或系统已安装语义模型的索引与召回；[ADR 0013](adr/0013-local-semantic-recall.md) |
+| `LibraryService.swift` / `LibraryIndex.swift` | 来源版本、审阅后编辑/归档/恢复/重抓、严格公开资料边界、可重建FTS5段落索引与引用；[ADR 0022](adr/0022-paragraph-library-retrieval.md) |
+| `SetupInventoryService.swift` / `SetupCatalog.swift` | 五harness公开路径、脱敏历史/差异、删除痕迹与不完整扫描；[ADR 0018](adr/0018-observed-setup-inventory.md) |
+| `MemoryArchiveService.swift` / `sdk/typescript` / `sdk/python` | 明文可移植候选归档与实际可安装本地 SDK；[ADR 0007](adr/0007-portable-memory-archives.md)、[ADR 0010](adr/0010-local-client-sdks.md) |
+| `sdk/walrus` | 固定官方依赖的可选远端 adapter，公开接口、受限 worker、冻结 profile 和身份/网络边界；[ADR 0017](adr/0017-optional-walrus-adapter.md) |
+| `MemoryIntegrationService.swift` / `sdk/openclaw` | 显式宿主agent/workspace→namespace、权限复核、受限上下文与候选捕获、操作去重；[ADR 0023](adr/0023-scoped-openclaw-memory-integration.md) |
+| `ContextService.swift` / `WorkflowContext.swift` | Guideline、证据贡献、Workflow 输入与真正送入 argv 的冻结 prompt；[ADR 0008](adr/0008-workflow-context-execution.md) |
+| `AutomationService.swift` / `WorkflowComposition.swift` | Workflow 定义/版本、逐工具审批与账本、冻结依赖图、子运行、恢复、根产物；[ADR 0015](adr/0015-workflow-composition.md) |
+| `WorkflowManagement.swift` | 逐资产验证、克隆、审阅后启停/归档/恢复、依赖和活跃运行保护；[ADR 0019](adr/0019-reviewed-workflow-management.md) |
+| `AgentLoopService.swift` | 受限多轮决策、实际只读工具结果、独立外部动作审批与取消；[ADR 0020](adr/0020-reviewed-model-tool-loops.md) |
+| `KnowledgeQueryService.swift` | 独立审批的来源问答、真实段落引用、重新核验的续问与原文隔离；[ADR 0021](adr/0021-reviewed-knowledge-answers.md) |
+| `WorkflowPlanning.swift` / `RestrictedCodexProposal.swift` | 审批后的受限结构化模型提案；问题/草案与执行分离，禁工具的协议验证；[ADR 0012](adr/0012-reviewed-workflow-planning.md) |
+| `ConnectorService.swift` / `ConnectorTransport.swift` | Keychain 代际凭据、分页目录、账户/工具 schema 绑定、冻结动作、无自动重试的 HTTPS 传输；[ADR 0016](adr/0016-reviewed-external-connectors.md) |
+| `ImproveService.swift` / `ModelImprovement.swift` | 确定性检测及显式三阶段模型证据提案、候选 hash、审阅/Apply/Undo；[ADR 0014](adr/0014-model-improvement-proposals.md) |
+| `SafeApply.swift` | 明确目标路径、inode/hash、staging/fsync/rename、journal、补偿恢复与 Undo |
+| `AutomationProcess.swift` / `RuntimeShutdown.swift` | 明确 executable/argv、净化环境、进程组、时间/输出限额、停止 gate 与后代清理 |
+| `SchedulerService.swift` / `SchedulePolicy.swift` / `ScheduleControl.swift` | cron 时区、补跑策略、去重、完成事件游标、活动运行阻重叠、需核对事件与原子确认 |
+| `WorkflowWatch.swift` / `WorkflowFileWatch.swift` | 受限只读工具轮询或单FSEvents提示；有界快照与净变化积累、首轮基线、重启/丢事件标记、逐工具审批；[ADR 0024](adr/0024-durable-read-tool-watches.md) |
+| `DaemonService.swift` / `RuntimeLease.swift` | 用户 launchd 服务的精确身份、生命周期及跨进程短期 lease |
+| `LabService.swift` / `AgentEvaluation.swift` / `ReuseService.swift` | 同提交独立 verifier、版本化指标、候选晋升、项目 Hook 和后续来源收据；[ADR 0003](adr/0003-evaluation-and-reuse-evidence.md) |
+| `Preferences.swift` / `NotificationPolicy.swift` | 严格偏好类型、通知来源/静默基线/去重；原生壳承担 OS 投递；[ADR 0002](adr/0002-native-notification-policy.md) |
+| `website/dist` | 独立静态官网，不连接用户本地数据库 |
 
-CLI默认数据目录`~/.vela`，可用`--home`或`VELA_HOME`指定。桌面stable默认`~/.vela`、canary为`~/.vela-canary`、dev为`~/.vela-dev`，并把所选目录传给helper。通道有独立bundle ID、协议和数据目录；CLI连接开发应用时也必须指向同一home，不能假定默认目录相同。
+## 本地数据与模型
 
-桌面语言以全局 Preferences 的 `locale` 为唯一持久化来源，严格支持 `zh-CN` / `en`，旧值回退中文。原生菜单与 renderer 通过成功偏好响应同步；随包显式词典只翻译固定文案，切换不重建表单或改写工程正文。该边界及迁移验收要求见 [ADR 0005](adr/0005-desktop-localization.md)。
+CLI 默认 `~/.vela`，`--home`/`VELA_HOME` 可显式选择。桌面 stable/canary/dev 采用独立应用身份和 store；CLI/MCP 必须选中实际目标，通道名称不赋予发布资格。SQLite 为 `vela.sqlite3`，WAL、NORMAL synchronous；长期资产位于 `assets/{memory,workflow,guideline,library,checkpoint}`。运行对象、审批和版本单独存储。JSON frontmatter 是当前 Markdown Workflow 支持的 YAML 子集，执行前重新读取人工更改并校验增版。
 
-数据库为`vela.sqlite3`，使用WAL与`synchronous=NORMAL`。长期资产保存在`assets/{memory,workflow,guideline,library,checkpoint}/<id>.md`，包含元信息、标题和正文；运行时对象单独存SQLite。存储层会读取人工改过的资产标题/正文；Workflow执行前再校验JSON frontmatter并增版，防止实际运行陈旧的数据库steps。当前支持JSON这一YAML子集，不是任意YAML解释器。
+Session 通用 revision 用于无变化时跳过后台分析。完成事件另有单调 sequence 与 `(project,session_id,activity)` 唯一身份，不复制会话正文；调度首次建立基线、之后分页推进持久化游标。跨连接写入同样生效，超过一页的突发完成不会由固定最近列表遗漏；private、删除、迁移与内部会话不能触发错误项目执行。
 
-SQLite trigger在Session新增、JSON变化或删除时推进单行持久化revision，其他连接的写入同样生效。后台分析先读这一水位，未变化时不加载会话历史；分析成功后才保存已处理revision，分析期间新增数据留给下次检查。
+Session 来源仍有明确保留预算，不宣称完整历史已索引。Pi 按版本解析父子链，展示最后持久化分支及覆盖范围；O_NOFOLLOW 和前后 inode/size/mtime/ctime 检查防止将并发修改的文件误记为完整版本。日志状态与实时进程状态分开；缺失用量为 null，真实 0 为 0。Codex 账户额度来自单独只读 app-server 请求，不读取 auth 文件、不调用 reset，也不从 token 推算剩余额度。
 
-## 观察、检索和知识边界
+单独的历史回填按配置来源ID启动，保存固定epoch、字节checkpoint及归一化记录；分页游标与epoch绑定，来源变化使当前回填stale，不把新旧版本拼成“完整”。原文完整性、消息解析与分支完整性分别报告。该模块正在分provider验收，未知Cursor私有格式不能用raw保存替代功能解析。
 
-首次发现最多选择60个近期文件，每文件初始读取256KiB尾窗，流式读取上限8MiB，每个Session保留最多1,000条消息；后续按FSEvents变化路径和持久化偏移摄取。完整历史回填尚未交付，dashboard明确标记`historyFullyIndexed=false`。Cursor适配是已知导出和SQLite composerData记录，不能概括成兼容全部私有版本。
+Memory 的 private、scope、Active 状态在召回前检查。语义索引仅使用系统已安装的选定语言模型，记录 provider/revision/维度/pooling 算法与源 hash，查询时排除失效向量。默认词面可离线工作，hybrid 标明回退，cosine 不是置信度。索引由用户明确触发并分页，既有模型不需要另一个向量服务。Library 默认私有；公开检索要求明确false并重新验证实际Markdown。段落FTS5索引采用Unicode/CJK词面匹配和BM25/覆盖/邻近度重排，原文与位置不变。Ask每轮单独审批、核验引用原文和来源版本；引用存在不证明回答的语义正确性。
 
-Agent状态源于日志，不是进程监视器；API区分推断与可用能力，过久的Running会降为Idle/Unknown。Usage仅聚合已索引日志token，并按会话开始日分组；缺失、非法或越界计数为null，部分观测和与完整可用总量分开，所有加法保留精确整数边界，见 [ADR 0004](adr/0004-nullable-observed-usage.md)。没有真实订阅百分比、价格、额度窗口或reset。Setup当前只检查有限内容、语法、重复和估算上下文大小，不承诺完整18项治理审计。
+本地归档排除 private/global，导入只创建目标项目 candidate，不能覆盖后续人工修改或自动激活。SDK 选择明确 store/project/executable，关闭 watcher/scheduler，未知结果不重发。可选 Walrus 是另一信任边界：客户端 SEAL 加密不隐藏给嵌入服务的明文，官方远端恢复可能要求 relayer 解密；真实账户/交易/费用的验收必须独立记录。
 
-Memory有global/project/repository/branch/worktree/task/session范围及candidate/active/superseded/archived生命周期。Recall先做范围与private过滤，再按词面相关性排序，并施加0–4,000的保守字符预算；只有Active参与。当前没有向量数据库或语义模型排序。明确安装并经 Codex 自身信任的项目 SessionStart Hook 可以提供 Active Memory；其他 Agent 没有自动接入，Hook 输出不等于已采纳。
+OpenClaw插件使用宿主明确的workspace与agent映射，工具调用参数不能改变namespace。自动捕获默认关闭；本地路径只保存原文候选，远端提取必须另外允许明文处理与预算。真实宿主turn已经验证上下文和工具生命周期，但本地合成provider不证明真实模型采纳或远端权限。
 
-Library为用户持有的资料，支持Markdown/UTF-8、HTML、可提取文字的PDF、DOCX和显式URL；导入默认private，用户private目录强制隔离。人类可显式搜索private内容，Agent路径不能读取；当前Recall仅处理Memory，尚未完成Library语义召回。URL导入是用户指定的网络读取，与默认本地存储并不矛盾。
+## 授权、执行与恢复
 
-## 权限、审批和文件修改
+Renderer 的 CSP 禁止业务网络，原生 bridge 使用精确方法白名单。系统保存归档总是由 NSSavePanel 选位置，网页不能给任意路径。MCP 只读或贡献候选，不暴露执行、激活或 Apply；私有过滤在服务端执行，工具注解本身不是授权。
 
-WebKit加载随包页面，CSP禁用业务网络，原生桥接限制方法清单；HTTPS外链交给系统浏览器。Renderer不能调用任意shell或任意filesystem方法，但可以在允许的Workflow Builder里定义受审阅的工具参数，实际副作用需进入核心审批。
+Workflow Context 将选定输入、Guideline 和 Active Memory 冻结并记录 hash；仅显式使用完整 `{{vela.prompt}}` argv 槽位的 Agent 命令接收最终文本。旧命令不静默重写。自然语言规划与 ModelImprove 使用冻结请求、明确模型/程序和受限结构化输出；提案不自动成为活动工作流或文件修改。
 
-MCP提供7个READ工具和启用`--contribute`后追加的4个贡献工具。每个请求必须给已登记的绝对项目，服务端重新检查。READ仅搜索/读取；贡献只创建Candidate Memory、Checkpoint、同项目已有Session支持的Signal或无文件操作的Suggestion草案，不接受替换对象ID，也不暴露执行、Apply/Undo或长期删除。private检查在检索和MCP返回边界执行，工具readOnly注解按真实权限清单设置。
+业务工具动作保存确切参数、项目、run、step 和 hash，经 pending→executing 的事务抢占后执行。pipeline/子输入冻结同项目依赖图，每个子动作仍独立审批。`runs.get` 纯读，显式 resume 只推进未启动结构或恢复已有确切账本；executing/needs_review 不重试。根产物可返回调用方、写 store 内 output 路径或进入产物 Inbox，子运行只返回 memory 文本。确定性组合不等同模型自主选工具循环。
 
-Workflow冻结其版本与步骤，Dry Run仅运行三个Git只读工具，shell测试、Agent调用和file.write全部stub。真实副作用先保存冻结Approval（工具、参数、项目、run、step和hash），以SQLite事务CAS从pending领取为executing，再执行原快照。两个进程竞争同一审批只有一个成功领取；executing期间中断不会自动重试。此机制避免重复领取，但不能对任意外部系统、断电或未知远端结果宣称全局exactly-once。
+Composio 固定 HTTPS v3.1 endpoint、禁 redirect、无 cookie/cache、限时间与大小。Keychain 项绑定随机 generation；轮换不改变已有审批身份。执行前重查选定账户、版本和 schema。已知凭据回显在任何持久化前拒绝，普通输出凭据字段显式脱敏。`successful:false` 或非明确拒绝的失败不能证明无部分副作用；保存 needs_review、不继续依赖步骤。单次 CAS 不等于任意外部系统全局 exactly-once。
 
-SafeApply的路径授权和文件访问使用规范项目根、纯词法目标路径、逐级目录描述符、O_NOFOLLOW及inode/device检查，拒绝越界、symlink/hardlink、缺hash或变化的基础文件。全部目标校验后staging/fsync，再逐文件rename，journal保留before/after。单个rename是原子的，多文件依靠失败回滚和启动恢复；若用户并发改动导致无法安全回滚，则保留needs_review。Undo同样验证after hash，不覆盖后续人工修改。
+SafeApply 通过规范项目根、目录描述符、O_NOFOLLOW、inode/device 和 before hash 拒绝越界/链接/陈旧写入；staging/fsync/rename 与 journal 记录 before/after。单 rename 原子，多文件依靠补偿和恢复；如果用户后来修改，保留需核对而不覆盖。Undo 同样验证 after hash。SQLite/Markdown 批次补偿与文件 journal 是不同机制，不能混称跨介质原子事务。
 
-文件事务用flock跨进程串行，恢复只在无活跃事务锁时进行；stage清理以journal里的精确文件名和内容hash为依据。SQLite+Markdown批次补偿与SafeApply journal各自负责不同写入路径，不应混称跨介质原子事务。
+执行使用 posix_spawn、明确参数、净化环境、独立进程组和限额。临时目录不是 OS 沙箱，已经批准的命令仍可能访问其他路径。Git 读取禁 hook、fsmonitor、external diff/textconv。停止控制与调度/执行队列分离，避免慢 Git 或模型请求阻止清理已启动的进程组。
 
-不在业务SQLite里保存OAuth/API密钥，当前尚未实现需要保存凭据的外部provider；未来接入应使用Keychain并记录权限接口决策。Telemetry固定关闭，无账号要求和云端会话/Memory/Workflow状态存储。用户明确批准调用已有远程模型CLI时，CLI本身可能把输入发送给对应模型商，不能据“本地执行”宣传内容绝不出机。
+## 调度、评测与交付
 
-## 自动化、Improve与Lab的当前语义
+cron 以 UTC 分钟建立身份，按 IANA 时区判断触发；skip/latest/all 与有界补跑窗口显式保存。活动 run、审批、waiting_child 和未知结果阻止同工作流重叠；未解 claim 必须显式核对。launchd 可在窗口/app 关闭后运行 helper，不会免除业务审批。usage_reset 仍未接通。
 
-执行器使用posix_spawn，明确executable/args、净化敏感环境，创建进程组并限制运行时间和输出；退出清理后代。工作目录隔离不是操作系统沙箱，已批准命令仍可能访问其他路径。Git只读路径禁用hooks、fsmonitor及external diff/textconv。
+确定性后台分析默认关闭，依据 revision 做有界扫描，不自动调用模型/Apply。显式模型 Improve 以最多三次提案请求完成提取、聚类、规划，证据 ID 和源 hash 必须可回查。Lab 保留同提交、独立 verifier、缺失/null 和计量版本；局部同分不能晋升，收据与一次比较不能证明未来纠错下降。
 
-Improve目前从真实user消息检测明确纠错语言，按稳定来源ID去重；纯代码至少3信号、2个不同Session才晋升。它生成证据Markdown草案，没有调用语义模型做完整Extraction/Clustering/Planning，不能把heuristic结果包装成模型置信度。Guideline 仍为 snapshot-only；明确的长期验证约束形成 Candidate Memory，三会话的受支持工具序列形成停用 Workflow 草案，不自动写入 AGENTS.md。
+SPM 构建 VelaCore、vela、VelaDesktop，打包脚本只装允许的应用资源，测试/源码/内部材料不入包。Developer ID、公证、签名更新、系统通知和其他机器/架构分别验收。没有这些证据时，ad-hoc 包仍是开发预览。官网与应用分发相互独立。
 
-后台证据分析默认关闭。用户开启analysisEnabled后，同一Scheduler每约30秒检查水位，只有Session或检测器版本变化才运行确定性分析，失败下次重试；关闭不消费变化，重新开启处理积累数据。该功能不检测OS空闲、不启动模型或进程、不自动应用草案。当前每次分析上限为最近500个已索引Session和10,000个Signal，因此这仍是有界扫描，不是完整历史回填或逐Session增量抽取。
-
-Lab先冻结同一Git commit、command、timeout及baseline/candidate文件内容，批准后创建独立detached worktree并执行真实命令，记录退出码、输出、runtime、diff和样本统计，再清理本次worktree。`evaluator=deterministic_command`明确其性质；memory/workflow类别标签不自动执行Recall或历史workflow。另有 `codex_agent` 模式，冻结同一 task、模型请求、候选 Memory/context、输出清单与验证文件。受保护文件变化使样本无效，独立 verifier 仅获得干净 commit 与明确输出文件。真实 JSONL 提供可用的工具/测试观察及 token；计量版本重算旧结果，未知保留 null。局部同分或退步不能晋升，单轮对照不能证明未来纠错下降。详见 [ADR 0003](adr/0003-evaluation-and-reuse-evidence.md) 和 [接口契约](implementation/agent-lab-contract.md)。
-
-Scheduler按workflow.enabled运行，支持基本本地cron、helper启动、最新Session完成、Git HEAD变化；通过schedule_event唯一ID跨进程领取事件，现有运行或审批时避免重叠。usage_reset明确unavailable，休眠期间全部事件补跑未完成。`regression.list`仅比较已记录版本的观测统计，不自动触发回归或判断变更因果。
-
-## 构建、分发与验证边界
-
-SPM生成核心库VelaCore、`vela`和`VelaDesktop`；交付主应用为`Vela.app`。`scripts/package-macos.sh`创建release构建，通过显式资源允许清单装入两个可执行文件与必要UI，剔除demo fixtures、测试、源码和内部文档，执行codesign验证、安装包审核并生成ZIP/checksum。提供Developer ID和已有Keychain公证profile时可走正式签名/公证；默认ad-hoc开发包不是已公证公开发行软件。
-
-GitHub Actions配置了Swift测试、JSONL/MCP集成与资源/安装包检查；当前本机缺XCTest SDK时使用portable runner编译真实核心与相同测试方法。配置存在不等于某次远端CI已通过，最新测试、签名、公证、官网与下载状态以交付证据为准。
-
-官网托管与应用分发独立，静态站点不引入用户数据服务，下载目标由发行流程配置。冷启动、RSS、CPU、事件延迟和10万条搜索指标是独立性能验收项目；不能从“原生Swift”或安装包体积推导全部达标。P3/P4的原生Session迁移、选模、外部SaaS工具、同步和团队资产仍属后续范围。
+CI 配置存在不等于当前代码通过。Portable fallback 编译真实同步测试但不是 XCTest；最终测试必须绑定源码与 helper 快照。冷启动、RSS、CPU、事件延迟、大历史查询、长期并发稳定性使用独立测量，不由技术栈或包体推导。更多工具循环、完整历史/插件/维护/同步权限与产品 Golden Scenario 持续在 228 项台账中关闭，不再用原 MVP 范围将它们排除。

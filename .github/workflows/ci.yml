@@ -23,12 +23,25 @@ jobs:
       - name: Repository and website checks
         run: |
           python3 scripts/check-repository.py
+          python3 scripts/check-ui-translations.py
           python3 scripts/test-release-resources.py
       - name: JSONL and MCP integration
         run: |
           python3 scripts/test-rpc.py
           python3 scripts/test-rpc-limits.py
           python3 scripts/test-restart.py
+      - name: Capability contracts and responsive controls
+        run: |
+          python3 scripts/test-provider-rpc.py
+          python3 scripts/test-session-history-rpc.py --output output/parity/ci-session-history.json
+          python3 scripts/test-quota-rpc.py
+          python3 scripts/test-memory-archives.py
+          python3 scripts/test-setup-rpc.py
+          python3 scripts/test-model-improvement-rpc.py
+          python3 scripts/verify-knowledge-query.py --output output/parity/ci-knowledge-lexical
+          python3 scripts/verify-knowledge-query.py --retrieval-mode library_fts --output output/parity/ci-knowledge-fts
+          python3 scripts/test-loop-rpc-control.py --output output/parity/ci-loop-controls.json
+          python3 scripts/test-loop-rpc-control.py --saturate --output output/parity/ci-loop-controls-saturated.json
       - name: Install isolated browser test dependencies
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.task-tmp/ci-browser
@@ -43,6 +56,20 @@ jobs:
           python3 scripts/test-ui-browser.py .task-tmp/ci-ui/fixture.json --driver playwright
           python3 scripts/test-acceptance-browser.py --fixture .task-tmp/ci-acceptance --output output/playwright/ci-acceptance
           python3 scripts/test-localization-browser.py --fixture .task-tmp/ci-localization --output output/playwright/ci-localization
+      - name: Frozen capability and engineering renderer flows
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.task-tmp/ci-browser
+        run: |
+          python3 scripts/create-ui-fixture.py .task-tmp/ci-capabilities --with-routing-project
+          cp -R Sources/VelaApp/Resources/UI .task-tmp/ci-capabilities/ui-snapshot
+          cp .build/debug/vela .task-tmp/ci-capabilities/vela-frozen
+          python3 scripts/test-parity-browser.py --fixture .task-tmp/ci-capabilities --output output/playwright/ci-capabilities
+          python3 scripts/create-ui-fixture.py .task-tmp/ci-engineering --with-routing-project
+          cp -R Sources/VelaApp/Resources/UI .task-tmp/ci-engineering/ui-snapshot
+          cp .build/debug/vela .task-tmp/ci-engineering/vela-frozen
+          python3 scripts/test-engineering-browser.py --fixture .task-tmp/ci-engineering --output output/playwright/ci-engineering
+          python3 scripts/test-ask-consumer-contracts.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-ask-consumer --output output/playwright/ci-ask-consumer
+          python3 scripts/test-library-watch-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-library-watch --output output/playwright/ci-library-watch
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -55,6 +82,21 @@ jobs:
             output/playwright/ci-acceptance/*.png
             output/playwright/ci-localization/results.json
             output/playwright/ci-localization/*.png
+            output/playwright/ci-capabilities/*.json
+            output/playwright/ci-capabilities/*.jsonl
+            output/playwright/ci-capabilities/*.png
+            output/playwright/ci-engineering/*.json
+            output/playwright/ci-engineering/*.jsonl
+            output/playwright/ci-engineering/*.png
+            output/playwright/ci-ask-consumer/*.json
+            output/playwright/ci-ask-consumer/*.jsonl
+            output/playwright/ci-ask-consumer/*.png
+            output/playwright/ci-library-watch/*.json
+            output/playwright/ci-library-watch/*.jsonl
+            output/playwright/ci-library-watch/*.png
+            output/parity/ci-session-history.json
+            output/parity/ci-loop-controls*.json
+            output/parity/ci-knowledge-*/receipt.json
           if-no-files-found: ignore
           retention-days: 14
       - name: Package and audit macOS application
@@ -65,4 +107,45 @@ jobs:
           path: |
             releases/Vela-macOS-arm64.zip
             releases/SHA256SUMS
+          retention-days: 14
+  optional-sdks:
+    name: Installed SDKs and OpenClaw integration
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build the real local helper
+        run: swift build
+      - name: Install optional package development dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefix sdk/typescript
+          npm ci --ignore-scripts --no-audit --no-fund --prefix sdk/walrus
+      - name: Verify installed packages outside their source directories
+        run: |
+          python3 scripts/test-sdks.py
+          python3 scripts/test-walrus-sdk.py
+      - name: Install the pinned isolated OpenClaw host
+        run: npm install --ignore-scripts --omit=optional --no-audit --no-fund --prefix .task-tmp/ci-openclaw openclaw@2026.9.4
+      - name: Verify real host loading, CLI and hooks with local fixtures
+        env:
+          VELA_TEST_OPENCLAW_ROOT: ${{ github.workspace }}/.task-tmp/ci-openclaw/node_modules/openclaw
+        run: python3 scripts/test-openclaw.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Vela-optional-SDK-verification
+          path: |
+            output/parity/sdk/*.json
+            output/parity/sdk/*.log
+            output/parity/walrus-sdk/package-results.json
+            output/parity/walrus-sdk/*.log
+            output/parity/openclaw/*.json
+            output/parity/openclaw/*.log
+          if-no-files-found: ignore
           retention-days: 14

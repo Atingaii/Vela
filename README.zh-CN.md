@@ -8,7 +8,7 @@
 
 让一次 Agent Session 结束，但工程经验不结束。
 
-Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Codex 和 Cursor 会话数据，将对话证据、项目 Memory、可审批的 Workflow 和真实 Codex 对照记录放在一起，配合已有 Coding Agent 使用。
+Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Codex、Cursor、Pi 和 OMP 会话数据，将对话证据、项目 Memory、可审批的 Workflow 和真实 Codex 对照记录放在一起，配合已有 Coding Agent 使用。
 
 > **当前开发分支：验收与界面重构，尚未发布。**
 >
@@ -26,7 +26,7 @@ Vela 是 macOS 上的本地工程工作台，整理受支持的 Claude Code、Co
 - **保留上下文**：保存带来源和作用域的 Memory，以保守预算召回 Active 内容，导出包含用户记录和真实 Git 快照的 Checkpoint。
 - **审阅后执行**：编辑 Markdown Workflow，Dry Run 支持的只读工具，审批冻结的动作快照，查看持久化运行记录。项目测试和 Agent 命令需要审批。
 - **比较实际结果**：检查确定性规则提取的纠错建议，预览并安全应用/撤销受支持的文件变更，在同一 Git 提交的独立 worktree 中运行 baseline/candidate 命令。
-- **管理资料**：导入文本、HTML、可提取文字的 PDF、DOCX 或明确指定的文档 URL。Library 默认私有；私有资料不进入 Agent Search 或 Recall。
+- **管理资料**：导入文本、HTML、可提取文字的 PDF、DOC/DOCX、ODT、RTF 或明确指定的文档 URL；编辑、导出、归档、恢复或显式更新来源，并保留版本。Library 默认私有；段落检索与经审批的 Ask 仅使用合格公开来源。
 
 会话、记忆与工作流可从侧栏直接进入。项目配置、日志用量、改进和 Lab 保留各自入口，搜索、审批收件箱与设置作为全局功能。快捷键可在菜单与悬停提示中发现。
 
@@ -101,14 +101,20 @@ swift run vela recall '项目约束' --project /absolute/path/to/project
 
 ## 预览版的重要边界
 
-- 初始摄取最多选择**每个 provider 60 个近期来源文件**，按需读取 **256 KB 尾窗和 32 KB 文件头**。保留的消息也有上限；尚未实现完整历史回填与原生 Session 迁移。Cursor 仅适配导出格式和部分已知 SQLite 记录。
-- **Usage 是已观察到的日志用量**。订阅额度、重置检测、定价和 `usage_reset` 触发器不可用。
-- Workflow Draft 与 Improve 使用**确定性的本地规则**，不具备通用自然语言规划或模型驱动的完整改进管线。
-- Guidelines 支持保存与运行快照，**尚未注入 Agent 提示词**。
+- 初始摄取最多选择**每个 provider 60 个近期来源文件**，按需读取 **256 KB 尾窗和 32 KB 文件头**。开发分支新增 Claude/Codex/Pi/OMP JSONL 的显式历史回填、断点恢复与原始记录分页，完整记录不直接装入 dashboard。Cursor 历史、历史界面和原生 Session 迁移仍需继续实现，详见[历史接口合同](docs/implementation/session-history-contract.md)。
+- **Usage 是已观察到的日志用量**。开发分支另有通过只读 app-server 协议取得的真实 Codex 账户额度；其他 provider 额度、定价和 `usage_reset` 仍未完成，不能从日志 token 推算。
+- 开发分支新增**经审批的模型提案、三阶段 Improve 和有界多轮工具循环**。Core 执行选定的只读工具，将实际结果送入后续模型轮次；外部动作另行审批。工具目录、调用/时间上限与尚未实测的外部集成都有明确边界。
+- 开发分支会将选定 Guideline、Active Memory 和实际输入**交给显式配置的 Agent 提示词参数**。旧 raw argv 保留；已提供上下文不等于模型已遵守。
 - Lab 支持命令对照及明确的 **Codex Agent 模式**：冻结任务和模型请求、隔离 worktree、保护验证文件、另建干净目录验证。晋升审阅至少需要两边各三次完整样本；同分、缺失指标或退步不能晋升。首轮六次真实任务为同分，[公开证据](docs/evidence/2026-09-13-agent-lab.json)保留计分器缺陷及更正记录；未来纠错率下降仍未测量。
-- 定时触发只在应用/helper 运行期间工作，没有独立系统守护进程，也不会在休眠或关机后补跑错过的任务。
+- 开发分支有**显式管理的 launchd 用户服务**、时区 cron 和有界 skip/latest/all 补跑；待审批及未知结果阻止同工作流重叠。这些新增行为不在公开 preview.2 包中。
 
-完整边界见[功能状态](docs/status.md)，后续目标见[需求与路线图](docs/requirements.md)。
+完整边界见[功能状态](docs/status.md)和[228 项参考能力台账](docs/parity/README.md)。目标是完整覆盖，当前尚未宣称达成。本地语义召回、可移植归档、可安装 SDK、工作流组合及可选外部后端也在本分支接通和验证。
+
+## 可选集成
+
+开发仓库提供可安装的 [TypeScript](sdk/typescript) 和 [Python](sdk/python) SDK，使用明确选择的本地 helper 与 store。[Walrus 适配器](sdk/walrus)使用固定版本官方 MemWal SDK；[OpenClaw 插件](sdk/openclaw)通过公开宿主接口提供按 agent 隔离的召回与候选捕获。包通过 `npm pack` 或 Python wheel 构建，尚未发布到包注册服务；这些 Node/Python 依赖不进入默认 Mac 程序。
+
+远端账户所有权、加密写入/恢复和委托撤销仍需独立账户级验证。本地安装测试、宿主 hook 执行和公开服务健康不能代替远端写成功，详见[远端合同](docs/implementation/walrus-remote-contract.md)。
 
 ## 验证源码
 
@@ -133,7 +139,7 @@ Portable runner 将真实核心与原有同步测试方法一起编译，仅提�
 
 ## 数据与架构
 
-会话索引和运行记录保存在本地 SQLite WAL。Memory、Workflow、Guideline、Library 和 Checkpoint 同时保存为数据目录 `assets/` 下的可读 Markdown。Vela 无需账户，没有托管 Memory 服务，也不启用遥测。
+会话索引和运行记录保存在本地 SQLite WAL。Memory、Workflow、Guideline、Library 和 Checkpoint 同时保存为数据目录 `assets/` 下的可读 Markdown。本地 Vela 无需云账户，不启用遥测。可选 Composio/Walrus 接入各有明确的账户、网络与凭据边界，不会因打开应用而启用。
 
 明确导入 URL 会发起网络请求；获批的 Agent 命令可能向对应 provider 发送指定上下文。Vela 不会自动把会话历史提交给外部模型。
 

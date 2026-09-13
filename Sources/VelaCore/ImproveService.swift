@@ -220,6 +220,7 @@ extension AutomationService {
     func applySuggestion(_ params: JSON) throws -> JSON {
         var suggestion = try object("suggestion",requireString(params,"id"))
         guard ["draft","needs_review","undone"].contains(string(suggestion,"state")) else { throw VelaError("Suggestion is not available to apply") }
+        try validateModelSuggestionApply(params,suggestion:suggestion)
         let root = try project(requireString(suggestion,"project"))
         let operations = suggestion["operations"] as? [JSON] ?? []
         try validateSuggestionTargets(operations,project:root)

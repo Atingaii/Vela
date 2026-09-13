@@ -147,3 +147,9 @@ Raw CLI logs, private reference material, absolute workstation paths and tempora
 ## Previous preview cleanup
 
 Removed the six disposable implementation briefs, the isolated UI validation build and the logs created by these CLI invocations. Removed task-specific temporary permission entries and workspace trust after implementation, while preserving pre-existing settings and history. UI source files and website staging remain available for packaging and publication.
+
+## Full-capability expansion UI, 13 September 2026
+
+The expanding desktop interfaces continue to use actual Antigravity CLI 1.2.2 with `--model gemini-3.8-flash-high --effort high --mode accept-edits --prompt-interactive`. Conversation `c04468b5-9bb3-4803-afbb-c9a748de7112` authored the new workflow, model, quota, setup, semantic/archive, Library and Watch interfaces and exact native bridge entries. Supervisors implemented the independent Core contracts and synthetic real-helper browser tests, reviewed the resulting UI, and supplied corrections. They did not author frontend or native interface code.
+
+Independent frozen consumer tests exposed missing Ask approval inputs, stale same-modal history responses replacing a New-question draft, and lost follow-up scope. Earlier UI runs and these failures are retained separately; they are not final-checkout acceptance. The long author conversation was interrupted during a remaining localization edit and exited with its resume ID recorded. Remaining corrections continue in bounded conversations using the same required model/effort, preserving all completed source changes. Final UI hashes, strict browser and native results will be recorded after those corrections.

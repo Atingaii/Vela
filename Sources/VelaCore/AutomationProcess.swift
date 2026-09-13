@@ -19,7 +19,8 @@ struct AutomationProcessResult {
     var durationMs: Int
     var timedOut: Bool
     var truncated: Bool
-    var json: JSON { ["exitCode": Int(exitCode), "output": output, "durationMs": durationMs, "timedOut": timedOut, "truncated": truncated] }
+    var terminationSignal: Int32 = 0
+    var json: JSON { ["exitCode": Int(exitCode), "output": output, "durationMs": durationMs, "timedOut": timedOut, "truncated": truncated, "terminationSignal": Int(terminationSignal)] }
 }
 
 enum AutomationProcess {
@@ -83,10 +84,21 @@ enum AutomationProcess {
         let args = ([binary] + command.dropFirst()).map { strdup($0) } + [nil]
         let env = environment.keys.sorted().map { strdup($0 + "=" + environment[$0]!) } + [nil]
         defer { args.forEach { free($0) }; env.forEach { free($0) } }
-        var pid: pid_t = 0
-        let spawnError = args.withUnsafeBufferPointer { argv in
-            env.withUnsafeBufferPointer { envp in
-                posix_spawn(&pid,binary,&actions,&attributes,UnsafeMutablePointer(mutating:argv.baseAddress!),UnsafeMutablePointer(mutating:envp.baseAddress!))
+        let spawned: (Int32,pid_t)
+        do {
+            spawned = try VelaRuntimeShutdown.spawn { pid in
+                args.withUnsafeBufferPointer { argv in
+                    env.withUnsafeBufferPointer { envp in
+                        posix_spawn(&pid,binary,&actions,&attributes,UnsafeMutablePointer(mutating:argv.baseAddress!),UnsafeMutablePointer(mutating:envp.baseAddress!))
+                    }
+                }
+            }
+        } catch { Darwin.close(descriptors[1]); throw error }
+        let (spawnError,pid) = spawned
+        defer {
+            if spawnError == 0 {
+                if VelaRuntimeShutdown.isRequested { _ = kill(-pid,SIGKILL) }
+                VelaRuntimeShutdown.finished(pid)
             }
         }
         Darwin.close(descriptors[1])
@@ -109,8 +121,8 @@ enum AutomationProcess {
             let result = waitpid(pid,&status,WNOHANG)
             if result == pid { break }
             if result < 0 && errno != EINTR { kill(-pid,SIGKILL); throw VelaError("Could not read command exit status") }
-            if Date() >= deadline {
-                timedOut = true
+            if Date() >= deadline || VelaRuntimeShutdown.isRequested {
+                timedOut = Date() >= deadline
                 kill(-pid,SIGTERM)
                 let grace = Date().addingTimeInterval(0.3)
                 while Date() < grace { drain(); Thread.sleep(forTimeInterval:0.01) }
@@ -125,7 +137,7 @@ enum AutomationProcess {
         drain()
         let signal = status & 0x7f
         let exitCode: Int32 = timedOut ? 124 : signal == 0 ? (status >> 8) & 0xff : 128 + signal
-        return AutomationProcessResult(exitCode:exitCode,output:capture.text,durationMs:Int(Date().timeIntervalSince(started)*1000),timedOut:timedOut,truncated:capture.truncated)
+        return AutomationProcessResult(exitCode:exitCode,output:capture.text,durationMs:Int(Date().timeIntervalSince(started)*1000),timedOut:timedOut,truncated:capture.truncated,terminationSignal:signal)
     }
 
     static func git(_ arguments: [String], cwd: String, timeout: Double = 30) throws -> AutomationProcessResult {

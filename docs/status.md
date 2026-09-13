@@ -1,45 +1,43 @@
 # 功能状态与限制
 
-**当前开发分支：基于 0.1.0-preview.2 的未发布验收重构。完整产品 No-Go。** 发布下载仍是 preview.2，以下区分当前源码与已发布包。本文描述当前实现与验证边界，不代表[完整需求矩阵](requirements.md)已经完成，也不是稳定版本承诺。
+**当前开发分支：基于 0.1.0-preview.2 的未发布完整能力扩展。产品总验收仍为 No-Go。** 下载仍是 [preview.2](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2)，不包含下面新增的开发分支功能。源码：[Atingaii/Vela](https://github.com/Atingaii/Vela)；[公开官网](https://vela-engineering.zzzsssaa.chatgpt.site)。
 
-源码仓库：[Atingaii/Vela](https://github.com/Atingaii/Vela)；预览下载：[版本发布页](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2)；官网：[Vela](https://vela-engineering.zzzsssaa.chatgpt.site)。官网当前使用托管子域名。
+目标已扩展为覆盖 Blume、Walrus Memory/MemWal、px0 的全部已交付能力，见[228 项逐项台账](parity/README.md)。旧版最小范围不是删减目标的依据。实现、隔离测试、真实提供方、桌面接通、发布验收分别记录；测试总数不能抵消缺失功能。
 
-## 当前实现
+## 当前源码
 
-| 模块 | 当前可用内容 | 预览边界 |
+| 模块 | 已实现行为 | 尚需完成或验证的边界 |
 | --- | --- | --- |
-| macOS 客户端 | AppKit + 系统 WKWebView，独立 `vela` helper；按任务分组的导航、独立工程记忆入口、全局搜索、审批 Inbox、菜单栏与设置入口 | 首发 Apple Silicon、macOS 13+。GUI SwiftPM 产品名为 `VelaDesktop`，安装包为 `Vela.app`；不承诺 Intel、Windows 或 Linux 兼容性 |
-| 界面语言 | 开发版提供简体中文与 English，可从设置和 Vela 原生菜单选择；语言偏好本地持久化，固定界面文案原地切换 | 项目正文、路径、命令和 Agent 输出保留原文。此功能尚未包含在 preview.2 下载中 |
-| Session | Claude Code、Codex JSONL 摄取，支持的消息/工具事件和来源；FSEvents、偏移游标、半行与轮转处理 | 初始每个 provider 最多选择 60 个近期文件，按需读取 256 KB 尾窗及 32 KB 文件头；转录最多保留 1,000 条消息且文本总量最多 1 MB。没有完整历史回填、完整旧会话分页或原生 Session Transfer |
-| Cursor | JSON/JSONL 导出、部分已知 `composerData` SQLite 记录的只读导入 | 私有 schema 随版本变化；拆分 bubble 记录等未适配格式需要导出。支持导入不等于覆盖 Cursor 全部内部数据库 |
-| 运行状态 | 支持明确终止事件；根据最近日志活动推断 Running/Idle/Needs Approval，保留推断来源 | 没有独立进程存活证明。导出记录与历史最后活动不能作为实时运行状态；未知保持 Unknown |
-| Setup | 明确项目及已知全局配置扫描；指令、Rules、Skills、Hooks/MCP 配置清单；敏感字段脱敏 | 审计检查包括格式、重复内容与保守上下文大小，不是完整语义冲突、Skill 有效性或 MCP 漂移分析；不会自动修复用户配置 |
-| Memory / Recall | 九类 Memory、七类作用域、Candidate → Active → Superseded → Archived 生命周期；五类过滤、精确来源消息导航与手动编辑 Markdown；Active-only Recall | 使用确定性文本匹配与作用域筛选，未实现语义检索或模型判断。Token 为保守估算；Recall 上限 4,000，来源不明不会自动补造 |
-| Checkpoint | Goal、Completed、Pending、Tests、Next Actions 等用户记录，加上实际读取的 Git branch/commit/status；中立 Markdown 交接文件 | 用户填写的完成事项与测试描述不等于执行验证；导出不会启动 Agent，也不改写 provider 私有历史 |
-| Guidelines | 项目/全局 Guideline 保存、版本记录，以及 Workflow Run 中冻结的关联快照 | 当前模式是 `snapshot_only_not_injected`：尚未将 Guideline 注入 Agent 提示词，不能据此声称它影响了结果 |
-| Library | UTF-8 文本、HTML、可提取文字的 PDF、DOCX，以及显式 HTTP/HTTPS 文档 URL；保留来源 | 导入与提取有 2 MB 上限；PDF 不做 OCR，URL 不递归抓取。默认 private；用户资料目录中的 `private/`、`.private/` 强制作为私有资料，排除于 Agent 检索 |
-| Search / Ask | 本地证据检索；Ask 返回匹配对象，标明未调用外部模型 | Ask 是检索入口，不是基于模型的综合问答；没有外部知识补全 |
-| MCP | 默认只读；显式贡献模式可创建候选 Memory、Checkpoint、绑定实际会话的 Signal 和 Suggestion Draft | 请求必须明确指定已登记项目。不能通过 MCP 激活已有 Memory、Apply、执行 Workflow 或任意写项目；私有资料在服务端过滤 |
-| Workflow | Markdown 定义和版本、真实只读工具、Dry Run、冻结审批、运行记录、健康统计和重放入口 | 当前工具集有限，未知外部工具明确拒绝。项目脚本、文件写入和 Agent 命令需要审批；自然语言 Draft 是基于关键词与项目现有脚本的确定性生成，不是通用规划器 |
-| Improve | 从真实会话提取确定性纠错信号，去重聚类、生成有证据的建议；Diff 预览、hash 校验、Apply/Undo 与恢复记录 | 不是模型驱动的多阶段分析/规划管线。建议需要审阅；不会因为出现信号就宣称改进有效，也不保证覆盖需求矩阵的全部信号类型 |
-| 后台证据分析 | 默认关闭；开启后按持久化会话变更计数触发确定性分析，成功才记录处理水位，失败可重试 | 与 RPC helper 同生命周期；没有 OS 空闲检测；当前分析窗口最多 500 条会话，不保证完整历史回填；只生成建议，不自动 Apply |
-| 审批与写入 | 冻结动作参数、持久化 Inbox、跨进程原子状态抢占；受支持文件写入有路径与 hash 校验，Apply/Undo 记录前后状态 | 原子抢占避免同一待审批动作被两个进程同时启动，不代表任意外部命令都具备端到端 exactly-once 语义。崩溃后的外部副作用仍需结合记录核对 |
-| Scheduler | 已实现的 cron、启动、会话完成及 Git 事件使用持久化标识去重 | 只在应用或 RPC helper 运行时检查；没有独立系统 daemon，休眠/关机错过的时机不补跑。`usage_reset` 不可用，不制造重置事件 |
-| Usage | 从已索引日志汇总 provider/project/session token，处理支持的累计/重复事件；界面区分缺失、已观测子集和真实零值 | 不是账户订阅额度。价格、配额、重置时间及分析精确成本不可用；历史未完整索引。按日统计归属会话开始日期，不是逐事件消耗的完整重建 |
-| Lab | 同提交命令对照及 Codex Agent 对照；冻结同一任务/模型请求、候选上下文、验证/输出清单，审批后运行；独立干净目录验证 | 首次真实六次任务均成功且测试观察同分，判定 Inconclusive，晋升拒绝。计分缺陷与更正保留；没有未来纠错率改善证据 |
-| Reuse | Memory-only 受测候选显式晋升；项目 SessionStart Hook 提案、SafeApply/Undo、已安装无变更预览、已应用事务 Diff、Active Memory 收据与后续来源关联 | 已应用预览展示提交时快照，Undo 仍校验当前文件 hash。需在 Codex `/hooks` 信任确切定义；没有自动改 provider 信任。收据不证明 Agent 采纳；完整真实下一会话链尚未通过 |
-| 通知 | 审批、完成和错误分类开关；首次历史加载静默、重复事件去重、三个原创短提示音 | 默认关闭；使用 macOS 通知权限与声音策略。推断事件保留标签；应用/helper 停止期间不承诺通知投递 |
-| 官方网站 | 静态 HTML/CSS/JavaScript 首页、场景目录、四个独立场景指南、附来源的产品对比、文档、发行和隐私页面；公开部署 | 网站展示不构成实现或测试证据；下载与签名状态以具体发布记录为准 |
+| 桌面与语言 | AppKit、系统 WKWebView、独立 Swift helper；分组会话、记忆、工作流、审批与设置；简体中文/English 持久化切换 | 当前交付平台 Apple Silicon、macOS 13+。新增能力的界面正在指定 Antigravity CLI 中接通，不能沿用旧 UI 结果证明新入口可用 |
+| 会话观察 | Claude/Codex 增量日志、部分 Cursor 导出/SQLite、Pi v1/v2/v3 分支记录与 OMP 元数据；有界流式读取、来源版本、身份/轮转检查 | 完整历史回填及所有私有 Cursor 格式仍未完成。日志推断不等于进程存活证明；Pi 最新持久化分支不冒充当前活跃分支 |
+| 显式历史回填 | Claude/Codex/Pi/OMP JSONL来源清单、固定epoch、分批读取与重启续传、稳定分页和完整原文分块；解析/原文/分支分别计量 | 已完成16项新Core与原Provider16项组合验证；Cursor、Todo/子代理产品视图及桌面操作仍需继续接通，不能把未解析原文计为全部功能 |
+| Setup | 五harness公开位置目录、项目/全局配置扫描、脱敏版本历史/差异、来源关系、删除/重新出现痕迹与不完整扫描保护 | Core与隔离CLI已验；原生入口接通中。TOML/YAML无安全解析器时只给元数据/hash，不提供原文；实际已加载配置仍未知，不执行被扫描的Hook/MCP |
+| Memory | 九类内容、七类作用域、Candidate/Active/Superseded/Archived、来源消息、Markdown 人工编辑；Active-only Recall | 完整提取、合并、遗忘、团队策略与所有插件入口仍按台账验收 |
+| 语义 Recall | 系统已安装 NaturalLanguage 模型、本地分页索引、lexical/semantic/hybrid、版本/维度/sourceHash 校验、明确语言与不可用状态 | 默认仍可离线词面检索，不自动下载。真实合成中英文语义召回与界面取消/索引流程已测，不能据此宣称真实长期检索质量达标；Library向量后端仍需实现 |
+| Library与Ask | 资料版本、审阅后编辑/归档/恢复/导出/重抓；FTS5段落/原文位置与本地重排；独立审批问答与重新核验的续问 | 真实Codex一次来源问答已通过，FTS路径有独立Core/CLI验证。缺标记/错误privacy/私有来源与消失资产反例已修；引用存在不证明语义正确。YouTube、vault与完整批量来源管线仍需接通 |
+| 归档与 SDK | 有界 JSON 导出/校验/候选导入、跨项目身份与幂等；可安装 TypeScript/Python 本地 SDK，含语义接口 | 归档为明文，排除 private/global。SDK 安装产物已隔离验收；本地归档不等于加密跨设备同步 |
+| 可选 Walrus 后端 | 独立TypeScript包、固定官方SDK、显式profile/隔离worker、owner交易准备/签名核验、端侧manifest与原文恢复/候选构造 | 真实安装包、公开兼容性与testnet只读交易模拟已通过；官方faucet限流，测试地址无gas。真实加密写入/恢复与owner/delegate链上提交仍待验证；模拟不是链上成功，不默认给桌面增加Node |
+| OpenClaw集成 | 可选独立插件、宿主agent/workspace映射、namespace召回、候选捕获、注入框与持久操作日志 | 真实隔离宿主加载/CLI/hook与完整会话通过；模型响应使用本地合成provider。两条新记忆均为候选，不等于真实模型采纳或远端加密写入。自动捕获默认关闭，远端提取另需明确明文接收与预算 |
+| Checkpoint / Reuse | 用户工程记录及真实 Git 快照；中立交接；项目 Codex SessionStart Hook 的预览、Apply/Undo 与提供上下文收据 | 原生 Session Transfer、更多官方 lifecycle hooks 和完整真实下一会话闭环仍需验证。收据证明已提供，不证明模型遵守 |
+| Workflow Context | 已选择 Guideline、Active Memory、只读 Git/Library/stdin/literal 输入，冻结来源/hash；显式 `{{vela.prompt}}` 参数实际交给 Agent | 旧 raw argv 不被静默改写。记录 prompt 消费路径不等于证明模型采纳约束 |
+| 自然语言规划 | 明确选择 Codex 程序/模型/effort，冻结请求，经审批生成问题或默认停用草案，再显式保存 | 真实提供方已产出有效草案；规划工具目录仍需拓展，与自主多轮工具执行是不同能力 |
+| 执行与组合 | 工具步骤、Markdown版本、Dry Run、逐工具审批；冻结pipeline/子工作流、条件透传、子输入、根产物文件/Inbox；审阅后克隆/启停/归档/恢复 | 四项独立恢复/并发反例已修后通过，历史证据保留。完整双版本Replay与更多工具仍按台账推进 |
+| 模型工具循环 | 有界多轮结构化决策、真实只读工具结果回传、外部动作独立排队审批、响应式查询/取消 | 真实Codex两轮+一次Git读取通过；同RPC普通/饱和队列取消通过。工具覆盖、全部账户、严格成本预算等仍未完成，初始循环审批不授权外部写 |
+| 外部工具 | 可选 Composio v3.1：Keychain 凭据、分页发现、固定版本 schema/账户、审批后执行、连接/撤销等动作、`connector.call` 步骤 | 无凭据真实 HTTPS 拒绝路径已测；尚无真实测试账户正向执行证据。结果不确定不重试；失败回包不证明无部分副作用，已知凭据回显在入库前拒绝 |
+| Improve | 保留确定性检测；新增三阶段模型提取/聚类/规划，最多三次审批内调用、原消息证据、五类候选载体、带 hash 的审阅与 Apply/Undo | 真实提供方三阶段协议与候选链通过，候选未自动应用。尚不能证明真实项目纠错率改善或所有治理诊断覆盖 |
+| 调度与后台服务 | 用户显式管理 launchd 用户服务；跨进程 lease、时区/DST、skip/latest/all 有界补跑、去重、持久化完成事件游标、不重叠、需核对状态 | 真实 launchd 安装/启动/崩溃拉起/停止/移除已在隔离环境通过。`usage_reset` 尚未接通；不声称任意外部副作用 exactly-once |
+| Watch触发 | 本地只读工具轮询、FSEvents文件观察、首轮基线、按key净变化/阈值积累、重启去重；文件字节SHA256与空闲不重读 | 43项定点与两次真实daemon路径通过；事件丢失/重启无法恢复中间变化时明确标记。私有撤销覆盖待发变更before/after；外部只读connector与最终原生界面另验 |
+| Usage | 已索引日志 token 与实际 Codex 账户额度分开；通过只读 app-server 请求观测多 bucket/window、真实零、缺失与 stale | 真实 Codex 额度读取通过；Claude 账户额度、定价、精确成本和所有 reset trigger 仍未验收，不从日志 token 推算账户余额 |
+| Lab | 同提交命令或 Codex 对照、冻结任务/模型、独立干净 verifier、证据与 Memory 晋升门槛 | 原六次真实任务同分、Inconclusive，拒绝晋升。纵向纠错改善仍未证明，旧计分缺陷与更正保留 |
+| 通知与官网 | 可选原生分类通知及三个短提示音；静态公开官网及独立比较/场景/文档/发行页面 | 当前 ad-hoc 应用被 macOS 拒绝通知授权，系统横幅及点击回流未验收。官网展示不构成功能证据 |
 
-## 本地验证状态
+## 验证记录如何阅读
 
-本轮语言切换的最终版本通过 **24/24 组真实 helper 界面检查**，包括旧有 18 组和新增 6 组双语验收；词典、草稿、原文、焦点、选区及存量会话辅助文字切换均已验证。最终开发包为 **1,453,375 bytes**，包含新的翻译资源，仍未公证且未作为新 release 发布。[本轮记录](verification.md#website-expansion-and-desktop-localization--13-september-2026)区分官网、核心、界面、原生与打包证据。
+本轮新增切片的隔离 Core、编译后 CLI、安装后的 SDK 和真实提供方结果见[持续验证记录](verification.md#full-capability-expansion--13-september-2026)及三个产品台账。不同验证使用不同明确 helper 快照；并行开发中的局部通过不是最终 checkout 全量通过。当前未给新增代码签署完整产品或新发布包验收。
 
-当前验收分支已有 **99/99 个真实核心测试方法通过** portable runner，其中包含四项新增语言偏好测试，覆盖 SQLite、文件系统、增量日志、FSEvents、项目与私有数据边界、文档提取、Git、审批竞争、Workflow、Apply/Undo、配对命令执行及通知分类、静默基线、去重、偏好校验。新增两项回归验证已安装 Hook 的只读预览及已应用事务预览，空 Apply 与冲突 Undo 仍被拒绝。Portable runner 编译真实核心和原同步测试方法，只提供小型断言兼容层，**不是 XCTest**。
+先前提交 `ea8fbd257f813c604a93e070d5f98a6337829d81` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34715619455)为历史基线：99 项 XCTest、24 组 renderer 检查。先前 1,453,375 bytes 开发包也只是该阶段产物，不能作为新增能力的包体或界面验证结果。更早的原生、Lab、私有检索、通知拒绝与失败复现保留于 verification 文档，不以新测试覆盖删除历史问题。
 
-本机为 Command Line Tools 环境，`swift build` 可用；缺少 XCTest 模块，因此不能将本机验证写成“`swift test` 已通过”。完整 Xcode 环境使用 `swift test`。此前验收阶段提交 `91d34e2` 的 [macOS CI](https://github.com/Atingaii/Vela/actions/runs/34709059008)已实际通过 **95 项 XCTest、18 组 renderer 检查**、RPC/MCP、输入边界、重启恢复与打包；[公开记录](evidence/2026-09-13-ci-final.json)保留精确提交和 job。较早提交 `8929967` 的 93 项结果只作为历史检查点。
-
-JSONL RPC/MCP 黑盒检查已通过，使用编译后的 CLI 和一次性数据目录，验证持久化设置、私有检索、候选贡献与 Dry Run 等边界。相关复验入口：
+本机为 Command Line Tools 环境，`swift build` 可用但缺 XCTest；`scripts/test-portable.py` 编译真实 Core 与原同步测试方法，使用小型断言兼容层，**不是 XCTest**。完整 Xcode/CI 使用 `swift test`。
 
 ```sh
 swift build
@@ -48,24 +46,16 @@ python3 scripts/test-rpc.py
 python3 scripts/check-repository.py
 ```
 
-新增测试覆盖 Improve 明确纠错/重复程序及近似负例、Library 身份和符号链接、Agent 独立 verifier 防篡改、旧结果重算与拒绝晋升、跨 provider Recall 关联、缺失用量和整数溢出。六次真实 Codex 比较单独记录在[公开证据](evidence/2026-09-13-agent-lab.json)，没有用受控协议 fixture 代替模型实验。
+安装包、OS 控件、真实外部账户、长时间稳定性与性能分别验收。有限测试不能证明绝对零缺陷，也不能从 Swift 或包体小推导延迟/RSS/CPU全部达标。
 
-新增[六组 renderer→真实 CLI 验收](verification.md#six-renderer-to-cli-acceptance-checks)在同一次全新隔离 fixture 中 **6/6 通过**：Memory 生命周期、精确来源、跨项目同 provider ID 导航、源 Suggestion→Lab 冻结待审批、Reuse 预览/Apply/重复预览/Undo、用量缺失→真实零。实际修复了空操作预览报错与已应用记录无法重开预览两项缺陷；56 次 Core RPC 无错误，UI 文件前后哈希一致。最后一行 Reuse 文案调整后已全量再验，最终本地记录为 `output/playwright/acceptance-flow-final/results.json`，UI `app.js` hash 为 `01104e7f…ee3af0b`；之前失败与中间通过记录保留。该套件没有执行真实 Agent、Hook 或 OS 通知，不代表整条 Golden Scenario 完成；原生、开发包和 CI 证据见下方记录。
+## 数据与发布边界
 
-最终原生开发 wrapper 已通过 LaunchServices 启动，在 1250 × 800 和 900 × 623 窗口检查分栏、抽屉及 Escape。原生 Reuse 的预览不写、Apply 精确写入、重开事务 Diff、Undo 还原均经独立 CLI 确认。[UI 证据](evidence/2026-09-13-ui.json)和[开发包静态审查](evidence/2026-09-13-package.json)分别记录验证范围；1,370,679 bytes 的本地 ZIP 未作为新 release 发布。
-
-这些结果验证的是相应 fixture 和测试边界，不代表任意 provider 版本、任意项目或全部需求已经覆盖。性能目标与实际测量分开记录；小规模本地样本不能外推为大历史、并发任务或长期稳定性保证。
-
-## 发布与数据边界
-
-- 本预览开发包使用 **ad-hoc 签名**；没有 Developer ID 签名，**尚未 Apple notarized**。未实现经过完整验证的签名自动更新通道。
-- `dev`、`canary`、`stable` 通道用于隔离应用身份和数据目录；选择 `stable` 字符串不会自动获得稳定性、签名或公证。
-- 索引与记录存于 SQLite WAL；长期资产位于所选 Vela store 的 `assets/memory`、`assets/workflow`、`assets/guideline`、`assets/library`、`assets/checkpoint`，采用可读 Markdown。
-- 本地优先不意味着完全无网络：明确导入 URL 会请求该文档；用户批准执行的远程 Coding Agent 可能向其 provider 发送指定上下文。Vela 不自动将会话历史提交给模型。
-- 预览格式尚未声明长期兼容；重要资产需自行备份。测试、内部材料和一次性缓存不属于安装包交付内容。
-
-完整历史回填、纵向 Agent 效果验证、Guideline 实际注入、原生 Session Transfer、真实配额接入、成熟后台调度、外部 SaaS 工具、加密同步与团队能力仍是后续工作。请使用[需求矩阵](requirements.md)讨论范围，避免将本预览版视为 P0–P2 或全部路线图已经完成。
+- 当前公开预览与本地开发包使用 ad-hoc 签名，没有 Developer ID 签名、公证或已验证的签名更新通道。通道字符串不会改变这些事实。
+- 默认数据在所选 store 的 SQLite WAL 与 `assets/{memory,workflow,guideline,library,checkpoint}` Markdown 中；本地使用不要求云账户。
+- 可选连接器凭据进入 macOS Keychain，不进入 SQLite、归档和日志。明确联网的 URL 导入、模型执行、Composio 或 Walrus 操作各有独立目的和用户控制；不会自动将全部会话上传。
+- Walrus 的客户端加密不隐藏发往嵌入服务的明文；官方远端恢复可能要求 relayer 解密/重建索引，必须单独选择，不能将其描述为全端侧隐私。
+- 预览格式的长期兼容、迁移、备份与更新还需完整验收；保留用户资产与原始来源，测试及一次性资料不进入应用包。
 
 ## Notification acceptance boundary
 
-The preview implements optional native notification policy and routing, with three working Settings sound previews. On the build host, macOS refused notification authorization for the ad-hoc application; OS banner delivery and click-through remain unverified. Notification preferences stay off when authorization fails. See [verification](verification.md#explicit-environment-limitation).
+The ad-hoc application was denied notification authorization on the validation host. Sound previews work, but OS banner delivery and click-through remain unverified. This is a release gate, not a feature that can be marked complete by a renderer test.

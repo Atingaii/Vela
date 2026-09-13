@@ -1,15 +1,20 @@
 import Foundation
-import PDFKit
 
 final class MemoryService {
     let store: VelaStore
     init(store: VelaStore) { self.store = store }
-    private let scopes: Set<String> = ["global","project","repository","branch","worktree","task","session"]
+    private let scopes: Set<String> = ["global","project","repository","branch","worktree","task","session","namespace"]
     private let types: Set<String> = ["decision","constraint","preference","failure","fact","workflow knowledge","observation","hypothesis","checkpoint"]
     private let states: Set<String> = ["candidate","active","superseded","archived"]
 
     func handle(_ method: String, _ params: JSON) throws -> Any? {
         switch method {
+        case "memory.integration.capture", "memory.integration.recall", "memory.integration.stats":
+            return try MemoryIntegrationService(store:store).handle(method,params)
+        case "memory.archive.export", "memory.archive.validate", "memory.archive.import", "memory.archive.fromWalrusRecords":
+            return try MemoryArchiveService(store:store).handle(method,params)
+        case "memory.semantic.index", "memory.semantic.status":
+            return try SemanticMemory(store:store).handle(method,params)
         case "memory.list": return try store.list("memory",project: checkedProject(params))
         case "memory.save":
             let existing = try (params["id"] as? String).flatMap { try store.get("memory",$0) }
@@ -28,6 +33,9 @@ final class MemoryService {
             case "worktree": object["worktree"] = canonicalProject(try requireString(object,"worktree"))
             case "task": _ = try requireString(object,"task")
             case "session": _ = try requireString(object,"sourceSession")
+            case "namespace":
+                let namespace = try requireString(object,"namespace")
+                guard namespace.utf8.count <= 256, namespace.rangeOfCharacter(from:.controlCharacters) == nil else { throw VelaError("Invalid memory namespace") }
             default: break
             }
             if let id = params["id"] as? String, let existing = try store.get("memory",id), string(existing,"project") != string(object,"project") { throw VelaError("Memory cannot be moved between project scopes") }
@@ -53,30 +61,8 @@ final class MemoryService {
             return try store.put("memory",memory)
         case "recall": return try recall(params)
         case "search": return try store.search(try requireString(params,"query"),project:checkedProject(params),includePrivate:params["includePrivate"] as? Bool ?? false)
-        case "library.list": return try store.list("library",project:checkedProject(params))
-        case "library.add":
-            if let id = params["id"] as? String, try store.get("library",id) != nil {
-                throw VelaError("Library imports are create-only; an existing reference cannot be overwritten")
-            }
-            var item = params; item["title"] = try requireString(params,"title")
-            if let project = try checkedProject(params) { item["project"] = project }
-            if let sourceURL = params["url"] as? String {
-                guard let url = URL(string:sourceURL), ["http","https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil, url.user == nil, url.password == nil else { throw VelaError("Library URL must be an explicit HTTP or HTTPS URL without embedded credentials") }
-                let downloaded = try FoundationDownload.fetch(url)
-                item["content"] = try extractDocument(downloaded.0,extension:url.pathExtension,mime:downloaded.1)
-                item["sourceURL"] = url.absoluteString
-            } else if let source = params["path"] as? String {
-                let path = canonicalProject(source); let url = URL(fileURLWithPath:path)
-                let metadata = try url.resourceValues(forKeys:[.isRegularFileKey,.fileSizeKey])
-                guard metadata.isRegularFile == true, (metadata.fileSize ?? Int.max) <= 2 * 1024 * 1024 else { throw VelaError("Library import supports regular documents up to 2 MB") }
-                item["content"] = try extractDocument(Data(contentsOf:url),extension:url.pathExtension,mime:"")
-                item["sourcePath"] = path; item.removeValue(forKey:"path")
-            }
-            _ = try requireString(item,"content")
-            guard string(item,"content").utf8.count <= 2 * 1024 * 1024 else { throw VelaError("Extracted library text exceeds 2 MB") }
-            item["private"] = privateLibraryPath(string(item,"sourcePath")) || (params["private"] as? Bool ?? true)
-            item["tokens"] = tokenEstimate(string(item,"content")); item["state"] = "active"
-            return try store.put("library",item,createOnly:true)
+        case let name where name.hasPrefix("library."):
+            return try LibraryService(store:store).handle(name,params)
         case "checkpoint.list": return try store.list("checkpoint",project:checkedProject(params))
         case "checkpoint.save":
             var item = params; item["project"] = try checkedProject(params,required:true)
@@ -110,37 +96,24 @@ final class MemoryService {
         }
     }
 
-    private func extractDocument(_ data: Data, extension ext: String, mime: String) throws -> String {
-        let ext = ext.lowercased()
-        if ext == "pdf" || mime.contains("pdf") {
-            guard let document = PDFDocument(data:data), let text = document.string, !text.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty else { throw VelaError("PDF has no extractable text; scanned PDFs require OCR before import") }
-            return text
-        }
-        if ext == "docx" || mime.contains("wordprocessingml") {
-            let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("vela-docx-" + UUID().uuidString,isDirectory:true)
-            try FileManager.default.createDirectory(at:temporary,withIntermediateDirectories:true)
-            defer { try? FileManager.default.removeItem(at:temporary) }
-            let source = temporary.appendingPathComponent("document.docx"); try data.write(to:source,options:.atomic)
-            let result = try FoundationCommand.run("/usr/bin/textutil",["-convert","txt","-stdout",source.path],timeout:15)
-            guard result.code == 0, !result.output.isEmpty else { throw VelaError("DOCX text extraction failed") }
-            return result.output
-        }
-        guard let text = String(data:data,encoding:.utf8), !text.contains("\0") else { throw VelaError("Unsupported document format; use UTF-8 text, HTML, PDF or DOCX") }
-        if ["html","htm"].contains(ext) || mime.contains("html") {
-            return text.replacingOccurrences(of:"(?is)<(?:script|style)[^>]*>.*?</(?:script|style)>",with:"",options:.regularExpression).replacingOccurrences(of:"(?i)</?(?:p|div|br|h[1-6]|li|section|article)[^>]*>",with:"\n",options:.regularExpression).replacingOccurrences(of:"<[^>]+>",with:"",options:.regularExpression).replacingOccurrences(of:"&nbsp;",with:" ").replacingOccurrences(of:"&amp;",with:"&").replacingOccurrences(of:"&lt;",with:"<").replacingOccurrences(of:"&gt;",with:">").trimmingCharacters(in:.whitespacesAndNewlines)
-        }
-        return text
-    }
-
     func recall(_ params: JSON) throws -> JSON {
+        guard params["retrievalMode"] == nil || params["retrievalMode"] is String else { throw VelaError("Invalid retrieval mode") }
+        let mode = string(params,"retrievalMode","lexical")
+        guard ["lexical","semantic","hybrid"].contains(mode) else { throw VelaError("Invalid retrieval mode") }
+        if mode != "lexical" { return try SemanticMemory(store:store).recall(params) { try self.lexicalRecall(params) } }
+        return try lexicalRecall(params)
+    }
+    private func lexicalRecall(_ params: JSON) throws -> JSON {
         let project = try checkedProject(params,required:true)!
         let budget = max(0,min(params["budget"] == nil ? 2000 : intValue(params,"budget"),4000))
         let query = string(params,"query").lowercased()
         let terms = query.split(whereSeparator: { $0.isWhitespace || $0.isPunctuation }).map(String.init)
         var candidates = try store.list("memory",limit:10000).filter { item in
-            guard string(item,"state").lowercased() == "active", item["private"] as? Bool != true else { return false }
+            guard string(item,"state").lowercased() == "active", ModelImprovement.falseOrAbsent(item["private"]), !privateLibraryPath(string(item,"sourceFile")) else { return false }
             let scope = string(item,"scope","project").lowercased()
             guard scope == "global" || string(item,"project") == project else { return false }
+            let namespace = string(params,"namespace")
+            if !namespace.isEmpty { return scope == "namespace" && string(item,"namespace") == namespace }
             switch scope {
             case "global","project","repository": return true
             case "branch": return !string(params,"branch").isEmpty && string(item,"branch") == string(params,"branch")

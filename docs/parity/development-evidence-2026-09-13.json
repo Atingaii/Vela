@@ -1,0 +1,302 @@
+{
+  "format": "vela-public-development-evidence-v1",
+  "date": "2026-09-13",
+  "baselineCommit": "ea8fbd257f813c604a93e070d5f98a6337829d81",
+  "completeProductAcceptance": false,
+  "finalCheckoutValidated": false,
+  "notes": [
+    "Each result covers its own frozen source/helper snapshot; do not sum counts into a final-checkout result.",
+    "All source data was synthetic. Real model checks are explicitly identified; renderer provider responses are deterministic local fixtures.",
+    "Local raw receipts are ignored verification artifacts. These whitelisted summaries exclude account identifiers, raw transcripts and private paths."
+  ],
+  "checks": [
+    {
+      "id": "knowledge-live",
+      "localReceipt": "output/parity/live-provider/knowledge-attempt-1/receipt.json",
+      "receiptSHA256": "6648a6d61474d8c7c14541bcb23dfb9405d842e1a7812ddd93eaadbc4862cd29",
+      "status": "pass",
+      "startedAt": "2026-09-13T04:47:47.034230+00:00",
+      "finishedAt": "2026-09-13T04:47:58.754195+00:00",
+      "frozenHelperSHA256": "35d6aeb67cbdf85ce7117231e41da642369d2a913f959b833111987391d80e26",
+      "providerVersion": "codex-cli 0.154.0",
+      "requestedModel": "gpt-5.6-sol",
+      "requestedEffort": "low",
+      "observedModel": null,
+      "actualLiveCalls": 1,
+      "citationCount": 2,
+      "durationMs": 10987,
+      "semanticCorrectness": "not_verified",
+      "temporaryFixturesRemoved": true
+    },
+    {
+      "id": "tool-loop-live",
+      "localReceipt": "output/parity/live-provider/tool-loop-attempt-1/receipt.json",
+      "receiptSHA256": "00bec453e3ee0e8fc30f7d61cfa030b96526681d6675c574f47ce3be2d1c3d90",
+      "status": "passed",
+      "startedAt": "2026-09-13T04:51:16.699522+00:00",
+      "completedAt": "2026-09-13T04:51:34.666924+00:00",
+      "helperSHA256": "90e315ce5de945be9a9b7332d5467a80b1259fa2dc691cd6d03bec2848507bcd",
+      "helperFrozen": true,
+      "cliVersion": "codex-cli 0.154.0",
+      "modelRequested": "gpt-5.6-sol",
+      "effortRequested": "low",
+      "modelIdentityObserved": null,
+      "modelCalls": 2,
+      "toolCalls": 1,
+      "observedTokens": 20185,
+      "cost": null,
+      "realToolResultInjected": true,
+      "syntheticFileUnchanged": true,
+      "durationSeconds": 17.967,
+      "completeReferenceParity": false
+    },
+    {
+      "id": "typescript-installed",
+      "localReceipt": "output/parity/sdk/typescript-package-results.json",
+      "receiptSHA256": "dd4eb2fa75cecdad721bea8ab1763619fe56cd6e119983b9587a56c49315b174",
+      "testsPassed": 12,
+      "helperSHA256": "b1724c9a78c7d539ca94082b05b87f90fd8e55f1b8e5ec96556c11f25e629621",
+      "sha256": "02213e99bd1a2d7ac09e263579e891fb54365cc104147ab4c626a5c6aff8db9e",
+      "installedConsumerTypecheck": true
+    },
+    {
+      "id": "python-installed",
+      "localReceipt": "output/parity/sdk/python-package-results.json",
+      "receiptSHA256": "2685824e6b6ccc7ba0b08228b45062b37bac8cb5a603af671d20f2c32dbef32d",
+      "testsPassed": 10,
+      "helperSHA256": "b1724c9a78c7d539ca94082b05b87f90fd8e55f1b8e5ec96556c11f25e629621",
+      "sha256": "8553a2ec6ec21a2b240e77ad47c1972cbb424835dd5d24c59f517760d59b8315"
+    },
+    {
+      "id": "walrus-installed",
+      "localReceipt": "output/parity/walrus-sdk/package-results.json",
+      "receiptSHA256": "ca8cf05e7347fecf8f5b3c43930c3d8ecc61438ca325d4158f7d0e7ca672db09",
+      "testsPassed": 25,
+      "sha256": "8519c4a87ab5e634a5dc9b6a0d67487fa1f837b34fa70d474f425474703158e1",
+      "installedConsumerTypecheck": true,
+      "remoteEncryptedRoundtrip": "not_run_free_testnet_faucet_rate_limited_and_no_gas_coin"
+    },
+    {
+      "id": "openclaw-installed",
+      "localReceipt": "output/parity/openclaw/package-results.json",
+      "receiptSHA256": "7dbd782ab6b6bbf6223dac37c37a29a3d2e4551dadadf2679e62576489ae8c5b",
+      "testsPassed": 6,
+      "helperSHA256": "b1724c9a78c7d539ca94082b05b87f90fd8e55f1b8e5ec96556c11f25e629621",
+      "packageSHA256": "b7615eff4bd9dd496c43f9269deeb9dd6caa473513af219926fb636a320f18b9",
+      "installedConsumerTypecheck": true,
+      "hostVersion": "2026.9.4",
+      "hostPluginLoader": true,
+      "hostCLI": true,
+      "hostHookRunner": true,
+      "modelTurn": "actual_host_with_synthetic_loopback_provider",
+      "realModelQuality": "not_tested",
+      "remoteEncryptedRoundtrip": "not_run"
+    },
+    {
+      "id": "rpc-control-live-process",
+      "localReceipt": "output/parity/blume/loop-rpc-control-fixed.json",
+      "receiptSHA256": "d71fd38f3e10c4ba6509cdc3426771083e4a1878e442034ad496e49746dd98bd",
+      "status": "pass",
+      "sourceData": "isolated synthetic provider/project only",
+      "realModelCalls": 0,
+      "saturatedOrdinaryQueue": false,
+      "frozenHelperSHA256": "00f3cf665883c5738460ac36b711cb86f39870c6a732f147f8ab61861e27a816",
+      "progressBeforeProviderRelease": true,
+      "cancelBeforeProviderRelease": true,
+      "loopState": "cancelled",
+      "providerInvocations": 1,
+      "toolReceipts": 0,
+      "responseOrder": [
+        "get",
+        "cancel",
+        "approve"
+      ],
+      "temporaryFixturesRemoved": true
+    },
+    {
+      "id": "renderer-capabilities-r4",
+      "localReceipt": "output/playwright/parity-feature-round4/results.json",
+      "receiptSHA256": "20a2c6b2975557f2e80179f40098e0b400b267266822d9609ac47d7a44b3c67c",
+      "passedChecks": 5,
+      "completeSuite": true,
+      "helperSHA256": "d11f7381c2cbd0aeb43d9bdee028a348670166350091d5887883ce63e6a46644",
+      "realProviderExecuted": false,
+      "nativeIntegrationTested": false,
+      "sourceUnchanged": true,
+      "scope": "Separate frozen UI copies, not a combined final-branch suite"
+    },
+    {
+      "id": "renderer-engineering-r5b",
+      "localReceipt": "output/playwright/engineering-round5b/results.json",
+      "receiptSHA256": "0930c4bcd6a39985faa7a202c304c81e0cec89a97102658df3475f5614759fc5",
+      "passedChecks": 7,
+      "completeSuite": true,
+      "helperSHA256": "b1724c9a78c7d539ca94082b05b87f90fd8e55f1b8e5ec96556c11f25e629621",
+      "realProviderExecuted": false,
+      "nativeIntegrationTested": false,
+      "sourceUnchanged": true,
+      "scope": "Separate frozen UI copies, not a combined final-branch suite"
+    },
+    {
+      "id": "renderer-locales-r3",
+      "localReceipt": "output/playwright/parity-locale-round3/results.json",
+      "receiptSHA256": "9b90a78a150025552e1bec6d6f7cc798b54f9fccaac06cee06e4f5bf5c79cfa6",
+      "passedChecks": 6,
+      "completeSuite": true,
+      "helperSHA256": "d11f7381c2cbd0aeb43d9bdee028a348670166350091d5887883ce63e6a46644",
+      "realProviderExecuted": false,
+      "nativeIntegrationTested": false,
+      "sourceUnchanged": true,
+      "scope": "Separate frozen UI copies, not a combined final-branch suite"
+    },
+    {
+      "id": "release-warm-search",
+      "localReceipt": "output/parity/search-release-round1.json",
+      "receiptSHA256": "a3051e194922e8a073f3bd60dcc47bdc88996267972e8b165f04311ee63bc4ce",
+      "timestampUTC": "2026-09-13T04:37:50.289320+00:00",
+      "helperSHA256": "5ec4373e71ea3b1f5d56c663b24565d6f8a71416a7da76d5476098d45d5451f1",
+      "build": "release",
+      "cpu": "Apple M2 Pro",
+      "memoryBytes": 34359738368,
+      "limits": "Indexed objects only; not ingestion, raw messages, cold startup, concurrent agents or UI timing.",
+      "result": [
+        {
+          "indexedRecords": 10000,
+          "maxCaseP95Ms": 11.512,
+          "cases": 6,
+          "samplesPerCase": 50,
+          "warmupsPerCase": 10,
+          "passed": true
+        },
+        {
+          "indexedRecords": 100000,
+          "maxCaseP95Ms": 82.37,
+          "cases": 6,
+          "samplesPerCase": 50,
+          "warmupsPerCase": 10,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "id": "full-core-checkpoint-r5",
+      "localReceipt": "output/parity/core-round5-snapshot.json",
+      "receiptSHA256": "b31161e77de10ce0c8111af2daff8c9b134df98a7714c43ee524d019aaeacaf9",
+      "snapshotSHA256": "7c9fdc24a87d5f4fe347d3e56ab845ff9e8984458c38d2b36dc6ea691a84e27d",
+      "runnerSHA256": "194123638af1067510fc48d6b9e8a9ba248674f8caf4804459866f7741e1aea9",
+      "methodCount": 334,
+      "runner": "portable synchronous assertion compatibility layer; not XCTest",
+      "passed": true,
+      "matchesWorkingTreeAtEnd": true
+    },
+    {
+      "id": "walrus-installed-frozen-arguments",
+      "localReceipt": "output/parity/walrus-frozen-arguments/package-results.json",
+      "receiptSHA256": "70a9b54887bc14f9b760eaadf27c78bd725cddeedc716e2dd18b2f2c5b53d4ae",
+      "testsPassed": 33,
+      "installedConsumerTypecheck": true,
+      "sha256": "53a90db381c1979943bd8769c0219ddb5ff8d39a9531f59da4a1d22d8523e3b8",
+      "bytes": 25665,
+      "remoteEncryptedRoundtrip": "not_run_free_testnet_faucet_rate_limited_and_no_gas_coin"
+    },
+    {
+      "id": "history-live-process",
+      "localReceipt": "output/parity/blume/history-rpc-final.json",
+      "receiptSHA256": "b13d2994af4331cab3041e78dce7f9588e52f31c7b2e59f6399625ab99c0fb29",
+      "status": "pass",
+      "startedAt": "2026-09-13T05:40:22.052744+00:00",
+      "finishedAt": "2026-09-13T05:40:24.622066+00:00",
+      "checks": [
+        "73_sources_discovered_with_persistent_inventory_and_source_pages",
+        "fresh_process_midrecord_checkpoint_pause_resume_and_complete_import",
+        "1202_stable_events_and_exact_unicode_original_chunk_reconstruction",
+        "history_does_not_expand_default_session_dashboard",
+        "source_epoch_cursor_binding_and_stale_unfinished_import",
+        "cross_project_and_arbitrary_path_requests_rejected"
+      ],
+      "realProviderCalls": 0,
+      "userMaterialRead": false,
+      "sourceData": "synthetic only",
+      "frozenHelperSHA256": "d42897eb0c51bbcafa21cec1bc704f7db4abbec1de1d86b3afe83cc81e630dce",
+      "importSeconds": 0.7492,
+      "importBatches": 20,
+      "importedRecords": 1202,
+      "sourceBytes": 353163,
+      "temporaryStoreAndSourcesRemoved": true
+    },
+    {
+      "id": "watch-core-focused",
+      "localReceipt": "output/parity/px0/watch-stable.json",
+      "receiptSHA256": "66687dbc1c49c71cf35360e3ba35ed062b8b9d2c67719972c2bf779259be8b84",
+      "snapshotSHA256": "9dd9089a7bf4f12c51bed17290e9bf840bdfedbf8ead5bca16359ba5d205821c",
+      "runnerSHA256": "194123638af1067510fc48d6b9e8a9ba248674f8caf4804459866f7741e1aea9",
+      "filter": [
+        "WorkflowFileWatchTests",
+        "WorkflowWatchReviewTests",
+        "WorkflowWatchTests",
+        "SchedulerReviewTests",
+        "SchedulerReliabilityTests",
+        "WorkflowManagementTests"
+      ],
+      "runner": "portable synchronous assertion compatibility layer; not XCTest",
+      "passed": true,
+      "methodCount": 43,
+      "matchesWorkingTreeAtEnd": true
+    },
+    {
+      "id": "rpc-contract-checkpoint-r5",
+      "localReceipt": "output/parity/rpc-contracts-round5.json",
+      "receiptSHA256": "ba3fd68c678e7d3aa00e8ea89d81cdf0a3dc11c6e9f5947803e4f1f195c06bf9",
+      "startedAt": "2026-09-13T05:46:33.502853+00:00",
+      "finishedAt": "2026-09-13T05:46:54.100098+00:00",
+      "helperBeforeSHA256": "d42897eb0c51bbcafa21cec1bc704f7db4abbec1de1d86b3afe83cc81e630dce",
+      "helperAfterSHA256": "d42897eb0c51bbcafa21cec1bc704f7db4abbec1de1d86b3afe83cc81e630dce",
+      "externalProviderCalls": 0,
+      "sourceBinaryUnchanged": true,
+      "passed": true,
+      "scriptCount": 14
+    },
+    {
+      "id": "exact-release-resource-policy",
+      "localReceipt": "output/parity/blume/distribution-resource-fixed.json",
+      "receiptSHA256": "799c8477f2bb01d3cf75dd7fcb1ee87bf4ca56890e77c872ab6212c2ba876e96",
+      "status": "pass",
+      "unitTestMethods": 7,
+      "exactActualSourceResourcesCopied": true,
+      "developmentDemoExcluded": true,
+      "nativeBinariesBuiltOrAudited": false,
+      "sourceSHA256": {
+        "scripts/release_resources.py": "127850c654fa881c99d57471138b851220e200a07b05a396e4a80370ea41e0a3",
+        "scripts/package-resources.py": "7f2549e3471830447a11d2f5ce1304c7a13b16c9b7e51b662aa56493187d19bd",
+        "scripts/release-audit.py": "efdeba2b98acaa88063f0ca699d382118812cc101121f9301b4989b6263f1574",
+        "scripts/test-release-resources.py": "7fd757b0d68605426a91d562d824638415f56b82307ac8152aad6ae6e5b89538"
+      },
+      "temporaryBundleRemoved": true
+    },
+    {
+      "id": "python-installed-cancellation",
+      "localReceipt": "output/parity/python-cancellation-fix/python-package-results.json",
+      "receiptSHA256": "dde91819a9e91eda35b0e6aa9db66a3b8e7c50d39f4780153184ac7e85fe5554",
+      "testsPassed": 11,
+      "helperSHA256": "d42897eb0c51bbcafa21cec1bc704f7db4abbec1de1d86b3afe83cc81e630dce",
+      "sha256": "964752ffb5ecf3ee708345e9b76a32ded455fcabe712ace4651cf4d2a7bb3ce9",
+      "bytes": 11921
+    },
+    {
+      "id": "openclaw-installed-capture-cap",
+      "localReceipt": "output/parity/openclaw-capture-cap-fix/package-results.json",
+      "receiptSHA256": "9d669256bad382306129cb4c8b522cec0f4f5d4bcfd450114213b2d75b2d9545",
+      "testsPassed": 7,
+      "helperSHA256": "d42897eb0c51bbcafa21cec1bc704f7db4abbec1de1d86b3afe83cc81e630dce",
+      "packageSHA256": "2d1a1509f7ba34b703c0ac590e152f21d54c7a9455da78ec51577b2384fb8ba9",
+      "installedConsumerTypecheck": true,
+      "hostVersion": "2026.9.4",
+      "hostPluginLoader": true,
+      "hostCLI": true,
+      "hostHookRunner": true,
+      "modelTurn": "actual_host_with_synthetic_loopback_provider",
+      "realModelQuality": "not_tested",
+      "remoteEncryptedRoundtrip": "not_run"
+    }
+  ]
+}

@@ -8,7 +8,7 @@
 
 An agent session ends. Your engineering context should not.
 
-Vela is a local macOS workspace for supported Claude Code, Codex and Cursor session data. It brings conversation evidence, project memory, reviewable workflows and measured Codex comparisons into one place, alongside the agents you already use.
+Vela is a local macOS workspace for supported Claude Code, Codex, Cursor, Pi and OMP session data. It brings conversation evidence, project memory, reviewable workflows and measured Codex comparisons into one place, alongside the agents you already use.
 
 > **Development branch — acceptance redesign, not yet released.**
 >
@@ -26,7 +26,7 @@ Vela is a local macOS workspace for supported Claude Code, Codex and Cursor sess
 - **Keep useful context:** save memories with provenance and explicit scope, recall active memories within a conservative budget, and export checkpoints containing user notes and a captured Git state.
 - **Review before running:** edit Markdown workflows, dry-run supported reads, approve frozen actions and inspect persisted run records. Project tests and agent commands require approval.
 - **Compare actual outcomes:** inspect deterministic correction-based suggestions, preview and safely apply or undo supported file changes, and run baseline/candidate commands in separate Git worktrees at the same commit.
-- **Own reference material:** import text, HTML, text-based PDF, DOCX or an explicit document URL. Library imports default to private; private references are excluded from agent search and recall.
+- **Own reference material:** import text, HTML, text-based PDF, DOC/DOCX, ODT, RTF or an explicit document URL. Edit, export, archive, restore or explicitly refresh sources with version history. Library imports default to private; paragraph search and reviewed Ask use eligible public sources.
 
 Sessions, Memory and Workflows are directly accessible from the sidebar. Project configuration, observed usage, Improve and Lab remain available alongside global Search, Inbox and Settings. Keyboard shortcuts are discoverable in menus and tooltips.
 
@@ -101,14 +101,20 @@ To offer active Memory to later Codex sessions, preview and apply the project-on
 
 ## Know the preview boundaries
 
-- Initial ingestion selects up to **60 recent source files per provider**, using a **256 KB tail** plus a **32 KB header** where needed. Retained messages are bounded; full historical backfill and native session transfer are not implemented. Cursor compatibility covers exports and selected known SQLite records.
-- **Usage is observed log usage.** Subscription quota, reset detection, pricing and the `usage_reset` trigger are unavailable.
-- Workflow drafting and Improve use **deterministic local rules**. They are not a general natural-language planner or a model-driven improvement pipeline.
-- Guidelines can be saved and frozen in run records, but **are not injected into agent prompts** in this preview.
+- Initial ingestion selects up to **60 recent source files per provider**, using a **256 KB tail** plus a **32 KB header** where needed. The development branch adds explicit, resumable historical import for Claude/Codex/Pi/OMP JSONL, with paged original records kept outside the dashboard. Cursor history, the history interface and native session transfer remain incomplete; see the [history contract](docs/implementation/session-history-contract.md).
+- **Usage is observed log usage.** The development branch separately reads actual Codex account quota through its read-only app-server protocol; other provider quota, pricing and the `usage_reset` trigger remain incomplete.
+- The development branch adds **reviewed model proposals**, three-stage Improve and **bounded multi-turn tool loops**. Core executes selected reads and feeds actual results into later model turns; external actions receive separate approvals. The supported catalog, call/time limits and unverified external integrations remain explicit.
+- The development branch **passes selected Guidelines, active Memory and captured inputs into an explicitly configured Agent prompt argument**. Existing raw commands are preserved. A recorded prompt does not prove model compliance.
 - Lab supports paired commands and an explicit **Codex agent mode**: frozen task/model request, isolated worktrees, protected verification files, and a separate verifier. Three complete repetitions per variant are required for promotion review. Ties, missing measurements and regressions cannot promote a candidate. The first six real runs were tied; [the evidence](docs/evidence/2026-09-13-agent-lab.json) preserves a corrected scorer defect. Future correction reduction remains unmeasured.
-- Scheduled triggers operate while the app/helper is running. There is no always-on system daemon or missed-run catch-up after sleep or shutdown.
+- The development branch has an **explicitly managed launchd user service**, timezone-aware cron and bounded skip/latest/all catch-up. Pending approvals and uncertain outcomes prevent overlapping runs. The public preview.2 package does not contain these additions.
 
-See [the detailed status](docs/status.md) for the supported boundaries and [the requirements](docs/requirements.md) for the broader roadmap.
+See [the detailed status](docs/status.md) and the [228-item reference coverage inventory](docs/parity/README.md). Full coverage is the target; it has not been declared achieved. Local semantic recall, portable archives, installable SDKs, workflow composition and optional external adapters are also being integrated and verified on this branch.
+
+## Optional integrations
+
+The development repository includes installable [TypeScript](sdk/typescript) and [Python](sdk/python) SDKs for an explicitly selected local helper and store. The optional [Walrus adapter](sdk/walrus) uses the pinned official MemWal SDK, and the [OpenClaw plugin](sdk/openclaw) provides agent-scoped recall and candidate capture through the host's public API. These packages are built with `npm pack` or a Python wheel; they are not yet published to package registries. Their separate Node/Python dependencies are not bundled into the default Mac app.
+
+Remote account ownership, encrypted storage/recovery and delegate revocation require separate account-level verification. Local package tests, host hook execution and public service health do not establish a successful remote write. See [the remote contract](docs/implementation/walrus-remote-contract.md).
 
 ## Validate a checkout
 
@@ -133,7 +139,7 @@ For reproducible real-CLI browser interaction checks and synthetic screenshot fi
 
 ## Data and architecture
 
-Session indexes and run records live in SQLite WAL. Memory, workflow, guideline, library and checkpoint assets also live in readable Markdown under the selected store's `assets/` directory. Vela has no account requirement, hosted memory service or enabled telemetry.
+Session indexes and run records live in SQLite WAL. Memory, workflow, guideline, library and checkpoint assets also live in readable Markdown under the selected store's `assets/` directory. Local Vela use has no account requirement or enabled telemetry. Optional Composio and Walrus integrations have separate explicit account, network and credential boundaries; they are not enabled by opening the app.
 
 An explicitly imported URL makes a network request. An approved agent command may send the supplied context to its provider. Vela does not automatically submit session history to a model.
 

@@ -20,6 +20,23 @@ public final class SafeApplyService {
         return ["path":target.path,"exists":content != nil,"hash":content.map(stableHash) ?? "absent","content":content as Any? ?? NSNull()]
     }
 
+    /// Product-managed output is confined to this store and serialized across
+    /// processes from the initial hash read through the journaled replacement.
+    func writeManagedOutput(path: String, content: String, expectedBaseHash: String? = nil, beforeWrite: ((JSON) throws -> Void)? = nil) throws -> JSON {
+        guard path.hasPrefix("output/"), !path.split(separator:"/").contains(".."), content.utf8.count <= 1_048_576 else { throw VelaError("Invalid managed output") }
+        lock.lock(); defer { lock.unlock() }
+        _ = try acquireTransactionLock(); defer { releaseTransactionLock() }
+        let before = try readSnapshot(project:store.root.path,path:path)
+        if let expectedBaseHash, string(before,"hash") != expectedBaseHash && string(before,"hash") != stableHash(content) {
+            throw VelaError("Managed output changed after delivery was prepared; the newer artifact was preserved")
+        }
+        // Persist the authorized base while holding the same cross-process
+        // lock used by apply. Recovery cannot authorize today's different file.
+        try beforeWrite?(before)
+        if string(before,"hash") == stableHash(content) { return ["state":"unchanged","contentHash":stableHash(content)] }
+        return try apply(project:store.root.path,operations:[["path":path,"content":content,"baseHash":string(before,"hash")]])
+    }
+
     public func preview(project: String, operations: [JSON]) throws -> [JSON] {
         lock.lock(); defer { lock.unlock() }
         return try prepare(project: project, operations: operations, createParents: false).map { target in
@@ -217,20 +234,7 @@ private final class SafeTarget {
         }
     }
     private static func read(parent: Int32, name: String) throws -> String? {
-        let fd = openat(parent,name,O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
-        if fd < 0 { if errno == ENOENT { return nil }; throw VelaError("Refusing unsafe or unreadable target") }
-        defer { Darwin.close(fd) }
-        var opened = stat(); var linked = stat()
-        guard fstat(fd,&opened) == 0, fstatat(parent,name,&linked,AT_SYMLINK_NOFOLLOW) == 0, (opened.st_mode & S_IFMT) == S_IFREG, opened.st_nlink == 1, opened.st_dev == linked.st_dev, opened.st_ino == linked.st_ino, opened.st_size <= 2_097_152 else { throw VelaError("Target is not a safe bounded regular file") }
-        var data = Data(); var buffer = [UInt8](repeating:0,count:8192)
-        while true {
-            let size = Darwin.read(fd,&buffer,buffer.count)
-            if size == 0 { break }; if size < 0 { throw VelaError("Could not read target") }
-            data.append(contentsOf: buffer.prefix(size))
-            if data.count > 2_097_152 { throw VelaError("Target grew beyond file limit") }
-        }
-        guard let text = String(data:data,encoding:.utf8) else { throw VelaError("Only UTF-8 text targets are supported") }
-        return text
+        try FoundationFile.readUTF8(parent:parent,name:name)
     }
     func stage() throws {
         try verifyAnchors()

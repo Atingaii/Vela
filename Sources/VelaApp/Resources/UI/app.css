@@ -826,6 +826,14 @@ html, body {
   background: #7c3aed;
 }
 
+.provider-badge.provider-pi::before {
+  background: #0d9488;
+}
+
+.provider-badge.provider-omp::before {
+  background: #8b5cf6;
+}
+
 .session-card-meta {
   display: flex;
   align-items: center;
@@ -1227,12 +1235,14 @@ html, body {
   flex-wrap: wrap;
 }
 
-.memory-meta-details {
+.memory-meta-details,
+.tech-meta-details {
   border-top: 1px solid var(--border-subtle);
   padding-top: 8px;
 }
 
-.memory-meta-details summary {
+.memory-meta-details summary,
+.tech-meta-details summary {
   cursor: pointer;
   font-size: 11px;
   color: var(--text-muted);
@@ -2116,4 +2126,334 @@ html, body {
   margin-bottom: 6px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--border-color);
+}
+
+/* ==========================================================================
+   Memory Archive Styles
+   ========================================================================== */
+.archive-preview-card {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+
+.archive-preview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.archive-entries-list {
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  padding: 6px 8px;
+  margin-top: 8px;
+  font-size: 11.5px;
+}
+
+.archive-entry-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.05));
+}
+
+.archive-entry-item:last-child {
+  border-bottom: none;
+}
+
+/* ==========================================================================
+   Workflow Schedule & Context Styles
+   ========================================================================== */
+.wf-schedule-box {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-top: 8px;
+}
+
+.wf-context-box {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.wf-context-input-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.wf-context-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.wf-context-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--accent-subtle);
+  color: var(--accent-color);
+  font-family: var(--font-mono);
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ==========================================================================
+   Settings Daemon Service Styles
+   ========================================================================== */
+.daemon-status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+}
+
+.daemon-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+  font-size: 12px;
+  margin: 12px 0;
+}
+
+/* ==========================================================================
+   Usage Codex Quota Styles
+   ========================================================================== */
+.quota-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.quota-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quota-buckets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.quota-bucket-card {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
+.quota-window-row {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.quota-bar-track {
+  width: 100%;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 6px 0 4px 0;
+}
+
+.quota-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.quota-bar-fill.normal {
+  background: #10b981;
+}
+
+.quota-bar-fill.warning {
+  background: #f59e0b;
+}
+
+.quota-bar-fill.danger {
+  background: #ef4444;
+}
+
+/* ==========================================================================
+   Workflow Planning Styles
+   ========================================================================== */
+.plan-questions-card {
+  background: var(--bg-subtle);
+  border: 1px solid var(--status-amber-border);
+  border-left: 3px solid var(--status-amber-text);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+
+.plan-draft-preview {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  max-height: 240px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ==========================================================================
+   Semantic Memory Styles
+   ========================================================================== */
+.semantic-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.semantic-stat-box {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  text-align: center;
+}
+
+.semantic-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  margin-top: 4px;
+}
+
+.semantic-progress-wrap {
+  width: 100%;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.semantic-progress-bar {
+  height: 100%;
+  background: var(--accent-color);
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
+
+/* ==========================================================================
+   Model Improvement Proposal Styles
+   ========================================================================== */
+.session-selection-scroll {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: var(--bg-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.proposal-target-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+/* ==========================================================================
+   Workflow Composition & Pipeline Styles
+   ========================================================================== */
+.pipeline-stage-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+}
+
+.pipeline-stage-badge {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  width: 24px;
+  text-align: center;
+}
+
+/* ==========================================================================
+   Connector Catalog & Tools Styles
+   ========================================================================== */
+.connector-tool-card {
+  padding: 10px 12px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.connector-tool-card:hover {
+  border-color: var(--accent-color);
+}
+
+.connector-tool-card.selected {
+  border-color: var(--accent-color);
+  background: var(--bg-card);
+}
+
+.artifact-output-box {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 360px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+.unread-row {
+  background: var(--bg-subtle);
+  font-weight: 500;
 }

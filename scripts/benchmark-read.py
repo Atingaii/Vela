@@ -44,7 +44,7 @@ def metadata(binary):
 
 class RPC:
     def __init__(self, binary, home, env):
-        self.process = subprocess.Popen([str(binary), 'rpc', '--home', str(home), '--no-watch'],
+        self.process = subprocess.Popen([str(binary), 'rpc', '--home', str(home), '--no-watch', '--no-schedule'],
                                         env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.buffer = bytearray()
         self.sequence = 0

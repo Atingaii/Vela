@@ -1,0 +1,11 @@
+{
+  "name":"@vela-engineering/walrus", "version":"0.1.0-dev.1", "type":"module",
+  "description":"Explicit, reviewed optional Walrus Memory adapter for Vela",
+  "main":"dist/index.js", "types":"dist/index.d.ts",
+  "exports":{".":{"types":"./dist/index.d.ts","import":"./dist/index.js"}},
+  "files":["dist","README.md","LICENSE"], "engines":{"node":">=22"}, "license":"MIT",
+  "repository":{"type":"git","url":"https://github.com/Atingaii/Vela.git","directory":"sdk/walrus"},
+  "scripts":{"build":"tsc -p tsconfig.json","prepack":"npm run build","test":"node --test test/*.mjs"},
+  "dependencies":{"@mysten-incubation/memwal":"0.1.6","@mysten/sui":"2.5.0","@mysten/seal":"1.1.0","@mysten/walrus":"1.0.3"},
+  "devDependencies":{"@types/node":"^22.0.0","typescript":"^5.9.0"}
+}

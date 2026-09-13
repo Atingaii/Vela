@@ -1,11 +1,13 @@
 """Fail closed if the distributable contains non-allowlisted files."""
 import pathlib, sys, plistlib, subprocess
-from release_resources import NOTIFICATION_SOUNDS, validate_notification_sound
+from release_resources import (NOTIFICATION_SOUNDS, UI_RESOURCES,
+                               validate_notification_sound, validate_regular_resource,
+                               validate_ui_resources)
 root = pathlib.Path(sys.argv[1]).resolve()
 allowed = {'Contents/Info.plist', 'Contents/MacOS/VelaDesktop', 'Contents/MacOS/vela', 'Contents/_CodeSignature/CodeResources'}
 allowed.add('Contents/Resources/Vela.icns')
 allowed.update('Contents/Resources/' + name for name in NOTIFICATION_SOUNDS)
-ui_extensions = {'.html','.css','.js','.svg','.png','.ico','.woff2'}
+allowed.update('Contents/Resources/UI/' + name for name in UI_RESOURCES)
 errors = []
 for p in root.rglob('*'):
     if p.is_symlink():
@@ -14,11 +16,10 @@ for p in root.rglob('*'):
         rel = p.relative_to(root).as_posix()
         if rel in allowed:
             continue
-        if rel.startswith('Contents/Resources/UI/') and p.suffix in ui_extensions and not any(part.startswith('.') for part in p.relative_to(root).parts) and 'demo' not in p.stem.lower():
-            continue
         errors.append(rel)
 assert not errors, 'Unexpected release content: ' + ', '.join(errors)
-assert (root/'Contents/Resources/UI/index.html').is_file(), 'Missing UI entrypoint'
+validate_ui_resources(root/'Contents/Resources/UI')
+validate_regular_resource(root/'Contents/Resources/Vela.icns')
 for name in NOTIFICATION_SOUNDS:
     validate_notification_sound(root/'Contents/Resources'/name)
 with (root/'Contents/Info.plist').open('rb') as stream:

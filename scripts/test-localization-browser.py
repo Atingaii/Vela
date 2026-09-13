@@ -48,6 +48,7 @@ def main():
     parser.add_argument('--playwright-module', type=Path, default=ROOT / '.task-tmp/ui-browser-tools/node_modules/playwright/index.js')
     parser.add_argument('--browser-executable', type=Path)
     parser.add_argument('--keep-fixture', action='store_true')
+    parser.add_argument('--ui-snapshot', type=Path, help='Copy a previously frozen UI into the generated fixture for a single-version check.')
     args = parser.parse_args()
     base, output, binary = args.fixture.absolute(), args.output.absolute(), args.binary.resolve(strict=True)
     if base.exists() or base.is_symlink() or not base.resolve().is_relative_to((ROOT / '.task-tmp').resolve()):
@@ -60,12 +61,15 @@ def main():
     subprocess.run(['python3', str(ROOT / 'scripts/create-ui-fixture.py'), str(base), '--binary', str(binary)],
                    check=True, capture_output=True, text=True, timeout=90)
     fixture = json.loads((base / 'fixture.json').read_text())
+    ui = ROOT / 'Sources/VelaApp/Resources/UI'
+    if args.ui_snapshot:
+        ui = base / 'ui-snapshot'
+        shutil.copytree(args.ui_snapshot.resolve(strict=True), ui)
     project, home = fixture['project'], fixture['home']
     stamp = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
     env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'HOME': str(base), 'VELA_HOME': home,
            'VELA_SESSION_ROOT': fixture['sessionRoot'], 'VELA_DISABLE_DISCOVERY': '1',
            'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull}
-    ui = ROOT / 'Sources/VelaApp/Resources/UI'
 
     def hashes():
         return {str(p.relative_to(ui)): hashlib.sha256(p.read_bytes()).hexdigest()
@@ -109,7 +113,7 @@ def main():
 
     def start():
         nonlocal server, driver, url
-        server = subprocess.Popen(['python3', str(ROOT / 'scripts/test-ui-server.py'), str(base / 'fixture.json'), '--binary', str(binary)],
+        server = subprocess.Popen(['python3', str(ROOT / 'scripts/test-ui-server.py'), str(base / 'fixture.json'), '--binary', str(binary), *(['--ui-directory', str(ui)] if args.ui_snapshot else [])],
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         assert select.select([server.stdout], [], [], 15)[0], 'Fixture helper did not start.'
         url = json.loads(server.stdout.readline())['url']

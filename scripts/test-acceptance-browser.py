@@ -45,6 +45,7 @@ def main():
     parser.add_argument('--playwright-module', type=Path, default=ROOT / '.task-tmp/ui-browser-tools/node_modules/playwright/index.js')
     parser.add_argument('--browser-executable', type=Path, help='Optional installed Chrome path; omitted uses Playwright Chromium.')
     parser.add_argument('--keep-fixture', action='store_true')
+    parser.add_argument('--ui-snapshot', type=Path, help='Copy a previously frozen UI into the generated fixture for a single-version check.')
     parser.add_argument('--checks', help='Diagnostic subset only; omit for all six checks. Use separate NEW fixture/output paths.')
     args = parser.parse_args()
     selected = set(args.checks.split(',')) if args.checks else set(CHECKS)
@@ -61,6 +62,10 @@ def main():
     subprocess.run(['python3', str(ROOT / 'scripts/create-ui-fixture.py'), str(base), '--binary', str(binary),
                     '--with-routing-project'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
     fixture = json.loads((base / 'fixture.json').read_text())
+    ui = ROOT / 'Sources/VelaApp/Resources/UI'
+    if args.ui_snapshot:
+        ui = base / 'ui-snapshot'
+        shutil.copytree(args.ui_snapshot.resolve(strict=True), ui)
     harbor, beacon = fixture['project'], fixture['routingProject']
     stamp = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
     sources = Path(fixture['sessionRoot']) / 'codex'
@@ -89,7 +94,7 @@ def main():
     transport = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(transport)
     server = subprocess.Popen(['python3', str(ROOT / 'scripts/test-ui-server.py'), str(base / 'fixture.json'),
-                               '--binary', str(binary)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                               '--binary', str(binary), *(['--ui-directory', str(ui)] if args.ui_snapshot else [])], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     driver_source = '// Vela acceptance fixture: ' + json.dumps(str(base)) + '\n' + transport.PLAYWRIGHT_DRIVER
     driver_source = driver_source.replace('  }\n})().catch', '  }\n  await browser.close();\n})().catch')
     driver = subprocess.Popen(['node', '-e', driver_source, str(args.playwright_module.resolve()),
@@ -100,7 +105,7 @@ def main():
         'startedAt': stamp, 'platform': platform.platform(),
         'playwrightVersion': json.loads((args.playwright_module.resolve().parent / 'package.json').read_text())['version'],
         'binarySHA256': hashlib.sha256(binary.read_bytes()).hexdigest(),
-        'uiSHA256': {name: hashlib.sha256((ROOT / 'Sources/VelaApp/Resources/UI' / name).read_bytes()).hexdigest()
+        'uiSHA256': {name: hashlib.sha256((ui / name).read_bytes()).hexdigest()
                      for name in ('app.js', 'i18n.js', 'app.css', 'index.html')},
         'realProviderExecuted': False, 'nativeIntegrationTested': False, 'fullGoldenScenarioPassed': False,
         'requestedChecks': [name for name in CHECKS if name in selected], 'completeSuite': False, 'checks': results}
@@ -365,7 +370,7 @@ def main():
             if transcript.exists():
                 shutil.copyfile(transcript, output / 'harness-rpc.jsonl')
             evidence['cleanup'] = {'browserClosed': True, 'helperStopped': True, 'fixtureRemoved': False}
-            evidence['uiSHA256After'] = {name: hashlib.sha256((ROOT / 'Sources/VelaApp/Resources/UI' / name).read_bytes()).hexdigest()
+            evidence['uiSHA256After'] = {name: hashlib.sha256((ui / name).read_bytes()).hexdigest()
                                          for name in evidence['uiSHA256']}
             evidence['uiSourceUnchangedDuringRun'] = evidence['uiSHA256After'] == evidence['uiSHA256']
             selected_passed = {r['check'] for r in results} == selected and all(r['passed'] for r in results)

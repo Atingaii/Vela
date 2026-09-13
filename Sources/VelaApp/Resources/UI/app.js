@@ -22,6 +22,8 @@
     selectedEvalId: null,
     setupActiveTab: 'rules',
     workflowsActiveTab: 'list',
+    workflowsIncludeArchived: false,
+    agentsActiveTab: 'sessions',
     labActiveTab: 'evals',
     pollTimer: null,
     isBridgeAvailable: false,
@@ -91,6 +93,8 @@
     if (p === 'codex') return 'Codex';
     if (p === 'cursor') return 'Cursor';
     if (p === 'copilot') return 'GitHub Copilot';
+    if (p === 'pi') return 'Pi';
+    if (p === 'omp') return 'OMP';
     return provider;
   }
 
@@ -1093,8 +1097,6 @@
       return st === 'running';
     }).length;
 
-    const hasCopilot = filteredSessions.some(s => (s.provider || '').toLowerCase() === 'copilot');
-
     container.innerHTML = `
       <div class="page-header">
         <div class="page-title-group">
@@ -1107,6 +1109,54 @@
         </div>
       </div>
 
+      <div class="tabs-nav" style="margin-bottom: 12px;">
+        <button class="tab-btn ${state.agentsActiveTab === 'sessions' ? 'active' : ''}" data-agentstab="sessions" data-i18n="sessions.title">${escapeHtml(t('sessions.title'))}</button>
+        <button class="tab-btn ${state.agentsActiveTab === 'loops' ? 'active' : ''}" data-agentstab="loops" data-i18n="loops.tabTitle">${escapeHtml(t('loops.tabTitle'))}</button>
+      </div>
+
+      <div id="agents-tab-content"></div>
+    `;
+
+    container.querySelectorAll('[data-agentstab]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        state.agentsActiveTab = tab.getAttribute('data-agentstab');
+        container.querySelectorAll('[data-agentstab]').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        renderAgentsTabContent();
+      });
+    });
+
+    document.getElementById('btn-refresh-sessions').addEventListener('click', async () => {
+      try {
+        await callBridge('sessions.refresh');
+        await refreshDashboard(true, true);
+        showToast({ key: 'sessions.refreshedToast' });
+      } catch (err) {
+        showToast({ key: 'sessions.refreshFailedToast', params: { error: err.message } }, 'error');
+      }
+    });
+
+    document.getElementById('btn-add-project-agents').addEventListener('click', () => {
+      document.getElementById('btn-add-project').click();
+    });
+
+    function renderAgentsTabContent() {
+      const target = document.getElementById('agents-tab-content');
+      if (!target) return;
+      if (state.agentsActiveTab === 'loops') {
+        renderAgentLoopsSection(target);
+      } else {
+        renderSessionsContent(target, filteredSessions);
+      }
+    }
+
+    renderAgentsTabContent();
+  }
+
+  function renderSessionsContent(target, filteredSessions) {
+    const hasCopilot = filteredSessions.some(s => (s.provider || '').toLowerCase() === 'copilot');
+
+    target.innerHTML = `
       <div class="toolbar-bar">
         <div class="toolbar-filters">
           <input type="search" id="session-search-input" class="filter-input" data-i18n-placeholder="sessions.searchPlaceholder" placeholder="${escapeHtml(t('sessions.searchPlaceholder'))}" data-i18n-title="sessions.searchTitle" title="${escapeHtml(t('sessions.searchTitle'))}" style="width: 240px;" value="${escapeHtml(state.sessionFilterQuery)}">
@@ -1115,6 +1165,8 @@
             <option value="claude" ${(state.sessionProviderFilter || '').toLowerCase() === 'claude' ? 'selected' : ''}>Claude Code</option>
             <option value="codex" ${(state.sessionProviderFilter || '').toLowerCase() === 'codex' ? 'selected' : ''}>Codex</option>
             <option value="cursor" ${(state.sessionProviderFilter || '').toLowerCase() === 'cursor' ? 'selected' : ''}>Cursor</option>
+            <option value="pi" ${(state.sessionProviderFilter || '').toLowerCase() === 'pi' ? 'selected' : ''}>Pi</option>
+            <option value="omp" ${(state.sessionProviderFilter || '').toLowerCase() === 'omp' ? 'selected' : ''}>OMP</option>
             ${hasCopilot ? `<option value="copilot" ${(state.sessionProviderFilter || '').toLowerCase() === 'copilot' ? 'selected' : ''}>GitHub Copilot</option>` : ''}
           </select>
           <select id="session-status-filter" class="filter-select">
@@ -1157,9 +1209,9 @@
       applySessionFilters(filteredSessions);
     };
 
-    searchInput.addEventListener('input', filterHandler);
-    provFilter.addEventListener('change', filterHandler);
-    statusFilter.addEventListener('change', filterHandler);
+    searchInput?.addEventListener('input', filterHandler);
+    provFilter?.addEventListener('change', filterHandler);
+    statusFilter?.addEventListener('change', filterHandler);
 
     if (clearFiltersBtn) {
       clearFiltersBtn.addEventListener('click', () => {
@@ -1172,19 +1224,378 @@
         applySessionFilters(filteredSessions);
       });
     }
+  }
 
-    document.getElementById('btn-refresh-sessions').addEventListener('click', async () => {
+  async function renderAgentLoopsSection(target) {
+    const thisGen = renderGeneration;
+    const thisProject = state.currentProject;
+    target.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <span class="text-secondary" style="font-size: 13px;" data-i18n="loops.tabDesc">${escapeHtml(t('loops.tabDesc'))}</span>
+        <button id="btn-plan-loop" class="btn btn-primary btn-sm" data-i18n="loops.btnPlan">${escapeHtml(t('loops.btnPlan'))}</button>
+      </div>
+      <div id="loops-table-container">
+        <div class="text-secondary" style="font-size: 12px; padding: 20px 0; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+      </div>
+    `;
+
+    document.getElementById('btn-plan-loop')?.addEventListener('click', openPlanLoopModal);
+
+    try {
+      const loops = await callBridge('loops.list', state.currentProject ? { project: state.currentProject } : {});
+      if (thisGen !== renderGeneration || state.currentProject !== thisProject || !document.contains(target)) return;
+      const list = Array.isArray(loops) ? loops : [];
+      const cont = document.getElementById('loops-table-container');
+      if (!cont) return;
+
+      if (list.length === 0) {
+        cont.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-title" data-i18n="loops.empty">${escapeHtml(t('loops.empty'))}</div>
+            <div class="empty-state-desc" data-i18n="loops.tabDesc">${escapeHtml(t('loops.tabDesc'))}</div>
+            <button id="btn-empty-plan-loop" class="btn btn-primary btn-sm" style="margin-top: 12px;" data-i18n="loops.btnPlan">${escapeHtml(t('loops.btnPlan'))}</button>
+          </div>
+        `;
+        document.getElementById('btn-empty-plan-loop')?.addEventListener('click', openPlanLoopModal);
+        return;
+      }
+
+      function getLoopStateBadge(st) {
+        switch (st) {
+          case 'pending_approval': return `<span class="status-badge status-amber" data-i18n="loops.statePendingApproval">${escapeHtml(t('loops.statePendingApproval'))}</span>`;
+          case 'running_or_uncertain': return `<span class="status-badge status-blue" data-i18n="loops.stateRunning">${escapeHtml(t('loops.stateRunning'))}</span>`;
+          case 'completed': return `<span class="status-badge status-sage" data-i18n="loops.stateCompleted">${escapeHtml(t('loops.stateCompleted'))}</span>`;
+          case 'budget_exhausted': return `<span class="status-badge status-neutral" data-i18n="loops.stateBudgetExhausted">${escapeHtml(t('loops.stateBudgetExhausted'))}</span>`;
+          case 'cancelled': return `<span class="status-badge status-neutral" data-i18n="loops.stateCancelled">${escapeHtml(t('loops.stateCancelled'))}</span>`;
+          case 'failed': return `<span class="status-badge status-red" data-i18n="loops.stateFailed">${escapeHtml(t('loops.stateFailed'))}</span>`;
+          case 'rejected': return `<span class="status-badge status-red" data-i18n="loops.stateRejected">${escapeHtml(t('loops.stateRejected'))}</span>`;
+          case 'needs_review': return `<span class="status-badge status-amber" data-i18n="loops.stateNeedsReview">${escapeHtml(t('loops.stateNeedsReview'))}</span>`;
+          default: return `<span class="status-badge status-neutral">${escapeHtml(st || '-')}</span>`;
+        }
+      }
+
+      cont.innerHTML = `
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th data-i18n="loops.colId">${escapeHtml(t('loops.colId'))}</th>
+                <th data-i18n="loops.colTitle">${escapeHtml(t('loops.colTitle'))}</th>
+                <th data-i18n="loops.colState">${escapeHtml(t('loops.colState'))}</th>
+                <th data-i18n="loops.colCalls">${escapeHtml(t('loops.colCalls'))}</th>
+                <th data-i18n="loops.colCreated">${escapeHtml(t('loops.colCreated'))}</th>
+                <th style="text-align: right; width: 100px;" data-i18n="loops.colActions">${escapeHtml(t('loops.colActions'))}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${list.map(lp => `
+                <tr>
+                  <td><span class="font-mono" style="font-size: 12px;">${escapeHtml((lp.id || '').substring(0, 12))}</span></td>
+                  <td><strong>${escapeHtml(lp.title || '-')}</strong></td>
+                  <td>${getLoopStateBadge(lp.state)}</td>
+                  <td><span class="font-mono">${escapeHtml(String(lp.modelCalls ?? '-'))}</span></td>
+                  <td><span class="font-mono" style="font-size: 12px;">${formatTime(lp.createdAt)}</span></td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-secondary btn-sm btn-view-loop" data-id="${escapeHtml(lp.id)}" data-i18n="common.view">${escapeHtml(t('common.view'))}</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      cont.querySelectorAll('.btn-view-loop').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          if (id) openLoopDetailModal(id);
+        });
+      });
+    } catch (e) {
+      const cont = document.getElementById('loops-table-container');
+      if (cont) cont.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  async function openPlanLoopModal() {
+    const currentProject = state.currentProject;
+    if (!currentProject) {
+      openModal({ key: 'loops.planModalTitle' }, `
+        <div class="alert-banner alert-warning">
+          <span data-i18n="memory.selectProjectFirst">${escapeHtml(t('memory.selectProjectFirst'))}</span>
+        </div>
+      `, `<button class="btn btn-secondary" id="btn-close-plan-loop" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+      document.getElementById('btn-close-plan-loop')?.addEventListener('click', closeModal);
+      return;
+    }
+
+    openModal({ key: 'loops.planModalTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-plan-loop" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-plan-loop')?.addEventListener('click', closeModal);
+
+    let desc = null;
+    try {
+      desc = await callBridge('loops.describe', {});
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    const f = document.getElementById('modal-footer');
+    if (!b || !f) return;
+
+    b.innerHTML = `
+      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 14px;" data-i18n="loops.planModalDesc">${escapeHtml(t('loops.planModalDesc'))}</p>
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="loops.promptLabel">${escapeHtml(t('loops.promptLabel'))}</label>
+        <textarea id="loop-prompt-input" class="form-control" rows="3" maxlength="24000" data-i18n-placeholder="loops.promptPlaceholder" placeholder="${escapeHtml(t('loops.promptPlaceholder'))}"></textarea>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" data-i18n="loops.executableLabel">${escapeHtml(t('loops.executableLabel'))}</label>
+          <input type="text" id="loop-exec-input" class="form-control" value="/usr/local/bin/codex" />
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" data-i18n="loops.modelLabel">${escapeHtml(t('loops.modelLabel'))}</label>
+          <input type="text" id="loop-model-input" class="form-control" value="gpt-5.6-sol" />
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" data-i18n="loops.reasoningEffortLabel">${escapeHtml(t('loops.reasoningEffortLabel'))}</label>
+          <select id="loop-effort-select" class="form-select">
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high" selected>high</option>
+            <option value="xhigh">xhigh</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="loops.toolsLabel">${escapeHtml(t('loops.toolsLabel'))}</label>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; padding: 8px 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+            <input type="checkbox" class="loop-tool-chk" value="git.status" checked /> <code>git.status</code>
+          </label>
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+            <input type="checkbox" class="loop-tool-chk" value="git.diff" checked /> <code>git.diff</code>
+          </label>
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+            <input type="checkbox" class="loop-tool-chk" value="git.log" /> <code>git.log</code>
+          </label>
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+            <input type="checkbox" class="loop-tool-chk" value="memory.recall" checked /> <code>memory.recall</code>
+          </label>
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+            <input type="checkbox" class="loop-tool-chk" value="library.retrieve" checked /> <code>library.retrieve</code>
+          </label>
+        </div>
+      </div>
+
+      <div class="card" style="padding: 10px 12px; margin-bottom: 0;">
+        <span class="card-title" style="font-size: 12px; margin-bottom: 8px; display: block;" data-i18n="loops.limitsTitle">${escapeHtml(t('loops.limitsTitle'))}</span>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="font-size: 11px; color: var(--text-secondary);" data-i18n="loops.maxCallsLabel">${escapeHtml(t('loops.maxCallsLabel'))}</label>
+            <input type="number" id="loop-max-calls" class="form-control" value="4" min="1" max="12" />
+          </div>
+          <div>
+            <label style="font-size: 11px; color: var(--text-secondary);" data-i18n="loops.timeoutLabel">${escapeHtml(t('loops.timeoutLabel'))}</label>
+            <input type="number" id="loop-timeout" class="form-control" value="60" min="1" max="90" />
+          </div>
+          <div>
+            <label style="font-size: 11px; color: var(--text-secondary);" data-i18n="loops.totalTimeoutLabel">${escapeHtml(t('loops.totalTimeoutLabel'))}</label>
+            <input type="number" id="loop-total-timeout" class="form-control" value="180" min="1" max="300" />
+          </div>
+          <div>
+            <label style="font-size: 11px; color: var(--text-secondary);" data-i18n="loops.tokenBudgetLabel">${escapeHtml(t('loops.tokenBudgetLabel'))}</label>
+            <input type="number" id="loop-token-budget" class="form-control" value="0" min="0" max="1000000" />
+          </div>
+        </div>
+      </div>
+      <div id="loop-plan-error" class="alert-banner alert-warning hidden" style="margin-top: 10px;"></div>
+    `;
+
+    f.innerHTML = `
+      <button class="btn btn-secondary" id="btn-cancel-plan-loop" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-submit-plan-loop" data-i18n="loops.btnSubmitPlan">${escapeHtml(t('loops.btnSubmitPlan'))}</button>
+    `;
+
+    document.getElementById('btn-cancel-plan-loop')?.addEventListener('click', closeModal);
+    document.getElementById('btn-submit-plan-loop')?.addEventListener('click', async () => {
+      const prompt = document.getElementById('loop-prompt-input')?.value.trim();
+      const errBox = document.getElementById('loop-plan-error');
+      if (!prompt) {
+        if (errBox) { errBox.textContent = t('loops.promptLabel'); errBox.classList.remove('hidden'); }
+        return;
+      }
+      const executable = document.getElementById('loop-exec-input')?.value.trim();
+      const model = document.getElementById('loop-model-input')?.value.trim();
+      const effort = document.getElementById('loop-effort-select')?.value;
+      const tools = Array.from(document.querySelectorAll('.loop-tool-chk:checked')).map(c => c.value);
+      const limits = {
+        maxModelCalls: parseInt(document.getElementById('loop-max-calls')?.value || '4', 10),
+        timeoutSeconds: parseInt(document.getElementById('loop-timeout')?.value || '60', 10),
+        totalTimeoutSeconds: parseInt(document.getElementById('loop-total-timeout')?.value || '180', 10),
+        observedTokenBudget: parseInt(document.getElementById('loop-token-budget')?.value || '0', 10)
+      };
+
       try {
-        await callBridge('sessions.refresh');
-        await refreshDashboard(true, true);
-        showToast({ key: 'sessions.refreshedToast' });
+        const planned = await callBridge('loops.plan', {
+          project: state.currentProject,
+          prompt,
+          agent: { executable, model, reasoningEffort: effort },
+          tools,
+          limits
+        });
+        if (currentModalInstance !== thisModalInstance) return;
+        b.innerHTML = `
+          <div class="alert-banner alert-sage" style="margin-bottom: 12px;">
+            <span data-i18n="loops.planCreatedNotice">${escapeHtml(t('loops.planCreatedNotice'))}</span>
+          </div>
+          <div class="card">
+            <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div><strong>ID:</strong> <span class="font-mono">${escapeHtml(planned.id || '')}</span></div>
+              <div><strong>Approval ID:</strong> <span class="font-mono">${escapeHtml(planned.approvalId || '')}</span></div>
+              <div><strong>State:</strong> <span class="status-badge status-amber">${escapeHtml(planned.state || 'pending_approval')}</span></div>
+              <div><strong>Model Calls:</strong> <span class="font-mono">${escapeHtml(String(planned.modelCalls ?? 0))}</span></div>
+            </div>
+          </div>
+        `;
+        f.innerHTML = `
+          <button class="btn btn-secondary" id="btn-done-plan-loop" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+          <button class="btn btn-primary" id="btn-goto-inbox-loop" data-i18n="loops.viewApprovalBtn">${escapeHtml(t('loops.viewApprovalBtn'))}</button>
+        `;
+        document.getElementById('btn-done-plan-loop')?.addEventListener('click', () => {
+          closeModal();
+          const target = document.getElementById('agents-tab-content');
+          if (target) renderAgentLoopsSection(target);
+        });
+        document.getElementById('btn-goto-inbox-loop')?.addEventListener('click', () => {
+          closeModal();
+          navigateTo('inbox');
+        });
       } catch (err) {
-        showToast({ key: 'sessions.refreshFailedToast', params: { error: err.message } }, 'error');
+        if (errBox) { errBox.textContent = err.message; errBox.classList.remove('hidden'); }
       }
     });
+  }
 
-    document.getElementById('btn-add-project-agents').addEventListener('click', () => {
-      document.getElementById('btn-add-project').click();
+  async function openLoopDetailModal(loopId) {
+    const currentProject = state.currentProject;
+    openModal({ key: 'loops.detailTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-loop-detail" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-loop-detail')?.addEventListener('click', closeModal);
+
+    let loop = null;
+    try {
+      loop = await callBridge('loops.get', { project: currentProject, id: loopId });
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    const f = document.getElementById('modal-footer');
+    if (!b || !f) return;
+
+    const rounds = Array.isArray(loop.rounds) ? loop.rounds : [];
+    const queued = Array.isArray(loop.queuedActions) ? loop.queuedActions : [];
+    const isTerminal = ['completed','failed','cancelled','budget_exhausted','rejected'].includes(loop.state);
+
+    b.innerHTML = `
+      <div class="card" style="margin-bottom: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
+          <div><strong>ID:</strong> <span class="font-mono">${escapeHtml(loop.id || '')}</span></div>
+          <div><strong>State:</strong> <span class="status-badge status-sage">${escapeHtml(loop.state || '-')}</span></div>
+          <div><strong>Model Calls:</strong> <span class="font-mono">${escapeHtml(String(loop.modelCalls ?? 0))}</span></div>
+          <div><strong>Loop Hash:</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml((loop.loopHash || '').substring(0, 12))}</span></div>
+        </div>
+        <div style="margin-top: 8px; font-size: 12px;">
+          <strong>Task:</strong> <span>${escapeHtml(loop.title || (loop.request && loop.request.prompt) || '-')}</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="loops.roundsSection">${escapeHtml(t('loops.roundsSection'))}</h3>
+        ${rounds.length === 0 ? `
+          <div class="text-secondary" style="font-size: 12px; padding: 8px;" data-i18n="loops.noRounds">${escapeHtml(t('loops.noRounds'))}</div>
+        ` : rounds.map((rd, idx) => `
+          <div style="padding: 8px 10px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 6px; font-size: 12px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <strong>${escapeHtml(t('loops.roundHeader', { index: idx + 1 }))}</strong>
+              <span class="font-mono text-secondary" style="font-size: 11px;">Exit: ${escapeHtml(String(rd.exitCode ?? '-'))}</span>
+            </div>
+            ${rd.decision ? `
+              <div style="margin-bottom: 4px;">
+                <span class="text-secondary" data-i18n="loops.decisionKind">${escapeHtml(t('loops.decisionKind'))}</span>
+                <span class="code-badge">${escapeHtml(rd.decision.kind || '-')}</span>
+                ${rd.decision.toolId ? `<span class="font-mono" style="margin-left: 6px;">${escapeHtml(rd.decision.toolId)}</span>` : ''}
+              </div>
+            ` : ''}
+            ${rd.receipt ? `
+              <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary); background: var(--bg-subtle, #fafafa); padding: 4px 6px; border-radius: 4px;">
+                Receipt: ${escapeHtml(JSON.stringify(rd.receipt.sources || rd.receipt.output || rd.receipt.state || 'ok'))}
+              </div>
+            ` : ''}
+          </div>
+        `).join('')}
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="loops.queuedSection">${escapeHtml(t('loops.queuedSection'))}</h3>
+        ${queued.length === 0 ? `
+          <div class="text-secondary" style="font-size: 12px; padding: 8px;" data-i18n="loops.noQueued">${escapeHtml(t('loops.noQueued'))}</div>
+        ` : queued.map(q => `
+          <div style="padding: 8px 10px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; margin-bottom: 6px; font-size: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="status-badge status-amber" data-i18n="loops.queuedPendingNotice">${escapeHtml(t('loops.queuedPendingNotice'))}</span>
+              <span class="font-mono text-secondary" style="font-size: 11px;">Action: ${escapeHtml((q.actionId || '').substring(0, 10))}</span>
+            </div>
+            <div style="margin-top: 4px; font-size: 11px; color: var(--text-secondary);">
+              Approval: <span class="font-mono">${escapeHtml(q.approvalId || '-')}</span> · Run: <span class="font-mono">${escapeHtml(q.runId || '-')}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      ${loop.output ? `
+        <div>
+          <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="loops.finalAnswerSection">${escapeHtml(t('loops.finalAnswerSection'))}</h3>
+          <div class="code-view" style="max-height: 180px; overflow-y: auto;">${escapeHtml(loop.output)}</div>
+        </div>
+      ` : ''}
+    `;
+
+    f.innerHTML = `
+      <button class="btn btn-secondary" id="btn-close-loop-detail-2" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      ${!isTerminal ? `<button class="btn btn-danger" id="btn-cancel-loop" data-i18n="loops.btnCancel">${escapeHtml(t('loops.btnCancel'))}</button>` : ''}
+    `;
+
+    document.getElementById('btn-close-loop-detail-2')?.addEventListener('click', closeModal);
+    document.getElementById('btn-cancel-loop')?.addEventListener('click', async () => {
+      if (!confirm(t('loops.cancelConfirm'))) return;
+      try {
+        await callBridge('loops.cancel', { project: currentProject, id: loopId, loopHash: loop.loopHash });
+        showToast({ key: 'loops.cancelSuccess' });
+        openLoopDetailModal(loopId);
+      } catch (err) {
+        showToast({ key: 'workflows.actionFailed', params: { error: err.message } }, 'error');
+      }
     });
   }
 
@@ -1529,7 +1940,7 @@
             ${isTruncated ? `<span class="status-badge status-neutral" style="white-space: nowrap;" data-i18n="sessions.badgeTruncated">${escapeHtml(t('sessions.badgeTruncated'))}</span>` : ''}
           </div>
           <div style="font-size: 12px; color: var(--text-secondary); white-space: nowrap;">
-            ${escapeHtml(session.provider || 'AI')}${session.model ? ` · ${escapeHtml(session.model)}` : ''}
+            ${escapeHtml(formatProviderName(session.provider || 'AI'))}${session.modelProvider && String(session.modelProvider).toLowerCase() !== String(session.provider || '').toLowerCase() ? ` · ${escapeHtml(session.modelProvider)}` : ''}${session.model ? ` · ${escapeHtml(session.model)}` : ''}
           </div>
         </div>
         ${session.statusInferred ? `
@@ -1586,10 +1997,14 @@
         </summary>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; margin-top: 12px;">
           <div style="grid-column: 1 / -1;"><span class="text-secondary" data-i18n="sessions.metaSessionId">${escapeHtml(t('sessions.metaSessionId'))}</span> <span class="font-mono" style="word-break: break-all; user-select: all;">${escapeHtml(session.id || '')}</span></div>
-          <div><span class="text-secondary" data-i18n="sessions.metaProvider">${escapeHtml(t('sessions.metaProvider'))}</span> <strong>${escapeHtml(session.provider || '-')}</strong></div>
+          <div><span class="text-secondary" data-i18n="sessions.metaProvider">${escapeHtml(t('sessions.metaProvider'))}</span> <strong>${escapeHtml(formatProviderName(session.provider) || '-')}</strong></div>
+          ${session.modelProvider ? `<div><span class="text-secondary" data-i18n="sessions.metaModelProvider">${escapeHtml(t('sessions.metaModelProvider'))}</span> <strong>${escapeHtml(session.modelProvider)}</strong></div>` : ''}
           <div><span class="text-secondary" data-i18n="sessions.metaModel">${escapeHtml(t('sessions.metaModel'))}</span> <span class="font-mono">${escapeHtml(session.model || '-')}</span></div>
           <div><span class="text-secondary" data-i18n="sessions.metaProject">${escapeHtml(t('sessions.metaProject'))}</span> <span class="font-mono">${escapeHtml(session.project || '-')}</span></div>
           <div><span class="text-secondary" data-i18n="sessions.metaBranch">${escapeHtml(t('sessions.metaBranch'))}</span> <span class="font-mono">${escapeHtml(session.branch || '-')}</span></div>
+          ${session.sourceFormatVersion != null ? `<div><span class="text-secondary" data-i18n="sessions.metaSourceFormatVersion">${escapeHtml(t('sessions.metaSourceFormatVersion'))}</span> <span class="font-mono">v${escapeHtml(String(session.sourceFormatVersion))}</span></div>` : ''}
+          ${session.branchAncestryComplete !== undefined && session.branchAncestryComplete !== null ? `<div><span class="text-secondary" data-i18n="sessions.metaBranchAncestry">${escapeHtml(t('sessions.metaBranchAncestry'))}</span> <span>${session.branchAncestryComplete ? `<span class="status-badge status-sage" data-i18n="sessions.metaBranchAncestryComplete">${escapeHtml(t('sessions.metaBranchAncestryComplete'))}</span>` : `<span class="status-badge status-amber" data-i18n="sessions.metaBranchAncestryIncomplete">${escapeHtml(t('sessions.metaBranchAncestryIncomplete'))}</span>`}</span></div>` : ''}
+          ${session.branchSelectionSource ? `<div><span class="text-secondary" data-i18n="sessions.metaBranchSelectionSource">${escapeHtml(t('sessions.metaBranchSelectionSource'))}</span> <span class="font-mono">${escapeHtml(session.branchSelectionSource)}</span></div>` : ''}
           <div><span class="text-secondary" data-i18n="sessions.metaTokens">${escapeHtml(t('sessions.metaTokens'))}</span> <span class="font-mono">${tokensDisp}</span></div>
           <div><span class="text-secondary" data-i18n="sessions.metaTime">${escapeHtml(t('sessions.metaTime'))}</span> ${formatTime(session.updatedAt)}</div>
           ${session.statusSource ? `<div><span class="text-secondary" data-i18n="sessions.metaStatusSource">${escapeHtml(t('sessions.metaStatusSource'))}</span> <span class="font-mono">${escapeHtml(session.statusSource)}</span></div>` : ''}
@@ -1900,6 +2315,7 @@
   function renderWorkflowsView(container) {
     const workflows = (state.dashboard && state.dashboard.workflows) || [];
     const runs = (state.dashboard && state.dashboard.runs) || [];
+    const schedulesCount = workflows.filter(w => w.trigger === 'cron').length;
 
     container.innerHTML = `
       <div class="page-header">
@@ -1908,6 +2324,8 @@
           <p data-i18n="workflows.subtitle">${escapeHtml(t('workflows.subtitle'))}</p>
         </div>
         <div class="page-actions">
+          <button id="btn-validate-workflows" class="btn btn-secondary btn-sm" data-i18n="workflows.btnValidateAll">${escapeHtml(t('workflows.btnValidateAll'))}</button>
+          <button id="btn-plan-workflow" class="btn btn-secondary btn-sm" data-i18n="workflows.btnPlanWorkflow">${escapeHtml(t('workflows.btnPlanWorkflow'))}</button>
           <button id="btn-build-wf-prompt" class="btn btn-secondary btn-sm" data-i18n="workflows.btnBuildPrompt">${escapeHtml(t('workflows.btnBuildPrompt'))}</button>
           <button id="btn-new-workflow" class="btn btn-primary btn-sm" data-i18n="workflows.btnNewWorkflow">${escapeHtml(t('workflows.btnNewWorkflow'))}</button>
         </div>
@@ -1916,6 +2334,9 @@
       <div class="tabs-nav">
         <button class="tab-btn ${state.workflowsActiveTab === 'list' ? 'active' : ''}" data-wftab="list" data-i18n="workflows.tabList" data-i18n-params="${escapeHtml(JSON.stringify({ count: workflows.length }))}">${escapeHtml(t('workflows.tabList', { count: workflows.length }))}</button>
         <button class="tab-btn ${state.workflowsActiveTab === 'runs' ? 'active' : ''}" data-wftab="runs" data-i18n="workflows.tabRuns" data-i18n-params="${escapeHtml(JSON.stringify({ count: runs.length }))}">${escapeHtml(t('workflows.tabRuns', { count: runs.length }))}</button>
+        <button class="tab-btn ${state.workflowsActiveTab === 'plans' ? 'active' : ''}" data-wftab="plans" data-i18n="workflows.tabPlans" data-i18n-params="${escapeHtml(JSON.stringify({ count: state.workflowPlansCount || 0 }))}">${escapeHtml(t('workflows.tabPlans', { count: state.workflowPlansCount || 0 }))}</button>
+        <button class="tab-btn ${state.workflowsActiveTab === 'schedules' ? 'active' : ''}" data-wftab="schedules" data-i18n="workflows.tabSchedules" data-i18n-params="${escapeHtml(JSON.stringify({ count: schedulesCount }))}">${escapeHtml(t('workflows.tabSchedules', { count: schedulesCount }))}</button>
+        <button class="tab-btn ${state.workflowsActiveTab === 'artifacts' ? 'active' : ''}" data-wftab="artifacts" data-i18n="workflows.tabArtifacts" data-i18n-params="${escapeHtml(JSON.stringify({ count: state.workflowArtifactsCount || 0 }))}">${escapeHtml(t('workflows.tabArtifacts', { count: state.workflowArtifactsCount || 0 }))}</button>
         <button class="tab-btn ${state.workflowsActiveTab === 'health' ? 'active' : ''}" data-wftab="health" data-i18n="workflows.tabHealth">${escapeHtml(t('workflows.tabHealth'))}</button>
       </div>
 
@@ -1937,6 +2358,14 @@
 
     document.getElementById('btn-build-wf-prompt').addEventListener('click', () => {
       openWorkflowPromptBuilderModal();
+    });
+
+    document.getElementById('btn-plan-workflow')?.addEventListener('click', () => {
+      openWorkflowPlannerModal();
+    });
+
+    document.getElementById('btn-validate-workflows')?.addEventListener('click', () => {
+      openWorkflowsValidationModal();
     });
 
     renderWorkflowsTabContent();
@@ -1965,6 +2394,12 @@
       }
 
       target.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: flex-end; margin-bottom: 8px;">
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+            <input type="checkbox" id="chk-include-archived" ${state.workflowsIncludeArchived ? 'checked' : ''} />
+            <span data-i18n="workflows.includeArchived">${escapeHtml(t('workflows.includeArchived'))}</span>
+          </label>
+        </div>
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
@@ -1974,7 +2409,7 @@
                 <th data-i18n="workflows.colSteps">${escapeHtml(t('workflows.colSteps'))}</th>
                 <th data-i18n="workflows.colVersion">${escapeHtml(t('workflows.colVersion'))}</th>
                 <th data-i18n="workflows.colStatus">${escapeHtml(t('workflows.colStatus'))}</th>
-                <th style="text-align: right; width: 220px;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
+                <th style="text-align: right; width: 280px;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
               </tr>
             </thead>
             <tbody>
@@ -1987,13 +2422,16 @@
                   <td>
                     <span class="code-badge">${escapeHtml(wf.trigger || 'manual')}</span>
                     ${wf.cron ? `<span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); margin-left: 4px;">${escapeHtml(wf.cron)}</span>` : ''}
+                    ${wf.trigger === 'watch' ? `<span class="status-badge status-sage" style="margin-left: 4px;">watch</span>` : ''}
                   </td>
                   <td data-i18n="workflows.stepsCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: (wf.steps && wf.steps.length) || 0 }))}">${escapeHtml(t('workflows.stepsCount', { count: (wf.steps && wf.steps.length) || 0 }))}</td>
                   <td><span class="font-mono">v${escapeHtml(String(wf.version || 1))}</span></td>
                   <td>
-                    ${wf.enabled !== false ? `<span class="status-badge status-sage" data-i18n="workflows.statusEnabled">${escapeHtml(t('workflows.statusEnabled'))}</span>` : `<span class="status-badge status-neutral" data-i18n="workflows.statusDisabled">${escapeHtml(t('workflows.statusDisabled'))}</span>`}
+                    ${wf.state === 'archived' ? `<span class="status-badge status-neutral" data-i18n="workflows.badgeArchived">${escapeHtml(t('workflows.badgeArchived'))}</span>` : (wf.enabled !== false ? `<span class="status-badge status-sage" data-i18n="workflows.statusEnabled">${escapeHtml(t('workflows.statusEnabled'))}</span>` : `<span class="status-badge status-neutral" data-i18n="workflows.statusDisabled">${escapeHtml(t('workflows.statusDisabled'))}</span>`)}
                   </td>
                   <td style="text-align: right;">
+                    ${wf.trigger === 'watch' ? `<button class="btn btn-ghost btn-sm btn-wf-preview-watch" data-id="${escapeHtml(wf.id)}" data-project="${escapeHtml(wf.project || '')}" data-i18n="watch.btnPreview" title="${escapeHtml(t('watch.btnPreview'))}">👁</button>` : ''}
+                    <button class="btn btn-secondary btn-sm btn-wf-inspect" data-id="${escapeHtml(wf.id)}" data-i18n="workflows.btnInspect">${escapeHtml(t('workflows.btnInspect'))}</button>
                     <button class="btn btn-secondary btn-sm btn-wf-dryrun" data-id="${escapeHtml(wf.id)}" data-i18n-title="workflows.btnDryRunTitle" title="${escapeHtml(t('workflows.btnDryRunTitle'))}" data-i18n="workflows.btnDryRun">${escapeHtml(t('workflows.btnDryRun'))}</button>
                     <button class="btn btn-primary btn-sm btn-wf-run" data-id="${escapeHtml(wf.id)}" data-i18n="workflows.btnRun">${escapeHtml(t('workflows.btnRun'))}</button>
                     <button class="btn btn-ghost btn-sm btn-wf-edit" data-id="${escapeHtml(wf.id)}" data-i18n="common.edit">${escapeHtml(t('common.edit'))}</button>
@@ -2004,6 +2442,34 @@
           </table>
         </div>
       `;
+
+      document.getElementById('chk-include-archived')?.addEventListener('change', async (e) => {
+        state.workflowsIncludeArchived = e.target.checked;
+        try {
+          const list = await callBridge('workflows.list', { project: state.currentProject, includeArchived: state.workflowsIncludeArchived });
+          if (state.dashboard) {
+            state.dashboard.workflows = list;
+          }
+          renderWorkflowsTabContent();
+        } catch (err) {
+          showToast({ key: 'workflows.actionFailed', params: { error: err.message } }, 'error');
+        }
+      });
+
+      target.querySelectorAll('.btn-wf-inspect').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          if (id) openWorkflowInspectModal(id);
+        });
+      });
+
+      target.querySelectorAll('.btn-wf-preview-watch').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const proj = btn.getAttribute('data-project') || state.currentProject;
+          if (id) openWatchPreviewModal(id, proj);
+        });
+      });
 
       target.querySelectorAll('.btn-wf-run').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -2107,6 +2573,12 @@
         });
       });
 
+    } else if (state.workflowsActiveTab === 'plans') {
+      renderWorkflowsPlansTab(target);
+    } else if (state.workflowsActiveTab === 'schedules') {
+      renderWorkflowsSchedulesTab(target);
+    } else if (state.workflowsActiveTab === 'artifacts') {
+      renderWorkflowsArtifactsTab(target);
     } else if (state.workflowsActiveTab === 'health') {
       target.innerHTML = `
         <div class="card">
@@ -2138,6 +2610,1254 @@
 
       loadHealthData();
       document.getElementById('btn-refresh-health').addEventListener('click', loadHealthData);
+    }
+  }
+
+  async function renderWorkflowsSchedulesTab(target) {
+    target.innerHTML = `
+      <div class="empty-state" style="padding: 40px 0;">
+        <div class="empty-state-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <div class="empty-state-title" data-i18n="common.loading">${escapeHtml(t('common.loading') || 'Loading...')}</div>
+      </div>
+    `;
+
+    try {
+      const data = await callBridge('schedules.list', state.currentProject ? { project: state.currentProject } : {});
+      const daemonRunning = data && data.daemonRunning === true;
+      const intervalSeconds = (data && data.intervalSeconds) || 30;
+      const schedules = Array.isArray(data && data.schedules) ? data.schedules : [];
+      const events = Array.isArray(data && data.events) ? data.events : [];
+      const workflows = (state.dashboard && state.dashboard.workflows) || [];
+
+      const scheduleMap = new Map();
+      schedules.forEach(s => { if (s && s.id) scheduleMap.set(s.id, s); });
+
+      const scheduledItems = [];
+      const seenIds = new Set();
+      workflows.forEach(w => {
+        if (w.trigger === 'cron') {
+          scheduledItems.push({
+            workflow: w,
+            schedule: scheduleMap.get(w.id)
+          });
+          seenIds.add(w.id);
+        }
+      });
+      schedules.forEach(s => {
+        if (s && s.id && !seenIds.has(s.id)) {
+          const matched = workflows.find(w => w.id === s.id);
+          scheduledItems.push({
+            workflow: matched || { id: s.id, name: s.id, trigger: 'cron' },
+            schedule: s
+          });
+          seenIds.add(s.id);
+        }
+      });
+
+      const sortedEvents = events.slice().sort((a, b) => {
+        const tA = a.claimedAt || a.scheduledAt || '';
+        const tB = b.claimedAt || b.scheduledAt || '';
+        return tB.localeCompare(tA);
+      });
+
+      function getScheduleBadge(st) {
+        if (!st || st === 'idle') return `<span class="status-badge status-neutral">${escapeHtml(st || 'idle')}</span>`;
+        if (st === 'running' || st === 'claimed') return `<span class="status-badge status-sage">${escapeHtml(st)}</span>`;
+        if (st === 'deferred') return `<span class="status-badge status-warning">${escapeHtml(st)}</span>`;
+        if (st === 'needs_review') return `<span class="status-badge status-danger">${escapeHtml(st)}</span>`;
+        return `<span class="status-badge status-neutral">${escapeHtml(st)}</span>`;
+      }
+
+      function getEventBadge(st) {
+        if (st === 'claimed') return `<span class="status-badge status-warning">${escapeHtml(st)}</span>`;
+        if (st === 'dispatched') return `<span class="status-badge status-sage">${escapeHtml(st)}</span>`;
+        if (st === 'acknowledged') return `<span class="status-badge status-neutral">${escapeHtml(st)}</span>`;
+        if (st === 'needs_review') return `<span class="status-badge status-danger">${escapeHtml(st)}</span>`;
+        return `<span class="status-badge status-neutral">${escapeHtml(st || '-')}</span>`;
+      }
+
+      target.innerHTML = `
+        <div class="daemon-status-banner">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span class="status-dot ${daemonRunning ? 'status-dot-active' : ''}" style="width: 8px; height: 8px; border-radius: 50%; background: ${daemonRunning ? 'var(--status-sage-text)' : 'var(--text-muted)'}; display: inline-block;"></span>
+            <div>
+              <strong style="font-size: 13px;">${daemonRunning ? escapeHtml(t('workflows.daemonRunning')) : escapeHtml(t('workflows.daemonStopped'))}</strong>
+              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">
+                ${escapeHtml(t('workflows.checkInterval', { seconds: intervalSeconds }))}
+              </div>
+            </div>
+          </div>
+          <button id="btn-refresh-schedules" class="btn btn-ghost btn-sm" data-i18n="workflows.btnRefreshHealth">${escapeHtml(t('workflows.btnRefreshHealth'))}</button>
+        </div>
+
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-header">
+            <span class="card-title" data-i18n="workflows.schedulesListTitle">${escapeHtml(t('workflows.schedulesListTitle'))}</span>
+            <span class="status-badge status-neutral">${scheduledItems.length}</span>
+          </div>
+          ${scheduledItems.length === 0 ? `
+            <div style="padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 13px;">
+              ${escapeHtml(t('workflows.emptyDesc'))}
+            </div>
+          ` : `
+            <div class="table-wrapper" style="margin-bottom: 0;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th data-i18n="workflows.colName">${escapeHtml(t('workflows.colName'))}</th>
+                    <th data-i18n="workflows.colTrigger">${escapeHtml(t('workflows.colTrigger'))}</th>
+                    <th data-i18n="workflows.timeZoneLabel">${escapeHtml(t('workflows.timeZoneLabel'))}</th>
+                    <th data-i18n="workflows.catchUpPolicyLabel">${escapeHtml(t('workflows.catchUpPolicyLabel'))}</th>
+                    <th data-i18n="workflows.colStatus">${escapeHtml(t('workflows.colStatus'))}</th>
+                    <th data-i18n="workflows.colScheduledAt">${escapeHtml(t('workflows.colScheduledAt'))}</th>
+                    <th style="text-align: right;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${scheduledItems.map(item => {
+                    const w = item.workflow;
+                    const s = item.schedule;
+                    const st = s ? s.state : 'idle';
+                    let catchUpDesc = w.catchUp === 'all' ? t('workflows.catchUpAll') : w.catchUp === 'skip' ? t('workflows.catchUpSkip') : t('workflows.catchUpLatest');
+                    if (w.catchUpLimit) catchUpDesc += ` (max ${w.catchUpLimit})`;
+                    const lastRunText = s && s.lastCheckedMinute ? formatTime(new Date(s.lastCheckedMinute * 60000)) : (s && s.lastRunId ? `<span class="code-badge">${escapeHtml(s.lastRunId.substring(0, 8))}</span>` : '—');
+                    const errorNote = (s && (s.error || s.reason)) ? `<div style="font-size: 10px; color: var(--status-red-text); margin-top: 2px;">${escapeHtml(s.error || s.reason)}</div>` : '';
+
+                    return `
+                      <tr>
+                        <td>
+                          <strong>${escapeHtml(w.name || w.id)}</strong>
+                          <div style="font-size: 11px; color: var(--text-muted);"><span class="code-badge">${escapeHtml(w.id ? w.id.substring(0, 16) : '-')}</span></div>
+                        </td>
+                        <td><code class="code-badge font-mono">${escapeHtml(w.cron || w.trigger || '-')}</code></td>
+                        <td>${escapeHtml(w.timeZone || 'local')}</td>
+                        <td style="font-size: 11px;">${escapeHtml(catchUpDesc)}</td>
+                        <td>
+                          ${getScheduleBadge(st)}
+                          ${errorNote}
+                        </td>
+                        <td>${lastRunText}</td>
+                        <td style="text-align: right;">
+                          <button class="btn btn-secondary btn-xs btn-edit-sched-wf" data-id="${escapeHtml(w.id)}" data-i18n="common.edit">${escapeHtml(t('common.edit'))}</button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `}
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title" data-i18n="workflows.dispatchesListTitle">${escapeHtml(t('workflows.dispatchesListTitle'))}</span>
+            <span class="status-badge status-neutral">${sortedEvents.length}</span>
+          </div>
+          ${sortedEvents.length === 0 ? `
+            <div style="padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 13px;">
+              —
+            </div>
+          ` : `
+            <div class="table-wrapper" style="margin-bottom: 0;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th data-i18n="workflows.colName">${escapeHtml(t('workflows.colName'))}</th>
+                    <th data-i18n="workflows.colScheduledAt">${escapeHtml(t('workflows.colScheduledAt'))}</th>
+                    <th data-i18n="workflows.colDispatchedAt">${escapeHtml(t('workflows.colDispatchedAt'))}</th>
+                    <th data-i18n="workflows.colStatus">${escapeHtml(t('workflows.colStatus'))}</th>
+                    <th data-i18n="workflows.colDecision">${escapeHtml(t('workflows.colDecision'))}</th>
+                    <th style="text-align: right;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${sortedEvents.map(ev => {
+                    const isAckable = ev.state === 'claimed' || ev.state === 'needs_review';
+                    const runBadge = ev.runId ? `<a href="#" class="btn-inspect-ev-run code-badge" data-runid="${escapeHtml(ev.runId)}" style="text-decoration:none; margin-left: 4px;">Run ${escapeHtml(ev.runId.substring(0, 8))}</a>` : '';
+                    const lateText = (typeof ev.lateBySeconds === 'number' && ev.lateBySeconds > 0) ? `<span style="font-size: 10px; color: var(--status-amber-text); margin-left: 4px;">+${ev.lateBySeconds}s</span>` : '';
+                    const errorText = ev.error ? `<div style="font-size: 10px; color: var(--status-red-text); margin-top: 2px;">${escapeHtml(ev.error)}</div>` : '';
+                    const ackText = ev.acknowledgedAt ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Ack @ ${formatTime(ev.acknowledgedAt)}</div>` : '';
+
+                    return `
+                      <tr>
+                        <td><span class="code-badge font-mono">${escapeHtml(ev.id ? ev.id.substring(0, 10) : '-')}</span></td>
+                        <td><strong>${escapeHtml(ev.workflowId || '-')}</strong></td>
+                        <td style="font-size: 11px;">${ev.scheduledAt ? formatTime(ev.scheduledAt) : '—'}</td>
+                        <td style="font-size: 11px;">${ev.claimedAt ? formatTime(ev.claimedAt) : '—'}${lateText}</td>
+                        <td>
+                          ${getEventBadge(ev.state)}
+                          ${runBadge}
+                          ${errorText}
+                        </td>
+                        <td style="font-size: 11px;">
+                          ${ev.state === 'acknowledged' ? `<span class="status-badge status-sage" data-i18n="common.acknowledged">${escapeHtml(t('common.acknowledged') || 'Acknowledged')}</span>` : (isAckable ? `<span class="status-badge status-warning" data-i18n="inbox.pendingApproval">${escapeHtml(t('inbox.pendingApproval'))}</span>` : '—')}
+                          ${ackText}
+                        </td>
+                        <td style="text-align: right;">
+                          ${isAckable ? `
+                            <button class="btn btn-secondary btn-xs btn-ack-event" data-id="${escapeHtml(ev.id)}" data-project="${escapeHtml(ev.project || state.currentProject || '')}" data-i18n="workflows.btnAcknowledge">${escapeHtml(t('workflows.btnAcknowledge'))}</button>
+                          ` : '—'}
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `}
+        </div>
+      `;
+
+      target.querySelector('#btn-refresh-schedules')?.addEventListener('click', () => {
+        renderWorkflowsSchedulesTab(target);
+      });
+
+      target.querySelectorAll('.btn-edit-sched-wf').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const wfId = btn.getAttribute('data-id');
+          const wf = workflows.find(w => w.id === wfId) || { id: wfId, trigger: 'cron' };
+          openEditWorkflowModal(wf);
+        });
+      });
+
+      target.querySelectorAll('.btn-inspect-ev-run').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          const runId = a.getAttribute('data-runid');
+          if (runId) openRunDetail(runId);
+        });
+      });
+
+      target.querySelectorAll('.btn-ack-event').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const eventId = btn.getAttribute('data-id');
+          const proj = btn.getAttribute('data-project') || state.currentProject;
+          try {
+            btn.disabled = true;
+            await callBridge('schedules.resolve', { id: eventId, project: proj, decision: 'acknowledge' });
+            showToast({ key: 'workflows.acknowledgedToast' });
+            renderWorkflowsSchedulesTab(target);
+          } catch (err) {
+            showToast({ key: 'workflows.acknowledgeFailedToast', params: { error: err.message } }, 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+
+    } catch (err) {
+      target.innerHTML = `
+        <div class="alert-banner alert-danger">
+          ${escapeHtml(err.message || String(err))}
+        </div>
+      `;
+    }
+  }
+
+  async function renderWorkflowsArtifactsTab(target) {
+    target.innerHTML = `
+      <div class="empty-state" style="padding: 40px 0;">
+        <div class="empty-state-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <div class="empty-state-title" data-i18n="common.loading">${escapeHtml(t('common.loading') || 'Loading...')}</div>
+      </div>
+    `;
+
+    try {
+      const proj = state.currentProject;
+      const [listRes, inboxRes] = await Promise.all([
+        callBridge('outputs.list', proj ? { project: proj } : {}),
+        callBridge('outputs.inbox', proj ? { project: proj } : {}).catch(() => [])
+      ]);
+
+      const items = Array.isArray(listRes) ? listRes : (listRes && Array.isArray(listRes.items) ? listRes.items : []);
+      const inboxItems = Array.isArray(inboxRes) ? inboxRes : (inboxRes && Array.isArray(inboxRes.items) ? inboxRes.items : []);
+      state.workflowArtifactsCount = inboxItems.length;
+
+      const tabBtn = document.querySelector('[data-wftab="artifacts"]');
+      if (tabBtn) {
+        tabBtn.setAttribute('data-i18n-params', JSON.stringify({ count: state.workflowArtifactsCount }));
+        tabBtn.textContent = t('workflows.tabArtifacts', { count: state.workflowArtifactsCount });
+      }
+
+      if (items.length === 0) {
+        target.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-title" data-i18n="workflows.artifactsEmptyTitle">${escapeHtml(t('workflows.artifactsEmptyTitle'))}</div>
+            <div class="empty-state-desc" data-i18n="workflows.artifactsEmptyDesc">${escapeHtml(t('workflows.artifactsEmptyDesc'))}</div>
+            <div style="margin-top: 12px;">
+              <button id="btn-refresh-artifacts" class="btn btn-secondary btn-sm" data-i18n="workflows.btnRefreshHealth">${escapeHtml(t('workflows.btnRefreshHealth'))}</button>
+            </div>
+          </div>
+        `;
+        document.getElementById('btn-refresh-artifacts')?.addEventListener('click', () => renderWorkflowsArtifactsTab(target));
+        return;
+      }
+
+      target.innerHTML = `
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-header">
+            <div>
+              <span class="card-title" data-i18n="workflows.artifactsTitle">${escapeHtml(t('workflows.artifactsTitle'))}</span>
+              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;" data-i18n="workflows.artifactsDesc">
+                ${escapeHtml(t('workflows.artifactsDesc'))}
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              ${state.workflowArtifactsCount > 0 ? `<span class="status-badge status-warning">${state.workflowArtifactsCount} ${escapeHtml(t('workflows.unreadBadge'))}</span>` : ''}
+              <button id="btn-refresh-artifacts" class="btn btn-ghost btn-sm" data-i18n="workflows.btnRefreshHealth">${escapeHtml(t('workflows.btnRefreshHealth'))}</button>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th data-i18n="workflows.colArtifactPath">${escapeHtml(t('workflows.colArtifactPath'))}</th>
+                  <th data-i18n="workflows.colArtifactTarget">${escapeHtml(t('workflows.colArtifactTarget'))}</th>
+                  <th data-i18n="workflows.colArtifactWorkflow">${escapeHtml(t('workflows.colArtifactWorkflow'))}</th>
+                  <th data-i18n="common.status">${escapeHtml(t('common.status'))}</th>
+                  <th data-i18n="workflows.colArtifactTime">${escapeHtml(t('workflows.colArtifactTime'))}</th>
+                  <th style="text-align: right; width: 160px;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map(item => {
+                  const isUnread = item.unread === true;
+                  const targetLabel = item.target === 'file' ? t('workflows.targetFile') : (item.target === 'inbox' ? t('workflows.targetInbox') : (item.target || 'stdout'));
+                  return `
+                    <tr class="${isUnread ? 'unread-row' : ''}">
+                      <td>
+                        <strong>${escapeHtml(item.path || item.id || '-')}</strong>
+                        ${item.outputHash ? `<div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">Hash: ${escapeHtml(item.outputHash.substring(0, 16))}...</div>` : ''}
+                      </td>
+                      <td>
+                        <span class="code-badge">${escapeHtml(targetLabel)}</span>
+                      </td>
+                      <td>
+                        ${item.runId ? `
+                          <a href="#" class="btn-inspect-artifact-run code-badge" data-runid="${escapeHtml(item.runId)}">${escapeHtml(item.runId.substring(0, 8))}</a>
+                        ` : '-'}
+                        ${item.workflowId ? `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">${escapeHtml(item.workflowId)}</div>` : ''}
+                      </td>
+                      <td>
+                        ${isUnread ? `
+                          <span class="status-badge status-warning" data-i18n="workflows.unreadBadge">${escapeHtml(t('workflows.unreadBadge'))}</span>
+                        ` : `
+                          <span class="status-badge status-neutral" data-i18n="workflows.readBadge">${escapeHtml(t('workflows.readBadge'))}</span>
+                        `}
+                      </td>
+                      <td>${item.createdAt ? formatTime(item.createdAt) : '-'}</td>
+                      <td style="text-align: right;">
+                        <button class="btn btn-secondary btn-xs btn-view-artifact" data-id="${escapeHtml(item.id)}" data-project="${escapeHtml(item.project || state.currentProject || '')}" data-i18n="workflows.btnViewArtifact">${escapeHtml(t('workflows.btnViewArtifact'))}</button>
+                        ${isUnread ? `
+                          <button class="btn btn-ghost btn-xs btn-mark-read-artifact" data-id="${escapeHtml(item.id)}" data-project="${escapeHtml(item.project || state.currentProject || '')}" data-i18n="workflows.btnMarkRead">${escapeHtml(t('workflows.btnMarkRead'))}</button>
+                        ` : ''}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      target.querySelector('#btn-refresh-artifacts')?.addEventListener('click', () => {
+        renderWorkflowsArtifactsTab(target);
+      });
+
+      target.querySelectorAll('.btn-inspect-artifact-run').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          const runId = a.getAttribute('data-runid');
+          if (runId) openRunDetail(runId);
+        });
+      });
+
+      target.querySelectorAll('.btn-view-artifact').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const p = btn.getAttribute('data-project') || state.currentProject;
+          const matched = items.find(i => i.id === id) || { id, project: p };
+          openArtifactDetailModal(matched, () => renderWorkflowsArtifactsTab(target));
+        });
+      });
+
+      target.querySelectorAll('.btn-mark-read-artifact').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          const p = btn.getAttribute('data-project') || state.currentProject;
+          btn.disabled = true;
+          try {
+            await callBridge('outputs.markRead', { project: p, id });
+            showToast({ key: 'common.success' });
+            renderWorkflowsArtifactsTab(target);
+          } catch (err) {
+            showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+
+    } catch (err) {
+      target.innerHTML = `
+        <div class="alert-banner alert-danger">
+          ${escapeHtml(err.message || String(err))}
+        </div>
+      `;
+    }
+  }
+
+  async function openArtifactDetailModal(item, onUpdated) {
+    const proj = item.project || state.currentProject;
+    openModal(t('workflows.artifactDetailTitle'), `
+      <div style="padding: 20px 0; text-align: center; color: var(--text-muted);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <span style="margin-left: 8px;">${escapeHtml(t('common.loading') || 'Loading...')}</span>
+      </div>
+    `, `<button class="btn btn-secondary" onclick="closeModal()">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+
+    try {
+      const data = await callBridge('outputs.get', { project: proj, id: item.id });
+      if (currentModalInstance !== thisModalInstance) return;
+      const full = data || item;
+      const isUnread = full.unread === true;
+
+      const bodyHtml = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; margin-bottom: 12px; background: var(--bg-card); padding: 10px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+          <div><span class="text-secondary" data-i18n="workflows.artifactMetaId">${escapeHtml(t('workflows.artifactMetaId'))}</span> <code class="code-badge">${escapeHtml(full.id || '-')}</code></div>
+          <div><span class="text-secondary" data-i18n="workflows.artifactMetaTarget">${escapeHtml(t('workflows.artifactMetaTarget'))}</span> <strong>${escapeHtml(full.target || '-')}</strong></div>
+          ${full.path ? `<div style="grid-column: 1 / -1;"><span class="text-secondary" data-i18n="workflows.artifactMetaPath">${escapeHtml(t('workflows.artifactMetaPath'))}</span> <code class="code-badge">${escapeHtml(full.path)}</code></div>` : ''}
+          ${full.runId ? `<div><span class="text-secondary" data-i18n="workflows.artifactMetaRun">${escapeHtml(t('workflows.artifactMetaRun'))}</span> <a href="#" id="modal-link-artifact-run" class="code-badge">${escapeHtml(full.runId.substring(0, 8))}</a></div>` : ''}
+          <div><span class="text-secondary" data-i18n="workflows.artifactMetaTime">${escapeHtml(t('workflows.artifactMetaTime'))}</span> ${full.createdAt ? formatTime(full.createdAt) : '-'}</div>
+          ${full.outputHash ? `<div style="grid-column: 1 / -1;"><span class="text-secondary">Hash:</span> <span class="font-mono" style="word-break: break-all;">${escapeHtml(full.outputHash)}</span></div>` : ''}
+        </div>
+
+        <div style="margin-bottom: 6px; font-size: 12px; font-weight: 600;" data-i18n="workflows.artifactContentLabel">${escapeHtml(t('workflows.artifactContentLabel'))}</div>
+        <div class="artifact-output-box">${escapeHtml(typeof full.content === 'string' ? full.content : JSON.stringify(full.content || '', null, 2))}</div>
+      `;
+
+      let footerHtml = '';
+      if (isUnread) {
+        footerHtml = `
+          <button id="btn-modal-mark-read" class="btn btn-primary" data-i18n="workflows.btnMarkRead">${escapeHtml(t('workflows.btnMarkRead'))}</button>
+          <button id="btn-modal-close-artifact" class="btn btn-secondary" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+        `;
+      } else {
+        footerHtml = `
+          <button id="btn-modal-close-artifact" class="btn btn-secondary" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+        `;
+      }
+
+      openModal(t('workflows.artifactDetailTitle'), bodyHtml, footerHtml);
+
+      document.getElementById('btn-modal-close-artifact')?.addEventListener('click', closeModal);
+      document.getElementById('modal-link-artifact-run')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeModal();
+        if (full.runId) openRunDetail(full.runId);
+      });
+
+      document.getElementById('btn-modal-mark-read')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-modal-mark-read');
+        if (btn) btn.disabled = true;
+        try {
+          await callBridge('outputs.markRead', { project: proj, id: full.id });
+          showToast({ key: 'common.success' });
+          closeModal();
+          if (typeof onUpdated === 'function') onUpdated();
+        } catch (err) {
+          showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+          if (btn) btn.disabled = false;
+        }
+      });
+
+    } catch (err) {
+      openModal(t('workflows.artifactDetailTitle'), `
+        <div class="alert-banner alert-danger">${escapeHtml(err.message || String(err))}</div>
+      `, `<button class="btn btn-secondary" onclick="closeModal()">${escapeHtml(t('common.close'))}</button>`);
+    }
+  }
+
+  async function openWorkflowInspectModal(wfId) {
+    const currentProject = state.currentProject;
+    openModal({ key: 'workflows.inspectTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-wf-inspect" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-wf-inspect')?.addEventListener('click', closeModal);
+
+    let wf = null;
+    let watchInfo = null;
+    try {
+      wf = await callBridge('workflows.get', { project: currentProject, id: wfId });
+      const isWatchTrigger = (wf && wf.definition && wf.definition.trigger === 'watch') || (wf && wf.trigger === 'watch');
+      if (isWatchTrigger) {
+        try {
+          watchInfo = await callBridge('watches.get', { project: currentProject, id: wfId });
+        } catch (we) {}
+      }
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    const f = document.getElementById('modal-footer');
+    if (!b || !f) return;
+
+    const snapshotHash = wf.snapshotHash || '';
+    const assetHash = wf.assetHash || '';
+    const markdown = wf.markdown || '';
+    const valid = wf.valid === true;
+    const isArchived = wf.state === 'archived';
+    const isEnabled = (wf.definition && wf.definition.enabled) !== false && !isArchived;
+    const diagnostics = Array.isArray(wf.diagnostics) ? wf.diagnostics : [];
+    const isWatch = (wf.definition && wf.definition.trigger === 'watch') || wf.trigger === 'watch';
+
+    b.innerHTML = `
+      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="workflows.inspectDesc">${escapeHtml(t('workflows.inspectDesc'))}</p>
+
+      <div class="card" style="margin-bottom: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
+          <div><strong data-i18n="workflows.snapshotHash">${escapeHtml(t('workflows.snapshotHash'))}</strong> <span class="font-mono">${escapeHtml(snapshotHash.substring(0, 12))}</span></div>
+          <div><strong data-i18n="workflows.assetHash">${escapeHtml(t('workflows.assetHash'))}</strong> <span class="font-mono">${escapeHtml(assetHash.substring(0, 12))}</span></div>
+          <div>
+            <strong data-i18n="workflows.validStatus">${escapeHtml(t('workflows.validStatus'))}</strong>
+            ${valid ? `<span class="status-badge status-sage" data-i18n="workflows.validTrue">${escapeHtml(t('workflows.validTrue'))}</span>` : `<span class="status-badge status-amber" data-i18n="workflows.validFalse">${escapeHtml(t('workflows.validFalse'))}</span>`}
+          </div>
+          <div>
+            <strong>State:</strong>
+            ${isArchived ? `<span class="status-badge status-neutral" data-i18n="workflows.badgeArchived">${escapeHtml(t('workflows.badgeArchived'))}</span>` : (isEnabled ? `<span class="status-badge status-sage" data-i18n="workflows.btnEnable">${escapeHtml(t('workflows.btnEnable'))}</span>` : `<span class="status-badge status-neutral" data-i18n="workflows.btnDisable">${escapeHtml(t('workflows.btnDisable'))}</span>`)}
+          </div>
+        </div>
+      </div>
+
+      ${isWatch ? `
+        <div class="card" style="margin-bottom: 12px; font-size: 12px; background: var(--bg-subtle);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <strong data-i18n="watch.title">${escapeHtml(t('watch.title'))}</strong>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-inspect-watch-preview" data-i18n="watch.btnPreview">${escapeHtml(t('watch.btnPreview'))}</button>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
+            <div><span class="text-secondary" data-i18n="watch.toolLabel">${escapeHtml(t('watch.toolLabel'))}</span> <span class="code-badge">${escapeHtml((watchInfo && watchInfo.definition && watchInfo.definition.tool) || (wf.definition && wf.definition.watch && wf.definition.watch.tool) || '-')}</span></div>
+            <div><span class="text-secondary" data-i18n="watch.modeLabel">${escapeHtml(t('watch.modeLabel'))}</span> ${escapeHtml((watchInfo && watchInfo.definition && watchInfo.definition.mode) || (wf.definition && wf.definition.watch && wf.definition.watch.mode) || '-')}</div>
+            <div><span class="text-secondary" data-i18n="watch.everyLabel">${escapeHtml(t('watch.everyLabel'))}</span> ${(watchInfo && watchInfo.definition && watchInfo.definition.everySeconds) || 60}s</div>
+            <div><span class="text-secondary" data-i18n="watch.debounceLabel">${escapeHtml(t('watch.debounceLabel'))}</span> ${(watchInfo && watchInfo.definition && watchInfo.definition.debounceSeconds) || 10}s</div>
+          </div>
+          ${(watchInfo && watchInfo.state) ? `
+            <div style="margin-top: 6px; font-size: 11px; padding: 4px 6px; background: var(--bg-main); border-radius: 4px; border: 1px solid var(--border-color);">
+              <span class="text-secondary">State:</span> <span class="status-badge status-sage">${escapeHtml(watchInfo.state.status || 'watching')}</span>
+              ${typeof watchInfo.state.sequence === 'number' ? `<span style="margin-left: 8px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">seq: ${watchInfo.state.sequence}</span>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
+
+      ${diagnostics.length > 0 ? `
+        <div style="margin-bottom: 12px;">
+          <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 4px;" data-i18n="workflows.diagnostics">${escapeHtml(t('workflows.diagnostics'))}</h4>
+          ${diagnostics.map(d => `
+            <div class="alert-banner alert-warning" style="margin-bottom: 4px; font-size: 11px;">
+              <strong>${escapeHtml(d.code || 'diagnostic')}:</strong> ${escapeHtml(d.message || '')}
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <div>
+        <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 4px;" data-i18n="workflows.markdownSource">${escapeHtml(t('workflows.markdownSource'))}</h4>
+        <pre class="code-preview" style="max-height: 260px; overflow: auto; font-family: var(--font-mono); font-size: 11px; padding: 8px 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 5px;"><code>${escapeHtml(markdown)}</code></pre>
+      </div>
+      <div id="wf-inspect-msg" class="alert-banner alert-warning hidden" style="margin-top: 10px;"></div>
+    `;
+
+    f.innerHTML = `
+      <div style="display: flex; justify-content: space-between; width: 100%;">
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary btn-sm" id="btn-inspect-clone" data-i18n="workflows.btnClone">${escapeHtml(t('workflows.btnClone'))}</button>
+          ${!isArchived ? `
+            <button class="btn btn-secondary btn-sm" id="btn-inspect-toggle-enabled" data-i18n="${isEnabled ? 'workflows.btnDisable' : 'workflows.btnEnable'}">${escapeHtml(t(isEnabled ? 'workflows.btnDisable' : 'workflows.btnEnable'))}</button>
+            <button class="btn btn-danger btn-sm" id="btn-inspect-archive" data-i18n="workflows.btnArchive">${escapeHtml(t('workflows.btnArchive'))}</button>
+          ` : `
+            <button class="btn btn-primary btn-sm" id="btn-inspect-restore" data-i18n="workflows.btnRestore">${escapeHtml(t('workflows.btnRestore'))}</button>
+          `}
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btn-close-wf-inspect-2" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      </div>
+    `;
+
+    document.getElementById('btn-close-wf-inspect-2')?.addEventListener('click', closeModal);
+    document.getElementById('btn-inspect-watch-preview')?.addEventListener('click', () => {
+      openWatchPreviewModal(wfId, currentProject);
+    });
+
+    const msgEl = document.getElementById('wf-inspect-msg');
+
+    // Clone
+    document.getElementById('btn-inspect-clone')?.addEventListener('click', async () => {
+      const defTitle = (wf.definition && wf.definition.title) || 'Workflow';
+      const newTitle = prompt(t('workflows.cloneTitlePrompt'), defTitle + ' copy');
+      if (!newTitle) return;
+      try {
+        await callBridge('workflows.clone', {
+          project: currentProject,
+          id: wfId,
+          snapshotHash,
+          title: newTitle
+        });
+        showToast({ key: 'workflows.cloneSuccess' });
+        closeModal();
+        await refreshDashboard(true, true);
+      } catch (err) {
+        if (msgEl) { msgEl.textContent = err.message; msgEl.classList.remove('hidden'); }
+      }
+    });
+
+    // Toggle Enabled
+    document.getElementById('btn-inspect-toggle-enabled')?.addEventListener('click', async () => {
+      try {
+        await callBridge('workflows.setEnabled', {
+          project: currentProject,
+          id: wfId,
+          snapshotHash,
+          enabled: !isEnabled
+        });
+        showToast({ key: 'workflows.toggleSuccess' });
+        openWorkflowInspectModal(wfId);
+        await refreshDashboard(false, false);
+      } catch (err) {
+        if (msgEl) { msgEl.textContent = err.message; msgEl.classList.remove('hidden'); }
+      }
+    });
+
+    // Archive
+    document.getElementById('btn-inspect-archive')?.addEventListener('click', async () => {
+      if (!confirm(t('workflows.archiveConfirm'))) return;
+      try {
+        await callBridge('workflows.remove', {
+          project: currentProject,
+          id: wfId,
+          snapshotHash
+        });
+        showToast({ key: 'workflows.archiveSuccess' });
+        closeModal();
+        await refreshDashboard(true, true);
+      } catch (err) {
+        if (msgEl) { msgEl.textContent = err.message; msgEl.classList.remove('hidden'); }
+      }
+    });
+
+    // Restore
+    document.getElementById('btn-inspect-restore')?.addEventListener('click', async () => {
+      try {
+        await callBridge('workflows.restore', {
+          project: currentProject,
+          id: wfId,
+          snapshotHash
+        });
+        showToast({ key: 'workflows.restoreSuccess' });
+        openWorkflowInspectModal(wfId);
+        await refreshDashboard(true, true);
+      } catch (err) {
+        if (msgEl) { msgEl.textContent = err.message; msgEl.classList.remove('hidden'); }
+      }
+    });
+  }
+
+  async function openWatchPreviewModal(wfId, project) {
+    const proj = project || state.currentProject;
+    openModal({ key: 'watch.previewTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-watch-prev" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-watch-prev')?.addEventListener('click', closeModal);
+
+    let res = null;
+    try {
+      res = await callBridge('watches.preview', { id: wfId, project: proj });
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    if (!b) return;
+
+    const baseline = res.wouldInitializeBaseline === true;
+    const entries = (res.snapshot && res.snapshot.entries) ? Object.keys(res.snapshot.entries).length : 0;
+    const pending = res.pending || {};
+    const pendingKeys = Object.keys(pending);
+    const meetsMin = res.wouldMeetMinimum === true;
+
+    b.innerHTML = `
+      <div class="alert-banner alert-info" style="font-size: 11px; margin-bottom: 12px;" data-i18n="watch.previewDesc">
+        ${escapeHtml(t('watch.previewDesc'))}
+      </div>
+
+      <div class="card" style="margin-bottom: 12px; font-size: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <span class="text-secondary" data-i18n="watch.previewBaselineStatus">${escapeHtml(t('watch.previewBaselineStatus'))}</span>
+            <div style="font-weight: 500; margin-top: 2px;">
+              ${baseline
+                ? `<span class="status-badge status-amber" data-i18n="watch.previewBaselineTrue">${escapeHtml(t('watch.previewBaselineTrue'))}</span>`
+                : `<span class="status-badge status-sage" data-i18n="watch.previewBaselineFalse">${escapeHtml(t('watch.previewBaselineFalse'))}</span>`}
+            </div>
+          </div>
+          <div>
+            <span class="text-secondary" data-i18n="watch.previewEntriesCount">${escapeHtml(t('watch.previewEntriesCount'))}</span>
+            <div style="font-weight: 500; margin-top: 2px;">${entries}</div>
+          </div>
+          <div>
+            <span class="text-secondary" data-i18n="watch.previewPendingCount">${escapeHtml(t('watch.previewPendingCount'))}</span>
+            <div style="font-weight: 500; margin-top: 2px;">${pendingKeys.length}</div>
+          </div>
+          <div>
+            <span class="text-secondary" data-i18n="watch.previewMeetsMin">${escapeHtml(t('watch.previewMeetsMin'))}</span>
+            <div style="font-weight: 500; margin-top: 2px;">
+              ${meetsMin
+                ? `<span class="status-badge status-sage" data-i18n="watch.previewYes">${escapeHtml(t('watch.previewYes'))}</span>`
+                : `<span class="status-badge status-neutral" data-i18n="watch.previewNo">${escapeHtml(t('watch.previewNo'))}</span>`}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 6px;" data-i18n="watch.pendingChangesTitle">
+        ${escapeHtml(t('watch.pendingChangesTitle'))}
+      </h4>
+
+      ${pendingKeys.length === 0 ? `
+        <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-color); border-radius: 4px;" data-i18n="watch.noPendingChanges">
+          ${escapeHtml(t('watch.noPendingChanges'))}
+        </div>
+      ` : `
+        <div class="table-wrapper" style="max-height: 200px; overflow-y: auto;">
+          <table class="data-table" style="font-size: 11px;">
+            <thead>
+              <tr>
+                <th data-i18n="watch.changeType">${escapeHtml(t('watch.changeType'))}</th>
+                <th data-i18n="watch.changeKey">${escapeHtml(t('watch.changeKey'))}</th>
+                <th data-i18n="watch.changeBefore">${escapeHtml(t('watch.changeBefore'))}</th>
+                <th data-i18n="watch.changeAfter">${escapeHtml(t('watch.changeAfter'))}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pendingKeys.map(k => {
+                const item = pending[k] || {};
+                const type = item.type || 'modified';
+                let badgeClass = 'status-sage';
+                if (type === 'removed') badgeClass = 'status-red';
+                else if (type === 'modified') badgeClass = 'status-amber';
+                return `
+                  <tr>
+                    <td><span class="status-badge ${badgeClass}">${escapeHtml(type)}</span></td>
+                    <td class="font-mono">${escapeHtml(item.key || k)}</td>
+                    <td class="font-mono text-secondary" style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      ${item.before ? escapeHtml(JSON.stringify(item.before)) : '-'}
+                    </td>
+                    <td class="font-mono" style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      ${item.after ? escapeHtml(JSON.stringify(item.after)) : '-'}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `}
+    `;
+  }
+
+  async function openWorkflowsValidationModal(cursor = null) {
+    const currentProject = state.currentProject;
+    openModal({ key: 'workflows.validateTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-wf-validate" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-wf-validate')?.addEventListener('click', closeModal);
+
+    let val = null;
+    try {
+      const params = { project: currentProject, limit: 100 };
+      if (cursor) params.cursor = cursor;
+      val = await callBridge('workflows.validate', params);
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    const f = document.getElementById('modal-footer');
+    if (!b || !f) return;
+
+    const results = Array.isArray(val.results) ? val.results : [];
+    const checked = val.checked || results.length;
+    const nextCursor = val.cursor;
+
+    b.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span class="text-secondary" style="font-size: 12px;" data-i18n="workflows.validateDesc">${escapeHtml(t('workflows.validateDesc'))}</span>
+        <span class="status-badge status-neutral" data-i18n="workflows.validateChecked" data-i18n-params="${escapeHtml(JSON.stringify({ count: checked }))}">${escapeHtml(t('workflows.validateChecked', { count: checked }))}</span>
+      </div>
+
+      <div class="table-wrapper" style="max-height: 360px; overflow-y: auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th data-i18n="workflows.validStatus">${escapeHtml(t('workflows.validStatus'))}</th>
+              <th data-i18n="workflows.snapshotHash">${escapeHtml(t('workflows.snapshotHash'))}</th>
+              <th data-i18n="workflows.diagnostics">${escapeHtml(t('workflows.diagnostics'))}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${results.map(r => `
+              <tr>
+                <td><strong>${escapeHtml(r.id)}</strong></td>
+                <td>
+                  ${r.valid ? `<span class="status-badge status-sage" data-i18n="workflows.validTrue">${escapeHtml(t('workflows.validTrue'))}</span>` : `<span class="status-badge status-amber" data-i18n="workflows.validFalse">${escapeHtml(t('workflows.validFalse'))}</span>`}
+                </td>
+                <td><span class="font-mono" style="font-size: 11px;">${r.snapshotHash ? escapeHtml(r.snapshotHash.substring(0, 10)) : '-'}</span></td>
+                <td>
+                  ${(r.diagnostics && r.diagnostics.length > 0) ? r.diagnostics.map(d => `<div style="font-size: 11px; color: var(--text-warning);">${escapeHtml(d.code || '')}: ${escapeHtml(d.message || '')}</div>`).join('') : '<span class="text-muted" style="font-size: 11px;">-</span>'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    f.innerHTML = `
+      <div style="display: flex; justify-content: space-between; width: 100%;">
+        ${nextCursor ? `<button class="btn btn-secondary btn-sm" id="btn-wf-validate-next" data-i18n="workflows.loadNextPage">${escapeHtml(t('workflows.loadNextPage'))}</button>` : '<div></div>'}
+        <button class="btn btn-secondary btn-sm" id="btn-close-wf-validate-2" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      </div>
+    `;
+
+    document.getElementById('btn-close-wf-validate-2')?.addEventListener('click', closeModal);
+    document.getElementById('btn-wf-validate-next')?.addEventListener('click', () => {
+      openWorkflowsValidationModal(nextCursor);
+    });
+  }
+
+  function openWorkflowPlannerModal(params = {}) {
+    const isFollowup = Boolean(params.previousPlanId && params.previousPlanHash);
+    const prevQuestions = Array.isArray(params.questions) ? params.questions : [];
+
+    const modalBody = `
+      <div class="alert-banner alert-info" style="margin-bottom: 14px; font-size: 12px;" data-i18n="workflows.planModalDesc">
+        ${escapeHtml(t('workflows.planModalDesc'))}
+      </div>
+
+      ${isFollowup && prevQuestions.length > 0 ? `
+        <div class="plan-questions-card">
+          <strong data-i18n="workflows.planQuestionsTitle">${escapeHtml(t('workflows.planQuestionsTitle'))}</strong>
+          <ul style="margin: 6px 0 0 16px; padding: 0;">
+            ${prevQuestions.map(q => `<li>${escapeHtml(q)}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="workflows.planDescLabel">${escapeHtml(t('workflows.planDescLabel'))} *</label>
+        <textarea id="plan-workflow-description" class="form-textarea" rows="4" placeholder="${escapeHtml(t('workflows.planDescPlaceholder'))}" data-i18n-placeholder="workflows.planDescPlaceholder" style="font-size: 13px;">${escapeHtml(params.description || '')}</textarea>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">最多 8,000 UTF-8 字节。清晰描述任务、触发条件与预期产物。</div>
+      </div>
+
+      ${isFollowup ? `
+        <div class="form-group">
+          <label class="form-label" data-i18n="workflows.btnClarifyPlan">${escapeHtml(t('workflows.btnClarifyPlan'))} (Answers)</label>
+          <textarea id="plan-workflow-answers" class="form-textarea" rows="3" placeholder="针对上述问题的逐条补充说明（每条非空，最多 8 条）..." style="font-size: 13px;"></textarea>
+        </div>
+      ` : ''}
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label" data-i18n="workflows.planCodexCliLabel">${escapeHtml(t('workflows.planCodexCliLabel'))} *</label>
+          <input type="text" id="plan-workflow-executable" class="form-input" style="font-family: var(--font-mono); font-size: 12px;" value="${escapeHtml(state.codexCliPath || '/opt/homebrew/bin/codex')}" placeholder="/opt/homebrew/bin/codex">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="workflows.planModelLabel">${escapeHtml(t('workflows.planModelLabel'))} *</label>
+          <input type="text" id="plan-workflow-model" class="form-input" style="font-family: var(--font-mono); font-size: 12px;" value="gpt-4o" placeholder="gpt-4o 或 o3-mini">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label" data-i18n="workflows.planEffortLabel">${escapeHtml(t('workflows.planEffortLabel'))}</label>
+          <select id="plan-workflow-effort" class="form-select">
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high" selected>high</option>
+            <option value="xhigh">xhigh</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="workflows.planTimeoutLabel">${escapeHtml(t('workflows.planTimeoutLabel'))}</label>
+          <input type="number" id="plan-workflow-timeout" class="form-input" value="120" min="1" max="300">
+        </div>
+      </div>
+    `;
+
+    const modalFooter = `
+      <button id="btn-cancel-plan-modal" class="btn btn-secondary" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button id="btn-submit-plan-modal" class="btn btn-primary" data-i18n="workflows.btnSubmitPlan">${escapeHtml(t('workflows.btnSubmitPlan'))}</button>
+    `;
+
+    openModal(t('workflows.planModalTitle'), modalBody, modalFooter);
+
+    document.getElementById('btn-cancel-plan-modal')?.addEventListener('click', closeModal);
+
+    document.getElementById('btn-submit-plan-modal')?.addEventListener('click', async () => {
+      const desc = (document.getElementById('plan-workflow-description')?.value || '').trim();
+      const executable = (document.getElementById('plan-workflow-executable')?.value || '').trim();
+      const model = (document.getElementById('plan-workflow-model')?.value || '').trim();
+      const effort = document.getElementById('plan-workflow-effort')?.value || 'high';
+      const timeoutSeconds = parseInt(document.getElementById('plan-workflow-timeout')?.value || '120', 10);
+
+      if (!desc) {
+        showToast('请输入工作流描述', 'warning');
+        return;
+      }
+      if (!executable || !executable.startsWith('/')) {
+        showToast('请输入有效的 Codex 可执行文件绝对路径', 'warning');
+        return;
+      }
+      if (!model) {
+        showToast('请输入模型名称', 'warning');
+        return;
+      }
+
+      const payload = {
+        project: state.currentProject,
+        description: desc,
+        executable,
+        model,
+        effort,
+        timeoutSeconds: Math.max(1, Math.min(300, timeoutSeconds)),
+        answers: []
+      };
+
+      if (isFollowup) {
+        payload.previousPlanId = params.previousPlanId;
+        payload.previousPlanHash = params.previousPlanHash;
+        const answersRaw = (document.getElementById('plan-workflow-answers')?.value || '').trim();
+        if (answersRaw) {
+          payload.answers = answersRaw.split('\n').map(s => s.trim()).filter(Boolean);
+        }
+      }
+
+      const submitBtn = document.getElementById('btn-submit-plan-modal');
+      if (submitBtn) submitBtn.disabled = true;
+
+      try {
+        const res = await callBridge('workflows.plan', payload);
+        closeModal();
+        showToast({ key: 'workflows.planCreatedToast' });
+        state.workflowsActiveTab = 'plans';
+        renderWorkflowsTabContent();
+        if (res && res.id) {
+          openPlanDetailModal(res.id);
+        }
+      } catch (err) {
+        showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
+
+  async function renderWorkflowsPlansTab(target) {
+    target.innerHTML = `
+      <div class="empty-state" style="padding: 40px 0;">
+        <div class="empty-state-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <div class="empty-state-title" data-i18n="common.loading">${escapeHtml(t('common.loading') || 'Loading...')}</div>
+      </div>
+    `;
+
+    try {
+      const plans = await callBridge('workflows.plan.list', state.currentProject ? { project: state.currentProject } : {});
+      const list = Array.isArray(plans) ? plans : [];
+      state.workflowPlansCount = list.length;
+
+      function getPlanStateBadge(st) {
+        switch (st) {
+          case 'pending_approval':
+            return `<span class="status-badge status-amber" data-i18n="workflows.planStatePending">${escapeHtml(t('workflows.planStatePending'))}</span>`;
+          case 'executing_or_uncertain':
+            return `<span class="status-badge status-warning" data-i18n="workflows.planStateExecuting">${escapeHtml(t('workflows.planStateExecuting'))}</span>`;
+          case 'draft':
+            return `<span class="status-badge status-sage" data-i18n="workflows.planStateDraft">${escapeHtml(t('workflows.planStateDraft'))}</span>`;
+          case 'needs_clarification':
+            return `<span class="status-badge status-amber" data-i18n="workflows.planStateNeedsClarification">${escapeHtml(t('workflows.planStateNeedsClarification'))}</span>`;
+          case 'rejected':
+            return `<span class="status-badge status-neutral" data-i18n="workflows.planStateRejected">${escapeHtml(t('workflows.planStateRejected'))}</span>`;
+          case 'failed':
+            return `<span class="status-badge status-danger" data-i18n="workflows.planStateFailed">${escapeHtml(t('workflows.planStateFailed'))}</span>`;
+          default:
+            return `<span class="status-badge status-neutral">${escapeHtml(st || '-')}</span>`;
+        }
+      }
+
+      target.innerHTML = `
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title" data-i18n="workflows.plansListTitle">${escapeHtml(t('workflows.plansListTitle'))}</span>
+            <button id="btn-refresh-plans" class="btn btn-ghost btn-sm" data-i18n="workflows.btnRefreshHealth">${escapeHtml(t('workflows.btnRefreshHealth'))}</button>
+          </div>
+          ${list.length === 0 ? `
+            <div style="padding: 32px 16px; text-align: center; color: var(--text-muted); font-size: 13px;">
+              暂无规划方案。可点击右上角“从描述规划工作流...”创建。
+            </div>
+          ` : `
+            <div class="table-wrapper" style="margin-bottom: 0;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th data-i18n="workflows.colStatus">${escapeHtml(t('workflows.colStatus'))}</th>
+                    <th>待澄清/未解决</th>
+                    <th>Approval</th>
+                    <th style="text-align: right;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${list.map(p => {
+                    const qCount = (p.questions || []).length;
+                    const uCount = (p.unresolved || []).length;
+                    const notes = [];
+                    if (qCount > 0) notes.push(`${qCount} 个问题`);
+                    if (uCount > 0) notes.push(`${uCount} 项待办`);
+                    const notesText = notes.length > 0 ? notes.join(', ') : '—';
+
+                    return `
+                      <tr>
+                        <td>
+                          <span class="code-badge font-mono">${escapeHtml(p.id ? p.id.substring(0, 12) : '-')}</span>
+                          ${p.planHash ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">hash: ${escapeHtml(p.planHash.substring(0, 8))}</div>` : ''}
+                        </td>
+                        <td>${getPlanStateBadge(p.state)}</td>
+                        <td style="font-size: 11px;">${escapeHtml(notesText)}</td>
+                        <td style="font-size: 11px;"><span class="font-mono">${escapeHtml(p.approvalId ? p.approvalId.substring(0, 10) : '—')}</span></td>
+                        <td style="text-align: right;">
+                          <button class="btn btn-secondary btn-xs btn-view-plan-detail" data-id="${escapeHtml(p.id)}">详情 / 审阅</button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `}
+        </div>
+      `;
+
+      target.querySelector('#btn-refresh-plans')?.addEventListener('click', () => {
+        renderWorkflowsPlansTab(target);
+      });
+
+      target.querySelectorAll('.btn-view-plan-detail').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          if (id) openPlanDetailModal(id);
+        });
+      });
+
+    } catch (err) {
+      target.innerHTML = `
+        <div class="alert-banner alert-danger">
+          ${escapeHtml(err.message || String(err))}
+        </div>
+      `;
+    }
+  }
+
+  async function openPlanDetailModal(planId) {
+    openModal(t('workflows.planDetailTitle'), `
+      <div style="padding: 24px; text-align: center; color: var(--text-muted);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin" style="margin-bottom: 8px;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <div>${escapeHtml(t('common.loading') || 'Loading...')}</div>
+      </div>
+    `, '');
+
+    const thisModalInstance = currentModalInstance;
+
+    try {
+      const plan = await callBridge('workflows.plan.get', { project: state.currentProject, id: planId });
+      if (currentModalInstance !== thisModalInstance) return;
+      if (!plan) throw new Error('Plan not found');
+
+      const req = plan.request || {};
+      const isPending = plan.state === 'pending_approval';
+      const isNeedsClarification = plan.state === 'needs_clarification';
+      const hasDraft = plan.state === 'draft' && Boolean(plan.draft);
+      const questions = Array.isArray(plan.questions) ? plan.questions : [];
+      const unresolved = Array.isArray(plan.unresolved) ? plan.unresolved : [];
+
+      function getPlanBadge(st) {
+        switch (st) {
+          case 'pending_approval':
+            return `<span class="status-badge status-amber" data-i18n="workflows.planStatePending">${escapeHtml(t('workflows.planStatePending'))}</span>`;
+          case 'executing_or_uncertain':
+            return `<span class="status-badge status-warning" data-i18n="workflows.planStateExecuting">${escapeHtml(t('workflows.planStateExecuting'))}</span>`;
+          case 'draft':
+            return `<span class="status-badge status-sage" data-i18n="workflows.planStateDraft">${escapeHtml(t('workflows.planStateDraft'))}</span>`;
+          case 'needs_clarification':
+            return `<span class="status-badge status-amber" data-i18n="workflows.planStateNeedsClarification">${escapeHtml(t('workflows.planStateNeedsClarification'))}</span>`;
+          case 'rejected':
+            return `<span class="status-badge status-neutral" data-i18n="workflows.planStateRejected">${escapeHtml(t('workflows.planStateRejected'))}</span>`;
+          case 'failed':
+            return `<span class="status-badge status-danger" data-i18n="workflows.planStateFailed">${escapeHtml(t('workflows.planStateFailed'))}</span>`;
+          default:
+            return `<span class="status-badge status-neutral">${escapeHtml(st || '-')}</span>`;
+        }
+      }
+
+      const bodyHtml = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">
+          <div>
+            <strong>${escapeHtml(plan.id)}</strong>
+            <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">hash: ${escapeHtml(plan.planHash || '-')}</div>
+          </div>
+          <div>
+            ${getPlanBadge(plan.state)}
+          </div>
+        </div>
+
+        <div style="font-size: 12px; margin-bottom: 12px; background: var(--bg-subtle); border-radius: var(--radius-sm); padding: 10px;">
+          <div style="font-weight: 500; margin-bottom: 4px;" data-i18n="workflows.planDescLabel">${escapeHtml(t('workflows.planDescLabel'))}:</div>
+          <div style="white-space: pre-wrap; color: var(--text-main); font-size: 12px;">${escapeHtml(req.description || '—')}</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; color: var(--text-secondary); margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border-color);">
+            <div>Model: <span class="font-mono">${escapeHtml(req.model || '—')}</span> (${escapeHtml(req.effort || 'high')})</div>
+            <div>CLI: <span class="font-mono">${escapeHtml(req.executable || '—')}</span></div>
+            <div>Approval ID: <span class="font-mono">${escapeHtml(plan.approvalId || '—')}</span></div>
+            <div>Run ID: <span class="font-mono">${escapeHtml(plan.runId || '—')}</span></div>
+          </div>
+        </div>
+
+        ${questions.length > 0 ? `
+          <div class="plan-questions-card">
+            <strong data-i18n="workflows.planQuestionsTitle">${escapeHtml(t('workflows.planQuestionsTitle'))}</strong>
+            <ul style="margin: 6px 0 0 16px; padding: 0;">
+              ${questions.map(q => `<li>${escapeHtml(q)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+
+        ${unresolved.length > 0 ? `
+          <div style="background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; margin: 10px 0;">
+            <strong data-i18n="workflows.planUnresolvedTitle">${escapeHtml(t('workflows.planUnresolvedTitle'))}</strong>
+            <ul style="margin: 6px 0 0 16px; padding: 0;">
+              ${unresolved.map(u => `<li>${escapeHtml(u)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+
+        ${hasDraft ? `
+          <div style="margin-top: 12px;">
+            <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;" data-i18n="workflows.planDraftReviewTitle">${escapeHtml(t('workflows.planDraftReviewTitle'))}:</div>
+            <div class="plan-draft-preview">${escapeHtml(JSON.stringify(plan.draft, null, 2))}</div>
+          </div>
+        ` : ''}
+
+        ${plan.error ? `
+          <div class="alert-banner alert-danger" style="margin-top: 12px; font-size: 12px;">
+            ${escapeHtml(plan.error)}
+          </div>
+        ` : ''}
+      `;
+
+      let footerActions = `<button id="btn-close-plan-detail" class="btn btn-secondary" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`;
+      if (isPending) {
+        footerActions = `
+          <button id="btn-cancel-pending-plan" class="btn btn-ghost" style="color: var(--status-red-text);" data-i18n="workflows.btnCancelPlan">${escapeHtml(t('workflows.btnCancelPlan'))}</button>
+          <button id="btn-go-inbox-plan" class="btn btn-primary" data-i18n="workflows.btnGoToInbox">${escapeHtml(t('workflows.btnGoToInbox'))}</button>
+          <button id="btn-close-plan-detail" class="btn btn-secondary" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+        `;
+      } else if (isNeedsClarification) {
+        footerActions = `
+          <button id="btn-clarify-plan-modal" class="btn btn-primary" data-i18n="workflows.btnClarifyPlan">${escapeHtml(t('workflows.btnClarifyPlan'))}</button>
+          <button id="btn-close-plan-detail" class="btn btn-secondary" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+        `;
+      } else if (hasDraft) {
+        footerActions = `
+          <button id="btn-accept-plan-draft" class="btn btn-primary" data-i18n="workflows.btnAcceptDraft">${escapeHtml(t('workflows.btnAcceptDraft'))}</button>
+          <button id="btn-close-plan-detail" class="btn btn-secondary" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+        `;
+      }
+
+      openModal(t('workflows.planDetailTitle'), bodyHtml, footerActions);
+
+      document.getElementById('btn-close-plan-detail')?.addEventListener('click', closeModal);
+
+      document.getElementById('btn-go-inbox-plan')?.addEventListener('click', () => {
+        closeModal();
+        state.currentPage = 'inbox';
+        navigateTo('inbox');
+      });
+
+      document.getElementById('btn-cancel-pending-plan')?.addEventListener('click', async () => {
+        try {
+          await callBridge('workflows.plan.cancel', { project: state.currentProject, id: plan.id, planHash: plan.planHash });
+          showToast({ key: 'workflows.planCancelledToast' });
+          closeModal();
+          renderWorkflowsTabContent();
+        } catch (err) {
+          showToast({ key: 'workflows.planCancelFailedToast', params: { error: err.message } }, 'error');
+        }
+      });
+
+      document.getElementById('btn-clarify-plan-modal')?.addEventListener('click', () => {
+        closeModal();
+        openWorkflowPlannerModal({
+          previousPlanId: plan.id,
+          previousPlanHash: plan.planHash,
+          description: req.description,
+          questions: plan.questions
+        });
+      });
+
+      document.getElementById('btn-accept-plan-draft')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-accept-plan-draft');
+        if (btn) btn.disabled = true;
+        try {
+          await callBridge('workflows.save', plan.draft);
+          showToast({ key: 'workflows.draftAcceptedToast' });
+          closeModal();
+          await refreshDashboard(true, true);
+        } catch (err) {
+          showToast({ key: 'common.error', params: { error: err.message } }, 'error');
+          if (btn) btn.disabled = false;
+        }
+      });
+
+    } catch (err) {
+      openModal(t('workflows.planDetailTitle'), `
+        <div class="alert-banner alert-danger">${escapeHtml(err.message || String(err))}</div>
+      `, `<button class="btn btn-secondary" onclick="closeModal()">${escapeHtml(t('common.close'))}</button>`);
     }
   }
 
@@ -2206,17 +3926,27 @@
   }
 
   function getRunStateBadge(st) {
-    switch (st) {
-      case 'Completed':
-      case 'Success':
+    const s = String(st || '').toLowerCase();
+    switch (s) {
+      case 'completed':
+      case 'success':
         return `<span class="status-badge status-sage" data-i18n="workflows.stateSuccess">${escapeHtml(t('workflows.stateSuccess'))}</span>`;
-      case 'Running':
+      case 'running':
         return `<span class="status-badge status-amber" data-i18n="workflows.stateRunning">${escapeHtml(t('workflows.stateRunning'))}</span>`;
-      case 'Failed':
-      case 'Error':
+      case 'failed':
+      case 'error':
         return `<span class="status-badge status-red" data-i18n="workflows.stateFailed">${escapeHtml(t('workflows.stateFailed'))}</span>`;
-      case 'Pending Approval':
+      case 'rejected':
+        return `<span class="status-badge status-red">已拒绝 (rejected)</span>`;
+      case 'pending approval':
+      case 'pending_approval':
         return `<span class="status-badge status-amber" data-i18n="workflows.statePendingApproval">${escapeHtml(t('workflows.statePendingApproval'))}</span>`;
+      case 'waiting_child':
+        return `<span class="status-badge status-amber">等待子运行 (waiting_child)</span>`;
+      case 'blocked':
+        return `<span class="status-badge status-neutral">已阻塞 (blocked)</span>`;
+      case 'needs_review':
+        return `<span class="status-badge status-amber">待核对 (needs_review)</span>`;
       default:
         return `<span class="status-badge status-neutral">${escapeHtml(st || t('common.unknown'))}</span>`;
     }
@@ -2236,11 +3966,14 @@
 
       const runSub = run.id ? { key: 'workflows.runSubtitle', params: { id: run.id.substring(0, 8) } } : { key: 'workflows.runAudit' };
       setDrawerTitle(run.title ? run.title : { key: 'workflows.runDetail' }, runSub);
+
+      const isResumable = ['waiting_child', 'blocked', 'needs_review'].includes(String(run.state || '').toLowerCase());
       setDrawerCustomActions(`
+        ${isResumable ? `<button id="btn-drawer-resume" class="btn btn-primary btn-sm" data-i18n="workflows.btnResumeRun">${escapeHtml(t('workflows.btnResumeRun'))}</button>` : ''}
         <button id="btn-drawer-replay" class="btn btn-secondary btn-sm" data-i18n="workflows.btnReplayRun">${escapeHtml(t('workflows.btnReplayRun'))}</button>
       `);
 
-      document.getElementById('btn-drawer-replay').addEventListener('click', async () => {
+      document.getElementById('btn-drawer-replay')?.addEventListener('click', async () => {
         try {
           await callBridge('workflows.replay', { runId: run.id });
           showToast({ key: 'workflows.replaySubmittedToast' });
@@ -2251,10 +3984,44 @@
         }
       });
 
+      document.getElementById('btn-drawer-resume')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-drawer-resume');
+        if (btn) btn.disabled = true;
+        try {
+          await callBridge('runs.resume', { id: run.id, project: run.project || state.currentProject });
+          showToast({ key: 'workflows.resumeRequestedToast' });
+          openRunDetail(run.id);
+        } catch (err) {
+          showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+          if (btn) btn.disabled = false;
+        }
+      });
+
       const steps = run.steps || [];
       const drawerBody = document.getElementById('drawer-content');
 
       drawerBody.innerHTML = `
+        ${run.state === 'waiting_child' ? `
+          <div class="alert-banner alert-warning" style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <span data-i18n="workflows.waitingChildNotice">${escapeHtml(t('workflows.waitingChildNotice'))}</span>
+            ${run.waitingChildId ? `
+              <button type="button" id="btn-view-waiting-child" class="btn btn-ghost btn-xs" style="text-decoration: underline;">
+                查看子运行 (${escapeHtml(run.waitingChildId.substring(0, 8))})
+              </button>
+            ` : ''}
+          </div>
+        ` : ''}
+        ${run.state === 'blocked' ? `
+          <div class="alert-banner alert-warning" style="margin-bottom: 12px;">
+            <span data-i18n="workflows.blockedNotice">${escapeHtml(t('workflows.blockedNotice'))}</span>
+          </div>
+        ` : ''}
+        ${run.state === 'needs_review' ? `
+          <div class="alert-banner alert-warning" style="margin-bottom: 12px;">
+            <span data-i18n="workflows.needsReviewNotice">${escapeHtml(t('workflows.needsReviewNotice'))}</span>
+          </div>
+        ` : ''}
+
         <div class="card">
           <div class="card-header">
             <span class="card-title" data-i18n="workflows.basicInfo">${escapeHtml(t('workflows.basicInfo'))}</span>
@@ -2265,32 +4032,148 @@
             <div><span class="text-secondary" data-i18n="workflows.metaVersion">${escapeHtml(t('workflows.metaVersion'))}</span> v${escapeHtml(String(run.workflowVersion || 1))}</div>
             <div><span class="text-secondary" data-i18n="workflows.metaDuration">${escapeHtml(t('workflows.metaDuration'))}</span> ${run.durationMs ? escapeHtml(String(run.durationMs)) + 'ms' : '-'}</div>
             <div><span class="text-secondary" data-i18n="workflows.metaTriggerTime">${escapeHtml(t('workflows.metaTriggerTime'))}</span> ${formatTime(run.startedAt)}</div>
+            ${run.parentRunId ? `
+              <div><span class="text-secondary">父级运行:</span> <a href="#" id="link-parent-run" class="code-badge">${escapeHtml(run.parentRunId.substring(0, 8))}</a></div>
+            ` : ''}
+            ${(run.rootRunId && run.rootRunId !== run.id && run.rootRunId !== run.parentRunId) ? `
+              <div><span class="text-secondary">根运行:</span> <a href="#" id="link-root-run" class="code-badge">${escapeHtml(run.rootRunId.substring(0, 8))}</a></div>
+            ` : ''}
           </div>
         </div>
 
-        <div>
-          <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;" data-i18n="workflows.executionSteps" data-i18n-params="${escapeHtml(JSON.stringify({ count: steps.length }))}">${escapeHtml(t('workflows.executionSteps', { count: steps.length }))}</h3>
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            ${steps.map((step, idx) => `
-              <div class="card" style="margin-bottom: 0; padding: 10px 12px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                  <div>
-                    <strong>${idx + 1}. ${escapeHtml(step.title || t('workflows.defaultStepTitle'))}</strong>
-                    <span class="code-badge" style="margin-left: 6px;">${escapeHtml(step.tool || '')}</span>
+        ${(run.compositionMode === 'pipeline' && Array.isArray(run.stageResults) && run.stageResults.length > 0) ? `
+          <div class="card" style="margin-top: 12px; padding: 12px 14px; background: var(--bg-subtle);">
+            <div class="card-header" style="margin-bottom: 8px;">
+              <span class="card-title">流水线阶段 (${run.stageResults.length})</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              ${run.stageResults.map((st, idx) => `
+                <div style="padding: 6px 8px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; display: flex; align-items: center; justify-content: space-between;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="pipeline-stage-badge">${idx + 1}</span>
+                    <strong>${escapeHtml(st.id || 'stage')}</strong>
+                    <span class="code-badge">${escapeHtml(st.workflowId || '')}</span>
+                    ${st.skipped ? `<span class="status-badge status-neutral">已跳过</span>` : ''}
                   </div>
                   <div style="display: flex; align-items: center; gap: 6px;">
-                    ${step.durationMs ? `<span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(String(step.durationMs))}ms</span>` : ''}
-                    ${getRunStateBadge(step.state)}
+                    ${st.durationMs ? `<span style="font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(String(st.durationMs))}ms</span>` : ''}
+                    ${getRunStateBadge(st.state)}
+                    ${st.childRunId ? `
+                      <button type="button" class="btn btn-ghost btn-xs btn-open-stage-run" data-run-id="${escapeHtml(st.childRunId)}" style="text-decoration: underline;">
+                        查看子运行
+                      </button>
+                    ` : ''}
                   </div>
                 </div>
-                ${step.output ? `
-                  <div class="code-view" style="max-height: 160px; font-size: 12px;">${escapeHtml(typeof step.output === 'string' ? step.output : JSON.stringify(step.output, null, 2))}</div>
-                ` : `<div style="font-size: 12px; color: var(--text-muted);" data-i18n="workflows.noOutput">${escapeHtml(t('workflows.noOutput'))}</div>`}
-              </div>
-            `).join('')}
+              `).join('')}
+            </div>
           </div>
-        </div>
+        ` : ''}
+
+        ${(run.output || run.outputHash || run.outputDelivery) ? `
+          <div class="card" style="margin-top: 12px; padding: 12px 14px; background: var(--bg-subtle);">
+            <div class="card-header" style="margin-bottom: 8px;">
+              <span class="card-title">交付产物</span>
+              <span class="status-badge status-sage">已交付</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; margin-bottom: 8px;">
+              ${run.outputDelivery && run.outputDelivery.target ? `
+                <div><span class="text-secondary">目标:</span> <strong>${escapeHtml(run.outputDelivery.target)}</strong></div>
+              ` : ''}
+              ${run.outputDelivery && run.outputDelivery.path ? `
+                <div><span class="text-secondary">路径:</span> <code class="code-badge">${escapeHtml(run.outputDelivery.path)}</code></div>
+              ` : ''}
+              ${run.outputHash ? `
+                <div style="grid-column: 1 / -1;"><span class="text-secondary">Hash:</span> <span class="font-mono" style="word-break: break-all;">${escapeHtml(run.outputHash)}</span></div>
+              ` : ''}
+            </div>
+            ${run.output ? `
+              <div class="artifact-output-box">${escapeHtml(typeof run.output === 'string' ? run.output : JSON.stringify(run.output, null, 2))}</div>
+            ` : ''}
+          </div>
+        ` : ''}
+
+        ${run.context ? `
+          <div class="card" style="margin-top: 12px; padding: 12px 14px; background: var(--bg-subtle);">
+            <div class="card-header" style="margin-bottom: 8px;">
+              <span class="card-title" data-i18n="workflows.contextEvidenceTitle">${escapeHtml(t('workflows.contextEvidenceTitle'))}</span>
+              ${run.context.degraded ? `<span class="status-badge status-amber" data-i18n="workflows.degradedNotice">${escapeHtml(t('workflows.degradedNotice'))}</span>` : `<span class="status-badge status-sage">OK</span>`}
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; margin-bottom: 8px;">
+              <div style="grid-column: 1 / -1;"><span class="text-secondary" data-i18n="workflows.promptHashLabel">${escapeHtml(t('workflows.promptHashLabel'))}:</span> <span class="font-mono" style="word-break: break-all;">${escapeHtml(run.context.promptHash || '-')}</span></div>
+              <div><span class="text-secondary" data-i18n="workflows.memoryUsedTitle" data-i18n-params="${escapeHtml(JSON.stringify({ count: (run.context.memoryUsed || []).length }))}">${escapeHtml(t('workflows.memoryUsedTitle', { count: (run.context.memoryUsed || []).length }))}:</span> <span>${(run.context.memoryUsed || []).length} 条 (${run.context.memoryUsedTokens || 0} / ${run.context.memoryBudgetTokens || 0} tokens)</span></div>
+              <div><span class="text-secondary" data-i18n="workflows.guidelinesUsedTitle" data-i18n-params="${escapeHtml(JSON.stringify({ count: (run.context.guidelinesUsed || []).length }))}">${escapeHtml(t('workflows.guidelinesUsedTitle', { count: (run.context.guidelinesUsed || []).length }))}:</span> <span>${(run.context.guidelinesUsed || []).length} 条</span></div>
+            </div>
+            ${run.context.renderedPrompt ? `
+              <details style="margin-top: 8px;">
+                <summary style="cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-secondary); user-select: none;" data-i18n="workflows.renderedPromptLabel">${escapeHtml(t('workflows.renderedPromptLabel'))}</summary>
+                <div class="code-view" style="max-height: 180px; margin-top: 6px; font-size: 11px;">${escapeHtml(run.context.renderedPrompt)}</div>
+              </details>
+            ` : ''}
+            ${(run.context.inputsUsed && run.context.inputsUsed.length > 0) ? `
+              <details style="margin-top: 8px;">
+                <summary style="cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-secondary); user-select: none;" data-i18n="workflows.inputsUsedTitle" data-i18n-params="${escapeHtml(JSON.stringify({ count: run.context.inputsUsed.length }))}">${escapeHtml(t('workflows.inputsUsedTitle', { count: run.context.inputsUsed.length }))}</summary>
+                <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px;">
+                  ${run.context.inputsUsed.map(item => `
+                    <div style="padding: 6px 8px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px;">
+                      <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <strong>${escapeHtml(item.id || '-')}</strong>
+                        <span class="status-badge ${item.state === 'resolved' ? 'status-sage' : 'status-amber'}">${escapeHtml(item.state || 'resolved')} (${escapeHtml(item.source || 'value')})</span>
+                      </div>
+                      ${item.valueHash ? `<div style="color: var(--text-muted); font-size: 10px; font-family: var(--font-mono); margin-top: 2px;">Hash: ${escapeHtml(item.valueHash)}</div>` : ''}
+                      ${item.error ? `<div style="color: var(--status-red-text); font-size: 10px; margin-top: 2px;">Error: ${escapeHtml(item.error)}</div>` : ''}
+                    </div>
+                  `).join('')}
+                </div>
+              </details>
+            ` : ''}
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;" data-i18n="workflows.evidenceDisclaimer">${escapeHtml(t('workflows.evidenceDisclaimer'))}</div>
+          </div>
+        ` : ''}
+
+        ${steps.length > 0 ? `
+          <div style="margin-top: 14px;">
+            <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;" data-i18n="workflows.executionSteps" data-i18n-params="${escapeHtml(JSON.stringify({ count: steps.length }))}">${escapeHtml(t('workflows.executionSteps', { count: steps.length }))}</h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              ${steps.map((step, idx) => `
+                <div class="card" style="margin-bottom: 0; padding: 10px 12px;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <div>
+                      <strong>${idx + 1}. ${escapeHtml(step.title || t('workflows.defaultStepTitle'))}</strong>
+                      <span class="code-badge" style="margin-left: 6px;">${escapeHtml(step.tool || '')}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      ${step.durationMs ? `<span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(String(step.durationMs))}ms</span>` : ''}
+                      ${getRunStateBadge(step.state)}
+                    </div>
+                  </div>
+                  ${step.output ? `
+                    <div class="code-view" style="max-height: 160px; font-size: 12px;">${escapeHtml(typeof step.output === 'string' ? step.output : JSON.stringify(step.output, null, 2))}</div>
+                  ` : `<div style="font-size: 12px; color: var(--text-muted);" data-i18n="workflows.noOutput">${escapeHtml(t('workflows.noOutput'))}</div>`}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
       `;
+
+      document.getElementById('btn-view-waiting-child')?.addEventListener('click', () => {
+        if (run.waitingChildId) openRunDetail(run.waitingChildId);
+      });
+      document.getElementById('link-parent-run')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (run.parentRunId) openRunDetail(run.parentRunId);
+      });
+      document.getElementById('link-root-run')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (run.rootRunId) openRunDetail(run.rootRunId);
+      });
+      drawerBody.querySelectorAll('.btn-open-stage-run').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const childId = btn.getAttribute('data-run-id');
+          if (childId) openRunDetail(childId);
+        });
+      });
     } catch (err) {
       setDrawerTitle({ key: 'common.loadFailed' }, { key: 'common.error' });
       const drawerContent = document.getElementById('drawer-content');
@@ -2382,7 +4265,54 @@
       }
     ];
 
+    let wfType = (wf && Array.isArray(wf.pipeline) && wf.pipeline.length > 0) ? 'pipeline' : 'steps';
+    let pipelineStages = (wf && Array.isArray(wf.pipeline)) ? JSON.parse(JSON.stringify(wf.pipeline)) : [];
+    if (pipelineStages.length === 0) {
+      pipelineStages = [{ id: 'stage_1', workflowId: '', when: 'always' }];
+    }
+    let outputTarget = (wf && wf.output && wf.output.target) ? wf.output.target : 'stdout';
+    let outputPath = (wf && wf.output && wf.output.path) ? wf.output.path : 'report-{date}.md';
+    let outputInbox = (wf && wf.output && wf.output.inbox !== undefined) ? Boolean(wf.output.inbox) : true;
+    let outputStepId = (wf && wf.output && wf.output.stepId) ? wf.output.stepId : '';
+
     let steps = wf && wf.steps ? JSON.parse(JSON.stringify(wf.steps)) : defaultSteps;
+    const initialTrigger = (wf && wf.trigger) ? wf.trigger : 'manual';
+    const initialTimeZone = (wf && wf.timeZone) ? wf.timeZone : (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+    const initialCatchUp = wf ? (wf.catchUp || 'skip') : 'latest';
+    const initialCatchUpLimit = (wf && typeof wf.catchUpLimit === 'number') ? wf.catchUpLimit : 10;
+    const initialCatchUpWindowHours = (wf && typeof wf.catchUpWindowHours === 'number') ? wf.catchUpWindowHours : 24;
+
+    const initialWatch = (wf && wf.watch) || {};
+    const initialWatchTool = initialWatch.tool || 'git.status';
+    const initialWatchMode = initialWatch.mode || (initialWatchTool.startsWith('git.') ? 'output' : 'items');
+    const initialWatchKey = initialWatch.key || 'id';
+    const initialWatchEvery = typeof initialWatch.everySeconds === 'number' ? initialWatch.everySeconds : 60;
+    const initialWatchMin = typeof initialWatch.minItems === 'number' ? initialWatch.minItems : 1;
+    const initialWatchDebounce = typeof initialWatch.debounceSeconds === 'number' ? initialWatch.debounceSeconds : 10;
+    const initialWatchArgs = initialWatch.arguments || {};
+    const initialWatchQuery = initialWatchArgs.query || '';
+    const initialWatchTokens = typeof initialWatchArgs.budgetTokens === 'number' ? initialWatchArgs.budgetTokens : 1000;
+    const initialWatchK = typeof initialWatchArgs.k === 'number' ? initialWatchArgs.k : 10;
+
+    let contextEnabled = !!(wf && wf.context);
+    let contextTemplate = (wf && wf.context && wf.context.template) || '';
+    let contextMemoryEnabled = wf && wf.context && wf.context.memory ? (wf.context.memory.enabled !== false) : true;
+    let contextMemoryBudget = (wf && wf.context && wf.context.memory && typeof wf.context.memory.budgetTokens === 'number') ? wf.context.memory.budgetTokens : 2000;
+    let contextInputs = (wf && wf.context && Array.isArray(wf.context.inputs)) ? JSON.parse(JSON.stringify(wf.context.inputs)) : [];
+    contextInputs.forEach(inp => {
+      if (inp.workflow) {
+        inp.type = 'workflow';
+        inp.subworkflowId = inp.workflow.id || '';
+        inp.subworkflowInputs = typeof inp.workflow.inputs === 'object' ? JSON.stringify(inp.workflow.inputs, null, 2) : (inp.workflow.inputs || '');
+        inp.subworkflowStdin = inp.workflow.stdin || '';
+      }
+    });
+    let selectedGuidelines = (wf && Array.isArray(wf.guidelines)) ? [...wf.guidelines] : [];
+
+    const getCandidateWorkflows = (proj) => {
+      const all = (state.dashboard && Array.isArray(state.dashboard.workflows)) ? state.dashboard.workflows : [];
+      return all.filter(w => (!proj || w.project === proj) && (!wf || w.id !== wf.id));
+    };
 
     const modalBody = `
       ${unresolvedInputs && unresolvedInputs.length > 0 ? `
@@ -2406,30 +4336,222 @@
         <label class="form-label" data-i18n="workflows.descLabel">${escapeHtml(t('workflows.descLabel'))}</label>
         <input type="text" id="wf-modal-desc" class="form-input" value="${escapeHtml(wf ? wf.description || '' : t('workflows.defaultDesc'))}" data-i18n-placeholder="workflows.descPlaceholder" placeholder="${escapeHtml(t('workflows.descPlaceholder'))}">
       </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <div class="form-group">
-          <label class="form-label" data-i18n="workflows.triggerLabel">${escapeHtml(t('workflows.triggerLabel'))}</label>
-          <select id="wf-modal-trigger" class="form-select">
-            <option value="manual" ${(wf && wf.trigger === 'manual') ? 'selected' : ''}>manual (手动运行)</option>
-            <option value="cron" ${(wf && wf.trigger === 'cron') ? 'selected' : ''}>cron (定时周期)</option>
-            <option value="app_start" ${(wf && wf.trigger === 'app_start') ? 'selected' : ''}>app_start (应用启动)</option>
-            <option value="session_completed" ${(wf && wf.trigger === 'session_completed') ? 'selected' : ''}>session_completed (会话结束)</option>
-            <option value="git_event" ${(wf && wf.trigger === 'git_event') ? 'selected' : ''}>git_event (Git 变更)</option>
-            <option value="usage_reset" ${(wf && wf.trigger === 'usage_reset') ? 'selected' : ''}>usage_reset (用量重置)</option>
-          </select>
+      <div class="form-group">
+        <label class="form-label" data-i18n="workflows.triggerLabel">${escapeHtml(t('workflows.triggerLabel'))}</label>
+        <select id="wf-modal-trigger" class="form-select">
+          <option value="manual" ${initialTrigger === 'manual' ? 'selected' : ''}>manual (手动运行)</option>
+          <option value="cron" ${initialTrigger === 'cron' ? 'selected' : ''}>cron (定时周期)</option>
+          <option value="watch" ${initialTrigger === 'watch' ? 'selected' : ''}>watch (工具观察变更 / Tool Watch)</option>
+          <option value="app_start" ${initialTrigger === 'app_start' ? 'selected' : ''}>app_start (应用启动)</option>
+          <option value="session_completed" ${initialTrigger === 'session_completed' ? 'selected' : ''}>session_completed (会话结束)</option>
+          <option value="git_event" ${initialTrigger === 'git_event' ? 'selected' : ''}>git_event (Git 变更)</option>
+          <option value="usage_reset" ${initialTrigger === 'usage_reset' ? 'selected' : ''}>usage_reset (用量重置)</option>
+        </select>
+      </div>
+
+      <div id="wf-schedule-policy-group" class="card ${initialTrigger === 'cron' ? '' : 'hidden'}" style="padding: 10px 12px; margin-bottom: 12px; background: var(--bg-subtle);">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;" data-i18n="workflows.scheduleTitle">${escapeHtml(t('workflows.scheduleTitle'))}</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="workflows.cronLabel">${escapeHtml(t('workflows.cronLabel'))}</label>
+            <input type="text" id="wf-modal-cron" class="form-input" value="${escapeHtml(wf ? wf.cron || '' : '0 * * * *')}" placeholder="*/30 * * * *">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="workflows.timeZoneLabel">${escapeHtml(t('workflows.timeZoneLabel'))}</label>
+            <input type="text" id="wf-modal-timezone" class="form-input" value="${escapeHtml(initialTimeZone)}" placeholder="Asia/Shanghai">
+          </div>
         </div>
-        <div class="form-group" id="wf-cron-group">
-          <label class="form-label" data-i18n="workflows.cronLabel">${escapeHtml(t('workflows.cronLabel'))}</label>
-          <input type="text" id="wf-modal-cron" class="form-input" value="${escapeHtml(wf ? wf.cron || '' : '0 * * * *')}" placeholder="*/30 * * * *">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="workflows.catchUpLabel">${escapeHtml(t('workflows.catchUpLabel'))}</label>
+            <select id="wf-modal-catchup" class="form-select">
+              <option value="latest" ${initialCatchUp === 'latest' ? 'selected' : ''} data-i18n="workflows.catchUpLatest">${escapeHtml(t('workflows.catchUpLatest'))} (推荐)</option>
+              <option value="skip" ${initialCatchUp === 'skip' ? 'selected' : ''} data-i18n="workflows.catchUpSkip">${escapeHtml(t('workflows.catchUpSkip'))}</option>
+              <option value="all" ${initialCatchUp === 'all' ? 'selected' : ''} data-i18n="workflows.catchUpAll">${escapeHtml(t('workflows.catchUpAll'))}</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="workflows.catchUpLimitLabel">${escapeHtml(t('workflows.catchUpLimitLabel'))}</label>
+            <input type="number" id="wf-modal-catchup-limit" class="form-input" min="1" max="100" value="${escapeHtml(String(initialCatchUpLimit))}">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="workflows.catchUpWindowLabel">${escapeHtml(t('workflows.catchUpWindowLabel'))}</label>
+            <input type="number" id="wf-modal-catchup-window" class="form-input" min="1" max="168" value="${escapeHtml(String(initialCatchUpWindowHours))}">
+          </div>
         </div>
       </div>
 
-      <div style="margin-top: 6px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-          <label class="form-label" style="margin-bottom: 0;" data-i18n="workflows.stepsLabel">${escapeHtml(t('workflows.stepsLabel'))}</label>
-          <button type="button" id="btn-add-step" class="btn btn-ghost btn-sm" data-i18n="workflows.btnAddStep">${escapeHtml(t('workflows.btnAddStep'))}</button>
+      <div id="wf-watch-config-group" class="card ${initialTrigger === 'watch' ? '' : 'hidden'}" style="padding: 10px 12px; margin-bottom: 12px; background: var(--bg-subtle);">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;" data-i18n="watch.title">${escapeHtml(t('watch.title'))}</div>
+        <div class="alert-banner alert-info" style="font-size: 11px; margin-bottom: 8px;" data-i18n="watch.baselineNotice">${escapeHtml(t('watch.baselineNotice'))}</div>
+        <div class="alert-banner alert-warning" style="font-size: 11px; margin-bottom: 8px;" data-i18n="watch.approvalNotice">${escapeHtml(t('watch.approvalNotice'))}</div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="watch.toolLabel">${escapeHtml(t('watch.toolLabel'))}</label>
+            <select id="wf-watch-tool" class="form-select">
+              <option value="git.status" ${initialWatchTool === 'git.status' ? 'selected' : ''}>git.status (只读输出)</option>
+              <option value="git.diff" ${initialWatchTool === 'git.diff' ? 'selected' : ''}>git.diff (只读输出)</option>
+              <option value="git.log" ${initialWatchTool === 'git.log' ? 'selected' : ''}>git.log (只读输出)</option>
+              <option value="memory.recall" ${initialWatchTool === 'memory.recall' ? 'selected' : ''}>memory.recall (工程记忆召回)</option>
+              <option value="library.retrieve" ${initialWatchTool === 'library.retrieve' ? 'selected' : ''}>library.retrieve (知识库段落)</option>
+            </select>
+            <div class="form-hint" style="font-size: 10px; color: var(--text-muted);" data-i18n="watch.toolDesc">${escapeHtml(t('watch.toolDesc'))}</div>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="watch.modeLabel">${escapeHtml(t('watch.modeLabel'))}</label>
+            <select id="wf-watch-mode" class="form-select" ${initialWatchTool.startsWith('git.') ? 'disabled' : ''}>
+              <option value="output" ${initialWatchMode === 'output' ? 'selected' : ''} data-i18n="watch.modeOutput">${escapeHtml(t('watch.modeOutput'))}</option>
+              <option value="items" ${initialWatchMode === 'items' ? 'selected' : ''} data-i18n="watch.modeItems">${escapeHtml(t('watch.modeItems'))}</option>
+            </select>
+          </div>
         </div>
-        <div id="wf-steps-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto;"></div>
+
+        <div id="wf-watch-args-group" style="margin-bottom: 8px;">
+          <div class="form-group ${['memory.recall', 'library.retrieve'].includes(initialWatchTool) ? '' : 'hidden'}" id="wf-watch-arg-query-group" style="margin-bottom: 6px;">
+            <label class="form-label" data-i18n="watch.argQueryLabel">${escapeHtml(t('watch.argQueryLabel'))}</label>
+            <input type="text" id="wf-watch-arg-query" class="form-input" value="${escapeHtml(initialWatchQuery)}" placeholder="release notes">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div class="form-group ${initialWatchTool === 'memory.recall' ? '' : 'hidden'}" id="wf-watch-arg-tokens-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="watch.argTokensLabel">${escapeHtml(t('watch.argTokensLabel'))}</label>
+              <input type="number" id="wf-watch-arg-tokens" class="form-input" min="1" max="2000" value="${escapeHtml(String(initialWatchTokens))}">
+            </div>
+            <div class="form-group ${initialWatchTool === 'library.retrieve' ? '' : 'hidden'}" id="wf-watch-arg-k-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="watch.argKLabel">${escapeHtml(t('watch.argKLabel'))}</label>
+              <input type="number" id="wf-watch-arg-k" class="form-input" min="1" max="10" value="${escapeHtml(String(initialWatchK))}">
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="watch.keyLabel">${escapeHtml(t('watch.keyLabel'))}</label>
+            <input type="text" id="wf-watch-key" class="form-input" value="${escapeHtml(initialWatchKey)}" ${initialWatchMode === 'output' ? 'disabled' : ''}>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="watch.minItemsLabel">${escapeHtml(t('watch.minItemsLabel'))}</label>
+            <input type="number" id="wf-watch-min-items" class="form-input" min="1" max="100" value="${escapeHtml(String(initialWatchMin))}" ${initialWatchMode === 'output' ? 'disabled' : ''}>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="watch.everyLabel">${escapeHtml(t('watch.everyLabel'))}</label>
+            <input type="number" id="wf-watch-every" class="form-input" min="30" max="86400" value="${escapeHtml(String(initialWatchEvery))}">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="watch.debounceLabel">${escapeHtml(t('watch.debounceLabel'))}</label>
+            <input type="number" id="wf-watch-debounce" class="form-input" min="0" max="300" value="${escapeHtml(String(initialWatchDebounce))}">
+          </div>
+        </div>
+
+        ${isEdit ? `
+          <div style="margin-top: 8px; display: flex; justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-wf-modal-preview-watch" data-i18n="watch.btnPreview">${escapeHtml(t('watch.btnPreview'))}</button>
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="workflows.typeSelectorLabel">${escapeHtml(t('workflows.typeSelectorLabel'))}</label>
+        <select id="wf-modal-type" class="form-select">
+          <option value="steps" ${wfType === 'steps' ? 'selected' : ''} data-i18n="workflows.typeSteps">${escapeHtml(t('workflows.typeSteps'))}</option>
+          <option value="pipeline" ${wfType === 'pipeline' ? 'selected' : ''} data-i18n="workflows.typePipeline">${escapeHtml(t('workflows.typePipeline'))}</option>
+        </select>
+      </div>
+
+      <!-- Pipeline Stages Builder -->
+      <div class="card ${wfType === 'pipeline' ? '' : 'hidden'}" id="wf-pipeline-card" style="padding: 10px 12px; margin-bottom: 12px; background: var(--bg-subtle);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <div>
+            <strong style="font-size: 13px;" data-i18n="workflows.pipelineTitle">${escapeHtml(t('workflows.pipelineTitle'))}</strong>
+            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;" data-i18n="workflows.pipelineDesc">${escapeHtml(t('workflows.pipelineDesc'))}</div>
+          </div>
+          <button type="button" id="btn-add-pipeline-stage" class="btn btn-ghost btn-sm" data-i18n="workflows.btnAddStage">${escapeHtml(t('workflows.btnAddStage'))}</button>
+        </div>
+        <div id="wf-pipeline-stages-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; margin-top: 8px;"></div>
+      </div>
+
+      <!-- Artifact Delivery Config -->
+      <div class="card" id="wf-output-card" style="padding: 10px 12px; margin-bottom: 12px; background: var(--bg-subtle);">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;" data-i18n="workflows.outputTargetTitle">${escapeHtml(t('workflows.outputTargetTitle'))}</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="workflows.outputTargetLabel">${escapeHtml(t('workflows.outputTargetLabel'))}</label>
+            <select id="wf-output-target" class="form-select">
+              <option value="stdout" ${outputTarget === 'stdout' ? 'selected' : ''} data-i18n="workflows.targetStdout">${escapeHtml(t('workflows.targetStdout'))}</option>
+              <option value="inbox" ${outputTarget === 'inbox' ? 'selected' : ''} data-i18n="workflows.targetInbox">${escapeHtml(t('workflows.targetInbox'))}</option>
+              <option value="file" ${outputTarget === 'file' ? 'selected' : ''} data-i18n="workflows.targetFile">${escapeHtml(t('workflows.targetFile'))}</option>
+            </select>
+          </div>
+          <div class="form-group ${outputTarget === 'file' ? '' : 'hidden'}" id="wf-output-path-group" style="margin-bottom: 0;">
+            <label class="form-label" data-i18n="workflows.outputPathLabel">${escapeHtml(t('workflows.outputPathLabel'))}</label>
+            <input type="text" id="wf-output-path" class="form-input" value="${escapeHtml(outputPath)}" placeholder="reports/{date}.md">
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 16px; margin-top: 8px; flex-wrap: wrap;">
+          <label class="form-checkbox-label ${outputTarget === 'file' ? '' : 'hidden'}" id="wf-output-inbox-group" style="font-size: 11px; margin-bottom: 0;">
+            <input type="checkbox" id="wf-output-inbox" ${outputInbox ? 'checked' : ''}>
+            <span data-i18n="workflows.outputInboxCheckbox">${escapeHtml(t('workflows.outputInboxCheckbox'))}</span>
+          </label>
+          <div class="form-group ${wfType === 'steps' && outputTarget !== 'stdout' ? '' : 'hidden'}" id="wf-output-stepid-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 6px;">
+            <label class="form-label" style="margin-bottom: 0; font-size: 11px;" data-i18n="workflows.outputStepIdLabel">${escapeHtml(t('workflows.outputStepIdLabel'))}:</label>
+            <input type="text" id="wf-output-step-id" class="form-input" style="width: 120px; font-size: 11px; padding: 2px 6px;" value="${escapeHtml(outputStepId)}" placeholder="留空则取末步">
+          </div>
+        </div>
+      </div>
+
+      <!-- Standard Steps & Context Section -->
+      <div id="wf-steps-section" class="${wfType === 'steps' ? '' : 'hidden'}">
+        <div class="card" id="wf-context-card" style="padding: 10px 12px; margin-bottom: 12px; background: var(--bg-subtle);">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <label class="form-checkbox-label" style="margin-bottom: 0;">
+              <input type="checkbox" id="wf-context-enable" ${contextEnabled ? 'checked' : ''}>
+              <strong style="font-size: 13px;" data-i18n="workflows.enableContextLabel">${escapeHtml(t('workflows.enableContextLabel'))}</strong>
+            </label>
+          </div>
+          <div id="wf-context-body" class="${contextEnabled ? '' : 'hidden'}" style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="workflows.contextPromptLabel">${escapeHtml(t('workflows.contextPromptLabel'))}</label>
+              <textarea id="wf-context-template" class="form-textarea code-editor" style="min-height: 64px; font-size: 12px;" data-i18n-placeholder="workflows.contextPromptPlaceholder" placeholder="${escapeHtml(t('workflows.contextPromptPlaceholder'))}">${escapeHtml(contextTemplate)}</textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" data-i18n="workflows.memoryPolicyTitle">${escapeHtml(t('workflows.memoryPolicyTitle'))}</label>
+                <label class="form-checkbox-label">
+                  <input type="checkbox" id="wf-context-mem-enable" ${contextMemoryEnabled ? 'checked' : ''}>
+                  <span data-i18n="workflows.memoryEnabledLabel">${escapeHtml(t('workflows.memoryEnabledLabel'))}</span>
+                </label>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" data-i18n="workflows.memoryBudgetLabel">${escapeHtml(t('workflows.memoryBudgetLabel'))}</label>
+                <input type="number" id="wf-context-mem-budget" class="form-input" min="0" max="4000" value="${escapeHtml(String(contextMemoryBudget))}">
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="workflows.guidelinesSelectLabel">${escapeHtml(t('workflows.guidelinesSelectLabel'))}</label>
+              <div id="wf-guidelines-list" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 80px; overflow-y: auto;">
+                <span style="font-size: 11px; color: var(--text-muted);">正在加载规约...</span>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <label class="form-label" style="margin-bottom: 0;" data-i18n="workflows.inputsBuilderTitle">${escapeHtml(t('workflows.inputsBuilderTitle'))}</label>
+                <button type="button" id="btn-add-context-input" class="btn btn-ghost btn-sm" data-i18n="workflows.btnAddInput">${escapeHtml(t('workflows.btnAddInput'))}</button>
+              </div>
+              <div id="wf-context-inputs-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 6px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <label class="form-label" style="margin-bottom: 0;" data-i18n="workflows.stepsLabel">${escapeHtml(t('workflows.stepsLabel'))}</label>
+            <button type="button" id="btn-add-step" class="btn btn-ghost btn-sm" data-i18n="workflows.btnAddStep">${escapeHtml(t('workflows.btnAddStep'))}</button>
+          </div>
+          <div id="wf-steps-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto;"></div>
+        </div>
       </div>
     `;
 
@@ -2437,6 +4559,406 @@
       <button class="btn btn-secondary" id="btn-cancel-wf" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
       <button class="btn btn-primary" id="btn-save-wf" data-i18n="workflows.btnSaveWorkflow">${escapeHtml(t('workflows.btnSaveWorkflow'))}</button>
     `);
+
+    // Toggle schedule & watch policy visibility
+    const triggerSelect = document.getElementById('wf-modal-trigger');
+    const schedPolicyGroup = document.getElementById('wf-schedule-policy-group');
+    const watchConfigGroup = document.getElementById('wf-watch-config-group');
+    triggerSelect?.addEventListener('change', () => {
+      const val = triggerSelect.value;
+      if (schedPolicyGroup) {
+        schedPolicyGroup.classList.toggle('hidden', val !== 'cron');
+      }
+      if (watchConfigGroup) {
+        watchConfigGroup.classList.toggle('hidden', val !== 'watch');
+      }
+    });
+
+    // Watch Tool / Mode Dynamic Rules
+    const watchToolSelect = document.getElementById('wf-watch-tool');
+    const watchModeSelect = document.getElementById('wf-watch-mode');
+    const watchKeyInput = document.getElementById('wf-watch-key');
+    const watchMinInput = document.getElementById('wf-watch-min-items');
+    const watchQueryGroup = document.getElementById('wf-watch-arg-query-group');
+    const watchTokensGroup = document.getElementById('wf-watch-arg-tokens-group');
+    const watchKGroup = document.getElementById('wf-watch-arg-k-group');
+
+    const updateWatchFieldVisibility = () => {
+      if (!watchToolSelect || !watchModeSelect) return;
+      const tool = watchToolSelect.value;
+      const isGit = tool.startsWith('git.');
+      if (isGit) {
+        watchModeSelect.value = 'output';
+        watchModeSelect.disabled = true;
+        if (watchMinInput) { watchMinInput.value = '1'; watchMinInput.disabled = true; }
+        if (watchKeyInput) { watchKeyInput.disabled = true; }
+        watchQueryGroup?.classList.add('hidden');
+        watchTokensGroup?.classList.add('hidden');
+        watchKGroup?.classList.add('hidden');
+      } else {
+        watchModeSelect.disabled = false;
+        const mode = watchModeSelect.value;
+        if (mode === 'output') {
+          if (watchMinInput) { watchMinInput.value = '1'; watchMinInput.disabled = true; }
+          if (watchKeyInput) { watchKeyInput.disabled = true; }
+        } else {
+          if (watchMinInput) { watchMinInput.disabled = false; }
+          if (watchKeyInput) { watchKeyInput.disabled = false; }
+        }
+        watchQueryGroup?.classList.remove('hidden');
+        if (tool === 'memory.recall') {
+          watchTokensGroup?.classList.remove('hidden');
+          watchKGroup?.classList.add('hidden');
+        } else if (tool === 'library.retrieve') {
+          watchTokensGroup?.classList.add('hidden');
+          watchKGroup?.classList.remove('hidden');
+        }
+      }
+    };
+
+    watchToolSelect?.addEventListener('change', updateWatchFieldVisibility);
+    watchModeSelect?.addEventListener('change', updateWatchFieldVisibility);
+    document.getElementById('btn-wf-modal-preview-watch')?.addEventListener('click', () => {
+      if (wf && wf.id) {
+        openWatchPreviewModal(wf.id, wf.project || state.currentProject);
+      }
+    });
+
+    // Toggle workflow type (steps vs pipeline)
+    const typeSelect = document.getElementById('wf-modal-type');
+    const pipelineCard = document.getElementById('wf-pipeline-card');
+    const stepsSection = document.getElementById('wf-steps-section');
+    const outputStepIdGroup = document.getElementById('wf-output-stepid-group');
+    typeSelect?.addEventListener('change', () => {
+      wfType = typeSelect.value;
+      if (wfType === 'pipeline') {
+        pipelineCard?.classList.remove('hidden');
+        stepsSection?.classList.add('hidden');
+        outputStepIdGroup?.classList.add('hidden');
+        renderPipelineStages();
+      } else {
+        pipelineCard?.classList.add('hidden');
+        stepsSection?.classList.remove('hidden');
+        const outT = document.getElementById('wf-output-target')?.value || 'stdout';
+        if (outT !== 'stdout') outputStepIdGroup?.classList.remove('hidden');
+      }
+    });
+
+    // Toggle output target settings
+    const outputTargetSelect = document.getElementById('wf-output-target');
+    const outputPathGroup = document.getElementById('wf-output-path-group');
+    const outputInboxGroup = document.getElementById('wf-output-inbox-group');
+    outputTargetSelect?.addEventListener('change', () => {
+      const targetVal = outputTargetSelect.value;
+      if (targetVal === 'file') {
+        outputPathGroup?.classList.remove('hidden');
+        outputInboxGroup?.classList.remove('hidden');
+      } else {
+        outputPathGroup?.classList.add('hidden');
+        outputInboxGroup?.classList.add('hidden');
+      }
+      if (wfType === 'steps' && targetVal !== 'stdout') {
+        outputStepIdGroup?.classList.remove('hidden');
+      } else {
+        outputStepIdGroup?.classList.add('hidden');
+      }
+    });
+
+    // Render pipeline stages
+    const renderPipelineStages = () => {
+      const listEl = document.getElementById('wf-pipeline-stages-list');
+      if (!listEl) return;
+      const curProj = document.getElementById('wf-modal-project')?.value || state.currentProject;
+      const candWfs = getCandidateWorkflows(curProj);
+
+      listEl.innerHTML = pipelineStages.map((st, idx) => `
+        <div class="pipeline-stage-row">
+          <span class="pipeline-stage-badge">${idx + 1}</span>
+          <input type="text" class="form-input wf-stage-id" data-idx="${idx}" value="${escapeHtml(st.id || '')}" placeholder="阶段 ID" style="width: 110px; font-size: 11px; padding: 2px 6px;">
+          <select class="form-select wf-stage-wf" data-idx="${idx}" style="flex: 2; font-size: 11px; padding: 2px 6px;">
+            <option value="">— 选择同项目子工作流 —</option>
+            ${candWfs.map(w => `
+              <option value="${escapeHtml(w.id)}" ${st.workflowId === w.id ? 'selected' : ''}>${escapeHtml(w.title || w.id)}</option>
+            `).join('')}
+          </select>
+          <select class="form-select wf-stage-when" data-idx="${idx}" style="width: 140px; font-size: 11px; padding: 2px 6px;" ${idx === 0 ? 'disabled' : ''}>
+            <option value="always" ${st.when === 'always' ? 'selected' : ''} data-i18n="workflows.whenAlways">${escapeHtml(t('workflows.whenAlways'))}</option>
+            <option value="has_output" ${st.when === 'has_output' ? 'selected' : ''} data-i18n="workflows.whenHasOutput">${escapeHtml(t('workflows.whenHasOutput'))}</option>
+            <option value="no_output" ${st.when === 'no_output' ? 'selected' : ''} data-i18n="workflows.whenNoOutput">${escapeHtml(t('workflows.whenNoOutput'))}</option>
+          </select>
+          <div style="display: flex; gap: 2px;">
+            <button type="button" class="btn-icon-subtle btn-stage-up" data-idx="${idx}" title="上移">↑</button>
+            <button type="button" class="btn-icon-subtle btn-stage-down" data-idx="${idx}" title="下移">↓</button>
+            <button type="button" class="btn-icon-subtle btn-stage-del" data-idx="${idx}" title="删除" style="color: var(--status-red-text);" ${pipelineStages.length <= 1 ? 'disabled' : ''}>×</button>
+          </div>
+        </div>
+      `).join('');
+
+      listEl.querySelectorAll('.wf-stage-id').forEach(el => {
+        el.addEventListener('input', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (pipelineStages[idx]) pipelineStages[idx].id = e.target.value.trim();
+        });
+      });
+      listEl.querySelectorAll('.wf-stage-wf').forEach(el => {
+        el.addEventListener('change', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (pipelineStages[idx]) pipelineStages[idx].workflowId = e.target.value;
+        });
+      });
+      listEl.querySelectorAll('.wf-stage-when').forEach(el => {
+        el.addEventListener('change', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (pipelineStages[idx] && idx > 0) pipelineStages[idx].when = e.target.value;
+        });
+      });
+      listEl.querySelectorAll('.btn-stage-up').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-idx'), 10);
+          if (idx > 0) {
+            const temp = pipelineStages[idx];
+            pipelineStages[idx] = pipelineStages[idx - 1];
+            pipelineStages[idx - 1] = temp;
+            if (pipelineStages[0]) pipelineStages[0].when = 'always';
+            renderPipelineStages();
+          }
+        });
+      });
+      listEl.querySelectorAll('.btn-stage-down').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-idx'), 10);
+          if (idx < pipelineStages.length - 1) {
+            const temp = pipelineStages[idx];
+            pipelineStages[idx] = pipelineStages[idx + 1];
+            pipelineStages[idx + 1] = temp;
+            if (pipelineStages[0]) pipelineStages[0].when = 'always';
+            renderPipelineStages();
+          }
+        });
+      });
+      listEl.querySelectorAll('.btn-stage-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-idx'), 10);
+          if (pipelineStages.length > 1) {
+            pipelineStages.splice(idx, 1);
+            if (pipelineStages[0]) pipelineStages[0].when = 'always';
+            renderPipelineStages();
+          }
+        });
+      });
+    };
+
+    renderPipelineStages();
+
+    document.getElementById('btn-add-pipeline-stage')?.addEventListener('click', () => {
+      if (pipelineStages.length >= 16) {
+        showToast('流水线最多支持 16 个阶段', 'warning');
+        return;
+      }
+      pipelineStages.push({
+        id: 'stage_' + (pipelineStages.length + 1),
+        workflowId: '',
+        when: 'always'
+      });
+      renderPipelineStages();
+    });
+
+    // Toggle workflow context body
+    const contextEnableCb = document.getElementById('wf-context-enable');
+    const contextBody = document.getElementById('wf-context-body');
+    contextEnableCb?.addEventListener('change', () => {
+      contextEnabled = Boolean(contextEnableCb.checked);
+      if (contextBody) {
+        if (contextEnabled) {
+          contextBody.classList.remove('hidden');
+        } else {
+          contextBody.classList.add('hidden');
+        }
+      }
+    });
+
+    // Load guidelines for project
+    const loadGuidelines = async (proj) => {
+      const glContainer = document.getElementById('wf-guidelines-list');
+      if (!glContainer) return;
+      try {
+        const list = await callBridge('guidelines.list', proj ? { project: proj } : {});
+        const arr = Array.isArray(list) ? list : [];
+        if (arr.length === 0) {
+          glContainer.innerHTML = `<span style="font-size: 11px; color: var(--text-muted);">无可用工程规约</span>`;
+          return;
+        }
+        glContainer.innerHTML = arr.map(g => `
+          <label class="form-checkbox-label" style="font-size: 11px; margin-bottom: 2px;">
+            <input type="checkbox" class="wf-guideline-cb" value="${escapeHtml(g.id)}" ${selectedGuidelines.includes(g.id) ? 'checked' : ''}>
+            <span>${escapeHtml(g.title || g.id)}</span>
+          </label>
+        `).join('');
+      } catch {
+        glContainer.innerHTML = `<span style="font-size: 11px; color: var(--text-muted);">加载规约失败</span>`;
+      }
+    };
+
+    const projectSelect = document.getElementById('wf-modal-project');
+    loadGuidelines(projectSelect?.value || state.currentProject);
+    projectSelect?.addEventListener('change', () => {
+      loadGuidelines(projectSelect.value);
+    });
+
+    // Context Inputs Builder
+    const renderContextInputs = () => {
+      const listEl = document.getElementById('wf-context-inputs-list');
+      if (!listEl) return;
+      if (contextInputs.length === 0) {
+        listEl.innerHTML = `<div style="font-size: 11px; color: var(--text-muted); padding: 4px 0;">未添加上下文输入源</div>`;
+        return;
+      }
+      const curProj = document.getElementById('wf-modal-project')?.value || state.currentProject;
+      const candWfs = getCandidateWorkflows(curProj);
+
+      listEl.innerHTML = contextInputs.map((inp, idx) => `
+        <div style="padding: 6px 8px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <input type="text" class="form-input wf-inp-id" data-idx="${idx}" value="${escapeHtml(inp.id || '')}" placeholder="${escapeHtml(t('workflows.inputIdLabel'))}" style="width: 120px; font-size: 11px; padding: 2px 6px;">
+            <select class="form-select wf-inp-type" data-idx="${idx}" style="width: 140px; font-size: 11px; padding: 2px 6px;">
+              <option value="tool" ${inp.type === 'tool' ? 'selected' : ''} data-i18n="workflows.inputTypeTool">${escapeHtml(t('workflows.inputTypeTool'))}</option>
+              <option value="retrieve" ${inp.type === 'retrieve' ? 'selected' : ''} data-i18n="workflows.inputTypeRetrieve">${escapeHtml(t('workflows.inputTypeRetrieve'))}</option>
+              <option value="stdin" ${inp.type === 'stdin' ? 'selected' : ''} data-i18n="workflows.inputTypeStdin">${escapeHtml(t('workflows.inputTypeStdin'))}</option>
+              <option value="value" ${inp.type === 'value' ? 'selected' : ''} data-i18n="workflows.inputTypeValue">${escapeHtml(t('workflows.inputTypeValue'))}</option>
+              <option value="workflow" ${inp.type === 'workflow' ? 'selected' : ''} data-i18n="workflows.sourceWorkflow">${escapeHtml(t('workflows.sourceWorkflow'))}</option>
+            </select>
+            <label class="form-checkbox-label" style="font-size: 11px; margin-bottom: 0; margin-left: auto;">
+              <input type="checkbox" class="wf-inp-opt" data-idx="${idx}" ${inp.optional ? 'checked' : ''}>
+              <span data-i18n="workflows.inputOptionalLabel">${escapeHtml(t('workflows.inputOptionalLabel'))}</span>
+            </label>
+            <button type="button" class="btn-icon-subtle btn-del-context-input" data-idx="${idx}" style="color: var(--status-red-text);">×</button>
+          </div>
+          ${inp.type === 'tool' ? `
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="text-secondary">Git:</span>
+              <select class="form-select wf-inp-tool-sel" data-idx="${idx}" style="font-size: 11px; padding: 2px 6px; width: 140px;">
+                <option value="git.status" ${(inp.tool || 'git.status') === 'git.status' ? 'selected' : ''}>git.status</option>
+                <option value="git.diff" ${inp.tool === 'git.diff' ? 'selected' : ''}>git.diff</option>
+                <option value="git.log" ${inp.tool === 'git.log' ? 'selected' : ''}>git.log</option>
+              </select>
+            </div>
+          ` : ''}
+          ${inp.type === 'retrieve' ? `
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="text" class="form-input wf-inp-query" data-idx="${idx}" value="${escapeHtml(inp.query || '')}" placeholder="${escapeHtml(t('workflows.retrieveQueryLabel'))}" style="flex: 1; font-size: 11px; padding: 2px 6px;">
+              <input type="number" class="form-input wf-inp-k" data-idx="${idx}" value="${escapeHtml(String(inp.k || 5))}" min="1" max="20" placeholder="k" style="width: 50px; font-size: 11px; padding: 2px 6px;">
+            </div>
+          ` : ''}
+          ${inp.type === 'stdin' ? `
+            <div style="color: var(--text-muted); font-size: 10px;">${escapeHtml(t('workflows.runInputsDesc'))}</div>
+          ` : ''}
+          ${inp.type === 'value' ? `
+            <input type="text" class="form-input wf-inp-val" data-idx="${idx}" value="${escapeHtml(inp.value || '')}" placeholder="Literal value" style="width: 100%; font-size: 11px; padding: 2px 6px;">
+          ` : ''}
+          ${inp.type === 'workflow' ? `
+            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="text-secondary" style="font-size: 11px;" data-i18n="workflows.subworkflowSelectLabel">${escapeHtml(t('workflows.subworkflowSelectLabel'))}:</span>
+                <select class="form-select wf-inp-subwf-sel" data-idx="${idx}" style="font-size: 11px; padding: 2px 6px; flex: 1;">
+                  <option value="">— 选择同项目子工作流 —</option>
+                  ${candWfs.map(w => `
+                    <option value="${escapeHtml(w.id)}" ${inp.subworkflowId === w.id ? 'selected' : ''}>${escapeHtml(w.title || w.id)}</option>
+                  `).join('')}
+                </select>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <input type="text" class="form-input wf-inp-subwf-inputs" data-idx="${idx}" value="${escapeHtml(inp.subworkflowInputs || '')}" placeholder="${escapeHtml(t('workflows.subworkflowInputsLabel'))} (如 {'topic': '...'})" style="flex: 1; font-size: 11px; padding: 2px 6px; font-family: var(--font-mono);">
+                <input type="text" class="form-input wf-inp-subwf-stdin" data-idx="${idx}" value="${escapeHtml(inp.subworkflowStdin || '')}" placeholder="${escapeHtml(t('workflows.subworkflowStdinLabel'))} (如 {{earlier.text}})" style="flex: 1; font-size: 11px; padding: 2px 6px; font-family: var(--font-mono);">
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+
+      listEl.querySelectorAll('.wf-inp-id').forEach(el => {
+        el.addEventListener('input', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (contextInputs[idx]) contextInputs[idx].id = e.target.value.trim();
+        });
+      });
+      listEl.querySelectorAll('.wf-inp-type').forEach(el => {
+        el.addEventListener('change', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (!contextInputs[idx]) return;
+          contextInputs[idx].type = e.target.value;
+          if (e.target.value === 'tool') contextInputs[idx].tool = 'git.status';
+          if (e.target.value === 'retrieve') { contextInputs[idx].query = ''; contextInputs[idx].k = 5; }
+          if (e.target.value === 'workflow') { contextInputs[idx].subworkflowId = ''; contextInputs[idx].subworkflowInputs = ''; contextInputs[idx].subworkflowStdin = ''; }
+          renderContextInputs();
+        });
+      });
+      listEl.querySelectorAll('.wf-inp-opt').forEach(el => {
+        el.addEventListener('change', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (contextInputs[idx]) contextInputs[idx].optional = e.target.checked;
+        });
+      });
+      listEl.querySelectorAll('.wf-inp-tool-sel').forEach(el => {
+        el.addEventListener('change', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (contextInputs[idx]) contextInputs[idx].tool = e.target.value;
+        });
+      });
+      listEl.querySelectorAll('.wf-inp-query').forEach(el => {
+        el.addEventListener('input', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (contextInputs[idx]) contextInputs[idx].query = e.target.value;
+        });
+      });
+      listEl.querySelectorAll('.wf-inp-k').forEach(el => {
+        el.addEventListener('input', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (contextInputs[idx]) contextInputs[idx].k = parseInt(e.target.value, 10) || 5;
+        });
+      });
+      listEl.querySelectorAll('.wf-inp-val').forEach(el => {
+        el.addEventListener('input', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (contextInputs[idx]) contextInputs[idx].value = e.target.value;
+        });
+      });
+      listEl.querySelectorAll('.wf-inp-subwf-sel').forEach(el => {
+        el.addEventListener('change', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (contextInputs[idx]) contextInputs[idx].subworkflowId = e.target.value;
+        });
+      });
+      listEl.querySelectorAll('.wf-inp-subwf-inputs').forEach(el => {
+        el.addEventListener('input', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (contextInputs[idx]) contextInputs[idx].subworkflowInputs = e.target.value;
+        });
+      });
+      listEl.querySelectorAll('.wf-inp-subwf-stdin').forEach(el => {
+        el.addEventListener('input', e => {
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          if (contextInputs[idx]) contextInputs[idx].subworkflowStdin = e.target.value;
+        });
+      });
+      listEl.querySelectorAll('.btn-del-context-input').forEach(el => {
+        el.addEventListener('click', () => {
+          contextInputs.splice(parseInt(el.getAttribute('data-idx'), 10), 1);
+          renderContextInputs();
+        });
+      });
+    };
+
+    renderContextInputs();
+
+    document.getElementById('btn-add-context-input')?.addEventListener('click', () => {
+      contextInputs.push({
+        id: 'input_' + (contextInputs.length + 1),
+        type: 'tool',
+        tool: 'git.status',
+        optional: false
+      });
+      renderContextInputs();
+    });
 
     const renderSteps = () => {
       const container = document.getElementById('wf-steps-list');
@@ -2453,6 +4975,7 @@
               <option value="shell.typecheck" ${s.tool === 'shell.typecheck' ? 'selected' : ''}>shell.typecheck (需要审批)</option>
               <option value="file.write" ${s.tool === 'file.write' ? 'selected' : ''}>file.write (需要审批)</option>
               <option value="agent.run" ${s.tool === 'agent.run' ? 'selected' : ''}>agent.run (需要审批)</option>
+              <option value="connector.call" ${s.tool === 'connector.call' ? 'selected' : ''}>connector.call (外部连接器)</option>
             </select>
             <div style="display: flex; gap: 2px;">
               <button type="button" class="btn-icon-subtle btn-step-up" data-idx="${idx}" data-i18n-title="workflows.btnStepUp" title="${escapeHtml(t('workflows.btnStepUp'))}">↑</button>
@@ -2462,7 +4985,22 @@
           </div>
           <div>
             <textarea class="form-textarea code-editor wf-step-args" data-idx="${idx}" style="min-height: 56px; font-size: 12px; padding: 6px 8px;" placeholder="${s.tool === 'agent.run' ? escapeHtml(t('workflows.stepArgsAgentPlaceholder')) : escapeHtml(t('workflows.stepArgsPlaceholder'))}">${escapeHtml(typeof s.arguments === 'object' ? JSON.stringify(s.arguments, null, 2) : s.arguments || '{}')}</textarea>
-            ${s.tool === 'agent.run' ? `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;" data-i18n="workflows.agentRunNotice">${escapeHtml(t('workflows.agentRunNotice'))}</div>` : ''}
+            ${s.tool === 'agent.run' ? `
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px; padding: 4px 8px; background: var(--bg-main); border-radius: 4px; border: 1px solid var(--border-color); font-size: 11px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span>${escapeHtml(t('workflows.contextSectionTitle'))}:</span>
+                  ${(s.arguments && s.arguments.promptMode === 'workflow_context') ? `
+                    <span class="status-badge status-sage" data-i18n="workflows.contextDeliveryEnabledBadge">${escapeHtml(t('workflows.contextDeliveryEnabledBadge'))}</span>
+                  ` : `
+                    <span class="status-badge status-neutral">未注入上下文</span>
+                  `}
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm btn-toggle-step-context" data-idx="${idx}" style="font-size: 11px; padding: 1px 6px;">
+                  ${(s.arguments && s.arguments.promptMode === 'workflow_context') ? '取消上下文' : escapeHtml(t('workflows.btnEnableContextDelivery'))}
+                </button>
+              </div>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;" data-i18n="workflows.agentRunNotice">${escapeHtml(t('workflows.agentRunNotice'))}</div>
+            ` : ''}
           </div>
         </div>
       `).join('');
@@ -2486,8 +5024,42 @@
             steps[idx].arguments = { path: 'relative.txt', content: '...' };
           } else if (tool === 'agent.run') {
             steps[idx].arguments = { executable: '', args: [], timeoutSeconds: 120 };
+          } else if (tool === 'connector.call') {
+            steps[idx].arguments = {
+              toolSlug: '',
+              version: '1.0.0',
+              catalogHash: '',
+              connectedAccountId: '',
+              arguments: {}
+            };
           } else {
             steps[idx].arguments = {};
+          }
+          renderSteps();
+        });
+      });
+
+      container.querySelectorAll('.btn-toggle-step-context').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-idx'), 10);
+          const st = steps[idx];
+          if (!st || st.tool !== 'agent.run') return;
+          if (typeof st.arguments !== 'object' || st.arguments === null) {
+            st.arguments = {};
+          }
+          if (st.arguments.promptMode === 'workflow_context') {
+            delete st.arguments.promptMode;
+            if (Array.isArray(st.arguments.args)) {
+              st.arguments.args = st.arguments.args.filter(a => a !== '{{vela.prompt}}');
+            }
+          } else {
+            st.arguments.promptMode = 'workflow_context';
+            if (!Array.isArray(st.arguments.args)) {
+              st.arguments.args = [];
+            }
+            if (!st.arguments.args.includes('{{vela.prompt}}')) {
+              st.arguments.args.push('{{vela.prompt}}');
+            }
           }
           renderSteps();
         });
@@ -2555,7 +5127,6 @@
       const project = document.getElementById('wf-modal-project').value;
       const description = document.getElementById('wf-modal-desc').value.trim();
       const trigger = document.getElementById('wf-modal-trigger').value;
-      const cron = document.getElementById('wf-modal-cron').value.trim();
 
       if (!title) {
         showToast({ key: 'workflows.titleRequired' }, 'error');
@@ -2566,43 +5137,272 @@
         return;
       }
 
-      for (const s of steps) {
-        if (typeof s.arguments === 'string') {
-          try {
-            s.arguments = JSON.parse(s.arguments);
-          } catch {
-            showToast({ key: 'workflows.invalidArgsJson', params: { title: s.title } }, 'error');
-            return;
-          }
+      let cron = undefined;
+      let timeZone = undefined;
+      let catchUp = undefined;
+      let catchUpLimit = undefined;
+      let catchUpWindowHours = undefined;
+
+      if (trigger === 'cron') {
+        cron = document.getElementById('wf-modal-cron').value.trim();
+        if (!cron) {
+          showToast('Cron 表达式不能为空', 'error');
+          return;
         }
-        if (['agent.run', 'shell.test', 'shell.typecheck'].includes(s.tool)) {
-          const argsObj = s.arguments;
-          if (!argsObj || typeof argsObj !== 'object' || Array.isArray(argsObj)) {
-            showToast({ key: 'workflows.argsMustBeObject', params: { title: s.title } }, 'error');
-            return;
-          }
-          if (typeof argsObj.executable !== 'string' || !argsObj.executable.trim()) {
-            showToast({ key: 'workflows.executableRequired', params: { title: s.title, tool: s.tool } }, 'error');
-            return;
-          }
-          if (!Array.isArray(argsObj.args) || !argsObj.args.every(a => typeof a === 'string')) {
-            showToast({ key: 'workflows.argsMustBeStringArray', params: { title: s.title, tool: s.tool } }, 'error');
-            return;
-          }
+        timeZone = document.getElementById('wf-modal-timezone').value.trim() || undefined;
+        catchUp = document.getElementById('wf-modal-catchup').value;
+        const rawLimit = parseInt(document.getElementById('wf-modal-catchup-limit').value, 10);
+        if (isNaN(rawLimit) || rawLimit < 1 || rawLimit > 100) {
+          showToast({ key: 'workflows.catchUpLimitLabel' }, 'error');
+          return;
+        }
+        catchUpLimit = rawLimit;
+
+        const rawWindow = parseInt(document.getElementById('wf-modal-catchup-window').value, 10);
+        if (isNaN(rawWindow) || rawWindow < 1 || rawWindow > 168) {
+          showToast({ key: 'workflows.catchUpWindowLabel' }, 'error');
+          return;
+        }
+        catchUpWindowHours = rawWindow;
+      }
+
+      let watchObj = undefined;
+      if (trigger === 'watch') {
+        const wTool = document.getElementById('wf-watch-tool')?.value || 'git.status';
+        const wMode = document.getElementById('wf-watch-mode')?.value || (wTool.startsWith('git.') ? 'output' : 'items');
+        const wKey = wMode === 'items' ? (document.getElementById('wf-watch-key')?.value.trim() || 'id') : undefined;
+        const wEvery = Math.max(30, Math.min(86400, parseInt(document.getElementById('wf-watch-every')?.value, 10) || 60));
+        const wMin = wMode === 'output' ? 1 : Math.max(1, Math.min(100, parseInt(document.getElementById('wf-watch-min-items')?.value, 10) || 1));
+        const wDebounce = Math.max(0, Math.min(300, parseInt(document.getElementById('wf-watch-debounce')?.value, 10) || 10));
+
+        let wArgs = {};
+        if (wTool === 'memory.recall') {
+          const q = (document.getElementById('wf-watch-arg-query')?.value || '').trim();
+          const tok = Math.max(1, Math.min(2000, parseInt(document.getElementById('wf-watch-arg-tokens')?.value, 10) || 1000));
+          wArgs = { query: q, budgetTokens: tok };
+        } else if (wTool === 'library.retrieve') {
+          const q = (document.getElementById('wf-watch-arg-query')?.value || '').trim();
+          const kVal = Math.max(1, Math.min(10, parseInt(document.getElementById('wf-watch-arg-k')?.value, 10) || 10));
+          wArgs = { query: q, k: kVal };
+        } else {
+          wArgs = {};
+        }
+
+        watchObj = {
+          source: 'tool',
+          tool: wTool,
+          arguments: wArgs,
+          mode: wMode,
+          everySeconds: wEvery,
+          minItems: wMin,
+          debounceSeconds: wDebounce
+        };
+        if (wKey) {
+          watchObj.key = wKey;
         }
       }
 
-      const payload = {
-        id: (wf && wf.id) ? wf.id : undefined,
-        title,
-        project,
-        description,
-        trigger,
-        cron: trigger === 'cron' ? cron : undefined,
-        enabled: wf ? wf.enabled : true,
-        guidelines: wf?.guidelines || [],
-        steps
-      };
+      const wfTypeVal = document.getElementById('wf-modal-type')?.value || 'steps';
+      const outTarget = document.getElementById('wf-output-target')?.value || 'stdout';
+      let outputObj = undefined;
+      if (outTarget === 'file') {
+        const outPath = (document.getElementById('wf-output-path')?.value || '').trim();
+        if (!outPath) {
+          showToast('请输入交付文件的相对路径', 'error');
+          return;
+        }
+        outputObj = {
+          target: 'file',
+          path: outPath,
+          inbox: Boolean(document.getElementById('wf-output-inbox')?.checked),
+          stepId: wfTypeVal === 'steps' ? (document.getElementById('wf-output-step-id')?.value.trim() || undefined) : undefined
+        };
+      } else if (outTarget === 'inbox') {
+        outputObj = {
+          target: 'inbox',
+          stepId: wfTypeVal === 'steps' ? (document.getElementById('wf-output-step-id')?.value.trim() || undefined) : undefined
+        };
+      } else if (outTarget === 'stdout') {
+        outputObj = { target: 'stdout' };
+      }
+
+      let payload = null;
+
+      if (wfTypeVal === 'pipeline') {
+        if (pipelineStages.length < 1 || pipelineStages.length > 16) {
+          showToast('流水线阶段数量必须在 1 到 16 之间', 'error');
+          return;
+        }
+        for (let i = 0; i < pipelineStages.length; i++) {
+          const st = pipelineStages[i];
+          if (!st.id || !st.id.trim()) {
+            showToast(`流水线第 ${i + 1} 阶段缺少有效 ID`, 'error');
+            return;
+          }
+          if (!st.workflowId || !st.workflowId.trim()) {
+            showToast(`流水线第 ${i + 1} 阶段未选择子工作流`, 'error');
+            return;
+          }
+        }
+
+        payload = {
+          id: (wf && wf.id) ? wf.id : undefined,
+          title,
+          project,
+          description,
+          trigger,
+          cron,
+          timeZone,
+          catchUp,
+          catchUpLimit,
+          catchUpWindowHours,
+          watch: watchObj,
+          enabled: wf ? wf.enabled : true,
+          pipeline: pipelineStages.map((st, idx) => ({
+            id: st.id.trim(),
+            workflowId: st.workflowId.trim(),
+            when: idx === 0 ? 'always' : (st.when || 'always')
+          })),
+          output: outputObj
+        };
+      } else {
+        for (const s of steps) {
+          if (typeof s.arguments === 'string') {
+            try {
+              s.arguments = JSON.parse(s.arguments);
+            } catch {
+              showToast({ key: 'workflows.invalidArgsJson', params: { title: s.title } }, 'error');
+              return;
+            }
+          }
+          if (['agent.run', 'shell.test', 'shell.typecheck'].includes(s.tool)) {
+            const argsObj = s.arguments;
+            if (!argsObj || typeof argsObj !== 'object' || Array.isArray(argsObj)) {
+              showToast({ key: 'workflows.argsMustBeObject', params: { title: s.title } }, 'error');
+              return;
+            }
+            if (typeof argsObj.executable !== 'string' || !argsObj.executable.trim()) {
+              showToast({ key: 'workflows.executableRequired', params: { title: s.title, tool: s.tool } }, 'error');
+              return;
+            }
+            if (!Array.isArray(argsObj.args) || !argsObj.args.every(a => typeof a === 'string')) {
+              showToast({ key: 'workflows.argsMustBeStringArray', params: { title: s.title, tool: s.tool } }, 'error');
+              return;
+            }
+          }
+        }
+
+        let contextObj = undefined;
+        if (contextEnabled) {
+          const template = (document.getElementById('wf-context-template')?.value || '').trim();
+          if (!template) {
+            showToast({ key: 'workflows.contextTemplateRequired' }, 'error');
+            return;
+          }
+
+          // Must have at least one agent.run with promptMode === 'workflow_context' and exactly one {{vela.prompt}}
+          const contextualAgentStep = steps.find(s => {
+            if (s.tool !== 'agent.run' || !s.arguments) return false;
+            if (s.arguments.promptMode !== 'workflow_context') return false;
+            const args = s.arguments.args || [];
+            return Array.isArray(args) && args.filter(a => a === '{{vela.prompt}}').length === 1 && args.filter(a => a.includes('{{vela.prompt}}')).length === 1;
+          });
+
+          if (!contextualAgentStep) {
+            showToast({ key: 'workflows.contextMissingAgentStep' }, 'error');
+            return;
+          }
+
+          // Validate context inputs
+          const normalizedInputs = [];
+          const seenIds = new Set();
+          const reservedIds = ['input', 'guidelines', 'memory', 'config', 'vela'];
+          const idRegex = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
+
+          for (const inp of contextInputs) {
+            const inpId = (inp.id || '').trim();
+            if (!inpId || !idRegex.test(inpId) || reservedIds.includes(inpId) || seenIds.has(inpId)) {
+              showToast(`输入标识 ID 无效或重复: ${inpId || '未命名'}`, 'error');
+              return;
+            }
+            seenIds.add(inpId);
+
+            const item = { id: inpId, optional: Boolean(inp.optional) };
+            if (inp.type === 'tool') {
+              item.tool = inp.tool || 'git.status';
+              item.arguments = inp.arguments || {};
+            } else if (inp.type === 'retrieve') {
+              item.retrieve = {
+                query: (inp.query || '').trim(),
+                k: Math.max(1, Math.min(20, parseInt(inp.k, 10) || 5))
+              };
+            } else if (inp.type === 'stdin') {
+              item.source = 'stdin';
+            } else if (inp.type === 'workflow') {
+              let subInputs = undefined;
+              if (inp.subworkflowInputs) {
+                try {
+                  subInputs = typeof inp.subworkflowInputs === 'object' ? inp.subworkflowInputs : JSON.parse(inp.subworkflowInputs);
+                } catch {
+                  subInputs = undefined;
+                }
+              }
+              item.workflow = {
+                id: (inp.subworkflowId || '').trim(),
+                inputs: subInputs,
+                stdin: (inp.subworkflowStdin || '').trim() || undefined
+              };
+            } else {
+              item.value = inp.value || '';
+            }
+            normalizedInputs.push(item);
+          }
+
+          const memEnabled = Boolean(document.getElementById('wf-context-mem-enable')?.checked);
+          const memBudget = Math.max(0, Math.min(4000, parseInt(document.getElementById('wf-context-mem-budget')?.value, 10) || 2000));
+
+          contextObj = {
+            version: 1,
+            template,
+            inputs: normalizedInputs,
+            memory: {
+              enabled: memEnabled,
+              budgetTokens: memBudget
+            }
+          };
+        } else {
+          // Strip workflow_context promptMode if context is disabled
+          steps.forEach(s => {
+            if (s.arguments && s.arguments.promptMode === 'workflow_context') {
+              delete s.arguments.promptMode;
+              if (Array.isArray(s.arguments.args)) {
+                s.arguments.args = s.arguments.args.filter(a => a !== '{{vela.prompt}}');
+              }
+            }
+          });
+        }
+
+        const checkedGuidelines = Array.from(document.querySelectorAll('.wf-guideline-cb:checked')).map(cb => cb.value);
+
+        payload = {
+          id: (wf && wf.id) ? wf.id : undefined,
+          title,
+          project,
+          description,
+          trigger,
+          cron,
+          timeZone,
+          catchUp,
+          catchUpLimit,
+          catchUpWindowHours,
+          watch: watchObj,
+          enabled: wf ? wf.enabled : true,
+          guidelines: checkedGuidelines,
+          context: contextObj,
+          steps,
+          output: outputObj
+        };
+      }
 
       try {
         await callBridge('workflows.save', payload);
@@ -2626,6 +5426,7 @@
           <p data-i18n="setupL.header.desc">${escapeHtml(t('setupL.header.desc'))}</p>
         </div>
         <div class="page-actions">
+          <button id="btn-catalog-setup" class="btn btn-secondary btn-sm" data-i18n="setup.catalogBtn">${escapeHtml(t('setup.catalogBtn'))}</button>
           <button id="btn-scan-setup" class="btn btn-secondary btn-sm" data-i18n="setupL.actions.scan">${escapeHtml(t('setupL.actions.scan'))}</button>
           <button id="btn-audit-setup" class="btn btn-secondary btn-sm" data-i18n="setupL.actions.audit">${escapeHtml(t('setupL.actions.audit'))}</button>
         </div>
@@ -2652,6 +5453,8 @@
         renderSetupTabContent();
       });
     });
+
+    document.getElementById('btn-catalog-setup')?.addEventListener('click', openSetupCatalogModal);
 
     document.getElementById('btn-scan-setup').addEventListener('click', async () => {
       try {
@@ -2697,6 +5500,18 @@
     }
   }
 
+  function getSetupContentStatusBadge(status) {
+    switch (status) {
+      case 'sanitized': return `<span class="status-badge status-sage" data-i18n="setup.statusSanitized">${escapeHtml(t('setup.statusSanitized'))}</span>`;
+      case 'metadata_only_mixed_auth_store': return `<span class="status-badge status-amber" data-i18n="setup.statusMetadataOnly">${escapeHtml(t('setup.statusMetadataOnly'))}</span>`;
+      case 'withheld_unparsed_configuration': return `<span class="status-badge status-amber" data-i18n="setup.statusUnparsedConfig">${escapeHtml(t('setup.statusUnparsedConfig'))}</span>`;
+      case 'withheld_invalid_json': return `<span class="status-badge status-amber" data-i18n="setup.statusInvalidJson">${escapeHtml(t('setup.statusInvalidJson'))}</span>`;
+      case 'unavailable': return `<span class="status-badge status-red" data-i18n="setup.statusUnavailable">${escapeHtml(t('setup.statusUnavailable'))}</span>`;
+      case 'source_missing': return `<span class="status-badge status-neutral" data-i18n="setup.statusSourceMissing">${escapeHtml(t('setup.statusSourceMissing'))}</span>`;
+      default: return '';
+    }
+  }
+
   function renderArtifactsSection(target, typeName) {
     const artifacts = (state.dashboard && state.dashboard.artifacts) || [];
     const filtered = artifacts.filter(a => {
@@ -2729,7 +5544,7 @@
                 <th data-i18n="setupL.table.estimatedTokens">${escapeHtml(t('setupL.table.estimatedTokens'))}</th>
                 <th data-i18n="setupL.table.hash">${escapeHtml(t('setupL.table.hash'))}</th>
                 <th data-i18n="setupL.table.diagnostics">${escapeHtml(t('setupL.table.diagnostics'))}</th>
-                <th style="text-align: right; width: 140px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
+                <th style="text-align: right; width: 280px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
               </tr>
             </thead>
             <tbody>
@@ -2742,6 +5557,7 @@
                   <td>
                     <span class="code-badge">${escapeHtml(a.provider || 'generic')}</span>
                     <span style="font-size: 12px; color: var(--text-secondary); margin-left: 4px;">${escapeHtml(a.scope || 'project')}</span>
+                    ${a.contentStatus ? `<div style="margin-top: 4px;">${getSetupContentStatusBadge(a.contentStatus)}</div>` : ''}
                   </td>
                   <td><span class="font-mono">${escapeHtml(String(a.tokens || '-'))}</span></td>
                   <td><span class="font-mono" style="font-size: 12px;">${a.hash ? escapeHtml(a.hash.substring(0, 10)) : '-'}</span></td>
@@ -2751,6 +5567,8 @@
                       : `<span class="status-badge status-sage" data-i18n="setupL.artifacts.statusNormal">${escapeHtml(t('setupL.artifacts.statusNormal'))}</span>`}
                   </td>
                   <td style="text-align: right;">
+                    <button class="btn btn-ghost btn-sm btn-setup-history" data-id="${escapeHtml(a.id)}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
+                    <button class="btn btn-ghost btn-sm btn-setup-relations" data-id="${escapeHtml(a.id)}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
                     <button class="btn btn-secondary btn-sm btn-preview-artifact" data-id="${escapeHtml(a.id)}" data-i18n="setupL.artifacts.preview">${escapeHtml(t('setupL.artifacts.preview'))}</button>
                     ${a.path ? `<button class="btn btn-ghost btn-sm btn-reveal-path" data-path="${escapeHtml(a.path)}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
                   </td>
@@ -2761,6 +5579,22 @@
         </div>
       `}
     `;
+
+    target.querySelectorAll('.btn-setup-history').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const art = filtered.find(a => a.id === id);
+        if (art) openSetupHistoryAndDiffModal(art);
+      });
+    });
+
+    target.querySelectorAll('.btn-setup-relations').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const art = filtered.find(a => a.id === id);
+        if (art) openSetupRelationsModal(art);
+      });
+    });
 
     target.querySelectorAll('.btn-preview-artifact').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -2798,6 +5632,305 @@
         }
       });
     });
+  }
+
+  async function openSetupCatalogModal() {
+    openModal({ key: 'setup.catalogTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-setup-catalog" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-setup-catalog')?.addEventListener('click', closeModal);
+
+    let cat = null;
+    try {
+      cat = await callBridge('setup.catalog', {});
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    if (!b) return;
+
+    const providers = Array.isArray(cat.providers) ? cat.providers : [];
+    const projectLocs = Array.isArray(cat.projectLocations) ? cat.projectLocations : [];
+    const globalLocs = Array.isArray(cat.globalLocations) ? cat.globalLocations : [];
+    const limits = Array.isArray(cat.limitations) ? cat.limitations : [];
+
+    b.innerHTML = `
+      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="setup.catalogDesc">${escapeHtml(t('setup.catalogDesc'))}</p>
+
+      <div class="card" style="margin-bottom: 12px;">
+        <div style="font-size: 12px; display: flex; gap: 16px; align-items: center;">
+          <div><strong data-i18n="setup.catalogVersion">${escapeHtml(t('setup.catalogVersion'))}</strong> <span class="font-mono">${escapeHtml(cat.catalogVersion || '-')}</span></div>
+          <div><strong data-i18n="setup.catalogProviders">${escapeHtml(t('setup.catalogProviders'))}:</strong> ${providers.map(p => `<span class="code-badge" style="margin-left: 4px;">${escapeHtml(p)}</span>`).join('')}</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="setup.catalogLocations">${escapeHtml(t('setup.catalogLocations'))}</h4>
+        <div class="table-wrapper" style="max-height: 240px; overflow-y: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Path</th>
+                <th>Provider</th>
+                <th>Type</th>
+                <th>Scope</th>
+                <th>Recursive</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${projectLocs.map(l => `
+                <tr>
+                  <td><code style="font-size: 11px;">${escapeHtml(l.path)}</code></td>
+                  <td><span class="code-badge">${escapeHtml(l.provider)}</span></td>
+                  <td>${escapeHtml(l.type)}</td>
+                  <td><span class="status-badge status-neutral">project</span></td>
+                  <td>${l.recursive ? '✓' : '-'}</td>
+                </tr>
+              `).join('')}
+              ${globalLocs.map(l => `
+                <tr>
+                  <td><code style="font-size: 11px;">${escapeHtml(l.path)}</code></td>
+                  <td><span class="code-badge">${escapeHtml(l.provider)}</span></td>
+                  <td>${escapeHtml(l.type)}</td>
+                  <td><span class="status-badge status-sage">global</span></td>
+                  <td>${l.recursive ? '✓' : '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="setup.catalogLimits">${escapeHtml(t('setup.catalogLimits'))}</h4>
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 12px; font-size: 11px; color: var(--text-secondary);">
+          <ul style="margin: 0; padding-left: 18px;">
+            ${limits.map(lim => `<li style="margin-bottom: 4px;">${escapeHtml(lim)}</li>`).join('')}
+          </ul>
+        </div>
+      </div>
+    `;
+  }
+
+  async function openSetupHistoryAndDiffModal(art) {
+    const isGlobal = art.scope === 'global';
+    const identity = isGlobal ? { id: art.id, scope: 'global' } : { id: art.id, project: art.project || state.currentProject };
+
+    openModal({ key: 'setup.historyTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-setup-history" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-setup-history')?.addEventListener('click', closeModal);
+
+    let hist = null;
+    try {
+      hist = await callBridge('setup.history', identity);
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    if (!b) return;
+
+    const revisions = Array.isArray(hist.revisions) ? hist.revisions : [];
+
+    b.innerHTML = `
+      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="setup.historyDesc">${escapeHtml(t('setup.historyDesc'))}</p>
+
+      <div class="card" style="margin-bottom: 12px; padding: 10px 12px;">
+        <div style="font-size: 12px; display: grid; grid-template-columns: 2fr 1fr; gap: 8px;">
+          <div><strong>ID:</strong> <span class="font-mono">${escapeHtml(art.id)}</span></div>
+          <div><strong>Scope:</strong> <span class="code-badge">${escapeHtml(art.scope || 'project')}</span></div>
+          <div style="grid-column: span 2;"><strong>Path:</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml(art.path || '')}</span></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <h4 style="font-size: 13px; font-weight: 600; margin: 0;" data-i18n="setup.revision">${escapeHtml(t('setup.revision'))} (${revisions.length})</h4>
+        </div>
+        ${revisions.length === 0 ? `
+          <div class="text-secondary" style="font-size: 12px; padding: 12px 0;" data-i18n="setup.historyEmpty">${escapeHtml(t('setup.historyEmpty'))}</div>
+        ` : `
+          <div class="table-wrapper" style="max-height: 180px; overflow-y: auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th data-i18n="setup.revision">${escapeHtml(t('setup.revision'))}</th>
+                  <th data-i18n="setup.sourceBytes">${escapeHtml(t('setup.sourceBytes'))}</th>
+                  <th data-i18n="setup.sanitizedHash">${escapeHtml(t('setup.sanitizedHash'))}</th>
+                  <th data-i18n="setup.observedAt">${escapeHtml(t('setup.observedAt'))}</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${revisions.map(r => `
+                  <tr>
+                    <td><span class="font-mono">v${escapeHtml(String(r.revision ?? 1))}</span></td>
+                    <td><span class="font-mono">${escapeHtml(String(r.sourceBytes ?? '-'))} B</span></td>
+                    <td><span class="font-mono" style="font-size: 11px;">${r.sanitizedHash ? escapeHtml(r.sanitizedHash.substring(0, 10)) : '-'}</span></td>
+                    <td><span class="font-mono" style="font-size: 11px;">${formatTime(r.observedAt)}</span></td>
+                    <td><span class="status-badge status-neutral">${escapeHtml(r.contentStatus || r.state || '-')}</span></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+
+      <div class="card" style="padding: 10px 12px; margin-bottom: 12px;">
+        <span class="card-title" style="font-size: 12px; margin-bottom: 8px; display: block;" data-i18n="setup.diffSelectCompare">${escapeHtml(t('setup.diffSelectCompare'))}</span>
+        <div style="display: flex; gap: 10px; align-items: flex-end;">
+          <div>
+            <label style="font-size: 11px; color: var(--text-secondary);" data-i18n="setup.diffFrom">${escapeHtml(t('setup.diffFrom'))}</label>
+            <select id="diff-from-select" class="form-select" style="min-width: 90px;">
+              ${revisions.map(r => `<option value="${r.revision}" ${r.revision === (revisions[1] ? revisions[1].revision : revisions[0]?.revision) ? 'selected' : ''}>v${r.revision}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11px; color: var(--text-secondary);" data-i18n="setup.diffTo">${escapeHtml(t('setup.diffTo'))}</label>
+            <select id="diff-to-select" class="form-select" style="min-width: 90px;">
+              ${revisions.map(r => `<option value="${r.revision}" ${r.revision === revisions[0]?.revision ? 'selected' : ''}>v${r.revision}</option>`).join('')}
+            </select>
+          </div>
+          <button id="btn-run-setup-diff" class="btn btn-secondary btn-sm" data-i18n="setup.btnRunDiff">${escapeHtml(t('setup.btnRunDiff'))}</button>
+        </div>
+      </div>
+
+      <div id="setup-diff-result"></div>
+    `;
+
+    document.getElementById('btn-run-setup-diff')?.addEventListener('click', async () => {
+      const fromVal = parseInt(document.getElementById('diff-from-select')?.value || '1', 10);
+      const toVal = parseInt(document.getElementById('diff-to-select')?.value || '1', 10);
+      const diffContainer = document.getElementById('setup-diff-result');
+      if (!diffContainer) return;
+      diffContainer.innerHTML = `<div class="text-secondary" style="font-size: 12px; padding: 12px 0;">${escapeHtml(t('common.loading'))}</div>`;
+
+      try {
+        const diffRes = await callBridge('setup.diff', { ...identity, from: fromVal, to: toVal });
+        if (currentModalInstance !== thisModalInstance) return;
+
+        if (diffRes.diffAvailable === false) {
+          diffContainer.innerHTML = `
+            <div class="alert-banner alert-warning">
+              <span data-i18n="setup.diffUnavailable" data-i18n-params="${escapeHtml(JSON.stringify({ reason: diffRes.reason || 'Not available' }))}">${escapeHtml(t('setup.diffUnavailable', { reason: diffRes.reason || 'Not available' }))}</span>
+            </div>
+          `;
+          return;
+        }
+
+        const removed = Array.isArray(diffRes.removed) ? diffRes.removed : [];
+        const added = Array.isArray(diffRes.added) ? diffRes.added : [];
+
+        if (removed.length === 0 && added.length === 0) {
+          diffContainer.innerHTML = `
+            <div class="alert-banner alert-sage">
+              <span data-i18n="setup.noDiffContent">${escapeHtml(t('setup.noDiffContent'))}</span>
+            </div>
+          `;
+          return;
+        }
+
+        diffContainer.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 12px; font-weight: 600;">
+              <span data-i18n="setup.diffStartLine">${escapeHtml(t('setup.diffStartLine'))}</span> ${escapeHtml(String(diffRes.startLine ?? 1))}
+            </span>
+            <span class="status-badge status-neutral" style="font-size: 11px;">single_replacement_block</span>
+          </div>
+          <div class="diff-container" style="max-height: 220px; overflow-y: auto;">
+            ${removed.map(l => `<div class="diff-line deletion"><span class="diff-marker">-</span><span>${escapeHtml(l)}</span></div>`).join('')}
+            ${added.map(l => `<div class="diff-line addition"><span class="diff-marker">+</span><span>${escapeHtml(l)}</span></div>`).join('')}
+          </div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;" data-i18n="setup.diffNotice">
+            ${escapeHtml(t('setup.diffNotice'))}
+          </div>
+        `;
+      } catch (err) {
+        if (diffContainer) diffContainer.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(err.message)}</div>`;
+      }
+    });
+  }
+
+  async function openSetupRelationsModal(art) {
+    const isGlobal = art.scope === 'global';
+    const identity = isGlobal ? { id: art.id, scope: 'global' } : { id: art.id, project: art.project || state.currentProject };
+
+    openModal({ key: 'setup.relationsTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-setup-rel" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-setup-rel')?.addEventListener('click', closeModal);
+
+    let relData = null;
+    try {
+      relData = await callBridge('setup.relations', identity);
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    if (!b) return;
+
+    const relations = Array.isArray(relData.relations) ? relData.relations : [];
+
+    b.innerHTML = `
+      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="setup.relationsDesc">${escapeHtml(t('setup.relationsDesc'))}</p>
+
+      <div class="alert-banner alert-neutral" style="margin-bottom: 12px; font-size: 11px;">
+        <span data-i18n="setup.relationRuntimeLoadedNotice">${escapeHtml(t('setup.relationRuntimeLoadedNotice'))}</span>
+      </div>
+
+      ${relations.length === 0 ? `
+        <div class="empty-state" style="padding: 24px 0;">
+          <div class="empty-state-title" data-i18n="setup.noRelations">${escapeHtml(t('setup.noRelations'))}</div>
+        </div>
+      ` : `
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Relation</th>
+                <th>Target Artifact</th>
+                <th>Path</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${relations.map(r => `
+                <tr>
+                  <td>
+                    ${r.relation === 'identical_observed_bytes' ? `<span class="status-badge status-sage" data-i18n="setup.relationIdenticalBytes">${escapeHtml(t('setup.relationIdenticalBytes'))}</span>` :
+                      r.relation === 'same_declared_skill_name' ? `<span class="status-badge status-blue" data-i18n="setup.relationSameNameSkills">${escapeHtml(t('setup.relationSameNameSkills'))}</span>` :
+                      `<span class="status-badge status-amber" data-i18n="setup.relationAgentsOverride">${escapeHtml(t('setup.relationAgentsOverride'))}</span>`}
+                  </td>
+                  <td><strong>${escapeHtml(r.artifactId || '-')}</strong></td>
+                  <td><span class="font-mono" style="font-size: 11px;">${escapeHtml(r.path || '-')}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `}
+    `;
   }
 
   // --- Real Guidelines Management (guidelines.list, guidelines.save) ---
@@ -3472,6 +6605,10 @@
           </button>
         `).join('')}
         <div style="margin-left: auto; display: flex; gap: 8px;">
+          <button id="btn-export-memory-archive" class="btn btn-secondary btn-sm" data-i18n="memory.btnExportArchive">${t('memory.btnExportArchive')}</button>
+          <button id="btn-import-memory-archive" class="btn btn-secondary btn-sm" data-i18n="memory.btnImportArchive">${t('memory.btnImportArchive')}</button>
+          <button id="btn-semantic-memory" class="btn btn-secondary btn-sm" data-i18n="memory.btnSemanticMemory">${t('memory.btnSemanticMemory')}</button>
+          <button id="btn-knowledge-ask" class="btn btn-secondary btn-sm" data-i18n="ask.modalBtn">${t('ask.modalBtn')}</button>
           <button id="btn-configure-reuse" class="btn btn-secondary btn-sm" data-i18n="memory.btnConfigReuse">${t('memory.btnConfigReuse')}</button>
           <button id="btn-recall-tester" class="btn btn-secondary btn-sm" data-i18n="memory.btnRecallTester">${t('memory.btnRecallTester')}</button>
           <button id="btn-new-memory" class="btn btn-primary btn-sm" data-i18n="memory.btnNewMemory">${t('memory.btnNewMemory')}</button>
@@ -3564,6 +6701,12 @@
       });
     });
 
+    const btnExportArchive = document.getElementById('btn-export-memory-archive');
+    if (btnExportArchive) btnExportArchive.addEventListener('click', openExportMemoryArchiveModal);
+
+    const btnImportArchive = document.getElementById('btn-import-memory-archive');
+    if (btnImportArchive) btnImportArchive.addEventListener('click', openImportMemoryArchiveModal);
+
     const btnNew = document.getElementById('btn-new-memory');
     if (btnNew) btnNew.addEventListener('click', () => openCreateOrEditMemoryModal());
 
@@ -3575,6 +6718,12 @@
 
     const btnRecall = document.getElementById('btn-recall-tester');
     if (btnRecall) btnRecall.addEventListener('click', openRecallModal);
+
+    const btnSemanticMemory = document.getElementById('btn-semantic-memory');
+    if (btnSemanticMemory) btnSemanticMemory.addEventListener('click', openSemanticMemoryModal);
+
+    const btnKnowledgeAsk = document.getElementById('btn-knowledge-ask');
+    if (btnKnowledgeAsk) btnKnowledgeAsk.addEventListener('click', openKnowledgeAskModal);
 
     target.querySelectorAll('.btn-mem-activate').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -3678,6 +6827,1288 @@
         }
       });
     });
+  }
+
+  async function openExportMemoryArchiveModal() {
+    const currentProject = state.currentProject;
+    if (!currentProject) {
+      openModal({ key: 'memory.archiveExportTitle' }, `
+        <div class="alert-banner alert-warning" style="margin-bottom: 12px;">
+          <span data-i18n="memory.selectProjectFirst">${escapeHtml(t('memory.selectProjectFirst'))}</span>
+        </div>
+        <p style="font-size: 13px; color: var(--text-secondary);" data-i18n="memory.archiveExportDesc">${escapeHtml(t('memory.archiveExportDesc'))}</p>
+      `, `
+        <button class="btn btn-secondary" id="btn-close-export-modal" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      `);
+      document.getElementById('btn-close-export-modal')?.addEventListener('click', closeModal);
+      return;
+    }
+
+    openModal({ key: 'memory.archiveExportTitle' }, `
+      <div style="font-size: 13px; color: var(--text-secondary); padding: 24px 0; text-align: center;">
+        <div class="spin" style="display: inline-block; margin-bottom: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+        </div>
+        <div data-i18n="memory.archiveValidating">${escapeHtml(t('memory.archiveValidating'))}</div>
+      </div>
+    `, '');
+
+    try {
+      const res = await callBridge('memory.archive.export', { project: currentProject });
+      if (!res || !res.archive) {
+        throw new Error('No archive payload returned');
+      }
+
+      const archive = res.archive;
+      const count = typeof res.count === 'number' ? res.count : (archive.entries ? archive.entries.length : 0);
+      const bytes = typeof res.bytes === 'number' ? res.bytes : JSON.stringify(archive).length;
+      const version = archive.version || 1;
+      const isNative = Boolean(state.isBridgeAvailable && (window.webkit?.messageHandlers?.vela || window.vela));
+
+      openModal({ key: 'memory.archiveExportTitle' }, `
+        <div class="alert-banner alert-info" style="margin-bottom: 12px;">
+          <span data-i18n="memory.archiveExportNotice">${escapeHtml(t('memory.archiveExportNotice'))}</span>
+        </div>
+        <div class="card" style="padding: 12px 14px; background: var(--bg-subtle); margin-bottom: 12px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
+            <div><span class="text-secondary" data-i18n="memory.archivePreviewSource">${escapeHtml(t('memory.archivePreviewSource'))}</span> <span class="font-mono">${escapeHtml(currentProject)}</span></div>
+            <div><span class="text-secondary" data-i18n="memory.archivePreviewCount">${escapeHtml(t('memory.archivePreviewCount'))}</span> <strong>${count}</strong></div>
+            <div><span class="text-secondary" data-i18n="memory.archivePreviewBytes">${escapeHtml(t('memory.archivePreviewBytes'))}</span> <span class="font-mono">${formatNumber(bytes)} bytes</span></div>
+            <div><span class="text-secondary" data-i18n="memory.archivePreviewVersion">${escapeHtml(t('memory.archivePreviewVersion'))}</span> <span class="font-mono">v${version}</span></div>
+          </div>
+        </div>
+      `, `
+        <button class="btn btn-secondary" id="btn-cancel-export" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+        <button class="btn btn-primary" id="btn-confirm-export" data-i18n="memory.btnConfirmExport">${escapeHtml(t('memory.btnConfirmExport'))}</button>
+      `);
+
+      document.getElementById('btn-cancel-export')?.addEventListener('click', closeModal);
+      document.getElementById('btn-confirm-export')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-confirm-export');
+        if (btn) btn.disabled = true;
+        if (isNative) {
+          try {
+            const saveRes = await callBridge('system.saveMemoryArchive', { archive });
+            if (saveRes && saveRes.cancelled) {
+              if (btn) btn.disabled = false;
+              return;
+            }
+            if (saveRes && saveRes.saved) {
+              showToast({ key: 'memory.exportSuccess', params: { count } });
+              closeModal();
+            } else {
+              throw new Error(saveRes?.error || 'Save failed');
+            }
+          } catch (err) {
+            showToast(err.message || String(err), 'error');
+            if (btn) btn.disabled = false;
+          }
+        } else {
+          try {
+            const blob = new Blob([JSON.stringify(archive, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const cleanName = currentProject.split('/').filter(Boolean).pop() || 'project';
+            a.href = url;
+            a.download = `vela-memory-archive-${cleanName}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast({ key: 'memory.exportSuccess', params: { count } });
+            closeModal();
+          } catch (err) {
+            showToast(err.message || String(err), 'error');
+            if (btn) btn.disabled = false;
+          }
+        }
+      });
+    } catch (err) {
+      openModal({ key: 'memory.archiveExportTitle' }, `
+        <div class="alert-banner alert-danger">
+          <span>${escapeHtml(err.message || String(err))}</span>
+        </div>
+      `, `
+        <button class="btn btn-secondary" id="btn-close-export-err" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      `);
+      document.getElementById('btn-close-export-err')?.addEventListener('click', closeModal);
+    }
+  }
+
+  function openImportMemoryArchiveModal() {
+    const currentProject = state.currentProject;
+    if (!currentProject) {
+      openModal({ key: 'memory.archiveImportTitle' }, `
+        <div class="alert-banner alert-warning" style="margin-bottom: 12px;">
+          <span data-i18n="memory.selectProjectFirst">${escapeHtml(t('memory.selectProjectFirst'))}</span>
+        </div>
+        <p style="font-size: 13px; color: var(--text-secondary);" data-i18n="memory.archiveImportDesc">${escapeHtml(t('memory.archiveImportDesc'))}</p>
+      `, `
+        <button class="btn btn-secondary" id="btn-close-import-modal" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      `);
+      document.getElementById('btn-close-import-modal')?.addEventListener('click', closeModal);
+      return;
+    }
+
+    openModal({ key: 'memory.archiveImportTitle' }, `
+      <div class="alert-banner alert-info" style="margin-bottom: 12px;">
+        <span data-i18n="memory.archiveImportDesc">${escapeHtml(t('memory.archiveImportDesc'))}</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="memory.archiveFileLabel">${escapeHtml(t('memory.archiveFileLabel'))}</label>
+        <input type="file" id="memory-archive-file-input" class="form-input" accept=".json,application/json">
+      </div>
+      <div id="import-archive-preview-area"></div>
+    `, `
+      <button class="btn btn-secondary" id="btn-cancel-import" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-confirm-import" disabled data-i18n="memory.btnConfirmImport">${escapeHtml(t('memory.btnConfirmImport'))}</button>
+    `);
+
+    const thisModalInstance = currentModalInstance;
+    let importGeneration = 0;
+    let validatedArchive = null;
+    const fileInput = document.getElementById('memory-archive-file-input');
+    const previewArea = document.getElementById('import-archive-preview-area');
+    const confirmBtn = document.getElementById('btn-confirm-import');
+
+    const invalidateImport = () => {
+      importGeneration++;
+      validatedArchive = null;
+      if (confirmBtn) confirmBtn.disabled = true;
+    };
+
+    document.getElementById('btn-cancel-import')?.addEventListener('click', () => {
+      invalidateImport();
+      closeModal();
+    });
+
+    fileInput?.addEventListener('change', async (e) => {
+      const currentGen = ++importGeneration;
+      validatedArchive = null;
+      if (confirmBtn) confirmBtn.disabled = true;
+
+      const file = e.target.files && e.target.files[0];
+      if (!file) {
+        if (previewArea) previewArea.innerHTML = '';
+        return;
+      }
+
+      if (file.size > 1024 * 1024) {
+        if (currentGen !== importGeneration || currentModalInstance !== thisModalInstance) return;
+        if (previewArea) {
+          previewArea.innerHTML = `
+            <div class="alert-banner alert-danger">
+              <span data-i18n="memory.archiveSizeError">${escapeHtml(t('memory.archiveSizeError'))} (${formatNumber(file.size)} bytes)</span>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      if (previewArea) {
+        previewArea.innerHTML = `
+          <div style="font-size: 12px; color: var(--text-muted); padding: 12px 0; text-align: center;" data-i18n="memory.archiveValidating">
+            ${escapeHtml(t('memory.archiveValidating'))}
+          </div>
+        `;
+      }
+
+      try {
+        const text = await file.text();
+        if (currentGen !== importGeneration || currentModalInstance !== thisModalInstance) return;
+
+        let archiveJson;
+        try {
+          archiveJson = JSON.parse(text);
+        } catch {
+          throw new Error(t('memory.archiveInvalidJson'));
+        }
+
+        const valRes = await callBridge('memory.archive.validate', { archive: archiveJson });
+        if (currentGen !== importGeneration || currentModalInstance !== thisModalInstance) return;
+
+        if (!valRes || !valRes.valid) {
+          throw new Error(valRes?.error || t('memory.archiveValidationFailed', { error: 'Unknown validation failure' }));
+        }
+
+        const entries = archiveJson.entries || [];
+        const sourceProj = (archiveJson.source && archiveJson.source.project) || '-';
+
+        const typeCounts = {};
+        entries.forEach(e => {
+          const ty = (e.record && e.record.type) || 'fact';
+          typeCounts[ty] = (typeCounts[ty] || 0) + 1;
+        });
+        const breakdownHtml = Object.entries(typeCounts).map(([ty, cnt]) => `
+          <span class="status-badge status-neutral" style="font-size: 11px;">${escapeHtml(formatMemoryType(ty))}: ${cnt}</span>
+        `).join(' ');
+
+        previewArea.innerHTML = `
+          <div class="card" style="padding: 12px 14px; background: var(--bg-subtle); margin-top: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; margin-bottom: 10px;">
+              <div><span class="text-secondary" data-i18n="memory.archivePreviewSource">${escapeHtml(t('memory.archivePreviewSource'))}</span> <span class="font-mono">${escapeHtml(sourceProj)}</span></div>
+              <div><span class="text-secondary" data-i18n="memory.archivePreviewTarget">${escapeHtml(t('memory.archivePreviewTarget'))}</span> <span class="font-mono">${escapeHtml(currentProject)}</span></div>
+              <div><span class="text-secondary" data-i18n="memory.archivePreviewCount">${escapeHtml(t('memory.archivePreviewCount'))}</span> <strong>${valRes.count || entries.length}</strong></div>
+              <div><span class="text-secondary" data-i18n="memory.archivePreviewBytes">${escapeHtml(t('memory.archivePreviewBytes'))}</span> <span class="font-mono">${formatNumber(valRes.bytes || file.size)} bytes</span></div>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;" data-i18n="memory.archivePreviewCategories">${escapeHtml(t('memory.archivePreviewCategories'))}</div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">${breakdownHtml}</div>
+            </div>
+            <div class="alert-banner alert-warning" style="margin-bottom: 10px; font-size: 11px;">
+              <span data-i18n="memory.archivePreviewNotice">${escapeHtml(t('memory.archivePreviewNotice'))}</span>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;" data-i18n="memory.archivePreviewEntries" data-i18n-params="${escapeHtml(JSON.stringify({ shown: Math.min(entries.length, 5), total: entries.length }))}">${escapeHtml(t('memory.archivePreviewEntries', { shown: Math.min(entries.length, 5), total: entries.length }))}</div>
+              <div style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto;">
+                ${entries.slice(0, 5).map(e => `
+                  <div style="padding: 6px 8px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                      <strong>${escapeHtml((e.record && e.record.title) || t('memory.unnamedMemory'))}</strong>
+                      ${renderMemoryTypeBadge((e.record && e.record.type) || 'fact')}
+                    </div>
+                    <div style="color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml((e.record && e.record.content) || '')}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+
+        validatedArchive = archiveJson;
+        confirmBtn.disabled = false;
+      } catch (err) {
+        if (currentGen !== importGeneration || currentModalInstance !== thisModalInstance) return;
+        validatedArchive = null;
+        if (confirmBtn) confirmBtn.disabled = true;
+        if (previewArea) {
+          previewArea.innerHTML = `
+            <div class="alert-banner alert-danger">
+              <span data-i18n="memory.archiveValidationFailed" data-i18n-params="${escapeHtml(JSON.stringify({ error: err.message || String(err) }))}">${escapeHtml(t('memory.archiveValidationFailed', { error: err.message || String(err) }))}</span>
+            </div>
+          `;
+        }
+      }
+    });
+
+    confirmBtn?.addEventListener('click', async () => {
+      if (!validatedArchive || currentModalInstance !== thisModalInstance) return;
+      const toImport = validatedArchive;
+      confirmBtn.disabled = true;
+      try {
+        const res = await callBridge('memory.archive.import', {
+          project: currentProject,
+          archive: toImport
+        });
+        if (currentModalInstance !== thisModalInstance) return;
+        const imported = (res && typeof res.imported === 'number') ? res.imported : 0;
+        const skipped = (res && typeof res.skipped === 'number') ? res.skipped : 0;
+        showToast({
+          key: 'memory.importSuccess',
+          params: { imported, skipped }
+        });
+        closeModal();
+        await refreshDashboard(true, true);
+      } catch (err) {
+        if (currentModalInstance === thisModalInstance) {
+          showToast(err.message || String(err), 'error');
+          confirmBtn.disabled = false;
+        }
+      }
+    });
+  }
+
+  async function openSemanticMemoryModal() {
+    const currentProject = state.currentProject;
+    if (!currentProject) {
+      openModal({ key: 'memory.semanticModalTitle' }, `
+        <div class="alert-banner alert-warning" style="margin-bottom: 12px;">
+          <span data-i18n="memory.selectProjectFirst">${escapeHtml(t('memory.selectProjectFirst'))}</span>
+        </div>
+      `, `
+        <button class="btn btn-secondary" id="btn-close-semantic-modal" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      `);
+      document.getElementById('btn-close-semantic-modal')?.addEventListener('click', closeModal);
+      return;
+    }
+
+    let selectedLang = 'en';
+    let statusRequestSeq = 0;
+    let isCancelled = false;
+    let isIndexing = false;
+
+    const modalBody = `
+      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="memory.semanticSubtitle">
+        ${escapeHtml(t('memory.semanticSubtitle'))}
+      </p>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" data-i18n="memory.semanticLangSelect">${escapeHtml(t('memory.semanticLangSelect'))}</label>
+          <select id="semantic-lang-select" class="form-select">
+            <option value="en" selected data-i18n="memory.semanticLangEn">${escapeHtml(t('memory.semanticLangEn'))}</option>
+            <option value="zh-Hans" data-i18n="memory.semanticLangZh">${escapeHtml(t('memory.semanticLangZh'))}</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" data-i18n="memory.semanticBatchSizeLabel">${escapeHtml(t('memory.semanticBatchSizeLabel'))}</label>
+          <input type="number" id="semantic-batch-size" class="form-input" min="1" max="200" value="32" />
+        </div>
+      </div>
+
+      <div id="semantic-status-area" style="margin-bottom: 12px;">
+        <div class="text-secondary" style="font-size: 11px; padding: 12px 0; text-align: center;">...</div>
+      </div>
+
+      <div id="semantic-progress-container" style="display: none; margin-bottom: 12px;">
+        <div class="semantic-progress-wrap">
+          <div id="semantic-progress-bar" class="semantic-progress-bar" style="width: 0%;"></div>
+        </div>
+        <div id="semantic-progress-msg" style="font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); margin-top: 4px;"></div>
+      </div>
+    `;
+
+    openModal({ key: 'memory.semanticModalTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-close-semantic-modal" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      <button class="btn btn-danger" id="btn-cancel-semantic-index" style="display: none;" data-i18n="memory.btnCancelIndexing">${escapeHtml(t('memory.btnCancelIndexing'))}</button>
+      <button class="btn btn-primary" id="btn-start-semantic-index" data-i18n="memory.btnBuildSemanticIndex">${escapeHtml(t('memory.btnBuildSemanticIndex'))}</button>
+    `);
+
+    const thisModalInstance = currentModalInstance;
+
+    const closeBtn = document.getElementById('btn-close-semantic-modal');
+    const cancelBtn = document.getElementById('btn-cancel-semantic-index');
+    const startBtn = document.getElementById('btn-start-semantic-index');
+    const langSelect = document.getElementById('semantic-lang-select');
+    const batchInput = document.getElementById('semantic-batch-size');
+    const statusArea = document.getElementById('semantic-status-area');
+    const progressContainer = document.getElementById('semantic-progress-container');
+    const progressBar = document.getElementById('semantic-progress-bar');
+    const progressMsg = document.getElementById('semantic-progress-msg');
+
+    closeBtn?.addEventListener('click', () => {
+      isCancelled = true;
+      closeModal();
+    });
+
+    async function loadStatus() {
+      if (!statusArea) return;
+      const thisSeq = ++statusRequestSeq;
+      const thisLang = selectedLang;
+      statusArea.innerHTML = `<div class="text-secondary" style="font-size: 11px; padding: 12px 0; text-align: center;" data-i18n="memory.semanticLoadingStatus">${escapeHtml(t('memory.semanticLoadingStatus'))}</div>`;
+      try {
+        const res = await callBridge('memory.semantic.status', {
+          project: currentProject,
+          language: thisLang
+        });
+        if (thisSeq !== statusRequestSeq || thisLang !== selectedLang || currentModalInstance !== thisModalInstance) return;
+
+        if (!res || res.status === 'unavailable' || !res.model) {
+          statusArea.innerHTML = `
+            <div class="alert-banner alert-warning" style="margin-bottom: 8px;">
+              <div style="font-weight: 600;" data-i18n="memory.semanticStatusUnavailable">${escapeHtml(t('memory.semanticStatusUnavailable'))}</div>
+              <div style="font-size: 11px; margin-top: 2px;">${escapeHtml(res?.reason || t('memory.semanticModelNotDetected'))}</div>
+            </div>
+          `;
+          if (startBtn) startBtn.disabled = true;
+          return;
+        }
+
+        if (startBtn) startBtn.disabled = false;
+        const model = res.model || {};
+        const isInc = Boolean(res.indexIncomplete);
+
+        statusArea.innerHTML = `
+          <div class="card" style="padding: 10px 12px; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; margin-bottom: 6px;">
+              <div>
+                <span class="text-secondary" data-i18n="memory.semanticModelLabel">${escapeHtml(t('memory.semanticModelLabel'))}</span>
+                <code class="code-badge font-mono">${escapeHtml(model.id || '-')}</code>
+                <span class="text-secondary" style="margin-left: 6px;" data-i18n="memory.semanticModelDim">${escapeHtml(t('memory.semanticModelDim'))}</span>
+                <span class="font-mono">${escapeHtml(String(model.dimension || '-'))}</span>
+                ${model.revision ? `<span class="text-secondary" style="margin-left: 6px;">(rev ${escapeHtml(String(model.revision))})</span>` : ''}
+              </div>
+              <div>
+                ${isInc
+                  ? `<span class="status-badge status-amber" data-i18n="memory.semanticIndexIncomplete">${escapeHtml(t('memory.semanticIndexIncomplete'))}</span>`
+                  : `<span class="status-badge status-sage" data-i18n="memory.semanticIndexComplete">${escapeHtml(t('memory.semanticIndexComplete'))}</span>`}
+              </div>
+            </div>
+            <div class="semantic-stat-grid">
+              <div class="semantic-stat-box">
+                <div class="text-secondary" style="font-size: 11px;" data-i18n="memory.semanticScanned">${escapeHtml(t('memory.semanticScanned'))}</div>
+                <div class="semantic-stat-value">${escapeHtml(String(res.scanned ?? '-'))}</div>
+              </div>
+              <div class="semantic-stat-box">
+                <div class="text-secondary" style="font-size: 11px;" data-i18n="memory.semanticEligible">${escapeHtml(t('memory.semanticEligible'))}</div>
+                <div class="semantic-stat-value">${escapeHtml(String(res.eligible ?? '-'))}</div>
+              </div>
+              <div class="semantic-stat-box">
+                <div class="text-secondary" style="font-size: 11px;" data-i18n="memory.semanticIndexed">${escapeHtml(t('memory.semanticIndexed'))}</div>
+                <div class="semantic-stat-value" style="color: var(--color-sage);">${escapeHtml(String(res.indexed ?? '-'))}</div>
+              </div>
+              <div class="semantic-stat-box">
+                <div class="text-secondary" style="font-size: 11px;" data-i18n="memory.semanticStale">${escapeHtml(t('memory.semanticStale'))}</div>
+                <div class="semantic-stat-value" style="color: var(--color-amber);">${escapeHtml(String(res.stale ?? '-'))}</div>
+              </div>
+              <div class="semantic-stat-box">
+                <div class="text-secondary" style="font-size: 11px;" data-i18n="memory.semanticMissing">${escapeHtml(t('memory.semanticMissing'))}</div>
+                <div class="semantic-stat-value">${escapeHtml(String(res.missing ?? '-'))}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        if (thisSeq !== statusRequestSeq || thisLang !== selectedLang || currentModalInstance !== thisModalInstance) return;
+        if (statusArea) statusArea.innerHTML = `<div class="alert-banner alert-danger">${escapeHtml(err.message || String(err))}</div>`;
+      }
+    }
+
+    langSelect?.addEventListener('change', () => {
+      selectedLang = langSelect.value;
+      loadStatus();
+    });
+
+    cancelBtn?.addEventListener('click', () => {
+      isCancelled = true;
+      if (cancelBtn) cancelBtn.disabled = true;
+      if (progressMsg) progressMsg.textContent += t('memory.semanticPausing');
+    });
+
+    startBtn?.addEventListener('click', async () => {
+      if (isIndexing) return;
+      isIndexing = true;
+      isCancelled = false;
+
+      let batchSize = parseInt(batchInput?.value, 10);
+      if (isNaN(batchSize) || batchSize < 1) batchSize = 32;
+      if (batchSize > 200) batchSize = 200;
+
+      if (startBtn) startBtn.style.display = 'none';
+      if (cancelBtn) {
+        cancelBtn.style.display = 'inline-block';
+        cancelBtn.disabled = false;
+      }
+      if (langSelect) langSelect.disabled = true;
+      if (batchInput) batchInput.disabled = true;
+      if (progressContainer) progressContainer.style.display = 'block';
+
+      let cursor = undefined;
+      let page = 1;
+      let totalProcessed = 0;
+      let totalIndexed = 0;
+      let totalSkipped = 0;
+      let totalFailed = 0;
+      let hadPartial = false;
+      let terminalReason = null; // 'completed' | 'cancelled' | 'unavailable' | 'error' | 'partial'
+
+      try {
+        while (!isCancelled) {
+          if (currentModalInstance !== thisModalInstance) {
+            terminalReason = 'cancelled';
+            break;
+          }
+          if (progressMsg) {
+            progressMsg.textContent = t('memory.semanticIndexingProgress', {
+              page,
+              processed: totalProcessed,
+              indexed: totalIndexed,
+              skipped: totalSkipped
+            });
+          }
+          if (progressBar) {
+            progressBar.style.width = '60%';
+          }
+
+          const payload = {
+            project: currentProject,
+            language: selectedLang,
+            batchSize
+          };
+          if (cursor) payload.cursor = cursor;
+
+          const res = await callBridge('memory.semantic.index', payload);
+          if (isCancelled || currentModalInstance !== thisModalInstance) {
+            terminalReason = 'cancelled';
+            break;
+          }
+          if (!res || res.status === 'unavailable') {
+            terminalReason = 'unavailable';
+            showToast(res?.reason || t('memory.semanticStatusUnavailable'), 'error');
+            break;
+          }
+
+          if (res.status === 'partial' || (res.failed && res.failed > 0)) {
+            hadPartial = true;
+          }
+
+          totalProcessed += (res.processed || 0);
+          totalIndexed += (res.indexed || 0);
+          totalSkipped += (res.skipped || 0);
+          totalFailed += (res.failed || 0);
+          cursor = res.nextCursor;
+
+          if (!res.hasMore || !cursor) {
+            terminalReason = hadPartial ? 'partial' : 'completed';
+            if (progressBar) progressBar.style.width = '100%';
+            if (progressMsg) {
+              progressMsg.textContent = t('memory.semanticIndexingProgress', {
+                page,
+                processed: totalProcessed,
+                indexed: totalIndexed,
+                skipped: totalSkipped
+              });
+            }
+            break;
+          }
+          page++;
+        }
+
+        if (isCancelled && !terminalReason) {
+          terminalReason = 'cancelled';
+        }
+
+        if (terminalReason === 'completed') {
+          showToast({ key: 'memory.semanticIndexSuccessToast' });
+        } else if (terminalReason === 'partial') {
+          showToast({ key: 'memory.semanticIndexPartialToast', params: { failed: totalFailed } }, 'warning');
+        } else if (terminalReason === 'cancelled') {
+          showToast({ key: 'memory.semanticIndexCancelledToast' }, 'info');
+        }
+      } catch (err) {
+        terminalReason = 'error';
+        showToast(err.message || String(err), 'error');
+      } finally {
+        isIndexing = false;
+        if (currentModalInstance === thisModalInstance) {
+          if (startBtn) {
+            startBtn.style.display = 'inline-block';
+            startBtn.disabled = false;
+          }
+          if (cancelBtn) cancelBtn.style.display = 'none';
+          if (langSelect) langSelect.disabled = false;
+          if (batchInput) batchInput.disabled = false;
+          await loadStatus();
+        }
+      }
+    });
+
+    await loadStatus();
+  }
+
+  function getKnowledgeQueryStateBadge(st) {
+    const s = (st || '').toLowerCase();
+    switch (s) {
+      case 'pending_approval':
+        return `<span class="status-badge status-amber" data-i18n="ask.statePendingApproval">${escapeHtml(t('ask.statePendingApproval'))}</span>`;
+      case 'answered':
+        return `<span class="status-badge status-sage" data-i18n="ask.stateAnswered">${escapeHtml(t('ask.stateAnswered'))}</span>`;
+      case 'unanswered':
+        return `<span class="status-badge status-neutral" data-i18n="ask.stateUnanswered">${escapeHtml(t('ask.stateUnanswered'))}</span>`;
+      case 'no_sources':
+        return `<span class="status-badge status-neutral" data-i18n="ask.stateNoSources">${escapeHtml(t('ask.stateNoSources'))}</span>`;
+      case 'sources_unavailable':
+        return `<span class="status-badge status-red" data-i18n="ask.stateSourcesUnavailable">${escapeHtml(t('ask.stateSourcesUnavailable'))}</span>`;
+      case 'running_or_uncertain':
+      case 'executing_or_uncertain':
+      case 'executing':
+        return `<span class="status-badge status-blue" data-i18n="loops.stateRunning">${escapeHtml(t('loops.stateRunning'))}</span>`;
+      case 'rejected':
+        return `<span class="status-badge status-red" data-i18n="loops.stateRejected">${escapeHtml(t('loops.stateRejected'))}</span>`;
+      case 'failed':
+        return `<span class="status-badge status-red" data-i18n="loops.stateFailed">${escapeHtml(t('loops.stateFailed'))}</span>`;
+      case 'needs_review':
+        return `<span class="status-badge status-amber" data-i18n="loops.stateNeedsReview">${escapeHtml(t('loops.stateNeedsReview'))}</span>`;
+      default:
+        return `<span class="status-badge status-neutral">${escapeHtml(st || '-')}</span>`;
+    }
+  }
+
+  async function openKnowledgeAskModal() {
+    const currentProject = state.currentProject;
+    if (!currentProject) {
+      openModal({ key: 'ask.modalTitle' }, `
+        <div class="alert-banner alert-warning">
+          <span data-i18n="memory.selectProjectFirst">${escapeHtml(t('memory.selectProjectFirst'))}</span>
+        </div>
+      `, `<button class="btn btn-secondary" id="btn-close-ask-first" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+      document.getElementById('btn-close-ask-first')?.addEventListener('click', closeModal);
+      return;
+    }
+
+    let activeTab = 'new';
+
+    const modalBody = `
+      <div class="tabs-nav" style="margin-bottom: 12px;">
+        <button class="tab-btn active" id="tab-ask-new" data-i18n="ask.tabNew">${escapeHtml(t('ask.tabNew'))}</button>
+        <button class="tab-btn" id="tab-ask-history" data-i18n="ask.tabHistory">${escapeHtml(t('ask.tabHistory'))}</button>
+      </div>
+
+      <div id="ask-tab-body"></div>
+    `;
+
+    openModal({ key: 'ask.modalTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-close-ask-modal" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      <button class="btn btn-primary" id="btn-submit-ask" data-i18n="ask.btnSubmit">${escapeHtml(t('ask.btnSubmit'))}</button>
+    `);
+
+    const thisModalInstance = currentModalInstance;
+
+    const tabNew = document.getElementById('tab-ask-new');
+    const tabHistory = document.getElementById('tab-ask-history');
+    const tabBody = document.getElementById('ask-tab-body');
+    const closeBtn = document.getElementById('btn-close-ask-modal');
+    const submitBtn = document.getElementById('btn-submit-ask');
+
+    closeBtn?.addEventListener('click', closeModal);
+
+    tabNew?.addEventListener('click', () => {
+      activeTab = 'new';
+      tabNew.classList.add('active');
+      tabHistory?.classList.remove('active');
+      renderActiveTab();
+    });
+
+    tabHistory?.addEventListener('click', () => {
+      activeTab = 'history';
+      tabHistory.classList.add('active');
+      tabNew?.classList.remove('active');
+      renderActiveTab();
+    });
+
+    async function renderActiveTab() {
+      if (!tabBody || currentModalInstance !== thisModalInstance) return;
+
+      if (activeTab === 'new') {
+        if (submitBtn) {
+          submitBtn.style.display = 'inline-flex';
+          submitBtn.disabled = false;
+          submitBtn.textContent = t('ask.btnSubmit');
+        }
+
+        tabBody.innerHTML = `
+          <div class="card" style="margin-bottom: 12px; background: var(--bg-surface-secondary); padding: 10px 12px;">
+            <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;" data-i18n="ask.protocolLimits">${escapeHtml(t('ask.protocolLimits'))}</div>
+            <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.4;" data-i18n="ask.modalDesc">${escapeHtml(t('ask.modalDesc'))}</div>
+            <div id="ask-bounds-summary" style="margin-top: 6px; font-size: 11px; color: var(--text-secondary); display: flex; gap: 12px; flex-wrap: wrap;">
+              <span>maxCallsPerRound: 1</span>
+              <span>timeout: 1–300s</span>
+              <span>maxSources: 1–12</span>
+              <span>maxBytes: 1K–32K</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" data-i18n="ask.questionLabel">${escapeHtml(t('ask.questionLabel'))}</label>
+            <textarea id="ask-question-input" class="form-control" rows="3" maxlength="4000" data-i18n-placeholder="ask.questionPlaceholder" placeholder="${escapeHtml(t('ask.questionPlaceholder'))}"></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="ask.searchQueryLabel">${escapeHtml(t('ask.searchQueryLabel'))}</label>
+              <input type="text" id="ask-search-input" class="form-control" maxlength="1000" />
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="ask.retrievalModeLabel">${escapeHtml(t('ask.retrievalModeLabel'))}</label>
+              <select id="ask-retrieval-mode" class="form-select">
+                <option value="lexical" selected data-i18n="ask.modeLexical">${escapeHtml(t('ask.modeLexical'))}</option>
+                <option value="library_fts" data-i18n="ask.modeLibraryFts">${escapeHtml(t('ask.modeLibraryFts'))}</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Executable</label>
+              <input type="text" id="ask-exec-input" class="form-control" value="/usr/local/bin/codex" />
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Model</label>
+              <input type="text" id="ask-model-input" class="form-control" value="gpt-5.6-sol" />
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" data-i18n="loops.reasoningEffortLabel">${escapeHtml(t('loops.reasoningEffortLabel'))}</label>
+              <select id="ask-effort-select" class="form-select">
+                <option value="low" selected>low</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+                <option value="xhigh">xhigh</option>
+              </select>
+            </div>
+          </div>
+
+          <details class="memory-meta-details" style="margin-bottom: 12px;">
+            <summary data-i18n="ask.advancedLimits">${escapeHtml(t('ask.advancedLimits'))}</summary>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 8px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" data-i18n="ask.maxSourcesLabel">${escapeHtml(t('ask.maxSourcesLabel'))}</label>
+                <input type="number" id="ask-max-sources" class="form-control" min="1" max="12" value="8" />
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" data-i18n="ask.maxBytesLabel">${escapeHtml(t('ask.maxBytesLabel'))}</label>
+                <input type="number" id="ask-max-bytes" class="form-control" min="1000" max="32000" value="24000" />
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" data-i18n="ask.timeoutLabel">${escapeHtml(t('ask.timeoutLabel'))}</label>
+                <input type="number" id="ask-timeout" class="form-control" min="1" max="300" value="120" />
+              </div>
+            </div>
+          </details>
+
+          <div id="ask-submit-result"></div>
+        `;
+
+        try {
+          const desc = await callBridge('ask.describe', {});
+          if (currentModalInstance !== thisModalInstance) return;
+          const boundsEl = document.getElementById('ask-bounds-summary');
+          if (boundsEl && desc) {
+            boundsEl.innerHTML = `
+              <span>${escapeHtml(desc.protocol || 'vela-knowledge-answer-v1')}</span>
+              <span>maxCalls: ${escapeHtml(String(desc.maxCallsPerRound || 1))}</span>
+              <span>maxSources: ${escapeHtml(String(desc.maxSources || 12))}</span>
+              <span>maxBytes: ${escapeHtml(String(desc.maxSourceBytes || 32000))}</span>
+              <span>prompt: ≤${escapeHtml(String(Math.round((desc.maxPromptBytes || 48000) / 1024)))}KB</span>
+              <span>answer: ≤${escapeHtml(String(Math.round((desc.maxAnswerBytes || 24000) / 1024)))}KB</span>
+            `;
+          }
+        } catch {}
+
+      } else {
+        if (submitBtn) submitBtn.style.display = 'none';
+
+        tabBody.innerHTML = `
+          <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+        `;
+
+        let list = [];
+        try {
+          list = await callBridge('ask.list', { project: currentProject });
+        } catch (e) {
+          if (currentModalInstance !== thisModalInstance) return;
+          tabBody.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+          return;
+        }
+        if (currentModalInstance !== thisModalInstance) return;
+
+        if (!Array.isArray(list) || list.length === 0) {
+          tabBody.innerHTML = `
+            <div class="alert-banner alert-neutral" style="margin-bottom: 12px; font-size: 11px;" data-i18n="ask.historyNotice">
+              ${escapeHtml(t('ask.historyNotice'))}
+            </div>
+            <div class="empty-state">
+              <div class="empty-state-title" data-i18n="ask.emptyHistory">${escapeHtml(t('ask.emptyHistory'))}</div>
+            </div>
+          `;
+          return;
+        }
+
+        tabBody.innerHTML = `
+          <div class="alert-banner alert-neutral" style="margin-bottom: 12px; font-size: 11px;" data-i18n="ask.historyNotice">
+            ${escapeHtml(t('ask.historyNotice'))}
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th data-i18n="ask.questionLabel">${escapeHtml(t('ask.questionLabel'))}</th>
+                  <th data-i18n="common.status">${escapeHtml(t('common.status'))}</th>
+                  <th>Rounds</th>
+                  <th>Calls</th>
+                  <th data-i18n="loops.colCreated">${escapeHtml(t('loops.colCreated'))}</th>
+                  <th style="text-align: right;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${list.map(q => `
+                  <tr>
+                    <td><span class="font-mono" style="font-size: 11px;">${escapeHtml((q.id || '').substring(0, 8))}</span></td>
+                    <td><strong style="font-size: 12px;">${escapeHtml(q.title || '-')}</strong></td>
+                    <td>${getKnowledgeQueryStateBadge(q.state)}</td>
+                    <td><span class="font-mono">${escapeHtml(String(q.round ?? 1))}</span></td>
+                    <td><span class="font-mono">${escapeHtml(String(q.completedModelCalls ?? 0))}</span></td>
+                    <td><span class="font-mono" style="font-size: 11px;">${formatTime(q.createdAt)}</span></td>
+                    <td style="text-align: right;">
+                      <button class="btn btn-secondary btn-sm btn-open-ask-row" data-id="${escapeHtml(q.id)}" data-i18n="common.view">${escapeHtml(t('common.view'))}</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        tabBody.querySelectorAll('.btn-open-ask-row').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id');
+            if (id) openAskDetailModal(id);
+          });
+        });
+      }
+    }
+
+    submitBtn?.addEventListener('click', async () => {
+      const qInput = document.getElementById('ask-question-input');
+      const question = qInput?.value.trim();
+      if (!question) {
+        qInput?.focus();
+        return;
+      }
+
+      const sInput = document.getElementById('ask-search-input');
+      const searchQuery = sInput?.value.trim() || question;
+      const retrievalMode = document.getElementById('ask-retrieval-mode')?.value || 'lexical';
+      const executable = document.getElementById('ask-exec-input')?.value.trim() || '/usr/local/bin/codex';
+      const model = document.getElementById('ask-model-input')?.value.trim() || 'gpt-5.6-sol';
+      const effort = document.getElementById('ask-effort-select')?.value || 'low';
+      const maxSources = parseInt(document.getElementById('ask-max-sources')?.value, 10) || 8;
+      const maxSourceBytes = parseInt(document.getElementById('ask-max-bytes')?.value, 10) || 24000;
+      const timeoutSeconds = parseInt(document.getElementById('ask-timeout')?.value, 10) || 120;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = t('common.loading');
+
+      try {
+        const res = await callBridge('ask.create', {
+          project: currentProject,
+          question,
+          searchQuery,
+          retrievalMode,
+          executable,
+          model,
+          effort,
+          maxSources,
+          maxSourceBytes,
+          timeoutSeconds
+        });
+
+        if (currentModalInstance !== thisModalInstance) return;
+
+        if (res.state === 'no_sources') {
+          const resEl = document.getElementById('ask-submit-result');
+          if (resEl) {
+            resEl.innerHTML = `
+              <div class="alert-banner alert-neutral" style="margin-top: 12px;">
+                <strong data-i18n="ask.stateNoSources">${escapeHtml(t('ask.stateNoSources'))}</strong>
+                <div style="margin-top: 4px;" data-i18n="ask.noSourcesNotice">${escapeHtml(t('ask.noSourcesNotice'))}</div>
+                <div style="margin-top: 8px;">
+                  <button class="btn btn-secondary btn-sm" id="btn-view-no-src" data-i18n="common.view">${escapeHtml(t('common.view'))}</button>
+                </div>
+              </div>
+            `;
+            document.getElementById('btn-view-no-src')?.addEventListener('click', () => {
+              openAskDetailModal(res.id);
+            });
+          }
+        } else {
+          openAskDetailModal(res.id);
+        }
+      } catch (e) {
+        if (currentModalInstance !== thisModalInstance) return;
+        const resEl = document.getElementById('ask-submit-result');
+        if (resEl) {
+          resEl.innerHTML = `<div class="alert-banner alert-warning" style="margin-top: 12px;">${escapeHtml(e.message)}</div>`;
+        }
+      } finally {
+        if (currentModalInstance === thisModalInstance) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = t('ask.btnSubmit');
+        }
+      }
+    });
+
+    renderActiveTab();
+  }
+
+  async function openAskDetailModal(askId) {
+    const currentProject = state.currentProject;
+    if (!currentProject || !askId) return;
+
+    openModal({ key: 'ask.modalTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-ask-detail" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-ask-detail')?.addEventListener('click', closeModal);
+
+    let item = null;
+    try {
+      item = await callBridge('ask.get', { project: currentProject, id: askId });
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    const f = document.getElementById('modal-footer');
+    if (!b || !f) return;
+
+    const req = item.request || {};
+    const sources = Array.isArray(req.sources) ? req.sources : [];
+    const result = item.result || {};
+    const claims = Array.isArray(result.claims) ? result.claims : [];
+    const unanswered = Array.isArray(result.unanswered) ? result.unanswered : [];
+    const citations = Array.isArray(result.citations) ? result.citations : (Array.isArray(item.citations) ? item.citations : []);
+
+    let statusBanner = '';
+    if (item.state === 'sources_unavailable') {
+      statusBanner = `
+        <div class="alert-banner alert-danger" style="margin-bottom: 12px;">
+          <strong data-i18n="ask.stateSourcesUnavailable">${escapeHtml(t('ask.stateSourcesUnavailable'))}</strong>
+          <div style="margin-top: 4px;" data-i18n="ask.sourcesUnavailableNotice">${escapeHtml(t('ask.sourcesUnavailableNotice'))}</div>
+          ${item.error ? `<div class="font-mono" style="font-size: 11px; margin-top: 4px;">${escapeHtml(item.error)}</div>` : ''}
+        </div>
+      `;
+    } else if (item.state === 'no_sources') {
+      statusBanner = `
+        <div class="alert-banner alert-neutral" style="margin-bottom: 12px;">
+          <strong data-i18n="ask.stateNoSources">${escapeHtml(t('ask.stateNoSources'))}</strong>
+          <div style="margin-top: 4px;" data-i18n="ask.noSourcesNotice">${escapeHtml(t('ask.noSourcesNotice'))}</div>
+        </div>
+      `;
+    } else if (item.state === 'pending_approval') {
+      statusBanner = `
+        <div class="alert-banner alert-warning" style="margin-bottom: 12px;">
+          <strong data-i18n="ask.statePendingApproval">${escapeHtml(t('ask.statePendingApproval'))}</strong>
+          <div style="margin-top: 4px;" data-i18n="ask.pendingApprovalNotice" data-i18n-params="${escapeHtml(JSON.stringify({ count: sources.length }))}">
+            ${escapeHtml(t('ask.pendingApprovalNotice', { count: sources.length }))}
+          </div>
+        </div>
+      `;
+    }
+
+    b.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+        <div>
+          <h4 style="margin: 0 0 4px 0; font-size: 14px;">${escapeHtml(item.title || req.question || '-')}</h4>
+          <div class="font-mono text-secondary" style="font-size: 11px;">ID: ${escapeHtml(item.id)} · Round ${escapeHtml(String(item.round ?? 1))} · ${formatTime(item.createdAt)}</div>
+        </div>
+        <div>
+          ${getKnowledgeQueryStateBadge(item.state)}
+        </div>
+      </div>
+
+      ${statusBanner}
+
+      ${req.question ? `
+        <div class="card" style="margin-bottom: 12px; padding: 10px 12px;">
+          <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;" data-i18n="ask.questionLabel">${escapeHtml(t('ask.questionLabel'))}</div>
+          <div style="font-size: 13px; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(req.question)}</div>
+        </div>
+      ` : ''}
+
+      ${claims.length > 0 ? `
+        <div style="margin-bottom: 14px;">
+          <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;" data-i18n="ask.claimsTitle">${escapeHtml(t('ask.claimsTitle'))} (${claims.length})</div>
+          ${claims.map(claim => `
+            <div class="card" style="margin-bottom: 10px; padding: 12px; background: var(--bg-surface-secondary);">
+              <div style="font-size: 13px; font-weight: 500; line-height: 1.5; margin-bottom: 8px;">${escapeHtml(claim.text || '')}</div>
+              ${Array.isArray(claim.citations) && claim.citations.length > 0 ? `
+                <div style="border-top: 1px dashed var(--border-subtle); padding-top: 8px; margin-top: 8px;">
+                  <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;" data-i18n="ask.citationsTitle">${escapeHtml(t('ask.citationsTitle'))}</div>
+                  ${claim.citations.map(c => `
+                    <div style="margin-bottom: 6px; font-size: 11px; background: var(--bg-surface); padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border-subtle);">
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                        <span class="font-mono text-secondary" style="font-size: 11px;">${escapeHtml(c.sourceId)}</span>
+                        <span style="color: var(--status-sage-text);" data-i18n="ask.exactQuoteVerified">${escapeHtml(t('ask.exactQuoteVerified'))}</span>
+                      </div>
+                      <div style="font-style: italic; color: var(--text-primary); margin-top: 2px;">“${escapeHtml(c.quote)}”</div>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      ${unanswered.length > 0 ? `
+        <div class="card" style="margin-bottom: 12px; border-color: var(--status-amber-border); background: var(--bg-surface-secondary); padding: 12px;">
+          <div style="font-size: 12px; font-weight: 600; color: var(--status-amber-text); margin-bottom: 6px;" data-i18n="ask.unansweredTitle">${escapeHtml(t('ask.unansweredTitle'))} (${unanswered.length})</div>
+          <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: var(--text-secondary);">
+            ${unanswered.map(u => `<li>${escapeHtml(u)}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${(claims.length > 0 || unanswered.length > 0) ? `
+        <div class="alert-banner alert-neutral" style="margin-bottom: 12px; font-size: 11px;">
+          <span data-i18n="ask.exactQuoteVerified">${escapeHtml(t('ask.exactQuoteVerified'))}</span>
+          <div style="color: var(--text-secondary); margin-top: 2px;" data-i18n="ask.semanticNotice">${escapeHtml(t('ask.semanticNotice'))}</div>
+        </div>
+      ` : ''}
+
+      ${sources.length > 0 ? `
+        <details class="memory-meta-details" style="margin-bottom: 12px;">
+          <summary style="font-size: 12px; font-weight: 500;">
+            <span data-i18n="ask.frozenSourcesTitle">${escapeHtml(t('ask.frozenSourcesTitle'))}</span> (${sources.length})
+          </summary>
+          <div style="margin-top: 8px;">
+            ${sources.map(s => `
+              <div style="padding: 6px 8px; font-size: 11px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <span class="code-badge">${escapeHtml(s.kind)}</span>
+                  <span class="font-mono font-semibold" style="margin-left: 4px;">${escapeHtml(s.sourceId)}</span>
+                  <span style="margin-left: 6px; color: var(--text-secondary);">${escapeHtml(s.title || '')}</span>
+                </div>
+                <div class="font-mono text-secondary">${escapeHtml(String(s.fullSourceBytes || 0))} B</div>
+              </div>
+            `).join('')}
+          </div>
+        </details>
+      ` : ''}
+
+      <details class="memory-meta-details" style="margin-bottom: 12px;">
+        <summary data-i18n="memory.techMetaSummary">${escapeHtml(t('memory.techMetaSummary'))}</summary>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px; font-size: 11px; margin-top: 8px; color: var(--text-secondary);">
+          <div><span>askHash:</span> <span class="font-mono" style="user-select: all;">${escapeHtml(item.askHash || '-')}</span></div>
+          <div><span>runId:</span> <span class="font-mono">${escapeHtml(item.runId || '-')}</span></div>
+          <div><span>approvalId:</span> <span class="font-mono">${escapeHtml(item.approvalId || '-')}</span></div>
+          <div><span>completedCalls:</span> <span class="font-mono">${escapeHtml(String(item.completedModelCalls ?? 0))}</span></div>
+          <div><span>providerAttempts:</span> <span class="font-mono">${escapeHtml(String(item.providerAttempts ?? 0))}</span></div>
+          <div><span>observedModel:</span> <span class="font-mono">${escapeHtml(String(item.observedModel || '-'))}</span></div>
+          <div><span>retrievalMode:</span> <span class="font-mono">${escapeHtml(req.retrieval?.mode || '-')}</span></div>
+        </div>
+      </details>
+
+      <div id="ask-followup-container" style="display: none; margin-top: 14px; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+        <div class="form-group">
+          <label class="form-label" data-i18n="ask.followupPrompt">${escapeHtml(t('ask.followupPrompt'))}</label>
+          <textarea id="ask-followup-input" class="form-control" rows="2" maxlength="4000"></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button class="btn btn-secondary btn-sm" id="btn-cancel-followup" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+          <button class="btn btn-primary btn-sm" id="btn-submit-followup" data-i18n="ask.btnSubmit">${escapeHtml(t('ask.btnSubmit'))}</button>
+        </div>
+      </div>
+    `;
+
+    let actionButtons = '';
+    if (item.state === 'pending_approval') {
+      actionButtons = `
+        <button class="btn btn-danger btn-sm" id="btn-cancel-ask" data-i18n="ask.btnCancel">${escapeHtml(t('ask.btnCancel'))}</button>
+        ${item.approval && item.approval.state === 'pending' ? `
+          <button class="btn btn-primary btn-sm" id="btn-approve-ask" data-i18n="inbox.btnApprove">${escapeHtml(t('inbox.btnApprove'))}</button>
+        ` : ''}
+      `;
+    } else if (['answered', 'unanswered'].includes(item.state)) {
+      actionButtons = `
+        ${citations.length > 0 ? `
+          <button class="btn btn-secondary btn-sm" id="btn-view-citations" data-i18n="ask.btnViewCitations">${escapeHtml(t('ask.btnViewCitations'))}</button>
+        ` : ''}
+        ${(item.round || 1) < 8 && item.sourcesValid ? `
+          <button class="btn btn-primary btn-sm" id="btn-followup-ask" data-i18n="ask.btnFollowup">${escapeHtml(t('ask.btnFollowup'))}</button>
+        ` : ''}
+      `;
+    }
+
+    f.innerHTML = `
+      <button class="btn btn-secondary" id="btn-close-ask-detail" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      ${actionButtons}
+    `;
+
+    document.getElementById('btn-close-ask-detail')?.addEventListener('click', closeModal);
+
+    document.getElementById('btn-cancel-ask')?.addEventListener('click', async () => {
+      if (!confirm(t('ask.cancelConfirm'))) return;
+      try {
+        await callBridge('ask.cancel', { project: currentProject, id: askId, askHash: item.askHash });
+        showToast({ key: 'ask.cancelSuccess' });
+        openAskDetailModal(askId);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    document.getElementById('btn-approve-ask')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-approve-ask');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = t('common.loading');
+      }
+      try {
+        await callBridge('approvals.decide', {
+          id: item.approval.id,
+          decision: 'approve',
+          snapshotHash: item.approval.snapshotHash
+        });
+        showToast({ key: 'inbox.approvedToast' });
+        openAskDetailModal(askId);
+      } catch (err) {
+        showToast({ key: 'inbox.approveFailedToast', params: { error: err.message } }, 'error');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = t('inbox.btnApprove');
+        }
+      }
+    });
+
+    document.getElementById('btn-view-citations')?.addEventListener('click', () => {
+      openAskCitationsModal(askId, item.askHash);
+    });
+
+    const followupBox = document.getElementById('ask-followup-container');
+    document.getElementById('btn-followup-ask')?.addEventListener('click', () => {
+      if (!followupBox) return;
+      followupBox.style.display = followupBox.style.display === 'none' ? 'block' : 'none';
+      if (followupBox.style.display === 'block') {
+        document.getElementById('ask-followup-input')?.focus();
+        followupBox.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+
+    document.getElementById('btn-cancel-followup')?.addEventListener('click', () => {
+      if (followupBox) followupBox.style.display = 'none';
+    });
+
+    document.getElementById('btn-submit-followup')?.addEventListener('click', async () => {
+      const followInput = document.getElementById('ask-followup-input');
+      const followQ = followInput?.value.trim();
+      if (!followQ) {
+        followInput?.focus();
+        return;
+      }
+      const submitFollowBtn = document.getElementById('btn-submit-followup');
+      if (submitFollowBtn) {
+        submitFollowBtn.disabled = true;
+        submitFollowBtn.textContent = t('common.loading');
+      }
+
+      try {
+        const agent = req.agent || {};
+        const res = await callBridge('ask.followup', {
+          id: askId,
+          askHash: item.askHash,
+          project: currentProject,
+          question: followQ,
+          searchQuery: followQ,
+          executable: agent.executable || '/usr/local/bin/codex',
+          model: agent.model || 'gpt-5.6-sol',
+          effort: agent.reasoningEffort || 'low',
+          retrievalMode: req.retrieval?.mode || 'lexical',
+          timeoutSeconds: req.timeoutSeconds || 120,
+          maxSources: req.retrieval?.maxSources || 8,
+          maxSourceBytes: req.retrieval?.maxSourceBytes || 24000
+        });
+        showToast({ key: 'ask.followupSuccess' });
+        openAskDetailModal(res.id);
+      } catch (err) {
+        showToast(err.message, 'error');
+        if (submitFollowBtn) {
+          submitFollowBtn.disabled = false;
+          submitFollowBtn.textContent = t('ask.btnSubmit');
+        }
+      }
+    });
+  }
+
+  async function openAskCitationsModal(askId, askHash) {
+    const currentProject = state.currentProject;
+    if (!currentProject || !askId) return;
+
+    openModal({ key: 'ask.citationsTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-citations" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-citations')?.addEventListener('click', closeModal);
+
+    let data = null;
+    try {
+      data = await callBridge('ask.citations', { project: currentProject, id: askId, askHash });
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) {
+        b.innerHTML = `
+          <div class="alert-banner alert-danger">${escapeHtml(e.message)}</div>
+          <div style="margin-top: 12px;">
+            <button class="btn btn-secondary btn-sm" id="btn-back-detail" data-i18n="ask.btnBackToDetail">${escapeHtml(t('ask.btnBackToDetail'))}</button>
+          </div>
+        `;
+        document.getElementById('btn-back-detail')?.addEventListener('click', () => openAskDetailModal(askId));
+      }
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    const f = document.getElementById('modal-footer');
+    if (!b || !f) return;
+
+    const citations = Array.isArray(data.citations) ? data.citations : [];
+    const sources = Array.isArray(data.sources) ? data.sources : [];
+
+    b.innerHTML = `
+      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="ask.citationsDesc">${escapeHtml(t('ask.citationsDesc'))}</p>
+
+      <div class="alert-banner alert-neutral" style="margin-bottom: 12px; font-size: 11px;" data-i18n="ask.semanticNotice">
+        ${escapeHtml(t('ask.semanticNotice'))}
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+          <span data-i18n="ask.citationsTitle">${escapeHtml(t('ask.citationsTitle'))}</span> (${citations.length})
+        </div>
+        ${citations.length === 0 ? `
+          <div class="text-secondary" style="font-size: 12px;" data-i18n="common.none">${escapeHtml(t('common.none'))}</div>
+        ` : citations.map(c => {
+          const parts = (c.sourceId || '').split('#');
+          const anchor = parts[1];
+          return `
+            <div class="card" style="margin-bottom: 8px; padding: 10px; background: var(--bg-surface-secondary);">
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 4px;">
+                <div>
+                  <span class="text-secondary" data-i18n="ask.sourceIdLabel">${escapeHtml(t('ask.sourceIdLabel'))}</span>
+                  <span class="font-mono font-semibold" style="margin-left: 4px;">${escapeHtml(c.sourceId)}</span>
+                  ${anchor ? `<span class="code-badge" style="margin-left: 6px;"><span data-i18n="ask.anchorLabel">${escapeHtml(t('ask.anchorLabel'))}</span> ${escapeHtml(anchor)}</span>` : ''}
+                </div>
+                <div class="font-mono text-secondary" style="font-size: 10px;">${escapeHtml((c.sourceHash || '').substring(0, 16))}</div>
+              </div>
+              <blockquote style="border-left: 3px solid var(--accent); margin: 6px 0; padding: 6px 10px; background: var(--bg-surface); font-size: 12px; font-style: italic; line-height: 1.4;">
+                “${escapeHtml(c.quote)}”
+              </blockquote>
+              <div style="font-size: 11px; color: var(--status-sage-text);" data-i18n="ask.exactQuoteVerified">
+                ${escapeHtml(t('ask.exactQuoteVerified'))}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div>
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+          <span data-i18n="ask.frozenSourcesTitle">${escapeHtml(t('ask.frozenSourcesTitle'))}</span> (${sources.length})
+        </div>
+        ${sources.length === 0 ? `
+          <div class="text-secondary" style="font-size: 12px;" data-i18n="common.none">${escapeHtml(t('common.none'))}</div>
+        ` : sources.map(s => `
+          <details class="memory-meta-details" style="margin-bottom: 8px;">
+            <summary style="font-size: 12px; font-weight: 500;">
+              ${escapeHtml(s.title || s.sourceId)}
+              <span class="code-badge" style="margin-left: 6px;">${escapeHtml(s.kind)}</span>
+              ${s.truncated ? '<span class="status-badge status-amber" style="margin-left: 4px;">truncated</span>' : ''}
+            </summary>
+            <div style="margin-top: 8px;">
+              <div class="font-mono text-secondary" style="font-size: 11px; margin-bottom: 4px;">ID: ${escapeHtml(s.sourceId)} · ${escapeHtml(String(s.fullSourceBytes || 0))} bytes</div>
+              <pre style="max-height: 180px; overflow-y: auto; background: var(--bg-surface-secondary); padding: 8px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border-subtle); white-space: pre-wrap;">${escapeHtml(s.content || '')}</pre>
+            </div>
+          </details>
+        `).join('')}
+      </div>
+    `;
+
+    f.innerHTML = `
+      <button class="btn btn-secondary" id="btn-back-to-ask-detail" data-i18n="ask.btnBackToDetail">${escapeHtml(t('ask.btnBackToDetail'))}</button>
+      <button class="btn btn-secondary" id="btn-close-citations-modal" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+    `;
+
+    document.getElementById('btn-back-to-ask-detail')?.addEventListener('click', () => openAskDetailModal(askId));
+    document.getElementById('btn-close-citations-modal')?.addEventListener('click', closeModal);
   }
 
   function getMemoryStateBadge(stateStr) {
@@ -3949,6 +8380,27 @@
           </select>
         </div>
       </div>
+      <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; margin-top: 4px;">
+        <div class="form-group">
+          <label class="form-label" data-i18n="memory.recallModeLabel">${t('memory.recallModeLabel')}</label>
+          <select id="recall-mode" class="form-select">
+            <option value="lexical" selected data-i18n="memory.recallModeLexical">${t('memory.recallModeLexical')}</option>
+            <option value="semantic" data-i18n="memory.recallModeSemantic">${t('memory.recallModeSemantic')}</option>
+            <option value="hybrid" data-i18n="memory.recallModeHybrid">${t('memory.recallModeHybrid')}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="memory.semanticLangSelect">${t('memory.semanticLangSelect')}</label>
+          <select id="recall-language" class="form-select">
+            <option value="en" selected data-i18n="memory.semanticLangEn">${t('memory.semanticLangEn')}</option>
+            <option value="zh-Hans" data-i18n="memory.semanticLangZh">${t('memory.semanticLangZh')}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="memory.recallMinSimilarityLabel">${t('memory.recallMinSimilarityLabel')}</label>
+          <input type="number" id="recall-min-similarity" class="form-input" min="0" max="1" step="0.05" value="0.0">
+        </div>
+      </div>
       <details style="margin-top: 8px; margin-bottom: 8px; font-size: 12px; color: var(--text-secondary);">
         <summary style="cursor: pointer; user-select: none; font-weight: 500;" data-i18n="memory.recallAdvancedSummary">${t('memory.recallAdvancedSummary')}</summary>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
@@ -3970,7 +8422,7 @@
           </div>
         </div>
       </details>
-      <div id="recall-results-area" style="margin-top: 10px; max-height: 200px; overflow-y: auto;"></div>
+      <div id="recall-results-area" style="margin-top: 10px; max-height: 240px; overflow-y: auto;"></div>
     `;
 
     openModal({ key: 'memory.recallModalTitle' }, modalBody, `
@@ -3983,6 +8435,9 @@
       const query = document.getElementById('recall-query').value.trim();
       const project = document.getElementById('recall-project').value;
       const budget = parseInt(document.getElementById('recall-budget').value, 10);
+      const retrievalMode = document.getElementById('recall-mode')?.value || 'lexical';
+      const language = document.getElementById('recall-language')?.value || 'en';
+      const minSimilarity = parseFloat(document.getElementById('recall-min-similarity')?.value || '0');
       const resultsArea = document.getElementById('recall-results-area');
 
       if (!query) {
@@ -3998,8 +8453,13 @@
       const recallPayload = {
         query,
         project,
-        budget
+        budget,
+        retrievalMode,
+        language
       };
+      if (!isNaN(minSimilarity) && minSimilarity > 0) {
+        recallPayload.minSimilarity = minSimilarity;
+      }
       if (branchVal) recallPayload.branch = branchVal;
       if (worktreeVal) recallPayload.worktree = worktreeVal;
       if (taskVal) recallPayload.task = taskVal;
@@ -4011,20 +8471,47 @@
         const res = await callBridge('recall', recallPayload);
         const items = (res && res.items) || [];
         const used = (res && res.usedTokens) || 0;
+        const isFallback = Boolean((res && res.fallbackReason) || (res && res.requestedRetrievalMode && res.requestedRetrievalMode !== res.retrievalMode));
+        const fallbackReason = (res && res.fallbackReason) || (res && res.status === 'unavailable' ? '模型不可用' : '回退到词面检索');
+        const isIndexIncomplete = Boolean(res && res.indexIncomplete);
 
         resultsArea.innerHTML = `
+          ${isFallback ? `
+            <div class="alert-banner alert-warning" style="margin-bottom: 8px; font-size: 11px;">
+              <span data-i18n="memory.recallFallbackNotice" data-i18n-params="${escapeHtml(JSON.stringify({ reason: fallbackReason }))}">
+                ${t('memory.recallFallbackNotice', { reason: fallbackReason })}
+              </span>
+            </div>
+          ` : ''}
+          ${isIndexIncomplete ? `
+            <div class="alert-banner alert-warning" style="margin-bottom: 8px; font-size: 11px;" data-i18n="memory.recallIndexIncompleteNotice">
+              ${t('memory.recallIndexIncompleteNotice')}
+            </div>
+          ` : ''}
           <div style="margin-bottom: 6px; font-size: 11px; display: flex; justify-content: space-between;">
             <span data-i18n="memory.recallMatchedCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: items.length }))}">${t('memory.recallMatchedCount', { count: items.length })}</span>
             <span class="font-mono" data-i18n="memory.recallTokensUsed" data-i18n-params="${escapeHtml(JSON.stringify({ used, budget }))}">${t('memory.recallTokensUsed', { used, budget })}</span>
           </div>
           <div style="display: flex; flex-direction: column; gap: 6px;">
             ${items.length === 0 ? `<div style="font-size: 11px; color: var(--text-muted);" data-i18n="memory.recallEmpty">${t('memory.recallEmpty')}</div>` : ''}
-            ${items.map(it => `
-              <div class="card" style="padding: 6px 10px; margin-bottom: 0;">
-                <div style="font-weight: 600; font-size: 11px;">${escapeHtml(it.title)}</div>
-                <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(it.content)}</div>
-              </div>
-            `).join('')}
+            ${items.map(it => {
+              const srcBadge = it.retrievalSource ? `<span class="badge-subtle font-mono" style="font-size: 10px;">${escapeHtml(it.retrievalSource)}</span>` : '';
+              const simStr = (typeof it.semanticSimilarity === 'number') ? `<span class="badge-subtle font-mono" style="font-size: 10px;" title="${t('memory.similarityLabel')}">cos: ${it.semanticSimilarity.toFixed(4)}</span>` : '';
+              const scoreStr = (typeof it.rankingScore === 'number') ? `<span class="badge-subtle font-mono" style="font-size: 10px;" title="${t('memory.rankingScoreLabel')}">rank: ${it.rankingScore.toFixed(4)}</span>` : '';
+              return `
+                <div class="card" style="padding: 6px 10px; margin-bottom: 0;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 2px;">
+                    <div style="font-weight: 600; font-size: 11px;">${escapeHtml(it.title)}</div>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                      ${srcBadge}
+                      ${simStr}
+                      ${scoreStr}
+                    </div>
+                  </div>
+                  <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(it.content)}</div>
+                </div>
+              `;
+            }).join('')}
           </div>
         `;
       } catch (err) {
@@ -4033,14 +8520,54 @@
     });
   }
 
-  // --- Library Section (supports text, path, url) ---
-  function renderLibrarySection(target) {
-    const library = (state.dashboard && state.dashboard.library) || [];
+  // --- Library Section (supports text, path, url, folders, search, index) ---
+  async function renderLibrarySection(target) {
+    const thisGen = renderGeneration;
+    const thisScope = state.currentProject;
+    let library = (state.dashboard && state.dashboard.library) || [];
+
+    try {
+      const list = await callBridge('library.list', {
+        project: thisScope || undefined,
+        includeArchived: Boolean(state.libraryIncludeArchived)
+      });
+      if (thisGen !== renderGeneration || thisScope !== state.currentProject) return;
+      if (Array.isArray(list)) {
+        library = list;
+        if (state.dashboard) {
+          state.dashboard.library = list;
+        }
+      }
+    } catch (e) {
+      // fallback to dashboard library
+    }
+
+    const folders = Array.from(new Set(library.map(item => (item.folder || '').trim()).filter(Boolean))).sort();
+
+    let filtered = library;
+    if (state.librarySelectedFolder === '__root__') {
+      filtered = filtered.filter(item => !(item.folder || '').trim());
+    } else if (state.librarySelectedFolder) {
+      filtered = filtered.filter(item => (item.folder || '').trim() === state.librarySelectedFolder);
+    }
 
     target.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
         <span class="text-secondary" style="font-size: 12px;" data-i18n="setupL.library.headerDesc" data-i18n-params="${escapeHtml(JSON.stringify({ count: library.length }))}">${escapeHtml(t('setupL.library.headerDesc', { count: library.length }))}</span>
-        <button id="btn-add-library" class="btn btn-primary btn-sm" data-i18n="setupL.library.btnAdd">${escapeHtml(t('setupL.library.btnAdd'))}</button>
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <select id="sel-lib-folder-filter" class="form-select" style="font-size: 11px; padding: 2px 6px; width: auto; min-width: 110px;">
+            <option value="" ${!state.librarySelectedFolder ? 'selected' : ''} data-i18n="library.allFolders">${escapeHtml(t('library.allFolders'))}</option>
+            <option value="__root__" ${state.librarySelectedFolder === '__root__' ? 'selected' : ''} data-i18n="library.noFolder">${escapeHtml(t('library.noFolder'))}</option>
+            ${folders.map(f => `<option value="${escapeHtml(f)}" ${state.librarySelectedFolder === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
+          </select>
+          <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; cursor: pointer;">
+            <input type="checkbox" id="chk-lib-include-archived" ${state.libraryIncludeArchived ? 'checked' : ''} />
+            <span data-i18n="library.includeArchived">${escapeHtml(t('library.includeArchived'))}</span>
+          </label>
+          <button id="btn-library-search" class="btn btn-secondary btn-sm" data-i18n="library.btnSearchParagraphs">${escapeHtml(t('library.btnSearchParagraphs'))}</button>
+          <button id="btn-library-index" class="btn btn-secondary btn-sm" data-i18n="library.btnIndexStatus">${escapeHtml(t('library.btnIndexStatus'))}</button>
+          <button id="btn-add-library" class="btn btn-primary btn-sm" data-i18n="setupL.library.btnAdd">${escapeHtml(t('setupL.library.btnAdd'))}</button>
+        </div>
       </div>
 
       <div class="table-wrapper">
@@ -4048,26 +8575,45 @@
           <thead>
             <tr>
               <th data-i18n="setupL.library.tableTitle">${escapeHtml(t('setupL.library.tableTitle'))}</th>
+              <th data-i18n="library.colFolder">${escapeHtml(t('library.colFolder'))}</th>
               <th data-i18n="setupL.library.tableProject">${escapeHtml(t('setupL.library.tableProject'))}</th>
               <th data-i18n="setupL.library.tablePrivacy">${escapeHtml(t('setupL.library.tablePrivacy'))}</th>
               <th data-i18n="setupL.library.tableSource">${escapeHtml(t('setupL.library.tableSource'))}</th>
-              <th style="text-align: right; width: 100px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
+              <th style="text-align: right; width: 220px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
             </tr>
           </thead>
           <tbody>
-            ${library.length === 0 ? `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;" data-i18n="setupL.library.emptyText">${escapeHtml(t('setupL.library.emptyText'))}</td></tr>` : ''}
-            ${library.map(lib => `
+            ${filtered.length === 0 ? `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;" data-i18n="setupL.library.emptyText">${escapeHtml(t('setupL.library.emptyText'))}</td></tr>` : ''}
+            ${filtered.map(lib => `
               <tr>
-                <td><strong>${escapeHtml(lib.title)}</strong></td>
+                <td>
+                  <strong>${escapeHtml(lib.title)}</strong>
+                  ${lib.content ? `<div style="font-size: 11px; color: var(--text-secondary); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(lib.content.substring(0, 50))}</div>` : ''}
+                </td>
+                <td>
+                  ${lib.folder ? `<span class="code-badge">${escapeHtml(lib.folder)}</span>` : '<span class="text-secondary">-</span>'}
+                </td>
                 <td><span class="code-badge">${lib.project ? escapeHtml(lib.project.split('/').pop()) : tHtml('setupL.scope.global')}</span></td>
                 <td>
-                  ${lib.private ? `<span class="status-badge status-amber" data-i18n="setupL.library.badgePrivate">${escapeHtml(t('setupL.library.badgePrivate'))}</span>` : `<span class="status-badge status-neutral" data-i18n="setupL.library.badgePublic">${escapeHtml(t('setupL.library.badgePublic'))}</span>`}
+                  ${lib.state === 'archived'
+                    ? `<span class="status-badge status-neutral" data-i18n="library.badgeArchived">${escapeHtml(t('library.badgeArchived'))}</span>`
+                    : (lib.private
+                        ? `<span class="status-badge status-amber" data-i18n="setupL.library.badgePrivateShort">${escapeHtml(t('setupL.library.badgePrivateShort'))}</span>`
+                        : `<span class="status-badge status-neutral" data-i18n="setupL.library.badgePublicShort">${escapeHtml(t('setupL.library.badgePublicShort'))}</span>`)}
                 </td>
                 <td style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted);">
-                  ${escapeHtml(lib.url || lib.path || (lib.content ? lib.content.substring(0, 40) + '...' : '-'))}
+                  <div>${escapeHtml(lib.url || lib.path || (lib.content ? t('library.detailTextContent') : '-'))}</div>
+                  ${typeof lib.tokens === 'number' ? `<div style="font-size: 10px; color: var(--text-secondary);">${escapeHtml(t('library.detailTokens'))} ${lib.tokens}</div>` : ''}
                 </td>
                 <td style="text-align: right;">
                   <button class="btn btn-secondary btn-sm btn-view-library" data-id="${escapeHtml(lib.id)}" data-i18n="setupL.common.view">${escapeHtml(t('setupL.common.view'))}</button>
+                  <button class="btn btn-secondary btn-sm btn-edit-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnEdit" ${lib.state === 'archived' ? 'disabled' : ''}>${escapeHtml(t('library.btnEdit'))}</button>
+                  <button class="btn btn-ghost btn-sm btn-export-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnExport" title="${escapeHtml(t('library.btnExport'))}">⬇</button>
+                  <button class="btn btn-ghost btn-sm btn-history-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnHistory" title="${escapeHtml(t('library.btnHistory'))}">⏱</button>
+                  ${(lib.path || lib.url) && lib.state !== 'archived' ? `<button class="btn btn-ghost btn-sm btn-refresh-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnRefreshSource" title="${escapeHtml(t('library.btnRefreshSource'))}">🔄</button>` : ''}
+                  ${lib.state === 'archived'
+                    ? `<button class="btn btn-ghost btn-sm btn-restore-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnRestore" title="${escapeHtml(t('library.btnRestore'))}">↩</button>`
+                    : `<button class="btn btn-ghost btn-sm btn-archive-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnArchive" title="${escapeHtml(t('library.btnArchive'))}">🗑</button>`}
                 </td>
               </tr>
             `).join('')}
@@ -4076,33 +8622,66 @@
       </div>
     `;
 
-    document.getElementById('btn-add-library').addEventListener('click', openAddLibraryModal);
+    document.getElementById('btn-add-library')?.addEventListener('click', openAddLibraryModal);
+    document.getElementById('btn-library-search')?.addEventListener('click', openLibrarySearchModal);
+    document.getElementById('btn-library-index')?.addEventListener('click', openLibraryIndexModal);
+
+    document.getElementById('sel-lib-folder-filter')?.addEventListener('change', (e) => {
+      state.librarySelectedFolder = e.target.value;
+      renderLibrarySection(target);
+    });
+
+    document.getElementById('chk-lib-include-archived')?.addEventListener('change', (e) => {
+      state.libraryIncludeArchived = e.target.checked;
+      renderLibrarySection(target);
+    });
 
     target.querySelectorAll('.btn-view-library').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
-        const lib = library.find(item => item.id === id);
-        if (lib) {
-          openDrawer(lib.title || { key: 'setupL.library.drawerTitle' }, lib.id);
-          document.getElementById('drawer-content').innerHTML = `
-            <div class="card">
-              <div class="card-header">
-                <span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span>
-                ${lib.private ? `<span class="status-badge status-amber" data-i18n="setupL.library.badgePrivateShort">${escapeHtml(t('setupL.library.badgePrivateShort'))}</span>` : `<span class="status-badge status-neutral" data-i18n="setupL.library.badgePublicShort">${escapeHtml(t('setupL.library.badgePublicShort'))}</span>`}
-              </div>
-              <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                <div><span class="text-secondary" data-i18n="setupL.guidelines.projectLabel">${escapeHtml(t('setupL.guidelines.projectLabel'))}</span> ${lib.project ? escapeHtml(lib.project) : tHtml('setupL.scope.global')}</div>
-                <div><span class="text-secondary" data-i18n="setupL.library.createdAtLabel">${escapeHtml(t('setupL.library.createdAtLabel'))}</span> ${formatTime(lib.createdAt)}</div>
-              </div>
-              ${lib.path ? `<div style="margin-top: 6px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);"><span data-i18n="setupL.library.filePathLabel">${escapeHtml(t('setupL.library.filePathLabel'))}</span>: ${escapeHtml(lib.path)}</div>` : ''}
-              ${lib.url ? `<div style="margin-top: 6px; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);"><span data-i18n="setupL.library.urlLabel">${escapeHtml(t('setupL.library.urlLabel'))}</span>: ${escapeHtml(lib.url)}</div>` : ''}
-            </div>
-            <div>
-              <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.library.contentTitle">${escapeHtml(t('setupL.library.contentTitle'))}</h3>
-              <div class="code-view">${lib.content ? escapeHtml(lib.content) : tHtml('setupL.library.externalRef')}</div>
-            </div>
-          `;
-        }
+        if (id) openLibraryDetailModal(id);
+      });
+    });
+
+    target.querySelectorAll('.btn-edit-library').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        if (id) openEditLibraryModal(id);
+      });
+    });
+
+    target.querySelectorAll('.btn-export-library').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        if (id) exportLibraryDocument(id);
+      });
+    });
+
+    target.querySelectorAll('.btn-history-library').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        if (id) openLibraryHistoryModal(id);
+      });
+    });
+
+    target.querySelectorAll('.btn-refresh-library').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        if (id) refreshLibrarySource(id);
+      });
+    });
+
+    target.querySelectorAll('.btn-archive-library').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        if (id) archiveLibraryDocument(id);
+      });
+    });
+
+    target.querySelectorAll('.btn-restore-library').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        if (id) restoreLibraryDocument(id);
       });
     });
   }
@@ -4120,6 +8699,10 @@
       <div class="form-group">
         <label class="form-label" data-i18n="setupL.library.modalDocTitleLabel">${escapeHtml(t('setupL.library.modalDocTitleLabel'))}</label>
         <input type="text" id="lib-title" class="form-input" placeholder="${escapeHtml(t('setupL.library.modalDocTitlePlaceholder'))}" data-i18n-placeholder="setupL.library.modalDocTitlePlaceholder">
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="library.folderLabel">${escapeHtml(t('library.folderLabel'))}</label>
+        <input type="text" id="lib-folder" class="form-input" placeholder="engineering/parser">
       </div>
       <div class="form-group">
         <label class="form-label" data-i18n="setupL.library.modalProjectLabel">${escapeHtml(t('setupL.library.modalProjectLabel'))}</label>
@@ -4188,6 +8771,7 @@
     document.getElementById('btn-save-lib').addEventListener('click', async () => {
       const title = document.getElementById('lib-title').value.trim();
       const project = document.getElementById('lib-project').value;
+      const folder = (document.getElementById('lib-folder')?.value || '').trim();
       const sourceType = selType.value;
       const isPrivate = privCb.checked || privCb.disabled;
 
@@ -4196,10 +8780,16 @@
         return;
       }
 
+      if (folder && (folder.startsWith('/') || folder.includes('..') || folder.includes('\\'))) {
+        showToast({ key: 'library.folderInvalid' }, 'error');
+        return;
+      }
+
       let payload = {
         title,
         project: project || undefined,
-        private: isPrivate
+        folder: folder || undefined,
+        private: Boolean(isPrivate)
       };
 
       if (sourceType === 'content') {
@@ -4219,6 +8809,713 @@
         showToast({ key: 'setupL.library.toastAddFailed', params: { error: e.message } }, 'error');
       }
     });
+  }
+
+  async function openLibraryDetailModal(docId) {
+    const currentProject = state.currentProject;
+    openModal({ key: 'library.detailTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-lib-detail" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-lib-detail')?.addEventListener('click', closeModal);
+
+    let res = null;
+    try {
+      res = await callBridge('library.get', { id: docId, project: currentProject || undefined });
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    const f = document.getElementById('modal-footer');
+    if (!b || !f) return;
+
+    const item = res.item || {};
+    const snapshotHash = res.snapshotHash || '';
+    const isArchived = item.state === 'archived';
+    const isPrivate = item.private !== false;
+    const hasSource = Boolean(item.path || item.sourcePath || item.url || item.sourceURL);
+
+    // Also populate drawer if open for full test/layout compatibility
+    const drawer = document.getElementById('drawer');
+    const drawerContent = document.getElementById('drawer-content');
+    if (drawer && drawer.classList.contains('open') && drawerContent) {
+      drawerContent.innerHTML = `
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span>
+            ${isPrivate ? `<span class="status-badge status-amber">${escapeHtml(t('setupL.library.badgePrivateShort'))}</span>` : `<span class="status-badge status-neutral">${escapeHtml(t('setupL.library.badgePublicShort'))}</span>`}
+          </div>
+          <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <div><span class="text-secondary">${escapeHtml(t('setupL.guidelines.projectLabel'))}</span> ${item.project ? escapeHtml(item.project) : tHtml('setupL.scope.global')}</div>
+            <div><span class="text-secondary">${escapeHtml(t('setupL.library.createdAtLabel'))}</span> ${formatTime(item.sourceCapturedAt || item.createdAt)}</div>
+          </div>
+        </div>
+        <div>
+          <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">${escapeHtml(t('setupL.library.contentTitle'))}</h3>
+          <div class="code-view">${escapeHtml(item.content || '')}</div>
+        </div>
+      `;
+    }
+
+    b.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+        <h3 style="font-size: 14px; font-weight: 600; margin: 0;">${escapeHtml(item.title || docId)}</h3>
+        <div style="display: flex; gap: 6px;">
+          ${isArchived ? `<span class="status-badge status-neutral" data-i18n="library.badgeArchived">${escapeHtml(t('library.badgeArchived'))}</span>` : ''}
+          ${isPrivate
+            ? `<span class="status-badge status-amber" data-i18n="setupL.library.badgePrivate">${escapeHtml(t('setupL.library.badgePrivate'))}</span>`
+            : `<span class="status-badge status-neutral" data-i18n="setupL.library.badgePublic">${escapeHtml(t('setupL.library.badgePublic'))}</span>`}
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 12px; font-size: 11px; background: var(--bg-subtle);">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+          <div><span class="text-secondary" data-i18n="setupL.library.tableProject">${escapeHtml(t('setupL.library.tableProject'))}:</span> ${item.project ? escapeHtml(item.project) : tHtml('setupL.scope.global')}</div>
+          <div><span class="text-secondary" data-i18n="library.detailFolder">${escapeHtml(t('library.detailFolder'))}</span> ${item.folder ? escapeHtml(item.folder) : '<span class="text-secondary">-</span>'}</div>
+          <div><span class="text-secondary" data-i18n="library.detailVersion">${escapeHtml(t('library.detailVersion'))}</span> v${item.version || 1}</div>
+          <div><span class="text-secondary" data-i18n="library.detailTokens">${escapeHtml(t('library.detailTokens'))}</span> ${item.tokens || '-'}</div>
+        </div>
+        ${item.sourcePath ? `<div style="margin-top: 6px; font-family: var(--font-mono); color: var(--text-muted);"><span data-i18n="library.detailSourcePath">${escapeHtml(t('library.detailSourcePath'))}</span> ${escapeHtml(item.sourcePath)}</div>` : ''}
+        ${item.sourceURL ? `<div style="margin-top: 6px; font-family: var(--font-mono); color: var(--text-muted);"><span data-i18n="library.detailSourceURL">${escapeHtml(t('library.detailSourceURL'))}</span> ${escapeHtml(item.sourceURL)}</div>` : ''}
+      </div>
+
+      <div>
+        <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 4px;" data-i18n="setupL.library.contentTitle">${escapeHtml(t('setupL.library.contentTitle'))}</h4>
+        <div class="code-view" style="max-height: 240px; overflow-y: auto; white-space: pre-wrap; font-size: 12px; padding: 8px 10px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 4px;">${escapeHtml(item.content || '')}</div>
+      </div>
+
+      <details class="tech-meta-details" style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 8px;">
+        <summary style="font-size: 11px; color: var(--text-secondary); cursor: pointer;" data-i18n="library.techMetaSummary">${escapeHtml(t('library.techMetaSummary'))}</summary>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; margin-top: 8px; font-family: var(--font-mono);">
+          <div><span class="text-secondary" data-i18n="library.metaSnapshotHash">${escapeHtml(t('library.metaSnapshotHash'))}</span> ${escapeHtml(snapshotHash.substring(0, 16))}...</div>
+          <div><span class="text-secondary" data-i18n="library.metaSourceHash">${escapeHtml(t('library.metaSourceHash'))}</span> ${escapeHtml(String(item.sourceHash || '-').substring(0, 16))}...</div>
+          <div><span class="text-secondary" data-i18n="library.metaId">${escapeHtml(t('library.metaId'))}</span> ${escapeHtml(item.id)}</div>
+          <div><span class="text-secondary" data-i18n="library.metaAssetPath">${escapeHtml(t('library.metaAssetPath'))}</span> ${escapeHtml(item.assetPath || '-')}</div>
+        </div>
+      </details>
+    `;
+
+    f.innerHTML = `
+      <div style="display: flex; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 6px;">
+        <div style="display: flex; gap: 6px;">
+          ${!isArchived ? `
+            <button class="btn btn-secondary btn-sm" id="btn-detail-edit-lib" data-i18n="library.btnEdit">${escapeHtml(t('library.btnEdit'))}</button>
+            ${hasSource ? `<button class="btn btn-secondary btn-sm" id="btn-detail-refresh-lib" data-i18n="library.btnRefreshSource">${escapeHtml(t('library.btnRefreshSource'))}</button>` : ''}
+            <button class="btn btn-danger btn-sm" id="btn-detail-archive-lib" data-i18n="library.btnArchive">${escapeHtml(t('library.btnArchive'))}</button>
+          ` : `
+            <button class="btn btn-primary btn-sm" id="btn-detail-restore-lib" data-i18n="library.btnRestore">${escapeHtml(t('library.btnRestore'))}</button>
+          `}
+          <button class="btn btn-secondary btn-sm" id="btn-detail-export-lib" data-i18n="library.btnExport">${escapeHtml(t('library.btnExport'))}</button>
+          <button class="btn btn-secondary btn-sm" id="btn-detail-history-lib" data-i18n="library.btnHistory">${escapeHtml(t('library.btnHistory'))}</button>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btn-close-detail-lib-2" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      </div>
+    `;
+
+    document.getElementById('btn-close-detail-lib-2')?.addEventListener('click', closeModal);
+    document.getElementById('btn-detail-edit-lib')?.addEventListener('click', () => openEditLibraryModal(docId));
+    document.getElementById('btn-detail-export-lib')?.addEventListener('click', () => exportLibraryDocument(docId));
+    document.getElementById('btn-detail-history-lib')?.addEventListener('click', () => openLibraryHistoryModal(docId));
+    document.getElementById('btn-detail-refresh-lib')?.addEventListener('click', () => refreshLibrarySource(docId, snapshotHash));
+    document.getElementById('btn-detail-archive-lib')?.addEventListener('click', () => archiveLibraryDocument(docId, snapshotHash));
+    document.getElementById('btn-detail-restore-lib')?.addEventListener('click', () => restoreLibraryDocument(docId, snapshotHash));
+  }
+
+  async function openEditLibraryModal(docId) {
+    const currentProject = state.currentProject;
+    openModal({ key: 'library.editModalTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-lib-edit" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-lib-edit')?.addEventListener('click', closeModal);
+
+    let res = null;
+    try {
+      res = await callBridge('library.get', { id: docId, project: currentProject || undefined });
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    const f = document.getElementById('modal-footer');
+    if (!b || !f) return;
+
+    const item = res.item || {};
+    const snapshotHash = res.snapshotHash || '';
+    const isSourceLocked = item.sourceLabeledPrivate === true || (item.sourcePath && ['.env', 'credentials', 'secret', 'id_rsa', '.key', '.pem'].some(s => item.sourcePath.toLowerCase().includes(s)));
+
+    b.innerHTML = `
+      <div class="alert-banner alert-info" style="font-size: 11px; margin-bottom: 12px;" data-i18n="library.editNotice">
+        ${escapeHtml(t('library.editNotice'))}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="library.titleLabel">${escapeHtml(t('library.titleLabel'))}</label>
+        <input type="text" id="lib-edit-title" class="form-input" value="${escapeHtml(item.title || '')}" maxlength="300">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="library.folderLabel">${escapeHtml(t('library.folderLabel'))}</label>
+        <input type="text" id="lib-edit-folder" class="form-input" value="${escapeHtml(item.folder || '')}" placeholder="engineering/parser">
+      </div>
+
+      <div class="form-group">
+        <label class="form-checkbox-label">
+          <input type="checkbox" id="lib-edit-private" ${item.private !== false || isSourceLocked ? 'checked' : ''} ${isSourceLocked ? 'disabled' : ''}>
+          <span data-i18n="library.privacyLabel">${escapeHtml(t('library.privacyLabel'))}</span>
+        </label>
+        ${isSourceLocked
+          ? `<div class="form-hint" style="color: var(--status-amber-text);" data-i18n="library.privacyLockedDesc">${escapeHtml(t('library.privacyLockedDesc'))}</div>`
+          : `<div class="form-hint" data-i18n="library.privacyDesc">${escapeHtml(t('library.privacyDesc'))}</div>`}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-i18n="library.contentLabel">${escapeHtml(t('library.contentLabel'))}</label>
+        <textarea id="lib-edit-content" class="form-textarea code-editor" style="min-height: 180px; font-size: 12px;">${escapeHtml(item.content || '')}</textarea>
+      </div>
+
+      <div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">
+        snapshotHash: ${escapeHtml(snapshotHash.substring(0, 16))}...
+      </div>
+
+      <div id="lib-edit-stale-warn" class="alert-banner alert-warning hidden" style="margin-top: 10px;"></div>
+    `;
+
+    f.innerHTML = `
+      <button class="btn btn-secondary" id="btn-cancel-edit-lib" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-save-edit-lib" data-i18n="library.btnSaveVersion">${escapeHtml(t('library.btnSaveVersion'))}</button>
+    `;
+
+    document.getElementById('btn-cancel-edit-lib')?.addEventListener('click', closeModal);
+    document.getElementById('btn-save-edit-lib')?.addEventListener('click', async () => {
+      const title = (document.getElementById('lib-edit-title')?.value || '').trim();
+      const folder = (document.getElementById('lib-edit-folder')?.value || '').trim();
+      const content = document.getElementById('lib-edit-content')?.value || '';
+      const isPrivate = isSourceLocked ? true : Boolean(document.getElementById('lib-edit-private')?.checked);
+      const warnEl = document.getElementById('lib-edit-stale-warn');
+
+      if (!title) {
+        showToast({ key: 'setupL.library.toastTitleRequired' }, 'error');
+        return;
+      }
+      if (folder && (folder.startsWith('/') || folder.includes('..') || folder.includes('\\'))) {
+        showToast({ key: 'library.folderInvalid' }, 'error');
+        return;
+      }
+
+      try {
+        await callBridge('library.update', {
+          id: docId,
+          project: currentProject || undefined,
+          snapshotHash,
+          title,
+          folder: folder || undefined,
+          content,
+          private: isPrivate
+        });
+        showToast({ key: 'library.saveSuccess' });
+        closeModal();
+        await refreshDashboard(true, true);
+      } catch (err) {
+        if (err.message && err.message.includes('changed since review')) {
+          if (warnEl) {
+            warnEl.textContent = t('library.staleWarning');
+            warnEl.classList.remove('hidden');
+          }
+          showToast({ key: 'library.staleWarning' }, 'error');
+        } else {
+          showToast(err.message, 'error');
+        }
+      }
+    });
+  }
+
+  async function openLibraryHistoryModal(docId) {
+    const currentProject = state.currentProject;
+    openModal({ key: 'library.historyTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-lib-hist" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-lib-hist')?.addEventListener('click', closeModal);
+
+    let versions = [];
+    try {
+      versions = await callBridge('library.history', { id: docId, project: currentProject || undefined });
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    if (!b) return;
+
+    if (!Array.isArray(versions) || versions.length === 0) {
+      b.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--text-muted);" data-i18n="library.noHistory">${escapeHtml(t('library.noHistory'))}</div>`;
+      return;
+    }
+
+    b.innerHTML = `
+      <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;" data-i18n="library.historyDesc">
+        ${escapeHtml(t('library.historyDesc'))}
+      </div>
+
+      <div class="table-wrapper" style="max-height: 220px; overflow-y: auto; margin-bottom: 12px;">
+        <table class="data-table" style="font-size: 11px;">
+          <thead>
+            <tr>
+              <th data-i18n="library.versionCol">${escapeHtml(t('library.versionCol'))}</th>
+              <th data-i18n="library.changeCol">${escapeHtml(t('library.changeCol'))}</th>
+              <th data-i18n="library.timeCol">${escapeHtml(t('library.timeCol'))}</th>
+              <th data-i18n="library.sourceHashCol">${escapeHtml(t('library.sourceHashCol'))}</th>
+              <th style="text-align: right;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${versions.map((v, idx) => `
+              <tr>
+                <td><strong>v${v.version || (idx + 1)}</strong></td>
+                <td><span class="code-badge">${escapeHtml(v.change || 'version')}</span></td>
+                <td>${formatTime(v.sourceCapturedAt || v.archivedAt || v.createdAt)}</td>
+                <td class="font-mono text-secondary">${escapeHtml((v.sourceHash || '').substring(0, 10))}</td>
+                <td style="text-align: right;">
+                  <button class="btn btn-ghost btn-sm btn-view-version-content" data-idx="${idx}" data-i18n="library.btnViewVersionContent">${escapeHtml(t('library.btnViewVersionContent'))}</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div id="version-content-preview-container">
+        <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 4px;" data-i18n="setupL.library.contentTitle">${escapeHtml(t('setupL.library.contentTitle'))}</h4>
+        <div id="version-content-text" class="code-view" style="max-height: 180px; overflow-y: auto; white-space: pre-wrap; font-size: 11px; padding: 6px 8px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 4px;">
+          ${escapeHtml(versions[0]?.content || '')}
+        </div>
+      </div>
+    `;
+
+    b.querySelectorAll('.btn-view-version-content').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        const v = versions[idx];
+        const previewEl = document.getElementById('version-content-text');
+        if (v && previewEl) {
+          previewEl.textContent = v.content || '';
+        }
+      });
+    });
+  }
+
+  async function exportLibraryDocument(docId) {
+    try {
+      const res = await callBridge('library.export', { id: docId, project: state.currentProject || undefined });
+      if (!res || !res.content) {
+        showToast({ key: 'library.toastExportFailed', params: { error: 'Empty content' } }, 'error');
+        return;
+      }
+      try {
+        const saveRes = await callBridge('system.saveLibraryExport', {
+          content: res.content,
+          filename: res.filename || `${docId}.md`
+        });
+        if (saveRes && saveRes.cancelled === true) return;
+        if (saveRes && saveRes.saved === true) {
+          showToast({ key: 'library.toastExportSuccess' });
+          return;
+        }
+      } catch (bridgeErr) {
+        // Fallback to browser download
+        const blob = new Blob([res.content], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = res.filename || `${docId}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast({ key: 'library.toastExportSuccess' });
+      }
+    } catch (e) {
+      showToast({ key: 'library.toastExportFailed', params: { error: e.message } }, 'error');
+    }
+  }
+
+  async function archiveLibraryDocument(docId, snapshotHash) {
+    if (!confirm(t('library.confirmArchive'))) return;
+    try {
+      let hash = snapshotHash;
+      if (!hash) {
+        const fresh = await callBridge('library.get', { id: docId, project: state.currentProject || undefined });
+        hash = fresh.snapshotHash;
+      }
+      await callBridge('library.remove', { id: docId, project: state.currentProject || undefined, snapshotHash: hash });
+      showToast({ key: 'library.archiveSuccess' });
+      closeModal();
+      await refreshDashboard(true, true);
+    } catch (e) {
+      if (e.message && e.message.includes('changed since review')) {
+        showToast({ key: 'library.staleWarning' }, 'error');
+      } else {
+        showToast(e.message, 'error');
+      }
+    }
+  }
+
+  async function restoreLibraryDocument(docId, snapshotHash) {
+    try {
+      let hash = snapshotHash;
+      if (!hash) {
+        const fresh = await callBridge('library.get', { id: docId, project: state.currentProject || undefined });
+        hash = fresh.snapshotHash;
+      }
+      await callBridge('library.restore', { id: docId, project: state.currentProject || undefined, snapshotHash: hash });
+      showToast({ key: 'library.restoreSuccess' });
+      closeModal();
+      await refreshDashboard(true, true);
+    } catch (e) {
+      if (e.message && e.message.includes('changed since review')) {
+        showToast({ key: 'library.staleWarning' }, 'error');
+      } else {
+        showToast(e.message, 'error');
+      }
+    }
+  }
+
+  async function refreshLibrarySource(docId, snapshotHash) {
+    if (!confirm(t('library.refreshConfirm'))) return;
+    try {
+      let hash = snapshotHash;
+      if (!hash) {
+        const fresh = await callBridge('library.get', { id: docId, project: state.currentProject || undefined });
+        hash = fresh.snapshotHash;
+      }
+      await callBridge('library.refresh', { id: docId, project: state.currentProject || undefined, snapshotHash: hash });
+      showToast({ key: 'library.refreshSuccess' });
+      closeModal();
+      await refreshDashboard(true, true);
+    } catch (e) {
+      if (e.message && e.message.includes('changed since review')) {
+        showToast({ key: 'library.staleWarning' }, 'error');
+      } else {
+        showToast(e.message, 'error');
+      }
+    }
+  }
+
+  function openLibrarySearchModal() {
+    const modalBody = `
+      <div class="alert-banner alert-info" style="font-size: 11px; margin-bottom: 12px;" data-i18n="library.searchNotice">
+        ${escapeHtml(t('library.searchNotice'))}
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-end;">
+        <div style="flex: 1;">
+          <label class="form-label" data-i18n="library.searchQueryLabel">${escapeHtml(t('library.searchQueryLabel'))}</label>
+          <input type="text" id="lib-search-query" class="form-input" placeholder="${escapeHtml(t('library.searchQueryPlaceholder'))}" data-i18n-placeholder="library.searchQueryPlaceholder" />
+        </div>
+        <div style="width: 90px;">
+          <label class="form-label" data-i18n="library.searchKLabel">${escapeHtml(t('library.searchKLabel'))}</label>
+          <input type="number" id="lib-search-k" class="form-input" min="1" max="50" value="10" />
+        </div>
+        <button id="btn-do-library-search" class="btn btn-primary" style="height: 32px;" data-i18n="library.btnSearch">
+          ${escapeHtml(t('library.btnSearch'))}
+        </button>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label class="form-checkbox-label" style="font-size: 11px;">
+          <input type="checkbox" id="lib-search-rerank" checked />
+          <span data-i18n="library.searchRerankLabel">${escapeHtml(t('library.searchRerankLabel'))}</span>
+        </label>
+      </div>
+
+      <div id="lib-search-stats" style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;" class="hidden"></div>
+      <div id="lib-search-results" style="max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
+    `;
+
+    openModal({ key: 'library.searchModalTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-close-lib-search" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+    `);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-lib-search')?.addEventListener('click', closeModal);
+
+    const queryInput = document.getElementById('lib-search-query');
+    const kInput = document.getElementById('lib-search-k');
+    const rerankCb = document.getElementById('lib-search-rerank');
+    const statsDiv = document.getElementById('lib-search-stats');
+    const resultsDiv = document.getElementById('lib-search-results');
+    const btnSearch = document.getElementById('btn-do-library-search');
+
+    const executeSearch = async () => {
+      const q = (queryInput?.value || '').trim();
+      if (!q) return;
+      const kVal = Math.max(1, Math.min(50, parseInt(kInput?.value, 10) || 10));
+      const rerank = rerankCb?.checked !== false;
+
+      resultsDiv.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 12px;">${escapeHtml(t('common.loading'))}</div>`;
+      statsDiv.classList.add('hidden');
+
+      try {
+        const res = await callBridge('library.search', {
+          project: state.currentProject,
+          query: q,
+          k: kVal,
+          rerank,
+          kind: 'library'
+        });
+
+        if (currentModalInstance !== thisModalInstance) return;
+
+        const candidates = res.candidateCount || 0;
+        const limitReached = res.candidateLimitReached ? t('library.limitReached') : '';
+        const stale = res.staleSourcesExcluded || 0;
+
+        statsDiv.textContent = t('library.searchStats', { candidates, limitReached, stale });
+        statsDiv.classList.remove('hidden');
+
+        const items = res.items || [];
+        if (items.length === 0) {
+          resultsDiv.innerHTML = `
+            <div style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 12px;" data-i18n="library.noSearchResults">
+              ${escapeHtml(t('library.noSearchResults'))}
+            </div>
+          `;
+          return;
+        }
+
+        resultsDiv.innerHTML = items.map(item => `
+          <div class="card" style="padding: 10px 12px; margin-bottom: 0; background: var(--bg-subtle);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <strong style="font-size: 13px;">${escapeHtml(item.title || '')}</strong>
+              <div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">
+                ${item.rangeUTF16 ? `[UTF-16: ${item.rangeUTF16.location}+${item.rangeUTF16.length}]` : ''}
+              </div>
+            </div>
+            ${item.heading ? `<div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;"><span data-i18n="library.headingLabel">${escapeHtml(t('library.headingLabel'))}</span> <strong>${escapeHtml(item.heading)}</strong></div>` : ''}
+            <div class="code-view" style="font-size: 12px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; margin-bottom: 6px; padding: 6px 8px; background: var(--bg-main);">
+              ${escapeHtml(item.content || '')}
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; font-family: var(--font-mono); color: var(--text-secondary);">
+              <span>BM25: ${(item.bm25 || 0).toFixed(3)} · Coverage: ${((item.coverage || 0) * 100).toFixed(0)}% · Proximity: ${(item.proximity || 0).toFixed(3)}</span>
+              ${item.sourcePath ? `<span style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.sourcePath)}</span>` : (item.sourceURL ? `<span style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.sourceURL)}</span>` : '')}
+            </div>
+          </div>
+        `).join('');
+
+      } catch (e) {
+        if (currentModalInstance !== thisModalInstance) return;
+        resultsDiv.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      }
+    };
+
+    btnSearch?.addEventListener('click', executeSearch);
+    queryInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') executeSearch();
+    });
+  }
+
+  async function openLibraryIndexModal() {
+    openModal({ key: 'library.indexModalTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-lib-idx" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-lib-idx')?.addEventListener('click', closeModal);
+
+    let status = null;
+    try {
+      status = await callBridge('library.index.status', { project: state.currentProject });
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance) return;
+
+    const b = document.getElementById('modal-body');
+    if (!b) return;
+
+    const renderIndexUI = (st) => {
+      b.innerHTML = `
+        <div class="alert-banner alert-info" style="font-size: 11px; margin-bottom: 12px;" data-i18n="library.indexModalDesc">
+          ${escapeHtml(t('library.indexModalDesc'))}
+        </div>
+
+        <div class="card" style="margin-bottom: 12px; font-size: 12px;">
+          <div style="font-weight: 600; margin-bottom: 8px;" data-i18n="library.indexStatusTitle">${escapeHtml(t('library.indexStatusTitle'))}</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <div>
+              <span class="text-secondary" data-i18n="library.statTotalDocs">${escapeHtml(t('library.statTotalDocs'))}</span>
+              <div style="font-weight: 600; font-size: 14px; margin-top: 2px;">${st.totalDocuments ?? 0}</div>
+            </div>
+            <div>
+              <span class="text-secondary" data-i18n="library.statEligiblePublic">${escapeHtml(t('library.statEligiblePublic'))}</span>
+              <div style="font-weight: 600; font-size: 14px; margin-top: 2px;">${st.eligiblePublicDocuments ?? 0}</div>
+            </div>
+            <div>
+              <span class="text-secondary" data-i18n="library.statIndexedPublic">${escapeHtml(t('library.statIndexedPublic'))}</span>
+              <div style="font-weight: 600; font-size: 14px; margin-top: 2px;">${st.indexedPublicDocuments ?? 0}</div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div>
+              <span class="text-secondary" data-i18n="library.statCoverageComplete">${escapeHtml(t('library.statCoverageComplete'))}</span>
+              <div style="margin-top: 2px;">
+                ${st.databaseCoverageComplete
+                  ? `<span class="status-badge status-sage" data-i18n="library.statCoverageYes">${escapeHtml(t('library.statCoverageYes'))}</span>`
+                  : `<span class="status-badge status-amber" data-i18n="library.statCoverageNo">${escapeHtml(t('library.statCoverageNo'))}</span>`}
+              </div>
+            </div>
+            <div>
+              <span class="text-secondary" data-i18n="library.statBackend">${escapeHtml(t('library.statBackend'))}</span>
+              <div class="font-mono" style="font-size: 11px; margin-top: 2px;">${escapeHtml(st.backend || 'SQLite FTS5 / BM25')}</div>
+            </div>
+          </div>
+          <div class="form-hint" style="margin-top: 8px; font-size: 10px; color: var(--text-muted);" data-i18n="library.statNote">
+            ${escapeHtml(t('library.statNote'))}
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <button id="btn-start-index" class="btn btn-primary btn-sm" data-i18n="library.btnStartIndex">
+            ${escapeHtml(t('library.btnStartIndex'))}
+          </button>
+          <button id="btn-cancel-index" class="btn btn-secondary btn-sm hidden" data-i18n="library.btnCancelIndex">
+            ${escapeHtml(t('library.btnCancelIndex'))}
+          </button>
+        </div>
+
+        <div id="lib-index-progress" style="font-size: 12px; margin-bottom: 8px;"></div>
+        <div id="lib-index-failures"></div>
+      `;
+
+      const btnStart = document.getElementById('btn-start-index');
+      const btnCancel = document.getElementById('btn-cancel-index');
+      const progressEl = document.getElementById('lib-index-progress');
+      const failuresEl = document.getElementById('lib-index-failures');
+
+      let cancelRequested = false;
+
+      btnCancel?.addEventListener('click', () => {
+        cancelRequested = true;
+        btnCancel.disabled = true;
+      });
+
+      btnStart?.addEventListener('click', async () => {
+        btnStart.disabled = true;
+        btnCancel?.classList.remove('hidden');
+        if (btnCancel) btnCancel.disabled = false;
+        cancelRequested = false;
+
+        let cursor = null;
+        let totalProcessed = 0;
+        let totalIndexed = 0;
+        let totalUnchanged = 0;
+        let totalExcluded = 0;
+        let allFailures = [];
+        let pageNum = 0;
+
+        while (true) {
+          if (cancelRequested) {
+            if (progressEl) {
+              progressEl.innerHTML = `<div class="alert-banner alert-warning" data-i18n="library.indexCancelled">${escapeHtml(t('library.indexCancelled'))}</div>`;
+            }
+            break;
+          }
+
+          pageNum++;
+          if (progressEl) {
+            progressEl.textContent = t('library.indexProgress', {
+              page: pageNum,
+              indexed: totalIndexed,
+              unchanged: totalUnchanged,
+              excluded: totalExcluded
+            });
+          }
+
+          try {
+            const pageRes = await callBridge('library.index', {
+              project: state.currentProject,
+              cursor: cursor || undefined,
+              batchSize: 25
+            });
+
+            if (currentModalInstance !== thisModalInstance) return;
+
+            totalProcessed += (pageRes.processed || 0);
+            totalIndexed += (pageRes.indexed || 0);
+            totalUnchanged += (pageRes.unchanged || 0);
+            totalExcluded += (pageRes.excluded || 0);
+
+            if (Array.isArray(pageRes.failures) && pageRes.failures.length > 0) {
+              allFailures.push(...pageRes.failures);
+            }
+
+            if (!pageRes.nextCursor || pageRes.processed === 0) {
+              // Complete
+              if (progressEl) {
+                progressEl.innerHTML = `<div class="alert-banner alert-sage" data-i18n="library.indexDone">${escapeHtml(t('library.indexDone', {
+                  processed: totalProcessed,
+                  indexed: totalIndexed,
+                  unchanged: totalUnchanged,
+                  excluded: totalExcluded
+                }))}</div>`;
+              }
+              break;
+            }
+
+            cursor = pageRes.nextCursor;
+          } catch (err) {
+            if (currentModalInstance !== thisModalInstance) return;
+            if (progressEl) {
+              progressEl.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(err.message)}</div>`;
+            }
+            break;
+          }
+        }
+
+        if (failuresEl && allFailures.length > 0) {
+          failuresEl.innerHTML = `
+            <div class="alert-banner alert-warning" style="margin-top: 8px;">
+              <strong>${escapeHtml(t('library.indexFailuresTitle', { count: allFailures.length }))}</strong>
+              <ul style="margin: 4px 0 0 16px; font-size: 11px;">
+                ${allFailures.map(f => `<li><code>${escapeHtml(f.id || '')}</code>: ${escapeHtml(f.message || '')}</li>`).join('')}
+              </ul>
+            </div>
+          `;
+        }
+
+        btnCancel?.classList.add('hidden');
+        btnStart.disabled = false;
+
+        try {
+          const freshStatus = await callBridge('library.index.status', { project: state.currentProject });
+          if (currentModalInstance === thisModalInstance && freshStatus) {
+            // Updated status can be reflected
+          }
+        } catch {}
+      });
+    };
+
+    renderIndexUI(status);
   }
 
   async function renderMcpSection(target) {
@@ -4522,7 +9819,11 @@
         </div>
         <div id="usage-daily-container"></div>
       </div>
+
+      <div id="usage-codex-quota-card" class="quota-card"></div>
     `;
+
+    renderCodexQuotaSection(document.getElementById('usage-codex-quota-card'));
 
     try {
       const usage = await callBridge('usage.get', state.currentProject ? { project: state.currentProject } : {});
@@ -4856,6 +10157,163 @@
     }
   }
 
+  async function renderCodexQuotaSection(quotaContainer) {
+    if (!quotaContainer) return;
+
+    quotaContainer.innerHTML = `
+      <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin" style="margin-bottom: 6px; display: inline-block;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <div data-i18n="common.loading">${escapeHtml(t('common.loading') || 'Loading...')}</div>
+      </div>
+    `;
+
+    let quotaData = null;
+    try {
+      quotaData = await callBridge('usage.quota.status', { provider: 'codex' });
+    } catch (e) {
+      console.warn('Quota status query failed', e);
+    }
+
+    renderQuotaContent(quotaData);
+
+    function renderQuotaContent(data) {
+      if (!quotaContainer || !document.contains(quotaContainer)) return;
+
+      const st = (data && data.status) || 'never_read';
+      let statusBadge = '';
+      if (st === 'fresh') {
+        statusBadge = `<span class="status-badge status-sage" data-i18n="usage.quotaFresh">${escapeHtml(t('usage.quotaFresh'))}</span>`;
+      } else if (st === 'stale') {
+        statusBadge = `<span class="status-badge status-amber" data-i18n="usage.quotaStale">${escapeHtml(t('usage.quotaStale'))}</span>`;
+      } else if (st === 'error') {
+        statusBadge = `<span class="status-badge status-red" data-i18n="usage.quotaError">${escapeHtml(t('usage.quotaError'))}</span>`;
+      } else {
+        statusBadge = `<span class="status-badge status-neutral" data-i18n="usage.quotaNeverRead">${escapeHtml(t('usage.quotaNeverRead'))}</span>`;
+      }
+
+      const lastSuccessText = (data && data.sourceCapturedAt) ? formatTime(data.sourceCapturedAt) : '—';
+      const lastAttemptText = (data && data.lastAttemptAt) ? formatTime(data.lastAttemptAt) : '—';
+      const attemptFailed = Boolean(data && data.lastAttempt && data.lastAttempt.succeeded === false);
+      const attemptError = (attemptFailed && data.lastAttempt.error && data.lastAttempt.error.kind) ? data.lastAttempt.error.kind : null;
+
+      const buckets = (data && data.snapshot && Array.isArray(data.snapshot.buckets)) ? data.snapshot.buckets : [];
+
+      quotaContainer.innerHTML = `
+        <div class="quota-header">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="card-title" data-i18n="usage.quotaTitle">${escapeHtml(t('usage.quotaTitle'))}</span>
+              ${statusBadge}
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="usage.quotaSubtitle">
+              ${escapeHtml(t('usage.quotaSubtitle'))}
+            </div>
+          </div>
+          <div style="font-size: 11px; text-align: right; color: var(--text-secondary);">
+            <div><span data-i18n="usage.quotaLastSuccess">${escapeHtml(t('usage.quotaLastSuccess'))}</span> <strong style="color: var(--text-main);">${escapeHtml(lastSuccessText)}</strong></div>
+            <div><span data-i18n="usage.quotaLastAttempt">${escapeHtml(t('usage.quotaLastAttempt'))}</span> <span class="font-mono">${escapeHtml(lastAttemptText)}</span></div>
+            ${attemptError ? `<div style="color: var(--status-red-text);"><span data-i18n="usage.quotaAttemptFailed">${escapeHtml(t('usage.quotaAttemptFailed'))}</span> ${escapeHtml(attemptError)}</div>` : ''}
+          </div>
+        </div>
+
+        ${buckets.length === 0 ? `
+          <div style="padding: 16px; background: var(--bg-subtle); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); text-align: center; color: var(--text-muted); font-size: 12px;">
+            ${st === 'never_read' ? escapeHtml(t('usage.quotaNeverRead') + ' · ' + t('usage.quotaSubtitle')) : '—'}
+          </div>
+        ` : `
+          <div class="quota-buckets-grid">
+            ${buckets.map(b => {
+              const windows = Array.isArray(b.windows) ? b.windows : [];
+              return `
+                <div class="quota-bucket-card">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <strong>${escapeHtml(b.limitName || b.limitId || b.key || 'Codex')}</strong>
+                    ${b.planType ? `<span class="code-badge font-mono">${escapeHtml(b.planType)}</span>` : ''}
+                  </div>
+                  ${windows.map(w => {
+                    const winLabel = w.name === 'primary' ? t('usage.windowPrimary') : w.name === 'secondary' ? t('usage.windowSecondary') : (w.name || 'Window');
+                    const rem = (w.remainingPercent !== null && w.remainingPercent !== undefined && typeof w.remainingPercent === 'number') ? w.remainingPercent : null;
+                    const used = (w.usedPercent !== null && w.usedPercent !== undefined && typeof w.usedPercent === 'number') ? w.usedPercent : null;
+                    const remDisplay = rem !== null ? `${rem.toFixed(0)}%` : '—';
+                    const usedDisplay = used !== null ? `${used.toFixed(0)}%` : '—';
+                    const durDisplay = w.windowDurationMins ? `${w.windowDurationMins}m` : '—';
+                    const resetDisplay = w.resetsAt ? formatTime(new Date(w.resetsAt * 1000)) : '—';
+
+                    let barColorClass = 'normal';
+                    if (rem !== null) {
+                      if (rem <= 15) barColorClass = 'danger';
+                      else if (rem <= 40) barColorClass = 'warning';
+                    }
+
+                    return `
+                      <div class="quota-window-row">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px;">
+                          <span><strong>${escapeHtml(winLabel)}</strong> <span class="text-secondary" style="font-size: 11px;">(${escapeHtml(durDisplay)})</span></span>
+                          <span class="font-mono"><strong>${escapeHtml(remDisplay)}</strong> <span class="text-secondary" style="font-size: 10px;" data-i18n="usage.remainingPercent">${escapeHtml(t('usage.remainingPercent'))}</span></span>
+                        </div>
+                        ${rem !== null ? `
+                          <div class="quota-bar-track">
+                            <div class="quota-bar-fill ${barColorClass}" style="width: ${Math.max(0, Math.min(100, rem))}%;"></div>
+                          </div>
+                        ` : ''}
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+                          <span><span data-i18n="usage.usedPercent">${escapeHtml(t('usage.usedPercent'))}</span>: ${escapeHtml(usedDisplay)}</span>
+                          <span><span data-i18n="usage.resetsAt">${escapeHtml(t('usage.resetsAt'))}</span>: ${escapeHtml(resetDisplay)}</span>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 260px;">
+            <label for="codex-cli-path-input" style="font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;" data-i18n="usage.quotaCliPathLabel">${escapeHtml(t('usage.quotaCliPathLabel'))}</label>
+            <input type="text" id="codex-cli-path-input" class="form-input" style="width: 100%; font-family: var(--font-mono); font-size: 12px; padding: 6px 10px;" placeholder="${escapeHtml(t('usage.quotaCliPathPlaceholder'))}" data-i18n-placeholder="usage.quotaCliPathPlaceholder" value="${escapeHtml(state.codexCliPath || '')}">
+          </div>
+          <button id="btn-refresh-codex-quota" class="btn btn-secondary btn-sm" data-i18n="usage.btnRefreshQuota">${escapeHtml(t('usage.btnRefreshQuota'))}</button>
+        </div>
+      `;
+
+      const refreshBtn = quotaContainer.querySelector('#btn-refresh-codex-quota');
+      const cliInput = quotaContainer.querySelector('#codex-cli-path-input');
+
+      refreshBtn?.addEventListener('click', async () => {
+        const path = (cliInput?.value || '').trim();
+        if (!path || !path.startsWith('/')) {
+          showToast({ key: 'usage.quotaPathRequired' }, 'warning');
+          cliInput?.focus();
+          return;
+        }
+
+        state.codexCliPath = path;
+        refreshBtn.disabled = true;
+        const originalText = refreshBtn.textContent;
+        refreshBtn.textContent = t('usage.quotaRefreshing');
+
+        try {
+          const res = await callBridge('usage.quota.read', { provider: 'codex', executable: path });
+          showToast({ key: 'usage.quotaRefreshSuccess' });
+          renderQuotaContent(res);
+        } catch (err) {
+          showToast({ key: 'usage.quotaRefreshFailed', params: { error: err.message || String(err) } }, 'error');
+          try {
+            const fallbackStatus = await callBridge('usage.quota.status', { provider: 'codex' });
+            renderQuotaContent(fallbackStatus);
+          } catch {
+            if (refreshBtn) {
+              refreshBtn.disabled = false;
+              refreshBtn.textContent = originalText;
+            }
+          }
+        }
+      });
+    }
+  }
+
   // -------------------------------------------------------------------------
   // 5. IMPROVE VIEW (Real backend preview shape)
   // -------------------------------------------------------------------------
@@ -4869,6 +10327,8 @@
           <p data-i18n="improve.subtitle">${t('improve.subtitle')}</p>
         </div>
         <div class="page-actions">
+          <button id="btn-model-improve-plans" class="btn btn-secondary btn-sm" data-i18n="improve.btnModelImprovePlans">${t('improve.btnModelImprovePlans')}</button>
+          <button id="btn-model-improve-propose" class="btn btn-secondary btn-sm" data-i18n="improve.btnModelImprovePropose">${t('improve.btnModelImprovePropose')}</button>
           <button id="btn-run-analysis" class="btn btn-primary btn-sm" data-i18n="improve.btnRunAnalysis">${t('improve.btnRunAnalysis')}</button>
         </div>
       </div>
@@ -4953,6 +10413,12 @@
       </div>
     `;
 
+    const btnModelPlans = document.getElementById('btn-model-improve-plans');
+    if (btnModelPlans) btnModelPlans.addEventListener('click', openModelImprovePlansModal);
+
+    const btnModelPropose = document.getElementById('btn-model-improve-propose');
+    if (btnModelPropose) btnModelPropose.addEventListener('click', openModelImprovePlanModal);
+
     document.getElementById('btn-run-analysis').addEventListener('click', async () => {
       try {
         showToast({ key: 'improve.analyzingEvidence' });
@@ -5026,11 +10492,663 @@
         return `<span class="status-badge status-sage" data-i18n="improve.stateApplied">✓ ${t('improve.stateApplied')}</span>`;
       case 'pending':
       case 'ready':
+      case 'draft':
+      case 'drafts':
+      case 'pending_approval':
         return `<span class="status-badge status-amber" data-i18n="improve.statePending">${t('improve.statePending')}</span>`;
+      case 'snoozed':
+        return `<span class="status-badge status-neutral" data-i18n="improve.btnSnoozeProposal">${t('improve.btnSnoozeProposal')}</span>`;
       case 'dismissed':
         return `<span class="status-badge status-neutral" data-i18n="improve.stateDismissed">${t('improve.stateDismissed')}</span>`;
+      case 'undone':
+        return `<span class="status-badge status-neutral">已撤销</span>`;
       default:
         return `<span class="status-badge status-neutral">${escapeHtml(st || t('improve.statePending'))}</span>`;
+    }
+  }
+
+  async function openModelImprovePlanModal() {
+    const currentProject = state.currentProject;
+    if (!currentProject) {
+      openModal({ key: 'improve.proposeModalTitle' }, `
+        <div class="alert-banner alert-warning" style="margin-bottom: 12px;">
+          <span data-i18n="memory.selectProjectFirst">${escapeHtml(t('memory.selectProjectFirst'))}</span>
+        </div>
+      `, `
+        <button class="btn btn-secondary" id="btn-close-propose-modal" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      `);
+      document.getElementById('btn-close-propose-modal')?.addEventListener('click', closeModal);
+      return;
+    }
+
+    let supportedCarriers = ['Rule', 'Skill', 'Hook', 'Doc', 'Workflow'];
+    try {
+      const desc = await callBridge('improve.model.describe', {});
+      if (desc && Array.isArray(desc.supportedCarriers) && desc.supportedCarriers.length > 0) {
+        supportedCarriers = desc.supportedCarriers;
+      }
+    } catch (_) {
+      // Use defaults
+    }
+
+    const sessions = (state.dashboard && state.dashboard.sessions) || [];
+    const projectSessions = sessions.filter(s => !s.project || s.project === currentProject);
+    const availableSessions = projectSessions.length > 0 ? projectSessions : sessions;
+
+    const savedCodexPath = localStorage.getItem('vela_codex_cli_path') || '/usr/local/bin/codex';
+
+    const modalBody = `
+      <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="improve.proposeModalDesc">
+        ${escapeHtml(t('improve.proposeModalDesc'))}
+      </p>
+
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <label class="form-label" style="margin-bottom: 0;" data-i18n="improve.proposeSessionsLabel">${escapeHtml(t('improve.proposeSessionsLabel'))}</label>
+          <span id="sessions-selected-counter" style="font-size: 11px; color: var(--text-secondary);">已选 0 / 最多 20</span>
+        </div>
+        <div class="session-selection-scroll" id="proposal-sessions-list">
+          ${availableSessions.length === 0 ? `
+            <div style="font-size: 11px; color: var(--text-muted); padding: 8px 0; text-align: center;">暂无可用的已索引会话</div>
+          ` : availableSessions.map(s => `
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; cursor: pointer; margin-bottom: 0;">
+              <input type="checkbox" class="proposal-session-checkbox" value="${escapeHtml(s.id)}" />
+              <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <strong>${escapeHtml(s.title || s.id)}</strong>
+                <span class="text-secondary" style="font-size: 10px; margin-left: 4px;">(${formatTime(s.lastModified || s.created)})</span>
+              </span>
+              <span class="code-badge" style="font-size: 10px;">${escapeHtml(s.provider || 'session')}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <label class="form-label" style="margin-bottom: 0;" data-i18n="improve.proposeTargetsLabel">${escapeHtml(t('improve.proposeTargetsLabel'))}</label>
+          <button type="button" id="btn-add-proposal-target" class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 2px 8px;">+ 添加目标</button>
+        </div>
+        <div id="proposal-targets-container">
+          <div class="proposal-target-row">
+            <select class="form-select target-carrier" style="width: 110px; font-size: 11px;">
+              ${supportedCarriers.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
+            </select>
+            <input type="text" class="form-input target-path font-mono" style="flex: 1; font-size: 11px;" placeholder="例如: AGENTS.md 或 .vela/docs/overview.md" value="AGENTS.md" />
+            <button type="button" class="btn btn-ghost btn-sm btn-remove-target" style="padding: 2px 6px; visibility: hidden;">✕</button>
+          </div>
+        </div>
+        <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">
+          Rule: <code>AGENTS.md</code> / <code>.cursorrules</code> · Skill: <code>.agents/skills/*/SKILL.md</code> · Hook: <code>.codex/hooks.json</code> · Doc: <code>.vela/docs/*.md</code> · Workflow: <code>.vela/workflows/*.md</code>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px; margin-bottom: 10px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">Codex CLI 路径 (Executable)</label>
+          <input type="text" id="proposal-executable" class="form-input font-mono" style="font-size: 11px;" value="${escapeHtml(savedCodexPath)}" placeholder="/usr/local/bin/codex" />
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">模型 (Model)</label>
+          <input type="text" id="proposal-model" class="form-input font-mono" style="font-size: 11px;" value="gpt-5-codex" placeholder="gpt-5-codex" />
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">推演深度 (Effort)</label>
+          <select id="proposal-effort" class="form-select" style="font-size: 11px;">
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high" selected>high</option>
+            <option value="xhigh">xhigh</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">阶段超时 (秒, 1–300)</label>
+          <input type="number" id="proposal-timeout" class="form-input" style="font-size: 11px;" min="1" max="300" value="120" />
+        </div>
+      </div>
+
+      <div class="alert-banner alert-warning" style="font-size: 11px; margin-bottom: 0;">
+        <strong>冻结调用预算：</strong>至多 3 次模型请求（提取 → 归并 → 规划）。提交仅生成一次性待办审批，此步不调用模型。Private 路径和私密内容绝不包含。
+      </div>
+    `;
+
+    openModal({ key: 'improve.proposeModalTitle' }, modalBody, `
+      <button class="btn btn-secondary" id="btn-close-propose" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button class="btn btn-primary" id="btn-submit-proposal" data-i18n="improve.btnSubmitProposal">${escapeHtml(t('improve.btnSubmitProposal'))}</button>
+    `);
+
+    document.getElementById('btn-close-propose')?.addEventListener('click', closeModal);
+
+    const sessionCheckboxes = document.querySelectorAll('.proposal-session-checkbox');
+    const counterEl = document.getElementById('sessions-selected-counter');
+    const updateSessionCount = () => {
+      const count = document.querySelectorAll('.proposal-session-checkbox:checked').length;
+      if (counterEl) {
+        counterEl.textContent = `已选 ${count} / 最多 20`;
+        if (count > 20) {
+          counterEl.style.color = 'var(--color-red)';
+        } else {
+          counterEl.style.color = 'var(--text-secondary)';
+        }
+      }
+    };
+    sessionCheckboxes.forEach(cb => cb.addEventListener('change', updateSessionCount));
+
+    const targetsContainer = document.getElementById('proposal-targets-container');
+    const addTargetBtn = document.getElementById('btn-add-proposal-target');
+
+    function refreshTargetRemoveButtons() {
+      const rows = targetsContainer?.querySelectorAll('.proposal-target-row') || [];
+      rows.forEach(row => {
+        const rmBtn = row.querySelector('.btn-remove-target');
+        if (rmBtn) {
+          rmBtn.style.visibility = rows.length > 1 ? 'visible' : 'hidden';
+        }
+      });
+    }
+
+    addTargetBtn?.addEventListener('click', () => {
+      const currentRows = targetsContainer?.querySelectorAll('.proposal-target-row') || [];
+      if (currentRows.length >= 5) {
+        showToast('目标文件最多选择 5 个', 'info');
+        return;
+      }
+      const newRow = document.createElement('div');
+      newRow.className = 'proposal-target-row';
+      newRow.innerHTML = `
+        <select class="form-select target-carrier" style="width: 110px; font-size: 11px;">
+          ${supportedCarriers.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
+        </select>
+        <input type="text" class="form-input target-path font-mono" style="flex: 1; font-size: 11px;" placeholder="相对路径" />
+        <button type="button" class="btn btn-ghost btn-sm btn-remove-target" style="padding: 2px 6px;">✕</button>
+      `;
+      newRow.querySelector('.btn-remove-target')?.addEventListener('click', () => {
+        newRow.remove();
+        refreshTargetRemoveButtons();
+      });
+      targetsContainer?.appendChild(newRow);
+      refreshTargetRemoveButtons();
+    });
+
+    targetsContainer?.querySelectorAll('.btn-remove-target').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const row = e.target.closest('.proposal-target-row');
+        row?.remove();
+        refreshTargetRemoveButtons();
+      });
+    });
+
+    const submitBtn = document.getElementById('btn-submit-proposal');
+    submitBtn?.addEventListener('click', async () => {
+      const checkedSessions = Array.from(document.querySelectorAll('.proposal-session-checkbox:checked')).map(cb => cb.value);
+      if (checkedSessions.length < 1 || checkedSessions.length > 20) {
+        showToast('请选择 1–20 个证据会话', 'error');
+        return;
+      }
+
+      const rows = targetsContainer?.querySelectorAll('.proposal-target-row') || [];
+      const targets = [];
+      rows.forEach(row => {
+        const carrier = row.querySelector('.target-carrier')?.value;
+        const path = (row.querySelector('.target-path')?.value || '').trim();
+        if (carrier && path) {
+          targets.push({ carrier, path });
+        }
+      });
+
+      if (targets.length < 1 || targets.length > 5) {
+        showToast('请配置 1–5 个有效的目标文件路径', 'error');
+        return;
+      }
+
+      const executable = (document.getElementById('proposal-executable')?.value || '').trim();
+      if (!executable) {
+        showToast('请输入 Codex 可执行文件路径', 'error');
+        return;
+      }
+
+      const model = (document.getElementById('proposal-model')?.value || '').trim();
+      if (!model) {
+        showToast('请输入模型标识 (Model)', 'error');
+        return;
+      }
+
+      const effort = document.getElementById('proposal-effort')?.value || 'high';
+      let timeoutSeconds = parseInt(document.getElementById('proposal-timeout')?.value, 10);
+      if (isNaN(timeoutSeconds) || timeoutSeconds < 1) timeoutSeconds = 120;
+      if (timeoutSeconds > 300) timeoutSeconds = 300;
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        setElementDescriptor(submitBtn, { key: 'common.submitting' });
+      }
+
+      try {
+        const payload = {
+          project: currentProject,
+          sessionIds: checkedSessions,
+          targets,
+          executable,
+          model,
+          effort,
+          maxCalls: 3,
+          timeoutSeconds
+        };
+
+        const res = await callBridge('improve.model.plan', payload);
+        localStorage.setItem('vela_codex_cli_path', executable);
+        showToast({ key: 'improve.proposalCreatedToast' });
+        closeModal();
+
+        const planId = res?.id || res?.runId || res?.request?.id || res?.plan?.id;
+        if (planId) {
+          openModelImproveDetailModal(planId);
+        } else {
+          await refreshDashboard(true, true);
+        }
+      } catch (err) {
+        showToast(err.message || String(err), 'error');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          setElementDescriptor(submitBtn, { key: 'improve.btnSubmitProposal' });
+        }
+      }
+    });
+  }
+
+  async function openModelImprovePlansModal() {
+    const currentProject = state.currentProject;
+    if (!currentProject) {
+      openModal({ key: 'improve.plansModalTitle' }, `
+        <div class="alert-banner alert-warning" style="margin-bottom: 12px;">
+          <span data-i18n="memory.selectProjectFirst">${escapeHtml(t('memory.selectProjectFirst'))}</span>
+        </div>
+      `, `
+        <button class="btn btn-secondary" id="btn-close-plans-modal" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      `);
+      document.getElementById('btn-close-plans-modal')?.addEventListener('click', closeModal);
+      return;
+    }
+
+    openModal({ key: 'improve.plansModalTitle' }, `
+      <div id="model-improve-plans-loading" style="text-align: center; padding: 24px; color: var(--text-secondary); font-size: 12px;">
+        加载提议记录...
+      </div>
+    `, `
+      <button class="btn btn-secondary" id="btn-close-plans-modal" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+      <button class="btn btn-primary" id="btn-modal-new-propose" data-i18n="improve.btnModelImprovePropose">${escapeHtml(t('improve.btnModelImprovePropose'))}</button>
+    `);
+
+    const thisModalInstance = currentModalInstance;
+
+    document.getElementById('btn-close-plans-modal')?.addEventListener('click', closeModal);
+    document.getElementById('btn-modal-new-propose')?.addEventListener('click', () => {
+      closeModal();
+      openModelImprovePlanModal();
+    });
+
+    try {
+      const res = await callBridge('improve.model.list', { project: currentProject });
+      if (currentModalInstance !== thisModalInstance) return;
+      const plans = (res && res.plans) || (res && res.proposals) || (Array.isArray(res) ? res : []);
+
+      const modalContent = document.getElementById('modal-body-content') || document.querySelector('.modal-body');
+      if (!modalContent) return;
+
+      if (plans.length === 0) {
+        modalContent.innerHTML = `
+          <div class="empty-state" style="padding: 32px 16px;">
+            <div class="empty-state-title" data-i18n="improve.emptyTitle">${escapeHtml(t('improve.emptyTitle'))}</div>
+            <div class="empty-state-desc">当前项目尚无模型改进提议方案。点击下方按钮从会话发起提议。</div>
+          </div>
+        `;
+        return;
+      }
+
+      modalContent.innerHTML = `
+        <div class="table-wrapper" style="max-height: 380px; overflow-y: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th data-i18n="improve.plansColId">${escapeHtml(t('improve.plansColId'))}</th>
+                <th data-i18n="improve.plansColState">${escapeHtml(t('improve.plansColState'))}</th>
+                <th data-i18n="improve.plansColTargets">${escapeHtml(t('improve.plansColTargets'))}</th>
+                <th data-i18n="improve.plansColSessions">${escapeHtml(t('improve.plansColSessions'))}</th>
+                <th data-i18n="improve.plansColTime">${escapeHtml(t('improve.plansColTime'))}</th>
+                <th style="text-align: right;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${plans.map(p => {
+                const st = (p.state || 'pending_approval').toLowerCase();
+                let stateBadge = '';
+                if (st === 'pending_approval') {
+                  stateBadge = `<span class="status-badge status-amber">待审批</span>`;
+                } else if (st === 'running') {
+                  stateBadge = `<span class="status-badge status-neutral">执行中</span>`;
+                } else if (st === 'drafts') {
+                  stateBadge = `<span class="status-badge status-sage">已生成提议</span>`;
+                } else if (st === 'observations_only') {
+                  stateBadge = `<span class="status-badge status-neutral">仅观测/无变更</span>`;
+                } else if (st === 'failed') {
+                  stateBadge = `<span class="status-badge status-red">失败</span>`;
+                } else {
+                  stateBadge = `<span class="status-badge status-neutral">${escapeHtml(st)}</span>`;
+                }
+
+                const targetCount = (p.targets && p.targets.length) || 0;
+                const sessionCount = (p.sessionIds && p.sessionIds.length) || 0;
+
+                return `
+                  <tr>
+                    <td><code class="code-badge font-mono">${escapeHtml((p.id || '').substring(0, 8))}</code></td>
+                    <td>${stateBadge}</td>
+                    <td>${targetCount} 个文件</td>
+                    <td>${sessionCount} 个会话</td>
+                    <td style="font-size: 11px; color: var(--text-secondary);">${formatTime(p.createdAt || p.timestamp)}</td>
+                    <td style="text-align: right;">
+                      <button class="btn btn-secondary btn-sm btn-inspect-plan-item" data-id="${escapeHtml(p.id)}">详情</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      modalContent.querySelectorAll('.btn-inspect-plan-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const planId = btn.getAttribute('data-id');
+          closeModal();
+          openModelImproveDetailModal(planId);
+        });
+      });
+    } catch (err) {
+      const modalContent = document.getElementById('modal-body-content') || document.querySelector('.modal-body');
+      if (modalContent) {
+        modalContent.innerHTML = `<div class="alert-banner alert-danger">${escapeHtml(err.message || String(err))}</div>`;
+      }
+    }
+  }
+
+  async function openModelImproveDetailModal(planId) {
+    const currentProject = state.currentProject;
+    if (!currentProject || !planId) return;
+
+    openModal({ key: 'improve.planDetailTitle' }, `
+      <div id="plan-detail-loading" style="text-align: center; padding: 24px; color: var(--text-secondary); font-size: 12px;">
+        加载提议方案详情...
+      </div>
+    `, `
+      <button class="btn btn-secondary" id="btn-close-plan-detail" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+    `);
+
+    const thisModalInstance = currentModalInstance;
+
+    document.getElementById('btn-close-plan-detail')?.addEventListener('click', closeModal);
+
+    try {
+      const res = await callBridge('improve.model.get', { project: currentProject, id: planId });
+      if (currentModalInstance !== thisModalInstance) return;
+      const modalContent = document.getElementById('modal-body-content') || document.querySelector('.modal-body');
+      if (!modalContent || !res) return;
+
+      const st = (res.state || 'pending_approval').toLowerCase();
+      let stateBadge = '';
+      if (st === 'pending_approval') {
+        stateBadge = `<span class="status-badge status-amber">待审批 (Pending Approval)</span>`;
+      } else if (st === 'running') {
+        stateBadge = `<span class="status-badge status-neutral">执行中</span>`;
+      } else if (st === 'drafts') {
+        stateBadge = `<span class="status-badge status-sage">候选提议已就绪 (Drafts)</span>`;
+      } else if (st === 'observations_only') {
+        stateBadge = `<span class="status-badge status-neutral">仅观测/证据不足 (Observations Only)</span>`;
+      } else if (st === 'failed') {
+        stateBadge = `<span class="status-badge status-red">执行失败 (Failed)</span>`;
+      } else {
+        stateBadge = `<span class="status-badge status-neutral">${escapeHtml(st)}</span>`;
+      }
+
+      const req = res.request || {};
+      const suggestions = res.suggestions || [];
+      const stages = res.stages || [];
+
+      let stageHtml = '';
+      if (stages.length > 0) {
+        stageHtml = `
+          <div class="card" style="padding: 10px 12px; margin-bottom: 12px;">
+            <div style="font-weight: 600; font-size: 11px; margin-bottom: 6px; color: var(--text-secondary);">执行阶段 (Execution Stages)</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              ${stages.map((stg, idx) => `
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+                  <div>
+                    <span style="font-weight: 500;">${idx + 1}. ${escapeHtml(stg.name || stg.stage || '阶段')}</span>
+                    ${stg.description ? `<span class="text-secondary" style="margin-left: 6px;">${escapeHtml(stg.description)}</span>` : ''}
+                  </div>
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    ${stg.tokensUsed ? `<span class="code-badge font-mono">${escapeHtml(String(stg.tokensUsed))} tokens</span>` : ''}
+                    <span class="status-badge ${stg.status === 'completed' ? 'status-sage' : (stg.status === 'failed' ? 'status-red' : 'status-neutral')}">${escapeHtml(stg.status || 'pending')}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      modalContent.innerHTML = `
+        <div class="card" style="padding: 10px 12px; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <div style="display: flex; align-items: gap: 8px;">
+              <code class="code-badge font-mono">${escapeHtml(res.id || planId)}</code>
+              ${stateBadge}
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary);">${formatTime(res.createdAt || res.timestamp)}</div>
+          </div>
+          <div style="font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <div><span class="text-secondary" data-i18n="improve.planDetailModel">${escapeHtml(t('improve.planDetailModel'))}</span> <code class="font-mono">${escapeHtml(res.model || req.model || '-')}</code></div>
+            <div><span class="text-secondary" data-i18n="improve.planDetailEffort">${escapeHtml(t('improve.planDetailEffort'))}</span> <code class="font-mono">${escapeHtml(res.effort || req.effort || '-')}</code></div>
+            <div><span class="text-secondary" data-i18n="improve.planDetailSessions">${escapeHtml(t('improve.planDetailSessions'))}</span> <span data-i18n="improve.planDetailSessionsCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: (res.sessionIds || req.sessionIds || []).length }))}">${escapeHtml(t('improve.planDetailSessionsCount', { count: (res.sessionIds || req.sessionIds || []).length }))}</span></div>
+            <div><span class="text-secondary" data-i18n="improve.planDetailTargets">${escapeHtml(t('improve.planDetailTargets'))}</span> <span data-i18n="improve.planDetailTargetsCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: (res.targets || req.targets || []).length }))}">${escapeHtml(t('improve.planDetailTargetsCount', { count: (res.targets || req.targets || []).length }))}</span></div>
+          </div>
+        </div>
+
+        ${st === 'pending_approval' ? `
+          <div class="alert-banner alert-warning" style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-weight: 600;" data-i18n="improve.planPendingApprovalTitle">${escapeHtml(t('improve.planPendingApprovalTitle'))}</div>
+              <div style="font-size: 11px; margin-top: 2px;" data-i18n="improve.planPendingApprovalDesc">${escapeHtml(t('improve.planPendingApprovalDesc'))}</div>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btn-goto-inbox-approval" style="white-space: nowrap; margin-left: 12px;" data-i18n="workflows.btnGoToInbox">${escapeHtml(t('workflows.btnGoToInbox'))}</button>
+          </div>
+        ` : ''}
+
+        ${st === 'observations_only' ? `
+          <div class="alert-banner alert-neutral" style="margin-bottom: 12px; font-size: 11px;" data-i18n="improve.planObservationsOnly">
+            ${escapeHtml(t('improve.planObservationsOnly'))}
+          </div>
+        ` : ''}
+
+        ${stageHtml}
+
+        <div style="margin-top: 10px;">
+          <h3 style="font-size: 12px; font-weight: 600; margin-bottom: 8px;" data-i18n="improve.planCandidatesTitle" data-i18n-params="${escapeHtml(JSON.stringify({ count: suggestions.length }))}">${escapeHtml(t('improve.planCandidatesTitle', { count: suggestions.length }))}</h3>
+          ${suggestions.length === 0 ? `
+            <div style="font-size: 11px; color: var(--text-muted); padding: 12px 0; text-align: center;" data-i18n="improve.planCandidatesEmpty">${escapeHtml(t('improve.planCandidatesEmpty'))}</div>
+          ` : `
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              ${suggestions.map(sug => {
+                const sugState = (sug.state || 'draft').toLowerCase();
+                const carrier = sug.carrier || 'Doc';
+                const targetPath = sug.target || sug.path || (sug.operations && sug.operations[0] && sug.operations[0].path) || '';
+                const suggestionHash = sug.suggestionHash || '';
+
+                return `
+                  <div class="card" style="padding: 10px 12px; margin-bottom: 0;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                      <div style="font-weight: 600; font-size: 12px;">${escapeHtml(sug.title || targetPath || t('improve.planCandidateDefaultTitle'))}</div>
+                      <div style="display: flex; gap: 6px; align-items: center;">
+                        <span class="carrier-badge">${escapeHtml(carrier)}</span>
+                        <span class="status-badge status-amber font-mono" style="font-size: 10px;">unverified_proposal</span>
+                        ${getImproveStateBadge(sugState)}
+                      </div>
+                    </div>
+                    ${targetPath ? `<div style="margin-bottom: 6px;"><code class="code-badge font-mono" style="font-size: 10.5px;">${escapeHtml(targetPath)}</code></div>` : ''}
+                    ${sug.modelClaim || sug.description || sug.reason ? `
+                      <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; margin-bottom: 8px;">
+                        ${escapeHtml(sug.modelClaim || sug.description || sug.reason)}
+                      </div>
+                    ` : ''}
+                    <div style="display: flex; justify-content: flex-end; gap: 6px; align-items: center; margin-top: 6px; border-top: 1px dashed var(--border-color); padding-top: 6px;">
+                      <button type="button" class="btn btn-secondary btn-sm btn-plan-preview-diff" data-id="${escapeHtml(sug.id)}" data-i18n="improve.btnPreviewDiff">${escapeHtml(t('improve.btnPreviewDiff'))}</button>
+                      ${sugState !== 'applied' ? `
+                        <button type="button" class="btn btn-primary btn-sm btn-plan-apply-sug" data-id="${escapeHtml(sug.id)}" data-hash="${escapeHtml(suggestionHash)}" data-i18n="improve.btnApplyProposal">${escapeHtml(t('improve.btnApplyProposal'))}</button>
+                      ` : `
+                        <button type="button" class="btn btn-danger btn-sm btn-plan-undo-sug" data-id="${escapeHtml(sug.id)}" data-i18n="improve.btnUndoProposal">${escapeHtml(t('improve.btnUndoProposal'))}</button>
+                      `}
+                      ${sugState !== 'applied' && sugState !== 'snoozed' ? `
+                        <button type="button" class="btn btn-ghost btn-sm btn-plan-snooze-sug" data-id="${escapeHtml(sug.id)}" data-hash="${escapeHtml(suggestionHash)}" data-i18n="improve.btnSnoozeProposal">${escapeHtml(t('improve.btnSnoozeProposal'))}</button>
+                      ` : ''}
+                      ${sugState !== 'applied' && sugState !== 'dismissed' ? `
+                        <button type="button" class="btn btn-ghost btn-sm btn-plan-dismiss-sug" data-id="${escapeHtml(sug.id)}" data-hash="${escapeHtml(suggestionHash)}" data-i18n="improve.btnDismissProposal">${escapeHtml(t('improve.btnDismissProposal'))}</button>
+                      ` : ''}
+                      ${sugState === 'snoozed' || sugState === 'dismissed' ? `
+                        <button type="button" class="btn btn-ghost btn-sm btn-plan-reopen-sug" data-id="${escapeHtml(sug.id)}" data-hash="${escapeHtml(suggestionHash)}" data-i18n="improve.btnReopenProposal">${escapeHtml(t('improve.btnReopenProposal'))}</button>
+                      ` : ''}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+      `;
+
+      document.getElementById('btn-goto-inbox-approval')?.addEventListener('click', () => {
+        closeModal();
+        if (typeof switchTab === 'function') {
+          switchTab('inbox');
+        }
+      });
+
+      modalContent.querySelectorAll('.btn-plan-preview-diff').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sugId = btn.getAttribute('data-id');
+          openImprovePreviewDrawer(sugId);
+        });
+      });
+
+      modalContent.querySelectorAll('.btn-plan-apply-sug').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const sugId = btn.getAttribute('data-id');
+          const suggestionHash = btn.getAttribute('data-hash');
+          btn.disabled = true;
+          try {
+            const payload = { id: sugId, project: currentProject };
+            if (suggestionHash) payload.suggestionHash = suggestionHash;
+            await callBridge('improve.apply', payload);
+            showToast({ key: 'improve.appliedSuccessToast' });
+            await openModelImproveDetailModal(planId);
+            await refreshDashboard(true, true);
+          } catch (err) {
+            showToast(err.message || String(err), 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+
+      modalContent.querySelectorAll('.btn-plan-undo-sug').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const sugId = btn.getAttribute('data-id');
+          btn.disabled = true;
+          try {
+            await callBridge('improve.undo', { id: sugId });
+            showToast({ key: 'improve.undoSuccessToast' });
+            await openModelImproveDetailModal(planId);
+            await refreshDashboard(true, true);
+          } catch (err) {
+            showToast(err.message || String(err), 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+
+      modalContent.querySelectorAll('.btn-plan-snooze-sug').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const sugId = btn.getAttribute('data-id');
+          const suggestionHash = btn.getAttribute('data-hash');
+          btn.disabled = true;
+          try {
+            const until = new Date(Date.now() + 7 * 86400000).toISOString();
+            await callBridge('improve.model.transition', {
+              project: currentProject,
+              id: sugId,
+              suggestionHash,
+              action: 'snooze',
+              until
+            });
+            showToast({ key: 'improve.transitionSuccessToast' });
+            await openModelImproveDetailModal(planId);
+            await refreshDashboard(true, true);
+          } catch (err) {
+            showToast(err.message || String(err), 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+
+      modalContent.querySelectorAll('.btn-plan-dismiss-sug').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const sugId = btn.getAttribute('data-id');
+          const suggestionHash = btn.getAttribute('data-hash');
+          btn.disabled = true;
+          try {
+            await callBridge('improve.model.transition', {
+              project: currentProject,
+              id: sugId,
+              suggestionHash,
+              action: 'dismiss'
+            });
+            showToast({ key: 'improve.transitionSuccessToast' });
+            await openModelImproveDetailModal(planId);
+            await refreshDashboard(true, true);
+          } catch (err) {
+            showToast(err.message || String(err), 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+
+      modalContent.querySelectorAll('.btn-plan-reopen-sug').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const sugId = btn.getAttribute('data-id');
+          const suggestionHash = btn.getAttribute('data-hash');
+          btn.disabled = true;
+          try {
+            await callBridge('improve.model.transition', {
+              project: currentProject,
+              id: sugId,
+              suggestionHash,
+              action: 'reopen'
+            });
+            showToast({ key: 'improve.transitionSuccessToast' });
+            await openModelImproveDetailModal(planId);
+            await refreshDashboard(true, true);
+          } catch (err) {
+            showToast(err.message || String(err), 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+
+    } catch (err) {
+      const modalContent = document.getElementById('modal-body-content') || document.querySelector('.modal-body');
+      if (modalContent) {
+        modalContent.innerHTML = `<div class="alert-banner alert-danger">${escapeHtml(err.message || String(err))}</div>`;
+      }
     }
   }
 
@@ -5428,7 +11546,12 @@
         const thisProject = state.currentProject;
 
         try {
-          await callBridge('improve.apply', { id: previewObj.id });
+          const applyPayload = { id: previewObj.id };
+          if (previewObj.suggestionHash) {
+            applyPayload.suggestionHash = previewObj.suggestionHash;
+            applyPayload.project = state.currentProject;
+          }
+          await callBridge('improve.apply', applyPayload);
 
           const modal = document.getElementById('modal-container');
           const isModalOpen = modal && !modal.classList.contains('hidden');
@@ -7259,6 +13382,20 @@
       if (s) settings = s;
     } catch {}
 
+    let daemonStatus = null;
+    let daemonPlan = null;
+    try {
+      daemonStatus = await callBridge('daemon.status');
+    } catch {}
+    try {
+      daemonPlan = await callBridge('daemon.plan');
+    } catch {}
+
+    let connectorStatus = null;
+    try {
+      connectorStatus = await callBridge('connectors.status');
+    } catch {}
+
     if (thisGen !== renderGeneration || state.currentPage !== thisPage || !document.contains(container)) return;
 
     // Merge in-progress user draft so background polls or label clicks don't revert inputs
@@ -7323,33 +13460,26 @@
             <label class="form-checkbox-label">
               <input type="checkbox" id="setting-notify-completed" ${settings.notifyCompleted !== false ? 'checked' : ''}>
               <div>
-                <span style="font-size: 13px;" data-i18n="settings.completed">${t('settings.completed')}</span>
-                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.completedDesc">${t('settings.completedDesc')}</div>
+                <span style="font-size: 13px;" data-i18n="settings.completedRuns">${t('settings.completedRuns')}</span>
+                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.completedRunsDesc">${t('settings.completedRunsDesc')}</div>
               </div>
             </label>
             <label class="form-checkbox-label">
               <input type="checkbox" id="setting-notify-errors" ${settings.notifyErrors !== false ? 'checked' : ''}>
               <div>
-                <span style="font-size: 13px;" data-i18n="settings.errors">${t('settings.errors')}</span>
-                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.errorsDesc">${t('settings.errorsDesc')}</div>
+                <span style="font-size: 13px;" data-i18n="settings.runtimeErrors">${t('settings.runtimeErrors')}</span>
+                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.runtimeErrorsDesc">${t('settings.runtimeErrorsDesc')}</div>
               </div>
             </label>
-          </fieldset>
-
-          <div class="sound-preview-bar" style="padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-            <div>
-              <strong style="font-size: 13px;" data-i18n="settings.soundPreview">${t('settings.soundPreview')}</strong>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.soundPreviewDesc">${t('settings.soundPreviewDesc')}</div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <select id="setting-preview-sound-kind" class="filter-select" aria-label="试听音效事件类型" data-i18n-aria-label="settings.previewSoundAria">
-                <option value="approval" data-i18n="settings.soundKindApproval">${t('settings.soundKindApproval')}</option>
-                <option value="completed" data-i18n="settings.soundKindCompleted">${t('settings.soundKindCompleted')}</option>
-                <option value="error" data-i18n="settings.soundKindError">${t('settings.soundKindError')}</option>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+              <select id="setting-preview-sound-kind" class="filter-select" style="font-size: 11px; padding: 2px 6px;" aria-label="${escapeHtml(t('settings.previewKindAria'))}" data-i18n-aria-label="settings.previewKindAria">
+                <option value="approval" data-i18n="settings.previewKindApproval">${t('settings.previewKindApproval')}</option>
+                <option value="completed" data-i18n="settings.previewKindCompleted">${t('settings.previewKindCompleted')}</option>
+                <option value="error" data-i18n="settings.previewKindError">${t('settings.previewKindError')}</option>
               </select>
-              <button id="btn-preview-notification-sound" class="btn btn-secondary btn-sm" data-i18n="settings.btnPreviewSound">${t('settings.btnPreviewSound')}</button>
+              <button id="btn-preview-notification-sound" type="button" class="btn btn-secondary btn-xs" data-i18n="settings.previewSound">${t('settings.previewSound')}</button>
             </div>
-          </div>
+          </fieldset>
         </div>
       </div>
 
@@ -7378,6 +13508,96 @@
 
         <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
           <button id="btn-save-settings" class="btn btn-primary btn-sm" data-i18n="settings.btnSave">${t('settings.btnSave')}</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 14px;">
+        <div class="card-header">
+          <div>
+            <span class="card-title" data-i18n="settings.daemonTitle">${t('settings.daemonTitle')}</span>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.daemonDesc">${t('settings.daemonDesc')}</div>
+          </div>
+          ${(daemonStatus && daemonStatus.running)
+            ? `<span class="status-badge status-sage" data-i18n="settings.daemonStatusRunning">${t('settings.daemonStatusRunning')}</span>`
+            : `<span class="status-badge status-neutral" data-i18n="settings.daemonStatusStopped">${t('settings.daemonStatusStopped')}</span>`
+          }
+        </div>
+
+        <div class="daemon-info-grid">
+          <div>
+            <strong data-i18n="settings.daemonScopeLabel">${t('settings.daemonScopeLabel')}</strong>
+            <span style="margin-left: 4px;" data-i18n="settings.daemonScopeVal">${t('settings.daemonScopeVal')}</span>
+          </div>
+          <div>
+            <strong data-i18n="settings.daemonLabelLabel">${t('settings.daemonLabelLabel')}</strong>
+            <span class="code-badge" style="margin-left: 4px;">${escapeHtml((daemonStatus && daemonStatus.label) || (daemonPlan && daemonPlan.label) || '—')}</span>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <strong data-i18n="settings.daemonPlistPath">${t('settings.daemonPlistPath')}</strong>
+            <code class="code-badge" style="margin-left: 4px; word-break: break-all;">${escapeHtml((daemonStatus && daemonStatus.path) || (daemonPlan && daemonPlan.path) || '—')}</code>
+          </div>
+          <div>
+            <strong data-i18n="settings.daemonLastTick">${t('settings.daemonLastTick')}</strong>
+            <span style="margin-left: 4px;">${(daemonStatus && daemonStatus.recorded && daemonStatus.recorded.lastTick) ? formatTime(daemonStatus.recorded.lastTick) : '—'}</span>
+          </div>
+          <div>
+            <strong data-i18n="settings.daemonPid">${t('settings.daemonPid')}</strong>
+            <span class="font-mono" style="margin-left: 4px;">${(daemonStatus && daemonStatus.recorded && daemonStatus.recorded.pid) ? escapeHtml(String(daemonStatus.recorded.pid)) : '—'}</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap;">
+          ${(daemonStatus && daemonStatus.running) ? `
+            <button id="btn-stop-daemon" class="btn btn-secondary btn-sm" data-i18n="settings.btnStopDaemon">${t('settings.btnStopDaemon')}</button>
+          ` : `
+            <button id="btn-start-daemon" class="btn btn-primary btn-sm" data-i18n="settings.btnStartDaemon">${t('settings.btnStartDaemon')}</button>
+          `}
+          ${(daemonStatus && daemonStatus.installed) ? `
+            <button id="btn-uninstall-daemon" class="btn btn-ghost btn-sm" style="color: var(--status-red-text);" data-i18n="settings.btnUninstallDaemon">${t('settings.btnUninstallDaemon')}</button>
+          ` : ''}
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 14px;">
+        <div class="card-header">
+          <div>
+            <span class="card-title" data-i18n="connectors.settingsTitle">${t('connectors.settingsTitle')}</span>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="connectors.settingsDesc">${t('connectors.settingsDesc')}</div>
+          </div>
+          ${(connectorStatus && connectorStatus.state === 'configured')
+            ? `<span class="status-badge status-sage" data-i18n="connectors.statusConfigured">${t('connectors.statusConfigured')}</span>`
+            : `<span class="status-badge status-neutral" data-i18n="connectors.statusNotConfigured">${t('connectors.statusNotConfigured')}</span>`
+          }
+        </div>
+
+        ${(connectorStatus && connectorStatus.state === 'configured') ? `
+          <div class="daemon-info-grid">
+            <div>
+              <strong data-i18n="connectors.userIdLabel">${t('connectors.userIdLabel')}</strong>
+              <span class="code-badge" style="margin-left: 4px;">${escapeHtml(connectorStatus.userId || '—')}</span>
+            </div>
+            <div>
+              <strong data-i18n="connectors.generationLabel">${t('connectors.generationLabel')}</strong>
+              <span class="font-mono" style="margin-left: 4px;">${escapeHtml(String(connectorStatus.generation ?? '—'))}</span>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <strong data-i18n="connectors.verifiedAtLabel">${t('connectors.verifiedAtLabel')}</strong>
+              <span style="margin-left: 4px;">${connectorStatus.verifiedAt ? formatTime(connectorStatus.verifiedAt) : '—'}</span>
+            </div>
+          </div>
+        ` : ''}
+
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap;">
+          ${(connectorStatus && connectorStatus.state === 'configured') ? `
+            <button id="btn-browse-connector-catalog" class="btn btn-secondary btn-sm" data-i18n="connectors.btnBrowseCatalog">${t('connectors.btnBrowseCatalog')}</button>
+            <button id="btn-manage-connector-accounts" class="btn btn-secondary btn-sm" data-i18n="connectors.btnManageAccounts">${t('connectors.btnManageAccounts')}</button>
+            <button id="btn-view-connector-actions" class="btn btn-secondary btn-sm" data-i18n="connectors.btnViewActions">${t('connectors.btnViewActions')}</button>
+            <button id="btn-reconfigure-connector" class="btn btn-secondary btn-sm" data-i18n="connectors.btnReconfigure">${t('connectors.btnReconfigure')}</button>
+            <button id="btn-forget-connector" class="btn btn-ghost btn-sm" style="color: var(--status-red-text);" data-i18n="connectors.btnForget">${t('connectors.btnForget')}</button>
+          ` : `
+            <button id="btn-view-connector-actions" class="btn btn-secondary btn-sm" data-i18n="connectors.btnViewActions">${t('connectors.btnViewActions')}</button>
+            <button id="btn-configure-connector" class="btn btn-primary btn-sm" data-i18n="connectors.btnConfigure">${t('connectors.btnConfigure')}</button>
+          `}
         </div>
       </div>
 
@@ -7514,6 +13734,722 @@
         showToast({ key: 'settings.saveFailed', params: { error: err.message || '' } }, 'error');
       }
     });
+
+    document.getElementById('btn-start-daemon')?.addEventListener('click', () => {
+      openModal(
+        t('settings.daemonStartConfirmTitle'),
+        `<div style="font-size: 13px; line-height: 1.5; color: var(--text-main);">
+          ${escapeHtml(t('settings.daemonStartConfirmDesc'))}
+        </div>`,
+        `<div style="display: flex; justify-content: flex-end; gap: 8px; width: 100%;">
+          <button id="btn-cancel-daemon-start" class="btn btn-secondary btn-sm" data-i18n="common.cancel">${t('common.cancel')}</button>
+          <button id="btn-confirm-daemon-start" class="btn btn-primary btn-sm" data-i18n="common.confirm">${t('common.confirm')}</button>
+        </div>`
+      );
+
+      document.getElementById('btn-cancel-daemon-start')?.addEventListener('click', () => {
+        closeModal();
+      });
+
+      document.getElementById('btn-confirm-daemon-start')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-confirm-daemon-start');
+        if (btn) btn.disabled = true;
+        try {
+          await callBridge('daemon.start');
+          closeModal();
+          showToast({ key: 'settings.daemonStartedToast' });
+          renderSettingsView(container);
+        } catch (err) {
+          showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+          if (btn) btn.disabled = false;
+        }
+      });
+    });
+
+    document.getElementById('btn-stop-daemon')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-stop-daemon');
+      if (btn) btn.disabled = true;
+      try {
+        await callBridge('daemon.stop');
+        showToast({ key: 'settings.daemonStoppedToast' });
+        renderSettingsView(container);
+      } catch (err) {
+        showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+        if (btn) btn.disabled = false;
+      }
+    });
+
+    document.getElementById('btn-uninstall-daemon')?.addEventListener('click', () => {
+      openModal(
+        t('settings.daemonUninstallConfirmTitle'),
+        `<div style="font-size: 13px; line-height: 1.5; color: var(--text-main);">
+          ${escapeHtml(t('settings.daemonUninstallConfirmDesc'))}
+        </div>`,
+        `<div style="display: flex; justify-content: flex-end; gap: 8px; width: 100%;">
+          <button id="btn-cancel-daemon-uninstall" class="btn btn-secondary btn-sm" data-i18n="common.cancel">${t('common.cancel')}</button>
+          <button id="btn-confirm-daemon-uninstall" class="btn btn-danger btn-sm" data-i18n="common.confirm">${t('common.confirm')}</button>
+        </div>`
+      );
+
+      document.getElementById('btn-cancel-daemon-uninstall')?.addEventListener('click', () => {
+        closeModal();
+      });
+
+      document.getElementById('btn-confirm-daemon-uninstall')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-confirm-daemon-uninstall');
+        if (btn) btn.disabled = true;
+        try {
+          await callBridge('daemon.uninstall');
+          closeModal();
+          showToast({ key: 'settings.daemonUninstalledToast' });
+          renderSettingsView(container);
+        } catch (err) {
+          showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+          if (btn) btn.disabled = false;
+        }
+      });
+    });
+
+    document.getElementById('btn-configure-connector')?.addEventListener('click', () => {
+      openConnectorConfigureModal(connectorStatus);
+    });
+    document.getElementById('btn-reconfigure-connector')?.addEventListener('click', () => {
+      openConnectorConfigureModal(connectorStatus);
+    });
+    document.getElementById('btn-forget-connector')?.addEventListener('click', () => {
+      openConnectorForgetConfirmModal(connectorStatus ? connectorStatus.generation : null);
+    });
+    document.getElementById('btn-browse-connector-catalog')?.addEventListener('click', () => {
+      openConnectorCatalogModal();
+    });
+    document.getElementById('btn-manage-connector-accounts')?.addEventListener('click', () => {
+      openConnectorAccountsModal();
+    });
+    document.getElementById('btn-view-connector-actions')?.addEventListener('click', () => {
+      openConnectorActionsModal();
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // EXTERNAL CONNECTORS MODALS (Composio REST v3.1)
+  // -------------------------------------------------------------------------
+  function openConnectorConfigureModal(status = null) {
+    const modalBody = `
+      <div class="alert-banner alert-info" style="margin-bottom: 14px; font-size: 12px;">
+        <span data-i18n="connectors.configModalDesc">${escapeHtml(t('connectors.configModalDesc'))}</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="connectors.apiKeyLabel">${escapeHtml(t('connectors.apiKeyLabel'))} *</label>
+        <input type="password" id="connector-api-key" class="form-input" placeholder="${escapeHtml(t('connectors.apiKeyPlaceholder'))}" autocomplete="off" required>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">仅存入 macOS Keychain，内存与 DOM 立即清空，不进入网络同步或日志。</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="connectors.userIdLabel">${escapeHtml(t('connectors.userIdLabel'))} *</label>
+        <input type="text" id="connector-user-id" class="form-input" placeholder="${escapeHtml(t('connectors.userIdPlaceholder'))}" value="${escapeHtml((status && status.userId) || 'default-user')}" required>
+      </div>
+    `;
+
+    const modalFooter = `
+      <button id="btn-cancel-connector-config" class="btn btn-secondary" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button id="btn-submit-connector-config" class="btn btn-primary" data-i18n="connectors.btnSaveConfig">${escapeHtml(t('connectors.btnSaveConfig'))}</button>
+    `;
+
+    openModal(t('connectors.configModalTitle'), modalBody, modalFooter);
+
+    document.getElementById('btn-cancel-connector-config')?.addEventListener('click', () => {
+      const keyInp = document.getElementById('connector-api-key');
+      if (keyInp) keyInp.value = '';
+      closeModal();
+    });
+
+    document.getElementById('btn-submit-connector-config')?.addEventListener('click', async () => {
+      const keyInp = document.getElementById('connector-api-key');
+      const userIdInp = document.getElementById('connector-user-id');
+      const apiKey = keyInp ? keyInp.value.trim() : '';
+      const userId = userIdInp ? userIdInp.value.trim() : '';
+
+      // Immediately clear DOM password field
+      if (keyInp) keyInp.value = '';
+
+      if (!apiKey) {
+        showToast('请输入 Composio Project API Key', 'warning');
+        return;
+      }
+      if (!userId) {
+        showToast('请输入 User ID', 'warning');
+        return;
+      }
+
+      const submitBtn = document.getElementById('btn-submit-connector-config');
+      if (submitBtn) submitBtn.disabled = true;
+
+      try {
+        await callBridge('connectors.configure', { apiKey, userId });
+        closeModal();
+        showToast({ key: 'connectors.configSuccessToast' });
+        const container = document.getElementById('main-content');
+        if (container) renderSettingsView(container);
+      } catch (err) {
+        showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
+
+  function openConnectorForgetConfirmModal(generation) {
+    const modalBody = `
+      <div style="font-size: 13px; line-height: 1.5; color: var(--text-main);">
+        <p data-i18n="connectors.forgetConfirmDesc">${escapeHtml(t('connectors.forgetConfirmDesc'))}</p>
+        <div style="margin-top: 8px; font-size: 11px; color: var(--text-secondary);">
+          <strong data-i18n="connectors.generationLabel">${escapeHtml(t('connectors.generationLabel'))}</strong>
+          <span class="font-mono" style="margin-left: 4px;">${escapeHtml(String(generation ?? '—'))}</span>
+        </div>
+      </div>
+    `;
+
+    const modalFooter = `
+      <button id="btn-cancel-forget-connector" class="btn btn-secondary" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button id="btn-confirm-forget-connector" class="btn btn-danger" data-i18n="common.confirm">${escapeHtml(t('common.confirm'))}</button>
+    `;
+
+    openModal(t('connectors.forgetConfirmTitle'), modalBody, modalFooter);
+
+    document.getElementById('btn-cancel-forget-connector')?.addEventListener('click', closeModal);
+    document.getElementById('btn-confirm-forget-connector')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-confirm-forget-connector');
+      if (btn) btn.disabled = true;
+      try {
+        await callBridge('connectors.forget', { generation: generation != null ? generation : 0 });
+        closeModal();
+        showToast({ key: 'connectors.forgetSuccessToast' });
+        const container = document.getElementById('main-content');
+        if (container) renderSettingsView(container);
+      } catch (err) {
+        showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+        if (btn) btn.disabled = false;
+      }
+    });
+  }
+
+  function openConnectorCatalogModal() {
+    let tools = [];
+    let currentCursor = null;
+    let hasMore = false;
+    let selectedTool = null;
+    let selectedAccountId = '';
+    let accountsList = [];
+
+    const modalBody = `
+      <div style="display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap;">
+        <input type="search" id="conn-catalog-query" class="form-input" style="flex: 2; min-width: 180px;" placeholder="${escapeHtml(t('connectors.searchPlaceholder'))}" data-i18n-placeholder="connectors.searchPlaceholder">
+        <input type="text" id="conn-catalog-toolkit" class="form-input" style="flex: 1; min-width: 120px;" placeholder="Toolkit (可选)">
+        <button id="btn-search-conn-catalog" class="btn btn-primary btn-sm">搜索目录</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: 380px;">
+        <!-- Left: Tool list -->
+        <div style="display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; padding-right: 4px;" id="conn-tools-list-container">
+          <div style="font-size: 12px; color: var(--text-muted); padding: 40px 0; text-align: center;">
+            点击“搜索目录”按关键词或 Toolkit 在线检索 Composio 工具
+          </div>
+        </div>
+
+        <!-- Right: Tool Inspector and Actions -->
+        <div style="border-left: 1px solid var(--border-color); padding-left: 12px; display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto;" id="conn-tool-inspector">
+          <div style="font-size: 12px; color: var(--text-muted); padding: 40px 0; text-align: center;">
+            选择左侧工具以查看详情与调用参数
+          </div>
+        </div>
+      </div>
+    `;
+
+    openModal(t('connectors.catalogModalTitle'), modalBody, `
+      <button id="btn-close-conn-catalog" class="btn btn-secondary" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+    `);
+
+    document.getElementById('btn-close-conn-catalog')?.addEventListener('click', closeModal);
+
+    const renderToolsList = () => {
+      const container = document.getElementById('conn-tools-list-container');
+      if (!container) return;
+      if (tools.length === 0) {
+        container.innerHTML = `<div style="font-size: 12px; color: var(--text-muted); padding: 30px 0; text-align: center;" data-i18n="connectors.emptyCatalog">${escapeHtml(t('connectors.emptyCatalog'))}</div>`;
+        return;
+      }
+      container.innerHTML = `
+        ${tools.map((item, idx) => `
+          <div class="connector-tool-card ${(selectedTool && selectedTool.slug === item.slug) ? 'selected' : ''}" data-tool-idx="${idx}">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <strong style="font-size: 12px; word-break: break-all;">${escapeHtml(item.name || item.slug)}</strong>
+              <span class="code-badge" style="font-size: 10px;">${escapeHtml(item.toolkit || 'tool')}</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 2px;">
+              ${escapeHtml(item.slug)} @ v${escapeHtml(item.version || '1.0.0')}
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.4; max-height: 32px; overflow: hidden; text-overflow: ellipsis;">
+              ${escapeHtml(item.description || '')}
+            </div>
+            <div style="margin-top: 4px; display: flex; gap: 4px; align-items: center;">
+              <span class="status-badge ${item.noAuth ? 'status-neutral' : 'status-amber'}" style="font-size: 9.5px;">
+                ${item.noAuth ? t('connectors.noAuthRequired') : t('connectors.authRequired')}
+              </span>
+              <span class="status-badge status-neutral" style="font-size: 9.5px;">审批必须</span>
+            </div>
+          </div>
+        `).join('')}
+        ${hasMore ? `
+          <button id="btn-load-more-tools" class="btn btn-ghost btn-sm" style="margin-top: 6px; width: 100%;" data-i18n="connectors.btnLoadMore">${escapeHtml(t('connectors.btnLoadMore'))}</button>
+        ` : ''}
+      `;
+
+      container.querySelectorAll('.connector-tool-card').forEach(el => {
+        el.addEventListener('click', () => {
+          const idx = parseInt(el.getAttribute('data-tool-idx'), 10);
+          selectedTool = tools[idx];
+          renderToolsList();
+          renderToolInspector();
+        });
+      });
+
+      document.getElementById('btn-load-more-tools')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-load-more-tools');
+        if (btn) btn.disabled = true;
+        try {
+          const query = (document.getElementById('conn-catalog-query')?.value || '').trim() || undefined;
+          const toolkit = (document.getElementById('conn-catalog-toolkit')?.value || '').trim() || undefined;
+          const res = await callBridge('connectors.tools.search', { query, toolkit, cursor: currentCursor, limit: 25 });
+          if (res && Array.isArray(res.items)) {
+            tools = tools.concat(res.items);
+            currentCursor = res.nextCursor || null;
+            hasMore = Boolean(res.hasMore && currentCursor);
+            renderToolsList();
+          }
+        } catch (err) {
+          showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+        }
+      });
+    };
+
+    const renderToolInspector = async () => {
+      const inspector = document.getElementById('conn-tool-inspector');
+      if (!inspector || !selectedTool) return;
+
+      inspector.innerHTML = `
+        <div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <strong style="font-size: 13px;">${escapeHtml(selectedTool.name || selectedTool.slug)}</strong>
+            <span class="code-badge">${escapeHtml(selectedTool.toolkit || '')}</span>
+          </div>
+          <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); margin-top: 2px;">
+            Slug: ${escapeHtml(selectedTool.slug)} | Version: ${escapeHtml(selectedTool.version || '1.0.0')}
+          </div>
+          ${selectedTool.catalogHash ? `<div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">Hash: ${escapeHtml(selectedTool.catalogHash)}</div>` : ''}
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4;">
+            ${escapeHtml(selectedTool.description || '')}
+          </div>
+        </div>
+
+        ${!selectedTool.noAuth ? `
+          <div class="form-group" style="margin-bottom: 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <label class="form-label" style="margin-bottom: 0;" data-i18n="connectors.accountSelectLabel">${escapeHtml(t('connectors.accountSelectLabel'))}</label>
+              <button type="button" id="btn-load-tool-accounts" class="btn btn-ghost btn-xs" style="font-size: 10px;">刷新账户</button>
+            </div>
+            <select id="conn-selected-account" class="form-select" style="font-size: 11px;">
+              <option value="">${accountsList.length === 0 ? '点击“刷新账户”载入可用凭据' : '— 请选择关联账户 —'}</option>
+              ${accountsList.map(a => `
+                <option value="${escapeHtml(a.id)}" ${selectedAccountId === a.id ? 'selected' : ''}>${escapeHtml(a.id)} (${escapeHtml(a.status || 'ACTIVE')})</option>
+              `).join('')}
+            </select>
+          </div>
+        ` : ''}
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" data-i18n="connectors.argsLabel">${escapeHtml(t('connectors.argsLabel'))}</label>
+          <textarea id="conn-tool-args" class="form-textarea code-editor" rows="4" style="font-size: 11px; font-family: var(--font-mono);" placeholder="{}">{}</textarea>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 4px;">
+          <button id="btn-preview-conn-action" class="btn btn-secondary btn-sm" style="flex: 1;" data-i18n="connectors.btnPreviewAction">${escapeHtml(t('connectors.btnPreviewAction'))}</button>
+          <button id="btn-plan-conn-action" class="btn btn-primary btn-sm" style="flex: 1;" data-i18n="connectors.btnPlanAction">${escapeHtml(t('connectors.btnPlanAction'))}</button>
+        </div>
+
+        <div id="conn-preview-result" class="hidden" style="margin-top: 8px;">
+          <div style="font-size: 11px; font-weight: 600; margin-bottom: 4px;" data-i18n="connectors.previewResultTitle">${escapeHtml(t('connectors.previewResultTitle'))}</div>
+          <div id="conn-preview-output" class="code-view" style="font-size: 10.5px; max-height: 120px;"></div>
+        </div>
+      `;
+
+      document.getElementById('btn-load-tool-accounts')?.addEventListener('click', async () => {
+        try {
+          const res = await callBridge('connectors.accounts.list', selectedTool.toolkit ? { toolkit: selectedTool.toolkit } : {});
+          accountsList = (res && Array.isArray(res.items)) ? res.items : [];
+          renderToolInspector();
+        } catch (err) {
+          showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+        }
+      });
+
+      document.getElementById('conn-selected-account')?.addEventListener('change', (e) => {
+        selectedAccountId = e.target.value;
+      });
+
+      document.getElementById('btn-preview-conn-action')?.addEventListener('click', async () => {
+        let args = {};
+        try {
+          const raw = document.getElementById('conn-tool-args')?.value.trim();
+          if (raw) args = JSON.parse(raw);
+        } catch {
+          showToast({ key: 'connectors.invalidArgsJson' }, 'error');
+          return;
+        }
+
+        const btn = document.getElementById('btn-preview-conn-action');
+        if (btn) btn.disabled = true;
+
+        try {
+          const res = await callBridge('connectors.action.preview', {
+            project: state.currentProject,
+            action: 'tool',
+            toolSlug: selectedTool.slug,
+            version: selectedTool.version || '1.0.0',
+            catalogHash: selectedTool.catalogHash || '',
+            connectedAccountId: selectedAccountId || undefined,
+            arguments: args
+          });
+
+          const previewBox = document.getElementById('conn-preview-result');
+          const previewOut = document.getElementById('conn-preview-output');
+          if (previewBox && previewOut) {
+            previewBox.classList.remove('hidden');
+            previewOut.textContent = JSON.stringify(res, null, 2);
+          }
+        } catch (err) {
+          showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      });
+
+      document.getElementById('btn-plan-conn-action')?.addEventListener('click', async () => {
+        let args = {};
+        try {
+          const raw = document.getElementById('conn-tool-args')?.value.trim();
+          if (raw) args = JSON.parse(raw);
+        } catch {
+          showToast({ key: 'connectors.invalidArgsJson' }, 'error');
+          return;
+        }
+
+        const btn = document.getElementById('btn-plan-conn-action');
+        if (btn) btn.disabled = true;
+
+        try {
+          await callBridge('connectors.action.plan', {
+            project: state.currentProject,
+            action: 'tool',
+            toolSlug: selectedTool.slug,
+            version: selectedTool.version || '1.0.0',
+            catalogHash: selectedTool.catalogHash || '',
+            connectedAccountId: selectedAccountId || undefined,
+            arguments: args
+          });
+
+          closeModal();
+          showToast({ key: 'connectors.actionPlannedToast' });
+        } catch (err) {
+          showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+          if (btn) btn.disabled = false;
+        }
+      });
+    };
+
+    const doSearch = async () => {
+      const query = (document.getElementById('conn-catalog-query')?.value || '').trim() || undefined;
+      const toolkit = (document.getElementById('conn-catalog-toolkit')?.value || '').trim() || undefined;
+      const btn = document.getElementById('btn-search-conn-catalog');
+      if (btn) btn.disabled = true;
+
+      try {
+        const res = await callBridge('connectors.tools.search', { query, toolkit, limit: 25 });
+        tools = (res && Array.isArray(res.items)) ? res.items : [];
+        currentCursor = (res && res.nextCursor) || null;
+        hasMore = Boolean(res && res.hasMore && currentCursor);
+        selectedTool = null;
+        renderToolsList();
+        const inspector = document.getElementById('conn-tool-inspector');
+        if (inspector) {
+          inspector.innerHTML = `<div style="font-size: 12px; color: var(--text-muted); padding: 40px 0; text-align: center;" data-i18n="connectors.selectToolPrompt">${escapeHtml(t('connectors.selectToolPrompt'))}</div>`;
+        }
+      } catch (err) {
+        showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    };
+
+    document.getElementById('btn-search-conn-catalog')?.addEventListener('click', doSearch);
+    document.getElementById('conn-catalog-query')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doSearch();
+    });
+  }
+
+  async function openConnectorAccountsModal() {
+    let accounts = [];
+
+    const modalBody = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-size: 12px; color: var(--text-secondary);" data-i18n="connectors.accountsSubtitle">${escapeHtml(t('connectors.accountsSubtitle'))}</span>
+        <div style="display: flex; gap: 6px;">
+          <button id="btn-refresh-conn-accounts" class="btn btn-secondary btn-sm" data-i18n="connectors.btnRefreshAccounts">${escapeHtml(t('connectors.btnRefreshAccounts'))}</button>
+          <button id="btn-new-conn-account" class="btn btn-primary btn-sm" data-i18n="connectors.btnConnectNew">${escapeHtml(t('connectors.btnConnectNew'))}</button>
+        </div>
+      </div>
+
+      <div id="conn-accounts-list-container" style="max-height: 360px; overflow-y: auto;">
+        <div style="font-size: 12px; color: var(--text-muted); padding: 40px 0; text-align: center;" data-i18n="connectors.accountsEmptyPrompt">
+          ${escapeHtml(t('connectors.accountsEmptyPrompt'))}
+        </div>
+      </div>
+    `;
+
+    openModal(t('connectors.accountsModalTitle'), modalBody, `
+      <button id="btn-close-conn-accounts" class="btn btn-secondary" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+    `);
+
+    const thisModalInstance = currentModalInstance;
+
+    document.getElementById('btn-close-conn-accounts')?.addEventListener('click', closeModal);
+
+    const renderAccounts = () => {
+      const container = document.getElementById('conn-accounts-list-container');
+      if (!container) return;
+      if (accounts.length === 0) {
+        container.innerHTML = `<div style="font-size: 12px; color: var(--text-muted); padding: 30px 0; text-align: center;" data-i18n="connectors.emptyAccounts">${escapeHtml(t('connectors.emptyAccounts'))}</div>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th data-i18n="connectors.colAccountId">${escapeHtml(t('connectors.colAccountId'))}</th>
+                <th data-i18n="connectors.colToolkit">${escapeHtml(t('connectors.colToolkit'))}</th>
+                <th data-i18n="common.status">${escapeHtml(t('common.status'))}</th>
+                <th style="text-align: right; width: 180px;" data-i18n="connectors.colActions">${escapeHtml(t('connectors.colActions'))}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${accounts.map(acc => `
+                <tr>
+                  <td><code class="code-badge">${escapeHtml(acc.id || '—')}</code></td>
+                  <td><strong>${escapeHtml(acc.toolkit || '—')}</strong></td>
+                  <td>
+                    ${acc.status === 'ACTIVE'
+                      ? `<span class="status-badge status-sage" data-i18n="connectors.accountActive">${escapeHtml(t('connectors.accountActive'))}</span>`
+                      : `<span class="status-badge status-neutral" data-i18n="connectors.accountInactive">${escapeHtml(t('connectors.accountInactive'))}</span>`
+                    }
+                  </td>
+                  <td style="text-align: right;">
+                    <div style="display: flex; gap: 4px; justify-content: flex-end;">
+                      <button class="btn btn-ghost btn-xs btn-disconnect-account" data-id="${escapeHtml(acc.id)}" data-i18n="connectors.btnDisconnectAccount" style="color: var(--status-red-text);">${escapeHtml(t('connectors.btnDisconnectAccount'))}</button>
+                      <button class="btn btn-ghost btn-xs btn-revoke-account" data-id="${escapeHtml(acc.id)}" data-i18n="connectors.btnRevokeAccount" style="color: var(--status-red-text);">${escapeHtml(t('connectors.btnRevokeAccount'))}</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      container.querySelectorAll('.btn-disconnect-account').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          if (!confirm(`确定删除账户 ${id} (Disconnect)？`)) return;
+          try {
+            await callBridge('connectors.action.plan', {
+              project: state.currentProject,
+              action: 'disconnect',
+              connectedAccountId: id
+            });
+            showToast({ key: 'connectors.actionPlannedToast' });
+          } catch (err) {
+            showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+          }
+        });
+      });
+
+      container.querySelectorAll('.btn-revoke-account').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          if (!confirm(`确定撤销提供方对账户 ${id} 的授权 (Revoke)？`)) return;
+          try {
+            await callBridge('connectors.action.plan', {
+              project: state.currentProject,
+              action: 'revoke',
+              connectedAccountId: id
+            });
+            showToast({ key: 'connectors.actionPlannedToast' });
+          } catch (err) {
+            showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+          }
+        });
+      });
+    };
+
+    const loadAccounts = async () => {
+      const btn = document.getElementById('btn-refresh-conn-accounts');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await callBridge('connectors.accounts.list');
+        if (currentModalInstance !== thisModalInstance) return;
+        accounts = (res && Array.isArray(res.items)) ? res.items : [];
+        renderAccounts();
+      } catch (err) {
+        showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    };
+
+    document.getElementById('btn-refresh-conn-accounts')?.addEventListener('click', loadAccounts);
+
+    document.getElementById('btn-new-conn-account')?.addEventListener('click', () => {
+      const toolkit = prompt(t('connectors.promptToolkit'));
+      if (!toolkit || !toolkit.trim()) return;
+      const authConfigId = prompt(t('connectors.promptAuthConfigId')) || undefined;
+
+      callBridge('connectors.action.plan', {
+        project: state.currentProject,
+        action: 'connect',
+        toolkit: toolkit.trim(),
+        authConfigId: authConfigId ? authConfigId.trim() : undefined
+      }).then(res => {
+        const link = (res && res.action && res.action.link) || (res && res.link);
+        if (link) {
+          alert(`${t('connectors.connectNotice')}\n\n${t('connectors.authLinkPrefix')}\n${link}`);
+        } else {
+          showToast({ key: 'connectors.connectPlannedToast' });
+        }
+      }).catch(err => {
+        showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+      });
+    });
+
+    // Initial explicit load on modal open
+    loadAccounts();
+  }
+
+  async function openConnectorActionsModal() {
+    let actions = [];
+
+    const modalBody = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-size: 12px; color: var(--text-secondary);" data-i18n="connectors.actionsSubtitle">${escapeHtml(t('connectors.actionsSubtitle'))}</span>
+        <button id="btn-refresh-conn-actions" class="btn btn-secondary btn-sm" data-i18n="workflows.btnRefreshHealth">${escapeHtml(t('workflows.btnRefreshHealth'))}</button>
+      </div>
+
+      <div id="conn-actions-list-container" style="max-height: 380px; overflow-y: auto;">
+        <div style="font-size: 12px; color: var(--text-muted); padding: 40px 0; text-align: center;" data-i18n="connectors.loadingActions">${escapeHtml(t('connectors.loadingActions'))}</div>
+      </div>
+    `;
+
+    openModal(t('connectors.actionsModalTitle'), modalBody, `
+      <button id="btn-close-conn-actions" class="btn btn-secondary" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+    `);
+
+    const thisModalInstance = currentModalInstance;
+
+    document.getElementById('btn-close-conn-actions')?.addEventListener('click', closeModal);
+
+    const renderActions = () => {
+      const container = document.getElementById('conn-actions-list-container');
+      if (!container) return;
+      if (actions.length === 0) {
+        container.innerHTML = `<div style="font-size: 12px; color: var(--text-muted); padding: 30px 0; text-align: center;" data-i18n="connectors.emptyActions">${escapeHtml(t('connectors.emptyActions'))}</div>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th data-i18n="connectors.colActionId">${escapeHtml(t('connectors.colActionId'))}</th>
+                <th data-i18n="connectors.colActionTool">${escapeHtml(t('connectors.colActionTool'))}</th>
+                <th data-i18n="connectors.colActionState">${escapeHtml(t('connectors.colActionState'))}</th>
+                <th style="text-align: right; width: 160px;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${actions.map(act => {
+                const needsAck = ['executing_or_uncertain', 'needs_review', 'failed'].includes(act.state);
+                return `
+                  <tr>
+                    <td><code class="code-badge">${escapeHtml((act.id || '').substring(0, 8))}</code></td>
+                    <td>
+                      <div><strong>${escapeHtml(act.toolSlug || act.action || '—')}</strong></div>
+                      ${act.requestHash ? `<div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">Hash: ${escapeHtml(act.requestHash)}</div>` : ''}
+                    </td>
+                    <td>
+                      <span class="status-badge ${act.state === 'completed' ? 'status-sage' : (act.state === 'failed' || act.state === 'rejected' ? 'status-red' : 'status-amber')}">
+                        ${escapeHtml(act.state || '—')}
+                      </span>
+                    </td>
+                    <td style="text-align: right;">
+                      ${needsAck ? `
+                        <button class="btn btn-secondary btn-xs btn-ack-action" data-id="${escapeHtml(act.id)}" data-hash="${escapeHtml(act.requestHash || '')}" data-i18n="connectors.btnAcknowledge">${escapeHtml(t('connectors.btnAcknowledge'))}</button>
+                      ` : '—'}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      container.querySelectorAll('.btn-ack-action').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          const requestHash = btn.getAttribute('data-hash');
+          btn.disabled = true;
+          try {
+            await callBridge('connectors.action.resolve', {
+              project: state.currentProject,
+              id,
+              requestHash,
+              decision: 'acknowledge_no_retry'
+            });
+            showToast({ key: 'connectors.ackSuccessToast' });
+            loadActions();
+          } catch (err) {
+            showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+    };
+
+    const loadActions = async () => {
+      const btn = document.getElementById('btn-refresh-conn-actions');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await callBridge('connectors.action.list', { project: state.currentProject });
+        if (currentModalInstance !== thisModalInstance) return;
+        actions = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : []);
+        renderActions();
+      } catch (err) {
+        showToast({ key: 'common.error', params: { error: err.message || String(err) } }, 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    };
+
+    document.getElementById('btn-refresh-conn-actions')?.addEventListener('click', loadActions);
+    loadActions();
   }
 
   // -------------------------------------------------------------------------
