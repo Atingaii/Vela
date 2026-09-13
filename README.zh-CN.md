@@ -45,7 +45,7 @@
 
 - **观察会话**：查看统一的消息和受支持工具事件、扫描项目 Setup、汇总本地日志报告的 token。状态推断与不完整历史明确标记。
 - **保留上下文**：保存带来源和作用域的 Memory，以保守预算召回 Active 内容，导出包含用户记录和真实 Git 快照的 Checkpoint。
-- **审阅后执行**：编辑 Markdown Workflow，Dry Run 支持的只读工具，审批冻结的动作快照，查看持久化运行记录。项目测试和 Agent 命令需要审批。
+- **审阅后执行**：编辑 Markdown Workflow，Dry Run 支持的只读工具，审批冻结的动作快照，查看持久化运行记录。项目测试和 Agent 命令需要审批。开发版新请求默认[七天有效，可配置](docs/implementation/approval-expiry-contract.md)。
 - **比较实际结果**：检查确定性规则提取的纠错建议，预览并安全应用/撤销受支持的文件变更，在同一 Git 提交的独立 worktree 中运行 baseline/candidate 命令。
 - **管理资料**：导入文本、HTML、可提取文字的 PDF、DOC/DOCX、ODT、RTF 或明确指定的文档 URL；编辑、导出、归档、恢复或显式更新来源，并保留版本。Library 默认私有；段落检索与经审批的 Ask 仅使用合格公开来源。
 

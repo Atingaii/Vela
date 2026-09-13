@@ -81,7 +81,7 @@ extension AutomationService {
         var view = item
         if let approval = try store.get("approval",string(item,"approvalId")) {
             view["approval"] = approval.filter{["id","state","snapshotHash"].contains($0.key)}
-            if ["rejected","failed"].contains(string(approval,"state")), string(item,"state") == "pending_approval" { view["state"] = string(approval,"state") }
+            if ["rejected","failed","expired"].contains(string(approval,"state")), string(item,"state") == "pending_approval" { view["state"] = string(approval,"state") }
         }
         if let fixture = try store.get("replay_fixture",string(item,"fixtureId")), ReplayFixture.active(fixture) {
             view["fixtureState"] = "active"
@@ -140,8 +140,7 @@ extension AutomationService {
         let id = UUID().uuidString.lowercased(), runID = UUID().uuidString.lowercased(), approvalID = UUID().uuidString.lowercased(), requestHash = try ReplayFixture.hash(request)
         let arguments: JSON = ["replayId":id,"requestHash":requestHash]
         let meta: JSON = ["id":id,"project":root,"fixtureId":fixtureID,"fixtureHash":string(fixture,"fixtureHash"),"requestHash":requestHash,"state":"pending_approval","cancelRequested":false,"providerAttempts":0,"completedModelCalls":0,"attempts":[],"runId":runID,"approvalId":approvalID,"versions":versions,"inputHash":string(fixture,"inputHash"),"semanticEffect":"unknown"]
-        var approval: JSON = ["id":approvalID,"project":root,"runId":runID,"stepIndex":0,"tool":"workflow.replay.execute","arguments":arguments,"state":"pending","title":"Compare two historical workflow templates (maximum 2 model calls)"]
-        approval["snapshotHash"] = stableHash(try jsonString(frozenPayloadForReplay(approval)))
+        let approval = try pendingApproval(id:approvalID,title:"Compare two historical workflow templates (maximum 2 model calls)",tool:"workflow.replay.execute",arguments:arguments,project:root,runId:runID,stepIndex:0)
         let run: JSON = ["id":runID,"project":root,"title":"Historical template comparison","purpose":"workflow_replay","replayId":id,"workflowId":"","state":"pending_approval","dryRun":false,"startedAt":isoNow(),"steps":[["tool":"workflow.replay.execute","title":"Compare approved templates","arguments":arguments,"state":"pending_approval","approvalId":approvalID]]]
         expected += [("replay_fixture",fixtureID,try ReplayFixture.hash(fixture)),("replay_fixture_payload",fixtureID,try ReplayFixture.hash(frozenPayload))]
         _ = try store.putBatch([("replay",meta),("replay_payload",["id":id,"project":root,"request":request,"receipts":[]]),("run",run),("approval",approval)],expecting:expected,createOnly:true)

@@ -43,6 +43,8 @@ Markdown 与交付文件从固定目录读取。读写以目录描述符定位�
 
 必须通过公开 CLI create→restore→新 helper reopen，实际核对 private/public 资料、History 原文、来源字段、偏好、资产路径、output 与旧审批不可执行。补充篡改、路径穿越、符号/硬链接、FIFO、超限、运行锁、并发新目标发布，以及 Store.remove 对既有 ingestion 事务的回归。新 schema 拒绝与资产索引重建需要对应证据；不能用测试总数替代这些路径。
 
+2026-09-14 路径兼容修正：本机原生验收发现 Foundation 会将已存在的 `/private/tmp` 父目录标准化为 `/tmp` 别名，而 C `realpath` 返回 `/private/tmp`，使旧守卫误拒绝正常目标。开发修复在检查真实规范路径前不调用该标准化步骤，继续拒绝用户符号链接祖先、`.`/`..` 和 NUL；目录描述符、无覆盖发布和文件身份防线保持原样。真实 `/private/tmp` create→restore 及用户链接拒绝已纳入定点测试；原失败见 [3894 原生证据](../parity/native-3894dab6-evidence-2026-09-14.json)。
+
 ## English summary
 
 Provide a bounded full local Store bundle through the CLI, restored only to a new directory. Use a writer barrier, a separate read-only SQLite Online Backup source, and streamed identity/hash-checked canonical assets. Preserve private data, history, source receipts and audit records while revoking old execution eligibility. Publish without replacing an existing target. External credentials, source logs and project working trees are outside the bundle. This is an unencrypted local backup, not remote recovery or synchronization; UI and full product acceptance remain separate.

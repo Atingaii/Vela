@@ -71,4 +71,24 @@ final class StoreBackupTests: XCTestCase {
         }
     }
 
+    func testCanonicalPrivateTmpCreateAndRestoreRejectsUserSymlinkAlias() throws {
+        let base=URL(fileURLWithPath:"/private/tmp/vela-store-backup-canonical-" + UUID().uuidString.lowercased())
+        try FileManager.default.createDirectory(at:base,withIntermediateDirectories:false)
+        defer { try? FileManager.default.removeItem(at:base) }
+        XCTAssertEqual(canonicalProject(base.path),base.path)
+        let store=try VelaStore(root:base.appendingPathComponent("source"))
+        _ = try store.put("memory",["id":"canonical-private","title":"Canonical private","content":"retained","private":true])
+        let service=StoreBackupService(store:store), bundle=base.appendingPathComponent("bundle"), target=base.appendingPathComponent("restored")
+        let created=try service.create(destination:bundle)
+        XCTAssertEqual(created["destination"] as? String,bundle.path)
+        let restored=try StoreBackupService.restore(bundle:bundle,target:target)
+        XCTAssertEqual(restored["target"] as? String,target.path)
+        XCTAssertEqual(try VelaStore(root:target).get("memory","canonical-private")?["content"] as? String,"retained")
+
+        let alias=base.appendingPathComponent("user-alias")
+        try FileManager.default.createSymbolicLink(at:alias,withDestinationURL:base)
+        XCTAssertThrowsError(try service.create(destination:alias.appendingPathComponent("forbidden-bundle")))
+        XCTAssertFalse(FileManager.default.fileExists(atPath:base.appendingPathComponent("forbidden-bundle").path))
+    }
+
 }

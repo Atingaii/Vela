@@ -235,7 +235,7 @@ public final class VelaStore {
         SELECT json_object(
           'id',r.id,'title',r.title,'kind',r.kind,'project',r.project,
           'state',CASE
-            WHEN json_extract(a.json,'$.state')='rejected' THEN 'rejected'
+            WHEN json_extract(a.json,'$.state') IN ('rejected','expired') THEN json_extract(a.json,'$.state')
             WHEN r.kind='knowledge_query' AND json_extract(a.json,'$.state') IN ('executing','needs_review') THEN 'executing_or_uncertain'
             WHEN r.kind='knowledge_query' AND json_extract(a.json,'$.state')='failed' THEN 'failed'
             WHEN r.kind='agent_loop' AND json_extract(a.json,'$.state')='needs_review' THEN 'needs_review'
@@ -447,6 +447,54 @@ public final class VelaStore {
             let changed = sqlite3_changes(db) == 1
             try execute("COMMIT"); return changed ? object : nil
         } catch { try? execute("ROLLBACK"); throw error }
+    }
+    /// Keeps approval claim-or-expire decisions and their owner/run updates in
+    /// one SQLite write transaction.  This is Core-only; it is not an RPC
+    /// escape hatch for arbitrary SQL or renderer writes.
+    func withApprovalTransaction<T>(_ body: () throws -> T) throws -> T {
+        lock.lock(); defer { lock.unlock() }
+        guard !isBatching else { throw VelaError("Nested approval transaction is not supported") }
+        try execute("BEGIN IMMEDIATE"); isBatching = true
+        do {
+            let result = try body()
+            try execute("COMMIT"); isBatching = false
+            return result
+        } catch {
+            try? execute("ROLLBACK"); isBatching = false
+            throw error
+        }
+    }
+    /// Read-only keyset page for the approval ledger. SQL owns the sort so a
+    /// dashboard limit cannot silently turn newest-first into oldest-first.
+    func approvalPage(project: String?, states: [String], after: (createdAt: String, id: String)?, limit: Int) throws -> [JSON] {
+        lock.lock(); defer { lock.unlock() }
+        let supported: Set<String> = ["pending","executing","executed","failed","rejected","needs_review","acknowledged","expired"]
+        guard !states.isEmpty, states.allSatisfy({ supported.contains($0) }), (1...200).contains(limit) else { throw VelaError("Invalid approval page") }
+        var sql = "SELECT json FROM objects WHERE kind='approval'"
+        var values: [Any] = []
+        if let project { sql += " AND project=?"; values.append(canonicalProject(project)) }
+        let placeholders = Array(repeating:"?",count:states.count).joined(separator:",")
+        sql += " AND json_extract(json,'$.state') IN (\(placeholders))"; values += states
+        if let after {
+            try validateIdentifier(after.id)
+            guard after.createdAt.utf8.count <= 80 else { throw VelaError("Invalid approval cursor") }
+            sql += " AND (json_extract(json,'$.createdAt')>? OR (json_extract(json,'$.createdAt')=? AND id>?))"
+            values += [after.createdAt,after.createdAt,after.id]
+        }
+        sql += " ORDER BY json_extract(json,'$.createdAt') ASC,id ASC LIMIT ?"; values.append(limit)
+        return try select(sql,values)
+    }
+    /// Bounded maintenance projection for explicitly expired views. It skips
+    /// legacy/disabled rows and selects only pending rows whose persisted TTL
+    /// has actually elapsed, so an unbounded prefix cannot starve later rows.
+    func dueApprovalPage(project: String?, now: String, limit: Int = 200) throws -> [JSON] {
+        lock.lock(); defer { lock.unlock() }
+        guard (1...200).contains(limit), now.utf8.count <= 80 else { throw VelaError("Invalid due approval page") }
+        var sql = "SELECT json FROM objects WHERE kind='approval' AND json_extract(json,'$.state')='pending' AND json_type(json,'$.expiresAt')='text' AND json_extract(json,'$.expiresAt')<=?"
+        var values: [Any] = [now]
+        if let project { sql += " AND project=?"; values.append(canonicalProject(project)) }
+        sql += " ORDER BY json_extract(json,'$.expiresAt') ASC,json_extract(json,'$.createdAt') ASC,id ASC LIMIT ?"; values.append(limit)
+        return try select(sql,values)
     }
     func sessionSummaries(project: String? = nil, query: String = "", limit: Int = 500) throws -> [JSON] {
         lock.lock(); defer { lock.unlock() }

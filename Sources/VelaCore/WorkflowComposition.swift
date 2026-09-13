@@ -179,7 +179,7 @@ extension AutomationService {
                     if !isPipeline && stage["optional"] as? Bool == true && ["failed","rejected"].contains(state) {
                         var values = run["values"] as? JSON ?? [:]; values[string(stage,"id")] = ""; run["values"] = values; run["degraded"] = true
                         run["inputsUsed"] = (run["inputsUsed"] as? [JSON] ?? []) + [["id":string(stage,"id"),"source":"workflow","childRunId":childID,"state":"degraded","value":"","error":"Child run " + state]]
-                    } else { run["state"] = ["blocked","needs_review"].contains(state) ? state : "failed"; run["error"] = "Child run " + childID + " ended as " + state; return try store.put("run",run) }
+                    } else { run["state"] = ["blocked","needs_review","expired"].contains(state) ? state : "failed"; run["error"] = "Child run " + childID + " ended as " + state; return try store.put("run",run) }
                 } else if isPipeline {
                     run["previousOutput"] = child["output"] ?? ""; run["previousOutputKnown"] = child["outputKnown"] ?? false
                     run["stageResults"] = (run["stageResults"] as? [JSON] ?? []) + [["id":string(stage,"id"),"state":"completed","childRunId":childID,"outputHash":child["outputHash"] ?? NSNull()]]
@@ -214,7 +214,7 @@ extension AutomationService {
             let originalHash = stableHash(try jsonString(run))
             var steps = run["steps"] as? [JSON] ?? []
             guard let index = steps.firstIndex(where:{ string($0,"state") == "pending_approval" }),
-                  let approval = try store.get("approval",string(steps[index],"approvalId")), ["executed","failed","rejected","needs_review"].contains(string(approval,"state")) else { return run }
+                  let approval = try store.get("approval",string(steps[index],"approvalId")), ["executed","failed","rejected","expired","needs_review"].contains(string(approval,"state")) else { return run }
             guard string(approval,"runId") == string(run,"id"), string(approval,"project") == string(run,"project"),
                   intValue(approval,"stepIndex") == index,
                   stableHash(try jsonString(frozenPayload(approval))) == string(approval,"snapshotHash"),
@@ -225,7 +225,7 @@ extension AutomationService {
             }
             steps[index].merge(approval["result"] as? JSON ?? [:]) { _,new in new }
             steps[index]["state"] = string(approval,"state") == "executed" ? "completed" : string(approval,"state")
-            run["steps"] = steps; run["state"] = string(approval,"state") == "executed" ? "running" : string(approval,"state") == "needs_review" ? "needs_review" : "failed"
+            run["steps"] = steps; run["state"] = string(approval,"state") == "executed" ? "running" : string(approval,"state") == "needs_review" ? "needs_review" : string(approval,"state") == "expired" ? "expired" : "failed"
             do { run = try store.putBatch([("run",run)],expecting:[("run",string(run,"id"),originalHash)])[0] }
             catch { return try object("run",string(run,"id")) }
         }

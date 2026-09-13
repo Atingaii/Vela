@@ -230,8 +230,7 @@ extension AutomationService {
         _ = try ModelImprovement.prompt("extract",request:request,prior:[])
         let requestHash = stableHash(try jsonString(request)), planID = UUID().uuidString.lowercased(), runID = UUID().uuidString.lowercased(), approvalID = UUID().uuidString.lowercased()
         let arguments: JSON = ["planId":planID,"request":request,"requestHash":requestHash]
-        var approval: JSON = ["id":approvalID,"title":"Analyze selected sessions and propose improvements","tool":"improve.model.execute","arguments":arguments,"project":root,"runId":runID,"stepIndex":0,"state":"pending"]
-        approval["snapshotHash"] = stableHash(try jsonString(frozenPayload(approval)))
+        let approval = try pendingApproval(id:approvalID,title:"Analyze selected sessions and propose improvements",tool:"improve.model.execute",arguments:arguments,project:root,runId:runID,stepIndex:0)
         let run: JSON = ["id":runID,"title":"Model improvement proposals","project":root,"purpose":"model_improvement","planId":planID,"workflowId":"","state":"pending_approval","steps":[["title":"Extract, cluster and plan improvements","tool":"improve.model.execute","arguments":arguments,"state":"pending_approval","approvalId":approvalID]],"dryRun":false,"startedAt":isoNow(),"durationMs":0]
         let plan: JSON = ["id":planID,"project":root,"title":"Review selected sessions","request":request,"requestHash":requestHash,"state":"pending_approval","runId":runID,"approvalId":approvalID,"stages":[],"suggestionIds":[],"modelCalls":0,"providerAttempts":0,"completedModelCalls":0,"requestedModel":string(agent,"model"),"observedModel":NSNull(),"modelIdentitySource":"explicit_user_selection; provider output does not attest model identity","savedActiveMemory":false,"applied":false]
         _ = try store.putBatch([("model_improvement",plan),("run",run),("approval",approval)],expecting:sources.map { ("session",string($0,"id"),string($0,"storeHash")) },createOnly:true)
@@ -243,7 +242,7 @@ extension AutomationService {
         var plan = try object("model_improvement",requireString(params,"id"))
         guard string(plan,"project") == root else { throw VelaError("Improvement plan belongs to another project") }
         if let approval = try store.get("approval",string(plan,"approvalId")) {
-            if string(approval,"state") == "rejected" { plan["state"] = "rejected" }
+            if ["rejected","expired"].contains(string(approval,"state")) { plan["state"] = string(approval,"state") }
             else if ["executing","needs_review"].contains(string(approval,"state")) { plan["state"] = "executing_or_uncertain" }
             else if string(approval,"state") == "failed" { plan["state"] = "failed" }
             plan["approval"] = approval

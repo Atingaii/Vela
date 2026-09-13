@@ -109,8 +109,7 @@ extension AutomationService {
         let requestHash = stableHash(try jsonString(request))
         let planID = UUID().uuidString.lowercased(), runID = UUID().uuidString.lowercased(), approvalID = UUID().uuidString.lowercased()
         let args: JSON = ["planId":planID,"request":request,"requestHash":requestHash,"commandTemplate":try WorkflowPlanning.command(request,schemaPath:WorkflowPlanning.schemaPlaceholder)]
-        var approval: JSON = ["id":approvalID,"title":"Plan workflow: " + String(description.prefix(100)),"tool":"workflow.plan.execute","arguments":args,"project":root,"runId":runID,"stepIndex":0,"state":"pending"]
-        approval["snapshotHash"] = stableHash(try jsonString(frozenPayload(approval)))
+        let approval = try pendingApproval(id:approvalID,title:"Plan workflow: " + String(description.prefix(100)),tool:"workflow.plan.execute",arguments:args,project:root,runId:runID,stepIndex:0)
         let run: JSON = ["id":runID,"title":"Workflow planning","project":root,"purpose":"workflow_planning","planId":planID,"workflowId":"","state":"pending_approval","steps":[["title":"Generate a workflow draft","tool":"workflow.plan.execute","arguments":args,"state":"pending_approval","approvalId":approvalID]],"dryRun":false,"startedAt":isoNow(),"durationMs":0]
         let plan: JSON = ["id":planID,"title":String(description.prefix(100)),"project":root,"request":request,"requestHash":requestHash,"state":"pending_approval","runId":runID,"approvalId":approvalID,"questions":[],"unresolved":[],"savedWorkflow":false]
         _ = try store.putBatch([("workflow_plan",plan),("run",run),("approval",approval)],createOnly:true)
@@ -123,7 +122,7 @@ extension AutomationService {
         guard string(plan,"project") == root else { throw VelaError("Plan belongs to another project") }
         if let approval = try store.get("approval",string(plan,"approvalId")) {
             let state = string(approval,"state")
-            if state == "rejected" { plan["state"] = "rejected" }
+            if ["rejected","expired"].contains(state) { plan["state"] = state }
             else if ["executing","needs_review"].contains(state) { plan["state"] = "executing_or_uncertain" }
             else if state == "failed" { plan["state"] = "failed"; plan["error"] = (approval["result"] as? JSON)?["output"] ?? string(plan,"error") }
             plan["approval"] = approval

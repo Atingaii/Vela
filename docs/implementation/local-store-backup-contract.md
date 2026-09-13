@@ -15,6 +15,10 @@ Both the bundle and restored Store must be new children of an existing real dire
 
 bundle 和恢复目标必须是既有真实目录下的新目录；目标即使为空但已经存在，也会被拒绝。`restore` 不打开原 Store 或默认 Store，也不自动切换客户端的数据目录。先用明确的 `--home` 检查恢复数据。
 
+Paths must use their canonical spelling without symlink ancestors. On macOS, use `/private/tmp` for a temporary destination rather than the `/tmp` symlink. The development fix preserves canonical paths through Foundation parent-directory operations; the earlier `3894dab6` package incorrectly rejected this valid destination.
+
+路径必须使用没有符号链接祖先的真实规范路径。macOS 临时目标可使用 `/private/tmp`，不要使用 `/tmp` 链接别名。开发修复保留 Foundation 父目录操作中的规范路径；此前 `3894dab6` 包会误拒绝这一有效目标。
+
 ## What survives / 保留的内容
 
 - SQLite objects, preferences, versions, sessions, History records/raw chunks and persisted source receipts.

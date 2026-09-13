@@ -40,7 +40,11 @@ public final class StoreBackupService {
     /// Does not open the caller's configured Store. This makes CLI restore safe to
     /// invoke against a new target without migrating or otherwise touching $VELA_HOME.
     public static func restore(bundle: URL, target: URL) throws -> JSON {
-        let final = target.standardizedFileURL
+        // Do not standardize before canonicalizing.  Foundation may rewrite a
+        // real `/private/tmp` parent to the `/tmp` alias only after that parent
+        // exists; `canonicalProject` then resolves it back to `/private/tmp`,
+        // making an otherwise safe path fail its own identity guard.
+        let final = try canonicalInputURL(target, label: "Restore target")
         let parent = try realExistingDirectory(final.deletingLastPathComponent(), label: "Restore target parent")
         guard final.path.hasPrefix("/"), canonicalProject(final.path) == final.path, !FileManager.default.fileExists(atPath:final.path) else { throw VelaError("Restore target must be new") }
         let parentFD=Darwin.open(parent.path,O_SEARCH | O_NOFOLLOW | O_CLOEXEC)
@@ -115,16 +119,27 @@ public final class StoreBackupService {
     }
 
     private static func newOwnedDirectory(_ raw: URL, label: String) throws -> URL {
-        let manager=FileManager.default, value=raw.standardizedFileURL
-        let parent=value.deletingLastPathComponent().standardizedFileURL
+        let manager=FileManager.default, value=try canonicalInputURL(raw,label:label)
+        let parent=try canonicalInputURL(value.deletingLastPathComponent(),label:label + " parent")
         guard value.path.hasPrefix("/"), canonicalProject(value.path) == value.path, canonicalProject(parent.path) == parent.path, manager.fileExists(atPath:parent.path), !manager.fileExists(atPath:value.path), (try? parent.resourceValues(forKeys:[.isDirectoryKey,.isSymbolicLinkKey]).isDirectory) == true, (try? parent.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink) != true else { throw VelaError("\(label) must be a new child of a real existing directory") }
         try manager.createDirectory(at:value,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])
         return value
     }
     private static func realExistingDirectory(_ raw: URL, label: String) throws -> URL {
-        let value=raw.standardizedFileURL
+        let value=try canonicalInputURL(raw,label:label)
         guard value.path.hasPrefix("/"), canonicalProject(value.path) == value.path, (try? value.resourceValues(forKeys:[.isDirectoryKey,.isSymbolicLinkKey]).isDirectory) == true, (try? value.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink) != true else { throw VelaError("\(label) must be a real directory") }
         return value
+    }
+    /// Preserve the caller spelling while rejecting user-controlled symlink
+    /// ancestors.  `canonicalProject` resolves an existing prefix and appends
+    /// a non-existent suffix; equality therefore accepts real canonical paths
+    /// such as `/private/tmp/new-child`, but rejects `/tmp` and other aliases.
+    private static func canonicalInputURL(_ raw: URL, label: String) throws -> URL {
+        let supplied=raw.path
+        guard raw.isFileURL, supplied.hasPrefix("/"), !supplied.contains("\0"),
+              !supplied.split(separator:"/",omittingEmptySubsequences:false).contains(where: { $0 == "." || $0 == ".." }),
+              canonicalProject(supplied) == supplied else { throw VelaError("\(label) must use a canonical path without symlink ancestors") }
+        return URL(fileURLWithPath:supplied)
     }
     private static func verifiedCopy(root:URL,path:String,destination:URL,expected:String,limit:Int,deadline:Date) throws {
         let copied = try StoreBackupFiles.copy(root:root,path:path,destination:destination,limit:limit,deadline:deadline)

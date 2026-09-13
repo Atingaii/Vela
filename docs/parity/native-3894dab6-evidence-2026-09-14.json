@@ -1,0 +1,164 @@
+{
+  "format": "vela-native-3894dab6-evidence-v1",
+  "date": "2026-09-14",
+  "package": {
+    "sourceCommit": "3894dab6d9dcf7fd07b15ca6bc895402e248b11e",
+    "bundle": "releases/development-3894dab6/Vela.app",
+    "packageHelperSHA256": "19e4f40726b282e01f90a84c73823d15131a08702e9843fb06d42dba63607c97",
+    "packageUISHA256": {
+      "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "app.css": "0544e72261d603878892064dac115430e3bbda4b71affa4b3270f0ffc6c9e939",
+      "app.js": "c5e25f5ec26bafeb17d3f079d67f76d81070a7e90a2c96f80ebf2f1b9ec46a70",
+      "i18n.js": "baac643281aa12f5ee4f4399003acba839adaddb39296abe93eb51ac4d5e34f3",
+      "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458"
+    },
+    "qaBundleIdentifier": "ai.vela.qa.backup-3894-r2",
+    "fixture": "synthetic, owned under /private/tmp/vela-native-backup-3894-r2"
+  },
+  "rootCUAObservations": [
+    {
+      "id": "native-start",
+      "status": "observed",
+      "evidence": "Root CUA observed local service ready, five synthetic sessions, and Simplified Chinese."
+    },
+    {
+      "id": "project-scope",
+      "status": "observed",
+      "evidence": "Root CUA observed Beacon 0 sessions/1 approval and Harbor 5 sessions/2 approvals."
+    },
+    {
+      "id": "session-detail",
+      "status": "observed",
+      "evidence": "Root CUA opened Harbor verification handoff; the detail contained three messages including the recorded command and assistant source text."
+    },
+    {
+      "id": "capture-candidate",
+      "status": "observed",
+      "evidence": "Root CUA explicitly confirmed saving the observed assistant message and saw the candidate-Memory success notice."
+    },
+    {
+      "id": "language-to-english",
+      "status": "observed",
+      "evidence": "Root CUA selected English; sidebar, settings, and native Edit/View/Window menus changed."
+    },
+    {
+      "id": "english-persists",
+      "status": "observed",
+      "evidence": "After Command-Q and a fresh launch, Root CUA observed English Sessions/native menus and English still selected in Settings."
+    },
+    {
+      "id": "candidate-persists-and-source-link",
+      "status": "observed",
+      "evidence": "After restart, Root CUA observed All 4/Candidate 2/Active 2; the new candidate source link returned to the same Harbor three-message handoff."
+    },
+    {
+      "id": "language-back-to-chinese",
+      "status": "observed",
+      "evidence": "Root CUA changed English back to Simplified Chinese and observed native 编辑/视图/窗口 menus."
+    }
+  ],
+  "persistedState": {
+    "storeTreeSHA256BeforeRecoveryAttempt": "ca08d46e084a84589863b7af423f0b79829fc821a6f900522541ef325301122a",
+    "firstExit": {
+      "receiptSHA256": "be48fa160e64dadba2545d7bdc123cf97861e10cd3f4cd85a310d002a3b24baa",
+      "locale": "en",
+      "sourceBytesUnchanged": true,
+      "projectBytesUnchanged": true,
+      "allWrapperProcessesExited": true,
+      "recordCounts": {
+        "/private/tmp/vela-native-backup-3894-r2/.task-tmp/native-backup-3894-r2/Harbor": {
+          "session": 5,
+          "memory": 4,
+          "guideline": 1,
+          "library": 1,
+          "checkpoint": 1,
+          "workflow": 3,
+          "run": 3,
+          "approval": 2
+        },
+        "/private/tmp/vela-native-backup-3894-r2/.task-tmp/native-backup-3894-r2/Beacon": {
+          "session": 0,
+          "memory": 0,
+          "guideline": 0,
+          "library": 0,
+          "checkpoint": 0,
+          "workflow": 1,
+          "run": 1,
+          "approval": 1
+        }
+      }
+    },
+    "capturedCandidate": {
+      "id": "capture-60fe2fe2e44c3a61eb149eeef3e67967",
+      "project": "Harbor",
+      "private": null,
+      "scope": "project",
+      "state": "candidate",
+      "requiresReview": true,
+      "modelCalls": 0,
+      "assetSHA256": "79b4cd952a7983d2e64192f0d70eb3d1d84082a9bcc731319e6f2add36c91803",
+      "source": {
+        "provider": "codex",
+        "sourceIdentity": "codex:harbor-codex-1",
+        "sourceSession": "harbor-codex-1",
+        "sessionId": "4ec7e8e07122a4eb11b71ca2f8b0a3532140ec9b2851202a7f965b732c83af99",
+        "messageId": "codex-1-a",
+        "sourceHash": "f0225aff3322a39278ff9a23b93fb1cc32b5c58cacc876616200df2a8a7a6cf7",
+        "originalContentHash": "38729f0891a75e644a6643fb28978d0b4a6c07f2b26ae1cc4c5c9059f975924d",
+        "relativePath": "harbor-1.jsonl",
+        "contentEqualsObservedSource": true,
+        "sourceCoverage": "currently indexed session message; not a complete provider-history assertion"
+      }
+    },
+    "secondExit": {
+      "receiptSHA256": "d587aaaf9f3e0bc148e3a5a6f97a321e62f5a7b5d816d116bfe57a9cb862eee7",
+      "locale": "zh-CN",
+      "memoryIDs": [
+        "dd299285-a75c-4c51-8950-f193fc7eee4b",
+        "e1bf380f-d38b-4447-b616-84f9f5e38175",
+        "8b418248-c72b-4f44-8b00-7f6f64ca3064",
+        "capture-60fe2fe2e44c3a61eb149eeef3e67967"
+      ],
+      "approvalCount": 3,
+      "approvalStates": [
+        "pending"
+      ],
+      "allWrapperProcessesExited": true
+    }
+  },
+  "backupNativeRecoveryAttempt": {
+    "status": "failed-before-backup-or-restore",
+    "receiptSHA256": "c009245ba87e73aa743ce471edbea61a85915cb7bea990c8ee43876a6fc07feb",
+    "rawSHA256": "2f1fa5676686ec9d4741f40dcec34262807afdfc05257268dc55f0dba77e2c9d",
+    "exitCode": 1,
+    "error": "Vela: Backup destination must be a new child of a real existing directory",
+    "storeOriginalExistsField": false,
+    "storeRestoredExistsField": true,
+    "bundleExists": false,
+    "interpretation": "No rename or restore occurred: active original store remained; store-before-backup-restore and bundle were absent. The field names are retained from the red receipt and do not establish a restored store.",
+    "foundationProbe": {
+      "receiptSHA256": "2260adaf306ab43917c028c8de23f5ecf6c079090ffa6e00eddbcb714926a87b",
+      "standardizedParent": "/tmp/vela-native-backup-3894-r2/.task-tmp/native-backup-3894-r2",
+      "canonicalParent": "/private/tmp/vela-native-backup-3894-r2/.task-tmp/native-backup-3894-r2",
+      "parentCanonicalEquals": false,
+      "parentExists": true,
+      "parentIsDirectory": true,
+      "parentIsSymbolicLink": false
+    },
+    "statusNote": "A path-compatibility patch is in progress; this evidence does not establish restored-native UI behavior."
+  },
+  "artifacts": {
+    "rootCUAObservations": "output/playwright/native-backup-3894-r2/cua-observations-before-restore.json",
+    "rootCUAObservationsSHA256": "c8d1f0028cd0469149d2a18066e3ee2be262e841476a2c7b9826c2739604c2d8",
+    "copiedEvidenceManifest": "output/playwright/native-backup-3894-r2/capture-copy-manifest.json",
+    "copiedEvidenceManifestSHA256": "a37be1857083ed289195e3d4e037482f45b7df8633d7fa232cdfc4789a7cff83",
+    "screenshots": "CUA viewed session UI; no PNG export is claimed."
+  },
+  "notEstablished": [
+    "Restored store native UI behavior",
+    "Public native application full acceptance",
+    "All UI features",
+    "OS notification delivery",
+    "Whole-application resource budget"
+  ]
+}

@@ -215,8 +215,7 @@ extension AutomationService {
         let requestHash = stableHash(try jsonString(request))
         let id = UUID().uuidString.lowercased(), runID = UUID().uuidString.lowercased(), approvalID = UUID().uuidString.lowercased()
         let arguments: JSON = ["proposalId":id,"requestHash":requestHash]
-        var approval: JSON = ["id":approvalID,"title":"Classify Ask route","tool":"ask.route.proposal.execute","arguments":arguments,"project":root,"runId":runID,"stepIndex":0,"state":"pending"]
-        approval["snapshotHash"] = stableHash(try jsonString(frozenPayload(approval)))
+        let approval = try pendingApproval(id:approvalID,title:"Classify Ask route",tool:"ask.route.proposal.execute",arguments:arguments,project:root,runId:runID,stepIndex:0)
         let proposal: JSON = ["id":id,"project":root,"routeId":string(route,"id"),"routeHash":string(route,"routeHash"),"request":request,"requestHash":requestHash,"state":"pending_approval","runId":runID,"approvalId":approvalID,"createdAt":isoNow(),"modelCalls":0]
         let run: JSON = ["id":runID,"title":"Ask route proposal","project":root,"purpose":"ask_route_proposal","state":"pending_approval","steps":[["tool":"ask.route.proposal.execute","arguments":arguments,"state":"pending_approval","approvalId":approvalID]],"startedAt":isoNow(),"durationMs":0]
         _ = try store.putBatch([("ask_route_proposal",proposal),("run",run),("approval",approval)],createOnly:true)

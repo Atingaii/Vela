@@ -145,7 +145,7 @@ extension AutomationService {
                 var summary = item.filter { ["id","title","project","state","runId","approvalId","round","providerAttempts","completedModelCalls","createdAt","completedAt","error"].contains($0.key) }
                 if let approval = try store.get("approval",string(item,"approvalId")) {
                     switch string(approval,"state") {
-                    case "rejected","failed": summary["state"] = string(approval,"state")
+                    case "rejected","failed","expired": summary["state"] = string(approval,"state")
                     case "executing","needs_review": summary["state"] = "executing_or_uncertain"
                     default: break
                     }
@@ -210,7 +210,7 @@ extension AutomationService {
         item["sourcesValid"] = valid
         if let approval = try store.get("approval",string(item,"approvalId")) {
             switch string(approval,"state") {
-            case "rejected": item["state"] = "rejected"
+            case "rejected", "expired": item["state"] = string(approval,"state")
             case "executing","needs_review": item["state"] = "executing_or_uncertain"
             case "failed": item["state"] = "failed"
             default: break
@@ -297,8 +297,7 @@ extension AutomationService {
             item["completedAt"] = isoNow(); run["completedAt"] = isoNow()
         } else {
             item["approvalId"] = approvalID
-            var approval: JSON = ["id":approvalID,"title":"Answer: " + KnowledgeQuery.prefix(question,bytes:120),"tool":"knowledge.answer","arguments":arguments,"project":root,"runId":runID,"stepIndex":0,"state":"pending"]
-            approval["snapshotHash"] = stableHash(try jsonString(frozenPayload(approval)))
+            let approval = try pendingApproval(id:approvalID,title:"Answer: " + KnowledgeQuery.prefix(question,bytes:120),tool:"knowledge.answer",arguments:arguments,project:root,runId:runID,stepIndex:0)
             run["steps"] = [["title":"Answer from reviewed sources","tool":"knowledge.answer","arguments":arguments,"state":"pending_approval","approvalId":approvalID]]
             objects.append(("approval",approval))
         }

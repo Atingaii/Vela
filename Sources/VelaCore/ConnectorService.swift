@@ -296,8 +296,7 @@ extension AutomationService {
         let hash = stableHash(try jsonString(request))
         let actionID = UUID().uuidString.lowercased(), runID = UUID().uuidString.lowercased(), approvalID = UUID().uuidString.lowercased()
         let args: JSON = ["actionId":actionID,"request":request,"requestHash":hash]
-        var approval: JSON = ["id":approvalID,"title":"Review external " + string(request,"action"),"tool":"connector.execute","arguments":args,"project":root,"runId":runID,"stepIndex":0,"state":"pending"]
-        approval["snapshotHash"] = stableHash(try jsonString(frozenPayload(approval)))
+        let approval = try pendingApproval(id:approvalID,title:"Review external " + string(request,"action"),tool:"connector.execute",arguments:args,project:root,runId:runID,stepIndex:0)
         let run: JSON = ["id":runID,"title":"External connector action","project":root,"purpose":"connector","workflowId":"","state":"pending_approval","steps":[["title":"Reviewed external action","tool":"connector.execute","arguments":args,"state":"pending_approval","approvalId":approvalID]],"dryRun":false,"startedAt":isoNow()]
         let action: JSON = ["id":actionID,"project":root,"request":request,"requestHash":hash,"state":"pending_approval","runId":runID,"approvalId":approvalID]
         _ = try store.putBatch([("connector_action",action),("run",run),("approval",approval)],createOnly:true)
@@ -321,7 +320,7 @@ extension AutomationService {
         guard string(action,"project") == root else { throw VelaError("Connector action belongs to another project") }
         if let approval = try store.get("approval",string(action,"approvalId")) {
             switch string(approval,"state") {
-            case "rejected": action["state"] = "rejected"
+            case "rejected", "expired": action["state"] = string(approval,"state")
             case "executing": action["state"] = "executing_or_uncertain"
             case "needs_review": action["state"] = "needs_review"
             case "failed": if string(action,"state") != "needs_review" { action["state"] = "failed" }

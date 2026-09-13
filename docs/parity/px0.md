@@ -110,7 +110,7 @@
 | PX0-059 | 原始具体参数+产物一起审阅；审批不重跑 | 具备 W/E：固定步骤 hash/CAS | 修改定义/文件不能改变已审内容；跨进程一次领取 |
 | PX0-060 | 审批前编辑参数并记录理由/历史 | 缺失 W | 新参数生成新快照，旧 hash 失效 |
 | PX0-061 | rejected/failed 不自动回 pending，不重复发出 | 具备 W/E，限现有工具 | 断连/崩溃显示不确定，禁止自动重试 |
-| PX0-062 | 审批有效期、resolved retention、oldest-first/filter | 缺失 W | 过期不可批；pending不可被retention误删 |
+| PX0-062 | 审批有效期、resolved retention、oldest-first/filter | 开发 Core/CLI 已实现新审批默认七天、原子 claim-or-expire、旧请求兼容与 oldest-first/filter 分页；真实新旧 helper 和写锁跨截止路径已实测。resolved retention 与桌面专用入口仍缺失，不能将整项标为完成；[合同](../implementation/approval-expiry-contract.md) | 过期不可批；pending不可被retention误删 |
 | PX0-063 | 远端回复审批：read poll、sender allowlist、严格语法 | 缺失 | 伪造sender、否定句、过期/重放消息均不执行 |
 | PX0-064 | 无人值守待批通知，人工运行不重复提醒 | 部分 NotificationPolicy | 实际系统/远端投递和目标跳转，不只计算分类 |
 | PX0-065 | file/inbox 定向交付，schedule/watch 默认入Inbox | 缺失：现 Inbox 主要是审批 | dryrun不入箱，标题取产物，条目追溯run |

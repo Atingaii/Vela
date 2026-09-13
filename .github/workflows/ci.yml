@@ -69,6 +69,14 @@ jobs:
           python3 scripts/test-workflow-replay-rpc.py --output output/parity/ci-workflow-replay.json
           python3 scripts/test-replay-rpc-control.py --output output/parity/ci-replay-controls.json
           python3 scripts/test-replay-rpc-control.py --saturate --output output/parity/ci-replay-controls-saturated.json
+      - name: Approval expiry with an actual pre-expiry helper
+        run: |
+          test ! -e .task-tmp/ci-approval-legacy
+          git fetch --depth=1 origin 3894dab6d9dcf7fd07b15ca6bc895402e248b11e
+          mkdir .task-tmp/ci-approval-legacy
+          git archive 3894dab6d9dcf7fd07b15ca6bc895402e248b11e Package.swift Sources Tests | tar -x -C .task-tmp/ci-approval-legacy
+          swift build --package-path .task-tmp/ci-approval-legacy --product vela
+          python3 scripts/test-approval-expiry-rpc.py --binary .build/debug/vela --legacy-binary .task-tmp/ci-approval-legacy/.build/debug/vela --source-root . --output output/parity/ci-approval-expiry.json
       - name: Install isolated browser test dependencies
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.task-tmp/ci-browser
@@ -161,6 +169,7 @@ jobs:
             output/parity/ci-workflow-replay.json
             output/parity/ci-rpc-lab-shutdown.json
             output/parity/ci-automation-sigmask.json
+            output/parity/ci-approval-expiry*.json
             output/parity/ci-health-proposal/*.json
             output/parity/ci-session-memory-capture.json
             output/parity/ci-session-growing-rewrite.json

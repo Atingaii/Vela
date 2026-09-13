@@ -1,0 +1,32 @@
+{
+  "format": "vela-ci-evidence-v1",
+  "commit": "3894dab6d9dcf7fd07b15ca6bc895402e248b11e",
+  "runId": 34784743820,
+  "runUrl": "https://github.com/Atingaii/Vela/actions/runs/34784743820",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": 103798047739,
+      "name": "macOS build and tests",
+      "conclusion": "success"
+    },
+    {
+      "id": 103798047910,
+      "name": "Installed SDKs and OpenClaw integration",
+      "conclusion": "success"
+    }
+  ],
+  "coreXCTest": {
+    "executed": 498,
+    "failures": 0
+  },
+  "backupCI": [
+    "test-store-backup-cli.py",
+    "test-store-backup-no-recovery.py",
+    "test-store-backup-format.py",
+    "test-store-backup-runtime.py"
+  ],
+  "rendererAndPackage": "macOS renderer acceptance, frozen capability flows, and package audit succeeded",
+  "sdk": "installed SDKs, Responses, LangChain, and OpenClaw checks succeeded",
+  "logSource": "gh run view 34784743820 --log (downloaded temporarily and removed after evidence extraction)"
+}

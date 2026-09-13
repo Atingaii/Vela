@@ -10,10 +10,14 @@ public enum VelaPreferences {
         "notificationSound": true, "notifyApprovals": true,
         "notifyCompleted": true, "notifyErrors": true,
         "analysisEnabled": false, "launchAtLogin": false,
-        "locale": defaultLocale
+        "locale": defaultLocale,
+        // New approvals expire after seven days unless a local user explicitly
+        // changes this policy. Existing records intentionally have no field.
+        "approvalExpirySeconds": 604_800
     ]
     private static let allowed = Set(defaults.keys).subtracting(["id", "telemetry"])
-    private static let booleanKeys = allowed.subtracting(["locale"])
+    private static let integerKeys: Set<String> = ["approvalExpirySeconds"]
+    private static let booleanKeys = allowed.subtracting(["locale"]).subtracting(integerKeys)
 
     public static func validate(_ changes: JSON) throws {
         // NSNumber also bridges integer 0/1 to Bool. Require an actual JSON boolean.
@@ -29,6 +33,13 @@ public enum VelaPreferences {
             guard let number = value as? NSNumber else { return false }
             return CFGetTypeID(number) == CFBooleanGetTypeID()
         }) else { throw VelaError("设置包含不支持的字段或非布尔值") }
+        if let expiry = changes["approvalExpirySeconds"] {
+            guard let number = expiry as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+                  number.doubleValue.isFinite, number.doubleValue.rounded() == number.doubleValue,
+                  (0...31_536_000).contains(number.intValue), Double(number.intValue) == number.doubleValue else {
+                throw VelaError("approvalExpirySeconds must be an integer from 0 to 31536000")
+            }
+        }
     }
 
     public static func read(from store: VelaStore) throws -> JSON {
@@ -43,6 +54,12 @@ public enum VelaPreferences {
             if let locale = saved["locale"] as? String, supportedLocales.contains(locale) {
                 result["locale"] = locale
             } else { result["locale"] = defaultLocale }
+            if let number = saved["approvalExpirySeconds"] as? NSNumber,
+               CFGetTypeID(number) != CFBooleanGetTypeID(), number.doubleValue.isFinite,
+               number.doubleValue.rounded() == number.doubleValue,
+               (0...31_536_000).contains(number.intValue), Double(number.intValue) == number.doubleValue {
+                result["approvalExpirySeconds"] = number.intValue
+            } else { result["approvalExpirySeconds"] = defaults["approvalExpirySeconds"] }
         }
         result["telemetry"] = false
         return result

@@ -52,7 +52,7 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 | `sdk/ai` / `sdk/python-ai` / `sdk/python-langchain` | 按需安装的 AI SDK v4、Python Responses 与 LangChain ChatOpenAI 适配；冻结调用配置、有界召回、完整终态后的可选候选捕获和不确定回执，不进入默认 Mac runtime；[ADR 0026](adr/0026-optional-model-memory-middleware.md) |
 | `ContextService.swift` / `WorkflowContext.swift` | Guideline、证据贡献、Workflow 输入与真正送入 argv 的冻结 prompt；[ADR 0008](adr/0008-workflow-context-execution.md) |
 | `AskRouteService.swift` / `KnowledgeQueryService.swift` | 持久化 Ask 决定与经显式 approval 的受限模型分类；冻结候选在 provider 前重验，结果只为建议，不会自动问答、规划或执行；[ADR 0032](adr/0032-persisted-safe-ask-routing.md)、[ADR 0021](adr/0021-reviewed-knowledge-answers.md) |
-| `AutomationService.swift` / `WorkflowComposition.swift` | Workflow 定义/版本、逐工具审批与账本、冻结依赖图、子运行、恢复、根产物；[ADR 0015](adr/0015-workflow-composition.md) |
+| `AutomationService.swift` / `WorkflowComposition.swift` | Workflow 定义/版本、逐工具审批与有效期、冻结依赖图、子运行、恢复、根产物；[ADR 0015](adr/0015-workflow-composition.md)、[ADR 0045](adr/0045-bounded-approval-expiry.md) |
 | `WorkflowRetry.swift` | 仅固定 Git 只读工具可显式开启有界 retry/backoff，逐 attempt 持久化；异常结果与中断证据不自动重放；[ADR 0033](adr/0033-bounded-read-step-retry.md) |
 | `WorkflowHealth.swift` | 按工作流/版本分析已记录运行与审批，明确采样缺失、扫描上限和项目范围；只读诊断不自动修改定义；[ADR 0034](adr/0034-structured-workflow-health-evidence.md) |
 | `RunFeedback.swift` | 对终态非私有运行以审阅哈希 CAS 记录人工观察；Health 单列观察，不改成功率或执行；[ADR 0038](adr/0038-manual-run-feedback-observation.md) |
@@ -107,6 +107,8 @@ Ask 路由与模型分类提案分别持久化。通用审批与运行账本仅�
 只读重试默认关闭，仅允许固定 `git.status`、`git.diff`、`git.log`，最多三次；写入、模型和外部连接操作不能借此重放。停止信号和退避检查不等于已有通用运行取消界面，attempt 之间的 deadline 也不替代单个进程的超时。Health 的成功率、可用耗时与状态计数各自保留分母和来源限制，不从未记录的数据推断零、不把跨版本差异当作因果改善。
 
 业务工具动作保存确切参数、项目、run、step 和 hash，经 pending→executing 的事务抢占后执行。pipeline/子输入冻结同项目依赖图，每个子动作仍独立审批。`runs.get` 纯读，显式 resume 只推进未启动结构或恢复已有确切账本；executing/needs_review 不重试。根产物可返回调用方、写 store 内 output 路径或进入产物 Inbox，子运行只返回 memory 文本。确定性组合不等同模型自主选工具循环。
+
+新审批默认七天有效，可通过 Core/CLI 偏好配置；旧无期限审批保留兼容语义。过期判断在取得 SQLite 写锁之后进行，与 approval/run/step 和真实业务 owner 的终态写入处于同一事务。`approvals.get/list` 可投影已到期状态，但不运行工具或删除数据；即使可选子流程过期，也会停止父组合。过期决定在事务提交后返回错误，使旧界面不会假报已经批准。期限设置界面与保留期清理仍是独立工作。
 
 Composio 固定 HTTPS v3.1 endpoint、禁 redirect、无 cookie/cache、限时间与大小。Keychain 项绑定随机 generation；轮换不改变已有审批身份。执行前重查选定账户、版本和 schema。已知凭据回显在任何持久化前拒绝，普通输出凭据字段显式脱敏。`successful:false` 或非明确拒绝的失败不能证明无部分副作用；保存 needs_review、不继续依赖步骤。单次 CAS 不等于任意外部系统全局 exactly-once。
 

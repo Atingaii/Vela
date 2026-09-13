@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 public final class AutomationService {
     let store: VelaStore
@@ -10,10 +11,14 @@ public final class AutomationService {
     let fileWatchEvents = WorkflowFileEvents()
     var compositionLeaseDepth = 0
     var connectorService: ConnectorService?
+    /// Tests may inject a deterministic clock through the Core initializer.
+    /// No renderer or RPC method can supply a clock.
+    let approvalClock: () -> Date
 
-    public init(store: VelaStore, recoverInterruptedFiles: Bool = true) {
+    public init(store: VelaStore, recoverInterruptedFiles: Bool = true, approvalClock: @escaping () -> Date = Date.init) {
         self.store = store
         files = SafeApplyService(store: store)
+        self.approvalClock = approvalClock
         if recoverInterruptedFiles { try? files.recoverInterrupted() }
         // Executing approvals are intentionally not retried after a crash: external side effects
         // may already have happened. The ledger keeps the uncertain result visible for review.
@@ -79,14 +84,17 @@ public final class AutomationService {
         case "inbox.list":
             guard params.isEmpty || Set(params.keys) == Set(["project"]) else { throw VelaError("Unsupported inbox parameter") }
             let selected = params["project"] == nil ? nil : try project(requireString(params,"project"))
-            return try store.list("approval").filter { approval in
-                guard ["pending","executing","needs_review"].contains(string(approval,"state")) else { return false }
+            return try store.list("approval").compactMap { raw -> JSON? in
+                let approval = try approvalRecord(string(raw,"id"))
+                guard ["pending","executing","needs_review"].contains(string(approval,"state")) else { return nil }
                 // Existing global Inbox callers retain their non-Ask approvals. Ask
                 // proposals must opt into a registered project so their frozen
                 // evidence cannot cross the global project boundary.
-                if string(approval,"tool") == "ask.route.proposal.execute" { return selected != nil && string(approval,"project") == selected }
-                return selected == nil || string(approval,"project") == selected
-            }.map { askRouteInboxApproval($0) }
+                if string(approval,"tool") == "ask.route.proposal.execute" { return selected != nil && string(approval,"project") == selected ? askRouteInboxApproval(approval) : nil }
+                return selected == nil || string(approval,"project") == selected ? askRouteInboxApproval(approval) : nil
+            }
+        case "approvals.get": return try approvalGet(params)
+        case "approvals.list": return try approvalList(params)
         case "approvals.decide": return try decideApproval(params)
         case "improve.analyze": return try analyze(params)
         case "improve.model.plan": return try createModelImprovement(params)
@@ -366,8 +374,7 @@ public final class AutomationService {
                         frozen["request"] = request; frozen["requestHash"] = stableHash(try jsonString(request))
                     }
                     let originalHash = stableHash(try jsonString(run))
-                    var approval: JSON = ["id":UUID().uuidString.lowercased(),"title":string(steps[index],"title"),"tool":tool,"arguments":frozen,"project":root,"runId":string(run,"id"),"stepIndex":index,"state":"pending"]
-                    approval["snapshotHash"] = stableHash(try jsonString(frozenPayload(approval)))
+                    let approval = try pendingApproval(title:string(steps[index],"title"),tool:tool,arguments:frozen,project:root,runId:string(run,"id"),stepIndex:index)
                     steps[index]["state"] = "pending_approval"; steps[index]["approvalId"] = approval["id"]
                     run["steps"] = steps; run["state"] = "pending_approval"
                     do {
@@ -458,43 +465,152 @@ public final class AutomationService {
         ["tool":string(approval,"tool"),"arguments":approval["arguments"] ?? [:],"project":string(approval,"project"),"runId":string(approval,"runId"),"stepIndex":intValue(approval,"stepIndex")]
     }
 
-    func createApproval(title: String, tool: String, arguments: JSON, project: String, runId: String, stepIndex: Int) throws -> JSON {
-        var approval: JSON = ["title":title,"tool":tool,"arguments":arguments,"project":project,"runId":runId,"stepIndex":stepIndex,"state":"pending"]
+    private enum PendingApprovalClaim {
+        case expired(JSON)
+        case claimed(JSON, JSON?)
+    }
+
+    private func approvalTimestamp(_ date: Date) -> String { ISO8601DateFormatter().string(from:date) }
+
+    /// Every pending approval is built here so all creation surfaces share the
+    /// local policy and the exact same frozen-payload hash contract.
+    func pendingApproval(id: String = UUID().uuidString.lowercased(), title: String, tool: String, arguments: JSON, project: String, runId: String, stepIndex: Int) throws -> JSON {
+        let now = approvalClock()
+        let root = canonicalProject(project)
+        var approval: JSON = ["id":id,"title":title,"tool":tool,"arguments":arguments,"project":root,"runId":runId,"stepIndex":stepIndex,"state":"pending","createdAt":approvalTimestamp(now)]
+        let seconds = try approvalExpirySeconds()
+        if seconds > 0 { approval["expiresAt"] = approvalTimestamp(now.addingTimeInterval(TimeInterval(seconds))) }
+        else { approval["expiryMode"] = "disabled" }
         approval["snapshotHash"] = stableHash(try jsonString(frozenPayload(approval)))
+        return approval
+    }
+
+    func createApproval(title: String, tool: String, arguments: JSON, project: String, runId: String, stepIndex: Int) throws -> JSON {
+        try store.put("approval",pendingApproval(title:title,tool:tool,arguments:arguments,project:project,runId:runId,stepIndex:stepIndex))
+    }
+
+    private func approvalExpirySeconds() throws -> Int {
+        let preferences = try VelaPreferences.read(from:store)
+        guard let seconds = preferences["approvalExpirySeconds"] as? NSNumber,
+              CFGetTypeID(seconds) != CFBooleanGetTypeID(), seconds.doubleValue.isFinite, seconds.doubleValue.rounded() == seconds.doubleValue,
+              (0...31_536_000).contains(seconds.intValue), Double(seconds.intValue) == seconds.doubleValue else {
+            throw VelaError("Approval expiry policy is invalid")
+        }
+        return seconds.intValue
+    }
+
+    private func expiryDate(_ approval: JSON) -> Date? {
+        guard let text = approval["expiresAt"] as? String else { return nil } // legacy_unbounded
+        let fractional = ISO8601DateFormatter(); fractional.formatOptions = [.withInternetDateTime,.withFractionalSeconds]
+        return fractional.date(from:text) ?? ISO8601DateFormatter().date(from:text)
+    }
+
+    private func isExpired(_ approval: JSON, at now: Date) -> Bool {
+        guard approval["expiresAt"] != nil else { return false }
+        guard let expiry = expiryDate(approval) else { return true } // malformed new record fails closed
+        return expiry <= now
+    }
+
+    private func approvalOwner(_ approval: JSON) throws -> (kind: String, id: String)? {
+        let tool = string(approval,"tool"), arguments = approval["arguments"] as? JSON ?? [:]
+        switch tool {
+        case "lab.execute": return ("eval",string(approval,"runId"))
+        case "knowledge.answer": return ("knowledge_query",try requireString(arguments,"askId"))
+        case "ask.route.proposal.execute": return ("ask_route_proposal",try requireString(arguments,"proposalId"))
+        case "workflow.replay.execute": return ("replay",try requireString(arguments,"replayId"))
+        case "agent.loop": return ("agent_loop",try requireString(arguments,"loopId"))
+        case "workflow.plan.execute": return ("workflow_plan",try requireString(arguments,"planId"))
+        case "improve.model.execute": return ("model_improvement",try requireString(arguments,"planId"))
+        case "connector.execute": return ("connector_action",try requireString(arguments,"actionId"))
+        default: return nil
+        }
+    }
+
+    /// Must be called inside `withApprovalTransaction`. It changes only a
+    /// pending approval and its already-linked owner/run/step; executing and
+    /// uncertain records are deliberately never rewritten as expired.
+    private func expirePendingApproval(_ source: JSON, at now: Date) throws -> JSON {
+        var approval = source
+        guard string(approval,"state") == "pending" else { throw VelaError("Approval is no longer pending") }
+        approval["state"] = "expired"; approval["expiredAt"] = approvalTimestamp(now); approval["expiryReason"] = "approval_ttl_elapsed"
+        let tool = string(approval,"tool"), runID = string(approval,"runId")
+        if tool != "lab.execute" {
+            var run = try object("run",runID), steps = run["steps"] as? [JSON] ?? []
+            let index = intValue(approval,"stepIndex")
+            guard string(run,"state") == "pending_approval", string(run,"project") == string(approval,"project"), steps.indices.contains(index), string(steps[index],"state") == "pending_approval", string(steps[index],"approvalId") == string(approval,"id") else {
+                throw VelaError("Approval owner is no longer its pending run step")
+            }
+            steps[index]["state"] = "expired"; steps[index]["expiredAt"] = approval["expiredAt"]
+            run["steps"] = steps; run["state"] = "expired"; run["completedAt"] = approval["expiredAt"]
+            _ = try store.put("run",run)
+        }
+        if let ownerReference = try approvalOwner(approval) {
+            guard var owner = try store.get(ownerReference.kind,ownerReference.id) else { throw VelaError("Approval owner is missing") }
+            guard string(owner,"project") == string(approval,"project"),
+                  (ownerReference.kind == "eval" || string(owner,"runId") == runID),
+                  string(owner,"approvalId") == string(approval,"id"), string(owner,"state") == "pending_approval" else {
+                throw VelaError("Approval owner is no longer pending")
+            }
+            owner["state"] = "expired"; owner["expiredAt"] = approval["expiredAt"]
+            _ = try store.put(ownerReference.kind,owner)
+        }
         return try store.put("approval",approval)
     }
 
-    func decideApproval(_ params: JSON) throws -> JSON {
-        var approval = try object("approval",requireString(params,"id"))
-        guard string(approval,"state") == "pending" else { throw VelaError("This action was already decided or started. It will not execute again.") }
-        let provided = try requireString(params,"snapshotHash")
-        let actual = stableHash(try jsonString(frozenPayload(approval)))
-        guard actual == provided, actual == string(approval,"snapshotHash") else { throw VelaError("Approval snapshot changed; review the frozen action again") }
-        let decision = try requireString(params,"decision")
-        guard ["approve","reject"].contains(decision) else { throw VelaError("Decision must be approve or reject") }
-        let originalApprovalHash = stableHash(try jsonString(approval))
-        approval["decidedAt"] = isoNow()
-        let tool = string(approval,"tool")
-        var pendingRun: JSON?
-        if tool != "lab.execute" {
-            let run = try object("run",string(approval,"runId"))
-            let steps = run["steps"] as? [JSON] ?? []; let index = intValue(approval,"stepIndex")
-            guard string(run,"state") == "pending_approval", canonicalProject(string(run,"project")) == canonicalProject(string(approval,"project")), steps.indices.contains(index), string(steps[index],"state") == "pending_approval", string(steps[index],"approvalId") == string(approval,"id") else { throw VelaError("The frozen action is no longer the pending step in this run") }
-            pendingRun = run
-        }
-        if decision == "reject" {
-            if var run = pendingRun {
-                let runHash = stableHash(try jsonString(run))
-                var steps = run["steps"] as? [JSON] ?? []
-                steps[intValue(approval,"stepIndex")]["state"] = "rejected"
-                run["steps"] = steps; run["state"] = "rejected"; run["completedAt"] = isoNow()
-                approval["state"] = "rejected"
-                approval = try store.putBatch([("approval",approval),("run",run)],expecting:[("approval",string(approval,"id"),originalApprovalHash),("run",string(run,"id"),runHash)])[0]
-            } else {
-                guard let claimed = try store.claimState(kind:"approval",id:string(approval,"id"),expected:"pending",newState:"rejected",fields:["decidedAt":isoNow()]) else { throw VelaError("Another process already decided this approval") }
-                approval = claimed
-                var evaluation = try object("eval",string(approval,"runId")); evaluation["state"] = "rejected"; _ = try store.put("eval",evaluation)
+    /// Reads the deadline only after BEGIN IMMEDIATE succeeds. Therefore a
+    /// contender queued behind another writer cannot reuse a pre-lock time.
+    private func claimOrExpireApproval(id: String, snapshotHash: String, decision: String) throws -> PendingApprovalClaim {
+        try store.withApprovalTransaction {
+            let now = approvalClock()
+            var approval = try object("approval",id)
+            guard string(approval,"state") == "pending" else { throw VelaError("This action was already decided or started. It will not execute again.") }
+            let actual = stableHash(try jsonString(frozenPayload(approval)))
+            guard actual == snapshotHash, actual == string(approval,"snapshotHash") else { throw VelaError("Approval snapshot changed; review the frozen action again") }
+            if isExpired(approval,at:now) { return .expired(try expirePendingApproval(approval,at:now)) }
+            let tool = string(approval,"tool")
+            var pendingRun: JSON?
+            if tool != "lab.execute" {
+                let run = try object("run",string(approval,"runId")), steps = run["steps"] as? [JSON] ?? [], index = intValue(approval,"stepIndex")
+                guard string(run,"state") == "pending_approval", canonicalProject(string(run,"project")) == canonicalProject(string(approval,"project")), steps.indices.contains(index), string(steps[index],"state") == "pending_approval", string(steps[index],"approvalId") == string(approval,"id") else { throw VelaError("The frozen action is no longer the pending step in this run") }
+                pendingRun = run
             }
+            approval["decidedAt"] = approvalTimestamp(now)
+            if decision == "reject" {
+                approval["state"] = "rejected"
+                if var run = pendingRun {
+                    var steps = run["steps"] as? [JSON] ?? []; steps[intValue(approval,"stepIndex")]["state"] = "rejected"
+                    run["steps"] = steps; run["state"] = "rejected"; run["completedAt"] = approval["decidedAt"]
+                    _ = try store.put("run",run)
+                } else {
+                    var evaluation = try object("eval",string(approval,"runId"))
+                    guard string(evaluation,"state") == "pending_approval" else { throw VelaError("Evaluation is no longer pending approval") }
+                    evaluation["state"] = "rejected"; _ = try store.put("eval",evaluation)
+                }
+                return .claimed(try store.put("approval",approval),pendingRun)
+            }
+            approval["state"] = "executing"
+            return .claimed(try store.put("approval",approval),pendingRun)
+        }
+    }
+
+    func decideApproval(_ params: JSON) throws -> JSON {
+        let id = try requireString(params,"id"), provided = try requireString(params,"snapshotHash"), decision = try requireString(params,"decision")
+        guard ["approve","reject"].contains(decision) else { throw VelaError("Decision must be approve or reject") }
+        let claim = try claimOrExpireApproval(id:id,snapshotHash:provided,decision:decision)
+        guard case let .claimed(claimed,pendingRun) = claim else {
+            if case var .expired(expired) = claim {
+                if string(expired,"tool") != "lab.execute", let run = try store.get("run",string(expired,"runId")), run["parentRunId"] != nil {
+                    do { expired["parentRun"] = try advanceAncestors(of:run) } catch { expired["continuationError"] = error.localizedDescription }
+                }
+                // The expiry transaction has committed. Do not return a
+                // decision-shaped success to older renderer callers that only
+                // distinguish resolve/reject by a non-error response.
+                throw VelaError("Approval expired; no action was executed. Review a new request.")
+            }
+            throw VelaError("Approval claim failed")
+        }
+        var approval = claimed, tool = string(claimed,"tool")
+        if decision == "reject" {
             if tool != "lab.execute", let run = try store.get("run",string(approval,"runId")), run["parentRunId"] != nil {
                 do { approval["parentRun"] = try advanceAncestors(of:run) } catch { approval["continuationError"] = error.localizedDescription }
             }
@@ -502,13 +618,6 @@ public final class AutomationService {
             return approval
         }
         let root = try project(requireString(approval,"project"))
-        if let run = pendingRun {
-            approval["state"] = "executing"
-            approval = try store.putBatch([("approval",approval)],expecting:[("approval",string(approval,"id"),originalApprovalHash),("run",string(run,"id"),stableHash(try jsonString(run)))])[0]
-        } else {
-            guard let claimed = try store.claimState(kind:"approval",id:string(approval,"id"),expected:"pending",newState:"executing",fields:["decidedAt":isoNow()]) else { throw VelaError("Another process already started or rejected this action") }
-            approval = claimed
-        }
         guard stableHash(try jsonString(frozenPayload(approval))) == provided, string(approval,"snapshotHash") == provided else {
             approval["state"] = "needs_review"; _ = try store.put("approval",approval)
             throw VelaError("Approval changed while it was being claimed; no action was executed")
@@ -541,6 +650,92 @@ public final class AutomationService {
             }
         }
         return approval
+    }
+
+    private func approvalView(_ approval: JSON) -> JSON {
+        var view = approval
+        if approval["expiresAt"] != nil { view["expiryMode"] = "ttl" }
+        else if string(approval,"expiryMode") != "disabled" { view["expiryMode"] = "legacy_unbounded" }
+        return view
+    }
+
+    private func approvalCursor(_ approval: JSON) throws -> String {
+        let value = string(approval,"createdAt") + "\n" + string(approval,"id")
+        guard !string(approval,"createdAt").isEmpty else { throw VelaError("Approval has no creation timestamp") }
+        return Data(value.utf8).base64EncodedString()
+    }
+
+    private func parseApprovalCursor(_ value: String) throws -> (createdAt: String, id: String)? {
+        guard !value.isEmpty else { return nil }
+        guard value.utf8.count <= 512, let data = Data(base64Encoded:value), let text = String(data:data,encoding:.utf8) else { throw VelaError("Invalid approval cursor") }
+        let parts = text.split(separator:"\n",maxSplits:1,omittingEmptySubsequences:false)
+        let createdAt = parts.count == 2 ? String(parts[0]) : ""
+        let id = parts.count == 2 ? String(parts[1]) : ""
+        // Validate the whole keyset tuple before an expired-list projection can
+        // acquire its write transaction. Store.approvalPage repeats this check
+        // as a defence in depth boundary for non-RPC callers.
+        guard !createdAt.isEmpty, createdAt.utf8.count <= 80,
+              !id.isEmpty, id.count <= 150,
+              id.range(of:"^[A-Za-z0-9_.-]+$",options:.regularExpression) != nil,
+              id != ".", id != ".." else { throw VelaError("Invalid approval cursor") }
+        return (createdAt,id)
+    }
+
+    private func approvalRecord(_ id: String) throws -> JSON {
+        let current = try object("approval",id)
+        guard string(current,"state") == "pending" else { return approvalView(current) }
+        // Reject is never used for reads. The transaction can only claim an
+        // elapsed record as expired, or return the still-pending current row.
+        var result = try store.withApprovalTransaction {
+            let now = approvalClock(), latest = try object("approval",id)
+            guard string(latest,"state") == "pending" else { return approvalView(latest) }
+            return approvalView(isExpired(latest,at:now) ? try expirePendingApproval(latest,at:now) : latest)
+        }
+        if string(result,"state") == "expired", string(result,"tool") != "lab.execute",
+           let run = try store.get("run",string(result,"runId")), run["parentRunId"] != nil {
+            do { _ = try advanceAncestors(of:run) } catch { result["continuationError"] = error.localizedDescription }
+        }
+        return result
+    }
+
+    func approvalGet(_ params: JSON) throws -> JSON {
+        guard Set(params.keys) == Set(["id"]) else { throw VelaError("approvals.get requires only id") }
+        return try approvalRecord(requireString(params,"id"))
+    }
+
+    func approvalList(_ params: JSON) throws -> JSON {
+        let allowed: Set<String> = ["project","state","limit","cursor"]
+        guard Set(params.keys).isSubset(of:allowed), params["state"] == nil || params["state"] is String,
+              params["cursor"] == nil || params["cursor"] is String else { throw VelaError("Unsupported approvals.list parameter") }
+        let selected = params["project"] == nil ? nil : try project(requireString(params,"project"))
+        let state = string(params,"state","pending")
+        let supported: Set<String> = ["pending","executing","executed","failed","rejected","needs_review","acknowledged","expired"]
+        guard supported.contains(state) else { throw VelaError("Unsupported approval state") }
+        let limit = try WorkflowContext.integer(params["limit"],default:50,range:1...100,name:"approval list limit")
+        // Validate before a list-triggered expiry projection can write state.
+        let after = try parseApprovalCursor(string(params,"cursor"))
+        // An explicit expired view may be the first read after a process was
+        // offline. Sweep one bounded oldest-first pending page before querying
+        // that terminal view; decide itself remains the complete safety gate.
+        var dueProjection: JSON? = nil
+        if state == "expired" {
+            let now = approvalTimestamp(approvalClock())
+            let due = try store.dueApprovalPage(project:selected,now:now,limit:200)
+            for row in due {
+                _ = try approvalRecord(string(row,"id"))
+            }
+            dueProjection = ["scanned":due.count,"cap":200,"mayHaveMore":due.count == 200,"continuation":"repeat_same_expired_query_when_mayHaveMore"]
+        }
+        let source = try store.approvalPage(project:selected,states:[state],after:after,limit:limit + 1)
+        let page = Array(source.prefix(limit)); var items: [JSON] = []
+        for row in page {
+            let current = try approvalRecord(string(row,"id"))
+            if string(current,"state") == state { items.append(current) }
+        }
+        let next: Any = source.count > limit && !page.isEmpty ? try approvalCursor(page.last!) : NSNull()
+        var result: JSON = ["items":items,"cursor":next,"order":"createdAt_asc_id_asc","state":state]
+        if let dueProjection { result["expiredProjection"] = dueProjection }
+        return result
     }
 
     /// Approval executes the already hashed prompt/argv unchanged. This only

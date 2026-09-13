@@ -172,8 +172,7 @@ extension AutomationService {
         let root = try project(requireString(params,"project"))
         let arguments = try freezeLoopArguments(params.filter { !["project","title"].contains($0.key) },project:root)
         let runID = UUID().uuidString.lowercased(), approvalID = UUID().uuidString.lowercased()
-        var approval: JSON = ["id":approvalID,"title":"Review model tool loop","tool":"agent.loop","arguments":arguments,"project":root,"runId":runID,"stepIndex":0,"state":"pending"]
-        approval["snapshotHash"] = stableHash(try jsonString(frozenPayload(approval)))
+        let approval = try pendingApproval(id:approvalID,title:"Review model tool loop",tool:"agent.loop",arguments:arguments,project:root,runId:runID,stepIndex:0)
         let run: JSON = ["id":runID,"title":"Model tool loop","project":root,"purpose":"agent_loop","workflowId":"","state":"pending_approval","dryRun":false,"startedAt":isoNow(),"steps":[["id":"loop","title":"Run reviewed model tool loop","tool":"agent.loop","arguments":arguments,"state":"pending_approval","approvalId":approvalID]]]
         let loop = loopRecord(arguments:arguments,project:root,runId:runID,approvalId:approvalID)
         _ = try store.putBatch([("agent_loop",loop),("run",run),("approval",approval)],createOnly:true)
@@ -185,7 +184,7 @@ extension AutomationService {
         guard string(loop,"project") == root else { throw VelaError("Loop belongs to another project") }
         if let approval = try store.get("approval",string(loop,"approvalId")) {
             loop["approval"] = approval
-            if string(approval,"state") == "rejected" { loop["state"] = "rejected" }
+            if ["rejected","expired"].contains(string(approval,"state")) { loop["state"] = string(approval,"state") }
             else if string(approval,"state") == "needs_review" { loop["state"] = "needs_review" }
             else if string(approval,"state") == "executing" && !["completed","failed","cancelled","budget_exhausted","needs_review"].contains(string(loop,"state")) { loop["state"] = "running_or_uncertain" }
         }

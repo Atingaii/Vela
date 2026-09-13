@@ -97,3 +97,11 @@ UI20 健康提案已由同一指定模型实现并合入开发源码：完整4�
 完整本地 Store 备份与恢复已接入开发版 CLI：保存 private/public 资产、History 原文与来源收据、偏好、版本和 managed output；恢复到新目录并重绑资产路径，撤销旧审批/运行资格，禁用自动工作流。文件以64 KiB流式复制，数据库/资产容量、文件数和时间有明确上限。它不会初始化会自动恢复文件的 Router；修前“备份触发中断事务回滚并漏掉 output”的真实反例已保留，修后通过。[使用说明](implementation/local-store-backup-contract.md)与[证据](parity/local-store-backup-evidence-2026-09-14.json)。
 
 匹配本机源码的498项 portable Core 方法通过；root真实构建后，完整CLI19项、无恢复副作用4项、恶意格式4项以及watch/锁/并发目标三组运行态验收均通过。恢复后Library显式重建索引再搜索、private Recall/MCP隔离和默认home不被打开均有实际证据。此结果关闭完整本地备份的该组缺口，不关闭桌面数据管理、secret-free interchange/merge、远端加密恢复、通用repair/同步或六项Hard Gate；产品总验收仍为No-Go，新检查点CI及发行包另记。
+
+`3894dab6` 的[完整 CI](parity/ci-3894dab6-evidence-2026-09-14.json)已通过498项真实 XCTest、四套备份检查及 SDK/renderer/打包检查。[本地开发包](parity/development-3894dab6-evidence-2026-09-14.json)另通过随包 helper 的19项备份与4项无恢复副作用检查；仍为未公证的 ad-hoc 开发包，未替换公开下载。随后[本机原生复验](parity/native-3894dab6-evidence-2026-09-14.json)观察到八项项目、会话、候选记忆与双语交互通过，但恢复闭环发现正常 `/private/tmp` 目标被路径守卫误拒。该失败和 Foundation 探针均保留，不能由此前绿色测试推断恢复后的原生界面已通过。
+
+新审批有效期与 canonical 备份路径修复已整合：九个公开创建入口统一使用默认七天的可配置有效期；实际批准在取得数据库写锁后核对截止时间，并原子更新 approval、run、step 与业务记录；组合中的可选子任务到期也会停止父流程。旧版无期限请求保持兼容，新增 get/list 支持按状态与 oldest-first 分页。修复了 Foundation 对 `/private/tmp` 父路径标准化导致正常备份/恢复被拒的问题，用户 symlink 祖先仍拒绝。
+
+冻结后的最终 root 全量 portable 回归511/511通过（非本机XCTest），新编译 helper 的15项实际审批CLI通过；包含公开九入口、锁等待跨截止、旧helper兼容及无副作用断言。首轮全量曾因遗漏合入AskRoute factory而510/511，红例保留，补齐原实现后保持断言复跑转绿。此前整合helper的19项备份、4项不触发恢复、4项恶意格式及3组watch/lease/concurrency检查分别留证。准确来源与范围见[审批与备份整合证据](parity/approval-expiry-backup-canonical-evidence-2026-09-14.json)。
+
+本机原生 UI20 实际点击过期工作流审批，返回明确失败且未执行目标写入；退出后只读核验 approval/run/step 均 expired，重启后该卡片消失。即时刷新仍失败：错误后旧卡片和数量仍缓存为 pending，切换页面也未更新；该项仍需指定 Antigravity 模型实现修复。新包、最终提交CI、其他原生入口与整体产品验收继续单独记录，不能把511项通过视为228项功能与全部发布门槛通过。

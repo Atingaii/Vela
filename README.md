@@ -45,7 +45,7 @@
 
 - **Observe sessions:** browse normalized messages and supported tool events, inspect project setup, and review token counts reported by local logs. Inferred states and incomplete history are labeled.
 - **Keep useful context:** save memories with provenance and explicit scope, recall active memories within a conservative budget, and export checkpoints containing user notes and a captured Git state.
-- **Review before running:** edit Markdown workflows, dry-run supported reads, approve frozen actions and inspect persisted run records. Project tests and agent commands require approval.
+- **Review before running:** edit Markdown workflows, dry-run supported reads, approve frozen actions and inspect persisted run records. Project tests and agent commands require approval. New development requests have a [configurable seven-day expiry](docs/implementation/approval-expiry-contract.md).
 - **Compare actual outcomes:** inspect deterministic correction-based suggestions, preview and safely apply or undo supported file changes, and run baseline/candidate commands in separate Git worktrees at the same commit.
 - **Own reference material:** import text, HTML, text-based PDF, DOC/DOCX, ODT, RTF or an explicit document URL. Edit, export, archive, restore or explicitly refresh sources with version history. Library imports default to private; paragraph search and reviewed Ask use eligible public sources.
 
