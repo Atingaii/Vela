@@ -88,3 +88,7 @@ UI20 健康提案已由同一指定模型实现并合入开发源码：完整4�
 召回排除修复已整合到开发源码，覆盖旧版采集 Memory 的五种检索路线、MCP、Ask/Route、工作流执行前、Agent Loop 每轮与 Lab 候选执行前。已冻结工作流仍使用原批准 argv；普通正文编辑不会替换该 argv。用户管理视图和原始 Markdown/日志保留，显式移除规则后可恢复召回。匹配 root 的123个 Core/测试输入已通过490项 portable 方法；root 实际构建后，旧 b16→新 helper 升级7组、consumer28项、loop16项、Lab8项和完整6项 renderer 均通过。[精确证据与历史失败](parity/exclusion-recall-evidence-2026-09-14.json)。这关闭的是上述召回/执行检查缺口；桌面排除入口、完整备份与总体验收仍未闭合。UI仍为UI20，既有b16开发包不包含本修复，新checkpoint CI另行记录。
 
 同一2000条合成Memory、真实来源规则与7次测量的debug helper对照中，lexical Recall中位耗时从776.885 ms降为547.898 ms；每次查询复用一次规则读取。该结果只代表此次helper调用，不等同于10万条Search、原生交互延迟或整应用内存预算。
+
+`b0e27282` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34781547477)已通过两个作业，实际执行490项XCTest、零失败，并通过安装后SDK、RPC、renderer及macOS打包审计；[CI证据](parity/ci-b0e27282-evidence-2026-09-14.json)。本机另构建了该检查点的开发包（ZIP 3,696,119 bytes），五项原生QA检查通过，包括启动/增量刷新、双语与菜单同步、来源预览取消、退出重启语言保留、退出清理；[原生证据](parity/native-b0-package-evidence-2026-09-14.json)。这份包包含召回修复，但仍为独立身份QA包装器验证与ad-hoc开发发行，不等于正式安装、公证、系统通知或全产品验收。
+
+同一b0本地开发包内的release helper也已实际复跑旧版升级7组、consumer28项、loop16项与Lab8项，59项全部通过，helper/源码哈希前后一致，隔离进程与fixture清理完成；对应收据见上述原生与交付证据文件。该复测覆盖发行配置下的真实本地执行路径，不代表真实外部模型或系统通知。

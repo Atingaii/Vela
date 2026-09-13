@@ -1,0 +1,154 @@
+{
+  "format": "vela-ci-source-evidence-v2",
+  "commit": "b0e2728291579031ee8e760c97e0b3e06d768427",
+  "run": {
+    "id": 34781547477,
+    "url": "https://github.com/Atingaii/Vela/actions/runs/34781547477",
+    "event": "pull_request",
+    "headSha": "b0e2728291579031ee8e760c97e0b3e06d768427",
+    "checkoutMergeCommit": "41264f134fe2303e76dc9e0b02d121f67b1b7837",
+    "status": "completed",
+    "conclusion": "success",
+    "completedAt": "2026-09-13T20:50:43Z"
+  },
+  "logReceipts": {
+    "macOSJob": {
+      "id": 103789363056,
+      "sha256": "c5aa92d93ef04d2ad76a520e5d6240283cd0a102f052580bc842e54cda1b4f41",
+      "retrievedVia": "gh run view 34781547477 --job 103789363056 --log"
+    },
+    "sdkJob": {
+      "id": 103789362972,
+      "sha256": "e7202246f74d415b1db579dd5cd6217d56fa6ba6266f138dc38310759eee902d",
+      "retrievedVia": "gh run view 34781547477 --job 103789362972 --log"
+    }
+  },
+  "jobs": [
+    {
+      "id": 103789362972,
+      "name": "Installed SDKs and OpenClaw integration",
+      "runner": "macos-14-arm64 / macOS 14.8.9",
+      "conclusion": "success",
+      "actualResults": {
+        "installedSDKs": {
+          "typescriptPassed": 15,
+          "pythonPassed": 16,
+          "walrusTestsPassed": 33
+        },
+        "aiMiddleware": {
+          "testsPassed": 17,
+          "localSDKCompatibilityTests": 12,
+          "actualAISDK": "7.0.99",
+          "actualOpenAIProvider": "4.0.66",
+          "provider": "synthetic_loopback_http_sse"
+        },
+        "pythonResponses": {
+          "testsPassed": 30,
+          "baseSDKCompatibilityTests": 16,
+          "actualOpenAIPython": "3.13.0",
+          "pythonVersion": "3.12.10",
+          "provider": "synthetic_loopback_http_sse"
+        },
+        "langChain": {
+          "testsPassed": 36,
+          "baseSDKTestsPassed": 16,
+          "langchainCore": "1.6.3",
+          "langchainOpenAI": "1.6.2",
+          "openai": "3.13.0",
+          "provider": "synthetic_loopback_chat_completions_http_sse"
+        },
+        "openClaw": {
+          "pinnedVersion": "2026.9.4",
+          "testsPassed": 7,
+          "scope": "real host loader, CLI and hook runner with isolated helper"
+        }
+      },
+      "notClaimed": [
+        "real model quality",
+        "remote memory",
+        "existing user accounts",
+        "legacy package compatibility where no retained legacy package was selected"
+      ]
+    },
+    {
+      "id": 103789363056,
+      "name": "macOS build and tests",
+      "runner": "macos-14-arm64 / macOS 14.8.9",
+      "conclusion": "success",
+      "xctest": {
+        "command": "swift test",
+        "suite": "VelaPackageTests.xctest",
+        "executed": 490,
+        "failures": 0,
+        "unexpectedFailures": 0,
+        "durationSeconds": 127.227,
+        "summary": "Executed 490 tests, with 0 failures (0 unexpected) in 127.227 (127.267) seconds"
+      },
+      "renderer": {
+        "engine": "Playwright Chromium installed in isolated CI path",
+        "allNamedStepsSucceeded": [
+          "Real-helper renderer acceptance",
+          "Frozen capability and engineering renderer flows"
+        ],
+        "realHelperAcceptanceScripts": [
+          "test-ui-browser.py",
+          "test-acceptance-browser.py",
+          "test-localization-browser.py"
+        ],
+        "frozenUIAndHelperScripts": [
+          "test-parity-browser.py",
+          "test-engineering-browser.py",
+          "test-ask-consumer-contracts.py",
+          "test-library-watch-browser.py",
+          "test-history-plan-browser.py",
+          "test-workspace-actions-browser.py",
+          "test-session-relations-browser.py",
+          "test-workspace-scope-accessibility-browser.py",
+          "test-session-memory-capture-browser.py",
+          "test-workflow-health-proposal-browser.py"
+        ],
+        "observedGuardChecks": {
+          "workspaceScopeLiveAnchorAndStaleGuards": "passed",
+          "searchActionsListboxAndReplacementQueryGuard": "passed",
+          "searchActionsTablistKeyboardAndPanelConsistency": "passed",
+          "sessionCapture": [
+            "prepare-cancel-confirm",
+            "idempotency-and-source-edit",
+            "stale-and-scope-guards",
+            "ineligible-and-locales",
+            "all-projects-and-pending"
+          ],
+          "healthProposal": [
+            "readonly-preview",
+            "proposal-reject",
+            "uncertain-accept",
+            "recovery-stale-locales"
+          ]
+        },
+        "rendererArtifact": {
+          "id": 10324854001,
+          "url": "https://github.com/Atingaii/Vela/actions/runs/34781547477/artifacts/10324854001",
+          "uploadedBytes": 12349923
+        }
+      },
+      "package": {
+        "command": "bash scripts/package-macos.sh",
+        "releaseBuild": "Build complete! (123.95s)",
+        "codesignVerifyStep": "completed by package script before audit",
+        "allowlist": "Release allowlist passed",
+        "bundle": "releases/Vela.app",
+        "artifact": {
+          "id": 10324563223,
+          "url": "https://github.com/Atingaii/Vela/actions/runs/34781547477/artifacts/10324563223",
+          "uploadedBytes": 3802953
+        }
+      }
+    }
+  ],
+  "limits": {
+    "ciCheckoutWasPRMergeCommit": true,
+    "nativeCoverage": "CI macOS runner evidence; it is not a substitute for retained local CUA native QA on the user Mac.",
+    "providerCoverage": "SDK integration used local synthetic loopback HTTP/SSE; this does not establish real provider quality or remote-memory behavior.",
+    "overallProductAcceptance": "No-Go: this CI receipt establishes the listed automated checks only."
+  }
+}
