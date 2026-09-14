@@ -4,6 +4,13 @@ import argparse, hashlib, importlib.util, json, os, select, shutil, signal, subp
 from pathlib import Path
 from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES, copy_ui_resources
 ROOT=Path(__file__).resolve().parents[1]; FILES=UI_RESOURCES + DEVELOPMENT_UI_RESOURCES
+CHECKS=(
+ 'prepare-cancel-locales',
+ 'revision-history-objective',
+ 'drawer-feedback-projection',
+ 'run-output-contract',
+ 'stale-lifecycle',
+)
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def main():
  p=argparse.ArgumentParser(); p.add_argument('--ui-directory',type=Path,required=True);p.add_argument('--binary',type=Path,required=True);p.add_argument('--fixture',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--browser-executable',type=Path,required=True);p.add_argument('--checks');a=p.parse_args(); chosen=set(a.checks.split(',')) if a.checks else set(CHECKS)
