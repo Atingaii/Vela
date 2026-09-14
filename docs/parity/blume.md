@@ -143,3 +143,7 @@ Vela is not yet a functional superset of Blume. This inventory keeps 52 capabili
 - RPC：真实同连接 long approval 阻塞 get/cancel 的失败保留在 `loop-rpc-control-first.json`。Root 分离控制实例/队列并在普通队列满时立即返回 busy；修后普通及 32 请求饱和两例均在 provider barrier 释放前收到 get/cancel，1 次 fake provider、0 后续 tool receipt。helper `00f3cf665883c5738460ac36b711cb86f39870c6a732f147f8ab61861e27a816`，见 `loop-rpc-control-fixed.json` / `loop-rpc-saturated-first.json`；后者名字为 first，但捕获的是修后 helper，不能写成修前失败。
 
 另完成 [Knowledge Ask](../implementation/knowledge-query-contract.md)：专门 run、逐轮独立审批、精确引文回查、后续来源重新核验和显式 Library FTS 段落模式。一次真实 Codex 仅使用合成公开 Library/Active Memory，1 call、2 citations、tool0；它证明真实协议与来源闭环，不证明答案解释绝对正确。所有一次性 fixture/helper/store 都已删除，成功和失败证据分别保留。
+
+## Root-provided read-only observation — Blume 1.0.74
+
+Root observed the public desktop UI read-only, without copying assets, screenshots, private project names or treating it as a parity pass. Agents, Setup, Usage and Improve expose top tabs. Setup separates project/global groups and uses Content, Related and Details views; its Markdown reader provides an Edit block action per block, which Vela does not yet provide and is being implemented separately. Source presentation uses a short filename. Quota numbers were not verified because Claude was not connected and Codex had aborted. This is a design observation only, not full UI acceptance or evidence for account, quota, provider or private-project behavior.

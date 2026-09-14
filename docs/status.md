@@ -127,4 +127,6 @@ r4 renderer `app.js` `05e206cb…` 与同一冻结 helper 的串行浏览器验�
 
 2026-09-14 官网已从提交 `93c2848` 显式部署到用户 Cloudflare Pages 项目 `velo`，正式域名 [velo.codes](https://velo.codes) 已活动并启用 SSL。20页面、8资源、20站内导航的正式域名 HTTP 检查全通过，另在浏览器实测双语保留栏目、主题、场景筛选、详情及文档深链接；[部署证据](parity/cloudflare-production-evidence-2026-09-14.json)。首轮证书配置失败与域名激活中的单资源522保留，最终复验通过。该部署不替换 preview.2 下载，也不代表客户端或全部营销文案验收。
 
+当前 WorkBuddy V3 静态官网的部署 URL `https://cf33bf23.velo-5i0.pages.dev` 与正式域名 [velo.codes](https://velo.codes) 均通过 HTTP-only 字节复核：32 页、11 个选定资源、32 个站内导航全部匹配同一源码 aggregate `0fda5484…8b23`。正式域名的首份 V3 收据保留：Cloudflare 托管自动 analytics 注入使 32 个 HTML `bodyMatchesSource` 失败；用户关闭该设置后 r2 全部转绿。[精确证据](evidence/2026-09-14-cloudflare-workbuddy-v3.json)不包含浏览器交互，也不改变 preview.2、客户端验收或产品总 **No-Go**。
+
 用户新增全功能规格的[188项初步源码筛查](parity/final-spec-2026-09-14.md)记录132项部分实现、26项缺失、21项后端有证据、6项外部未验及3项范围/翻译，不能视为逐功能通过。[客户端易用性评审](implementation/desktop-usability-review-2026-09-14.md)已从产品与使用者角度明确相对路径、按需技术详情、16px正文/14px常规控件及中性宽松布局。UI作者仍受指定Antigravity模型约束；本轮探测未取得模型回复，未实施这次界面重构。旧三组独立QA进程和其合成fixture已清理，释放36,024,320 allocated bytes；另清理本轮Cloudflare/npx工具缓存401,854,464 allocated bytes，合计约418MiB；测试证据、交付包和待实施材料保留。产品总验收仍为No-Go。

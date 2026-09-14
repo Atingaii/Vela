@@ -96,6 +96,13 @@ def main():
         browser('click', selector)
         browser('snapshot', '-i')
 
+    def open_action_menu(trigger):
+        menu = 'details.action-menu:has(' + trigger + ')'
+        wait('!!document.querySelector(' + json.dumps(menu) + ')', 'Action menu is absent for ' + trigger)
+        if not value('document.querySelector(' + json.dumps(menu) + ').open'):
+            click(menu + ' > summary')
+            wait('document.querySelector(' + json.dumps(menu) + ').open===true', 'Action menu did not open for ' + trigger)
+
     def exists(selector):
         return value('!!document.querySelector(' + json.dumps(selector) + ')')
 
@@ -188,6 +195,10 @@ def main():
 
         def history_page():
             page('agents')
+            # History import is intentionally a secondary Sessions action.
+            # Exercise it through the visible disclosure rather than clicking
+            # the hidden menu button directly.
+            open_action_menu('#btn-session-history')
             click('#btn-session-history')
             wait('!!document.querySelector("#btn-history-discover")', 'History entry did not open')
 
