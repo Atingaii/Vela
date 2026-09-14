@@ -56,11 +56,26 @@ def main():
         raise AssertionError(reason)
     def click(selector):
         browser('snapshot','-i'); browser('click',selector); browser('snapshot','-i')
+    def open_action_menu(trigger):
+        menu = 'details.action-menu:has(' + trigger + ')'
+        open_menu(menu, trigger)
+    def open_menu(menu, label):
+        wait('!!document.querySelector(' + json.dumps(menu) + ')', 'Action menu is absent for ' + label)
+        if not value('document.querySelector(' + json.dumps(menu) + ').open'):
+            click(menu + ' > summary')
+            wait('document.querySelector(' + json.dumps(menu) + ').open===true', 'Action menu did not open for ' + label)
     def open_setup_history(item):
-        more = '.btn-setup-more[data-id="'+item['id']+'"]'
-        if value('!!document.querySelector('+json.dumps(more)+')'):
-            click(more)
-        click('.btn-setup-history[data-id="'+item['id']+'"]')
+        row = 'article[data-testid="asset-row"][data-asset-id="' + item['id'] + '"]'
+        wait('!!document.querySelector(' + json.dumps(row) + ')', 'Setup asset row is absent')
+        trigger = row + ' .btn-setup-history[data-id="' + item['id'] + '"]'
+        open_menu(row + ' details.action-menu', trigger)
+        click(trigger)
+    def open_mcp_history(item):
+        row = 'article.record-row[data-asset-id="' + item['id'] + '"]'
+        history = row + ' .btn-setup-history[data-id="' + item['id'] + '"]'
+        wait('!!document.querySelector(' + json.dumps(row) + ')', 'MCP record row is absent')
+        open_menu(row + ' details.action-menu', history)
+        click(history)
     def page(name):
         browser('press','Escape'); browser('press','Escape')
         click('.nav-link[data-page="'+name+'"]')
@@ -96,7 +111,7 @@ def main():
             return len(counter.read_text().splitlines()) if counter.exists() else 0
         def modal_text(): return value("document.querySelector('#modal-body').textContent")
         def setup_history():
-            page('setup'); click('#btn-catalog-setup')
+            page('setup'); open_action_menu('#btn-catalog-setup'); click('#btn-catalog-setup')
             wait("document.querySelector('#modal-body').textContent.toLowerCase().includes('omp')",'Five-provider catalog did not render')
             assert all(name.lower() in modal_text().lower() for name in ['Claude','Codex','Cursor','Pi','OMP'])
             assert count_calls()==0
@@ -157,7 +172,7 @@ def main():
             assert diff['sourceChanged'] is True and diff['sanitizedTextChanged'] is False
             page('setup')
             click('[data-setuptab="mcp"]')
-            open_setup_history(item)
+            open_mcp_history(item)
             wait("!!document.querySelector('#btn-run-setup-diff')",'Configuration history not available')
             click('#btn-run-setup-diff')
             wait("!!document.querySelector('#setup-diff-result [data-i18n=\"setup.diffSourceChangedOnly\"]')",'Source change was incorrectly presented as no change')
@@ -169,32 +184,52 @@ def main():
 
         def setup_action_menu():
             page('setup'); click('[data-setuptab="rules"]')
-            wait('!!document.querySelector(".btn-setup-more")','Setup secondary actions have no menu')
-            more='.btn-setup-more[data-id="'+value('document.querySelector(".btn-setup-more").dataset.id')+'"]'
+            first_id = value('document.querySelector(\'article[data-testid="asset-row"]\')?.dataset.assetId')
+            assert first_id, 'Setup asset row has no identity'
+            row = 'article[data-testid="asset-row"][data-asset-id="' + first_id + '"]'
+            wait('!!document.querySelector(' + json.dumps(row) + ')', 'Setup asset row is absent')
+            menu = row + ' details.action-menu'
+            summary = menu + ' > summary'
             state_js='''(() => {
-                const button=document.querySelector('.btn-setup-more');
-                const row=button.closest('tr');
-                const menu=button.closest('.setup-more-dropdown').querySelector('.setup-more-menu');
-                return {expanded:button.getAttribute('aria-expanded'),hidden:menu.hidden,
-                    visibleRowButtons:[...row.querySelectorAll('button')].filter(b=>b.getClientRects().length>0).length,
-                    focusedMore:document.activeElement===button,
-                    focusedItem:menu.contains(document.activeElement),
-                    itemCount:menu.querySelectorAll('[role="menuitem"]').length};
+                const row=document.querySelector('article[data-testid="asset-row"]');
+                const menu=row?.querySelector('details.action-menu');
+                const summary=menu?.querySelector('summary');
+                return {open:menu?.open===true, visibleSummary:!!summary?.getClientRects().length,
+                    visibleRowButtons:[...row.querySelectorAll(':scope > button,.workspace-row-content > button')].filter(b=>b.getClientRects().length>0).length,
+                    actionCount:menu?.querySelectorAll('button').length || 0};
             })()'''
             initial=value(state_js)
-            assert initial['hidden'] and initial['expanded']=='false' and initial['visibleRowButtons']==2,initial
-            click(more)
-            assert value(state_js)['expanded']=='true'
-            click('.page-header h1')
-            assert value(state_js)['hidden'],'Outside click left the menu open'
-            # Set focus only, then drive the real keyboard handlers.
-            value('document.querySelector(".btn-setup-more").focus();true')
-            browser('press','ArrowDown')
+            assert not initial['open'] and initial['visibleSummary'] and initial['actionCount']>=2,initial
+            value('document.querySelector(' + json.dumps(summary) + ').focus();true')
+            browser('press','Enter')
+            opened_by_keyboard=value(state_js)
+            assert opened_by_keyboard['open'],opened_by_keyboard
+            browser('press','Enter')
+            assert not value(state_js)['open'], value(state_js)
+            click(summary)
             opened=value(state_js)
-            assert opened['expanded']=='true' and opened['focusedItem'] and opened['itemCount']>=2,opened
-            browser('press','ArrowDown'); browser('press','Escape')
+            assert opened['open'] and opened['actionCount']>=2,opened
+            assert value('!!document.querySelector(' + json.dumps(row + ' .btn-setup-action-history') + ')'), 'Opened row menu omitted history action'
+            # Change the read-only setup projection outside the renderer, then wait
+            # for the actual five-second, force:false dashboard poll. A refresh may
+            # replace the page, but it must not discard an action menu the user has
+            # deliberately opened.
+            poll_start = len(events())
+            source = Path(project) / 'AGENTS.md'
+            source.write_text(source.read_text() + '\nMENU_POLL_RETENTION_CHECK\n')
+            rpc('setup.scan', {'project': project})
+            deadline = time.monotonic() + 8
+            while time.monotonic() < deadline:
+                if any(event.get('method') == 'dashboard.get' and event.get('ok')
+                       for event in events()[poll_start:]):
+                    break
+                time.sleep(.08)
+            else:
+                raise AssertionError('A real background dashboard poll did not occur after opening the menu')
+            assert value(state_js)['open'], 'force:false dashboard refresh closed an open action menu'
+            click(summary)
             closed=value(state_js)
-            assert closed['hidden'] and closed['focusedMore'] and closed['expanded']=='false',closed
+            assert not closed['open'],closed
             assert count_calls()==0
             browser('screenshot',str(output/'setup-restrained-row-actions.png'))
         check('setup-secondary-actions-menu-keyboard-and-dismissal',setup_action_menu)
@@ -220,7 +255,7 @@ def main():
             mutations=[e for e in events()[before:] if e['method']=='workflows.setEnabled']
             assert len(mutations)==1 and not mutations[0]['ok'], 'UI retried with a fresh hash'
             inspect(workflow['id'])
-            browser('dialog','accept','UI cloned workflow'); click('#btn-inspect-clone')
+            browser('dialog','accept','UI cloned workflow'); open_action_menu('#btn-inspect-clone'); click('#btn-inspect-clone')
             wait("document.querySelector('#modal-container').classList.contains('hidden')",'Clone did not settle')
             clone=next(w for w in rpc('workflows.list',{'project':project}) if w['title']=='UI cloned workflow')
             clone_id=clone['id']
@@ -231,7 +266,7 @@ def main():
         def archive_restore():
             assert clone_id, 'Clone prerequisite failed'
             inspect(clone_id)
-            browser('dialog','accept'); click('#btn-inspect-archive')
+            browser('dialog','accept'); open_action_menu('#btn-inspect-archive'); click('#btn-inspect-archive')
             wait("document.querySelector('#modal-container').classList.contains('hidden')",'Archive did not settle')
             assert clone_id not in [w['id'] for w in rpc('workflows.list',{'project':project})]
             click('#chk-include-archived')
@@ -242,7 +277,7 @@ def main():
             wait("!!document.querySelector('#btn-inspect-archive')",'Restore did not return active definition')
             current=rpc('workflows.get',{'project':project,'id':clone_id})
             assert current['definition']['enabled'] is False and current['definition'].get('state')!='archived'
-            browser('press','Escape'); click('#btn-validate-workflows')
+            browser('press','Escape'); open_action_menu('#btn-validate-workflows'); click('#btn-validate-workflows')
             wait('document.querySelector("#modal-body").textContent.includes('+json.dumps(clone_id)+')','Per-file validation missing')
             assert count_calls()==0 and {a['id'] for a in rpc('inbox.list',{})}==initial_approvals, 'Management unexpectedly executed a task'
         check('workflow-archive-restore-and-readonly-validation',archive_restore)

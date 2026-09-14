@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>项目记忆：保留值得带到下一次的约束 — Vela 使用场景</title>
-  <meta name="description" content="将构建方式、验证规则等确切工程约束保存为可审计的 Candidate、人工激活、按需召回，并在事实过时时显式归档。">
-  <link rel="icon" href="../../assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <title>记住项目的约定 — Vela</title>
+  <meta name="description" content="记住项目的约定 · 面向 Coding Agent 的本地工程工作区。">
+  <link rel="icon" href="/assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
   <link rel="canonical" href="https://velo.codes/usecases/project-memory/">
   <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/usecases/project-memory/">
   <link rel="alternate" hreflang="en" href="https://velo.codes/en/usecases/project-memory/">
   <link rel="alternate" hreflang="x-default" href="https://velo.codes/usecases/project-memory/">
 
   <!-- Preload core self-hosted fonts -->
-  <link rel="preload" href="../../assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="../../assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
 
-  <link rel="stylesheet" href="../../styles.css?v=5c6c5e77720e9a18">
+  <link rel="stylesheet" href="/styles.css?v=7fe760bdbb331b9d">
 
   <!-- Immediate theme application to prevent flash -->
   <script>
@@ -32,12 +32,12 @@
   </script>
 </head>
 <body>
-  <!-- Site Header (62px height, x70-1180 alignment) -->
+  <!-- Site Header (62px height, x70-1180 content alignment) -->
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand-group">
         <a href="/" class="brand-link" aria-label="Vela 首页">
-          <img src="../../assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
+          <img src="/assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
           <span>Vela</span>
         </a>
         <nav class="site-nav" aria-label="主导航"><a href="/product/" class="nav-link">产品功能</a><a href="/usecases/" class="nav-link">使用场景</a><a href="/integrations/" class="nav-link">工具集成</a><a href="/comparisons/" class="nav-link">产品对比</a></nav>
@@ -46,15 +46,15 @@
       <div class="header-actions">
         <a href="/docs.html" class="header-docs-link">文档</a>
 
-        <!-- Theme Toggle Button -->
+        <!-- Theme Toggle Button (Square) -->
         <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
         </button>
 
-        <!-- Language Switcher -->
+        <!-- Language Switcher Button -->
         <a href="/en/usecases/project-memory/" class="header-lang-link" hreflang="en" lang="en" aria-label="Switch to English">English</a>
 
-        <!-- GitHub Repository Button -->
+        <!-- GitHub Repository Button (Square) -->
         <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
         </a>
@@ -68,7 +68,7 @@
 
     <!-- Mobile Navigation Drawer -->
     <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单"><a href="/integrations/" class="nav-link">工具集成</a><a href="/product/" class="nav-link">产品功能</a>
-      <a href="/usecases/" class="nav-link active" aria-current="page">使用场景</a>
+      <a href="/usecases/" class="nav-link">使用场景</a>
       <a href="/comparisons/" class="nav-link">产品对比</a>
       <a href="/docs.html" class="nav-link">文档</a>
       <a href="/releases.html" class="nav-link">发行记录</a>
@@ -79,108 +79,9 @@
   </header>
 
   <main>
-    <section class="usecases-hero">
-      <div class="container">
-        <!-- Breadcrumb Navigation -->
-        <div class="breadcrumb-nav">
-          <a href="/usecases/" class="breadcrumb-link">← 返回全部使用场景</a>
-        </div>
-
-        <div class="usecase-detail-header">
-          <div class="usecase-meta-badges">
-            <span class="version-badge-preview">preview.2 基础功能 · 开发版扩展</span>
-            <span class="tag-badge">生命周期流转</span>
-            <span class="tag-badge">7 种工程 Scope</span>
-            <span class="tag-badge">无外部向量服务</span>
-          </div>
-          <h1 class="usecase-h1">项目记忆：保留值得带到下一次的约束</h1>
-          <p class="usecase-problem-lead">
-            <strong>工程师常见困扰：</strong>项目的构建约定、测试前置命令、环境排错技巧往往沉淀在个人脑中或无数会话中。每次开启新会话都不得不重新叮嘱 Agent；更糟糕的是，当构建规则调整后，旧记忆容易变成隐形干扰，难以追溯与下线。
-          </p>
-        </div>
-
-        <!-- Step-by-Step Flow -->
-        <div class="step-flow">
-          <div class="step-flow-item">
-            <div class="step-flow-num">01</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">从消息提取或手工提议 Candidate</div>
-              <div class="step-flow-desc">
-                从已记录的会话证据中一键提取工程事实（如“提交前运行 python3 scripts/check-repository.py”），或手动创建记忆提议。所有初始条目均默认为 <code>Candidate</code> 状态，保留创建来源会话 ID 与提取时间戳。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">02</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">核对来源与归属 Scope</div>
-              <div class="step-flow-desc">
-                每条记忆归属于明确的作用域（如 <code>test-practices</code>、<code>build-system</code> 或 <code>workspace-rules</code>）。Private Library 严格独立保存，绝不混入项目记忆流或提示词检索上下文。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">03</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">人工审阅与状态激活（Active）</div>
-              <div class="step-flow-desc">
-                遵循“已保存不等于已对模型生效”的原则。工程师对内容事实进行审校与修改后，手动将其变更为 <code>Active</code> 状态。未经人工审核的 Candidate 绝不参与上下文召回。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">04</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">受限预算召回与显式归档（Supersede / Archive）</div>
-              <div class="step-flow-desc">
-                通过 MCP 工具或 CLI 在受控的 Token 预算内进行纯本地词面召回；当项目规范演进时，可显式指定新记忆替代旧记忆（<code>Superseded</code>）或将其彻底归档（<code>Archived</code>），避免过时事实持续污染提示词。
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Real Screenshot Frame -->
-        <div class="product-screenshot-frame" style="margin-bottom: 40px;">
-          <img
-            src="../../assets/vela-sessions.png?v=7c482b1edee5f47a"
-            alt="Vela 记忆管理与会话审查界面：展示记忆列表、状态流转与来源会话关联"
-            width="1250"
-            height="800"
-            loading="lazy"
-            class="product-screenshot-img"
-          >
-          <div class="screenshot-caption">
-            <span>实际 macOS 原生界面 (0.1.0-preview.2) · 合成示例数据</span>
-          </div>
-        </div>
-
-        <!-- Limitations & Boundaries Callout -->
-        <div class="callout-limits">
-          <div class="callout-limits-title">功能边界与已知限制</div>
-          <div class="callout-limits-content">
-            <ul style="padding-left: 18px; margin: 0;">
-              <li><strong>词面与 Scope 索引检索：</strong>Vela 采用纯本地 SQLite 进行作用域、关键词与状态词面匹配检索，无任何远程向量数据库、Embedding API 或外部云端持久化依赖。</li>
-              <li><strong>模型采纳需独立证据：</strong>将 Active 记忆按预算召回并注入上下文，并不等同于下游 Coding Agent 能够 100% 正确理解并严格执行约束。模型遵循能力取决于任务复杂度与 Harness 本身。</li>
-              <li><strong>私有库严格隔离：</strong>Private Library 仅用于本地存放个人敏感信息与私有参考笔记，严格与项目记忆隔离，绝不暴露给 Agent 检索协议或模型 Prompt。</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Bottom CTA Bar -->
-        <div class="usecase-cta-bar">
-          <a href="/docs.html#memory" class="usecase-next-doc-link">下一步：阅读项目记忆设计与生命周期文档 →</a>
-          <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="btn btn-primary-amber" target="_blank" rel="noopener noreferrer">
-            下载 macOS 预览版 →
-          </a>
-        </div>
-      </div>
-    </section>
+<section class="catalogue-hero container"><div class="section-eyebrow">USE CASE / MEMORY</div><h1 class="catalogue-title">记住项目的约定</h1><p class="catalogue-lead">不要再重复说明测试和构建约束。</p></section><div class="container case-detail"><div class="case-readout"><div><span class="section-eyebrow">输入</span><p>会话消息、已审阅的项目知识</p></div><div><span class="section-eyebrow">结果</span><p>下次会话可使用的项目记忆</p></div></div><ol class="case-steps"><li><span>01</span><div><h2>保存候选</h2><p>从一条用户或助手消息保存候选记忆，保留来源会话和消息身份。工具记录不能直接视为项目约定。</p></div></li><li><span>02</span><div><h2>人工激活</h2><p>核对内容、类型和项目范围，明确激活后才可进入相应召回。过时内容可替代或归档。</p></div></li><li><span>03</span><div><h2>受限召回</h2><p>通过受支持的 CLI、MCP 或经审阅的 Hook 提供上下文。召回记录证明提供了什么，不证明模型遵守或质量提升。</p></div></li></ol><figure class="product-visual"><img src="/assets/vela-memory-current.png?v=3573eed846f02ee9" alt="项目记忆、状态与来源链接" width="1250" height="800" loading="lazy" decoding="async"><figcaption>实际 macOS 开发版界面 · 隔离非持久合成 fixture · 非 preview.2 下载内容</figcaption></figure><a class="text-link" href="/product/#memory">查看相关产品功能 →</a><br><a class="text-link" href="/usecases/">← 全部使用场景</a></div><section class="context-story container"><figure><img src="/assets/vela-context-stitch.png?v=ff01dc2d8ef92b3a" alt="小黑把一枚经过审阅的书签缝入笔记本，让知识连接前后两次会话。" width="1672" height="941" loading="lazy" decoding="async"><figcaption>概念插图 · 上下文需要审阅，不自动视为可信</figcaption></figure><div><div class="section-eyebrow">OBSERVE / REMEMBER / VERIFY</div><h2>会话结束，值得留下的继续。</h2><p>先读清来源，再保留经过审阅的上下文，交给下一次会话。Vela 记录这次选择的来由；是否有帮助，仍需后续对照验证。</p></div></section><aside class="availability-note container">本指南介绍当前开发分支能力。公开下载仍为 preview.2，较新的能力需要从源码构建；具体版本请查看<a href="/releases.html">发行记录</a>。</aside>
   </main>
 
-  <!-- Site Footer -->
   <footer class="site-footer">
     <div class="container footer-inner">
       <div class="footer-brand-line">
@@ -200,6 +101,6 @@
     </div>
   </footer>
 
-  <script src="../../site.js?v=acf1c37e1928f8dc"></script>
+  <script src="/site.js?v=acf1c37e1928f8dc"></script>
 </body>
 </html>

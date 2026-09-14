@@ -1,6 +1,8 @@
 # Vela website
 
-The official site is a static HTML/CSS/JavaScript application. It has no package dependencies, client analytics, account system or runtime build step. The 32 bilingual pages are deployed as static files. Product examples are explicitly marked as fictional.
+The official site is a static HTML/CSS/JavaScript application. It has no package dependencies, client analytics, account system or runtime build step. The 32 bilingual pages are deployed as static files. Development screenshots are captured from isolated synthetic fixtures and are labeled as development-only; conceptual illustrations and hypothetical scenarios are labeled individually.
+
+The current five product screenshots are native WKWebView captures from an isolated, nonpersistent synthetic fixture. Their filenames, capture records and V3 UI resource hashes are recorded in `docs/evidence/2026-09-14-website-native-visuals-workbuddy-r3.json`; they do not describe the published preview.2 download or prove catalogue-wide coverage.
 
 Preview from the repository root:
 

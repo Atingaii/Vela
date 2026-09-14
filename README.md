@@ -34,11 +34,11 @@
 > Core paths are implemented, with substantial compatibility and automation limits. This is not a complete implementation of the roadmap or a stable release. The development app is ad-hoc signed, has no Developer ID signature and is not Apple-notarized. Read [feature status and limitations](docs/status.md) before use.
 
 <p align="center">
-  <img src="docs/assets/vela-reading.png" alt="Vela development workspace with grouped agent sessions, readable controls and project navigation" width="100%">
+  <img src="docs/assets/vela-reading.png" alt="Vela development workspace with a readable command, original-record disclosure and project navigation" width="100%">
 </p>
 
 <p align="center">
-  <em>Actual macOS development interface, captured in WKWebView against the real Swift helper and isolated synthetic projects. Reading, Memory menus, approval execution and language persistence were checked locally. This UI is not included in the preview.2 download.</em>
+  <em>Actual macOS development interface, captured in WKWebView with the real Swift helper and synthetic projects. Readable commands, task-specific workflow icons, contextual menus and separate account limits are part of the current design. This interface is not included in the preview.2 download.</em>
 </p>
 
 ## What you can use

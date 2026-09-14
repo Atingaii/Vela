@@ -1,0 +1,779 @@
+{
+  "format": "vela-workbuddy-v3-browser-release-baseline-v1",
+  "date": "2026-09-14",
+  "syntheticFixtures": true,
+  "externalProviderValidation": false,
+  "uiSHA256": {
+    "app.js": "20c332d2f093d203de0c09126714ffa5ce6e48f2ef9f2c6561cd3a1671ad87be",
+    "content.js": "735938e0bdef0e1714ce48881c76e70e5fecf2a00fa631d062e19130089af3c6",
+    "i18n.js": "8c251d97fde352b54633f9911335b78e3364103c8ce515ac5fefb313f39b2130",
+    "index.html": "380127605c6c147ee7b58bb54e0e9d770204b7d6a811f38f6103b7ae97356786",
+    "reading.css": "b1b4bb1fee56e3fa30c56e6559f7f8f253599198b0c0a2c6656b882ee4d8942a"
+  },
+  "helperSHA256": "020726c1276ad5de361c073b9b8e0f16bdd046b747a2475701a16e48f640551c",
+  "sets": [
+    {
+      "receipt": "output/playwright/workbuddy-integration-r3-engineering/results.json",
+      "sha256": "06ec916d56562ff54d6de5104a50a299868cf9ea5ec94b3fd4d305d9e7822453",
+      "count": 11,
+      "checks": [
+        {
+          "check": "setup-real-source-change-history-and-diff",
+          "passed": true
+        },
+        {
+          "check": "setup-history-pagination-retains-comparison-and-oldest-version",
+          "passed": true
+        },
+        {
+          "check": "setup-secret-rotation-explained-without-secret-content",
+          "passed": true
+        },
+        {
+          "check": "setup-secondary-actions-menu-keyboard-and-dismissal",
+          "passed": true
+        },
+        {
+          "check": "workflow-stale-review-rejected-and-explicit-clone",
+          "passed": true
+        },
+        {
+          "check": "workflow-archive-restore-and-readonly-validation",
+          "passed": true
+        },
+        {
+          "check": "workflow-empty-active-list-can-find-and-restore-archive",
+          "passed": true
+        },
+        {
+          "check": "ask-empty-retrieval-never-starts-provider",
+          "passed": true
+        },
+        {
+          "check": "ask-explicit-approval-actual-answer-and-exact-citations",
+          "passed": true
+        },
+        {
+          "check": "ask-followup-new-approval-and-cancel-without-call",
+          "passed": true
+        },
+        {
+          "check": "loop-reviewed-capabilities-and-cancel-before-execution",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "receipt": "output/playwright/workbuddy-integration-r3-localization/results.json",
+      "sha256": "f8a48f364f9fd475aa86589350cacf212272caa7f50fd93444e7c5f030ffc479",
+      "count": 6,
+      "checks": [
+        {
+          "check": "core-locale-contract",
+          "passed": true,
+          "detail": {
+            "default": "zh-CN",
+            "invalidPatches": 8,
+            "legacyFallback": true,
+            "newHelperRead": "en"
+          }
+        },
+        {
+          "check": "settings-switch-preserves-draft",
+          "passed": true,
+          "detail": {
+            "onlyLocaleSaved": true,
+            "unsavedAnalysisPreserved": true,
+            "notificationsCategorySelected": true,
+            "navigationLabels": {
+              "zh-CN": {
+                "agents": "会话",
+                "workflows": "工作流",
+                "inbox": "审批",
+                "memory": "记忆",
+                "setup": "配置",
+                "usage": "用量",
+                "improve": "改进",
+                "lab": "实验",
+                "settings": "设置"
+              },
+              "en": {
+                "agents": "Sessions",
+                "workflows": "Workflows",
+                "inbox": "Approvals",
+                "memory": "Memory",
+                "setup": "Setup",
+                "usage": "Usage",
+                "improve": "Improve",
+                "lab": "Lab",
+                "settings": "Settings"
+              }
+            }
+          },
+          "pageErrors": []
+        },
+        {
+          "check": "selected-records-and-user-content",
+          "passed": true,
+          "detail": {
+            "exactMessage": "locale-message",
+            "memoryId": "a288eadb-3660-4c27-9480-f740acb8ec40",
+            "userTextAndPathUnchanged": true,
+            "supersedeTitleQuotesAndMarkupPreserved": true,
+            "injectedNodes": 0,
+            "supersedeSubmitted": false,
+            "sessionLiveAttributeLocales": [
+              "en",
+              "zh-CN",
+              "en"
+            ],
+            "sessionNodesPreserved": true
+          },
+          "pageErrors": []
+        },
+        {
+          "check": "unsaved-workflow-and-argv",
+          "passed": true,
+          "detail": {
+            "draftSaved": false,
+            "argvUnchanged": true,
+            "focusSelectionPreserved": true
+          },
+          "pageErrors": []
+        },
+        {
+          "check": "restart-and-roundtrip",
+          "passed": true,
+          "detail": {
+            "browserAndHelperRestarted": true,
+            "persistedLocale": "en",
+            "returnedToChinese": true
+          },
+          "pageErrors": []
+        },
+        {
+          "check": "english-surface-coverage",
+          "passed": true,
+          "detail": {
+            "routes": 9,
+            "subviews": [
+              "usage-quota",
+              "settings-notifications"
+            ],
+            "modals": 8,
+            "fixedChinese": [],
+            "missingKeys": [],
+            "catalogKeys": 2385
+          },
+          "pageErrors": []
+        }
+      ]
+    },
+    {
+      "receipt": "output/playwright/workbuddy-integration-r3-reading-r3/results.json",
+      "sha256": "cf33bf8f47bbe2cb9d3ebb978eaf63bf4643fbb68c9f796e37443494b61dee40",
+      "count": 6,
+      "checks": [
+        {
+          "name": "readable-session-workspace",
+          "passed": true,
+          "layout": {
+            "sidebarRight": 248,
+            "drawerLeft": 248,
+            "drawerWidth": 1002,
+            "hidden": "hidden",
+            "inert": true,
+            "overflow": false
+          }
+        },
+        {
+          "name": "memory-title-and-progressive-actions",
+          "passed": true,
+          "drawerOpenedFromTitle": true
+        },
+        {
+          "name": "actual-approval-markdown-source-copy",
+          "passed": true
+        },
+        {
+          "name": "actual-setup-skill-markdown-metadata-source-copy-inert-html",
+          "passed": true,
+          "sourceBytes": 149
+        },
+        {
+          "name": "900px-memory-layout",
+          "passed": true,
+          "geometry": {
+            "width": 900,
+            "body": 900,
+            "items": [
+              {
+                "x": 591.59375,
+                "right": 709.390625,
+                "width": 117.796875
+              },
+              {
+                "x": 715.390625,
+                "right": 830,
+                "width": 114.609375
+              },
+              {
+                "x": 836,
+                "right": 872,
+                "width": 36
+              },
+              {
+                "x": 244,
+                "right": 320.859375,
+                "width": 76.859375
+              },
+              {
+                "x": 324.859375,
+                "right": 413.4375,
+                "width": 88.578125
+              },
+              {
+                "x": 417.4375,
+                "right": 507.6875,
+                "width": 90.25
+              },
+              {
+                "x": 511.6875,
+                "right": 602.25,
+                "width": 90.5625
+              },
+              {
+                "x": 606.25,
+                "right": 696.8125,
+                "width": 90.5625
+              }
+            ]
+          }
+        },
+        {
+          "name": "english-memory-layout",
+          "passed": true,
+          "settingsCategory": "general"
+        }
+      ]
+    },
+    {
+      "receipt": "output/playwright/workbuddy-integration-r3-design/results.json",
+      "sha256": "4537745cd3a4286a06a37d32fb52fc5e143168c2165fc0117663c24ec15a6b4f",
+      "count": 15,
+      "checks": [
+        {
+          "check": "all-nine-pages-zh-CN-1250x800",
+          "passed": true,
+          "observation": {
+            "viewport": [
+              1250,
+              800
+            ],
+            "pages": [
+              {
+                "page": "agents",
+                "active": "agents",
+                "header": "会话",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "workflows",
+                "active": "workflows",
+                "header": "工作流",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "memory",
+                "active": "memory",
+                "header": "工程记忆",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "setup",
+                "active": "setup",
+                "header": "配置与资产",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "inbox",
+                "active": "inbox",
+                "header": "待办审批",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "usage",
+                "active": "usage",
+                "header": "用量追踪",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "improve",
+                "active": "improve",
+                "header": "调优建议",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "lab",
+                "active": "lab",
+                "header": "对照实验",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "settings",
+                "active": "settings",
+                "header": "设置",
+                "pageHorizontalOverflow": false
+              }
+            ],
+            "settingsAria": [
+              {
+                "role": "navigation",
+                "label": "设置"
+              },
+              {
+                "role": "panel",
+                "label": "常规"
+              },
+              {
+                "role": "panel",
+                "label": "系统通知"
+              },
+              {
+                "role": "panel",
+                "label": "连接与自动化"
+              },
+              {
+                "role": "panel",
+                "label": "本地与隐私声明"
+              }
+            ]
+          },
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "all-nine-pages-en-1250x800",
+          "passed": true,
+          "observation": {
+            "viewport": [
+              1250,
+              800
+            ],
+            "pages": [
+              {
+                "page": "agents",
+                "active": "agents",
+                "header": "Sessions",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "workflows",
+                "active": "workflows",
+                "header": "Workflows",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "memory",
+                "active": "memory",
+                "header": "Engineering Memory",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "setup",
+                "active": "setup",
+                "header": "Configuration & Assets",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "inbox",
+                "active": "inbox",
+                "header": "Approvals",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "usage",
+                "active": "usage",
+                "header": "Usage Tracking",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "improve",
+                "active": "improve",
+                "header": "Improve",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "lab",
+                "active": "lab",
+                "header": "Comparative Experiments",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "settings",
+                "active": "settings",
+                "header": "Settings",
+                "pageHorizontalOverflow": false
+              }
+            ],
+            "settingsAria": [
+              {
+                "role": "navigation",
+                "label": "Settings"
+              },
+              {
+                "role": "panel",
+                "label": "General"
+              },
+              {
+                "role": "panel",
+                "label": "System Notifications"
+              },
+              {
+                "role": "panel",
+                "label": "Connections & automation"
+              },
+              {
+                "role": "panel",
+                "label": "Local & Privacy Statement"
+              }
+            ]
+          },
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "narrow-four-pages-900x650",
+          "passed": true,
+          "observation": {
+            "viewport": [
+              900,
+              650
+            ],
+            "pages": [
+              {
+                "page": "agents",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "workflows",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "memory",
+                "pageHorizontalOverflow": false
+              },
+              {
+                "page": "inbox",
+                "pageHorizontalOverflow": false
+              }
+            ]
+          },
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "sidebar-collapse-removes-hidden-navigation-from-focus",
+          "passed": true,
+          "observation": {
+            "hidden": true,
+            "actualFocusable": [],
+            "collapsedScope": {
+              "label": "Harbor",
+              "title": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-design-browser-r3/Harbor"
+            },
+            "selectionRetained": true
+          },
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "workflow-agent-setup-lab-tabs-expose-single-pressed-selection",
+          "passed": true,
+          "observation": [
+            {
+              "page": "agents",
+              "count": 3,
+              "statesBefore": [
+                "true",
+                "false",
+                "false"
+              ],
+              "statesAfter": [
+                "false",
+                "true",
+                "false"
+              ],
+              "statesRestored": [
+                "true",
+                "false",
+                "false"
+              ]
+            },
+            {
+              "page": "workflows",
+              "count": 6,
+              "statesBefore": [
+                "true",
+                "false",
+                "false",
+                "false",
+                "false",
+                "false"
+              ],
+              "statesAfter": [
+                "false",
+                "true",
+                "false",
+                "false",
+                "false",
+                "false"
+              ],
+              "statesRestored": [
+                "true",
+                "false",
+                "false",
+                "false",
+                "false",
+                "false"
+              ]
+            },
+            {
+              "page": "setup",
+              "count": 6,
+              "statesBefore": [
+                "true",
+                "false",
+                "false",
+                "false",
+                "false",
+                "false"
+              ],
+              "statesAfter": [
+                "false",
+                "true",
+                "false",
+                "false",
+                "false",
+                "false"
+              ],
+              "statesRestored": [
+                "true",
+                "false",
+                "false",
+                "false",
+                "false",
+                "false"
+              ]
+            },
+            {
+              "page": "lab",
+              "count": 2,
+              "statesBefore": [
+                "true",
+                "false"
+              ],
+              "statesAfter": [
+                "false",
+                "true"
+              ],
+              "statesRestored": [
+                "true",
+                "false"
+              ]
+            }
+          ],
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "actual-tool-command-is-exact-copyable-raw-and-html-inert",
+          "passed": true,
+          "observation": {
+            "sessionId": "fd9db2da1cfbc65e7ace1ca39eb75453f51bd7e901b5fc44ec5d019554ee2f8f",
+            "commandBytes": 60,
+            "rawSourceExact": true,
+            "copiedExact": true,
+            "noOutputObserved": true,
+            "inert": {
+              "injected": 0,
+              "global": false
+            }
+          },
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "workflow-icons-follow-real-trigger-and-step-class",
+          "passed": true,
+          "observation": {
+            "git": "branch",
+            "write": "document",
+            "sameGitIcon": true,
+            "distinctWriteIcon": true
+          },
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "saved-workflow-long-titles-and-menu",
+          "passed": true,
+          "observation": [
+            {
+              "label": "chinese",
+              "title": {
+                "title": "工作流标题甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸",
+                "aria": "工作流标题甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸甲乙丙丁戊己庚辛壬癸",
+                "nowrap": "nowrap",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "width": 768
+              },
+              "description": {
+                "rendered": "This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. ",
+                "lineClamp": "2",
+                "overflow": "hidden",
+                "lineHeight": 21.7,
+                "height": 43.375
+              },
+              "menu": {
+                "width": 36,
+                "height": 36
+              }
+            },
+            {
+              "label": "english",
+              "title": {
+                "title": "WorkflowTitleWithoutAnySpacesABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+                "aria": "WorkflowTitleWithoutAnySpacesABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+                "nowrap": "nowrap",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "width": 768
+              },
+              "description": {
+                "rendered": "This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. ",
+                "lineClamp": "2",
+                "overflow": "hidden",
+                "lineHeight": 21.7,
+                "height": 43.375
+              },
+              "menu": {
+                "width": 36,
+                "height": 36
+              }
+            }
+          ],
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "saved-workflow-descriptions-are-exact-two-line-clamped",
+          "passed": true,
+          "observation": [
+            {
+              "label": "chinese",
+              "rendered": "This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. ",
+              "lineClamp": "2",
+              "overflow": "hidden",
+              "lineHeight": 21.7,
+              "height": 43.375
+            },
+            {
+              "label": "english",
+              "rendered": "This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. This exact fixture description is deliberately long enough to wrap through more than two visual lines in the normal workflow list, while remaining ordinary persisted workflow metadata. ",
+              "lineClamp": "2",
+              "overflow": "hidden",
+              "lineHeight": 21.7,
+              "height": 43.375
+            }
+          ],
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "all-projects-workflow-opens-correct-definition-scope",
+          "passed": true,
+          "observation": {
+            "workflowId": "aace29b0-6697-4784-b06e-5e71fa82841e",
+            "displayedProject": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-design-browser-r3/Beacon",
+            "requestProject": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-design-browser-r3/Beacon"
+          },
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "memory-filters-never-duplicate-header-actions",
+          "passed": true,
+          "observation": {
+            "filters": 5,
+            "headerActions": [
+              "btn-configure-reuse||Configure Codex Reuse",
+              "btn-export-memory-archive||Export Archive",
+              "btn-import-memory-archive||Import Archive",
+              "btn-knowledge-ask||Knowledge Ask",
+              "btn-new-memory||+ New Memory",
+              "btn-recall-tester||Recall Tester",
+              "btn-semantic-memory||Semantic Index"
+            ]
+          },
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "setup-memory-home-is-secondary-menu-route",
+          "passed": true,
+          "observation": {
+            "menuOpened": true,
+            "destination": "memory",
+            "duplicateSetupTabVisible": false
+          },
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "settings-category-switch-preserves-unsaved-draft",
+          "passed": true,
+          "observation": {
+            "field": "setting-notifications",
+            "draftRetained": true,
+            "kind": "checkbox"
+          },
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "empty-and-query-no-result-explain-next-step",
+          "passed": true,
+          "observation": {
+            "queryNoResultText": "No Matching Sessions\nNo agent sessions match the current search term or filter criteria.\nClear Filters",
+            "recoveryActions": 1
+          },
+          "pageErrors": [],
+          "failedResources": []
+        },
+        {
+          "check": "approval-source-is-complete-not-list-truncated",
+          "passed": true,
+          "observation": {
+            "approvalId": "113075d5-8981-448c-9379-135a347c257d",
+            "sourceLength": 5396,
+            "renderedLength": 5396,
+            "frozenArgumentsExact": true
+          },
+          "pageErrors": [],
+          "failedResources": []
+        }
+      ]
+    }
+  ],
+  "priorSpecificRegression": {
+    "description": "Null→observed zero was verified on V2; V3 only changed Setup content/menu/provider label and document front matter presentation.",
+    "receipt": "output/playwright/workbuddy-integration-r2-acceptance/full/results.json",
+    "sha256": "d0cf408c524778417a4dd51044e4d697cfb39c0acb0ef299269ff16a7353842c"
+  },
+  "limitations": [
+    "Passes cover the listed browser/real-local-helper cases only, not all 188 specifications or 228 reference capabilities.",
+    "Native evidence and packaged release evidence are separately versioned."
+  ]
+}

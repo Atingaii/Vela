@@ -34,11 +34,11 @@
 > 核心路径已经实现，但适配、自动化和评测仍有明确限制；当前版本不代表完整产品路线图已经交付，也不是稳定版本。开发包使用 ad-hoc 签名，没有 Developer ID 签名，尚未通过 Apple 公证。使用前请阅读[功能状态与限制](docs/status.md)。
 
 <p align="center">
-  <img src="docs/assets/vela-reading.png" alt="Vela 开发版工作区展示分组 Agent 会话与原始消息" width="100%">
+  <img src="docs/assets/vela-reading.png" alt="Vela 开发版工作区展示可读命令、可展开的原始记录与项目导航" width="100%">
 </p>
 
 <p align="center">
-  <em>当前 macOS 开发版实图：原生 WKWebView 连接真实 Swift helper 与隔离合成工程。本机已检查会话阅读、Memory 菜单、审批执行及语言持久化；此界面尚未包含在 preview.2 下载中。</em>
+  <em>当前 macOS 开发版实图：原生 WKWebView 连接真实 Swift helper 与合成项目。展示可读命令、按任务区分的图标、条目菜单与独立账户额度；此界面尚未包含在 preview.2 下载中。</em>
 </p>
 
 ## 当前可用能力

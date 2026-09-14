@@ -94,6 +94,22 @@ def main():
         browser('click', selector)
         browser('snapshot', '-i')
 
+    def open_action_menu(trigger):
+        menu = 'details.action-menu:has(' + trigger + ')'
+        open_menu(menu, trigger)
+    def open_menu(menu, label):
+        wait('!!document.querySelector(' + json.dumps(menu) + ')', 'Action menu is absent for ' + label)
+        if not value('document.querySelector(' + json.dumps(menu) + ').open'):
+            click(menu + ' > summary')
+            wait('document.querySelector(' + json.dumps(menu) + ').open===true', 'Action menu did not open for ' + label)
+
+    def open_workflow_action(identifier, action_class):
+        row = 'article.workflow-row[data-id=' + json.dumps(identifier) + ']'
+        wait('!!document.querySelector(' + json.dumps(row) + ')', 'Workflow row absent')
+        trigger = row + ' ' + action_class + '[data-id=' + json.dumps(identifier) + ']'
+        wait('!!document.querySelector(' + json.dumps(trigger) + ')', 'Workflow row action is absent')
+        open_menu(row + ' details.action-menu', trigger)
+
     def checkbox(selector, checked):
         if value('document.querySelector(' + json.dumps(selector) + ').checked') != checked:
             click(selector)
@@ -144,6 +160,11 @@ def main():
 
     def wait_library_row(identifier):
         wait('!!document.querySelector(' + json.dumps('.btn-edit-library[data-id="' + identifier + '"]') + ')', 'Library row absent')
+    def open_library_action(identifier, action):
+        row = 'article.record-row[data-id="' + identifier + '"]'
+        trigger = row + ' ' + action + '[data-id="' + identifier + '"]'
+        wait('!!document.querySelector(' + json.dumps(trigger) + ')', 'Library action is absent')
+        open_menu(row + ' details.action-menu', trigger)
 
     try:
         evidence['sourceBefore'] = hashes(ui_source)
@@ -201,7 +222,7 @@ def main():
             assert item['private'] is True and item['project'] == project
             reviewed = library_item(document_id)
             wait_library_row(document_id)
-            click('.btn-edit-library[data-id="' + document_id + '"]')
+            open_library_action(document_id, '.btn-edit-library'); click('.btn-edit-library[data-id="' + document_id + '"]')
             wait('!!document.querySelector("#lib-edit-content")', 'Reviewed edit did not load')
             browser('fill', '#lib-edit-title', 'Consumer published library')
             browser('fill', '#lib-edit-content', 'Consumer published source, explicitly accepted by the user.')
@@ -227,7 +248,7 @@ def main():
             library_page()
             wait_library_row(document_id)
             reviewed = library_item(document_id)
-            click('.btn-edit-library[data-id="' + document_id + '"]')
+            open_library_action(document_id, '.btn-edit-library'); click('.btn-edit-library[data-id="' + document_id + '"]')
             wait('!!document.querySelector("#lib-edit-content")', 'Edit did not load')
             rpc('library.update', {'id': document_id, 'project': project, 'snapshotHash': reviewed['snapshotHash'],
                                    'content': 'External newer content must survive the stale editor.'})
@@ -248,14 +269,14 @@ def main():
             wait_library_row(document_id)
             before = library_item(document_id)
             browser('dialog', 'accept')
-            click('.btn-archive-library[data-id="' + document_id + '"]')
+            open_library_action(document_id, '.btn-archive-library'); click('.btn-archive-library[data-id="' + document_id + '"]')
             wait('!document.querySelector(' + json.dumps('.btn-archive-library[data-id="' + document_id + '"]') + ')', 'Archived row still active')
             archived = library_item(document_id)
             assert archived['item']['state'] == 'archived'
             assert document_id not in {row['id'] for row in rpc('library.list', {'project': project})}
             checkbox('#chk-lib-include-archived', True)
             wait('!!document.querySelector(' + json.dumps('.btn-restore-library[data-id="' + document_id + '"]') + ')', 'Archived row cannot be restored')
-            click('.btn-restore-library[data-id="' + document_id + '"]')
+            open_library_action(document_id, '.btn-restore-library'); click('.btn-restore-library[data-id="' + document_id + '"]')
             wait('!!document.querySelector(' + json.dumps('.btn-archive-library[data-id="' + document_id + '"]') + ')', 'Restored row did not become active')
             restored = library_item(document_id)
             assert restored['item']['state'] == 'active' and restored['item']['private'] == before['item']['private']
@@ -359,6 +380,7 @@ def main():
             # Reload the persisted definition through the actual edit control.
             # Source switching must preserve the draft, and saves must not mix
             # file-specific and polling-specific fields.
+            open_workflow_action(identifier, '.btn-wf-edit')
             click('.btn-wf-edit[data-id="' + identifier + '"]')
             wait('!!document.querySelector("#wf-watch-source")', 'Watch source edit control absent')
             assert value('document.querySelector("#wf-watch-source").value') == source
@@ -388,6 +410,7 @@ def main():
                 assert not {'paths', 'recursive', 'ignore'} & edited.keys(), edited
             selector = '.btn-wf-preview-watch[data-id="' + identifier + '"]'
             wait('!!document.querySelector(' + json.dumps(selector) + ')', 'Watch preview row absent')
+            open_workflow_action(identifier, '.btn-wf-preview-watch')
             click(selector)
             wait('!!document.querySelector(' + json.dumps('[data-i18n="watch.previewBaselineTrue"]') + ')', 'Watch baseline preview absent')
             preview = ui_calls('watches.preview')[-1]['result']

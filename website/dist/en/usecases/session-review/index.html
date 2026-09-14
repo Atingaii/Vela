@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Session Review: Find the Origin of Changes — Vela Use Cases</title>
-  <meta name="description" content="Accurately search key tool calls, messages, and contextual evidence from Claude Code, Codex, and Cursor session histories to trace the origins of engineering decisions.">
-  <link rel="icon" href="../../../assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <title>Pick up yesterday’s change — Vela</title>
+  <meta name="description" content="Pick up yesterday’s change · Local-first engineering workspace for coding agents.">
+  <link rel="icon" href="/assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
   <link rel="canonical" href="https://velo.codes/en/usecases/session-review/">
   <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/usecases/session-review/">
   <link rel="alternate" hreflang="en" href="https://velo.codes/en/usecases/session-review/">
   <link rel="alternate" hreflang="x-default" href="https://velo.codes/usecases/session-review/">
 
   <!-- Preload core self-hosted fonts -->
-  <link rel="preload" href="../../../assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="../../../assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
 
-  <link rel="stylesheet" href="../../../styles.css?v=5c6c5e77720e9a18">
+  <link rel="stylesheet" href="/styles.css?v=7fe760bdbb331b9d">
 
   <!-- Immediate theme application to prevent flash -->
   <script>
@@ -32,12 +32,12 @@
   </script>
 </head>
 <body>
-  <!-- Site Header (62px height, x70-1180 alignment) -->
+  <!-- Site Header (62px height, x70-1180 content alignment) -->
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand-group">
-        <a href="/en/" class="brand-link" aria-label="Vela Home">
-          <img src="../../../assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
+        <a href="/en/" class="brand-link" aria-label="Vela Homepage">
+          <img src="/assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
           <span>Vela</span>
         </a>
         <nav class="site-nav" aria-label="Main Navigation"><a href="/en/product/" class="nav-link">Product</a><a href="/en/usecases/" class="nav-link">Use Cases</a><a href="/en/integrations/" class="nav-link">Integrations</a><a href="/en/comparisons/" class="nav-link">Comparisons</a></nav>
@@ -46,16 +46,16 @@
       <div class="header-actions">
         <a href="/en/docs.html" class="header-docs-link">Docs</a>
 
-        <!-- Theme Toggle Button -->
-        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="Toggle light/dark theme" title="Toggle light/dark theme">
+        <!-- Theme Toggle Button (Square) -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="Switch to dark mode" title="Switch to dark mode">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
         </button>
 
-        <!-- Language Switcher -->
+        <!-- Language Switcher Button -->
         <a href="/usecases/session-review/" class="header-lang-link" hreflang="zh-CN" lang="zh-CN" aria-label="切换至简体中文">简体中文</a>
 
-        <!-- GitHub Repository Button -->
-        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub repository" title="GitHub repository">
+        <!-- GitHub Repository Button (Square) -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub Repository" title="GitHub Repository">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
         </a>
 
@@ -68,119 +68,20 @@
 
     <!-- Mobile Navigation Drawer -->
     <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="Mobile menu"><a href="/en/integrations/" class="nav-link">Integrations</a><a href="/en/product/" class="nav-link">Product</a>
-      <a href="/en/usecases/" class="nav-link active" aria-current="page">Use Cases</a>
+      <a href="/en/usecases/" class="nav-link">Use Cases</a>
       <a href="/en/comparisons/" class="nav-link">Comparisons</a>
       <a href="/en/docs.html" class="nav-link">Docs</a>
       <a href="/en/releases.html" class="nav-link">Releases</a>
       <a href="/en/privacy.html" class="nav-link">Privacy</a>
       <a href="/usecases/session-review/" class="nav-link lang-switch-link" hreflang="zh-CN" lang="zh-CN">简体中文</a>
-      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub Repo ↗</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub Repository ↗</a>
     </div>
   </header>
 
   <main>
-    <section class="usecases-hero">
-      <div class="container">
-        <!-- Breadcrumb Navigation -->
-        <div class="breadcrumb-nav">
-          <a href="/en/usecases/" class="breadcrumb-link">← Back to all use cases</a>
-        </div>
-
-        <div class="usecase-detail-header">
-          <div class="usecase-meta-badges">
-            <span class="version-badge-preview">preview.2 Core · Dev Extended</span>
-            <span class="tag-badge">Session Evidence</span>
-            <span class="tag-badge">Local Log Ingestion</span>
-          </div>
-          <h1 class="usecase-h1">Session Review: Find the Origin of Changes</h1>
-          <p class="usecase-problem-lead">
-            <strong>The Engineer's Dilemma:</strong> Daily conversations across Claude Code, Codex, and Cursor easily scatter. When unexpected code changes or regressions appear, engineers often struggle to remember which session, prompt, or tool call introduced the crucial requirement or modified that file.
-          </p>
-        </div>
-
-        <!-- Step-by-Step Flow -->
-        <div class="step-flow">
-          <div class="step-flow-item">
-            <div class="step-flow-num">01</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">Select Registered Project &amp; Agent Provider</div>
-              <div class="step-flow-desc">
-                Choose a registered local repository in the macOS client. Vela automatically monitors and associates local JSONL log streams generated by Claude Code (<code>~/.claude/projects/</code>) and Codex (<code>~/.codex/sessions/</code>), alongside read-only import support for exported Cursor sessions.
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">02</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">Evidence-Based Search &amp; State Filtering</div>
-              <div class="step-flow-desc">
-                Conduct fast lexical searches across engineering sessions via the global search bar. Session lists show inferred states (Running, Idle, Needs Approval) derived strictly from log event timestamps. When liveness evidence is missing, sessions are marked as unknown rather than fabricating live process probes.
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">03</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">Inspect Actual Messages &amp; Tool Call Invocations</div>
-              <div class="step-flow-desc">
-                Select a session to view the complete conversation timeline and tool invocation events. Inspect input arguments and return outputs for commands like <code>file.write</code>, <code>bash</code>, or environment checks to verify the underlying evidence for every change.
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">04</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">Promote to Project Memory or Export Neutral Checkpoint</div>
-              <div class="step-flow-desc">
-                When valuable engineering constraints emerge from a session, promote them to Candidate memories with one click, preserving the exact source session and message indexes. Or export neutral Markdown checkpoints containing the current Git HEAD and pending tasks for agent handoffs.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Real Screenshot Frame (vela-workspace.png shows unreleased acceptance branch) -->
-        <div class="product-screenshot-frame" style="margin-bottom: 40px;">
-          <img
-            src="../../../assets/vela-workspace.png?v=d03eb222b21bb6ec"
-            alt="Vela macOS native session workbench interface: showing session list, selected session detail, and tool call records"
-            width="1250"
-            height="800"
-            loading="lazy"
-            class="product-screenshot-img"
-          >
-          <div class="screenshot-caption">
-            <span>macOS native development build interface (commit 91d34e2) · Synthetic data · Not included in the preview.2 installer</span>
-          </div>
-        </div>
-
-        <!-- Limitations & Boundaries Callout -->
-        <div class="callout-limits">
-          <div class="callout-limits-title">Boundaries &amp; Known Limitations</div>
-          <div class="callout-limits-content">
-            <ul style="padding-left: 18px; margin: 0;">
-              <li><strong>Development Build Interface &amp; Version Boundary:</strong> The complete workspace, precise source tracking, and memory proposal workflows shown in this screenshot reflect the current development branch (commit 91d34e2); the 0.1.0-preview.2 installer includes core log ingestion and session state inference.</li>
-              <li><strong>States are Strictly Inferred:</strong> Operational states are inferred purely from the most recent write events in local log files, not from background daemon probes. They do not constitute OS-level process liveness guarantees.</li>
-              <li><strong>Bounded Ingestion Policy:</strong> Initially scans up to 60 recent session files per provider, reading a 256 KB tail window and a 32 KB header window. Vela does not perform unbounded historical backfills or live cross-provider context migration.</li>
-              <li><strong>Cursor Format Evolution:</strong> Cursor's internal storage formats vary frequently across releases. Unadapted formats must be imported via exported JSON.</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Bottom CTA Bar -->
-        <div class="usecase-cta-bar">
-          <a href="/en/docs.html#sessions" class="usecase-next-doc-link">Next: Read Session Ingestion &amp; Format Documentation →</a>
-          <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="btn btn-primary-amber" target="_blank" rel="noopener noreferrer">
-            Download macOS Preview →
-          </a>
-        </div>
-      </div>
-    </section>
+<section class="catalogue-hero container"><div class="section-eyebrow">USE CASE / SESSIONS</div><h1 class="catalogue-title">Pick up yesterday’s change</h1><p class="catalogue-lead">Why did this code change?</p></section><div class="container case-detail"><div class="case-readout"><div><span class="section-eyebrow">INPUT</span><p>Session logs, tool calls, plans</p></div><div><span class="section-eyebrow">RESULT</span><p>Change rationale with sources and a checkpoint</p></div></div><ol class="case-steps"><li><span>01</span><div><h2>Search project</h2><p>Choose the project and find the session by title or provider. State comes from observed logs, not live process monitoring.</p></div></li><li><span>02</span><div><h2>read messages</h2><p>Read messages and recognized commands; expand the original record for exact parameters. Plans and related sessions retain their evidence boundaries.</p></div></li><li><span>03</span><div><h2>save checkpoint</h2><p>Save a checkpoint with your notes and captured Git state for the next session.</p></div></li></ol><figure class="product-visual"><img src="/assets/vela-reading.png?v=1493458eb64f64c1" alt="Conversation text, readable commands and original records" width="1250" height="800" loading="lazy" decoding="async"><figcaption>Actual macOS development UI · isolated nonpersistent synthetic fixture · not the preview.2 download</figcaption></figure><a class="text-link" href="/en/product/#sessions">Explore related capabilities →</a><br><a class="text-link" href="/en/usecases/">← All use cases</a></div><aside class="availability-note container">This guide covers the current development source. The public download is preview.2; newer capabilities require a source build. See <a href="/en/releases.html">releases</a> for availability.</aside>
   </main>
 
-  <!-- Site Footer -->
   <footer class="site-footer">
     <div class="container footer-inner">
       <div class="footer-brand-line">
@@ -191,15 +92,15 @@
       <div class="footer-links">
         <a href="/en/usecases/" class="footer-link">Use Cases</a>
         <a href="/en/comparisons/" class="footer-link">Comparisons</a>
-        <a href="/en/docs.html" class="footer-link">Documentation</a>
+        <a href="/en/docs.html" class="footer-link">Docs</a>
         <a href="/en/releases.html" class="footer-link">Releases</a>
         <a href="/en/privacy.html" class="footer-link">Privacy</a>
         <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">Security Advisory</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">Report Vulnerability</a>
       </div>
     </div>
   </footer>
 
-  <script src="../../../site.js?v=acf1c37e1928f8dc"></script>
+  <script src="/site.js?v=acf1c37e1928f8dc"></script>
 </body>
 </html>

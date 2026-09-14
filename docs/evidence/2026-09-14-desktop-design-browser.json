@@ -1,0 +1,255 @@
+{
+  "format": "vela-desktop-design-browser-evidence-v1",
+  "date": "2026-09-14",
+  "syntheticFixture": true,
+  "designRenderer": {
+    "resultPath": "output/playwright/desktop-brand-r4/results-r2.json",
+    "resultSHA256": "9e5ed66f58c9c912ed1f70c6816f87fd0f34d68308ed0df66c7539b0fce75b9a",
+    "passed": true,
+    "totalChecks": 14,
+    "passedChecks": 14,
+    "failedChecks": 0,
+    "frozenAppSHA256": "209133271592358c39795ee7456745267db75dc93b03a5c3caebb76d4113c053",
+    "helperSHA256": "020726c1276ad5de361c073b9b8e0f16bdd046b747a2475701a16e48f640551c",
+    "helperUnchanged": true,
+    "uiSourceUnchanged": true,
+    "browserClosed": true,
+    "topLevelServedResourceSHA256": {
+      "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "app.css": "c4e98fbacd99c0c90fcef842ad69ed81285b9ab5d20b1db9e9dbd01fd8927689",
+      "app.js": "209133271592358c39795ee7456745267db75dc93b03a5c3caebb76d4113c053",
+      "content.js": "55770e9218a5702e131b7f307d89ee18cc7c1e2af0b1694950bcd18fbfcc28fd",
+      "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058",
+      "i18n.js": "1c652889f91e4a394ca6ccc65c8d987dbb0a366b976fc8745a9895e580420f61",
+      "index.html": "7a3e3ee4b125dbdfba75c5ed1dab2beffc4514896c069e76cfcc4f3cc684e203",
+      "reading.css": "647ae9e299118da73914aa7f6742e87e9c55edbc40f7acffd4e9c86ec2c65a30"
+    },
+    "assertions": [
+      "all-nine-pages-zh-CN-1250x800",
+      "all-nine-pages-en-1250x800",
+      "narrow-four-pages-900x650",
+      "sidebar-collapse-removes-hidden-navigation-from-focus",
+      "workflow-agent-setup-lab-tabs-expose-single-pressed-selection",
+      "actual-tool-command-is-exact-copyable-raw-and-html-inert",
+      "workflow-icons-follow-real-trigger-and-step-class",
+      "saved-workflow-long-titles-and-menu",
+      "saved-workflow-descriptions-are-exact-two-line-clamped",
+      "all-projects-workflow-opens-correct-definition-scope",
+      "memory-filters-never-duplicate-header-actions",
+      "settings-category-switch-preserves-unsaved-draft",
+      "empty-and-query-no-result-explain-next-step",
+      "approval-source-is-complete-not-list-truncated"
+    ],
+    "earlierHarnessFailure": {
+      "path": "output/playwright/desktop-brand-r4/runner-hash-api-red.log",
+      "sha256": "099ca76cf56d576520dc8009d631d38138c5a747eb09fe22c1d58a7897cef05a",
+      "scope": "Node receipt hashing failed before Playwright loaded the frozen UI; fixed in test harness, then results-r2 executed."
+    }
+  },
+  "quotaRendererOldFreeze": {
+    "binding": "Quota UI evidence is intentionally bound to the prior frozen renderer app.js SHA256 8ab28beac10eb45639500518060bd16411d221bdb0b56b684ea46bba8c5cc1cc; it was not rerun against designRenderer.frozenAppSHA256 because the later change only protects background dashboard refresh while action menus are open.",
+    "resultPath": "output/playwright/desktop-brand-r3/quota-r4/results.json",
+    "resultSHA256": "da1c7769bc120931d8a0732f3e333f4101201bcd7849a69e3aadd1a3f70e4dba",
+    "passed": true,
+    "helperSHA256": "020726c1276ad5de361c073b9b8e0f16bdd046b747a2475701a16e48f640551c",
+    "providerRuns": 7,
+    "modelCalls": 0,
+    "userCredentialsAccessed": false,
+    "cases": [
+      {
+        "case": "neverread",
+        "passed": true,
+        "status": "never_read",
+        "quotaAvailable": false,
+        "observed": {
+          "rows": 0,
+          "meters": [],
+          "remaining": [],
+          "empty": true,
+          "history": false,
+          "resetPassed": false,
+          "error": false,
+          "connectionOpen": true,
+          "refresh": true,
+          "input": true
+        }
+      },
+      {
+        "case": "fresh0",
+        "passed": true,
+        "status": "fresh",
+        "quotaAvailable": true,
+        "observed": {
+          "rows": 1,
+          "meters": [
+            "100"
+          ],
+          "remaining": [
+            "100%"
+          ],
+          "empty": false,
+          "history": false,
+          "resetPassed": false,
+          "error": false,
+          "connectionOpen": false,
+          "refresh": true,
+          "input": true
+        }
+      },
+      {
+        "case": "fresh100",
+        "passed": true,
+        "status": "fresh",
+        "quotaAvailable": true,
+        "observed": {
+          "rows": 1,
+          "meters": [
+            "0"
+          ],
+          "remaining": [
+            "0%"
+          ],
+          "empty": false,
+          "history": false,
+          "resetPassed": false,
+          "error": false,
+          "connectionOpen": false,
+          "refresh": true,
+          "input": true
+        }
+      },
+      {
+        "case": "null",
+        "passed": true,
+        "status": "fresh",
+        "quotaAvailable": false,
+        "observed": {
+          "rows": 0,
+          "meters": [],
+          "remaining": [],
+          "empty": false,
+          "history": false,
+          "resetPassed": false,
+          "error": false,
+          "connectionOpen": false,
+          "refresh": true,
+          "input": true
+        }
+      },
+      {
+        "case": "reset-missing",
+        "passed": true,
+        "status": "fresh",
+        "quotaAvailable": true,
+        "observed": {
+          "rows": 1,
+          "meters": [
+            "50"
+          ],
+          "remaining": [
+            "50%"
+          ],
+          "empty": false,
+          "history": false,
+          "resetPassed": false,
+          "error": false,
+          "connectionOpen": false,
+          "refresh": true,
+          "input": true
+        }
+      },
+      {
+        "case": "expired",
+        "passed": true,
+        "status": "fresh",
+        "quotaAvailable": false,
+        "observed": {
+          "rows": 1,
+          "meters": [
+            "75"
+          ],
+          "remaining": [
+            "75%"
+          ],
+          "empty": false,
+          "history": false,
+          "resetPassed": true,
+          "error": false,
+          "connectionOpen": false,
+          "refresh": true,
+          "input": true
+        }
+      },
+      {
+        "case": "stale-error",
+        "passed": true,
+        "status": "error",
+        "quotaAvailable": false,
+        "observed": {
+          "rows": 1,
+          "meters": [
+            "70"
+          ],
+          "remaining": [
+            "70%"
+          ],
+          "empty": false,
+          "history": true,
+          "resetPassed": false,
+          "error": true,
+          "connectionOpen": false,
+          "refresh": true,
+          "input": true
+        }
+      }
+    ],
+    "naturalStale": {
+      "resultPath": "output/playwright/desktop-brand-r3/quota-aging/natural-stale-status.json",
+      "resultSHA256": "0b8c4a87aff0aeb8a135c16f23964aac7b67d2196017e158c2bab05ce94bfbb2",
+      "passed": true,
+      "ageSeconds": 321.5356750488281,
+      "status": "stale",
+      "stale": true,
+      "quotaAvailable": false,
+      "remainingPercent": 100,
+      "providerRuns": 0
+    }
+  },
+  "resourceCoverage": {
+    "releaseAllowlistCount": 21,
+    "developmentAllowlistCount": 22,
+    "releaseAllowlist": [
+      "index.html",
+      "app.js",
+      "i18n.js",
+      "app.css",
+      "app-icon.svg",
+      "content.js",
+      "reading.css",
+      "vendor/marked.js",
+      "vendor/marked.LICENSE",
+      "vendor/purify.js",
+      "vendor/purify.LICENSE",
+      "vendor/prism-core.js",
+      "vendor/prism-clike.js",
+      "vendor/prism-javascript.js",
+      "vendor/prism-json.js",
+      "vendor/prism-bash.js",
+      "vendor/prism-python.js",
+      "vendor/prism-swift.js",
+      "vendor/prism-css.js",
+      "vendor/prism-markup.js",
+      "vendor/prism.LICENSE"
+    ],
+    "developmentOnly": [
+      "demo.js"
+    ],
+    "hashCoverageStatement": "The design result hashes exactly eight top-level served snapshot files (seven top-level release files plus development-only demo.js). Vendor files are validated and copied using the declared 22-file development allowlist, but this receipt does not claim individual SHA256 coverage for every allowlisted vendor file."
+  },
+  "boundaries": [
+    "Browser assertions use synthetic fixture data created through the real helper and isolated UI bridge.",
+    "No external provider/model, native window chrome, system notification delivery, or subjective audio quality is asserted.",
+    "Quota fake app-server follows the documented stdio handshake; no real CODEX_HOME or credentials are read.",
+    "The natural stale check waited for product-defined snapshot age above 300 seconds and then used usage.quota.status only."
+  ]
+}

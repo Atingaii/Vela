@@ -72,6 +72,12 @@ def main():
             time.sleep(.06)
         raise AssertionError(reason)
     def click(selector): browser('snapshot', '-i'); browser('click', selector); browser('snapshot', '-i')
+    def select_settings_category(category):
+        selector = '[data-settings-category="' + category + '"]'
+        wait('!!document.querySelector(' + json.dumps(selector) + ')', 'Settings category is unavailable: ' + category)
+        click(selector)
+        wait('document.querySelector(' + json.dumps(selector) + ').getAttribute("aria-pressed")==="true"&&document.querySelector("[data-settings-panel=\\"' + category + '\\"]")?.hidden===false',
+             'Settings category did not become visible: ' + category)
     def calls(method): return value('window.__relationsCalls.filter(x=>x.method===' + json.dumps(method) + ')')
     def rpc(method, params):
         request = urllib.request.Request(url + '__rpc', json.dumps({'method': method, 'params': params}).encode(),
@@ -234,7 +240,7 @@ def main():
                 assert value('window.VelaI18n?.getLocale()===' + json.dumps(locale) + '&&document.documentElement.lang===' + json.dumps(locale) + '&&document.querySelector("#setting-locale").value===' + json.dumps(locale)), 'Saved locale was not applied to renderer state'
             browser('select', '#project-selector', project)
             wait('document.querySelector("#project-selector").value===' + json.dumps(project), 'Harbor project did not restore')
-            click('.nav-link[data-page="settings"]'); wait('!!document.querySelector("#setting-locale")', 'Settings locale control did not open')
+            click('.nav-link[data-page="settings"]'); select_settings_category('general'); wait('!!document.querySelector("#setting-locale")', 'Settings locale control did not open')
             save_locale('zh-CN')
             click('.nav-link[data-page="agents"]')
             open_parent()
@@ -259,7 +265,7 @@ def main():
                         assert not geometry['badgeOverflow'], 'Plan badge text is clipped'
                         visual_geometry.append({'locale': locale, 'viewport': [width, height], **geometry})
             verify_locale_and_geometry('zh-CN', '关联会话', '会话任务计划', '未观察到计划', '尚未观察到已确认计划（未在会话日志中识别到受支持的任务计划工具调用）')
-            click('.nav-link[data-page="settings"]'); wait('document.querySelector(".nav-link.active")?.dataset.page==="settings"', 'Settings navigation failed'); wait('!!document.querySelector("#setting-locale")', 'Settings locale control did not rerender')
+            click('.nav-link[data-page="settings"]'); wait('document.querySelector(".nav-link.active")?.dataset.page==="settings"', 'Settings navigation failed'); select_settings_category('general'); wait('!!document.querySelector("#setting-locale")', 'Settings locale control did not rerender')
             zh_title = value('document.querySelector("#setting-locale").value')
             save_locale('en')
             click('.nav-link[data-page="agents"]'); open_parent(); en_title = value('document.querySelector("[data-i18n=\\"sessions.relations.title\\"]").textContent')

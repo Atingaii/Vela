@@ -57,6 +57,16 @@ def main():
         if not value('document.querySelector(' + json.dumps(menu) + ').open'):
             click(menu + ' > summary')
             wait('document.querySelector(' + json.dumps(menu) + ').open===true', 'Action menu did not open for ' + trigger)
+    def select_settings_category(category):
+        selector = '[data-settings-category=' + json.dumps(category) + ']'
+        wait('!!document.querySelector(' + json.dumps(selector) + ')', 'Settings category is absent: ' + category)
+        click(selector)
+        wait('document.querySelector(' + json.dumps(selector) + ')?.classList.contains("active")', 'Settings category did not activate: ' + category)
+    def select_usage_tab(tab):
+        selector = '[data-usagetab=' + json.dumps(tab) + ']'
+        wait('!!document.querySelector(' + json.dumps(selector) + ')', 'Usage tab is absent: ' + tab)
+        click(selector)
+        wait('document.querySelector(' + json.dumps(selector) + ')?.classList.contains("active")', 'Usage tab did not activate: ' + tab)
     def page(name):
         browser('press','Escape'); browser('press','Escape')
         click('.nav-link[data-page="'+name+'"]')
@@ -89,9 +99,13 @@ def main():
         browser('snapshot','-i')
         def optional_reads():
             before=len(events())
-            page('settings'); wait('!!document.querySelector("#setting-locale")','Settings absent')
-            page('usage'); wait('!!document.querySelector("#codex-cli-path-input")','Quota entry absent')
-            page('improve'); click('#btn-model-improve-plans')
+            page('settings'); select_settings_category('general'); wait('!!document.querySelector("#setting-locale")','Settings absent')
+            page('usage'); select_usage_tab('quota'); wait('!!document.querySelector("#codex-cli-path-input")','Quota entry absent')
+            page('improve')
+            # The model-plan action is now deliberately progressive: it lives in
+            # the view's real details menu and must be exposed before use.
+            open_action_menu('#btn-model-improve-plans')
+            click('#btn-model-improve-plans')
             wait('!document.querySelector("#modal-container").classList.contains("hidden")','Plans dialog absent')
             calls=events()[before:]
             forbidden=[row['method'] for row in calls if row['method'] in ('usage.quota.read','connectors.configure','connectors.tools.search','daemon.start','improve.model.plan')]

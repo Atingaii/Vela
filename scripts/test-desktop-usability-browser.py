@@ -268,6 +268,15 @@ def main() -> int:
             click('[data-setuptab=' + json.dumps(tab) + ']')
             wait("document.querySelector(" + json.dumps('[data-setuptab="' + tab + '"]') + ")?.classList.contains('active')", "Setup tab did not activate: " + tab)
 
+        def settings_category(category: str) -> None:
+            page("settings", harbor)
+            selector = '[data-settings-category=' + json.dumps(category) + ']'
+            wait("!!document.querySelector(" + json.dumps(selector) + ")", "Settings category is absent: " + category)
+            click(selector)
+            wait("document.querySelector(" + json.dumps(selector) + ")?.classList.contains('active')", "Settings category did not activate: " + category)
+            panel = '[data-settings-panel="' + category + '"]'
+            wait("document.querySelector(" + json.dumps(panel) + ")?.hidden===false", "Settings panel did not become visible: " + category)
+
         def selector_contract():
             setup_tab("skills")
             asset_missing = {name: selector for name, selector in SELECTORS.items() if name in {"assetList", "assetRow", "assetLocation"} and not value("!!document.querySelector(" + json.dumps(selector) + ")")}
@@ -289,25 +298,32 @@ def main() -> int:
             visible = value("document.querySelector(" + json.dumps(location) + ").innerText")
             browser("screenshot", str(output / "assets-zh-default.png"))
             assert visible != str(long_file), "absolute long path is default-visible"
-            assert value("(()=>{const e=document.querySelector(" + json.dumps(location) + ");return e.scrollWidth>e.clientWidth})()"), "long asset location is not clipped within its assigned cell"
+            assert value("(()=>{const e=document.querySelector(" + json.dumps(location) + ");return e.scrollWidth>e.clientWidth})()"), "long asset location is not clipped within its assigned row"
             geometry = value("""(()=>{
-              const row=document.querySelector(%s), table=row?.closest('table'), wrapper=table?.closest('.table-wrapper');
-              const headers=Array.from(table?.querySelectorAll('thead th')||[]);
-              const view=row?.querySelector('.btn-setup-view'), more=row?.querySelector('.btn-setup-more');
-              const title=row?.querySelector('td strong'), path=row?.querySelector(%s);
+              const row=document.querySelector(%s), wrapper=row?.closest('.workspace-list'), title=row?.querySelector('.btn-setup-view'), menu=row?.querySelector('details.action-menu'), summary=menu?.querySelector('summary'), path=row?.querySelector(%s);
               const rect=e=>{const r=e?.getBoundingClientRect();return r&&{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};
               const inside=(r,b)=>!!r&&!!b&&r.left>=b.left&&r.right<=b.right&&r.top>=b.top&&r.bottom<=b.bottom;
               const boundary=rect(wrapper), viewport={left:0,right:window.innerWidth,top:0,bottom:window.innerHeight};
-              return {headerCount:headers.length,headers:headers.map(rect),view:rect(view),more:rect(more),title:rect(title),path:rect(path),boundary,viewport,
-                headersInside:headers.every(e=>inside(rect(e),boundary)&&inside(rect(e),viewport)),
-                actionsInside:[view,more].every(e=>inside(rect(e),boundary)&&inside(rect(e),viewport)),
-                titlePathSeparate:!!title&&!!path&&rect(path).top>=rect(title).bottom-1};
+              return {title:rect(title),menu:rect(summary),path:rect(path),boundary,viewport,
+                titleInside:inside(rect(title),boundary)&&inside(rect(title),viewport),
+                menuInside:inside(rect(summary),boundary)&&inside(rect(summary),viewport),
+                titlePathSeparate:!!title&&!!path&&rect(path).top>=rect(title).bottom-1,
+                menuClosed:menu?.open===false};
             })()""" % (json.dumps(row), json.dumps(SELECTORS["assetLocation"])))
-            assert geometry["headerCount"] == 4, "asset table must expose four actionable column headers"
-            assert geometry["headersInside"], "an asset table header is outside the visible table wrapper or viewport"
-            assert geometry["actionsInside"], "View or More action is outside the visible table wrapper or viewport"
-            assert geometry["titlePathSeparate"], "asset title and path are not rendered on separate lines"
-            return {"assetId": artifact["id"], "relativePath": long_relative, "viewport": [1280, 720], "geometry": geometry}
+            assert geometry["titleInside"], "asset title action is outside the visible list or viewport"
+            assert geometry["menuInside"], "asset secondary action menu is outside the visible list or viewport"
+            assert geometry["titlePathSeparate"], "asset title and location are not rendered on separate lines"
+            assert geometry["menuClosed"], "asset secondary actions must start collapsed"
+            click(row + " details.action-menu > summary")
+            wait("document.querySelector(" + json.dumps(row + " details.action-menu") + ")?.open===true", "asset secondary menu did not open")
+            assert value("!!document.querySelector(" + json.dumps(row + " .btn-setup-action-history") + ")"), "history action is absent from the opened asset menu"
+            click(row + " details.action-menu > summary")
+            wait("document.querySelector(" + json.dumps(row + " details.action-menu") + ")?.open===false", "asset secondary menu did not close")
+            click(row + " .btn-setup-view")
+            wait("!document.querySelector('#detail-drawer')?.classList.contains('hidden')", "asset title did not open its read-only drawer")
+            click("#btn-close-drawer")
+            return {"assetId": artifact["id"], "relativePath": long_relative, "viewport": [1280, 720], "geometry": geometry,
+                    "rowMenuOpened": True, "titleOpenedReadOnlyDrawer": True}
 
         check("asset-path-does-not-overflow", asset_path)
 
@@ -340,7 +356,7 @@ def main() -> int:
             # dashboard/get/list call is allowed between the final render and the
             # click; the terminal state must originate at the real decide claim.
             page("inbox", harbor)
-            rpc("settings.save", {"approvalExpirySeconds": 1})
+            rpc("settings.save", {"approvalExpirySeconds": 5})
             expired_workflow = rpc("workflows.save", {"project": harbor, "title": "Expired UI refresh check", "trigger": "manual", "steps": [{"tool": "file.write", "arguments": {"path": "expired-ui-must-not-exist.txt", "content": "synthetic expiry check"}}]})
             expired_run = rpc("workflows.run", {"id": expired_workflow["id"], "dryRun": False})
             assert expired_run["state"] == "pending_approval"
@@ -356,7 +372,7 @@ def main() -> int:
             before_wait = len(value("window.__usability.calls"))
             expires = dt.datetime.fromisoformat(expired["expiresAt"].replace("Z", "+00:00")).timestamp()
             delay = expires + .25 - time.time()
-            assert 0 < delay < 2.5, "unexpected expiry deadline"
+            assert 0 < delay < 6.5, "unexpected expiry deadline"
             time.sleep(delay)
             between = value("window.__usability.calls.slice(" + str(before_wait) + ")")
             assert not any(call.get("method") in {"inbox.list", "approvals.get", "approvals.decide"} for call in between), "approval was pre-read or decided between final pre-expiry render and click"
@@ -395,7 +411,7 @@ def main() -> int:
         def locale_narrow():
             browser("resize", "720", "760")
             for locale, expected in (("en", "Approvals"), ("zh-CN", "待办审批")):
-                page("settings", harbor)
+                settings_category("general")
                 wait("!!document.querySelector('#setting-locale')", "locale setting control is absent")
                 browser("select", "#setting-locale", locale)
                 wait("window.VelaI18n.getLocale()===" + json.dumps(locale) + "&&document.querySelector('#setting-locale').disabled===false", "locale save did not settle: " + locale)

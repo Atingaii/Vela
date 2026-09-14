@@ -1,3 +1,17 @@
+/* Product imagery uses real interfaces; editorial art explains the context. */
+.product-visual { margin:32px 0; min-width:0; border:1px solid var(--border-medium); background:var(--bg-surface); }
+.product-visual img { width:100%; height:auto; display:block; }
+.product-visual figcaption,.context-story figcaption { font:12px/1.7 var(--font-body); color:var(--text-muted); padding:12px 16px; }
+.feature-row > .product-visual { grid-column:2; }
+.context-story { display:grid; grid-template-columns:1.15fr 1fr; gap:56px; align-items:center; padding-top:64px; padding-bottom:96px; }
+.context-story figure { margin:0; min-width:0; background:#fff; border:1px solid var(--border-subtle); }
+.context-story figure img { display:block; width:100%; height:auto; }
+.context-story figure figcaption { color:#62626b; border-top:1px solid #eee; }
+.context-story h2 { font-family:var(--font-heading); font-size:clamp(28px,3vw,42px); line-height:1.25; letter-spacing:-.035em; margin:16px 0; }
+.context-story p { color:var(--text-secondary); font-size:16px; line-height:1.8; }
+.case-steps li p { color:var(--text-secondary); font-size:16px; line-height:1.85; max-width:680px; margin:12px 0 0; }
+@media(max-width:760px) { .context-story { grid-template-columns:1fr; gap:28px; padding-top:32px; padding-bottom:56px; } .feature-row > .product-visual { grid-column:1 / -1; } }
+
 /* ==========================================================================
    Vela Official Website Stylesheet
    Editorial engineering aesthetic:

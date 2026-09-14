@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>对照与复用：保留证据，也保留“不确定” — Vela 使用场景</title>
-  <meta name="description" content="在配对隔离的 Git Worktree 中执行同任务的 Baseline 与 Candidate 对照评估，由独立 Verifier 给出真实判定，并在有证据时谨慎晋升与安全复用。">
-  <link rel="icon" href="../../assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <title>验证一次配置改进 — Vela</title>
+  <meta name="description" content="验证一次配置改进 · 面向 Coding Agent 的本地工程工作区。">
+  <link rel="icon" href="/assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
   <link rel="canonical" href="https://velo.codes/usecases/compare-and-reuse/">
   <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/usecases/compare-and-reuse/">
   <link rel="alternate" hreflang="en" href="https://velo.codes/en/usecases/compare-and-reuse/">
   <link rel="alternate" hreflang="x-default" href="https://velo.codes/usecases/compare-and-reuse/">
 
   <!-- Preload core self-hosted fonts -->
-  <link rel="preload" href="../../assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="../../assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
 
-  <link rel="stylesheet" href="../../styles.css?v=5c6c5e77720e9a18">
+  <link rel="stylesheet" href="/styles.css?v=7fe760bdbb331b9d">
 
   <!-- Immediate theme application to prevent flash -->
   <script>
@@ -32,12 +32,12 @@
   </script>
 </head>
 <body>
-  <!-- Site Header (62px height, x70-1180 alignment) -->
+  <!-- Site Header (62px height, x70-1180 content alignment) -->
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand-group">
         <a href="/" class="brand-link" aria-label="Vela 首页">
-          <img src="../../assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
+          <img src="/assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
           <span>Vela</span>
         </a>
         <nav class="site-nav" aria-label="主导航"><a href="/product/" class="nav-link">产品功能</a><a href="/usecases/" class="nav-link">使用场景</a><a href="/integrations/" class="nav-link">工具集成</a><a href="/comparisons/" class="nav-link">产品对比</a></nav>
@@ -46,15 +46,15 @@
       <div class="header-actions">
         <a href="/docs.html" class="header-docs-link">文档</a>
 
-        <!-- Theme Toggle Button -->
+        <!-- Theme Toggle Button (Square) -->
         <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
         </button>
 
-        <!-- Language Switcher -->
+        <!-- Language Switcher Button -->
         <a href="/en/usecases/compare-and-reuse/" class="header-lang-link" hreflang="en" lang="en" aria-label="Switch to English">English</a>
 
-        <!-- GitHub Repository Button -->
+        <!-- GitHub Repository Button (Square) -->
         <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
         </a>
@@ -68,7 +68,7 @@
 
     <!-- Mobile Navigation Drawer -->
     <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单"><a href="/integrations/" class="nav-link">工具集成</a><a href="/product/" class="nav-link">产品功能</a>
-      <a href="/usecases/" class="nav-link active" aria-current="page">使用场景</a>
+      <a href="/usecases/" class="nav-link">使用场景</a>
       <a href="/comparisons/" class="nav-link">产品对比</a>
       <a href="/docs.html" class="nav-link">文档</a>
       <a href="/releases.html" class="nav-link">发行记录</a>
@@ -79,123 +79,9 @@
   </header>
 
   <main>
-    <section class="usecases-hero">
-      <div class="container">
-        <!-- Breadcrumb Navigation -->
-        <div class="breadcrumb-nav">
-          <a href="/usecases/" class="breadcrumb-link">← 返回全部使用场景</a>
-        </div>
-
-        <!-- Distinct Version Warning Banner -->
-        <div style="background-color: var(--badge-dev-bg); border: 1px solid var(--badge-dev-border); color: var(--badge-dev-text); padding: 12px 18px; border-radius: 8px; font-size: 14px; font-weight: 500; margin-bottom: 24px; line-height: 1.5;">
-          <strong>当前开发分支能力说明：</strong>本页所呈现的 Agent Lab 配对评估、双工作树隔离、SessionStart Hook 与 SafeApply/Undo 能力处于当前源码开发分支，尚未打包入已发布的 <code>0.1.0-preview.2</code> 安装包中。
-        </div>
-
-        <div class="usecase-detail-header">
-          <div class="usecase-meta-badges">
-            <span class="version-badge-dev">当前开发分支</span>
-            <span class="tag-badge">Agent Lab 配对工作树</span>
-            <span class="tag-badge">独立 Verifier 判定</span>
-            <span class="tag-badge">SafeApply &amp; Undo</span>
-          </div>
-          <h1 class="usecase-h1">对照与复用：保留证据，也保留“不确定”</h1>
-          <p class="usecase-problem-lead">
-            <strong>工程师常见困扰：</strong>调整了系统规则、工程约束或上下文配置后，模型在个别用例下的表现并不能证明它产生了全局优化。工程团队缺乏系统的对照实验手段，往往将随机方差误判为能力跃升，或是将未经验证的提议直接应用污染工程全局。
-          </p>
-        </div>
-
-        <!-- Step-by-Step Flow -->
-        <div class="step-flow">
-          <div class="step-flow-item">
-            <div class="step-flow-num">01</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">从有据可查的 Suggestion 进入 Lab</div>
-              <div class="step-flow-desc">
-                从实际会话中沉淀出的配置调整建议或特定记忆 Treatment 触发实验。在进入测试前明确核对改动意图，避免盲目创建对照。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">02</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">冻结配对运行条件与隔离 Git Worktree</div>
-              <div class="step-flow-desc">
-                同时冻结相同的任务提示词、模型版本请求、起点 Git Commit。系统为 Baseline 与 Candidate 分配完全独立的 Git worktree 隔离沙盒，严格限制验证与输出文件范围，Pending Approval 绝不等于已经执行。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">03</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">独立 Verifier 判定：把 Inconclusive 视为常态</div>
-              <div class="step-flow-desc">
-                运行项目真实的任务验收脚本与观测测试。系统严格依据真实测试输出划定三种明确边界：<code>Improved</code>（确证改进）、<code>Worse</code>（确证劣化）与 <code>Inconclusive</code>（结论不明确/证据不足）。绝不编造虚假的百分之百提升胜率。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">04</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">严格限定范围的显式晋升（Memory-only）</div>
-              <div class="step-flow-desc">
-                在当前开发分支中，仅有具备确凿正面证据的纯记忆项（Memory-only）允许工程师手动确认晋升；证据不足、存在指标缺失或判定为 Inconclusive 的候选条目严禁自动激活。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">05</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">项目 Hook 只读预览、确认 Apply 与 Safe Undo</div>
-              <div class="step-flow-desc">
-                通过确定性生成机制输出 SessionStart Hook 草稿供工程师只读审查；确认后经由 SafeApply 写入项目（如 <code>.codex/hooks</code>），并在 Codex 中显式审阅信任。每次写入保留哈希校验快照，支持无损 Undo 恢复。
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Real Screenshot Frame -->
-        <div class="product-screenshot-frame" style="margin-bottom: 40px;">
-          <img
-            src="../../assets/vela-workspace.png?v=d03eb222b21bb6ec"
-            alt="Vela 开发分支工作区界面：展示实验对照、配置建议、状态流转与双向验证面板"
-            width="1250"
-            height="800"
-            loading="lazy"
-            class="product-screenshot-img"
-          >
-          <div class="screenshot-caption">
-            <span>实际 macOS 原生开发分支界面 (源码 commit 91d34e2) · 合成示例数据 · 未包含在 preview.2 下载包中</span>
-          </div>
-        </div>
-
-        <!-- Limitations & Boundaries Callout -->
-        <div class="callout-limits">
-          <div class="callout-limits-title">功能边界与已知限制</div>
-          <div class="callout-limits-content">
-            <ul style="padding-left: 18px; margin: 0;">
-              <li><strong>开发分支专属特性：</strong>Agent Lab 配对工作树评估、独立 Verifier 判定、SessionStart Hook 与 SafeApply/Undo 属于当前仓库源码能力，未包含在已发布的 <code>0.1.0-preview.2</code> 安装包中。</li>
-              <li><strong>Inconclusive 是客观规律：</strong>因大语言模型输出天然具备随机波动与非确定性，实验出现“结论不明确（Inconclusive）”是常见且完全正常的现象。Vela 拒绝为了演示效果而伪造胜率闭环。</li>
-              <li><strong>配置生效不等于模型必然遵循：</strong>即便通过 Hook 注入了规范或在 Codex 中配置了信任，具体编码智能体在面对复杂长程任务时仍可能出现幻觉或忽略指令，实际效果须在具体会话中核查证据。</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Bottom CTA Bar -->
-        <div class="usecase-cta-bar">
-          <a href="/docs.html#lab-reuse" class="usecase-next-doc-link">下一步：阅读 Agent Lab 与复用机制文档 →</a>
-          <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" class="btn btn-outline" target="_blank" rel="noopener noreferrer">
-            查看源码功能状态 (GitHub) →
-          </a>
-        </div>
-      </div>
-    </section>
+<section class="catalogue-hero container"><div class="section-eyebrow">USE CASE / LAB</div><h1 class="catalogue-title">验证一次配置改进</h1><p class="catalogue-lead">这条新规则是否真的有帮助？</p></section><div class="container case-detail"><div class="case-readout"><div><span class="section-eyebrow">输入</span><p>基线与候选配置、验证命令</p></div><div><span class="section-eyebrow">结果</span><p>可追溯的比较，或明确的不确定</p></div></div><ol class="case-steps"><li><span>01</span><div><h2>冻结方案</h2><p>固定相同项目提交、任务、基线和候选配置；选择记忆模式与独立验证命令，审阅冻结方案。</p></div></li><li><span>02</span><div><h2>隔离运行</h2><p>经审批后在隔离 Git worktree 执行，保留真实命令结果、输出与验证证据。</p></div></li><li><span>03</span><div><h2>比较证据</h2><p>按真实结果比较。缺失数据、平局和回归不能当作改进；只有满足条件的候选才可进入后续推广审阅。</p></div></li></ol><a class="text-link" href="/product/#lab">查看相关产品功能 →</a><br><a class="text-link" href="/usecases/">← 全部使用场景</a></div><aside class="availability-note container">本指南介绍当前开发分支能力。公开下载仍为 preview.2，较新的能力需要从源码构建；具体版本请查看<a href="/releases.html">发行记录</a>。</aside>
   </main>
 
-  <!-- Site Footer -->
   <footer class="site-footer">
     <div class="container footer-inner">
       <div class="footer-brand-line">
@@ -215,6 +101,6 @@
     </div>
   </footer>
 
-  <script src="../../site.js?v=acf1c37e1928f8dc"></script>
+  <script src="/site.js?v=acf1c37e1928f8dc"></script>
 </body>
 </html>

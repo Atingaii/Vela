@@ -33,8 +33,8 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 NAV = {
-    'zh-CN': {'agents': '会话', 'workflows': '工作流', 'inbox': '待办审批', 'memory': '工程记忆',
-              'setup': '配置与资产', 'usage': '用量追踪', 'improve': '调优建议', 'lab': '对照实验', 'settings': '设置'},
+    'zh-CN': {'agents': '会话', 'workflows': '工作流', 'inbox': '审批', 'memory': '记忆',
+              'setup': '配置', 'usage': '用量', 'improve': '改进', 'lab': '实验', 'settings': '设置'},
     # Exact labels agreed with the renderer author; user content is never matched against this map.
     'en': {'agents': 'Sessions', 'workflows': 'Workflows', 'inbox': 'Approvals', 'memory': 'Memory',
            'setup': 'Setup', 'usage': 'Usage', 'improve': 'Improve', 'lab': 'Lab', 'settings': 'Settings'},
@@ -183,6 +183,14 @@ def main():
             browser('click', menu + ' > summary')
             wait('document.querySelector(' + json.dumps(menu) + ').open===true', 'Action menu did not open for ' + trigger)
 
+    def select_settings_category(category):
+        selector = '[data-settings-category=' + json.dumps(category) + ']'
+        wait('!!document.querySelector(' + json.dumps(selector) + ')', 'Settings category is absent: ' + category)
+        browser('click', selector)
+        wait('document.querySelector(' + json.dumps(selector) + ')?.classList.contains("active")', 'Settings category did not activate: ' + category)
+        panel = '[data-settings-panel="' + category + '"]'
+        wait('document.querySelector(' + json.dumps(panel) + ')?.hidden===false', 'Settings panel did not become visible: ' + category)
+
     def nav(locale):
         expected = NAV[locale]
         wait('document.documentElement.lang===' + json.dumps(locale), 'Document language did not update.')
@@ -250,7 +258,12 @@ def main():
             wait('window.__velaUITest.dashboardProject===' + json.dumps(project), 'Project did not load.')
 
         def settings_draft():
-            nav('zh-CN'); page('settings'); browser('wait', '#setting-locale')
+            nav('zh-CN'); page('settings')
+            select_settings_category('notifications')
+            browser('wait', '#setting-notifications')
+            assert value('document.querySelector("#setting-notifications").getClientRects().length>0'), 'Notifications control is not visible in its selected category.'
+            select_settings_category('general')
+            browser('wait', '#setting-locale')
             original = rpc('settings.get')
             browser('click', '#setting-analysis')
             browser('eval', 'window.__localeDraftInput=document.querySelector("#setting-analysis")')
@@ -263,7 +276,7 @@ def main():
             assert value('document.querySelector(".nav-link.active").dataset.page') == 'settings'
             calls = [json.loads(x) for x in (base / 'harness-rpc.jsonl').read_text().splitlines()[before_lines:]]
             assert [x['params'] for x in calls if x['method'] == 'settings.save'] == [{'locale': 'en'}]
-            return {'onlyLocaleSaved': True, 'unsavedAnalysisPreserved': True, 'navigationLabels': NAV}
+            return {'onlyLocaleSaved': True, 'unsavedAnalysisPreserved': True, 'notificationsCategorySelected': True, 'navigationLabels': NAV}
 
         record('settings-switch-preserves-draft', settings_draft)
 
@@ -351,10 +364,10 @@ def main():
         record('unsaved-workflow-and-argv', workflow_draft)
 
         def restart():
-            page('settings'); browser('select', '#setting-locale', 'en'); nav('en')
+            page('settings'); select_settings_category('general'); browser('select', '#setting-locale', 'en'); nav('en')
             assert rpc('settings.get')['locale'] == 'en'
             stop(); start(); nav('en')
-            page('settings'); browser('wait', '#setting-locale')
+            page('settings'); select_settings_category('general'); browser('wait', '#setting-locale')
             assert value('document.querySelector("#setting-locale").value') == 'en'
             browser('select', '#setting-locale', 'zh-CN'); nav('zh-CN')
             assert rpc('settings.get')['locale'] == 'zh-CN'
@@ -381,11 +394,11 @@ def main():
                         for(const attr of ['placeholder','aria-label','title']){
                           const attrKey=el.getAttribute('data-i18n-'+attr), raw=el.getAttribute(attr);
                           const attrText=params&&attrKey?window.VelaI18n.DICTIONARY.en[attrKey]:raw;
-                          if(attrText)rows.push({selector:el.id?'#'+el.id:el.tagName.toLowerCase(),attribute:attr,key:attrKey,text:attrText.slice(0,400)});
+                          if(attrText&&!userStrings.includes(attrText.trim()))rows.push({selector:el.id?'#'+el.id:el.tagName.toLowerCase(),attribute:attr,key:attrKey,text:attrText.slice(0,400)});
                         }
                       }
                       return {rows,residualFixedChinese:rows.filter(x=>/[\u3400-\u9fff]/.test(x.text))};
-                    })()'''.replace('SCOPE', json.dumps(scope)).replace('USER_STRINGS', json.dumps([literal, memory['title']])))
+                    })()'''.replace('SCOPE', json.dumps(scope)).replace('USER_STRINGS', json.dumps([literal, memory['title'], memory_title])))
                     sample['surface'] = name
                     surfaces.append(sample)
                     if sample['residualFixedChinese']:
@@ -396,10 +409,14 @@ def main():
                     issues.append({'surface': name, 'error': str(error)})
 
             routes = {'agents': '#session-search-input', 'workflows': '#btn-new-workflow', 'inbox': '.btn-approve-appr',
-                      'memory': '#btn-new-memory', 'setup': '#btn-scan-setup', 'usage': '#usage-total-tokens',
-                      'improve': '#btn-run-analysis', 'lab': '#btn-new-lab', 'settings': '#setting-locale'}
+                      'memory': '#btn-new-memory', 'setup': '#btn-scan-setup', 'usage': '[data-usagetab="logs"]',
+                      'improve': '#btn-run-analysis', 'lab': '#btn-new-lab', 'settings': '[data-settings-category="general"]'}
             for route, ready in routes.items():
-                page(route); inspect(route, ready)
+                page(route)
+                if route == 'settings': select_settings_category('general')
+                inspect(route, ready)
+            page('usage'); browser('click', '[data-usagetab="quota"]'); inspect('usage-quota', '[data-usagetab="quota"].active')
+            page('settings'); select_settings_category('notifications'); inspect('settings-notifications', '#setting-notifications')
             # Explicit, read-only entry paths. No modal Save/Run/Apply/approval is clicked.
             modals = [
                 ('memory', 'memory-new', '#btn-new-memory', '#mem-title', None),
@@ -434,7 +451,7 @@ def main():
             assert not parity['missingInEn'] and not parity['missingInZh'], parity
             assert not missing, {'missingKeys': missing}
             assert not issues, {'coverageIssues': issues}
-            return {'routes': 9, 'modals': 8, 'fixedChinese': [], 'missingKeys': [], 'catalogKeys': parity['totalEn']}
+            return {'routes': 9, 'subviews': ['usage-quota', 'settings-notifications'], 'modals': 8, 'fixedChinese': [], 'missingKeys': [], 'catalogKeys': parity['totalEn']}
 
         record('english-surface-coverage', english_coverage)
     finally:

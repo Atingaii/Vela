@@ -61,6 +61,34 @@
   const t = (key, params) => (window.VelaI18n ? window.VelaI18n.t(key, params) : key);
   const tHtml = (key, params, tag) => (window.VelaI18n ? window.VelaI18n.tHtml(key, params, tag) : escapeHtml(key));
 
+  // Explicit action hierarchy; caller-owned handlers remain on the real buttons.
+  function actionMenu(content, labelKey = 'reading.more', iconOnly = true, id = '') {
+    return `<details class="action-menu"><summary ${id ? `id="${id}"` : ''} class="btn btn-ghost ${iconOnly ? 'icon-action' : ''}" data-i18n-aria-label="${labelKey}" data-i18n-title="${labelKey}" aria-label="${escapeHtml(t(labelKey))}" title="${escapeHtml(t(labelKey))}">${iconOnly ? '<span aria-hidden="true">···</span>' : `<span data-i18n="${labelKey}">${escapeHtml(t(labelKey))}</span>`}</summary><div class="action-menu-items">${content}</div></details>`;
+  }
+
+  function menuAction(key, iconName, attributes = '') {
+    return `<button class="btn ${attributes.className || ''}" ${attributes.id ? `id="${attributes.id}"` : ''} ${attributes.data || ''}>${VelaContent.icon(iconName)}<span data-i18n="${key}">${escapeHtml(t(key))}</span></button>`;
+  }
+
+  function updateVisibleScope() {
+    const control = document.getElementById('btn-collapsed-project');
+    const label = control?.querySelector('.collapsed-project-name');
+    if (!label) return;
+    const project = (state.registeredProjects || []).find(p => (p.path || p.id) === state.currentProject);
+    label.textContent = state.currentProject ? (project?.title || project?.name || state.currentProject.split('/').filter(Boolean).pop()) : t('shell.allProjects');
+    if (state.currentProject) label.removeAttribute('data-i18n');
+    else label.setAttribute('data-i18n', 'shell.allProjects');
+    control.title = state.currentProject || t('shell.allProjects');
+  }
+
+  function syncViewButtons(container, attribute, active) {
+    container.querySelectorAll(`[${attribute}]`).forEach(button => {
+      const selected = button.getAttribute(attribute) === active;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+  }
+
   function formatTime(isoStr) {
     if (!isoStr) return '-';
     try {
@@ -369,6 +397,8 @@
     const footer = document.getElementById('local-status');
     if (!footer) return;
     footer.dataset.state = statusState;
+    // Healthy connectivity is background information; interruptions stay visible.
+    footer.hidden = statusState === 'connected' && !state.isDemoMode && !message;
     const textEl = footer.querySelector('.status-text');
     if (textEl) {
       if (message) {
@@ -462,7 +492,7 @@
   function updateSystemInfoDisplay() {
     const badge = document.getElementById('channel-badge');
     const pathDisp = document.getElementById('store-path-display');
-    if (badge) badge.textContent = state.systemInfo.channel || 'dev';
+    if (badge) { badge.textContent = state.systemInfo.channel || 'dev'; badge.hidden = true; }
     if (pathDisp) pathDisp.textContent = state.systemInfo.home || '~/.vela-dev';
   }
 
@@ -631,6 +661,7 @@
             );
             const isModalOpen = !document.getElementById('modal-container').classList.contains('hidden');
             const isDrawerOpen = !document.getElementById('detail-drawer').classList.contains('hidden');
+            const hasOpenDisclosure = [...document.querySelectorAll('#page-container details[open], details.action-menu[open]')].some(disclosure => disclosure.getClientRects().length > 0);
 
             const snapshotKey = JSON.stringify({
               page: state.currentPage,
@@ -639,7 +670,7 @@
             });
             const isIdentical = state.lastRenderedSnapshotJson === snapshotKey;
 
-            const canRender = shouldForce || (!isEditing && !isModalOpen && !isDrawerOpen && !hasSettingsDraft);
+            const canRender = shouldForce || (!isEditing && !isModalOpen && !isDrawerOpen && !hasOpenDisclosure && !hasSettingsDraft);
             if (canRender) {
               if (shouldForce || !isIdentical) {
                 if (!shouldForce && state.currentPage === 'agents' && state.agentsActiveTab === 'history') {
@@ -740,6 +771,7 @@
   }
 
   function updateProjectSelector() {
+    updateVisibleScope();
     const sel = document.getElementById('project-selector');
     if (!sel) return;
     const curr = state.currentProject;
@@ -1141,6 +1173,7 @@
   // =========================================================================
 
   function renderCurrentPage() {
+    updateVisibleScope();
     const container = document.getElementById('page-container');
     if (!container) return;
     if (state.currentPage !== 'agents') {
@@ -1213,9 +1246,8 @@
           <p data-i18n="sessions.subtitle" data-i18n-params="${escapeHtml(JSON.stringify({ total: filteredSessions.length, running: runningCount }))}">${escapeHtml(t('sessions.subtitle', { total: filteredSessions.length, running: runningCount }))}</p>
         </div>
         <div class="page-actions">
-          <button id="btn-session-history" class="btn btn-secondary btn-sm" data-i18n="history.btnSessionHistory">${escapeHtml(t('history.btnSessionHistory'))}</button>
-          <button id="btn-refresh-sessions" class="btn btn-secondary btn-sm" data-i18n="sessions.btnRefresh">${escapeHtml(t('sessions.btnRefresh'))}</button>
           <button id="btn-add-project-agents" class="btn btn-primary btn-sm" data-i18n="sessions.btnAddProject">${escapeHtml(t('sessions.btnAddProject'))}</button>
+          ${actionMenu(`<button id="btn-refresh-sessions" class="btn btn-secondary btn-sm" data-i18n="sessions.btnRefresh">${escapeHtml(t('sessions.btnRefresh'))}</button><button id="btn-session-history" class="btn btn-secondary btn-sm" data-i18n="history.btnSessionHistory">${escapeHtml(t('history.btnSessionHistory'))}</button>`)}
         </div>
       </div>
 
@@ -1228,11 +1260,11 @@
       <div id="agents-tab-content"></div>
     `;
 
+    syncViewButtons(container, 'data-agentstab', state.agentsActiveTab);
     container.querySelectorAll('[data-agentstab]').forEach(tab => {
       tab.addEventListener('click', () => {
         state.agentsActiveTab = tab.getAttribute('data-agentstab');
-        container.querySelectorAll('[data-agentstab]').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
+        syncViewButtons(container, 'data-agentstab', state.agentsActiveTab);
         renderAgentsTabContent();
       });
     });
@@ -1240,7 +1272,7 @@
     document.getElementById('btn-session-history')?.addEventListener('click', () => {
       state.agentsActiveTab = 'history';
       container.querySelectorAll('[data-agentstab]').forEach(t => t.classList.remove('active'));
-      container.querySelector('[data-agentstab="history"]')?.classList.add('active');
+      syncViewButtons(container, 'data-agentstab', state.agentsActiveTab);
       renderAgentsTabContent();
     });
 
@@ -3051,13 +3083,15 @@
         return `
           <li class="session-card clickable-row ${state.selectedSessionId === s.id ? 'selected' : ''}" role="listitem" data-id="${escapeHtml(s.id)}" tabindex="0"${statusTitleKey ? ` title="${escapeHtml(cellTooltip)}" data-i18n-title="${statusTitleKey}"` : ''} aria-label="${escapeHtml(viewAria)}" data-i18n-aria-label="${ariaKey}" data-i18n-params="${escapeHtml(JSON.stringify(rowParams))}">
             <div class="session-card-main">
+
               <div class="session-card-header">
-                <span class="provider-badge provider-${escapeHtml(providerName)}" ${!s.provider ? 'data-i18n="provider.unknown"' : ''}>${escapeHtml(formatProviderName(s.provider))}</span>
                 <button type="button" class="session-title-btn" data-id="${escapeHtml(s.id)}" title="${escapeHtml(displayTitle)}" aria-label="${escapeHtml(viewAria)}"${rawTitle ? '' : ' data-i18n="sessions.unnamedSession" data-i18n-title="sessions.unnamedSession"'} data-i18n-aria-label="${ariaKey}" data-i18n-params="${escapeHtml(JSON.stringify(ariaParams))}">
                   ${escapeHtml(displayTitle)}
                 </button>
               </div>
               <div class="session-card-meta">
+                <span class="session-meta-provider" ${!s.provider ? 'data-i18n="provider.unknown"' : ''}>${escapeHtml(formatProviderName(s.provider))}</span>
+
                 ${projectName ? `
                   <span class="session-meta-project" title="${escapeHtml(s.project || '')}">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
@@ -4948,8 +4982,8 @@
                   </button>
                 ` : ''}
               </div>
-              <div class="session-message-content">${isTool ? VelaContent.code(m.content || '', 'json') : VelaContent.markdown(m.content || '')}</div>
-              ${(m.input || m.output) ? `<details class="session-tool-detail"><summary>${escapeHtml(t('sessions.toolCallHeader', {tool: m.tool || 'tool'}))}</summary>
+              <div class="session-message-content">${isTool ? VelaContent.tool(m) : VelaContent.markdown(m.content || '')}</div>
+              ${(!isTool && (m.input || m.output)) ? `<details class="session-tool-detail"><summary>${escapeHtml(t('sessions.toolCallHeader', {tool: m.tool || 'tool'}))}</summary>
                 ${m.input ? VelaContent.file(typeof m.input === 'string' ? m.input : JSON.stringify(m.input, null, 2), 'input.json') : ''}
                 ${m.output ? VelaContent.file(typeof m.output === 'string' ? m.output : JSON.stringify(m.output, null, 2), 'output.json') : ''}
               </details>` : ''}
@@ -5519,49 +5553,49 @@
           <p data-i18n="workflows.subtitle">${escapeHtml(t('workflows.subtitle'))}</p>
         </div>
         <div class="page-actions">
-          <button id="btn-validate-workflows" class="btn btn-secondary btn-sm" data-i18n="workflows.btnValidateAll">${escapeHtml(t('workflows.btnValidateAll'))}</button>
-          <button id="btn-plan-workflow" class="btn btn-secondary btn-sm" data-i18n="workflows.btnPlanWorkflow">${escapeHtml(t('workflows.btnPlanWorkflow'))}</button>
-          <button id="btn-build-wf-prompt" class="btn btn-secondary btn-sm" data-i18n="workflows.btnBuildPrompt">${escapeHtml(t('workflows.btnBuildPrompt'))}</button>
-          <div class="dropdown wf-starter-dropdown" style="display: inline-block; position: relative;">
-            <button type="button" id="btn-wf-starters-menu" class="btn btn-secondary btn-sm dropdown-toggle" aria-haspopup="true" aria-expanded="false" data-i18n="workflows.btnStarterTemplates" data-i18n-title="workflows.btnStarterTemplatesTitle" title="${escapeHtml(t('workflows.btnStarterTemplatesTitle'))}">
-              ${escapeHtml(t('workflows.btnStarterTemplates'))} ▾
-            </button>
-            <div id="wf-starters-dropdown-menu" class="dropdown-menu wf-starters-menu" role="menu" hidden>
-              <button type="button" role="menuitem" class="dropdown-item btn-starter-template" data-template-id="template-worktree-check">
-                <strong>${escapeHtml(t('workflows.starterWorktreeTitle'))}</strong>
-                <span class="dropdown-item-desc">${escapeHtml(t('workflows.starterWorktreeDesc'))}</span>
-              </button>
-              <button type="button" role="menuitem" class="dropdown-item btn-starter-template" data-template-id="template-recent-changes">
-                <strong>${escapeHtml(t('workflows.starterRecentTitle'))}</strong>
-                <span class="dropdown-item-desc">${escapeHtml(t('workflows.starterRecentDesc'))}</span>
-              </button>
-              <button type="button" role="menuitem" class="dropdown-item btn-starter-template" data-template-id="template-handoff-review">
-                <strong>${escapeHtml(t('workflows.starterHandoffTitle'))}</strong>
-                <span class="dropdown-item-desc">${escapeHtml(t('workflows.starterHandoffDesc'))}</span>
-              </button>
-            </div>
-          </div>
-          <button id="btn-new-workflow" class="btn btn-primary btn-sm" data-i18n="workflows.btnNewWorkflow">${escapeHtml(t('workflows.btnNewWorkflow'))}</button>
+          <button id="btn-new-workflow" class="btn btn-primary" data-i18n="workflows.btnNewWorkflow">${escapeHtml(t('workflows.btnNewWorkflow'))}</button>
+          ${actionMenu(`
+            <button id="btn-build-wf-prompt" class="btn" data-i18n="workflows.btnBuildPrompt">${escapeHtml(t('workflows.btnBuildPrompt'))}</button>
+            <button id="btn-plan-workflow" class="btn" data-i18n="workflows.btnPlanWorkflow">${escapeHtml(t('workflows.btnPlanWorkflow'))}</button>
+            <button id="btn-validate-workflows" class="btn" data-i18n="workflows.btnValidateAll">${escapeHtml(t('workflows.btnValidateAll'))}</button>
+            <div class="menu-section-label" data-i18n="workflows.btnStarterTemplates">${escapeHtml(t('workflows.btnStarterTemplates'))}</div>
+            ${[['template-worktree-check','workflows.starterWorktreeTitle'],['template-recent-changes','workflows.starterRecentTitle'],['template-handoff-review','workflows.starterHandoffTitle']].map(([id,key]) => `<button class="btn btn-starter-template" data-template-id="${id}" data-i18n="${key}">${escapeHtml(t(key))}</button>`).join('')}
+          `, 'reading.more', true, 'btn-wf-starters-menu')}
         </div>
       </div>
 
       <div class="tabs-nav">
         <button class="tab-btn ${state.workflowsActiveTab === 'list' ? 'active' : ''}" data-wftab="list" data-i18n="workflows.tabList" data-i18n-params="${escapeHtml(JSON.stringify({ count: workflows.length }))}">${escapeHtml(t('workflows.tabList', { count: workflows.length }))}</button>
         <button class="tab-btn ${state.workflowsActiveTab === 'runs' ? 'active' : ''}" data-wftab="runs" data-i18n="workflows.tabRuns" data-i18n-params="${escapeHtml(JSON.stringify({ count: runs.length }))}">${escapeHtml(t('workflows.tabRuns', { count: runs.length }))}</button>
-        <button class="tab-btn ${state.workflowsActiveTab === 'plans' ? 'active' : ''}" data-wftab="plans" data-i18n="workflows.tabPlans" data-i18n-params="${escapeHtml(JSON.stringify({ count: state.workflowPlansCount || 0 }))}">${escapeHtml(t('workflows.tabPlans', { count: state.workflowPlansCount || 0 }))}</button>
         <button class="tab-btn ${state.workflowsActiveTab === 'schedules' ? 'active' : ''}" data-wftab="schedules" data-i18n="workflows.tabSchedules" data-i18n-params="${escapeHtml(JSON.stringify({ count: schedulesCount }))}">${escapeHtml(t('workflows.tabSchedules', { count: schedulesCount }))}</button>
-        <button class="tab-btn ${state.workflowsActiveTab === 'artifacts' ? 'active' : ''}" data-wftab="artifacts" data-i18n="workflows.tabArtifacts" data-i18n-params="${escapeHtml(JSON.stringify({ count: state.workflowArtifactsCount || 0 }))}">${escapeHtml(t('workflows.tabArtifacts', { count: state.workflowArtifactsCount || 0 }))}</button>
-        <button class="tab-btn ${state.workflowsActiveTab === 'health' ? 'active' : ''}" data-wftab="health" data-i18n="workflows.tabHealth">${escapeHtml(t('workflows.tabHealth'))}</button>
+        ${actionMenu(`
+          <button class="btn" data-wftab="plans" data-i18n="workspace.workflow.planning">${escapeHtml(t('workspace.workflow.planning'))}</button>
+          <button class="btn" data-wftab="artifacts" data-i18n="workspace.workflow.outputs">${escapeHtml(t('workspace.workflow.outputs'))}</button>
+          <button class="btn" data-wftab="health" data-i18n="workspace.workflow.health">${escapeHtml(t('workspace.workflow.health'))}</button>
+        `, 'workspace.workflow.tools', false, 'btn-wf-secondary-menu')}
       </div>
 
       <div id="workflows-tab-content"></div>
     `;
 
+    const updateSecondaryMenu = () => {
+      const key = ({ plans: 'workspace.workflow.planning', artifacts: 'workspace.workflow.outputs', health: 'workspace.workflow.health' })[state.workflowsActiveTab] || 'workspace.workflow.tools';
+      const summary = document.getElementById('btn-wf-secondary-menu');
+      if (!summary) return;
+      setElementDescriptor(summary.querySelector('span'), { key });
+      summary.setAttribute('data-i18n-aria-label', key);
+      summary.setAttribute('data-i18n-title', key);
+      summary.setAttribute('aria-label', t(key));
+      summary.title = t(key);
+      summary.classList.toggle('active', key !== 'workspace.workflow.tools');
+    };
+    updateSecondaryMenu();
+    syncViewButtons(container, 'data-wftab', state.workflowsActiveTab);
     container.querySelectorAll('[data-wftab]').forEach(tab => {
       tab.addEventListener('click', () => {
         state.workflowsActiveTab = tab.getAttribute('data-wftab');
-        container.querySelectorAll('[data-wftab]').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
+        syncViewButtons(container, 'data-wftab', state.workflowsActiveTab);
+        updateSecondaryMenu();
         workflowTabGen++;
         if (state.workflowsActiveTab !== 'health' && typeof dismissActiveHealthProposalModal === 'function') {
           dismissActiveHealthProposalModal();
@@ -5570,38 +5604,9 @@
       });
     });
 
-    // Starters dropdown handlers
-    const btnStartersMenu = document.getElementById('btn-wf-starters-menu');
-    const startersMenu = document.getElementById('wf-starters-dropdown-menu');
-
-    btnStartersMenu?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isHidden = startersMenu?.hasAttribute('hidden');
-      if (isHidden) {
-        startersMenu?.removeAttribute('hidden');
-        btnStartersMenu.setAttribute('aria-expanded', 'true');
-      } else {
-        startersMenu?.setAttribute('hidden', '');
-        btnStartersMenu.setAttribute('aria-expanded', 'false');
-      }
+    container.querySelectorAll('.btn-starter-template').forEach(btn => {
+      btn.addEventListener('click', () => openWorkflowStarter(btn.getAttribute('data-template-id')));
     });
-
-    startersMenu?.querySelectorAll('.btn-starter-template').forEach(btn => {
-      btn.addEventListener('click', () => {
-        startersMenu.setAttribute('hidden', '');
-        btnStartersMenu?.setAttribute('aria-expanded', 'false');
-        const tmplId = btn.getAttribute('data-template-id');
-        openWorkflowStarter(tmplId);
-      });
-    });
-
-    const closeStartersDropdown = (e) => {
-      if (!e.target.closest('.wf-starter-dropdown')) {
-        startersMenu?.setAttribute('hidden', '');
-        btnStartersMenu?.setAttribute('aria-expanded', 'false');
-      }
-    };
-    document.addEventListener('click', closeStartersDropdown);
 
     document.getElementById('btn-new-workflow').addEventListener('click', () => {
       openEditWorkflowModal();
@@ -5684,46 +5689,30 @@
 
       target.innerHTML = `
         ${topBarHtml}
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th data-i18n="workflows.colName">${escapeHtml(t('workflows.colName'))}</th>
-                <th data-i18n="workflows.colTrigger">${escapeHtml(t('workflows.colTrigger'))}</th>
-                <th data-i18n="workflows.colSteps">${escapeHtml(t('workflows.colSteps'))}</th>
-                <th data-i18n="workflows.colVersion">${escapeHtml(t('workflows.colVersion'))}</th>
-                <th data-i18n="workflows.colStatus">${escapeHtml(t('workflows.colStatus'))}</th>
-                <th style="text-align: right; width: 280px;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${workflows.map(wf => `
-                <tr>
-                  <td>
-                    <strong>${escapeHtml(wf.title || t('common.unnamedSession'))}</strong>
-                    <div style="font-size: 12px; color: var(--text-secondary);">${escapeHtml(wf.description || '-')}</div>
-                  </td>
-                  <td>
-                    <span class="code-badge">${escapeHtml(wf.trigger || 'manual')}</span>
-                    ${wf.cron ? `<span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); margin-left: 4px;">${escapeHtml(wf.cron)}</span>` : ''}
-                    ${wf.trigger === 'watch' ? `<span class="status-badge status-sage" style="margin-left: 4px;">watch</span>` : ''}
-                  </td>
-                  <td data-i18n="workflows.stepsCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: (wf.steps && wf.steps.length) || 0 }))}">${escapeHtml(t('workflows.stepsCount', { count: (wf.steps && wf.steps.length) || 0 }))}</td>
-                  <td><span class="font-mono">v${escapeHtml(String(wf.version || 1))}</span></td>
-                  <td>
-                    ${wf.state === 'archived' ? `<span class="status-badge status-neutral" data-i18n="workflows.badgeArchived">${escapeHtml(t('workflows.badgeArchived'))}</span>` : (wf.enabled !== false ? `<span class="status-badge status-sage" data-i18n="workflows.statusEnabled">${escapeHtml(t('workflows.statusEnabled'))}</span>` : `<span class="status-badge status-neutral" data-i18n="workflows.statusDisabled">${escapeHtml(t('workflows.statusDisabled'))}</span>`)}
-                  </td>
-                  <td style="text-align: right;">
-                    ${wf.trigger === 'watch' ? `<button class="btn btn-ghost btn-sm btn-wf-preview-watch" data-id="${escapeHtml(wf.id)}" data-project="${escapeHtml(wf.project || '')}" data-i18n="watch.btnPreview" title="${escapeHtml(t('watch.btnPreview'))}">👁</button>` : ''}
-                    <button class="btn btn-secondary btn-sm btn-wf-inspect" data-id="${escapeHtml(wf.id)}" data-i18n="workflows.btnInspect">${escapeHtml(t('workflows.btnInspect'))}</button>
-                    <button class="btn btn-secondary btn-sm btn-wf-dryrun" data-id="${escapeHtml(wf.id)}" data-i18n-title="workflows.btnDryRunTitle" title="${escapeHtml(t('workflows.btnDryRunTitle'))}" data-i18n="workflows.btnDryRun">${escapeHtml(t('workflows.btnDryRun'))}</button>
-                    <button class="btn btn-primary btn-sm btn-wf-run" data-id="${escapeHtml(wf.id)}" data-i18n="workflows.btnRun">${escapeHtml(t('workflows.btnRun'))}</button>
-                    <button class="btn btn-ghost btn-sm btn-wf-edit" data-id="${escapeHtml(wf.id)}" data-i18n="common.edit">${escapeHtml(t('common.edit'))}</button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+        <div class="workspace-list workflow-list">
+          ${workflows.map(wf => {
+            const triggerKey = ({manual:'workspace.trigger.manual',cron:'workspace.trigger.cron',watch:'workspace.trigger.watch'})[wf.trigger] || 'workspace.trigger.manual';
+            const triggerParams = {};
+            const stepCount = (wf.steps || []).length;
+            const stepKey = stepCount === 1 ? 'workflows.stepCountOne' : 'workflows.stepsCount';
+            return `
+            <article class="workspace-row workflow-row" data-id="${escapeHtml(wf.id)}">
+              <div class="workspace-row-icon" data-kind="${VelaContent.workflowKind(wf)}" aria-hidden="true">${VelaContent.icon(VelaContent.workflowKind(wf))}</div>
+              <div class="workspace-row-content">
+                <button class="row-title btn-wf-inspect" data-id="${escapeHtml(wf.id)}" title="${escapeHtml(wf.title || t('common.unnamedSession'))}">${escapeHtml(wf.title || t('common.unnamedSession'))}</button>
+                ${wf.description ? `<p class="row-description">${escapeHtml(wf.description)}</p>` : ''}
+                <div class="row-meta">${!state.currentProject && wf.project ? `<span>${escapeHtml(wf.project.split('/').filter(Boolean).pop())}</span>` : ''}<span data-i18n="${triggerKey}" data-i18n-params="${escapeHtml(JSON.stringify(triggerParams))}">${escapeHtml(t(triggerKey, triggerParams))}</span><span data-i18n="${stepKey}" data-i18n-params="${escapeHtml(JSON.stringify({ count: stepCount }))}">${escapeHtml(t(stepKey, { count: stepCount }))}</span>
+                  ${wf.state === 'archived' ? `<span data-i18n="workflows.badgeArchived">${escapeHtml(t('workflows.badgeArchived'))}</span>` : wf.enabled === false ? `<span data-i18n="workflows.statusDisabled">${escapeHtml(t('workflows.statusDisabled'))}</span>` : `<span class="text-sage" data-i18n="workflows.statusEnabled">${escapeHtml(t('workflows.statusEnabled'))}</span>`}
+                </div>
+              </div>
+              ${actionMenu(`
+                ${menuAction('workflows.btnRun', 'play', {className:'btn-wf-run', data:`data-id="${escapeHtml(wf.id)}"`})}
+                ${menuAction('workflows.btnDryRun', 'preview', {className:'btn-wf-dryrun', data:`data-id="${escapeHtml(wf.id)}"`})}
+                ${menuAction('common.edit', 'edit', {className:'btn-wf-edit', data:`data-id="${escapeHtml(wf.id)}"`})}
+                ${wf.trigger === 'watch' ? `<button class="btn btn-wf-preview-watch" data-id="${escapeHtml(wf.id)}" data-project="${escapeHtml(wf.project || '')}">${escapeHtml(t('watch.btnPreview'))}</button>` : ''}
+              `)}
+            </article>`;
+          }).join('')}
         </div>
       `;
 
@@ -5747,7 +5736,7 @@
       target.querySelectorAll('.btn-wf-inspect').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-id');
-          if (id) openWorkflowInspectModal(id);
+          if (id) openWorkflowInspectModal(id, workflows.find(w => w.id === id)?.project || state.currentProject);
         });
       });
 
@@ -5812,11 +5801,9 @@
           <table class="data-table" id="workflow-runs-table">
             <thead>
               <tr>
-                <th data-i18n="workflows.colRunId">${escapeHtml(t('workflows.colRunId'))}</th>
                 <th data-i18n="workflows.colWorkflow">${escapeHtml(t('workflows.colWorkflow'))}</th>
                 <th data-i18n="workflows.colMode">${escapeHtml(t('workflows.colMode'))}</th>
                 <th data-i18n="common.status">${escapeHtml(t('common.status'))}</th>
-                <th data-i18n="workflows.colDuration">${escapeHtml(t('workflows.colDuration'))}</th>
                 <th data-i18n="workflows.colStartTime">${escapeHtml(t('workflows.colStartTime'))}</th>
                 <th style="text-align: right; width: 140px;" data-i18n="common.actions">${escapeHtml(t('common.actions'))}</th>
               </tr>
@@ -5824,11 +5811,15 @@
             <tbody>
               ${runs.map(r => `
                 <tr class="clickable-row" data-id="${escapeHtml(r.id)}">
-                  <td><span class="code-badge">${escapeHtml(r.id ? r.id.substring(0, 8) : '-')}</span></td>
-                  <td><strong>${escapeHtml(r.title || r.workflowId || t('common.unnamedSession'))}</strong></td>
+                  <td class="run-name-cell"><button class="row-title btn-open-run" data-id="${escapeHtml(r.id)}" title="${escapeHtml(runDisplayTitle(r))}">${escapeHtml(runDisplayTitle(r))}</button>
+                    <details class="technical-disclosure run-identity"><summary data-i18n="workspace.run.details">${escapeHtml(t('workspace.run.details'))}</summary>
+                      <dl class="field-list"><div class="field-row"><dt data-i18n="workflows.colRunId">${escapeHtml(t('workflows.colRunId'))}</dt><dd><code>${escapeHtml(r.id || '-')}</code></dd></div>
+                      <div class="field-row"><dt data-i18n="workflows.colWorkflow">${escapeHtml(t('workflows.colWorkflow'))}</dt><dd><code>${escapeHtml(r.workflowId || '-')}</code></dd></div>
+                      <div class="field-row"><dt data-i18n="workflows.colDuration">${escapeHtml(t('workflows.colDuration'))}</dt><dd>${typeof r.durationMs === 'number' && Number.isFinite(r.durationMs) ? escapeHtml(String(r.durationMs)) + ' ms' : '—'}</dd></div></dl>
+                    </details>
+                  </td>
                   <td>${r.dryRun ? `<span class="status-badge status-neutral" data-i18n="workflows.modeDryRun">${escapeHtml(t('workflows.modeDryRun'))}</span>` : `<span class="status-badge status-sage" data-i18n="workflows.modeExecute">${escapeHtml(t('workflows.modeExecute'))}</span>`}</td>
                   <td>${getRunStateBadge(r.state)}</td>
-                  <td><span class="font-mono">${r.durationMs ? escapeHtml(String(r.durationMs)) + 'ms' : '-'}</span></td>
                   <td>${formatTime(r.startedAt)}</td>
                   <td style="text-align: right;">
                     <button class="btn btn-secondary btn-sm btn-replay-run" data-id="${escapeHtml(r.id)}" data-i18n="workflows.btnReplay">${escapeHtml(t('workflows.btnReplay'))}</button>
@@ -5842,10 +5833,12 @@
 
       target.querySelectorAll('tr.clickable-row').forEach(row => {
         row.addEventListener('click', (e) => {
-          if (e.target.closest('button')) return;
+          if (e.target.closest('button, details, summary')) return;
           openRunDetail(row.getAttribute('data-id'));
         });
       });
+
+      target.querySelectorAll('.btn-open-run').forEach(btn => btn.addEventListener('click', () => openRunDetail(btn.dataset.id)));
 
       target.querySelectorAll('.btn-replay-run').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -6391,8 +6384,8 @@
     }
   }
 
-  async function openWorkflowInspectModal(wfId) {
-    const currentProject = state.currentProject;
+  async function openWorkflowInspectModal(wfId, project = state.currentProject) {
+    const currentProject = project;
     openModal({ key: 'workflows.inspectTitle' }, `
       <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
     `, `<button class="btn btn-secondary" id="btn-close-wf-inspect" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
@@ -6431,13 +6424,12 @@
     const diagnostics = Array.isArray(wf.diagnostics) ? wf.diagnostics : [];
     const isWatch = (wf.definition && wf.definition.trigger === 'watch') || wf.trigger === 'watch';
 
+    setElementDescriptor(document.getElementById('modal-title'), (wf.definition && wf.definition.title) || t('workflows.inspectTitle'));
     b.innerHTML = `
       <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="workflows.inspectDesc">${escapeHtml(t('workflows.inspectDesc'))}</p>
 
       <div class="card" style="margin-bottom: 12px;">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
-          <div><strong data-i18n="workflows.snapshotHash">${escapeHtml(t('workflows.snapshotHash'))}</strong> <span class="font-mono">${escapeHtml(snapshotHash.substring(0, 12))}</span></div>
-          <div><strong data-i18n="workflows.assetHash">${escapeHtml(t('workflows.assetHash'))}</strong> <span class="font-mono">${escapeHtml(assetHash.substring(0, 12))}</span></div>
           <div>
             <strong data-i18n="workflows.validStatus">${escapeHtml(t('workflows.validStatus'))}</strong>
             ${valid ? `<span class="status-badge status-sage" data-i18n="workflows.validTrue">${escapeHtml(t('workflows.validTrue'))}</span>` : `<span class="status-badge status-amber" data-i18n="workflows.validFalse">${escapeHtml(t('workflows.validFalse'))}</span>`}
@@ -6520,23 +6512,22 @@
         </div>
       ` : ''}
 
-      <div>
-        <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 4px;" data-i18n="workflows.markdownSource">${escapeHtml(t('workflows.markdownSource'))}</h4>
-        <pre class="code-preview" style="max-height: 260px; overflow: auto; font-family: var(--font-mono); font-size: 11px; padding: 8px 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 5px;"><code>${escapeHtml(markdown)}</code></pre>
-      </div>
+      <section class="workflow-definition-preview">
+        ${(wf.definition && wf.definition.description) ? `<p class="reading-prose">${escapeHtml(wf.definition.description)}</p>` : ''}
+        <h4 data-i18n="workflows.stepsLabel">${escapeHtml(t('workflows.stepsLabel'))}</h4>
+        <ol class="workflow-step-list">${((wf.definition && wf.definition.steps) || []).map((step,index) => `<li><div><strong>${escapeHtml(step.title || step.name || step.tool || String(index + 1))}</strong><span class="code-badge">${escapeHtml(step.tool || '')}</span></div><details class="technical-disclosure"><summary data-i18n="common.techDetails">${escapeHtml(t('common.techDetails'))}</summary>${VelaContent.code(JSON.stringify(step.arguments || step.params || {}, null, 2), 'json')}</details></li>`).join('')}</ol>
+      </section>
+      <details class="technical-disclosure"><summary data-i18n="workflows.markdownSource">${escapeHtml(t('workflows.markdownSource'))}</summary>${VelaContent.code(markdown)}</details>
+      <details class="technical-disclosure"><summary data-i18n="common.techDetails">${escapeHtml(t('common.techDetails'))}</summary><div class="memory-identity"><span>${escapeHtml(t('workflows.snapshotHash'))}: ${escapeHtml(snapshotHash)}</span><span>${escapeHtml(t('workflows.assetHash'))}: ${escapeHtml(assetHash)}</span></div></details>
       <div id="wf-inspect-msg" class="alert-banner alert-warning hidden" style="margin-top: 10px;"></div>
     `;
 
     f.innerHTML = `
       <div style="display: flex; justify-content: space-between; width: 100%;">
         <div style="display: flex; gap: 8px;">
-          <button class="btn btn-secondary btn-sm" id="btn-inspect-clone" data-i18n="workflows.btnClone">${escapeHtml(t('workflows.btnClone'))}</button>
-          ${!isArchived ? `
-            <button class="btn btn-secondary btn-sm" id="btn-inspect-toggle-enabled" data-i18n="${isEnabled ? 'workflows.btnDisable' : 'workflows.btnEnable'}">${escapeHtml(t(isEnabled ? 'workflows.btnDisable' : 'workflows.btnEnable'))}</button>
-            <button class="btn btn-danger btn-sm" id="btn-inspect-archive" data-i18n="workflows.btnArchive">${escapeHtml(t('workflows.btnArchive'))}</button>
-          ` : `
-            <button class="btn btn-primary btn-sm" id="btn-inspect-restore" data-i18n="workflows.btnRestore">${escapeHtml(t('workflows.btnRestore'))}</button>
-          `}
+          ${!isArchived ? `<button class="btn btn-secondary" id="btn-inspect-toggle-enabled" data-i18n="${isEnabled ? 'workflows.btnDisable' : 'workflows.btnEnable'}">${escapeHtml(t(isEnabled ? 'workflows.btnDisable' : 'workflows.btnEnable'))}</button>` : `<button class="btn btn-primary" id="btn-inspect-restore" data-i18n="workflows.btnRestore">${escapeHtml(t('workflows.btnRestore'))}</button>`}
+          ${actionMenu(`<button class="btn" id="btn-inspect-clone" data-i18n="workflows.btnClone">${escapeHtml(t('workflows.btnClone'))}</button>${!isArchived ? `<button class="btn" id="btn-inspect-archive" data-i18n="workflows.btnArchive">${escapeHtml(t('workflows.btnArchive'))}</button>` : ''}`)}
+
         </div>
         <button class="btn btn-secondary btn-sm" id="btn-close-wf-inspect-2" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
       </div>
@@ -6579,7 +6570,7 @@
           enabled: !isEnabled
         });
         showToast({ key: 'workflows.toggleSuccess' });
-        openWorkflowInspectModal(wfId);
+        openWorkflowInspectModal(wfId, currentProject);
         await refreshDashboard(false, false);
       } catch (err) {
         if (msgEl) { msgEl.textContent = err.message; msgEl.classList.remove('hidden'); }
@@ -6612,7 +6603,7 @@
           snapshotHash
         });
         showToast({ key: 'workflows.restoreSuccess' });
-        openWorkflowInspectModal(wfId);
+        openWorkflowInspectModal(wfId, currentProject);
         await refreshDashboard(true, true);
       } catch (err) {
         if (msgEl) { msgEl.textContent = err.message; msgEl.classList.remove('hidden'); }
@@ -8267,6 +8258,12 @@
     }
   }
 
+  function runDisplayTitle(run) {
+    const workflow = ((state.dashboard && state.dashboard.workflows) || []).find(item => item.id === run.workflowId);
+    const title = [run.title, run.workflowTitle, workflow?.title].find(value => typeof value === 'string' && value.trim());
+    return title ? title.trim() : t('workspace.run.untitled');
+  }
+
   function getRunStateBadge(st) {
     const s = String(st || '').toLowerCase();
     switch (s) {
@@ -8279,16 +8276,16 @@
       case 'error':
         return `<span class="status-badge status-red" data-i18n="workflows.stateFailed">${escapeHtml(t('workflows.stateFailed'))}</span>`;
       case 'rejected':
-        return `<span class="status-badge status-red">已拒绝 (rejected)</span>`;
+        return `<span class="status-badge status-red" data-i18n="workspace.run.rejected">${escapeHtml(t('workspace.run.rejected'))}</span>`;
       case 'pending approval':
       case 'pending_approval':
         return `<span class="status-badge status-amber" data-i18n="workflows.statePendingApproval">${escapeHtml(t('workflows.statePendingApproval'))}</span>`;
       case 'waiting_child':
-        return `<span class="status-badge status-amber">等待子运行 (waiting_child)</span>`;
+        return `<span class="status-badge status-amber" data-i18n="workspace.run.waiting_child">${escapeHtml(t('workspace.run.waiting_child'))}</span>`;
       case 'blocked':
-        return `<span class="status-badge status-neutral">已阻塞 (blocked)</span>`;
+        return `<span class="status-badge status-neutral" data-i18n="workspace.run.blocked">${escapeHtml(t('workspace.run.blocked'))}</span>`;
       case 'needs_review':
-        return `<span class="status-badge status-amber">待核对 (needs_review)</span>`;
+        return `<span class="status-badge status-amber" data-i18n="workspace.run.needs_review">${escapeHtml(t('workspace.run.needs_review'))}</span>`;
       default:
         return `<span class="status-badge status-neutral">${escapeHtml(st || t('common.unknown'))}</span>`;
     }
@@ -10731,9 +10728,8 @@
           <p data-i18n="setupL.header.desc">${escapeHtml(t('setupL.header.desc'))}</p>
         </div>
         <div class="page-actions">
-          <button id="btn-catalog-setup" class="btn btn-secondary btn-sm" data-i18n="setup.catalogBtn">${escapeHtml(t('setup.catalogBtn'))}</button>
           <button id="btn-scan-setup" class="btn btn-secondary btn-sm" data-i18n="setupL.actions.scan">${escapeHtml(t('setupL.actions.scan'))}</button>
-          <button id="btn-audit-setup" class="btn btn-secondary btn-sm" data-i18n="setupL.actions.audit">${escapeHtml(t('setupL.actions.audit'))}</button>
+          ${actionMenu(`<button id="btn-open-setup-memory" class="btn" type="button" data-i18n="setupL.tabs.memoryHome">${escapeHtml(t('setupL.tabs.memoryHome'))}</button><button id="btn-audit-setup" class="btn btn-secondary btn-sm" data-i18n="setupL.actions.audit">${escapeHtml(t('setupL.actions.audit'))}</button><button id="btn-catalog-setup" class="btn btn-secondary btn-sm" data-i18n="setup.catalogBtn">${escapeHtml(t('setup.catalogBtn'))}</button>`)}
         </div>
       </div>
 
@@ -10743,21 +10739,24 @@
         <button class="tab-btn ${state.setupActiveTab === 'hooks' ? 'active' : ''}" data-setuptab="hooks" data-i18n="setupL.tabs.hooks">${escapeHtml(t('setupL.tabs.hooks'))}</button>
         <button class="tab-btn ${state.setupActiveTab === 'mcp' ? 'active' : ''}" data-setuptab="mcp" data-i18n="setupL.tabs.mcp">${escapeHtml(t('setupL.tabs.mcp'))}</button>
         <button class="tab-btn ${state.setupActiveTab === 'guidelines' ? 'active' : ''}" data-setuptab="guidelines" data-i18n="setupL.tabs.guidelines">${escapeHtml(t('setupL.tabs.guidelines'))}</button>
-        <button class="tab-btn ${state.setupActiveTab === 'memory' ? 'active' : ''}" data-setuptab="memory" data-i18n="setupL.tabs.memory">${escapeHtml(t('setupL.tabs.memory'))}</button>
         <button class="tab-btn ${state.setupActiveTab === 'library' ? 'active' : ''}" data-setuptab="library" data-i18n="setupL.tabs.library">${escapeHtml(t('setupL.tabs.library'))}</button>
       </div>
 
       <div id="setup-tab-content"></div>
     `;
 
+    syncViewButtons(container, 'data-setuptab', state.setupActiveTab);
     container.querySelectorAll('[data-setuptab]').forEach(tab => {
       tab.addEventListener('click', () => {
         state.setupActiveTab = tab.getAttribute('data-setuptab');
-        container.querySelectorAll('[data-setuptab]').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
+        syncViewButtons(container, 'data-setuptab', state.setupActiveTab);
         renderSetupTabContent();
       });
     });
+
+    // Memory has one home in the primary navigation. Setup keeps an explicit route
+    // so the legacy entry remains discoverable without rendering a second list.
+    document.getElementById('btn-open-setup-memory')?.addEventListener('click', () => navigateTo('memory'));
 
     document.getElementById('btn-catalog-setup')?.addEventListener('click', openSetupCatalogModal);
 
@@ -10792,9 +10791,8 @@
     const target = document.getElementById('setup-tab-content');
     if (!target) return;
 
-    if (state.setupActiveTab === 'memory') {
-      renderMemorySection(target);
-    } else if (state.setupActiveTab === 'guidelines') {
+    if (state.setupActiveTab === 'memory') state.setupActiveTab = 'rules';
+    if (state.setupActiveTab === 'guidelines') {
       renderGuidelinesSection(target);
     } else if (state.setupActiveTab === 'library') {
       renderLibrarySection(target);
@@ -10819,44 +10817,53 @@
 
   function openArtifactDrawer(art) {
     const loc = formatAssetLocation(art.path, art.scope, state.currentProject);
-    openDrawer(art.title || { key: 'setupL.artifacts.drawerTitle' }, loc.displayText);
+    openDrawer(setupAssetDisplayName(art) || { key: 'setupL.artifacts.drawerTitle' }, loc.displayText);
     const drawerContent = document.getElementById('drawer-content');
     if (!drawerContent) return;
 
+    const assetDiag = Array.isArray(art.diagnostics) ? art.diagnostics : [];
+    const assetContentStatus = art.contentStatus ? getSetupContentStatusBadge(art.contentStatus) : '';
+
     drawerContent.innerHTML = `
-      <div class="card location-identity" style="margin-bottom: 12px; padding: 14px 16px;">
-        <div class="card-header" style="margin-bottom: 8px;"><span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span></div>
-        <div style="font-size: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-          <div><span class="text-secondary" data-i18n="setup.colType">${escapeHtml(t('setup.colType'))}:</span> ${escapeHtml(art.type || 'configuration')}</div>
-          <div><span class="text-secondary" data-i18n="setup.colProvider">${escapeHtml(t('setup.colProvider'))}:</span> <span class="code-badge">${escapeHtml(art.provider || 'generic')}</span></div>
-          <div><span class="text-secondary" data-i18n="setup.colScope">${escapeHtml(t('setup.colScope'))}:</span> <span class="code-badge">${escapeHtml(art.scope || 'project')}</span></div>
-          <div><span class="text-secondary" data-i18n="setupL.drawer.tokens">${escapeHtml(t('setupL.drawer.tokens'))}:</span> ${escapeHtml(String(art.tokens || '-'))}</div>
-        </div>
-        <div class="asset-location" style="margin-top: 10px; font-size: 14px; font-family: var(--font-mono); color: var(--text-secondary);" title="${escapeHtml(art.path || '')}">
-          <span class="text-secondary">${escapeHtml(loc.scopePrefix)}</span> › <span class="font-semibold">${escapeHtml(loc.relativePath)}</span>
-        </div>
-        <details class="memory-meta-details location-identity" style="margin-top: 10px;">
-          <summary style="font-size: 13px; color: var(--text-secondary); cursor: pointer;" data-i18n="comfort.locationAndIdentity">${escapeHtml(t('comfort.locationAndIdentity'))}</summary>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; font-size: 12px; margin-top: 8px; color: var(--text-secondary);">
-            <div><span>ID:</span> <span class="font-mono">${escapeHtml(art.id || '-')}</span></div>
-            <div><span>Hash:</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
-            <div style="grid-column: 1 / -1;">
-              <span data-i18n="setup.colPath">${escapeHtml(t('setup.colPath'))}:</span>
-              <span class="font-mono" style="font-size: 12px; word-break: break-all;">${escapeHtml(art.path || '-')}</span>
-              ${art.path ? `<button type="button" class="btn btn-ghost btn-sm btn-drawer-copy-path" data-clipboard="${escapeHtml(art.path)}" style="padding: 2px 6px; font-size: 11px; margin-left: 6px;" data-i18n="comfort.copyFullPath">${escapeHtml(t('comfort.copyFullPath'))}</button>` : ''}
-            </div>
-          </div>
-        </details>
-        <div style="display: flex; gap: 6px; margin-top: 12px;">
+      <section>
+        <h3 class="section-heading" data-i18n="setupL.drawer.readonlyPreview">${escapeHtml(t('setupL.drawer.readonlyPreview'))}</h3>
+        ${assetDiag.length > 0 ? `<p class="setup-row-diag" role="status" data-i18n="asset.diagnosticsFound" data-i18n-params="${escapeHtml(JSON.stringify({ count: assetDiag.length }))}">${escapeHtml(t('asset.diagnosticsFound', { count: assetDiag.length }))}</p>` : ''}
+        ${art.content ? VelaContent.file(art.content, art.path || setupAssetDisplayName(art)) : `<p class="text-secondary">${tHtml('setupL.drawer.noContent')}</p>`}
+        <div style="display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap;">
           <button class="btn btn-secondary btn-sm btn-drawer-setup-history" data-id="${escapeHtml(art.id)}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
           <button class="btn btn-secondary btn-sm btn-drawer-setup-relations" data-id="${escapeHtml(art.id)}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
-          ${art.path ? `<button class="btn btn-ghost btn-sm btn-drawer-reveal-path" data-path="${escapeHtml(art.path)}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
         </div>
-      </div>
-      <div>
-        <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.drawer.readonlyPreview">${escapeHtml(t('setupL.drawer.readonlyPreview'))}</h3>
-        <div class="code-view" style="font-size: 13px;">${art.content ? escapeHtml(art.content) : tHtml('setupL.drawer.noContent')}</div>
-      </div>
+      </section>
+
+      <details class="technical-disclosure">
+        <summary data-i18n="asset.technicalDetails">${escapeHtml(t('asset.technicalDetails'))}</summary>
+        <section>
+          <h3 class="section-heading" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</h3>
+          <dl class="field-list">
+            <div class="field-row"><dt data-i18n="setup.colType">${escapeHtml(t('setup.colType'))}</dt><dd>${escapeHtml(art.type || '-')}</dd></div>
+            <div class="field-row"><dt data-i18n="setup.colProvider">${escapeHtml(t('setup.colProvider'))}</dt><dd>${escapeHtml(art.provider || '-')}</dd></div>
+            <div class="field-row"><dt data-i18n="setup.colScope">${escapeHtml(t('setup.colScope'))}</dt><dd>${escapeHtml(loc.scopePrefix || t('asset.scopeUnknown'))}</dd></div>
+            <div class="field-row"><dt data-i18n="setupL.drawer.tokens">${escapeHtml(t('setupL.drawer.tokens'))}</dt><dd>${escapeHtml(typeof art.tokens === 'number' ? art.tokens.toLocaleString() : '-')}</dd></div>
+            ${assetContentStatus ? `<div class="field-row"><dt data-i18n="asset.contentStatus">${escapeHtml(t('asset.contentStatus'))}</dt><dd>${assetContentStatus}</dd></div>` : ''}
+          </dl>
+        </section>
+        <section>
+          <h3 class="section-heading" data-i18n="asset.location">${escapeHtml(t('asset.location'))}</h3>
+          <div class="setup-row-scope" title="${escapeHtml(art.path || '')}">${escapeHtml(loc.displayText)}</div>
+          <details class="technical-disclosure">
+            <summary data-i18n="asset.locationFull">${escapeHtml(t('asset.locationFull'))}</summary>
+          <div class="font-mono" style="font-size: 13px; word-break: break-all;">${escapeHtml(art.path || '-')}</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; font-size: 12px; margin-top: 10px; color: var(--text-secondary);">
+            <div><span>ID:</span> <span class="font-mono">${escapeHtml(art.id || '-')}</span></div>
+            <div><span>Hash:</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+            ${art.path ? `<button type="button" class="btn btn-secondary btn-sm btn-drawer-copy-path" data-clipboard="${escapeHtml(art.path)}" data-i18n="comfort.copyFullPath">${escapeHtml(t('comfort.copyFullPath'))}</button>` : ''}
+            ${art.path ? `<button type="button" class="btn btn-ghost btn-sm btn-drawer-reveal-path" data-path="${escapeHtml(art.path)}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
+          </div>
+          </details>
+        </section>
+      </details>
     `;
 
     drawerContent.querySelector('.btn-drawer-copy-path')?.addEventListener('click', async (e) => {
@@ -11036,7 +11043,7 @@
     }
 
     if (!fullPath || typeof fullPath !== 'string' || !fullPath.trim()) {
-      const fallbackPrefix = scopePrefix || t('comfort.scopeProject');
+      const fallbackPrefix = scopePrefix || t('asset.scopeUnknown');
       return {
         displayText: fallbackPrefix || '-',
         scopePrefix: fallbackPrefix || '-',
@@ -11048,7 +11055,7 @@
 
     if (!normPath.startsWith('/') && !/^[a-zA-Z]:/.test(normPath)) {
       const rel = normPath.replace(/^\.\//, '');
-      const prefix = scopePrefix || t('comfort.scopeProject');
+      const prefix = scopePrefix || t('asset.scopeUnknown');
       return {
         displayText: `${prefix} › ${rel}`,
         scopePrefix: prefix,
@@ -11086,7 +11093,7 @@
         const segs = normPath.split('/').filter(Boolean);
         rel = segs[segs.length - 1] || '.';
       }
-      const prefix = scopePrefix || t('comfort.scopeProject');
+      const prefix = scopePrefix || t('asset.scopeUnknown');
       return {
         displayText: `${prefix} › ${rel}`,
         scopePrefix: prefix,
@@ -11096,7 +11103,7 @@
 
     const segs = normPath.split('/').filter(Boolean);
     const basename = segs.length > 0 ? segs[segs.length - 1] : normPath;
-    const prefix = scopePrefix || (s === 'project' ? t('comfort.scopeProject') : t('comfort.scopeGlobal'));
+    const prefix = scopePrefix || (s === 'project' ? t('comfort.scopeProject') : t('asset.scopeUnknown'));
     return {
       displayText: `${prefix} › ${basename}`,
       scopePrefix: prefix,
@@ -11116,72 +11123,116 @@
       return t === typeName.toLowerCase();
     });
 
-    target.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <span class="text-secondary" style="font-size: 14px;" data-i18n="setupL.artifacts.countSummary" data-i18n-params="${escapeHtml(JSON.stringify({ count: filtered.length, type: typeName }))}">${escapeHtml(t('setupL.artifacts.countSummary', { count: filtered.length, type: typeName }))}</span>
-      </div>
+    const typeLabel = (() => {
+      const key = 'setupL.tabs.' + typeName;
+      const label = t(key);
+      return (label && label !== key) ? label : typeName;
+    })();
 
-      ${filtered.length === 0 ? `
+    const groupOrder = ['project', 'shared'];
+    const groupMap = new Map();
+    filtered.forEach(a => {
+      const g = setupScopeGroup(a.scope);
+      if (!groupMap.has(g.key)) groupMap.set(g.key, Object.assign({ items: [] }, g));
+      groupMap.get(g.key).items.push(a);
+    });
+    const groups = Array.from(groupMap.values()).sort((x, y) => {
+      const ix = groupOrder.indexOf(x.key);
+      const iy = groupOrder.indexOf(y.key);
+      return (ix === -1 ? 99 : ix) - (iy === -1 ? 99 : iy) || String(x.key).localeCompare(String(y.key));
+    });
+
+    const summaryHtml = '';
+
+    if (filtered.length === 0) {
+      target.innerHTML = `
+        ${summaryHtml}
         <div class="empty-state">
-          <div class="empty-state-title" data-i18n="setupL.artifacts.emptyTitle" data-i18n-params="${escapeHtml(JSON.stringify({ type: typeName }))}">${escapeHtml(t('setupL.artifacts.emptyTitle', { type: typeName }))}</div>
+          <div class="empty-state-title" data-i18n="setupL.artifacts.emptyTitle" data-i18n-params="${escapeHtml(JSON.stringify({ type: typeLabel }))}">${escapeHtml(t('setupL.artifacts.emptyTitle', { type: typeLabel }))}</div>
           <div class="empty-state-desc" data-i18n="setupL.artifacts.emptyDesc">${escapeHtml(t('setupL.artifacts.emptyDesc'))}</div>
         </div>
-      ` : `
-        <div class="table-wrapper">
-          <table class="data-table" id="asset-list">
-            <thead>
-              <tr>
-                <th data-i18n="setupL.table.titleOrId">${escapeHtml(t('setupL.table.titleOrId'))}</th>
-                <th data-i18n="setupL.table.providerOrScope">${escapeHtml(t('setupL.table.providerOrScope'))}</th>
-                <th data-i18n="setupL.table.diagnostics">${escapeHtml(t('setupL.table.diagnostics'))}</th>
-                <th style="text-align: right; width: 140px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filtered.map(a => {
-                const loc = formatAssetLocation(a.path, a.scope, state.currentProject);
-                return `
-                <tr data-testid="asset-row" data-asset-id="${escapeHtml(a.id)}">
-                  <td>
-                    <strong style="font-size: 14px;">${escapeHtml(a.title || a.id)}</strong>
-                    <div class="asset-location" data-testid="asset-location" title="${escapeHtml(a.path || '')}" style="font-size: 14px; font-family: var(--font-mono); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(loc.displayText)}</div>
-                  </td>
-                  <td>
-                    <span class="code-badge" style="font-size: 12px;">${escapeHtml(a.provider || 'generic')}</span>
-                    <span style="font-size: 14px; color: var(--text-secondary); margin-left: 4px;">${escapeHtml(a.scope || 'project')}</span>
-                    ${a.contentStatus ? `<div style="margin-top: 4px;">${getSetupContentStatusBadge(a.contentStatus)}</div>` : ''}
-                  </td>
-                  <td>
-                    ${a.diagnostics && a.diagnostics.length > 0
-                      ? `<span class="status-badge status-amber" data-i18n="setupL.artifacts.warningCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: a.diagnostics.length }))}">${escapeHtml(t('setupL.artifacts.warningCount', { count: a.diagnostics.length }))}</span>`
-                      : `<span class="status-badge status-sage" data-i18n="setupL.artifacts.statusNormal">${escapeHtml(t('setupL.artifacts.statusNormal'))}</span>`}
-                  </td>
-                  <td style="text-align: right; position: relative;">
-                    <div class="setup-actions-cell">
-                      <button class="btn btn-secondary btn-sm btn-preview-artifact btn-setup-view" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.viewAria', { name: a.title || a.id }) || (t('common.view') + ' ' + (a.title || a.id)))}" data-i18n="common.view">${escapeHtml(t('common.view'))}</button>
-                      <div class="setup-more-dropdown dropdown">
-                        <button class="btn btn-ghost btn-sm btn-setup-more" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="${escapeHtml(t('setup.moreActions'))}" data-id="${escapeHtml(a.id)}">
-                          <span aria-hidden="true">···</span>
-                          <span class="sr-only" data-i18n="setup.moreActions">${escapeHtml(t('setup.moreActions'))}</span>
-                        </button>
-                        <div class="dropdown-menu setup-more-menu" role="menu" hidden>
-                          <button role="menuitem" class="dropdown-item btn-setup-history btn-setup-action-history" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.historyBtn'))}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
-                          <button role="menuitem" class="dropdown-item btn-setup-relations btn-setup-action-relations" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.relationsBtn'))}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
-                          ${a.path ? `<button role="menuitem" class="dropdown-item btn-reveal-path btn-setup-action-reveal" data-path="${escapeHtml(a.path)}" aria-label="${escapeHtml(t('setupL.artifacts.reveal'))}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      `}
+      `;
+      return;
+    }
+
+    target.innerHTML = `
+      ${summaryHtml}
+      <div class="setup-groups">
+        ${groups.map((group, gi) => {
+          const groupLabel = group.labelText || t(group.labelKey);
+          return `<section class="setup-group" data-setup-group="${escapeHtml(group.key)}">
+          <div class="setup-group-head">
+            <h3${group.labelKey ? ` data-i18n="${group.labelKey}"` : ''}>${escapeHtml(groupLabel)}</h3>
+            <span class="setup-group-count">${escapeHtml(t('asset.group.count', { count: group.items.length }))}</span>
+          </div>
+          <div class="workspace-list asset-list"${gi === 0 ? ' id="asset-list"' : ''}>
+            ${group.items.map(a => renderAssetRow(a, typeLabel)).join('')}
+          </div>
+        </section>`;
+        }).join('')}
+      </div>
     `;
 
     bindSetupRowActions(target, filtered);
+  }
+
+  function setupScopeGroup(rawScope) {
+    const scope = String(rawScope || '').trim().toLowerCase();
+    if (scope === 'project' || scope === 'workspace') return { key: 'project', labelKey: 'asset.group.project' };
+    if (scope === 'global' || scope === 'user' || scope === 'shared') return { key: 'shared', labelKey: 'asset.group.shared' };
+    if (!scope) return { key: 'unknown', labelKey: 'asset.group.unknown' };
+    return { key: 'scope:' + scope, labelText: String(rawScope).trim() };
+  }
+
+  function setupAssetDisplayName(asset) {
+    const title = typeof asset?.title === 'string' ? asset.title.trim() : '';
+    const sourcePath = typeof asset?.path === 'string' ? asset.path.trim().replace(/\\/g, '/').replace(/\/+$/, '') : '';
+    const parts = sourcePath.split('/').filter(Boolean);
+    const basename = parts.at(-1) || '';
+    if (basename.toLowerCase() === 'skill.md' && parts.length > 1 && (!title || title.toLowerCase() === 'skill.md')) return parts.at(-2);
+    if (title) return title;
+    if (basename) return basename;
+    return t('asset.unnamed');
+  }
+
+  function setupAssetIconKind(asset) {
+    const type = String(asset?.type || '').trim().toLowerCase();
+    if (asset?.containsHooks === true || type === 'hook') return 'hook';
+    if (asset?.containsMCP === true || type === 'mcp') return 'connector';
+    if (type === 'skill' || type === 'command') return 'skill';
+    if (type === 'rule' || type === 'instruction' || type === 'guideline') return 'rule';
+    if (type === 'library' || type === 'knowledge') return 'book';
+    return 'document';
+  }
+
+  // A list row leads with a readable name and a project-relative location. Diagnostics only
+  // take a slot when they exist; health is never asserted by a badge on a healthy entry.
+  function renderAssetRow(a, typeLabel) {
+    const loc = formatAssetLocation(a.path, a.scope, state.currentProject);
+    const name = setupAssetDisplayName(a);
+    const iconKind = setupAssetIconKind(a);
+    const diag = Array.isArray(a.diagnostics) ? a.diagnostics : [];
+    const provider = (a.provider && String(a.provider).toLowerCase() !== 'generic') ? (String(a.provider).toLowerCase() === 'shared' ? t('asset.provider.shared') : String(a.provider)) : '';
+    const metaCells = [
+      provider ? `<span class="setup-row-provider">${escapeHtml(provider)}</span>` : '',
+      diag.length > 0
+        ? `<button type="button" class="setup-row-diag is-clickable btn-preview-artifact" data-id="${escapeHtml(a.id)}" title="${escapeHtml(t('asset.diagnostics'))}" data-i18n="setupL.artifacts.warningCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: diag.length }))}">${escapeHtml(t('setupL.artifacts.warningCount', { count: diag.length }))}</button>`
+        : ''
+    ].filter(Boolean).join('');
+    return `<article class="workspace-row asset-row" data-testid="asset-row" data-asset-id="${escapeHtml(a.id)}">
+      <div class="workspace-row-icon" data-kind="${escapeHtml(iconKind)}" aria-hidden="true">${VelaContent.icon(iconKind)}</div>
+      <div class="workspace-row-content">
+        <button class="row-title setup-row-name btn-preview-artifact btn-setup-view" data-id="${escapeHtml(a.id)}" title="${escapeHtml(name)}">${escapeHtml(name)}</button>
+        <div class="asset-location setup-row-scope" data-testid="asset-location" title="${escapeHtml(a.path || '')}">${escapeHtml(loc.displayText)}</div>
+        ${metaCells ? `<div class="row-meta">${metaCells}</div>` : ''}
+      </div>
+      ${actionMenu(`
+        ${menuAction('asset.openItem', 'preview', { className: 'btn-preview-artifact btn-setup-view', data: `data-id="${escapeHtml(a.id)}"` })}
+        <button class="btn btn-setup-history btn-setup-action-history" data-id="${escapeHtml(a.id)}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
+        <button class="btn btn-setup-relations btn-setup-action-relations" data-id="${escapeHtml(a.id)}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
+        ${a.path ? `<button class="btn btn-reveal-path btn-setup-action-reveal" data-path="${escapeHtml(a.path)}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
+      `, 'asset.rowActions')}
+    </article>`;
   }
 
   async function openSetupCatalogModal() {
@@ -12266,16 +12317,18 @@
 
     target.innerHTML = `
       <div class="memory-toolbar">
+        <div class="memory-primary-actions">
+          <button id="btn-new-memory" class="btn btn-primary btn-sm" data-i18n="memory.btnNewMemory">${t('memory.btnNewMemory')}</button>
+          <button id="btn-knowledge-ask" class="btn btn-secondary btn-sm" data-i18n="ask.modalBtn">${t('ask.modalBtn')}</button>
+          <details class="action-menu"><summary class="btn btn-ghost icon-action" aria-label="${escapeHtml(t('reading.tools'))}" title="${escapeHtml(t('reading.tools'))}"><span aria-hidden="true">···</span></summary><div class="action-menu-items">
+            ${[['btn-configure-reuse','memory.btnConfigReuse'],['btn-recall-tester','memory.btnRecallTester'],['btn-semantic-memory','memory.btnSemanticMemory'],['btn-export-memory-archive','memory.btnExportArchive'],['btn-import-memory-archive','memory.btnImportArchive']].map(([id,key]) => `<button id="${id}" type="button" class="btn btn-ghost btn-sm" data-i18n="${key}">${t(key)}</button>`).join('')}
+          </div></details>
+
+        </div>
         <div class="memory-filter-bar" aria-label="Memory filters">
           ${filterTabs.map(tab => `<button type="button" class="memory-filter-btn ${activeFilter === tab.key ? 'active' : ''}" data-filter="${tab.key}" aria-pressed="${activeFilter === tab.key}"><span data-i18n="${tab.labelKey}">${tab.label}</span><span class="memory-filter-count">${tab.count}</span></button>`).join('')}
         </div>
-        <div class="memory-primary-actions">
-          <button id="btn-knowledge-ask" class="btn btn-secondary btn-sm" data-i18n="ask.modalBtn">${t('ask.modalBtn')}</button>
-          <details class="action-menu"><summary class="btn btn-secondary btn-sm" data-i18n="reading.tools">${t('reading.tools')}</summary><div class="action-menu-items">
-            ${[['btn-configure-reuse','memory.btnConfigReuse'],['btn-recall-tester','memory.btnRecallTester'],['btn-semantic-memory','memory.btnSemanticMemory'],['btn-export-memory-archive','memory.btnExportArchive'],['btn-import-memory-archive','memory.btnImportArchive']].map(([id,key]) => `<button id="${id}" type="button" class="btn btn-ghost btn-sm" data-i18n="${key}">${t(key)}</button>`).join('')}
-          </div></details>
-          <button id="btn-new-memory" class="btn btn-primary btn-sm" data-i18n="memory.btnNewMemory">${t('memory.btnNewMemory')}</button>
-        </div>
+
       </div>
 
       <div class="memory-card-list">
@@ -12315,16 +12368,22 @@
             provenanceHtml = `<span style="color: var(--text-muted);" data-i18n="memory.manualOrigin">${t('memory.manualOrigin')}</span>`;
           }
 
+          const memoryStateKeyMap = { candidate: 'memory.stateCandidate', active: 'memory.stateActive', superseded: 'memory.stateSuperseded', archived: 'memory.stateArchived' };
+          const memoryStateKey = memoryStateKeyMap[st] || '';
+          const memoryStateText = memoryStateKey ? t(memoryStateKey) : st;
+
           return `
-            <div class="memory-card" data-id="${escapeHtml(m.id)}">
+            <div class="memory-card${st === 'candidate' ? ' is-candidate' : ''}" data-id="${escapeHtml(m.id)}">
               <div class="memory-card-header">
                 <div class="memory-card-title-group">
-                  <strong class="memory-card-title">${escapeHtml(m.title || t('memory.unnamedMemory'))}</strong>
-                  ${getMemoryStateBadge(st)}
-                  ${renderMemoryTypeBadge(m.type)}
-                  ${renderMemoryScopeBadge(m.scope)}
+                  <button class="row-title memory-card-title btn-mem-view" data-id="${escapeHtml(m.id)}" title="${escapeHtml(m.title || t('memory.unnamedMemory'))}">${escapeHtml(m.title || t('memory.unnamedMemory'))}</button>
+                  <div class="memory-card-meta">
+                    <span class="memory-state is-${escapeHtml(st)}"${memoryStateKey ? ` data-i18n="${memoryStateKey}"` : ''}>${escapeHtml(memoryStateText)}</span>
+                    ${renderMemoryTypeInline(m.type)}
+                    ${renderMemoryScopeInline(m.scope)}
+                  </div>
                 </div>
-                <div class="memory-card-actions"><button class="btn btn-ghost btn-sm btn-mem-view" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnViewDetails">${t('memory.btnViewDetails')}</button>
+                <div class="memory-card-actions">
                   <details class="action-menu"><summary class="btn btn-ghost btn-sm" aria-label="${escapeHtml(t('reading.more'))}" title="${escapeHtml(t('reading.more'))}">•••</summary><div class="action-menu-items"><button class="btn btn-ghost btn-sm btn-mem-edit" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnEdit">${t('memory.btnEdit')}</button>                  ${st === 'candidate' ? `<button class="btn btn-secondary btn-sm btn-mem-activate" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnActivate">${t('memory.btnActivate')}</button>` : ''}
                   ${st === 'active' ? `<button class="btn btn-ghost btn-sm btn-mem-supersede" data-id="${escapeHtml(m.id)}" title="${t('memory.btnSupersedeTitle')}" data-i18n-title="memory.btnSupersedeTitle" data-i18n="memory.btnSupersede">${t('memory.btnSupersede')}</button>` : ''}
                   ${st !== 'archived' ? `<button class="btn btn-ghost btn-sm btn-mem-archive" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnArchive">${t('memory.btnArchive')}</button>` : ''}
@@ -12341,24 +12400,18 @@
                 ${provenanceHtml}
               </div>
 
-              <details class="memory-meta-details">
-                <summary data-i18n="memory.techMetaSummary">${t('memory.techMetaSummary')}</summary>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px; font-size: 11px; margin-top: 8px; color: var(--text-secondary);">
-                  <div><span class="text-secondary" data-i18n="memory.metaId">${t('memory.metaId')}</span> <span class="font-mono" style="user-select: all;">${escapeHtml(m.id || '-')}</span></div>
-                  <div><span class="text-secondary" data-i18n="memory.metaScope">${t('memory.metaScope')}</span> <span class="font-mono">${escapeHtml(m.scope || 'project')}</span></div>
-                  <div><span class="text-secondary" data-i18n="memory.metaProject">${t('memory.metaProject')}</span> <span class="font-mono">${escapeHtml(m.project || '-')}</span></div>
-                  <div><span class="text-secondary" data-i18n="memory.metaBranch">${t('memory.metaBranch')}</span> <span class="font-mono">${escapeHtml(m.branch || '-')}</span></div>
-                  <div><span class="text-secondary" data-i18n="memory.metaWorktree">${t('memory.metaWorktree')}</span> <span class="font-mono">${escapeHtml(m.worktree || '-')}</span></div>
-                  <div><span class="text-secondary" data-i18n="memory.metaTask">${t('memory.metaTask')}</span> <span class="font-mono">${escapeHtml(m.task || '-')}</span></div>
-                  ${(m.checksum || m.hash) ? `<div><span class="text-secondary" data-i18n="memory.metaChecksum">${t('memory.metaChecksum')}</span> <span class="font-mono">${escapeHtml(m.checksum || m.hash)}</span></div>` : ''}
-                  <div><span class="text-secondary" data-i18n="memory.metaUpdatedAt">${t('memory.metaUpdatedAt')}</span> <span>${formatTime(m.updatedAt || m.createdAt)}</span></div>
-                </div>
-              </details>
+
             </div>
           `;
         }).join(''))}
       </div>
     `;
+
+    if (target.id === 'memory-page-content') {
+      const actions = target.querySelector('.memory-primary-actions');
+      const header = document.querySelector('#page-container > .page-header');
+      if (actions && header) { header.querySelector(':scope > .memory-primary-actions')?.remove(); header.append(actions); }
+    }
 
     target.querySelectorAll('.memory-filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -12444,15 +12497,15 @@
         const id = btn.getAttribute('data-id');
         const m = memories.find(item => item.id === id);
         if (m) {
-          openDrawer(m.title || t('memory.unnamedMemory'), m.id);
+          openDrawer(m.title || t('memory.unnamedMemory'), t('memory.title'));
+          setDrawerCustomActions(`<button id="btn-edit-memory-detail" class="btn btn-secondary">${escapeHtml(t('common.edit'))}</button>`);
+          document.getElementById('btn-edit-memory-detail')?.addEventListener('click', () => openCreateOrEditMemoryModal(m));
           const drawerBody = document.getElementById('drawer-content');
           if (drawerBody) {
             drawerBody.innerHTML = `
-              <div class="card">
-                <div class="card-header">
-                  <span class="card-title" data-i18n="memory.drawerMetaTitle">${t('memory.drawerMetaTitle')}</span>
-                  ${getMemoryStateBadge(m.state)}
-                </div>
+              <div class="memory-detail-status">${getMemoryStateBadge(m.state)} ${renderMemoryTypeBadge(m.type)} ${renderMemoryScopeBadge(m.scope)}</div>
+              <div>${VelaContent.file(m.content || '', 'Memory.md')}</div>
+              <details class="memory-detail-metadata"><summary data-i18n="memory.techMetaSummary">${t('memory.techMetaSummary')}</summary>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
                   <div><span class="text-secondary" data-i18n="memory.metaType">${t('memory.metaType')}</span> ${renderMemoryTypeInline(m.type)} (${escapeHtml(m.type || '-')})</div>
                   <div><span class="text-secondary" data-i18n="memory.metaScope">${t('memory.metaScope')}</span> ${renderMemoryScopeInline(m.scope)} (${escapeHtml(m.scope || '-')})</div>
@@ -12465,6 +12518,8 @@
                   <div><span class="text-secondary" data-i18n="memory.metaSourceSession">${t('memory.metaSourceSession')}</span> <span class="font-mono">${escapeHtml(m.sourceSession || (m.provenance && (m.provenance.session || m.provenance.sessionId)) || '-')}</span></div>
                   <div><span class="text-secondary" data-i18n="memory.metaSourceMessage">${t('memory.metaSourceMessage')}</span> <span class="font-mono">${escapeHtml(m.sourceMessage || (m.provenance && (m.provenance.message || m.provenance.messageId)) || '-')}</span></div>
                 </div>
+                <div class="memory-identity"><span>${escapeHtml(m.id)}</span>${(m.checksum || m.hash) ? `<span>${escapeHtml(m.checksum || m.hash)}</span>` : ''}<span>${formatTime(m.updatedAt || m.createdAt)}</span></div>
+              </details>
                 <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border-color); display: flex; gap: 8px; flex-wrap: wrap;">
                   <button type="button" class="btn btn-secondary btn-sm btn-drawer-memory-outcomes" data-memory-id="${escapeHtml(m.id)}">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -12477,11 +12532,7 @@
                     </button>
                   ` : ''}
                 </div>
-              </div>
-              <div>
-                <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="memory.drawerContentTitle">${t('memory.drawerContentTitle')}</h3>
-                <div>${VelaContent.file(m.content || '', 'Memory.md')}</div>
-              </div>
+
             `;
             const outcomesBtn = drawerBody.querySelector('.btn-drawer-memory-outcomes');
             if (outcomesBtn) {
@@ -14436,15 +14487,15 @@
     }
 
     target.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-        <span class="text-secondary" style="font-size: 12px;" data-i18n="setupL.library.headerDesc" data-i18n-params="${escapeHtml(JSON.stringify({ count: library.length }))}">${escapeHtml(t('setupL.library.headerDesc', { count: library.length }))}</span>
-        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-          <select id="sel-lib-folder-filter" class="form-select" style="font-size: 11px; padding: 2px 6px; width: auto; min-width: 110px;">
+      <div class="list-toolbar">
+        <span class="list-toolbar-note" data-i18n="setupL.library.headerDesc" data-i18n-params="${escapeHtml(JSON.stringify({ count: library.length }))}">${escapeHtml(t('setupL.library.headerDesc', { count: library.length }))}</span>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <select id="sel-lib-folder-filter" class="filter-select" aria-label="${escapeHtml(t('library.colFolder'))}" data-i18n-aria-label="library.colFolder">
             <option value="" ${!state.librarySelectedFolder ? 'selected' : ''} data-i18n="library.allFolders">${escapeHtml(t('library.allFolders'))}</option>
             <option value="__root__" ${state.librarySelectedFolder === '__root__' ? 'selected' : ''} data-i18n="library.noFolder">${escapeHtml(t('library.noFolder'))}</option>
             ${folders.map(f => `<option value="${escapeHtml(f)}" ${state.librarySelectedFolder === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}
           </select>
-          <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; cursor: pointer;">
+          <label class="form-checkbox-label">
             <input type="checkbox" id="chk-lib-include-archived" ${state.libraryIncludeArchived ? 'checked' : ''} />
             <span data-i18n="library.includeArchived">${escapeHtml(t('library.includeArchived'))}</span>
           </label>
@@ -14454,56 +14505,45 @@
         </div>
       </div>
 
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th data-i18n="setupL.library.tableTitle">${escapeHtml(t('setupL.library.tableTitle'))}</th>
-              <th data-i18n="library.colFolder">${escapeHtml(t('library.colFolder'))}</th>
-              <th data-i18n="setupL.library.tableProject">${escapeHtml(t('setupL.library.tableProject'))}</th>
-              <th data-i18n="setupL.library.tablePrivacy">${escapeHtml(t('setupL.library.tablePrivacy'))}</th>
-              <th data-i18n="setupL.library.tableSource">${escapeHtml(t('setupL.library.tableSource'))}</th>
-              <th style="text-align: right; width: 220px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${filtered.length === 0 ? `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;" data-i18n="setupL.library.emptyText">${escapeHtml(t('setupL.library.emptyText'))}</td></tr>` : ''}
-            ${filtered.map(lib => `
-              <tr>
-                <td>
-                  <strong>${escapeHtml(lib.title)}</strong>
-                  ${lib.content ? `<div style="font-size: 11px; color: var(--text-secondary); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(lib.content.substring(0, 50))}</div>` : ''}
-                </td>
-                <td>
-                  ${lib.folder ? `<span class="code-badge">${escapeHtml(lib.folder)}</span>` : '<span class="text-secondary">-</span>'}
-                </td>
-                <td><span class="code-badge">${lib.project ? escapeHtml(lib.project.split('/').pop()) : tHtml('setupL.scope.global')}</span></td>
-                <td>
-                  ${lib.state === 'archived'
-                    ? `<span class="status-badge status-neutral" data-i18n="library.badgeArchived">${escapeHtml(t('library.badgeArchived'))}</span>`
-                    : (lib.private
-                        ? `<span class="status-badge status-amber" data-i18n="setupL.library.badgePrivateShort">${escapeHtml(t('setupL.library.badgePrivateShort'))}</span>`
-                        : `<span class="status-badge status-neutral" data-i18n="setupL.library.badgePublicShort">${escapeHtml(t('setupL.library.badgePublicShort'))}</span>`)}
-                </td>
-                <td style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted);">
-                  <div>${escapeHtml(lib.url || lib.path || (lib.content ? t('library.detailTextContent') : '-'))}</div>
-                  ${typeof lib.tokens === 'number' ? `<div style="font-size: 10px; color: var(--text-secondary);">${escapeHtml(t('library.detailTokens'))} ${lib.tokens}</div>` : ''}
-                </td>
-                <td style="text-align: right;">
-                  <button class="btn btn-secondary btn-sm btn-view-library" data-id="${escapeHtml(lib.id)}" data-i18n="setupL.common.view">${escapeHtml(t('setupL.common.view'))}</button>
-                  <button class="btn btn-secondary btn-sm btn-edit-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnEdit" ${lib.state === 'archived' ? 'disabled' : ''}>${escapeHtml(t('library.btnEdit'))}</button>
-                  <button class="btn btn-ghost btn-sm btn-export-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnExport" title="${escapeHtml(t('library.btnExport'))}">⬇</button>
-                  <button class="btn btn-ghost btn-sm btn-history-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnHistory" title="${escapeHtml(t('library.btnHistory'))}">⏱</button>
-                  ${(lib.path || lib.url) && lib.state !== 'archived' ? `<button class="btn btn-ghost btn-sm btn-refresh-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnRefreshSource" title="${escapeHtml(t('library.btnRefreshSource'))}">🔄</button>` : ''}
-                  ${lib.state === 'archived'
-                    ? `<button class="btn btn-ghost btn-sm btn-restore-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnRestore" title="${escapeHtml(t('library.btnRestore'))}">↩</button>`
-                    : `<button class="btn btn-ghost btn-sm btn-archive-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnArchive" title="${escapeHtml(t('library.btnArchive'))}">🗑</button>`}
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
+      ${filtered.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-state-title" data-i18n="${library.length === 0 ? 'setupL.library.emptyText' : 'list.emptyFiltered'}">${escapeHtml(t(library.length === 0 ? 'setupL.library.emptyText' : 'list.emptyFiltered'))}</div>
+        </div>
+      ` : `
+        <div class="record-list">
+          ${filtered.map(lib => {
+            const libTitle = lib.title || t('common.unnamedSession');
+            const libFolder = (lib.folder || '').trim();
+            const libProject = lib.project ? lib.project.split('/').filter(Boolean).pop() : t('setupL.scope.global');
+            const libVisibility = lib.state === 'archived'
+              ? t('library.badgeArchived')
+              : (lib.private ? t('setupL.library.badgePrivateShort') : t('setupL.library.badgePublicShort'));
+            const libSource = lib.url || lib.path || (lib.content ? t('library.detailTextContent') : '');
+            return `<article class="record-row" data-id="${escapeHtml(lib.id)}">
+              <div class="record-main">
+                <button class="record-title btn-view-library" data-id="${escapeHtml(lib.id)}" title="${escapeHtml(libTitle)}">${escapeHtml(libTitle)}</button>
+                ${lib.content ? `<div class="record-snippet">${escapeHtml(String(lib.content).substring(0, 80))}</div>` : ''}
+                <div class="record-meta">
+                  ${libFolder ? `<span>${escapeHtml(libFolder)}</span>` : ''}
+                  <span>${escapeHtml(libProject)}</span>
+                  <span>${escapeHtml(libVisibility)}</span>
+                  ${libSource ? `<span class="record-source" title="${escapeHtml(libSource)}">${escapeHtml(libSource)}</span>` : ''}
+                  ${typeof lib.tokens === 'number' ? `<span>${escapeHtml(t('library.detailTokens'))} ${lib.tokens}</span>` : ''}
+                </div>
+              </div>
+              ${actionMenu(`
+                <button class="btn btn-edit-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnEdit" ${lib.state === 'archived' ? 'disabled' : ''}>${escapeHtml(t('library.btnEdit'))}</button>
+                <button class="btn btn-export-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnExport">${escapeHtml(t('library.btnExport'))}</button>
+                <button class="btn btn-history-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnHistory">${escapeHtml(t('library.btnHistory'))}</button>
+                ${(lib.path || lib.url) && lib.state !== 'archived' ? `<button class="btn btn-refresh-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnRefreshSource">${escapeHtml(t('library.btnRefreshSource'))}</button>` : ''}
+                ${lib.state === 'archived'
+                  ? `<button class="btn btn-restore-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnRestore">${escapeHtml(t('library.btnRestore'))}</button>`
+                  : `<button class="btn btn-archive-library" data-id="${escapeHtml(lib.id)}" data-i18n="library.btnArchive">${escapeHtml(t('library.btnArchive'))}</button>`}
+              `, 'asset.rowActions')}
+            </article>`;
+          }).join('')}
+        </div>
+      `}
     `;
 
     document.getElementById('btn-add-library')?.addEventListener('click', openAddLibraryModal);
@@ -15436,56 +15476,32 @@
       }
 
       container.innerHTML = `
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th data-i18n="setupL.table.titleOrId">${escapeHtml(t('setupL.table.titleOrId'))}</th>
-                <th data-i18n="setupL.table.providerOrScope">${escapeHtml(t('setupL.table.providerOrScope'))}</th>
-                <th data-i18n="setupL.table.estimatedTokens">${escapeHtml(t('setupL.table.estimatedTokens'))}</th>
-                <th data-i18n="setupL.table.hash">${escapeHtml(t('setupL.table.hash'))}</th>
-                <th data-i18n="setupL.table.diagnostics">${escapeHtml(t('setupL.table.diagnostics'))}</th>
-                <th style="text-align: right; width: 140px;" data-i18n="setupL.table.actions">${escapeHtml(t('setupL.table.actions'))}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${artifacts.map(a => `
-                <tr>
-                  <td>
-                    <strong>${escapeHtml(a.title || a.id)}</strong>
-                    <div class="asset-location" data-testid="asset-location" title="${escapeHtml(a.path || '')}" style="font-size: 14px; font-family: var(--font-mono); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(formatAssetLocation(a.path, a.scope, state.currentProject).displayText)}</div>
-                  </td>
-                  <td>
-                    <span class="code-badge">${escapeHtml(a.provider || 'generic')}</span>
-                    <span style="font-size: 12px; color: var(--text-secondary); margin-left: 4px;">${escapeHtml(a.scope || 'project')}</span>
-                  </td>
-                  <td><span class="font-mono">${escapeHtml(String(a.tokens || '-'))}</span></td>
-                  <td><span class="font-mono" style="font-size: 12px;">${a.hash ? escapeHtml(a.hash.substring(0, 10)) : '-'}</span></td>
-                  <td>
-                    ${a.diagnostics && a.diagnostics.length > 0
-                      ? `<span class="status-badge status-amber" data-i18n="setupL.artifacts.warningCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: a.diagnostics.length }))}">${escapeHtml(t('setupL.artifacts.warningCount', { count: a.diagnostics.length }))}</span>`
-                      : `<span class="status-badge status-sage" data-i18n="setupL.artifacts.statusNormal">${escapeHtml(t('setupL.artifacts.statusNormal'))}</span>`}
-                  </td>
-                  <td style="text-align: right; position: relative;">
-                    <div class="setup-actions-cell">
-                      <button class="btn btn-secondary btn-sm btn-preview-artifact btn-setup-view" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.viewAria', { name: a.title || a.id }) || (t('common.view') + ' ' + (a.title || a.id)))}" data-i18n="common.view">${escapeHtml(t('common.view'))}</button>
-                      <div class="setup-more-dropdown dropdown">
-                        <button class="btn btn-ghost btn-sm btn-setup-more" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="${escapeHtml(t('setup.moreActions'))}" data-id="${escapeHtml(a.id)}">
-                          <span aria-hidden="true">···</span>
-                          <span class="sr-only" data-i18n="setup.moreActions">${escapeHtml(t('setup.moreActions'))}</span>
-                        </button>
-                        <div class="dropdown-menu setup-more-menu" role="menu" hidden>
-                          <button role="menuitem" class="dropdown-item btn-setup-history btn-setup-action-history" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.historyBtn'))}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
-                          <button role="menuitem" class="dropdown-item btn-setup-relations btn-setup-action-relations" data-id="${escapeHtml(a.id)}" aria-label="${escapeHtml(t('setup.relationsBtn'))}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
-                          ${a.path ? `<button role="menuitem" class="dropdown-item btn-reveal-path btn-setup-action-reveal" data-path="${escapeHtml(a.path)}" aria-label="${escapeHtml(t('setupL.artifacts.reveal'))}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+        <div class="record-list">
+          ${artifacts.map(a => {
+            const loc = formatAssetLocation(a.path, a.scope, state.currentProject);
+            const diag = Array.isArray(a.diagnostics) ? a.diagnostics : [];
+            const name = a.title || a.id;
+            return `<article class="record-row" data-asset-id="${escapeHtml(a.id)}">
+              <div class="workspace-row-icon" data-kind="globe" aria-hidden="true">${VelaContent.icon('globe')}</div>
+              <div class="record-main">
+                <button class="record-title btn-preview-artifact btn-setup-view" data-id="${escapeHtml(a.id)}" title="${escapeHtml(name)}" aria-label="${escapeHtml(t('setup.viewAria', { name }))}" data-i18n-aria-label="setup.viewAria" data-i18n-params="${escapeHtml(JSON.stringify({ name }))}">${escapeHtml(name)}</button>
+                <div class="asset-location" data-testid="asset-location" title="${escapeHtml(a.path || '')}">${escapeHtml(loc.displayText)}</div>
+                <div class="record-meta">
+                  ${loc.scopePrefix ? `<span>${escapeHtml(loc.scopePrefix)}</span>` : ''}
+                  ${a.provider ? `<span>${escapeHtml(a.provider)}</span>` : ''}
+                  ${typeof a.tokens === 'number' && a.tokens > 0 ? `<span>${escapeHtml(t('setupL.table.estimatedTokens'))} ${escapeHtml(a.tokens.toLocaleString())}</span>` : ''}
+                  ${a.hash ? `<span class="record-source" title="${escapeHtml(a.hash)}">${escapeHtml(String(a.hash).substring(0, 10))}</span>` : ''}
+                  ${diag.length > 0 ? `<span class="row-meta-alert" data-i18n="setupL.artifacts.warningCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: diag.length }))}">${escapeHtml(t('setupL.artifacts.warningCount', { count: diag.length }))}</span>` : ''}
+                </div>
+              </div>
+              ${actionMenu(`
+                ${menuAction('asset.openItem', 'preview', { className: 'btn-preview-artifact btn-setup-view', data: `data-id="${escapeHtml(a.id)}"` })}
+                <button class="btn btn-setup-history btn-setup-action-history" data-id="${escapeHtml(a.id)}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
+                <button class="btn btn-setup-relations btn-setup-action-relations" data-id="${escapeHtml(a.id)}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
+                ${a.path ? `<button class="btn btn-reveal-path btn-setup-action-reveal" data-path="${escapeHtml(a.path)}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
+              `, 'asset.rowActions')}
+            </article>`;
+          }).join('')}
         </div>
       `;
 
@@ -15493,12 +15509,22 @@
     }
 
     target.innerHTML = `
-      <div class="card" style="margin-bottom: 20px;">
+      <div class="list-toolbar">
+        <div>
+          <h3 class="section-heading" data-i18n="setupL.mcp.scannedTitle">${escapeHtml(t('setupL.mcp.scannedTitle'))}</h3>
+          <p class="section-sub" data-i18n="setupL.mcp.scannedDesc">${escapeHtml(t('setupL.mcp.scannedDesc'))}</p>
+        </div>
+        <span id="mcp-scanned-count" class="list-toolbar-note" data-i18n="setupL.mcp.scannedCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: mcpArtifacts.length }))}">${escapeHtml(t('setupL.mcp.scannedCount', { count: mcpArtifacts.length }))}</span>
+      </div>
+
+      <div id="mcp-artifacts-container"></div>
+
+      <div class="card" style="margin-top: 24px;">
         <div class="card-header">
           <span class="card-title" data-i18n="setupL.mcp.cardTitle">${escapeHtml(t('setupL.mcp.cardTitle'))}</span>
-          <span class="status-badge status-sage" data-i18n="setupL.mcp.badgeStdio">${escapeHtml(t('setupL.mcp.badgeStdio'))}</span>
+          <span class="quiet-tag" data-i18n="setupL.mcp.badgeStdio">${escapeHtml(t('setupL.mcp.badgeStdio'))}</span>
         </div>
-        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="setupL.mcp.cardDesc">${escapeHtml(t('setupL.mcp.cardDesc'))}</p>
+        <p class="section-sub" data-i18n="setupL.mcp.cardDesc">${escapeHtml(t('setupL.mcp.cardDesc'))}</p>
 
         <div class="alert-banner alert-info" style="margin-bottom: 12px;">
           <span>
@@ -15506,8 +15532,8 @@
           </span>
         </div>
 
-        <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.mcp.exampleConfigTitle">${escapeHtml(t('setupL.mcp.exampleConfigTitle'))}</h4>
-        <div class="code-view" style="margin-bottom: 12px;">{
+        <h4 class="section-heading" data-i18n="setupL.mcp.exampleConfigTitle">${escapeHtml(t('setupL.mcp.exampleConfigTitle'))}</h4>
+        <div class="code-view">{
   "mcpServers": {
     "vela": {
       "command": "vela",
@@ -15516,16 +15542,6 @@
   }
 }</div>
       </div>
-
-      <div class="section-title-group" style="margin-bottom: 12px;">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <h3 style="font-size: 13px; font-weight: 600; margin: 0;" data-i18n="setupL.mcp.scannedTitle">${escapeHtml(t('setupL.mcp.scannedTitle'))}</h3>
-          <span id="mcp-scanned-count" class="text-secondary" style="font-size: 12px;" data-i18n="setupL.mcp.scannedCount" data-i18n-params="${escapeHtml(JSON.stringify({ count: mcpArtifacts.length }))}">${escapeHtml(t('setupL.mcp.scannedCount', { count: mcpArtifacts.length }))}</span>
-        </div>
-        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;" data-i18n="setupL.mcp.scannedDesc">${escapeHtml(t('setupL.mcp.scannedDesc'))}</p>
-      </div>
-
-      <div id="mcp-artifacts-container"></div>
     `;
 
     renderMcpArtifactsTable(mcpArtifacts);
@@ -15616,9 +15632,7 @@
         </div>
       </div>
 
-      <div class="alert-banner alert-info" style="margin-bottom: 14px;">
-        <span data-i18n="usage.observationNotice">${t('usage.observationNotice')}</span>
-      </div>
+      <p class="info-note" data-i18n="usage.observationNotice">${t('usage.observationNotice')}</p>
 
       <div class="stat-grid" id="usage-stat-grid">
         <div class="stat-card">
@@ -15685,6 +15699,22 @@
 
       <div id="usage-codex-quota-card" class="quota-card"></div>
     `;
+
+    const quotaPanel = document.getElementById('usage-codex-quota-card');
+    const logPanel = document.createElement('section');
+    logPanel.className = 'usage-logs-panel';
+    [...container.children].filter(el => !el.classList.contains('page-header') && el !== quotaPanel).forEach(el => logPanel.append(el));
+    const usageNav = document.createElement('div');
+    usageNav.className = 'tabs-nav';
+    usageNav.innerHTML = `${[['logs','workspace.usage.logs'],['quota','workspace.usage.quota']].map(([id,key]) => `<button type="button" class="tab-btn" data-usagetab="${id}" data-i18n="${key}">${escapeHtml(t(key))}</button>`).join('')}`;
+    container.append(usageNav, logPanel, quotaPanel);
+    const selectUsageTab = id => {
+      state.usageTab = id;
+      logPanel.hidden = id !== 'logs'; quotaPanel.hidden = id !== 'quota';
+      usageNav.querySelectorAll('button').forEach(button => { const selected = button.dataset.usagetab === id; button.classList.toggle('active', selected); button.setAttribute('aria-pressed', String(selected)); });
+    };
+    usageNav.querySelectorAll('button').forEach(button => button.addEventListener('click', () => selectUsageTab(button.dataset.usagetab)));
+    selectUsageTab(state.usageTab || 'logs');
 
     renderCodexQuotaSection(document.getElementById('usage-codex-quota-card'));
 
@@ -16061,84 +16091,54 @@
 
       const buckets = (data && data.snapshot && Array.isArray(data.snapshot.buckets)) ? data.snapshot.buckets : [];
 
+      const currentObservation = st === 'fresh' && !attemptFailed;
       quotaContainer.innerHTML = `
         <div class="quota-header">
-          <div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="card-title" data-i18n="usage.quotaTitle">${escapeHtml(t('usage.quotaTitle'))}</span>
-              ${statusBadge}
-            </div>
-            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="usage.quotaSubtitle">
-              ${escapeHtml(t('usage.quotaSubtitle'))}
-            </div>
+          <div class="quota-provider-heading">
+            <div class="quota-provider-mark" aria-hidden="true">${VelaContent.icon('conversation')}</div>
+            <div><h2 class="card-title" data-i18n="usage.quotaTitle">${escapeHtml(t('usage.quotaTitle'))}</h2><p data-i18n="usage.quotaSubtitle">${escapeHtml(t('usage.quotaSubtitle'))}</p></div>
           </div>
-          <div style="font-size: 11px; text-align: right; color: var(--text-secondary);">
-            <div><span data-i18n="usage.quotaLastSuccess">${escapeHtml(t('usage.quotaLastSuccess'))}</span> <strong style="color: var(--text-main);">${escapeHtml(lastSuccessText)}</strong></div>
-            <div><span data-i18n="usage.quotaLastAttempt">${escapeHtml(t('usage.quotaLastAttempt'))}</span> <span class="font-mono">${escapeHtml(lastAttemptText)}</span></div>
-            ${attemptError ? `<div style="color: var(--status-red-text);"><span data-i18n="usage.quotaAttemptFailed">${escapeHtml(t('usage.quotaAttemptFailed'))}</span> ${escapeHtml(attemptError)}</div>` : ''}
-          </div>
+          <div class="quota-header-actions">${statusBadge}<button id="btn-refresh-codex-quota" class="btn btn-secondary btn-sm" data-i18n="usage.btnRefreshQuota">${escapeHtml(t('usage.btnRefreshQuota'))}</button></div>
         </div>
-
+        <div class="quota-observation"><span data-i18n="usage.quotaLastSuccess">${escapeHtml(t('usage.quotaLastSuccess'))}</span><strong>${escapeHtml(lastSuccessText)}</strong></div>
+        <p class="info-note" data-i18n="usage.quotaSourceNote">${escapeHtml(t('usage.quotaSourceNote'))}</p>
+        ${!currentObservation && buckets.length ? `<p class="quota-history-note" data-i18n="workspace.quota.historical">${escapeHtml(t('workspace.quota.historical'))}</p>` : ''}
+        ${attemptError ? `<p class="quota-error"><span data-i18n="usage.quotaAttemptFailed">${escapeHtml(t('usage.quotaAttemptFailed'))}</span> ${escapeHtml(attemptError)}</p>` : ''}
         ${buckets.length === 0 ? `
-          <div style="padding: 16px; background: var(--bg-subtle); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); text-align: center; color: var(--text-muted); font-size: 12px;">
-            ${st === 'never_read' ? escapeHtml(t('usage.quotaNeverRead') + ' · ' + t('usage.quotaSubtitle')) : '—'}
-          </div>
-        ` : `
-          <div class="quota-buckets-grid">
-            ${buckets.map(b => {
-              const windows = Array.isArray(b.windows) ? b.windows : [];
-              return `
-                <div class="quota-bucket-card">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <strong>${escapeHtml(b.limitName || b.limitId || b.key || 'Codex')}</strong>
-                    ${b.planType ? `<span class="code-badge font-mono">${escapeHtml(b.planType)}</span>` : ''}
-                  </div>
-                  ${windows.map(w => {
-                    const winLabel = w.name === 'primary' ? t('usage.windowPrimary') : w.name === 'secondary' ? t('usage.windowSecondary') : (w.name || 'Window');
-                    const rem = (w.remainingPercent !== null && w.remainingPercent !== undefined && typeof w.remainingPercent === 'number') ? w.remainingPercent : null;
-                    const used = (w.usedPercent !== null && w.usedPercent !== undefined && typeof w.usedPercent === 'number') ? w.usedPercent : null;
-                    const remDisplay = rem !== null ? `${rem.toFixed(0)}%` : '—';
-                    const usedDisplay = used !== null ? `${used.toFixed(0)}%` : '—';
-                    const durDisplay = w.windowDurationMins ? `${w.windowDurationMins}m` : '—';
-                    const resetDisplay = w.resetsAt ? formatTime(new Date(w.resetsAt * 1000)) : '—';
-
-                    let barColorClass = 'normal';
-                    if (rem !== null) {
-                      if (rem <= 15) barColorClass = 'danger';
-                      else if (rem <= 40) barColorClass = 'warning';
-                    }
-
-                    return `
-                      <div class="quota-window-row">
-                        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px;">
-                          <span><strong>${escapeHtml(winLabel)}</strong> <span class="text-secondary" style="font-size: 11px;">(${escapeHtml(durDisplay)})</span></span>
-                          <span class="font-mono"><strong>${escapeHtml(remDisplay)}</strong> <span class="text-secondary" style="font-size: 10px;" data-i18n="usage.remainingPercent">${escapeHtml(t('usage.remainingPercent'))}</span></span>
-                        </div>
-                        ${rem !== null ? `
-                          <div class="quota-bar-track">
-                            <div class="quota-bar-fill ${barColorClass}" style="width: ${Math.max(0, Math.min(100, rem))}%;"></div>
-                          </div>
-                        ` : ''}
-                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
-                          <span><span data-i18n="usage.usedPercent">${escapeHtml(t('usage.usedPercent'))}</span>: ${escapeHtml(usedDisplay)}</span>
-                          <span><span data-i18n="usage.resetsAt">${escapeHtml(t('usage.resetsAt'))}</span>: ${escapeHtml(resetDisplay)}</span>
-                        </div>
-                      </div>
-                    `;
-                  }).join('')}
-                </div>
-              `;
+          <div class="quota-empty">${VelaContent.icon('clock')}<h3 data-i18n="workspace.quota.emptyTitle">${escapeHtml(t('workspace.quota.emptyTitle'))}</h3><p data-i18n="workspace.quota.emptyDesc">${escapeHtml(t('workspace.quota.emptyDesc'))}</p></div>
+        ` : `<div class="quota-buckets-grid">${buckets.map(b => {
+          const windows = Array.isArray(b.windows) ? b.windows : [];
+          return `<section class="quota-bucket-card"><div class="quota-bucket-heading"><h3>${escapeHtml(b.limitName || b.limitId || b.key || 'Codex')}</h3>${b.planType ? `<span class="status-badge status-neutral">${escapeHtml(b.planType)}</span>` : ''}</div>
+            ${windows.map(w => {
+              const winLabel = w.name === 'primary' ? t('usage.windowPrimary') : w.name === 'secondary' ? t('usage.windowSecondary') : (w.name || t('workspace.quota.window'));
+              const rem = Number.isFinite(w.remainingPercent) && w.remainingPercent >= 0 && w.remainingPercent <= 100 ? w.remainingPercent : null;
+              const used = Number.isFinite(w.usedPercent) ? w.usedPercent : null;
+              const remDisplay = rem !== null ? `${Math.round(rem)}%` : t('common.notProvided');
+              const usedDisplay = used !== null ? `${Math.round(used)}%` : t('common.notProvided');
+              let duration = '';
+              if (Number.isFinite(w.windowDurationMins) && w.windowDurationMins > 0) {
+                const minutes = w.windowDurationMins;
+                const [value,unit] = minutes % 1440 === 0 ? [minutes / 1440,'day'] : minutes % 60 === 0 ? [minutes / 60,'hour'] : [minutes,'minute'];
+                duration = new Intl.NumberFormat(window.VelaI18n?.getLocale() === 'en' ? 'en-US' : 'zh-CN', {style:'unit',unit,unitDisplay:'long'}).format(value);
+              }
+              const hasReset = Number.isFinite(w.resetsAt) && w.resetsAt > 0;
+              const resetPassed = hasReset && w.resetsAt * 1000 <= Date.now();
+              const resetDisplay = hasReset ? formatTime(new Date(w.resetsAt * 1000)) : t('common.notProvided');
+              const historical = !currentObservation || resetPassed;
+              const barColor = historical ? 'historical' : rem !== null && rem <= 15 ? 'danger' : rem !== null && rem <= 40 ? 'warning' : 'normal';
+              return `<div class="quota-window-row ${historical ? 'is-historical' : ''}"><div class="quota-window-heading"><div><h4>${escapeHtml(duration || winLabel)}</h4>${duration ? `<span class="quota-window-kind">${escapeHtml(winLabel)}</span>` : ''}</div><div class="quota-remaining"><strong>${escapeHtml(remDisplay)}</strong><span data-i18n="usage.remainingPercent">${escapeHtml(t('usage.remainingPercent'))}</span></div></div>
+                ${rem !== null ? `<div class="quota-bar-track" role="meter" aria-label="${escapeHtml(winLabel + ' · ' + t('usage.remainingPercent'))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${rem}" aria-valuetext="${escapeHtml(remDisplay + ' ' + t('usage.remainingPercent'))}"><div class="quota-bar-fill ${barColor}" style="width:${rem}%;"></div></div>` : `<div class="quota-unavailable-track" aria-hidden="true"></div>`}
+                <div class="quota-window-meta"><span><span data-i18n="usage.usedPercent">${escapeHtml(t('usage.usedPercent'))}</span> ${escapeHtml(usedDisplay)}</span><span><span data-i18n="usage.resetsAt">${escapeHtml(t('usage.resetsAt'))}</span> ${escapeHtml(resetDisplay)}</span></div>
+                ${resetPassed ? `<p class="quota-reset-note" data-i18n="workspace.quota.resetPassed">${escapeHtml(t('workspace.quota.resetPassed'))}</p>` : ''}
+              </div>`;
             }).join('')}
-          </div>
-        `}
-
-        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;">
-          <div style="flex: 1; min-width: 260px;">
-            <label for="codex-cli-path-input" style="font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;" data-i18n="usage.quotaCliPathLabel">${escapeHtml(t('usage.quotaCliPathLabel'))}</label>
-            <input type="text" id="codex-cli-path-input" class="form-input" style="width: 100%; font-family: var(--font-mono); font-size: 12px; padding: 6px 10px;" placeholder="${escapeHtml(t('usage.quotaCliPathPlaceholder'))}" data-i18n-placeholder="usage.quotaCliPathPlaceholder" value="${escapeHtml(state.codexCliPath || '')}">
-          </div>
-          <button id="btn-refresh-codex-quota" class="btn btn-secondary btn-sm" data-i18n="usage.btnRefreshQuota">${escapeHtml(t('usage.btnRefreshQuota'))}</button>
-        </div>
+          </section>`;
+        }).join('')}</div>`}
+        <details class="quota-connection technical-disclosure" ${!buckets.length ? 'open' : ''}><summary data-i18n="workspace.quota.connection">${escapeHtml(t('workspace.quota.connection'))}</summary>
+          <div class="quota-connection-content"><label for="codex-cli-path-input" data-i18n="usage.quotaCliPathLabel">${escapeHtml(t('usage.quotaCliPathLabel'))}</label>
+          <input type="text" id="codex-cli-path-input" class="form-input" placeholder="${escapeHtml(t('usage.quotaCliPathPlaceholder'))}" data-i18n-placeholder="usage.quotaCliPathPlaceholder" value="${escapeHtml(state.codexCliPath || '')}">
+          <p class="quota-last-attempt"><span data-i18n="usage.quotaLastAttempt">${escapeHtml(t('usage.quotaLastAttempt'))}</span> ${escapeHtml(lastAttemptText)}</p></div>
+        </details>
       `;
 
       const refreshBtn = quotaContainer.querySelector('#btn-refresh-codex-quota');
@@ -16148,6 +16148,7 @@
         const path = (cliInput?.value || '').trim();
         if (!path || !path.startsWith('/')) {
           showToast({ key: 'usage.quotaPathRequired' }, 'warning');
+          if (cliInput?.closest('details')) cliInput.closest('details').open = true;
           cliInput?.focus();
           return;
         }
@@ -16190,9 +16191,8 @@
           <p data-i18n="improve.subtitle">${t('improve.subtitle')}</p>
         </div>
         <div class="page-actions">
-          <button id="btn-model-improve-plans" class="btn btn-secondary btn-sm" data-i18n="improve.btnModelImprovePlans">${t('improve.btnModelImprovePlans')}</button>
-          <button id="btn-model-improve-propose" class="btn btn-secondary btn-sm" data-i18n="improve.btnModelImprovePropose">${t('improve.btnModelImprovePropose')}</button>
           <button id="btn-run-analysis" class="btn btn-primary btn-sm" data-i18n="improve.btnRunAnalysis">${t('improve.btnRunAnalysis')}</button>
+          ${actionMenu(`<button id="btn-model-improve-propose" class="btn btn-secondary btn-sm" data-i18n="improve.btnModelImprovePropose">${t('improve.btnModelImprovePropose')}</button><button id="btn-model-improve-plans" class="btn btn-secondary btn-sm" data-i18n="improve.btnModelImprovePlans">${t('improve.btnModelImprovePlans')}</button>`)}
         </div>
       </div>
 
@@ -16235,7 +16235,7 @@
               return `
                 <li class="improve-card" data-id="${escapeHtml(sug.id)}">
                   <div class="improve-card-header">
-                    <div class="improve-card-title">${escapeHtml(sug.title || t('improve.title'))}</div>
+                    <button class="row-title improve-card-title btn-preview-diff" data-id="${escapeHtml(sug.id)}" title="${escapeHtml(sug.title || t('improve.title'))}">${escapeHtml(sug.title || t('improve.title'))}</button>
                     ${distinctSessions > 0 ? `
                       <span class="evidence-count-badge" data-i18n="improve.evidenceLabelWithSessions" data-i18n-params="${escapeHtml(JSON.stringify({ count: evCount, sessions: distinctSessions }))}">${t('improve.evidenceLabelWithSessions', { count: evCount, sessions: distinctSessions })}</span>
                     ` : `
@@ -16261,12 +16261,11 @@
                     <div class="improve-footer-left">
                       ${sug.workflowDraft ? `<button class="btn btn-ghost btn-sm btn-view-workflow-draft" data-id="${escapeHtml(sug.id)}" data-i18n-title="improve.btnViewWorkflowDraftTitle" title="${t('improve.btnViewWorkflowDraftTitle')}" data-i18n="improve.btnViewWorkflowDraft">${t('improve.btnViewWorkflowDraft')}</button>` : ''}
                     </div>
-                    <div class="improve-footer-right">
+                    <div class="improve-footer-right"><button class="btn btn-secondary btn-sm btn-preview-diff" data-id="${escapeHtml(sug.id)}" data-i18n="improve.btnPreviewDiff">${t('improve.btnPreviewDiff')}</button>${actionMenu(`
                       <button class="btn btn-secondary btn-sm btn-test-sug" data-id="${escapeHtml(sug.id)}" data-i18n-title="improve.btnTestSuggestionTitle" title="${t('improve.btnTestSuggestionTitle')}" data-i18n="improve.btnTestSuggestion">${t('improve.btnTestSuggestion')}</button>
-                      <button class="btn btn-secondary btn-sm btn-preview-diff" data-id="${escapeHtml(sug.id)}" data-i18n="improve.btnPreviewDiff">${t('improve.btnPreviewDiff')}</button>
+
                       ${st === 'applied' ? `<button class="btn btn-ghost btn-sm btn-undo-sug" data-id="${escapeHtml(sug.id)}" data-i18n="improve.btnUndo">${t('improve.btnUndo')}</button>` : ''}
-                      ${st !== 'applied' && st !== 'dismissed' ? `<button class="btn btn-ghost btn-sm btn-dismiss-sug" data-id="${escapeHtml(sug.id)}" data-i18n="improve.btnDismiss">${t('improve.btnDismiss')}</button>` : ''}
-                    </div>
+                      ${st !== 'applied' && st !== 'dismissed' ? `<button class="btn btn-ghost btn-sm btn-dismiss-sug" data-id="${escapeHtml(sug.id)}" data-i18n="improve.btnDismiss">${t('improve.btnDismiss')}</button>` : ''}`)}</div>
                   </div>
                 </li>
               `;
@@ -17465,11 +17464,11 @@
       <div id="lab-tab-content"></div>
     `;
 
+    syncViewButtons(container, 'data-labtab', state.labActiveTab);
     container.querySelectorAll('[data-labtab]').forEach(tab => {
       tab.addEventListener('click', () => {
         state.labActiveTab = tab.getAttribute('data-labtab');
-        container.querySelectorAll('[data-labtab]').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
+        syncViewButtons(container, 'data-labtab', state.labActiveTab);
         renderLabTabContent();
       });
     });
@@ -17644,22 +17643,8 @@
         </div>
       </div>
 
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th data-i18n="lab.table.name">${escapeHtml(t('lab.table.name'))}</th>
-              <th data-i18n="lab.table.evaluator">${escapeHtml(t('lab.table.evaluator'))}</th>
-              <th data-i18n="lab.table.category">${escapeHtml(t('lab.table.category'))}</th>
-              <th data-i18n="lab.table.state">${escapeHtml(t('lab.table.state'))}</th>
-              <th data-i18n="lab.table.decision">${escapeHtml(t('lab.table.decision'))}</th>
-              <th data-i18n="lab.table.baselineCol">${escapeHtml(t('lab.table.baselineCol'))}</th>
-              <th data-i18n="lab.table.candidateCol">${escapeHtml(t('lab.table.candidateCol'))}</th>
-              <th style="text-align: right; width: 100px;" data-i18n="lab.table.actions">${escapeHtml(t('lab.table.actions'))}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${evals.length === 0 ? `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;" data-i18n="lab.table.empty">${escapeHtml(t('lab.table.empty'))}</td></tr>` : ''}
+      <div class="workspace-list lab-list">
+        ${evals.length === 0 ? `<div class="empty-state"><div class="empty-state-title" data-i18n="workspace.lab.emptyTitle">${escapeHtml(t('workspace.lab.emptyTitle'))}</div><div class="empty-state-desc" data-i18n="workspace.lab.emptyDesc">${escapeHtml(t('workspace.lab.emptyDesc'))}</div><button id="btn-empty-new-lab" class="btn btn-primary" data-i18n="lab.actions.newLab">${escapeHtml(t('lab.actions.newLab'))}</button></div>` : ''}
             ${evals.map(ev => {
               const st = (ev.state || 'pending_approval').toLowerCase();
               const isPending = (st === 'pending_approval' || st === 'pending approval');
@@ -17699,24 +17684,20 @@
               const decisionBadge = getEvalDecisionBadge(ev.summary && ev.summary.decision, ev.state);
 
               return `
-                <tr class="clickable-row" data-id="${escapeHtml(ev.id)}">
-                  <td><strong>${escapeHtml(ev.title || '-')}</strong></td>
-                  <td>${evaluatorBadge}</td>
-                  <td><span class="code-badge">${escapeHtml(ev.evaluationKind || ev.kind || 'context')}</span></td>
-                  <td>${getEvalStateBadge(st)}</td>
-                  <td>${decisionBadge}</td>
-                  <td><span class="font-mono" style="font-size: 11px;">${baseHtml}</span></td>
-                  <td><span class="font-mono" style="font-size: 11px;">${candHtml}</span></td>
-                  <td style="text-align: right;">
-                    <button class="btn btn-secondary btn-sm btn-lab-compare" data-id="${escapeHtml(ev.id)}" data-i18n="lab.actions.compareDetails">${escapeHtml(t('lab.actions.compareDetails'))}</button>
-                  </td>
-                </tr>
+                <article class="workspace-row lab-row" data-id="${escapeHtml(ev.id)}">
+                  <div class="workspace-row-content">
+                    <button class="row-title btn-lab-compare" data-id="${escapeHtml(ev.id)}" title="${escapeHtml(ev.title || '-')}">${escapeHtml(ev.title || '-')}</button>
+                    <div class="row-meta">${getEvalStateBadge(st)}${decisionBadge}<span>${evaluatorBadge}</span></div>
+                    <div class="lab-comparison-summary"><div><span>${escapeHtml(t('lab.table.baselineCol'))}</span><strong>${baseHtml}</strong></div><div><span>${escapeHtml(t('lab.table.candidateCol'))}</span><strong>${candHtml}</strong></div></div>
+                  </div>
+                  <span class="row-chevron" aria-hidden="true">›</span>
+                </article>
               `;
             }).join('')}
-          </tbody>
-        </table>
       </div>
     `;
+
+    target.querySelector('#btn-empty-new-lab')?.addEventListener('click', openCreateLabModal);
 
     target.querySelectorAll('.btn-lab-compare').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -19598,22 +19579,22 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
               rawJsonDisplay = String(appr.arguments || '{}');
             }
             return `
-              <div class="card approval-card" data-testid="approval-card" data-approval-id="${escapeHtml(String(appr.id || ''))}" data-project="${escapeHtml(String(appr.project || ''))}" style="margin-bottom: 0; padding: 16px 18px;">
-                <div class="card-header" style="margin-bottom: 8px;">
-                  <div>
-                    <strong style="font-size: 16px;">${escapeHtml(appr.title || t('inbox.defaultApprTitle'))}</strong>
-                    <span class="code-badge" style="margin-left: 6px; font-size: 14px;">${escapeHtml(summary.toolName)}</span>
+              <div class="card approval-card" data-testid="approval-card" data-approval-id="${escapeHtml(String(appr.id || ''))}" data-project="${escapeHtml(String(appr.project || ''))}">
+                <div class="card-header approval-card-head">
+                  <div class="approval-card-heading">
+                    <strong>${escapeHtml(appr.title || t('inbox.defaultApprTitle'))}</strong>
+                    <span class="approval-tool"><span data-i18n="inbox.toolLabel">${escapeHtml(t('inbox.toolLabel'))}</span> · <span class="font-mono">${escapeHtml(summary.toolName)}</span></span>
                   </div>
-                  <span class="status-badge status-amber" style="font-size: 14px;" data-i18n="inbox.statusPending">${t('inbox.statusPending')}</span>
+                  <span class="status-badge status-amber" data-i18n="inbox.statusPending">${t('inbox.statusPending')}</span>
                 </div>
 
                 ${appr.intent || appr.description ? `
-                  <div style="font-size: 14px; color: var(--text-main); margin-bottom: 10px; line-height: 1.5;">
+                  <p class="approval-intent">
                     ${escapeHtml(appr.intent || appr.description)}
-                  </div>
+                  </p>
                 ` : ''}
 
-                <div class="approval-impact" data-testid="approval-impact" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
+                <div class="approval-impact" data-testid="approval-impact">
                   <div><strong data-i18n="inbox.metaProject">${t('inbox.metaProject')}</strong> <span class="font-mono">${escapeHtml(summary.projectBasename)}</span></div>
                   ${summary.agentDisplay ? `
                     <div><strong data-i18n="inbox.metaEvalAgent">${t('inbox.metaEvalAgent')}</strong> <code class="code-badge font-mono" style="font-size: 14px;">${escapeHtml(summary.agentDisplay)}</code></div>
@@ -19665,8 +19646,8 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
                 </details>
 
                 <div class="approval-actions" style="display: flex; justify-content: flex-end; gap: 8px;">
-                  <button class="btn btn-secondary btn-sm btn-reject-appr" data-testid="approval-reject" data-id="${escapeHtml(String(appr.id || ''))}" data-hash="${escapeHtml(String(appr.snapshotHash || ''))}" data-i18n="inbox.btnReject" style="font-size: 14px;">${t('inbox.btnReject')}</button>
-                  <button class="btn btn-primary btn-sm btn-approve-appr" data-testid="approval-approve" data-id="${escapeHtml(String(appr.id || ''))}" data-hash="${escapeHtml(String(appr.snapshotHash || ''))}" data-i18n="inbox.btnApprove" style="font-size: 14px;">${t('inbox.btnApprove')}</button>
+                  <button class="btn btn-secondary btn-sm btn-reject-appr" data-testid="approval-reject" data-id="${escapeHtml(String(appr.id || ''))}" data-hash="${escapeHtml(String(appr.snapshotHash || ''))}" data-i18n="inbox.btnReject">${t('inbox.btnReject')}</button>
+                  <button class="btn btn-primary btn-sm btn-approve-appr" data-testid="approval-approve" data-id="${escapeHtml(String(appr.id || ''))}" data-hash="${escapeHtml(String(appr.snapshotHash || ''))}" data-i18n="inbox.btnApprove">${t('inbox.btnApprove')}</button>
                 </div>
               </div>
             `;
@@ -19782,8 +19763,8 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
         </div>
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
           <div>
-            <strong style="font-size: 13px;" data-i18n="settings.languageSelectLabel">${t('settings.languageSelectLabel')}</strong>
-            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.languageSelectDesc">${t('settings.languageSelectDesc')}</div>
+
+            <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.languageSelectDesc">${t('settings.languageSelectDesc')}</div>
           </div>
           <select id="setting-locale" class="filter-select" aria-label="界面语言" data-i18n-aria-label="settings.languageAria">
             <option value="zh-CN">简体中文</option>
@@ -19802,8 +19783,8 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
           <label class="form-checkbox-label">
             <input type="checkbox" id="setting-notifications" ${settings.notifications ? 'checked' : ''}>
             <div>
-              <strong style="font-size: 13px;" data-i18n="settings.desktopNotifications">${t('settings.desktopNotifications')}</strong>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.desktopNotificationsDesc">${t('settings.desktopNotificationsDesc')}</div>
+              <strong style="font-size: 14px;" data-i18n="settings.desktopNotifications">${t('settings.desktopNotifications')}</strong>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.desktopNotificationsDesc">${t('settings.desktopNotificationsDesc')}</div>
             </div>
           </label>
 
@@ -19811,39 +19792,39 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
             <label class="form-checkbox-label">
               <input type="checkbox" id="setting-notif-sound" ${settings.notificationSound !== false ? 'checked' : ''}>
               <div>
-                <span style="font-size: 13px;" data-i18n="settings.sound">${t('settings.sound')}</span>
-                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.soundDesc">${t('settings.soundDesc')}</div>
+                <span style="font-size: 14px;" data-i18n="settings.sound">${t('settings.sound')}</span>
+                <div style="font-size: 13px; color: var(--text-secondary);" data-i18n="settings.soundDesc">${t('settings.soundDesc')}</div>
               </div>
             </label>
             <label class="form-checkbox-label">
               <input type="checkbox" id="setting-notify-approvals" ${settings.notifyApprovals !== false ? 'checked' : ''}>
               <div>
-                <span style="font-size: 13px;" data-i18n="settings.approvals">${t('settings.approvals')}</span>
-                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.approvalsDesc">${t('settings.approvalsDesc')}</div>
+                <span style="font-size: 14px;" data-i18n="settings.approvals">${t('settings.approvals')}</span>
+                <div style="font-size: 13px; color: var(--text-secondary);" data-i18n="settings.approvalsDesc">${t('settings.approvalsDesc')}</div>
               </div>
             </label>
             <label class="form-checkbox-label">
               <input type="checkbox" id="setting-notify-completed" ${settings.notifyCompleted !== false ? 'checked' : ''}>
               <div>
-                <span style="font-size: 13px;" data-i18n="settings.completedRuns">${t('settings.completedRuns')}</span>
-                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.completedRunsDesc">${t('settings.completedRunsDesc')}</div>
+                <span style="font-size: 14px;" data-i18n="settings.completedRuns">${t('settings.completedRuns')}</span>
+                <div style="font-size: 13px; color: var(--text-secondary);" data-i18n="settings.completedRunsDesc">${t('settings.completedRunsDesc')}</div>
               </div>
             </label>
             <label class="form-checkbox-label">
               <input type="checkbox" id="setting-notify-errors" ${settings.notifyErrors !== false ? 'checked' : ''}>
               <div>
-                <span style="font-size: 13px;" data-i18n="settings.runtimeErrors">${t('settings.runtimeErrors')}</span>
-                <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.runtimeErrorsDesc">${t('settings.runtimeErrorsDesc')}</div>
+                <span style="font-size: 14px;" data-i18n="settings.runtimeErrors">${t('settings.runtimeErrors')}</span>
+                <div style="font-size: 13px; color: var(--text-secondary);" data-i18n="settings.runtimeErrorsDesc">${t('settings.runtimeErrorsDesc')}</div>
               </div>
             </label>
           </fieldset>
           <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-subtle); padding-top: 10px; margin-top: 2px;">
             <div>
-              <span style="font-size: 13px; font-weight: 500;" data-i18n="settings.soundPreview">${t('settings.soundPreview')}</span>
-              <div style="font-size: 12px; color: var(--text-secondary);" data-i18n="settings.soundPreviewDesc">${t('settings.soundPreviewDesc')}</div>
+              <span style="font-size: 14px; font-weight: 500;" data-i18n="settings.soundPreview">${t('settings.soundPreview')}</span>
+              <div style="font-size: 13px; color: var(--text-secondary);" data-i18n="settings.soundPreviewDesc">${t('settings.soundPreviewDesc')}</div>
             </div>
             <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-              <select id="setting-preview-sound-kind" class="filter-select" style="font-size: 11px; padding: 2px 6px;" aria-label="${escapeHtml(t('settings.previewKindAria'))}" data-i18n-aria-label="settings.previewKindAria">
+              <select id="setting-preview-sound-kind" class="filter-select" style="font-size: 13px; padding: 2px 6px;" aria-label="${escapeHtml(t('settings.previewKindAria'))}" data-i18n-aria-label="settings.previewKindAria">
                 <option value="approval" data-i18n="settings.previewKindApproval">${t('settings.previewKindApproval')}</option>
                 <option value="completed" data-i18n="settings.previewKindCompleted">${t('settings.previewKindCompleted')}</option>
                 <option value="error" data-i18n="settings.previewKindError">${t('settings.previewKindError')}</option>
@@ -19862,17 +19843,17 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
           <label class="form-checkbox-label">
             <input type="checkbox" id="setting-launch-at-login" ${settings.launchAtLogin ? 'checked' : ''}>
             <div>
-              <strong style="font-size: 13px;" data-i18n="settings.launchAtLogin">${t('settings.launchAtLogin')}</strong>
+              <strong style="font-size: 14px;" data-i18n="settings.launchAtLogin">${t('settings.launchAtLogin')}</strong>
               ${(state.systemInfo && (state.systemInfo.launchAtLoginStatus === 'pending_approval' || state.systemInfo.launchAtLoginStatus === 'requiresApproval')) ? `<span class="status-badge status-amber" style="margin-left: 6px;" data-i18n="settings.launchPendingApproval">${t('settings.launchPendingApproval')}</span>` : ''}
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.launchAtLoginDesc">${t('settings.launchAtLoginDesc')}</div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.launchAtLoginDesc">${t('settings.launchAtLoginDesc')}</div>
             </div>
           </label>
 
           <label class="form-checkbox-label">
             <input type="checkbox" id="setting-analysis" ${settings.analysisEnabled ? 'checked' : ''}>
             <div>
-              <strong style="font-size: 13px;" data-i18n="settings.analysis">${t('settings.analysis')}</strong>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.analysisDesc">${t('settings.analysisDesc')}</div>
+              <strong style="font-size: 14px;" data-i18n="settings.analysis">${t('settings.analysis')}</strong>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.analysisDesc">${t('settings.analysisDesc')}</div>
             </div>
           </label>
         </div>
@@ -19886,7 +19867,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
         <div class="card-header">
           <div>
             <span class="card-title" data-i18n="settings.daemonTitle">${t('settings.daemonTitle')}</span>
-            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.daemonDesc">${t('settings.daemonDesc')}</div>
+            <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;" data-i18n="settings.daemonDesc">${t('settings.daemonDesc')}</div>
           </div>
           ${(daemonStatus && daemonStatus.running)
             ? `<span class="status-badge status-sage" data-i18n="settings.daemonStatusRunning">${t('settings.daemonStatusRunning')}</span>`
@@ -19933,7 +19914,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
         <div class="card-header">
           <div>
             <span class="card-title" data-i18n="connectors.settingsTitle">${t('connectors.settingsTitle')}</span>
-            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" data-i18n="connectors.settingsDesc">${t('connectors.settingsDesc')}</div>
+            <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;" data-i18n="connectors.settingsDesc">${t('connectors.settingsDesc')}</div>
           </div>
           ${(connectorStatus && connectorStatus.state === 'configured')
             ? `<span class="status-badge status-sage" data-i18n="connectors.statusConfigured">${t('connectors.statusConfigured')}</span>`
@@ -19977,7 +19958,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
           <span class="card-title" data-i18n="settings.privacyTitle">${t('settings.privacyTitle')}</span>
           <span class="status-badge status-sage" data-i18n="settings.noTelemetry">${t('settings.noTelemetry')}</span>
         </div>
-        <ul style="padding-left: 18px; font-size: 12px; line-height: 1.6; color: var(--text-secondary);">
+        <ul style="padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--text-secondary);">
           <li><strong data-i18n="settings.currentStorePath">${t('settings.currentStorePath')}</strong><code class="code-badge">${escapeHtml(state.systemInfo.home)}</code> (Channel: ${escapeHtml(state.systemInfo.channel)})</li>
           <li><strong data-i18n="settings.noCloudAccount">${t('settings.noCloudAccount')}</strong><span data-i18n="settings.noCloudAccountDesc">${t('settings.noCloudAccountDesc')}</span></li>
           <li><strong data-i18n="settings.localFirst">${t('settings.localFirst')}</strong><span data-i18n="settings.localFirstDesc">${t('settings.localFirstDesc')}</span></li>
@@ -19990,7 +19971,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
         <div class="card-header">
           <span class="card-title" data-i18n="settings.integrationTitle">${t('settings.integrationTitle')}</span>
         </div>
-        <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div style="font-size: 13px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
           <div>Claude Desktop: <span class="status-badge status-neutral" data-i18n="settings.supportedStdioMcp">${t('settings.supportedStdioMcp')}</span></div>
           <div>Cursor: <span class="status-badge status-neutral" data-i18n="settings.supportedStdioMcp">${t('settings.supportedStdioMcp')}</span></div>
           <div>Codex: <span class="status-badge status-neutral" data-i18n="settings.supportedCheckpointExport">${t('settings.supportedCheckpointExport')}</span></div>
@@ -19998,6 +19979,51 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
         </div>
       </div>
     `;
+
+    const cards = [...container.querySelectorAll(':scope > .card')];
+    const categories = [
+      ['general', 'workspace.settings.general', [0, 2]],
+      ['notifications', 'settings.notificationsTitle', [1]],
+      ['connections', 'workspace.settings.connections', [3, 4, 6]],
+      ['privacy', 'settings.privacyTitle', [5]]
+    ];
+    const settingsLayout = document.createElement('div');
+    settingsLayout.className = 'settings-layout';
+    settingsLayout.innerHTML = `<nav class="settings-nav" data-i18n-aria-label="settings.title" aria-label="${escapeHtml(t('settings.title'))}">${categories.map(([id,key]) => `<button type="button" class="settings-category" data-settings-category="${id}" data-i18n="${key}">${escapeHtml(t(key))}</button>`).join('')}</nav><div class="settings-panels"></div>`;
+    container.append(settingsLayout);
+    const saveButton = document.getElementById('btn-save-settings');
+    if (saveButton) { const oldSaveContainer = saveButton.parentElement; container.querySelector('.page-header').append(saveButton); oldSaveContainer.remove(); }
+    categories.forEach(([id,key,indexes]) => {
+      const section = document.createElement('section');
+      section.className = 'settings-panel';
+      section.dataset.settingsPanel = id;
+      section.setAttribute('aria-label', t(key));
+      section.setAttribute('data-i18n-aria-label', key);
+      indexes.forEach(index => { if (cards[index]) section.append(cards[index]); });
+      settingsLayout.querySelector('.settings-panels').append(section);
+    });
+    const selectSettingsCategory = id => {
+      state.settingsCategory = id;
+      settingsLayout.querySelectorAll('[data-settings-category]').forEach(button => {
+        const selected = button.dataset.settingsCategory === id;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-pressed', String(selected));
+      });
+      settingsLayout.querySelectorAll('[data-settings-panel]').forEach(panel => { panel.hidden = panel.dataset.settingsPanel !== id; });
+    };
+    settingsLayout.querySelectorAll('[data-settings-category]').forEach(button => button.addEventListener('click', () => selectSettingsCategory(button.dataset.settingsCategory)));
+    selectSettingsCategory(state.settingsCategory || 'general');
+
+    // Keep diagnostics available without placing service identities before preferences.
+    settingsLayout.querySelectorAll('.daemon-info-grid').forEach(grid => {
+      const details = document.createElement('details');
+      details.className = 'technical-disclosure settings-diagnostics';
+      const summary = document.createElement('summary');
+      summary.dataset.i18n = 'workspace.connectionDetails';
+      summary.textContent = t('workspace.connectionDetails');
+      grid.before(details);
+      details.append(summary, grid);
+    });
 
     const notifCb = document.getElementById('setting-notifications');
     const soundCb = document.getElementById('setting-notif-sound');
@@ -20110,7 +20136,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
     document.getElementById('btn-start-daemon')?.addEventListener('click', () => {
       openModal(
         t('settings.daemonStartConfirmTitle'),
-        `<div style="font-size: 13px; line-height: 1.5; color: var(--text-main);">
+        `<div style="font-size: 14px; line-height: 1.5; color: var(--text-main);">
           ${escapeHtml(t('settings.daemonStartConfirmDesc'))}
         </div>`,
         `<div style="display: flex; justify-content: flex-end; gap: 8px; width: 100%;">
@@ -20154,7 +20180,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
     document.getElementById('btn-uninstall-daemon')?.addEventListener('click', () => {
       openModal(
         t('settings.daemonUninstallConfirmTitle'),
-        `<div style="font-size: 13px; line-height: 1.5; color: var(--text-main);">
+        `<div style="font-size: 14px; line-height: 1.5; color: var(--text-main);">
           ${escapeHtml(t('settings.daemonUninstallConfirmDesc'))}
         </div>`,
         `<div style="display: flex; justify-content: flex-end; gap: 8px; width: 100%;">
@@ -21633,7 +21659,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
     currentDrawerInstance = thisDrawerInstance;
     const originalActive = document.activeElement;
     const validTrigger = (triggerEl && typeof triggerEl === 'object' && triggerEl.nodeType === 1) ? triggerEl : null;
-    drawerTriggerElement = validTrigger || originalActive;
+    drawerTriggerElement = validTrigger || originalActive?.closest?.('details.action-menu')?.querySelector('summary') || originalActive;
     const drawer = document.getElementById('detail-drawer');
     const backdrop = document.getElementById('drawer-backdrop');
     const titleEl = document.getElementById('drawer-title');
@@ -21770,7 +21796,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
     currentModalInstance = thisModalInstance;
     const originalActive = document.activeElement;
     const validTrigger = (triggerEl && typeof triggerEl === 'object' && triggerEl.nodeType === 1) ? triggerEl : null;
-    modalTriggerElement = validTrigger || originalActive;
+    modalTriggerElement = validTrigger || originalActive?.closest?.('details.action-menu')?.querySelector('summary') || originalActive;
     const modal = document.getElementById('modal-container');
     const dialog = document.getElementById('modal-dialog');
     const t = document.getElementById('modal-title');

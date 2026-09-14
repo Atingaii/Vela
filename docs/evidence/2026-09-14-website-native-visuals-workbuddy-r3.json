@@ -1,0 +1,87 @@
+{
+  "format": "vela-native-website-visuals-v2",
+  "synthetic": true,
+  "native": "WKWebView",
+  "captureLanguage": "en",
+  "fixture": {
+    "kind": "isolated nonpersistent synthetic fixture",
+    "launcher": "output/playwright/native-workbuddy-r3/launcher-workbuddy-r3.json",
+    "requestedWebsiteDataStore": "nonPersistent",
+    "discoveryDisabled": true
+  },
+  "uiResources": {
+    "app.js": "20c332d2f093d203de0c09126714ffa5ce6e48f2ef9f2c6561cd3a1671ad87be",
+    "content.js": "735938e0bdef0e1714ce48881c76e70e5fecf2a00fa631d062e19130089af3c6",
+    "i18n.js": "8c251d97fde352b54633f9911335b78e3364103c8ce515ac5fefb313f39b2130",
+    "app.css": "c4e98fbacd99c0c90fcef842ad69ed81285b9ab5d20b1db9e9dbd01fd8927689",
+    "reading.css": "b1b4bb1fee56e3fa30c56e6559f7f8f253599198b0c0a2c6656b882ee4d8942a",
+    "index.html": "380127605c6c147ee7b58bb54e0e9d770204b7d6a811f38f6103b7ae97356786"
+  },
+  "screenshots": [
+    {
+      "feature": "sessions",
+      "source": "output/playwright/native-workbuddy-r3/vela-agents-0DBCCCEF-53AC-4ADF-A917-9F139A82439A.png",
+      "capture": "output/playwright/native-workbuddy-r3/vela-agents-0DBCCCEF-53AC-4ADF-A917-9F139A82439A.json",
+      "destination": "website/dist/assets/vela-reading.png",
+      "sha256": "1493458eb64f64c1dd9db4fd39c85df15d3b3dfdd74fa0ed56b49b245f90e2d3",
+      "pixelSize": {
+        "width": 2500,
+        "height": 1600
+      }
+    },
+    {
+      "feature": "workflows",
+      "source": "output/playwright/native-workbuddy-r3/vela-workflows-3A7360B7-0CA3-4968-8E00-47F40F082B47.png",
+      "capture": "output/playwright/native-workbuddy-r3/vela-workflows-3A7360B7-0CA3-4968-8E00-47F40F082B47.json",
+      "destination": "website/dist/assets/vela-workflows-current.png",
+      "sha256": "f4c848f20025d49fea8bc812527e92094ae29d2f30068d1e90fb0c687f73e1ae",
+      "pixelSize": {
+        "width": 2500,
+        "height": 1600
+      }
+    },
+    {
+      "feature": "memory",
+      "source": "output/playwright/native-workbuddy-r3/vela-memory-BC22C629-8DDA-4E41-890A-0DB3CB441A48.png",
+      "capture": "output/playwright/native-workbuddy-r3/vela-memory-BC22C629-8DDA-4E41-890A-0DB3CB441A48.json",
+      "destination": "website/dist/assets/vela-memory-current.png",
+      "sha256": "3573eed846f02ee990b0abe26c0767216a0fb600882016582eaf0678bcde98f8",
+      "pixelSize": {
+        "width": 2500,
+        "height": 1600
+      }
+    },
+    {
+      "feature": "setup",
+      "source": "output/playwright/native-workbuddy-r3/vela-setup-F69DE886-6103-4355-B314-024BB5DCE0D6.png",
+      "capture": "output/playwright/native-workbuddy-r3/vela-setup-F69DE886-6103-4355-B314-024BB5DCE0D6.json",
+      "destination": "website/dist/assets/vela-setup-current.png",
+      "sha256": "492d2dbdfc254a9330416ed25346f7ee811b66f93e1b760a6b0a3189a8dc02b9",
+      "pixelSize": {
+        "width": 2500,
+        "height": 1600
+      }
+    },
+    {
+      "feature": "approvals",
+      "source": "output/playwright/native-workbuddy-r3/vela-inbox-681535C1-BE5A-46E1-ADC0-9825D9381D45.png",
+      "capture": "output/playwright/native-workbuddy-r3/vela-inbox-681535C1-BE5A-46E1-ADC0-9825D9381D45.json",
+      "destination": "website/dist/assets/vela-approval-current.png",
+      "sha256": "6f93858163a4a311ef0ce8b82b48eb035dc2995477c1cc72fc2c08e7db289f22",
+      "pixelSize": {
+        "width": 2500,
+        "height": 1600
+      }
+    }
+  ],
+  "additionalDestination": {
+    "destination": "docs/assets/vela-reading.png",
+    "source": "output/playwright/native-workbuddy-r3/vela-agents-0DBCCCEF-53AC-4ADF-A917-9F139A82439A.png",
+    "sha256": "1493458eb64f64c1dd9db4fd39c85df15d3b3dfdd74fa0ed56b49b245f90e2d3"
+  },
+  "caption": "Actual macOS development UI from an isolated nonpersistent synthetic fixture; not the published preview.2 download.",
+  "limitations": [
+    "Five screenshots show named product surfaces only.",
+    "They do not demonstrate every catalogue capability, production deployment, or user data."
+  ]
+}

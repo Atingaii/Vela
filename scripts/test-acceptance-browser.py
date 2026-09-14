@@ -153,6 +153,12 @@ def main():
             click(menu + ' > summary')
             wait_for('document.querySelector(' + json.dumps(menu) + ').open===true', 'Action menu did not open for ' + trigger)
 
+    def select_usage_tab(tab):
+        selector = '[data-usagetab=' + json.dumps(tab) + ']'
+        wait_for('!!document.querySelector(' + json.dumps(selector) + ')', 'Usage tab is absent: ' + tab)
+        click(selector)
+        wait_for('document.querySelector(' + json.dumps(selector) + ')?.classList.contains("active")', 'Usage tab did not activate: ' + tab)
+
     def page(name, project=harbor):
         browser('press', 'Escape'); browser('press', 'Escape')
         if value('document.querySelector("#project-selector").value') != project:
@@ -247,6 +253,7 @@ def main():
 
         def lab_freeze():
             page('improve')
+            open_action_menu('.btn-test-sug[data-id=' + json.dumps(suggestion['id']) + ']')
             click('.btn-test-sug[data-id=' + json.dumps(suggestion['id']) + ']')
             browser('wait', '#lab-agent-task')
             assert value('document.querySelector("#lab-agent-source-sug").value') == suggestion['id']
@@ -300,6 +307,7 @@ def main():
 
         def usage_missing():
             page('usage', beacon)
+            select_usage_tab('logs')
             usage = rpc('usage.get', {'project': beacon})
             assert usage['totalTokens'] is None and usage['sessionCount'] == 1
             wait_for('/未提供|未知|不可用|未观测/.test(document.querySelector("#usage-total-tokens")?.innerText||"")', 'Missing provider usage was presented as zero or left loading.')
@@ -318,7 +326,7 @@ def main():
             assert zero['totalTokens'] == 0 and zero['sessionCount'] == 1
             wait_for('document.querySelector("#usage-total-tokens")?.innerText.trim()==="0"', 'Explicit real zero usage did not replace unavailable state.')
             return {'missingTotal': None, 'explicitTotal': 0, 'sameProviderSession': True,
-                    'missingScreenshot': 'usage-missing-only.png'}
+                    'usageTab': 'logs', 'missingScreenshot': 'usage-missing-only.png'}
 
         def reuse_apply_undo():
             page('memory')
@@ -353,7 +361,7 @@ def main():
             assert not value('!!document.querySelector("#btn-drawer-apply-sug")?.getClientRects().length'), 'Already-installed Hook offered a redundant Apply action.'
             assert hook.read_text() == draft['operations'][0]['content']
             page('improve')
-            click('.btn-preview-diff[data-id=' + json.dumps(draft['id']) + ']')
+            click('.improve-card:has(.btn-preview-diff[data-id=' + json.dumps(draft['id']) + ']) .improve-card-title.btn-preview-diff[data-id=' + json.dumps(draft['id']) + ']')
             browser('wait', '#btn-drawer-undo-sug')
             text = value('document.querySelector("#drawer-content").innerText')
             assert '/hooks' in text and ('信任' in text or 'trust' in text.lower()), 'Applied Hook does not explain the remaining provider trust step.'

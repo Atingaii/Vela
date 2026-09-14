@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>会话回看：找到这次改动的来由 — Vela 使用场景</title>
-  <meta name="description" content="从 Claude Code、Codex 和 Cursor 的会话历史中精准检索关键工具调用与上下文证据，追溯决策来由。">
-  <link rel="icon" href="../../assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <title>接手昨天的改动 — Vela</title>
+  <meta name="description" content="接手昨天的改动 · 面向 Coding Agent 的本地工程工作区。">
+  <link rel="icon" href="/assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
   <link rel="canonical" href="https://velo.codes/usecases/session-review/">
   <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/usecases/session-review/">
   <link rel="alternate" hreflang="en" href="https://velo.codes/en/usecases/session-review/">
   <link rel="alternate" hreflang="x-default" href="https://velo.codes/usecases/session-review/">
 
   <!-- Preload core self-hosted fonts -->
-  <link rel="preload" href="../../assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="../../assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
 
-  <link rel="stylesheet" href="../../styles.css?v=5c6c5e77720e9a18">
+  <link rel="stylesheet" href="/styles.css?v=7fe760bdbb331b9d">
 
   <!-- Immediate theme application to prevent flash -->
   <script>
@@ -32,12 +32,12 @@
   </script>
 </head>
 <body>
-  <!-- Site Header (62px height, x70-1180 alignment) -->
+  <!-- Site Header (62px height, x70-1180 content alignment) -->
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand-group">
         <a href="/" class="brand-link" aria-label="Vela 首页">
-          <img src="../../assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
+          <img src="/assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
           <span>Vela</span>
         </a>
         <nav class="site-nav" aria-label="主导航"><a href="/product/" class="nav-link">产品功能</a><a href="/usecases/" class="nav-link">使用场景</a><a href="/integrations/" class="nav-link">工具集成</a><a href="/comparisons/" class="nav-link">产品对比</a></nav>
@@ -46,15 +46,15 @@
       <div class="header-actions">
         <a href="/docs.html" class="header-docs-link">文档</a>
 
-        <!-- Theme Toggle Button -->
+        <!-- Theme Toggle Button (Square) -->
         <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
         </button>
 
-        <!-- Language Switcher -->
+        <!-- Language Switcher Button -->
         <a href="/en/usecases/session-review/" class="header-lang-link" hreflang="en" lang="en" aria-label="Switch to English">English</a>
 
-        <!-- GitHub Repository Button -->
+        <!-- GitHub Repository Button (Square) -->
         <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
         </a>
@@ -68,7 +68,7 @@
 
     <!-- Mobile Navigation Drawer -->
     <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单"><a href="/integrations/" class="nav-link">工具集成</a><a href="/product/" class="nav-link">产品功能</a>
-      <a href="/usecases/" class="nav-link active" aria-current="page">使用场景</a>
+      <a href="/usecases/" class="nav-link">使用场景</a>
       <a href="/comparisons/" class="nav-link">产品对比</a>
       <a href="/docs.html" class="nav-link">文档</a>
       <a href="/releases.html" class="nav-link">发行记录</a>
@@ -79,108 +79,9 @@
   </header>
 
   <main>
-    <section class="usecases-hero">
-      <div class="container">
-        <!-- Breadcrumb Navigation -->
-        <div class="breadcrumb-nav">
-          <a href="/usecases/" class="breadcrumb-link">← 返回全部使用场景</a>
-        </div>
-
-        <div class="usecase-detail-header">
-          <div class="usecase-meta-badges">
-            <span class="version-badge-preview">preview.2 基础功能 · 开发版扩展</span>
-            <span class="tag-badge">会话证据</span>
-            <span class="tag-badge">本地日志解析</span>
-          </div>
-          <h1 class="usecase-h1">会话回看：找到这次改动的来由</h1>
-          <p class="usecase-problem-lead">
-            <strong>工程师常见困扰：</strong>日常开发中散落在 Claude Code、Codex 和 Cursor 里的对话极易失散。当代码出现非预期变动或回归时，常常想不起关键约束究竟是在哪次会话、哪一条具体提示词或工具调用中引入的。
-          </p>
-        </div>
-
-        <!-- Step-by-Step Flow -->
-        <div class="step-flow">
-          <div class="step-flow-item">
-            <div class="step-flow-num">01</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">选择登记项目与智能体 Provider</div>
-              <div class="step-flow-desc">
-                在 macOS 客户端选择已登记的本地工程仓库。Vela 通过本地文件监听自动识别并关联 Claude Code（<code>~/.claude/projects/</code>）与 Codex（<code>~/.codex/sessions/</code>）生成的本地 JSONL 日志流，亦支持只读导入部分 Cursor 会话导出数据。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">02</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">基于证据检索与状态筛选</div>
-              <div class="step-flow-desc">
-                通过顶部全局搜索框对工程会话执行快速词面检索。会话列表严格基于已读日志时间戳展示推断状态（Running、Idle、Needs Approval）。缺失存活证据时明确标为未知，不臆造实时运行探针。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">03</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">检查真实消息与工具调用详情</div>
-              <div class="step-flow-desc">
-                点选目标会话展开完整对话时间线与工具调用事件。清晰审阅诸如 <code>file.write</code>、<code>bash</code> 或环境检查的具体入参与返回输出，核对本次改动的真实根据。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">04</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">沉淀为 Memory 或导出中立 Checkpoint</div>
-              <div class="step-flow-desc">
-                若会话中产生有价值的工程约束，可直接一键沉淀为 Candidate 状态的项目记忆，保留确切的源会话与消息索引；亦可导出包含当前 Git HEAD 与待办事项的中立 Markdown Checkpoint 文件用于模型交接。
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Real Screenshot Frame (vela-workspace.png shows unreleased acceptance branch) -->
-        <div class="product-screenshot-frame" style="margin-bottom: 40px;">
-          <img
-            src="../../assets/vela-workspace.png?v=d03eb222b21bb6ec"
-            alt="Vela macOS 原生会话工作台界面：展示会话列表、选中会话详情及工具调用记录"
-            width="1250"
-            height="800"
-            loading="lazy"
-            class="product-screenshot-img"
-          >
-          <div class="screenshot-caption">
-            <span>实际 macOS 原生开发分支界面 (源码 commit 91d34e2) · 合成示例数据 · 未包含在 preview.2 下载包中</span>
-          </div>
-        </div>
-
-        <!-- Limitations & Boundaries Callout -->
-        <div class="callout-limits">
-          <div class="callout-limits-title">功能边界与已知限制</div>
-          <div class="callout-limits-content">
-            <ul style="padding-left: 18px; margin: 0;">
-              <li><strong>开发分支界面与版本边界：</strong>截图所呈现的完整工作区、来源精准追溯及记忆提议特性基于当前源码开发分支（commit 91d34e2）；0.1.0-preview.2 安装包包含基础日志接入与会话状态推断。</li>
-              <li><strong>状态为推断性质：</strong>运行状态严格由本地日志的最新写入事件推断得出，非独立系统后台守护进程探针，不能作为操作系统级实时存活性证明。</li>
-              <li><strong>有界读取策略：</strong>初始每个 provider 仅选取最多 60 个近期日志文件，读取 256 KB 尾窗及 32 KB 文件头，不提供无限制全量历史回填或原生跨 Provider 会话上下文热迁移。</li>
-              <li><strong>Cursor 格式演进：</strong>Cursor 内部格式随版本频繁变动，部分未适配格式需经由 JSON 导出后导入。</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Bottom CTA Bar -->
-        <div class="usecase-cta-bar">
-          <a href="/docs.html#sessions" class="usecase-next-doc-link">下一步：阅读会话接入与格式说明 →</a>
-          <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="btn btn-primary-amber" target="_blank" rel="noopener noreferrer">
-            下载 macOS 预览版 →
-          </a>
-        </div>
-      </div>
-    </section>
+<section class="catalogue-hero container"><div class="section-eyebrow">USE CASE / SESSIONS</div><h1 class="catalogue-title">接手昨天的改动</h1><p class="catalogue-lead">这段代码为什么这样改？</p></section><div class="container case-detail"><div class="case-readout"><div><span class="section-eyebrow">输入</span><p>会话日志、工具调用、计划</p></div><div><span class="section-eyebrow">结果</span><p>带有来源的改动来由和 Checkpoint</p></div></div><ol class="case-steps"><li><span>01</span><div><h2>搜索项目</h2><p>选择正在处理的项目，按名称或提供方找到对应会话。状态依据已观察日志，不代表实时进程监控。</p></div></li><li><span>02</span><div><h2>阅读消息</h2><p>阅读消息和可识别的命令；需要精确参数时展开原始记录。计划和关联会话保留各自证据边界。</p></div></li><li><span>03</span><div><h2>保存交接点</h2><p>保存 Checkpoint，保留用户笔记和当时的 Git 状态，供下一次会话参考。</p></div></li></ol><figure class="product-visual"><img src="/assets/vela-reading.png?v=1493458eb64f64c1" alt="会话中的命令、正文和原始记录" width="1250" height="800" loading="lazy" decoding="async"><figcaption>实际 macOS 开发版界面 · 隔离非持久合成 fixture · 非 preview.2 下载内容</figcaption></figure><a class="text-link" href="/product/#sessions">查看相关产品功能 →</a><br><a class="text-link" href="/usecases/">← 全部使用场景</a></div><aside class="availability-note container">本指南介绍当前开发分支能力。公开下载仍为 preview.2，较新的能力需要从源码构建；具体版本请查看<a href="/releases.html">发行记录</a>。</aside>
   </main>
 
-  <!-- Site Footer -->
   <footer class="site-footer">
     <div class="container footer-inner">
       <div class="footer-brand-line">
@@ -200,6 +101,6 @@
     </div>
   </footer>
 
-  <script src="../../site.js?v=acf1c37e1928f8dc"></script>
+  <script src="/site.js?v=acf1c37e1928f8dc"></script>
 </body>
 </html>

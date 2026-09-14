@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>审阅工作流：先检查，再允许修改 — Vela 使用场景</title>
-  <meta name="description" content="在执行本地工程操作前通过 Dry Run 预演变更计划，在 Inbox 冻结参数审查后单次批准执行，并保留文件写入 Undo 事务日志。">
-  <link rel="icon" href="../../assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <title>放心运行重复任务 — Vela</title>
+  <meta name="description" content="放心运行重复任务 · 面向 Coding Agent 的本地工程工作区。">
+  <link rel="icon" href="/assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
   <link rel="canonical" href="https://velo.codes/usecases/review-workflows/">
   <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/usecases/review-workflows/">
   <link rel="alternate" hreflang="en" href="https://velo.codes/en/usecases/review-workflows/">
   <link rel="alternate" hreflang="x-default" href="https://velo.codes/usecases/review-workflows/">
 
   <!-- Preload core self-hosted fonts -->
-  <link rel="preload" href="../../assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="../../assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
 
-  <link rel="stylesheet" href="../../styles.css?v=5c6c5e77720e9a18">
+  <link rel="stylesheet" href="/styles.css?v=7fe760bdbb331b9d">
 
   <!-- Immediate theme application to prevent flash -->
   <script>
@@ -32,12 +32,12 @@
   </script>
 </head>
 <body>
-  <!-- Site Header (62px height, x70-1180 alignment) -->
+  <!-- Site Header (62px height, x70-1180 content alignment) -->
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand-group">
         <a href="/" class="brand-link" aria-label="Vela 首页">
-          <img src="../../assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
+          <img src="/assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
           <span>Vela</span>
         </a>
         <nav class="site-nav" aria-label="主导航"><a href="/product/" class="nav-link">产品功能</a><a href="/usecases/" class="nav-link">使用场景</a><a href="/integrations/" class="nav-link">工具集成</a><a href="/comparisons/" class="nav-link">产品对比</a></nav>
@@ -46,15 +46,15 @@
       <div class="header-actions">
         <a href="/docs.html" class="header-docs-link">文档</a>
 
-        <!-- Theme Toggle Button -->
+        <!-- Theme Toggle Button (Square) -->
         <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
         </button>
 
-        <!-- Language Switcher -->
+        <!-- Language Switcher Button -->
         <a href="/en/usecases/review-workflows/" class="header-lang-link" hreflang="en" lang="en" aria-label="Switch to English">English</a>
 
-        <!-- GitHub Repository Button -->
+        <!-- GitHub Repository Button (Square) -->
         <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
         </a>
@@ -68,7 +68,7 @@
 
     <!-- Mobile Navigation Drawer -->
     <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单"><a href="/integrations/" class="nav-link">工具集成</a><a href="/product/" class="nav-link">产品功能</a>
-      <a href="/usecases/" class="nav-link active" aria-current="page">使用场景</a>
+      <a href="/usecases/" class="nav-link">使用场景</a>
       <a href="/comparisons/" class="nav-link">产品对比</a>
       <a href="/docs.html" class="nav-link">文档</a>
       <a href="/releases.html" class="nav-link">发行记录</a>
@@ -79,108 +79,9 @@
   </header>
 
   <main>
-    <section class="usecases-hero">
-      <div class="container">
-        <!-- Breadcrumb Navigation -->
-        <div class="breadcrumb-nav">
-          <a href="/usecases/" class="breadcrumb-link">← 返回全部使用场景</a>
-        </div>
-
-        <div class="usecase-detail-header">
-          <div class="usecase-meta-badges">
-            <span class="version-badge-preview">preview.2 基础功能 · 开发版扩展</span>
-            <span class="tag-badge">只读 Dry Run</span>
-            <span class="tag-badge">参数冻结审批</span>
-            <span class="tag-badge">本地文件 Undo</span>
-          </div>
-          <h1 class="usecase-h1">审阅工作流：先检查，再允许修改</h1>
-          <p class="usecase-problem-lead">
-            <strong>工程师常见困扰：</strong>当 Coding Agent 或自动化脚本尝试修改本地文件、执行构建命令时，传统的黑盒运行极易造成文件覆写丢失或产生无法撤销的副作用。工程师需要明确知晓每一步“将要改动什么”，并在每次执行前留出不可跳过的审批卡点。
-          </p>
-        </div>
-
-        <!-- Step-by-Step Flow -->
-        <div class="step-flow">
-          <div class="step-flow-item">
-            <div class="step-flow-num">01</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">配置或选择受管本地工作流草稿</div>
-              <div class="step-flow-desc">
-                在工作流面板中定义或选定本地任务流程（例如规范检查、文档更新或脚手架生成）。所有操作被限定在声明的白名单根目录内，不可接入未经审计的外部未知工具。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">02</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">触发 Dry Run：零副作用预演计划</div>
-              <div class="step-flow-desc">
-                在发起真实执行前必须先经由 Dry Run 预演。Vela 机制会自动对所有潜在写操作（文件覆写、创建、命令执行）进行安全只读 stub 拦截，生成详细的计划列表与改动 Diff 快照，磁盘文件在此阶段保持完全不变。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">03</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">Inbox 冻结参数核对与单次批准</div>
-              <div class="step-flow-desc">
-                预演通过后，任务进入审批收件箱（Inbox）。工程师逐一核对操作目标文件、预期内容哈希与严格冻结的命令行参数（argv）。单次审批仅针对当前冻结参数执行一次，严禁自动重试未确认的副作用。
-              </div>
-            </div>
-          </div>
-
-          <div class="step-flow-item">
-            <div class="step-flow-num">04</div>
-            <div class="step-flow-body">
-              <div class="step-flow-title">受限真实 Run 与 Undo 恢复日志</div>
-              <div class="step-flow-desc">
-                经批准后执行单次真实 Run。文件写入严格校验允许的根路径与目标哈希，并在本地保留完整的恢复事务日志（Journal）。若需要撤销修改，可通过 Undo 机制安全还原。
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Real Screenshot Frame -->
-        <div class="product-screenshot-frame" style="margin-bottom: 40px;">
-          <img
-            src="../../assets/vela-approval.png?v=d93bdf38093ec06b"
-            alt="Vela 审批工作台界面：展示待办收件箱、冻结参数、Dry Run 预演状态与执行确认按钮"
-            width="1250"
-            height="800"
-            loading="lazy"
-            class="product-screenshot-img"
-          >
-          <div class="screenshot-caption">
-            <span>实际 macOS 原生界面 (0.1.0-preview.2) · 合成示例数据</span>
-          </div>
-        </div>
-
-        <!-- Limitations & Boundaries Callout -->
-        <div class="callout-limits">
-          <div class="callout-limits-title">功能边界与已知限制</div>
-          <div class="callout-limits-content">
-            <ul style="padding-left: 18px; margin: 0;">
-              <li><strong>Dry Run 属于 Stub 拦截：</strong>Dry Run 预演阶段会对写文件与可能带来副作用的命令进行拦截，因此“预演成功”仅证明参数校验与计划生成无冲突，并不代表底层测试脚本已被真实执行或环境依赖已完全满足。</li>
-              <li><strong>单次授权防重试：</strong>审批仅对当前完全冻结的一组入参有效。一旦参数被修改或执行产生未知不确定性，系统不会进行静默重试，必须重新回到 Inbox 申请新的独立批准。</li>
-              <li><strong>本地作用域优先：</strong>目前仅支持本地受管目录内的文件操作与受控命令，不承诺支持跨网络 SaaS 服务（如 Slack、Gmail 或云端 CI）的任意远程 Exactly-Once 事务保证。</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Bottom CTA Bar -->
-        <div class="usecase-cta-bar">
-          <a href="/docs.html#workflows" class="usecase-next-doc-link">下一步：阅读工作流与审批机制文档 →</a>
-          <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="btn btn-primary-amber" target="_blank" rel="noopener noreferrer">
-            下载 macOS 预览版 →
-          </a>
-        </div>
-      </div>
-    </section>
+<section class="catalogue-hero container"><div class="section-eyebrow">USE CASE / WORKFLOWS</div><h1 class="catalogue-title">放心运行重复任务</h1><p class="catalogue-lead">发布前，把需要检查的内容走一遍。</p></section><div class="container case-detail"><div class="case-readout"><div><span class="section-eyebrow">输入</span><p>工作流定义、Git 状态、项目脚本</p></div><div><span class="section-eyebrow">结果</span><p>有执行记录和输出的工作流</p></div></div><ol class="case-steps"><li><span>01</span><div><h2>预演</h2><p>从已保存定义开始，检查每一步的工具和作用域。Dry Run 只执行受支持的只读检查，其他步骤保留审阅说明。</p></div></li><li><span>02</span><div><h2>检查目标与原文</h2><p>在审批页阅读目标、命令与完整源内容。原始参数可展开；审批快照与当时看到的操作保持一致。</p></div></li><li><span>03</span><div><h2>批准执行</h2><p>批准后查看持久化运行记录、输出和需要进一步处理的状态。执行完成和结果有用分别判断。</p></div></li></ol><figure class="product-visual"><img src="/assets/vela-approval-current.png?v=6f93858163a4a311" alt="完整内容预览与单次操作审批" width="1250" height="800" loading="lazy" decoding="async"><figcaption>实际 macOS 开发版界面 · 隔离非持久合成 fixture · 非 preview.2 下载内容</figcaption></figure><a class="text-link" href="/product/#approvals">查看相关产品功能 →</a><br><a class="text-link" href="/usecases/">← 全部使用场景</a></div><aside class="availability-note container">本指南介绍当前开发分支能力。公开下载仍为 preview.2，较新的能力需要从源码构建；具体版本请查看<a href="/releases.html">发行记录</a>。</aside>
   </main>
 
-  <!-- Site Footer -->
   <footer class="site-footer">
     <div class="container footer-inner">
       <div class="footer-brand-line">
@@ -200,6 +101,6 @@
     </div>
   </footer>
 
-  <script src="../../site.js?v=acf1c37e1928f8dc"></script>
+  <script src="/site.js?v=acf1c37e1928f8dc"></script>
 </body>
 </html>

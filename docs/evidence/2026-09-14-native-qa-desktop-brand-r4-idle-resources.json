@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-14",
+  "scope": "Read-only 20-second idle sample of the currently open desktop-brand-r4 QA app while Usage > Account limits was left idle.",
+  "sample": {
+    "intervalSeconds": 10,
+    "count": 3,
+    "windowSeconds": 20,
+    "rawPath": "output/parity/native-qa-desktop-brand-r4-idle-sample-2026-09-14.json",
+    "rawSHA256": "d814e93e5588efbda676ffad2f8937748a07ad2032eef2a5495c89fec9c43e1a"
+  },
+  "attribution": {
+    "included": "Only executable paths directly rooted at the QA app: VelaHost and its child vela helper.",
+    "excluded": "No WebKit process was directly attributable by parent/descendant relation at inspection. Other system WebKit processes were excluded; therefore RSS is not app-total memory.",
+    "noPerformanceTargetClaim": "This observation does not establish a 100–200 MB target or overall application memory use."
+  },
+  "application": {
+    "path": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/desktop-design-r1/Vela QA desktop-brand-r4.app",
+    "fileSHA256": {
+      "Contents/MacOS/VelaHost": {
+        "sha256": "c6f573bb4d1d1cc0524238f6ca61835484b355f6ed682d8a0089d0b39342b343",
+        "bytes": 5869536
+      },
+      "Contents/MacOS/vela": {
+        "sha256": "5a8c18a04c83f654fc3ea7897f1ed2045125db0fe105ea0d7f2e2d399bcab042",
+        "bytes": 5436112
+      },
+      "Contents/Info.plist": {
+        "sha256": "ed3b7c7ee61588c1b8abfe2477900b8263de1cf20f7e3da0c604a1400249df3b",
+        "bytes": 1058
+      }
+    }
+  },
+  "processes": [
+    {
+      "pid": 1631,
+      "ppid": 1,
+      "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/desktop-design-r1/Vela QA desktop-brand-r4.app/Contents/MacOS/VelaHost",
+      "samples": 3,
+      "cpuPercent": {
+        "mean": 0.8333333333333334,
+        "max": 0.9
+      },
+      "rssKiB": {
+        "mean": 94288.0,
+        "max": 94464
+      },
+      "states": [
+        "S"
+      ]
+    },
+    {
+      "pid": 2047,
+      "ppid": 1631,
+      "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/desktop-design-r1/Vela QA desktop-brand-r4.app/Contents/MacOS/vela",
+      "samples": 3,
+      "cpuPercent": {
+        "mean": 0.7000000000000001,
+        "max": 1.1
+      },
+      "rssKiB": {
+        "mean": 15066.666666666666,
+        "max": 15200
+      },
+      "states": [
+        "S"
+      ]
+    }
+  ],
+  "combinedAttributedOnly": {
+    "cpuPercent": {
+      "mean": 1.5333333333333332,
+      "max": 1.9000000000000001
+    },
+    "rssKiB": {
+      "mean": 109354.66666666667,
+      "max": 109600
+    }
+  },
+  "limitations": [
+    "ps CPU is an interval-derived process statistic, not a per-thread profile.",
+    "No UI interaction, process sampling, termination, or WebKit-wide aggregation was performed.",
+    "This includes neither unrelated WebKit processes nor other application processes without a verifiable parent chain."
+  ]
+}

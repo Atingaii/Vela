@@ -90,6 +90,27 @@ def main():
                 time.sleep(.05)
             raise AssertionError(reason)
         def click(selector): browser('click', selector)
+        def select_settings_category(category):
+            selector = '[data-settings-category="' + category + '"]'
+            wait('!!document.querySelector(' + json.dumps(selector) + ')', 'Settings category is unavailable: ' + category)
+            click(selector)
+            wait('document.querySelector(' + json.dumps(selector) + ').getAttribute("aria-pressed")==="true"&&document.querySelector("[data-settings-panel=\\"' + category + '\\"]")?.hidden===false',
+                 'Settings category did not become visible: ' + category)
+        def open_starter_menu():
+            summary = '#btn-wf-starters-menu'
+            wait('!!document.querySelector(' + json.dumps(summary) + ')', 'Workflows view missing starter menu')
+            if not value('document.querySelector(' + json.dumps(summary) + ').closest("details.action-menu")?.open'):
+                click(summary)
+            wait('document.querySelector(' + json.dumps(summary) + ').closest("details.action-menu")?.open===true',
+                 'Starter menu did not open through its native details summary')
+        def open_workflow_actions(workflow_id):
+            menu = 'article.workspace-row.workflow-row[data-id="' + workflow_id + '"] details.action-menu'
+            wait('!!document.querySelector(' + json.dumps(menu) + ')', 'Saved workflow lacks its native action menu')
+            if not value('document.querySelector(' + json.dumps(menu) + ').open'):
+                click(menu + ' > summary')
+            wait('document.querySelector(' + json.dumps(menu) + ').open===true',
+                 'Workflow action menu did not open through its native details summary')
+            return menu
         def check(name, fn):
             if name not in selected_checks: return
             try: evidence['checks'].append(dict(check=name, passed=True, **fn()))
@@ -156,7 +177,7 @@ def main():
                 wait("(()=>{const modal=document.querySelector('#modal-container');const menu=document.querySelector('#btn-wf-starters-menu');const pane=document.querySelector('.content-pane');return !!modal?.classList.contains('hidden')&&document.querySelector('.nav-link.active')?.dataset.page==='workflows'&&!document.body.classList.contains('has-inspector-open')&&!document.querySelector('.detail-drawer:not(.hidden)')&&getComputedStyle(pane).visibility!=='hidden'&&!!menu&&menu.getClientRects().length>0&&getComputedStyle(menu).visibility!=='hidden';})()", reason)
                 state = workflows_list_state(); assert all(state.values()), state; restored_states.append(state)
             for template, tools in expected.items():
-                before_calls = value('window.__ui14.calls.length'); click('#btn-wf-starters-menu'); click('[data-template-id="' + template + '"]'); wait('!!document.querySelector("#wf-modal-title")', 'Starter did not open an editor')
+                before_calls = value('window.__ui14.calls.length'); open_starter_menu(); click('[data-template-id="' + template + '"]'); wait('!!document.querySelector("#wf-modal-title")', 'Starter did not open an editor')
                 assert value('document.querySelector("#wf-modal-trigger").value === "manual"'), 'Starter trigger is not manual'
                 actual = value('[...document.querySelectorAll(".wf-step-tool")].map(x=>x.value)'); assert actual == tools, (template, actual)
                 assert value('[...document.querySelectorAll(".wf-step-args")].every(x=>x.value.trim()==="{}")'), 'Starter arguments are not empty objects'
@@ -164,17 +185,17 @@ def main():
                 opened.append({'template': template, 'tools': actual}); click('#btn-cancel-wf'); require_workflows_list('Cancelling starter did not restore the visible Workflows list')
             assert project_tree_hash() == before_project, 'Opening unsaved starters changed the fixture project'
             for template, tools in expected.items():
-                save_before = value('window.__ui14.calls.filter(x=>x.method==="workflows.save"&&x.result).length'); click('#btn-wf-starters-menu'); click('[data-template-id="' + template + '"]'); click('#btn-save-wf'); wait('window.__ui14.calls.filter(x=>x.method==="workflows.save"&&x.result).length > ' + str(save_before), 'Explicit save did not reach helper')
+                save_before = value('window.__ui14.calls.filter(x=>x.method==="workflows.save"&&x.result).length'); open_starter_menu(); click('[data-template-id="' + template + '"]'); click('#btn-save-wf'); wait('window.__ui14.calls.filter(x=>x.method==="workflows.save"&&x.result).length > ' + str(save_before), 'Explicit save did not reach helper')
                 saved = value('window.__ui14.calls.filter(x=>x.method==="workflows.save"&&x.result).at(-1).result'); assert saved['trigger'] == 'manual' and saved['enabled'] is False and [step['tool'] for step in saved['steps']] == tools and all(step['arguments'] == {} for step in saved['steps'])
                 workflow_id = saved['id']; dry_run_selector = '.btn-wf-dryrun[data-id="' + workflow_id + '"]'
-                wait('!!document.querySelector(' + json.dumps(dry_run_selector) + ')', 'Saved workflow lacks dry-run action'); click(dry_run_selector); wait('window.__ui14.calls.some(x=>x.method==="workflows.run"&&x.params.id===' + json.dumps(workflow_id) + '&&x.params.dryRun===true)', 'Dry run was not issued')
+                open_workflow_actions(workflow_id); wait('!!document.querySelector(' + json.dumps(dry_run_selector) + ')', 'Saved workflow lacks dry-run action'); click(dry_run_selector); wait('window.__ui14.calls.some(x=>x.method==="workflows.run"&&x.params.id===' + json.dumps(workflow_id) + '&&x.params.dryRun===true)', 'Dry run was not issued')
                 wait('document.body.classList.contains("has-inspector-open") && !!document.querySelector("#btn-close-drawer") && document.querySelector("#btn-close-drawer").getClientRects().length>0', 'Dry run did not open its inspected run detail')
                 click('#btn-close-drawer'); require_workflows_list('Closing dry-run detail did not restore the visible Workflows list')
                 saved_runs.append({'template': template, 'id': workflow_id, 'tools': tools, 'detailOpenedThenClosed': True})
             assert project_tree_hash() == before_project, 'Git-read dry run modified the fixture project'
             return {'openedUnsaved': opened, 'restoredListStates': restored_states, 'savedThenDryRun': saved_runs, 'projectUnchanged': True}
         def sound_preview_and_visuals():
-            click('.nav-link[data-page="settings"]'); wait('!!document.querySelector("#setting-notifications")', 'Settings did not load')
+            click('.nav-link[data-page="settings"]'); select_settings_category('notifications'); wait('!!document.querySelector("#setting-notifications")', 'Settings notifications control did not load')
             assert not value('document.querySelector("#setting-notifications").checked'), 'Fixture notifications must start disabled'
             assert not value('document.querySelector("#btn-preview-notification-sound").disabled'), 'Preview is incorrectly disabled with notifications off'
             before = value('window.__ui14.calls.length')
@@ -186,13 +207,14 @@ def main():
                 browser('resize', width, 720); browser('screenshot', str(output / ('settings-' + str(width) + '.png')))
                 assert value('document.documentElement.scrollWidth <= document.documentElement.clientWidth'), 'Horizontal overflow at ' + str(width)
             browser('resize', 1280, 720)
+            select_settings_category('general')
             browser('select', '#setting-locale', 'en'); wait('VelaI18n.getLocale()==="en"&&!document.querySelector("#setting-locale").disabled', 'English locale save did not settle')
             open_cmdk(); assert value('document.querySelector("#tab-mode-actions").textContent.includes("Actions")'), 'English Actions accessibility label missing'; close_modal()
             browser('select', '#setting-locale', 'zh-CN'); wait('VelaI18n.getLocale()==="zh-CN"&&!document.querySelector("#setting-locale").disabled', 'Chinese locale save did not settle')
             open_cmdk(); assert value('document.querySelector("#tab-mode-actions").textContent.trim().length > 0 && document.querySelector("#tab-mode-actions").getAttribute("role") === "tab"'), 'Chinese Actions accessibility tab missing'; close_modal()
             return {'nativeAudioMockOnly': True, 'previewKinds': 3, 'notificationsUnchanged': True, 'localizedAccessibleTabs': ['en', 'zh-CN'], 'viewports': [1250, 375]}
         def toast_bounds_and_dismissal():
-            click('.nav-link[data-page="settings"]'); wait('!!document.querySelector("#btn-preview-notification-sound")', 'Settings preview unavailable')
+            click('.nav-link[data-page="settings"]'); select_settings_category('notifications'); wait('!!document.querySelector("#btn-preview-notification-sound")', 'Settings preview unavailable')
             browser('clock.install'); browser('clock.pauseAt', value('Date.now()') + 1)
             def preview(kind):
                 before = value('window.__ui14.calls.filter(x=>x.method==="system.previewNotificationSound").length')
@@ -211,7 +233,7 @@ def main():
             preview('error'); assert value('document.querySelectorAll("#toast-container .toast").length<=2'), 'Third real toast exceeded capacity'
             open_cmdk(); close_modal()
             browser('clock.runFor', 250); assert value('[...document.querySelectorAll("#toast-container .toast")].some(x=>x.dataset.toastKey===' + json.dumps(approval_node) + '&&x.style.opacity!=="0")'), 'Expired timer removed the replacement toast'
-            browser('clock.resume'); browser('select', '#setting-locale', 'en'); wait('VelaI18n.getLocale()==="en"&&!document.querySelector("#setting-locale").disabled', 'English locale save unavailable')
+            browser('clock.resume'); select_settings_category('general'); browser('select', '#setting-locale', 'en'); wait('VelaI18n.getLocale()==="en"&&!document.querySelector("#setting-locale").disabled', 'English locale save unavailable')
             assert value('document.querySelector(".toast-dismiss-btn")?.getAttribute("aria-label")==="Dismiss"'), 'English dismiss aria mismatch'
             browser('select', '#setting-locale', 'zh-CN'); wait('VelaI18n.getLocale()==="zh-CN"&&!document.querySelector("#setting-locale").disabled', 'Chinese locale save unavailable')
             assert value('document.querySelector(".toast-dismiss-btn")?.getAttribute("aria-label")==="关闭"'), 'Chinese dismiss aria mismatch'
@@ -245,7 +267,7 @@ def main():
             for width, height in ((900, 620), (1250, 720)):
                 browser('resize', width, height)
                 for page_name, selector in (('settings', '#setting-notifications'), ('workflows', '#btn-wf-starters-menu'), ('actions', '#tab-mode-actions')):
-                    if page_name == 'settings': click('.nav-link[data-page="settings"]'); wait('!!document.querySelector("#setting-notifications")', 'Settings unavailable')
+                    if page_name == 'settings': click('.nav-link[data-page="settings"]'); select_settings_category('notifications'); wait('!!document.querySelector("#setting-notifications")', 'Settings unavailable')
                     elif page_name == 'workflows': click('.nav-link[data-page="workflows"]'); wait('!!document.querySelector("#btn-wf-starters-menu")', 'Workflows unavailable')
                     else: open_cmdk(); click('#tab-mode-actions'); wait('!!document.querySelector("#tab-mode-actions")', 'Actions unavailable')
                     assert value('document.documentElement.scrollWidth <= document.documentElement.clientWidth'), 'Horizontal overflow at supported size ' + str(width)

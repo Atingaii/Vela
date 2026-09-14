@@ -15,7 +15,7 @@
   <link rel="preload" href="../assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
 
-  <link rel="stylesheet" href="../styles.css?v=5c6c5e77720e9a18">
+  <link rel="stylesheet" href="../styles.css?v=7fe760bdbb331b9d">
 
   <!-- Immediate theme application to prevent flash -->
   <script>
@@ -85,12 +85,12 @@
         <div class="comparisons-eyebrow">— COMPARISONS</div>
         <h1 class="comparisons-h1">Vela 与开发工具</h1>
         <p class="comparisons-lead">
-          Vela 作为 Coding Agent 的本地工程留存层，记录会话证据、统计真实消耗，并在会话间沉淀可审阅的上下文与自动化规范。它与日常代码编辑器、工作流平台和知识库分工协作，互补共存。
+          Vela 作为 Coding Agent 的本地工程留存层，记录会话证据与已观察到的 Token 用量，并在会话间沉淀可审阅的上下文与自动化规范。它与日常代码编辑器、工作流平台和知识库分工协作，互补共存。
         </p>
 
         <!-- Unobtrusive Baseline Note -->
         <div class="comparisons-notice">
-          <strong>版本说明与对比基线：</strong>Vela 列描述当前开发源码分支（参见 <a href="https://github.com/Atingaii/Vela/blob/365ed41325dcaf9f0c8a41e216ca29be9d91ba3f/docs/status.md" target="_blank" rel="noopener noreferrer">实现状态</a> 与 <a href="https://github.com/Atingaii/Vela/blob/365ed41325dcaf9f0c8a41e216ca29be9d91ba3f/docs/verification.md" target="_blank" rel="noopener noreferrer">验证文档</a>），最新公开发布安装包为 <strong>v0.1.0-preview.2</strong>。第三方产品能力均依据其公开官方文档（2026-09-13 核验）简要转述，不宣称对其进行了完整第三方实测。
+          <strong>版本说明与对比基线：</strong>Vela 列描述仓库 main 分支的当前开发文档（参见 <a href="https://github.com/Atingaii/Vela/blob/main/docs/status.md" target="_blank" rel="noopener noreferrer">实现状态</a> 与 <a href="https://github.com/Atingaii/Vela/blob/main/docs/verification.md" target="_blank" rel="noopener noreferrer">验证文档</a>），最新公开发布安装包为 <strong>v0.1.0-preview.2</strong>。第三方产品能力均依据其公开官方文档（2026-09-13 核验）简要转述，不宣称对其进行了完整第三方实测。
         </div>
 
         <!-- Horizontal Scroll Hint for mobile -->
@@ -145,7 +145,7 @@
                   <span class="factor-sub">执行过程与日志观察</span>
                 </th>
                 <td class="col-highlight">
-                  <div class="cell-desc">本地有界读取 Claude Code / Codex / Cursor 日志；记录真实 Token 并推断会话状态（无系统守护探针）。</div>
+                  <div class="cell-desc">本地有界读取 Claude Code / Codex / Cursor 日志；记录已观察到的 Token 用量并推断会话状态（无系统守护探针）。</div>
                 </td>
                 <td>
                   <div class="cell-desc">记录编辑器内 Chat 历史与 Agent 运行轨迹；Copilot cloud agent 自动记录调研、计划、测试与 PR 活动。</div>
@@ -249,7 +249,7 @@
               避免把“本地优先”误读为所有操作完全离线：Vela 自身完全运行在本地，不包含任何遥测上报或远端云服务。但当用户显式导入外部 HTTP/HTTPS 文档，或批准经配置的 Coding Agent 执行包含远程 API 请求的命令时，相关网络通信由对应外部进程产生。
             </p>
             <p>
-              本页所有对比基线均基于 2026-09-13 公开的第一方官方文档核验。Vela 相关描述对应当前开发源码分支的实现状态（参见 <a href="https://github.com/Atingaii/Vela/blob/365ed41325dcaf9f0c8a41e216ca29be9d91ba3f/docs/status.md" target="_blank" rel="noopener noreferrer">实现状态</a> 与 <a href="https://github.com/Atingaii/Vela/blob/365ed41325dcaf9f0c8a41e216ca29be9d91ba3f/docs/verification.md" target="_blank" rel="noopener noreferrer">验证文档</a>），官方正式发布安装包仍为 <strong>v0.1.0-preview.2</strong>。
+              本页所有对比基线均基于 2026-09-13 公开的第一方官方文档核验。Vela 相关描述对应仓库 main 分支的当前开发文档（参见 <a href="https://github.com/Atingaii/Vela/blob/main/docs/status.md" target="_blank" rel="noopener noreferrer">实现状态</a> 与 <a href="https://github.com/Atingaii/Vela/blob/main/docs/verification.md" target="_blank" rel="noopener noreferrer">验证文档</a>），官方正式发布安装包仍为 <strong>v0.1.0-preview.2</strong>。
             </p>
           </div>
         </div>
