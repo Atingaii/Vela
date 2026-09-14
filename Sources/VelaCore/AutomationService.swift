@@ -12,6 +12,8 @@ public final class AutomationService {
     let fileWatchEvents = WorkflowFileEvents()
     var compositionLeaseDepth = 0
     var connectorService: ConnectorService?
+    // Internal fixture barrier; renderer, RPC and MCP cannot supply this hook.
+    var promotionAfterValidationForTesting: (() throws -> Void)?
     /// Tests may inject a deterministic clock through the Core initializer.
     /// No renderer or RPC method can supply a clock.
     let approvalClock: () -> Date

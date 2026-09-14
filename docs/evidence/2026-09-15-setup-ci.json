@@ -1,0 +1,42 @@
+{
+  "format": "vela-ci-completion-v1",
+  "runId": 34865606555,
+  "headSha": "6389df382ce4e94cedb23cfb9102e96b809eb598",
+  "status": "completed",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "name": "Installed SDKs and OpenClaw integration",
+      "conclusion": "success",
+      "startedAt": "2026-09-14T15:58:14Z",
+      "completedAt": "2026-09-14T16:02:19Z"
+    },
+    {
+      "name": "macOS build and tests",
+      "conclusion": "success",
+      "startedAt": "2026-09-14T15:58:14Z",
+      "completedAt": "2026-09-14T16:11:17Z"
+    }
+  ],
+  "setupEditRPC14": {
+    "artifactPath": "output/parity/ci-setup-edit.json",
+    "passed": true,
+    "checks": 14
+  },
+  "setupEditWrapper": {
+    "artifactPath": "output/playwright/ci-setup-edit-ui/results.json",
+    "artifactResultSHA256": "95fc552279cc6edd2357e6e0692b663ff84c3509b275bf12fe2c3306c706b432",
+    "executed": true,
+    "passed": true,
+    "completeSuite": true,
+    "browserCheckCount": 13,
+    "browserPassed": true,
+    "consumerExitCode": 0,
+    "sourceUnchanged": true,
+    "fixtureRemoved": true,
+    "cleanupConfirmed": true,
+    "helperSHA256": "2c913ea9b6ff6ccafec05085068db751c6c0318425c88ee9e7515bcf925c79e0"
+  },
+  "scope": "Exact 6389df desktop Setup revision; later Core changes require their own checks. CI success does not establish native interaction or complete product acceptance.",
+  "url": "https://github.com/Atingaii/Vela/actions/runs/34865606555"
+}

@@ -125,7 +125,7 @@ extension AutomationService {
          "sourceHash":labMemorySourceHash(memory),"selection":"explicit_memory_id"]
     }
 
-    private func labMemorySourceHash(_ memory: JSON) -> String {
+    func labMemorySourceHash(_ memory: JSON) -> String {
         let source: JSON = ["id":string(memory,"id"),"project":string(memory,"project"),"scope":string(memory,"scope"),
                             "state":string(memory,"state"),"private":memory["private"] ?? NSNull(),
                             "sourceLabeledPrivate":memory["sourceLabeledPrivate"] ?? NSNull(),
@@ -137,7 +137,7 @@ extension AutomationService {
     /// Lab is a context-injection boundary. Its narrower project-only selection
     /// must fail closed for every privacy marker and source path, even when a
     /// lower retrieval implementation happened to return an item.
-    private func labMemoryEligible(_ memory: JSON, project: String, states: Set<String>, exclusions: IngestionExclusionService) throws -> Bool {
+    func labMemoryEligible(_ memory: JSON, project: String, states: Set<String>, exclusions: IngestionExclusionService) throws -> Bool {
         guard string(memory,"project") == project, string(memory,"scope").lowercased() == "project",
               states.contains(string(memory,"state").lowercased()),
               ModelImprovement.falseOrAbsent(memory["private"]),

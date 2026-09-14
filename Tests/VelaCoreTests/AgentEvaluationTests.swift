@@ -3,12 +3,13 @@ import XCTest
 
 final class AgentEvaluationTests: XCTestCase {
     private func fixture(_ work: (URL,VelaStore,AutomationService) throws -> Void) throws {
-        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("vela-agent-evaluation-" + UUID().uuidString)
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("vela-agent-evaluation-" + UUID().uuidString).resolvingSymlinksInPath()
         defer { try? FileManager.default.removeItem(at:temporary) }
-        let root = temporary.appendingPathComponent("project")
-        try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
+        let rawRoot = temporary.appendingPathComponent("project")
+        try FileManager.default.createDirectory(at:rawRoot,withIntermediateDirectories:true)
+        let root = URL(fileURLWithPath:canonicalProject(rawRoot.path))
         let store = try VelaStore(root:temporary.appendingPathComponent("store"))
-        _ = try store.put("project",["path":root.path,"project":root.path,"title":"Agent acceptance fixture"])
+        _ = try store.put("project",["id":stableHash(root.path),"path":root.path,"project":root.path,"title":"Agent acceptance fixture"])
         try work(root,store,AutomationService(store:store))
     }
     private func eventStream() throws -> String {
@@ -52,6 +53,32 @@ final class AgentEvaluationTests: XCTestCase {
     }
     private func sample(_ variant: String, success: Bool = true, ranTests: Bool, tokens: Int = 1000) -> JSON {
         ["variant":variant,"exitCode":0,"timedOut":false,"durationMs":100,"verificationIntact":true,"verification":["exitCode":success ? 0 : 1],"agentMetrics":["protocolComplete":true,"successfulTestInvocations":ranTests ? 1 : 0,"testExecutionObserved":ranTests,"tokens":tokens]]
+    }
+    private func completedPromotionEvaluation(_ service: AutomationService, store: VelaStore, project: URL, memoryIDs: [String]) throws -> JSON {
+        // The candidate receipt must come from the same Lab variant freezer that
+        // production uses. In particular, sourceHash is never hand-authored here.
+        for id in memoryIDs {
+            let memory = try XCTUnwrap(store.get("memory",id))
+            XCTAssertEqual(string(memory,"project"),project.path)
+            XCTAssertEqual(string(memory,"scope"),"project")
+            XCTAssertEqual(string(memory,"state"),"candidate")
+            XCTAssertEqual(memory["private"] as? Bool,false)
+        }
+        let candidate = try service.evaluationVariant(["memoryIds":memoryIDs],project:project.path)
+        let receipts = candidate["memories"] as? [JSON] ?? []
+        XCTAssertEqual(receipts.count,memoryIDs.count)
+        XCTAssertTrue(receipts.allSatisfy { !string($0,"sourceHash").isEmpty })
+        let noTests = try [["type":"thread.started","thread_id":"baseline"] as JSON,["type":"turn.completed","usage":["input_tokens":1000,"output_tokens":100]] as JSON].map(jsonString).joined(separator:"\n")
+        let rows = try (0..<3).flatMap { _ -> [JSON] in
+            var baseline = sample("baseline",ranTests:false); baseline["output"] = noTests; baseline["truncated"] = false
+            var candidateRun = sample("candidate",ranTests:true); candidateRun["output"] = try eventStream(); candidateRun["truncated"] = false
+            return [baseline,candidateRun]
+        }
+        return try store.put("eval",["project":project.path,"state":"completed","evaluator":"codex_agent","repetitions":3,"command":["/usr/bin/python3","verify.py"],"results":rows,"summary":["decision":"ready_for_review"],"candidate":candidate])
+    }
+    private func promotionMemory(_ project: URL, id: String, title: String = "Verification") -> JSON {
+        ["id":id,"title":title,"content":"Run the project tests before handoff.","scope":"project","project":project.path,"state":"candidate","private":false,
+         "provenance":["origin":"observed_session_capture","captureProtocol":"vela-session-memory-capture-v1","ingestionSource":["provider":"codex","relativePath":"captured/" + id + ".jsonl"] as JSON] as JSON]
     }
     func testWorseMissingAndTiedCandidatesCannotBecomePromotionReady() throws {
         try fixture { _,_,service in
@@ -188,18 +215,10 @@ final class AgentEvaluationTests: XCTestCase {
             XCTAssertEqual(wrongProvider["matchedSessions"] as? Int,0)
         }
     }
-    func testPromotionRejectsChangedMemoryAndOnlyActivatesTestedContext() throws {
+    func testPromotionUsesFrozenVariantReceiptAndOnlyActivatesTestedContext() throws {
         try fixture { root,store,service in
-            let memory = try store.put("memory",["title":"Verification","content":"Run the project tests before handoff.","scope":"project","project":root.path,"state":"candidate"])
-            let snapshot: JSON = ["id":memory["id"]!,"title":memory["title"]!,"content":memory["content"]!,"contentHash":stableHash(string(memory,"title") + "\n" + string(memory,"content"))]
-            // Synthetic service-state fixture tests the promotion guard; this is not an agent experiment.
-            let noTests = try [["type":"thread.started","thread_id":"baseline"] as JSON,["type":"turn.completed","usage":["input_tokens":1000,"output_tokens":100]] as JSON].map(jsonString).joined(separator:"\n")
-            let rows = try (0..<3).flatMap { _ -> [JSON] in
-                var b = sample("baseline",ranTests:false); b["output"] = noTests; b["truncated"] = false
-                var c = sample("candidate",ranTests:true); c["output"] = try eventStream(); c["truncated"] = false
-                return [b,c]
-            }
-            let evaluation = try store.put("eval",["project":root.path,"state":"completed","evaluator":"codex_agent","repetitions":3,"command":["/usr/bin/python3","verify.py"],"results":rows,"summary":["decision":"ready_for_review"],"candidate":["files":[],"memories":[snapshot],"context":string(memory,"title") + "\n" + string(memory,"content")]])
+            let memory = try store.put("memory",promotionMemory(root,id:"eligible"))
+            let evaluation = try completedPromotionEvaluation(service,store:store,project:root,memoryIDs:[string(memory,"id")])
             var edited = memory; edited["content"] = "Do something untested"; _ = try store.put("memory",edited)
             XCTAssertThrowsError(try service.promoteEvaluation(["id":evaluation["id"]!]))
             XCTAssertEqual(try store.get("memory",string(memory,"id"))?["state"] as? String,"candidate")
@@ -208,6 +227,148 @@ final class AgentEvaluationTests: XCTestCase {
             XCTAssertEqual(try store.get("memory",string(memory,"id"))?["state"] as? String,"active")
             XCTAssertEqual(try store.get("memory",string(memory,"id"))?["sourceEvalId"] as? String,string(evaluation,"id"))
             XCTAssertThrowsError(try service.promoteEvaluation(["id":evaluation["id"]!]))
+        }
+    }
+
+    func testPromotionRevalidatesLifecyclePrivacyPathsAndExclusions() throws {
+        try fixture { root,store,service in
+            let cases: [(String,(inout JSON) -> Void)] = [
+                ("global scope", { $0["scope"] = "global" }),
+                ("retired lifecycle", { $0["state"] = "archived" }),
+                ("candidate to active lifecycle", { $0["state"] = "active" }),
+                ("boolean private", { $0["private"] = true }),
+                ("string private", { $0["private"] = "false" }),
+                ("boolean source label", { $0["sourceLabeledPrivate"] = true }),
+                ("string source label", { $0["sourceLabeledPrivate"] = "false" }),
+                ("private sourcePath", { $0["sourcePath"] = root.appendingPathComponent("private/origin.jsonl").path }),
+                ("private sourceFile", { $0["sourceFile"] = root.appendingPathComponent(".private/origin.jsonl").path }),
+                ("different public sourcePath", { $0["sourcePath"] = root.appendingPathComponent("public/other.jsonl").path })
+            ]
+            for (index, entry) in cases.enumerated() {
+                let memory = try store.put("memory",promotionMemory(root,id:"changed-\(index)",title:entry.0))
+                let evaluation = try completedPromotionEvaluation(service,store:store,project:root,memoryIDs:[string(memory,"id")])
+                var changed = memory; entry.1(&changed); changed = try store.put("memory",changed)
+                let evaluationBefore = try XCTUnwrap(store.get("eval",string(evaluation,"id")))
+                XCTAssertThrowsError(try service.promoteEvaluation(["id":evaluation["id"]!]),entry.0)
+                XCTAssertEqual(try jsonString(try XCTUnwrap(store.get("memory",string(memory,"id")))),try jsonString(changed),entry.0)
+                XCTAssertNil(try store.get("promotion","promotion-" + string(evaluation,"id")),entry.0)
+                XCTAssertEqual(try jsonString(try XCTUnwrap(store.get("eval",string(evaluation,"id")))),try jsonString(evaluationBefore),entry.0)
+            }
+
+            let sourceMemory = try store.put("memory",promotionMemory(root,id:"source-rule"))
+            let sourceEvaluation = try completedPromotionEvaluation(service,store:store,project:root,memoryIDs:[string(sourceMemory,"id")])
+            let sourceRules = IngestionExclusionService(store:store)
+            sourceRules.knownSource = { project,provider,glob in project == root.path && provider == "codex" && glob == "captured/source-rule.jsonl" }
+            _ = try sourceRules.handle("ingestion.exclusions.upsert",["project":root.path,"provider":"codex","pathGlob":"captured/source-rule.jsonl"])
+            let sourceBefore = try XCTUnwrap(store.get("eval",string(sourceEvaluation,"id")))
+            XCTAssertThrowsError(try service.promoteEvaluation(["id":sourceEvaluation["id"]!]),"source exclusion must invalidate a completed evaluation")
+            XCTAssertEqual(try store.get("memory",string(sourceMemory,"id"))?["state"] as? String,"candidate")
+            XCTAssertNil(try store.get("promotion","promotion-" + string(sourceEvaluation,"id")))
+            XCTAssertEqual(try jsonString(try XCTUnwrap(store.get("eval",string(sourceEvaluation,"id")))),try jsonString(sourceBefore))
+        }
+    }
+
+    func testPromotionRejectsLegacyReceiptsWholeProjectExclusionAndNeverPartiallyActivates() throws {
+        try fixture { root,store,service in
+            let legacyMemory = try store.put("memory",promotionMemory(root,id:"legacy"))
+            var legacyEvaluation = try completedPromotionEvaluation(service,store:store,project:root,memoryIDs:[string(legacyMemory,"id")])
+            var legacyCandidate = try XCTUnwrap(legacyEvaluation["candidate"] as? JSON)
+            var legacySnapshots = try XCTUnwrap(legacyCandidate["memories"] as? [JSON])
+            legacySnapshots[0].removeValue(forKey:"sourceHash")
+            legacyCandidate["memories"] = legacySnapshots; legacyEvaluation["candidate"] = legacyCandidate
+            _ = try store.put("eval",legacyEvaluation)
+            XCTAssertThrowsError(try service.promoteEvaluation(["id":legacyEvaluation["id"]!]),"legacy memory-only Lab records without a source receipt must fail closed")
+            XCTAssertEqual(try store.get("memory",string(legacyMemory,"id"))?["state"] as? String,"candidate")
+
+            let contextMemory = try store.put("memory",promotionMemory(root,id:"context-hash"))
+            var contextEvaluation = try completedPromotionEvaluation(service,store:store,project:root,memoryIDs:[string(contextMemory,"id")])
+            var invalidCandidate = try XCTUnwrap(contextEvaluation["candidate"] as? JSON)
+            invalidCandidate["finalContextHash"] = "not-a-frozen-context-hash"; contextEvaluation["candidate"] = invalidCandidate
+            _ = try store.put("eval",contextEvaluation)
+            XCTAssertThrowsError(try service.promoteEvaluation(["id":contextEvaluation["id"]!]),"promotion must reject a candidate whose full frozen context hash changed")
+            XCTAssertEqual(try store.get("memory",string(contextMemory,"id"))?["state"] as? String,"candidate")
+            XCTAssertNil(try store.get("promotion","promotion-" + string(contextEvaluation,"id")))
+
+            let first = try store.put("memory",promotionMemory(root,id:"batch-first"))
+            let second = try store.put("memory",promotionMemory(root,id:"batch-second"))
+            let batch = try completedPromotionEvaluation(service,store:store,project:root,memoryIDs:[string(first,"id"),string(second,"id")])
+            var nowPrivate = second; nowPrivate["sourceLabeledPrivate"] = true; _ = try store.put("memory",nowPrivate)
+            XCTAssertThrowsError(try service.promoteEvaluation(["id":batch["id"]!]),"one ineligible memory must reject the whole promotion batch")
+            XCTAssertEqual(try store.get("memory",string(first,"id"))?["state"] as? String,"candidate")
+            XCTAssertEqual(try store.get("memory",string(second,"id"))?["state"] as? String,"candidate")
+            XCTAssertNil(try store.get("promotion","promotion-" + string(batch,"id")))
+
+            let excluded = try store.put("memory",promotionMemory(root,id:"whole-project"))
+            let excludedEvaluation = try completedPromotionEvaluation(service,store:store,project:root,memoryIDs:[string(excluded,"id")])
+            _ = try IngestionExclusionService(store:store).handle("ingestion.exclusions.upsert",["project":root.path])
+            XCTAssertThrowsError(try service.promoteEvaluation(["id":excludedEvaluation["id"]!]),"whole-project exclusion must invalidate a completed evaluation")
+            XCTAssertEqual(try store.get("memory",string(excluded,"id"))?["state"] as? String,"candidate")
+        }
+    }
+
+    func testPromotionCASRejectsPolicyOrMemoryChangesCommittedAfterValidation() throws {
+        // No policy revision exists at admission: the final create-only expectation
+        // must reject a whole-project policy committed by another VelaStore.
+        try fixture { root,store,service in
+            let memory = try store.put("memory",promotionMemory(root,id:"absent-policy"))
+            let evaluation = try completedPromotionEvaluation(service,store:store,project:root,memoryIDs:[string(memory,"id")])
+            let before = try XCTUnwrap(store.get("eval",string(evaluation,"id")))
+            let writer = try VelaStore(root:store.root)
+            service.promotionAfterValidationForTesting = {
+                _ = try IngestionExclusionService(store:writer).handle("ingestion.exclusions.upsert",["project":root.path])
+            }
+            defer { service.promotionAfterValidationForTesting = nil }
+            XCTAssertThrowsError(try service.promoteEvaluation(["id":evaluation["id"]!]))
+            XCTAssertEqual(try store.get("memory",string(memory,"id"))?["state"] as? String,"candidate")
+            XCTAssertNil(try store.get("promotion","promotion-" + string(evaluation,"id")))
+            XCTAssertEqual(try jsonString(try XCTUnwrap(store.get("eval",string(evaluation,"id")))),try jsonString(before))
+            XCTAssertNotNil(try store.get("ingestion_policy_revision",stableHash(root.path)))
+        }
+
+        // A revision already exists at admission: its exact hash, rather than only
+        // absence, must guard the final atomic promotion batch.
+        try fixture { root,store,service in
+            let initialRules = IngestionExclusionService(store:store)
+            initialRules.knownSource = { project,provider,glob in project == root.path && provider == "codex" && glob == "captured/other.jsonl" }
+            _ = try initialRules.handle("ingestion.exclusions.upsert",["project":root.path,"provider":"codex","pathGlob":"captured/other.jsonl"])
+            let revisionBefore = try XCTUnwrap(store.get("ingestion_policy_revision",stableHash(root.path)))
+            let memory = try store.put("memory",promotionMemory(root,id:"expected-policy"))
+            let evaluation = try completedPromotionEvaluation(service,store:store,project:root,memoryIDs:[string(memory,"id")])
+            let writer = try VelaStore(root:store.root)
+            let writerRules = IngestionExclusionService(store:writer)
+            writerRules.knownSource = { project,provider,glob in project == root.path && provider == "codex" && glob == "captured/later.jsonl" }
+            var writerCommitted = false
+            service.promotionAfterValidationForTesting = {
+                _ = try writerRules.handle("ingestion.exclusions.upsert",["project":root.path,"provider":"codex","pathGlob":"captured/later.jsonl"])
+                writerCommitted = true
+            }
+            defer { service.promotionAfterValidationForTesting = nil }
+            XCTAssertThrowsError(try service.promoteEvaluation(["id":evaluation["id"]!])) { error in
+                XCTAssertTrue(error.localizedDescription.contains("Batch source changed"),"unexpected rejection stage: \(error)")
+            }
+            XCTAssertTrue(writerCommitted,"post-validation writer did not commit its policy revision")
+            let revisionAfter = try XCTUnwrap(store.get("ingestion_policy_revision",stableHash(root.path)))
+            XCTAssertNotEqual(try jsonString(revisionBefore),try jsonString(revisionAfter))
+            XCTAssertEqual(try store.get("memory",string(memory,"id"))?["state"] as? String,"candidate")
+            XCTAssertNil(try store.get("promotion","promotion-" + string(evaluation,"id")))
+        }
+
+        // The Memory object read during validation must be the one putBatch CASes;
+        // a separate connection changing content after validation cannot be promoted.
+        try fixture { root,store,service in
+            let memory = try store.put("memory",promotionMemory(root,id:"memory-cas"))
+            let evaluation = try completedPromotionEvaluation(service,store:store,project:root,memoryIDs:[string(memory,"id")])
+            let writer = try VelaStore(root:store.root)
+            service.promotionAfterValidationForTesting = {
+                var changed = try XCTUnwrap(writer.get("memory",string(memory,"id")))
+                changed["content"] = "Changed after promotion validation."
+                _ = try writer.put("memory",changed)
+            }
+            defer { service.promotionAfterValidationForTesting = nil }
+            XCTAssertThrowsError(try service.promoteEvaluation(["id":evaluation["id"]!]))
+            XCTAssertEqual(try store.get("memory",string(memory,"id"))?["state"] as? String,"candidate")
+            XCTAssertEqual(try store.get("memory",string(memory,"id"))?["content"] as? String,"Changed after promotion validation.")
+            XCTAssertNil(try store.get("promotion","promotion-" + string(evaluation,"id")))
         }
     }
 }

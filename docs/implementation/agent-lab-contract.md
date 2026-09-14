@@ -52,7 +52,9 @@ Lab child processes start with an explicit empty signal mask. This prevents a Di
 
 ## `lab.promote {id}`
 
-Requires a completed `codex_agent` eval ready for review. Only a **memory-only candidate** can activate memory: no extra candidate file changes or unpromoted context. Source suggestion hash and current memory content/scope/privacy must still match. A guarded SQLite/Markdown batch rejects concurrent changes. Return shape:
+Requires a completed `codex_agent` eval ready for review. Only a **memory-only candidate** can activate memory: no extra candidate file changes or unpromoted context. Promotion rechecks the frozen final context and each selected Memory against the same project, lifecycle, privacy markers, source paths and source hash used before Lab execution. Current whole-project and captured-source ingestion exclusions also apply. A changed or missing source receipt requires a new evaluation; legacy records are retained for inspection but cannot activate Memory without that receipt.
+
+The eligibility check and activation are linked by the existing guarded SQLite/Markdown batch: it compares every selected Memory, the evaluation and the ingestion-policy revision (including an absent revision). If another helper changes a selected record or commits a policy change after validation, the entire promotion is rejected without partially activating Memory. Return shape:
 
 ```json
 {"evaluation": {}, "promotion": {"id": "promotion-eval-id", "evalId": "eval-id", "memoryIds": [], "state": "active", "futureEffect": "not_measured"}, "nextStep": "..."}

@@ -72,10 +72,22 @@ extension AutomationService {
         let candidate = evaluation["candidate"] as? JSON ?? [:]
         let memoryContext = snapshots.map { string($0,"title") + "\n" + string($0,"content") }.joined(separator:"\n\n")
         guard (candidate["files"] as? [JSON] ?? []).isEmpty, string(candidate,"context") == memoryContext else { throw VelaError("Promotion requires a memory-only candidate; extra context or files would not be reproduced by recall") }
+        guard string(candidate,"finalContextHash") == stableHash(memoryContext) else { throw VelaError("Frozen Lab memory context is invalid; prepare a new evaluation") }
+        let exclusions = IngestionExclusionService(store:store)
+        // Read the policy revision before checking any Memory. The final batch
+        // rejects a rule change committed by another helper during validation,
+        // including the first rule when no revision existed at admission.
+        let policy = try exclusions.admission(project:root,provider:"",relative:"")
+        guard !policy.excluded else { throw VelaError("Evaluation memory is excluded by the current ingestion policy") }
+        expected += policy.expected
         var writes: [(String,JSON)] = []
         for snapshot in snapshots {
             var memory = try object("memory",requireString(snapshot,"id"))
-            guard string(memory,"project") == root, string(memory,"scope") == "project", memory["private"] as? Bool != true, ["candidate","active"].contains(string(memory,"state")), stableHash(string(memory,"title") + "\n" + string(memory,"content")) == string(snapshot,"contentHash") else { throw VelaError("Candidate memory changed or became unavailable; retest before promotion") }
+            guard !string(snapshot,"sourceHash").isEmpty,
+                  try labMemoryEligible(memory,project:root,states:["candidate","active"],exclusions:exclusions),
+                  stableHash(string(memory,"title") + "\n" + string(memory,"content")) == string(snapshot,"contentHash"),
+                  labMemorySourceHash(memory) == string(snapshot,"sourceHash") else { throw VelaError("Candidate memory changed, became private, was excluded or lacks a source receipt; retest before promotion") }
+            // Validate and compare-and-swap the same object, never a later read.
             expected.append(("memory",string(memory,"id"),stableHash(try jsonString(memory))))
             memory["state"] = "active"; memory["sourceEvalId"] = id; memory["promotedAt"] = isoNow(); memory["lastConfirmed"] = isoNow()
             writes.append(("memory",memory))
@@ -83,7 +95,8 @@ extension AutomationService {
         let promotion: JSON = ["id":"promotion-" + id,"project":root,"evalId":id,"memoryIds":snapshots.map {string($0,"id")},"state":"active","evidenceKind":"reviewed_local_agent_comparison","futureEffect":"not_measured"]
         evaluation["promotionId"] = promotion["id"]; evaluation["promotedAt"] = isoNow()
         writes.append(("promotion",promotion)); writes.append(("eval",evaluation))
-        _ = try store.putBatch(writes,expecting:expected)
+        try promotionAfterValidationForTesting?()
+        _ = try store.putBatch(writes,expecting:expected,expectingAbsent:policy.absent)
         return ["evaluation":evaluation,"promotion":promotion,"nextStep":"Enable and trust the project Codex SessionStart hook to supply active memory to future sessions."]
     }
 

@@ -1,0 +1,128 @@
+{
+  "format": "vela-lab-promotion-eligibility-verification-v1",
+  "date": "2026-09-15",
+  "status": "local_core_package_rpc_and_setup_browser_passed",
+  "synthetic": true,
+  "externalProviderRuns": 0,
+  "nativeInteractionVerified": false,
+  "wholeProductAcceptance": "No-Go",
+  "change": "Promotion revalidates the frozen project Memory and context, and atomically checks the current ingestion policy revision and the same Memory object before activation.",
+  "sourceCodeSHA256": {
+    "Sources/VelaCore/AutomationService.swift": "b927c819539e0786979f5c307aa091dfbe47f5654b1535d735e95ae0c582c4c2",
+    "Sources/VelaCore/LabService.swift": "c51fa3cf5bd0c287e94bcff48a3359a354d1cef82ae31fab1251918c12ea2fad",
+    "Sources/VelaCore/ReuseService.swift": "8d3a34dee992760f392a9b741710a38773097c06bff20b62f088835a5db78690"
+  },
+  "preFixReproduction": {
+    "path": "output/parity/lab-promotion-pre-fix-r3-2026-09-15.json",
+    "sha256": "71f46cf7981613588e937cb2b5fe72a5593fd45116efe7fe6b25c25680985495",
+    "passed": false,
+    "executedMethodCount": 3,
+    "passedMethodCount": 1,
+    "failedMethods": [
+      "AgentEvaluationTests.testPromotionRevalidatesLifecyclePrivacyPathsAndExclusions",
+      "AgentEvaluationTests.testPromotionRejectsLegacyReceiptsWholeProjectExclusionAndNeverPartiallyActivates"
+    ],
+    "matchesWorkingTreeAtEnd": true,
+    "snapshotSHA256": "6ed3ddb99f699b7fa4300db60bf2c38487b9dd1790b4820eea343a93337abcd6"
+  },
+  "preFixLimitations": [
+    "The positive control passed and privacy/source/exclusion/legacy/batch cases reproduced the defect.",
+    "An assetPath mutation was not a reachable input because Store overwrites that managed field; this invalid negative was removed before fixed tests.",
+    "Earlier pre-fix attempts did not reach the target due to fixture project canonicalization and registration errors; their failure receipts are retained."
+  ],
+  "regression": {
+    "path": "output/parity/lab-promotion-fixed-r1-2026-09-15.json",
+    "sha256": "012aee0972b5c6c774eb8408907fd46c3d8b5629e95ccf4654d55aa6f07df1dd",
+    "passed": true,
+    "executedMethodCount": 28,
+    "passedMethodCount": 28,
+    "failedMethods": [],
+    "matchesWorkingTreeAtEnd": true,
+    "snapshotSHA256": "b8b9e5d170baf16f57d29fdf865cb3cc5ec33e415501796ba4f34ae74432cc02"
+  },
+  "finalPromotionChecks": {
+    "path": "output/parity/lab-promotion-final-2026-09-15.json",
+    "sha256": "fa1bc8b154ad6f30cef2792b67257d02774ab3ec08bdaedbd1b6436559eafe79",
+    "passed": true,
+    "executedMethodCount": 4,
+    "passedMethodCount": 4,
+    "failedMethods": [],
+    "matchesWorkingTreeAtEnd": true,
+    "snapshotSHA256": "6d95458c5c30e7c20aa0b04a37d7994e9c2cbb9f75bd7440d19c9730127ee5f8"
+  },
+  "testCountPolicy": "The final four promotion methods overlap the 28-method regression; do not add them as unique tests. The final pass strengthens evidence that the second writer actually committed before the expected-revision CAS refusal.",
+  "scope": [
+    "Current memory source receipt and final context are mandatory; legacy records remain readable and require retesting for promotion.",
+    "Whole-project and captured-source exclusions apply; absence and existence of the policy revision are guarded atomically.",
+    "This is synthetic Core correctness evidence, not a positive external-provider Golden comparison or proof of model adoption."
+  ],
+  "nativeLimitation": "macOS locked; new native editing flow remains unverified.",
+  "package": {
+    "format": "vela-development-delivery-v2",
+    "date": "2026-09-15",
+    "passed": true,
+    "sourceCommitBeforeChanges": "6389df382ce4e94cedb23cfb9102e96b809eb598",
+    "uiSHA256": {
+      "index.html": "380127605c6c147ee7b58bb54e0e9d770204b7d6a811f38f6103b7ae97356786",
+      "app.js": "f2e81d78f43eda35105e4f919db5804d60c76934b777d63199097925bb6ad846",
+      "i18n.js": "ad84691b013c75518bd4cd03e62189b9ef11fb1d04aa6a9b9a92b4c50bb33fb7",
+      "app.css": "c4e98fbacd99c0c90fcef842ad69ed81285b9ab5d20b1db9e9dbd01fd8927689",
+      "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "content.js": "74684dfd028bd89ed58b40f1a8ae9c0f201e6b393ad81eabc3a9b5909d67f600",
+      "reading.css": "88780a11b43a6eaa8b87e476abfc1ed1ed2c3d581739f1acde0e57d80e29d295",
+      "vendor/marked.js": "b147274a9ce27d17276587167e49483d719f6893eeca3a3667a59797661d3556",
+      "vendor/marked.LICENSE": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+      "vendor/purify.js": "f263b05369e050fa175d4ecb9c9358eb4253602d510297adfb31df48b2f1c4d5",
+      "vendor/purify.LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "vendor/prism-core.js": "6caad316dd991f24f8004e0b9c19c055cb5829ff65e973fbee406f96d81b8e7e",
+      "vendor/prism-clike.js": "c76ba4e240932bdc75546be30e550f5ba5e13815ff71511c76e9e27ac3072444",
+      "vendor/prism-javascript.js": "0345ea83e12b7b974e953c79a64dea35a40308309449db70b82020fb688ac321",
+      "vendor/prism-json.js": "956d86baa5ae7ec4106758f354ac2d140bdcd7fc103dece02f73ed12b8d663e4",
+      "vendor/prism-bash.js": "6260814110e5182f2956e3bd257429548d9dbf2a9b66a63719b26cf9fac966a7",
+      "vendor/prism-python.js": "ed4385685bcf2d4935c8dbbab4bde16603da1329e092d2bf36c3dadd67e9a85c",
+      "vendor/prism-swift.js": "69c8a062618949fbc7b69989ab7fb2b7bc111b28ea329e53713c7a2885614b20",
+      "vendor/prism-css.js": "8c9760dba7f26ea842016919544dd9b73a78a36d5b07a1e9842c333ed18ab6ae",
+      "vendor/prism-markup.js": "879fc9d256c352d980e053857fa707330853b8bfb67ce284ea661a24dec5756e",
+      "vendor/prism.LICENSE": "2b947f0901a7ffcf08a89957da9783c0e9c6e72cb6ce8e959f501ab5409e4d2b"
+    },
+    "sourceUIEqualsPackagedUI": true,
+    "helperSHA256": "998987b9627dcabcf37756161694244a6d094d0727f501909c3548e469d8b97a",
+    "desktopSHA256": "4a8445e14a320462e6e68f07e97e68180e472174f0945031afee7d1809ba7dae",
+    "archiveSHA256": "feca16356106a71a6c3120b48659cb70ce8157fefffd95d424ce5ee4be9f1901",
+    "archiveBytes": 3975703,
+    "version": "0.1.0",
+    "architecture": "arm64",
+    "channel": "dev",
+    "developerIDSigned": false,
+    "notarized": false,
+    "codesignVerified": true,
+    "allowlistVerified": true,
+    "browser": {
+      "path": "output/playwright/setup-edit-delivery-20260915-r2/results.json",
+      "sha256": "3ade72afd536b4604179e275da2aa3510eee2385cfa6b5eb2108cae2463a1e34",
+      "checks": 13,
+      "passed": true,
+      "usesDevelopmentOnlyHarnessFiles": true,
+      "packagedUIResourceCount": 21
+    },
+    "buildLog": "output/parity/lab-promotion-package-2026-09-15.log",
+    "buildLogSHA256": "c24c39615981cee4fd39240e804777d05882579a8aaf3bfac0b3f6caf7c8c8fd",
+    "nativeInteractionVerified": false,
+    "nativeLimitation": "macOS locked; new Setup editing native flow has not been completed."
+  },
+  "packagedRPC": [
+    {
+      "path": "output/parity/setup-edit-package-rpc-r3.json",
+      "sha256": "2935a3d304fee06617e32acace056210f347ddaed3e7af7dc7e03c051b916c1d",
+      "passed": true,
+      "checks": 14
+    },
+    {
+      "path": "output/parity/lab-promotion-package-guards-2026-09-15.json",
+      "sha256": "2eb7df1121d52f6c1bd2583bde700b776bcefd99aceb0e79bd4567b5305e25df",
+      "passed": true,
+      "checks": 8
+    }
+  ],
+  "browserAttemptLimitation": "The first wrapper invocation used the release-only UI directory and exited before starting a consumer because demo.js is deliberately not packaged. Its console log is retained. The corrected run freezes source UI plus harness files; all 21 packaged UI resources are separately byte-equal to source."
+}
