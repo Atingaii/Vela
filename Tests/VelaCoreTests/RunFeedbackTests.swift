@@ -22,6 +22,8 @@ final class RunFeedbackTests: XCTestCase {
         var changed = try store.get("run","run")!; changed["state"] = "failed"; _ = try store.put("run",changed)
         XCTAssertThrowsError(try service.handle("runs.feedback.record",["project":root.path,"runId":"run","runHash":prepared["runHash"]!,"previousFeedbackHash":NSNull(),"outcome":"good","reason":"ok"]))
         changed["private"] = true; _ = try store.put("run",changed); XCTAssertThrowsError(try service.handle("runs.feedback.prepare",["project":root.path,"runId":"run"]))
+        changed["private"] = false; changed["sourceLabeledPrivate"] = true; _ = try store.put("run",changed); XCTAssertThrowsError(try service.handle("runs.feedback.prepare",["project":root.path,"runId":"run"]))
+        changed["sourceLabeledPrivate"] = false; changed["sourcePath"] = root.appendingPathComponent("private/feedback-source.jsonl").path; _ = try store.put("run",changed); XCTAssertThrowsError(try service.handle("runs.feedback.prepare",["project":root.path,"runId":"run"]))
         XCTAssertEqual(try store.list("run_feedback").count,0)
     } }
 }

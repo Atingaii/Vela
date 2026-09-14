@@ -8,7 +8,7 @@
 
 | 模块 | 已实现行为 | 尚需完成或验证的边界 |
 | --- | --- | --- |
-| 桌面与语言 | AppKit、系统 WKWebView、独立 Swift helper；分组会话、记忆、工作流、审批与设置；简体中文/English 持久化切换 | 当前交付平台 Apple Silicon、macOS 13+。新增能力的界面正在指定 Antigravity CLI 中接通，不能沿用旧 UI 结果证明新入口可用 |
+| 桌面与语言 | AppKit、系统 WKWebView、独立 Swift helper；分组会话、记忆、工作流、审批与设置；简体中文/English 持久化切换 | 当前交付平台 Apple Silicon、macOS 13+。本轮 UI 已经用户授权的 Gemini 兼容 API 实现；已验证入口与仍未验收的台账能力分开记录 |
 | 会话观察 | Claude/Codex 增量日志、部分 Cursor 导出/SQLite、Pi v1/v2/v3 分支记录与 OMP 元数据；有界流式读取、来源版本、身份/轮转检查 | 完整历史回填及所有私有 Cursor 格式仍未完成。日志推断不等于进程存活证明；Pi 最新持久化分支不冒充当前活跃分支 |
 | 显式历史回填 | Claude/Codex/Pi/OMP JSONL来源清单、固定epoch、分批读取与重启续传、稳定分页和完整原文分块；解析/原文/分支分别计量 | 历史回填桌面发现/分页/启停/续传/原文分块已通过 UI17 实测和 972 CI；Cursor、未知格式与完整大负载仍未验收，未解析原文不计为归一化功能 |
 | 会话计划 | Codex update_plan、Claude Todo/Task 的持久化调用与成功回执配对；只读任务状态、来源hash/位置、提议/失败/未知区分 | UI17 的全部项目 scope 与后台刷新展开/锚点缺陷保留为历史反例。UI18 r7 已在冻结 renderer→真实隔离 helper 的完整 8 项浏览器路径中复验 explicit project、展开首屏、默认首 cursor、无旧 cursor、stale guard 与 anchor；其真实 held `sessions.relations.get` + 用户 wheel 反例从 r6 的红结果变为 r7 保持阅读位置的通过结果。嵌套 held-response 加 wheel 的反例只在 Chrome 实测，机制是 Chromium 原生 scroll anchoring 的证据支持推断而非 setter trace 结论。另有匹配 r7 的 WKWebView 普通刷新、父子关系导航和双语 Search/Actions 实测；没有原生 held-response 覆盖，仅保存一张刷新后截图，不声称保存前后成对证据。完整历史投影/未文档化格式仍不足，计划完成不证明工程验证通过 |
@@ -75,13 +75,15 @@ UI19 记忆采集已通过指定 Antigravity CLI 实现并机械合入源码：�
 
 UI20 健康提案已由同一指定模型实现并合入开发源码：完整4项 Health 浏览器旅程、5项会话采集和8项 scope/ARIA 回归在同一冻结 UI 与真实隔离 helper 上通过。包括无效超时输入拒绝、确认前不生成工作流、接受后只新增默认停用候选、显式恢复及晚回包项目隔离；[证据](parity/ui20-health-proposal-evidence-2026-09-14.json)。匹配冻结来源的7项原生流程已通过（预览、拒绝、接受门槛、恢复、普通刷新与双语采集布局），发布包尚未更新。
 
-运行反馈、Lab Recall 和增长日志完整性修复已机械合入开发源码，整合前冻结 Core 的463项 portable 方法与真实隔离 RPC 均通过；本机 root 构建通过。增长日志会验证已索引前缀完整 SHA，检测旧消息改写加追加；每64 KiB 释放临时读取对象。在同一100 MiB合成日志、五次追加的长驻 helper 对照中，RSS 从修前最终383344 KiB 降至修后约18176 KiB，完整扫描仍需约125–145 ms，不据此宣称全应用性能达标。[Core证据](parity/feedback-lab-session-core-evidence-2026-09-14.json)。反馈与Lab新界面、最终 checkout CI、发布包仍分别验收。
+运行反馈、Lab Recall 和增长日志完整性修复已机械合入开发源码，整合前冻结 Core 的463项 portable 方法与真实隔离 RPC 均通过；本机 root 构建通过。增长日志会验证已索引前缀完整 SHA，检测旧消息改写加追加；每64 KiB 释放临时读取对象。在同一100 MiB合成日志、五次追加的长驻 helper 对照中，RSS 从修前最终383344 KiB 降至修后约18176 KiB，完整扫描仍需约125–145 ms，不据此宣称全应用性能达标。[Core证据](parity/feedback-lab-session-core-evidence-2026-09-14.json)。
+
+r4 renderer `app.js` `05e206cb…` 与同一冻结 helper 的串行浏览器验收已得到 Desktop 6/6、Run Feedback 5/5 及 held prepare gate 通过；[实现约定与逐项证据](implementation/desktop-comfort-feedback-recall.md)。Feedback 详情卡片不再把 `runs.get/list` 原始 run 当作人工反馈投影，而是使用只读 `runs.feedback.prepare` 加 project/run/drawer/card epoch guard。Core 68/68 是 portable 回归，非 XCTest。原生 r3 已验证 history footer、Feedback good r1→bad r2 而 run 保持 completed、Lab ON 字段和 English 草稿保留；r4 重启确认 Harbor completed drawer 读取 r2 负面 reason，并以 AX/截图确认 header 竖排修复。drawer 生命周期/错误态/header bbox 尚未覆盖，background-run 稳定七列仍挤压，最终原生、checkout/CI、发布包及188项规格/228项参考能力整体仍分别 **NoGo**。
 
 原生资源补测为2分钟、5个合成会话及一次增量刷新：可归属的主进程和helper RSS中位95.344 MiB、峰104.203 MiB；稳定空闲采样CPU峰0.4%。WebContent无法可靠归属，整应用内存目标仍未成立为已验收结论；启动/交互p95与长稳仍未测。[资源证据](parity/native-resource-evidence-2026-09-14.json)。
 
 摄取排除与数据库迁移已合入开发源码：项目/来源规则、投影撤回和规则代际原子提交，五种 provider 的新写入复核代际；History 的旧 ID 在规则有效时不能绕过访问限制。SQLite 0→1 升级可回滚，较新 schema 会拒绝。匹配 root 的冻结 Core 共482项 portable 方法通过，真实隔离 RPC、重启和旧历史导入回归通过；[证据](parity/ingestion-migration-evidence-2026-09-14.json)。这不等于 OBS-09/OBS-13/SEC-12 整体验收：桌面排除入口、完整备份恢复与索引修复仍未闭合；已存在 Memory 的召回抑制在下述新检查点单独验收。
 
-上一个 checkpoint 的 CI 在 Lab 浏览器测试桥处失败：新 Recall fixture 限制误拦了旧 pending-only 实验。已修复兼容分支，并验证错误 agent、跨项目提案、修改 verifier argv 和执行批准仍被拒绝；新 checkpoint CI 单独追踪。UI21 仍存在 late prepare 覆盖用户反馈选择的已复现问题，UI22 Lab Recall 控件待实现；指定 Antigravity 模型配额耗尽，目前均未合入。
+上一个 checkpoint 的 CI 在 Lab 浏览器测试桥处失败：新 Recall fixture 限制误拦了旧 pending-only 实验。已修复兼容分支，并验证错误 agent、跨项目提案、修改 verifier argv 和执行批准仍被拒绝；新 checkpoint CI 单独追踪。此前 UI21 late prepare、history footer close 和 `outputHash` 默认展示的问题保留为历史证据；本轮 r3/r4 已分别复验其相关路径。当前仍待修复和复验的是 background-run 稳定七列挤压，以及尚未覆盖的 drawer 生命周期、错误态和 header bbox，不能据浏览器通过把交互验收标为完成。
 
 `b16e7b99` 的新 CI 已通过两个任务，包括482项真实 XCTest、已安装SDK/OpenClaw、浏览器旅程和macOS打包审计；[CI证据](parity/ci-b16e7b99-evidence-2026-09-14.json)。本机独立开发包内容约8.54 MiB，并通过5项原生QA包装器检查；[原生证据](parity/native-b16-package-evidence-2026-09-14.json)。这是不同身份的隔离测试，不能替代正式安装、公证或系统通知验收。
 

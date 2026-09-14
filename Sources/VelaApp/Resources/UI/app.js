@@ -337,6 +337,7 @@
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.dataset.toastKey = key;
+    toast.setAttribute('data-testid', 'toast');
 
     const msgSpan = document.createElement('span');
     msgSpan.className = 'toast-message';
@@ -887,6 +888,9 @@
       if (typeof dismissActiveHealthProposalModal === 'function') {
         dismissActiveHealthProposalModal();
       }
+      if (typeof dismissActiveRunFeedbackModal === 'function') {
+        dismissActiveRunFeedbackModal();
+      }
       resetHistoryState();
       invalidateSessionDisclosures();
     }
@@ -1021,7 +1025,14 @@
         if (typeof dismissActiveHealthProposalModal === 'function') {
           dismissActiveHealthProposalModal();
         }
+        if (typeof dismissActiveRunFeedbackModal === 'function') {
+          dismissActiveRunFeedbackModal();
+        }
         dismissActiveCaptureModal();
+        if (document.getElementById('lab-baseline-recall-mode') || document.getElementById('lab-candidate-recall-mode')) {
+          labRecallDraft = null;
+          closeModal();
+        }
         activeRouteEpoch++; // User project change invalidates pending notification routes
         renderGeneration++;
         closeDrawer(); // Explicit project selector change should close stale detail
@@ -1117,6 +1128,12 @@
         }
       }
     });
+
+    document.addEventListener('vela:locale', () => {
+      if (window.VelaI18n) {
+        window.VelaI18n.applyTranslations(document);
+      }
+    });
   }
 
   function syncNavLinks() {
@@ -1133,6 +1150,9 @@
 
   function navigateTo(page) {
     if (!page) return;
+    if (typeof dismissActiveRunFeedbackModal === 'function') {
+      dismissActiveRunFeedbackModal();
+    }
     activeRouteEpoch++; // User navigation invalidates pending notification routes
     renderGeneration++;
     if (state.currentPage !== page) {
@@ -5819,7 +5839,7 @@
 
       target.innerHTML = `
         <div class="table-wrapper">
-          <table class="data-table">
+          <table class="data-table" id="workflow-runs-table">
             <thead>
               <tr>
                 <th data-i18n="workflows.colRunId">${escapeHtml(t('workflows.colRunId'))}</th>
@@ -6335,7 +6355,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
         <span style="margin-left: 8px;">${escapeHtml(t('common.loading') || 'Loading...')}</span>
       </div>
-    `, `<button class="btn btn-secondary" onclick="closeModal()">${escapeHtml(t('common.close'))}</button>`);
+    `, `<button class="btn btn-secondary" data-close-modal>${escapeHtml(t('common.close'))}</button>`);
 
     const thisModalInstance = currentModalInstance;
 
@@ -6397,7 +6417,7 @@
     } catch (err) {
       openModal(t('workflows.artifactDetailTitle'), `
         <div class="alert-banner alert-danger">${escapeHtml(err.message || String(err))}</div>
-      `, `<button class="btn btn-secondary" onclick="closeModal()">${escapeHtml(t('common.close'))}</button>`);
+      `, `<button class="btn btn-secondary" data-close-modal>${escapeHtml(t('common.close'))}</button>`);
     }
   }
 
@@ -7261,7 +7281,7 @@
     } catch (err) {
       openModal(t('workflows.planDetailTitle'), `
         <div class="alert-banner alert-danger">${escapeHtml(err.message || String(err))}</div>
-      `, `<button class="btn btn-secondary" onclick="closeModal()">${escapeHtml(t('common.close'))}</button>`);
+      `, `<button class="btn btn-secondary" data-close-modal>${escapeHtml(t('common.close'))}</button>`);
     }
   }
 
@@ -8304,26 +8324,710 @@
     }
   }
 
+  // =========================================================================
+  // RUN FEEDBACK (UI Round 21)
+  // =========================================================================
+
+  let activeRunFeedbackModalInstance = null;
+  let activeRunFeedbackCleanup = null;
+  let activeRunFeedbackSession = null;
+  let runFeedbackGen = 0;
+
+  function dismissActiveRunFeedbackModal() {
+    runFeedbackGen++;
+    activeRunFeedbackSession = null;
+    if (!activeRunFeedbackModalInstance) return;
+    const targetInstance = activeRunFeedbackModalInstance;
+    activeRunFeedbackModalInstance = null;
+
+    if (currentModalInstance === targetInstance) {
+      const modal = document.getElementById('modal-container');
+      const feedbackEl = modal && modal.querySelector('#run-feedback-review, #run-feedback-history');
+      if (modal && !modal.classList.contains('hidden') && feedbackEl) {
+        closeModal();
+      }
+    }
+
+    const cleanup = activeRunFeedbackCleanup;
+    activeRunFeedbackCleanup = null;
+    if (typeof cleanup === 'function') {
+      try {
+        cleanup();
+      } catch {}
+    }
+  }
+
+  function getFeedbackOutcomeBadge(outcome) {
+    const oc = String(outcome || '').toLowerCase();
+    switch (oc) {
+      case 'good':
+        return `<span class="status-badge status-sage" data-i18n="runs.feedback.outcomeGood">${escapeHtml(t('runs.feedback.outcomeGood'))}</span>`;
+      case 'bad':
+        return `<span class="status-badge status-amber" data-i18n="runs.feedback.outcomeBad">${escapeHtml(t('runs.feedback.outcomeBad'))}</span>`;
+      case 'clear':
+        return `<span class="status-badge status-neutral" data-i18n="runs.feedback.outcomeClear">${escapeHtml(t('runs.feedback.outcomeClear'))}</span>`;
+      default:
+        return `<span class="status-badge status-neutral">${escapeHtml(outcome || '-')}</span>`;
+    }
+  }
+
+  function updateRunFeedbackCard(feedback) {
+    const cardContent = document.getElementById('run-feedback-card-content');
+    if (!cardContent) return;
+    cardContent._feedbackEpoch = (cardContent._feedbackEpoch || 0) + 1;
+    if (!feedback || feedback.outcome === 'clear') {
+      cardContent.innerHTML = `
+        <div style="font-size: 11px; color: var(--text-muted);" data-i18n="runs.feedback.noFeedbackYet">
+          ${escapeHtml(t('runs.feedback.noFeedbackYet'))}
+        </div>
+      `;
+      return;
+    }
+    cardContent.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge-subtle">r${escapeHtml(String(feedback.revision || 1))}</span>
+          ${getFeedbackOutcomeBadge(feedback.outcome)}
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+          ${formatTime(feedback.createdAt)}
+        </div>
+      </div>
+      <div style="font-size: 12px; color: var(--text-main); margin-top: 4px; line-height: 1.4; word-break: break-word;">
+        ${escapeHtml(feedback.reason || '')}
+      </div>
+    `;
+  }
+
+  async function openRunFeedbackModal(run, triggerEl) {
+    dismissActiveRunFeedbackModal();
+
+    const capturedProject = ((run.project && run.project !== '*') ? run.project : (state.currentProject !== '*' ? state.currentProject : '')).trim();
+    const capturedRunId = run.id;
+    const capturedDrawerInstance = currentDrawerInstance;
+    const currentGen = ++runFeedbackGen;
+
+    // Call runs.feedback.prepare immediately with exactly { project, runId }
+    const preparePromise = callBridge('runs.feedback.prepare', {
+      project: capturedProject,
+      runId: capturedRunId
+    });
+
+    const modalBodyHtml = `
+      <div id="run-feedback-review" data-run-id="${escapeHtml(capturedRunId)}" class="run-feedback-form-container">
+        <!-- Original Run State Row -->
+        <div class="feedback-meta-row" style="margin-bottom: 12px;">
+          <span style="font-size: 11px; color: var(--text-secondary);" data-i18n="runs.feedback.originalStateLabel">${escapeHtml(t('runs.feedback.originalStateLabel'))}</span>
+          <span id="run-feedback-original-state">${getRunStateBadge(run.state)}</span>
+        </div>
+
+        <!-- Error Banner (stale CAS / server error) -->
+        <div id="run-feedback-error-banner" class="alert-banner alert-danger hidden" style="margin-bottom: 12px;">
+          <div id="run-feedback-error-text"></div>
+          <div id="run-feedback-stale-actions" class="hidden" style="margin-top: 8px;">
+            <button type="button" id="btn-reload-run-feedback" class="btn btn-secondary btn-xs" data-i18n="runs.feedback.btnReloadLatest">${escapeHtml(t('runs.feedback.btnReloadLatest'))}</button>
+          </div>
+        </div>
+
+        <!-- Outcome Select -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="run-feedback-outcome" class="form-label" data-i18n="runs.feedback.outcomeLabel">${escapeHtml(t('runs.feedback.outcomeLabel'))}</label>
+          <select id="run-feedback-outcome" class="form-select">
+            <option value="good" data-i18n="runs.feedback.outcomeGood">${escapeHtml(t('runs.feedback.outcomeGood'))}</option>
+            <option value="bad" data-i18n="runs.feedback.outcomeBad">${escapeHtml(t('runs.feedback.outcomeBad'))}</option>
+            <option value="clear" data-i18n="runs.feedback.outcomeClear">${escapeHtml(t('runs.feedback.outcomeClear'))}</option>
+          </select>
+          <div class="form-hint" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;" data-i18n="runs.feedback.outcomeHint">
+            ${escapeHtml(t('runs.feedback.outcomeHint'))}
+          </div>
+        </div>
+
+        <!-- Reason Input -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="run-feedback-reason" class="form-label" data-i18n="runs.feedback.reasonLabel">${escapeHtml(t('runs.feedback.reasonLabel'))}</label>
+          <input type="text" id="run-feedback-reason" class="form-input" data-i18n-placeholder="runs.feedback.reasonPlaceholder" placeholder="${escapeHtml(t('runs.feedback.reasonPlaceholder'))}" autocomplete="off" />
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 11px;">
+            <span id="run-feedback-reason-warning" class="text-danger" style="display: none;"></span>
+            <span id="run-feedback-byte-counter" class="text-muted font-mono" style="margin-left: auto;">0 / 1000 B</span>
+          </div>
+        </div>
+
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px; line-height: 1.4;" data-i18n="runs.feedback.disclaimer">
+          ${escapeHtml(t('runs.feedback.disclaimer'))}
+        </div>
+      </div>
+    `;
+
+    const modalFooterHtml = `
+      <button type="button" id="btn-cancel-run-feedback" class="btn btn-secondary" data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button>
+      <button type="button" id="btn-save-run-feedback" class="btn btn-primary" disabled data-i18n="runs.feedback.btnSave">${escapeHtml(t('runs.feedback.btnSave'))}</button>
+    `;
+
+    openModal({ key: 'runs.feedback.modalTitle' }, modalBodyHtml, modalFooterHtml, triggerEl);
+
+    const sessionModalInstance = currentModalInstance;
+    activeRunFeedbackModalInstance = sessionModalInstance;
+
+    // Session closure object: Opaque hashes stored ONLY here in closure, never in inputs/DOM!
+    const session = {
+      generation: currentGen,
+      project: capturedProject,
+      runId: capturedRunId,
+      modalInstance: sessionModalInstance,
+      drawerInstance: capturedDrawerInstance,
+      prepared: false,
+      isPending: false,
+      runHash: null,
+      previousFeedbackHash: null,
+      latestFeedback: null
+    };
+    activeRunFeedbackSession = session;
+
+    activeRunFeedbackCleanup = () => {
+      session.isPending = false;
+      session.runHash = null;
+      session.previousFeedbackHash = null;
+    };
+
+    function isScopeValid() {
+      return (
+        activeRunFeedbackSession === session &&
+        session.generation === currentGen &&
+        session.modalInstance === currentModalInstance
+      );
+    }
+
+    const cancelBtn = document.getElementById('btn-cancel-run-feedback');
+    const saveBtn = document.getElementById('btn-save-run-feedback');
+    const outcomeSelect = document.getElementById('run-feedback-outcome');
+    const reasonInput = document.getElementById('run-feedback-reason');
+    const byteCounter = document.getElementById('run-feedback-byte-counter');
+    const warningEl = document.getElementById('run-feedback-reason-warning');
+    const errorBanner = document.getElementById('run-feedback-error-banner');
+    const errorText = document.getElementById('run-feedback-error-text');
+    const staleActions = document.getElementById('run-feedback-stale-actions');
+    const reloadBtn = document.getElementById('btn-reload-run-feedback');
+    const originalStateEl = document.getElementById('run-feedback-original-state');
+
+    cancelBtn?.addEventListener('click', () => {
+      dismissActiveRunFeedbackModal();
+    });
+
+    function getByteCount(str) {
+      if (!str) return 0;
+      return new TextEncoder().encode(str).length;
+    }
+
+    function validateForm() {
+      if (!isScopeValid()) return false;
+      const reasonVal = reasonInput ? reasonInput.value : '';
+      const byteCount = getByteCount(reasonVal);
+      if (byteCounter) byteCounter.textContent = `${byteCount} / 1000 B`;
+
+      let isValid = true;
+      let errorMsg = '';
+
+      if (!session.prepared) {
+        isValid = false;
+      } else if (session.isPending) {
+        isValid = false;
+      } else if (byteCount === 0) {
+        isValid = false;
+      } else if (reasonVal.trim().length === 0) {
+        isValid = false;
+        errorMsg = t('runs.feedback.errorWhitespaceOnly');
+      } else if (byteCount > 1000) {
+        isValid = false;
+        errorMsg = t('runs.feedback.errorByteLimit');
+      } else if (/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(reasonVal)) {
+        isValid = false;
+        errorMsg = t('runs.feedback.errorControlChars');
+      }
+
+      if (byteCounter) {
+        if (byteCount > 1000) {
+          byteCounter.style.color = 'var(--status-red-text)';
+        } else {
+          byteCounter.style.color = 'var(--text-muted)';
+        }
+      }
+
+      if (warningEl) {
+        if (errorMsg && reasonVal.length > 0) {
+          warningEl.textContent = errorMsg;
+          warningEl.style.display = 'block';
+        } else {
+          warningEl.style.display = 'none';
+        }
+      }
+
+      if (saveBtn) {
+        saveBtn.disabled = !isValid;
+      }
+      return isValid;
+    }
+
+    let outcomeDirty = false;
+    let reasonDirty = false;
+
+    reasonInput?.addEventListener('input', () => {
+      reasonDirty = true;
+      validateForm();
+    });
+    reasonInput?.addEventListener('change', () => {
+      reasonDirty = true;
+      validateForm();
+    });
+    outcomeSelect?.addEventListener('change', () => {
+      outcomeDirty = true;
+      validateForm();
+    });
+    outcomeSelect?.addEventListener('input', () => {
+      outcomeDirty = true;
+      validateForm();
+    });
+
+    reasonInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (saveBtn && !saveBtn.disabled && !session.isPending) {
+          saveBtn.click();
+        }
+      }
+    });
+
+    reloadBtn?.addEventListener('click', async () => {
+      if (!isScopeValid()) return;
+      if (errorBanner) errorBanner.classList.add('hidden');
+      if (staleActions) staleActions.classList.add('hidden');
+      try {
+        const prep = await callBridge('runs.feedback.prepare', {
+          project: session.project,
+          runId: session.runId
+        });
+        if (!isScopeValid()) return;
+        session.runHash = prep.runHash;
+        session.previousFeedbackHash = prep.feedback ? prep.feedback.feedbackHash : null;
+        session.latestFeedback = prep.feedback || null;
+        session.prepared = true;
+        if (prep.state && originalStateEl) {
+          originalStateEl.innerHTML = getRunStateBadge(prep.state);
+        }
+        validateForm();
+      } catch (err) {
+        if (!isScopeValid()) return;
+        if (errorBanner) errorBanner.classList.remove('hidden');
+        if (errorText) errorText.textContent = err.message || String(err);
+      }
+    });
+
+    // Handle initial prepare resolution
+    try {
+      const prep = await preparePromise;
+      if (!isScopeValid()) return;
+
+      session.runHash = prep.runHash;
+      session.previousFeedbackHash = prep.feedback ? prep.feedback.feedbackHash : null;
+      session.latestFeedback = prep.feedback || null;
+      session.prepared = true;
+
+      if (prep.state && originalStateEl) {
+        originalStateEl.innerHTML = getRunStateBadge(prep.state);
+      }
+
+      // Prefill if feedback exists
+      if (prep.feedback) {
+        if (!outcomeDirty && outcomeSelect) outcomeSelect.value = prep.feedback.outcome || 'good';
+        if (!reasonDirty && reasonInput) reasonInput.value = prep.feedback.reason || '';
+      }
+
+      validateForm();
+    } catch (err) {
+      if (!isScopeValid()) return;
+      session.prepared = false;
+      if (errorBanner) errorBanner.classList.remove('hidden');
+      if (errorText) errorText.textContent = err.message || String(err);
+      if (saveBtn) saveBtn.disabled = true;
+      return;
+    }
+
+    // Save button click
+    saveBtn?.addEventListener('click', async () => {
+      if (!isScopeValid()) return;
+      if (session.isPending || saveBtn.disabled) return;
+
+      // Disable the exact save control and inputs while pending
+      session.isPending = true;
+      saveBtn.disabled = true;
+      if (outcomeSelect) outcomeSelect.disabled = true;
+      if (reasonInput) reasonInput.disabled = true;
+      if (errorBanner) errorBanner.classList.add('hidden');
+      if (staleActions) staleActions.classList.add('hidden');
+
+      const outcomeVal = outcomeSelect ? outcomeSelect.value : 'good';
+      const reasonVal = reasonInput ? reasonInput.value : '';
+
+      const recordPayload = {
+        project: session.project,
+        runId: session.runId,
+        runHash: session.runHash,
+        previousFeedbackHash: (session.previousFeedbackHash !== undefined && session.previousFeedbackHash !== null) ? session.previousFeedbackHash : null,
+        outcome: outcomeVal,
+        reason: reasonVal
+      };
+
+      try {
+        const res = await callBridge('runs.feedback.record', recordPayload);
+        if (!isScopeValid()) return;
+
+        session.isPending = false;
+        showToast({ key: 'runs.feedback.savedSuccess' });
+        dismissActiveRunFeedbackModal();
+
+        if (state.selectedRunId === capturedRunId) {
+          updateRunFeedbackCard(res);
+        }
+      } catch (err) {
+        if (!isScopeValid()) return;
+        session.isPending = false;
+        if (outcomeSelect) outcomeSelect.disabled = false;
+        if (reasonInput) reasonInput.disabled = false;
+        validateForm();
+
+        const errMsg = err && err.message ? err.message : String(err);
+        const isStaleCAS = /cas|stale|hash|conflict|mismatch|version/i.test(errMsg);
+
+        if (errorBanner) errorBanner.classList.remove('hidden');
+        if (isStaleCAS) {
+          if (errorText) errorText.textContent = t('runs.feedback.errorStaleCAS');
+          if (staleActions) staleActions.classList.remove('hidden');
+        } else {
+          if (errorText) errorText.textContent = errMsg;
+          if (staleActions) staleActions.classList.add('hidden');
+        }
+      }
+    });
+  }
+
+  async function openRunFeedbackHistoryModal(run, triggerEl) {
+    dismissActiveRunFeedbackModal();
+
+    const capturedProject = ((run.project && run.project !== '*') ? run.project : (state.currentProject !== '*' ? state.currentProject : '')).trim();
+    const capturedRunId = run.id;
+    const capturedDrawerInstance = currentDrawerInstance;
+    const currentGen = ++runFeedbackGen;
+
+    const modalBodyHtml = `
+      <div id="run-feedback-history" class="run-feedback-history-container">
+        <!-- Bounded Scan Warning Banner -->
+        <div id="run-feedback-history-warning" class="alert-banner alert-warning hidden" data-i18n="runs.feedback.historyBoundedWarning">
+          ${escapeHtml(t('runs.feedback.historyBoundedWarning'))}
+        </div>
+
+        <!-- History Error Banner -->
+        <div id="run-feedback-history-error" class="alert-banner alert-danger hidden"></div>
+
+        <!-- History Detail Panel (expands on clicking history item) -->
+        <div id="run-feedback-history-detail" class="history-detail-panel hidden">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <strong id="history-detail-title" data-i18n="runs.feedback.historyDetailTitle">${escapeHtml(t('runs.feedback.historyDetailTitle'))}</strong>
+            <button type="button" id="btn-close-history-detail" class="btn btn-ghost btn-xs" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+          </div>
+          <div id="history-detail-body" style="font-size: 11px;"></div>
+        </div>
+
+        <!-- History Items List -->
+        <div id="run-feedback-history-list" class="history-items-list">
+          <div class="empty-state-desc text-muted" style="padding: 16px; text-align: center;" data-i18n="common.loading">
+            ${escapeHtml(t('common.loading'))}
+          </div>
+        </div>
+
+        <!-- Load More Pagination Button -->
+        <div id="run-feedback-history-pagination" style="margin-top: 8px; text-align: center;">
+          <button type="button" id="btn-more-run-feedback-history" class="btn btn-secondary btn-sm hidden" data-i18n="runs.feedback.btnMoreHistory">
+            ${escapeHtml(t('runs.feedback.btnMoreHistory'))}
+          </button>
+        </div>
+      </div>
+    `;
+
+    const modalFooterHtml = `
+      <button type="button" id="btn-close-run-feedback-history" class="btn btn-secondary" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>
+    `;
+
+    openModal({ key: 'runs.feedback.historyTitle' }, modalBodyHtml, modalFooterHtml, triggerEl);
+    document.getElementById('btn-close-run-feedback-history')?.addEventListener('click', () => {
+      closeModal();
+    });
+
+    const sessionModalInstance = currentModalInstance;
+    activeRunFeedbackModalInstance = sessionModalInstance;
+
+    const historySession = {
+      generation: currentGen,
+      project: capturedProject,
+      runId: capturedRunId,
+      modalInstance: sessionModalInstance,
+      drawerInstance: capturedDrawerInstance,
+      cursor: null,
+      snapshotHash: null,
+      items: [],
+      isLoading: false
+    };
+    activeRunFeedbackSession = historySession;
+
+    activeRunFeedbackCleanup = () => {
+      historySession.items = [];
+      historySession.cursor = null;
+      historySession.snapshotHash = null;
+    };
+
+    function isScopeValid() {
+      return (
+        activeRunFeedbackSession === historySession &&
+        historySession.generation === currentGen &&
+        historySession.modalInstance === currentModalInstance
+      );
+    }
+
+    const warningEl = document.getElementById('run-feedback-history-warning');
+    const errorEl = document.getElementById('run-feedback-history-error');
+    const listEl = document.getElementById('run-feedback-history-list');
+    const moreBtn = document.getElementById('btn-more-run-feedback-history');
+    const detailPanel = document.getElementById('run-feedback-history-detail');
+    const detailBody = document.getElementById('history-detail-body');
+    const closeDetailBtn = document.getElementById('btn-close-history-detail');
+
+    closeDetailBtn?.addEventListener('click', () => {
+      if (detailPanel) detailPanel.classList.add('hidden');
+      if (listEl) listEl.querySelectorAll('.history-item-card').forEach(c => c.classList.remove('active-history-item'));
+    });
+
+    async function showHistoryDetail(historyId, itemCard) {
+      if (!isScopeValid()) return;
+      try {
+        const detail = await callBridge('runs.feedback.history.get', {
+          project: historySession.project,
+          id: historyId
+        });
+        if (!isScopeValid()) return;
+
+        if (listEl) listEl.querySelectorAll('.history-item-card').forEach(c => c.classList.remove('active-history-item'));
+        if (itemCard) itemCard.classList.add('active-history-item');
+
+        if (detailBody) {
+          detailBody.innerHTML = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+              <div><span class="text-secondary" data-i18n="runs.feedback.revisionLabel">${escapeHtml(t('runs.feedback.revisionLabel'))}:</span> <strong>r${escapeHtml(String(detail.revision || '-'))}</strong></div>
+              <div><span class="text-secondary" data-i18n="runs.feedback.outcomeLabel">${escapeHtml(t('runs.feedback.outcomeLabel'))}:</span> ${getFeedbackOutcomeBadge(detail.outcome)}</div>
+              <div><span class="text-secondary">创建时间:</span> ${formatTime(detail.createdAt)}</div>
+              ${detail.supersededAt ? `<div><span class="text-secondary" data-i18n="runs.feedback.supersededAtLabel">${escapeHtml(t('runs.feedback.supersededAtLabel'))}:</span> ${formatTime(detail.supersededAt)}</div>` : ''}
+            </div>
+            <div style="margin-top: 6px; padding: 6px 8px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 4px; line-height: 1.4;">
+              <strong>${escapeHtml(detail.reason || '-')}</strong>
+            </div>
+          `;
+        }
+        if (detailPanel) detailPanel.classList.remove('hidden');
+      } catch (err) {
+        if (!isScopeValid()) return;
+        if (errorEl) {
+          errorEl.textContent = err.message || String(err);
+          errorEl.classList.remove('hidden');
+        }
+      }
+    }
+
+    function renderHistoryItems(items, append = false) {
+      if (!listEl) return;
+      if (!append) {
+        listEl.innerHTML = '';
+      }
+      if (!items || items.length === 0) {
+        if (!append) {
+          listEl.innerHTML = `<div class="empty-state-desc text-muted" style="padding: 16px; text-align: center;" data-i18n="runs.feedback.historyEmpty">${escapeHtml(t('runs.feedback.historyEmpty'))}</div>`;
+        }
+        return;
+      }
+
+      items.forEach(item => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'history-item-card';
+        itemEl.setAttribute('data-history-id', item.historyId || item.id);
+        itemEl.setAttribute('role', 'button');
+        itemEl.setAttribute('tabindex', '0');
+
+        itemEl.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="badge-subtle">r${escapeHtml(String(item.revision || '-'))}</span>
+              ${getFeedbackOutcomeBadge(item.outcome)}
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+              ${formatTime(item.createdAt)}
+            </div>
+          </div>
+          <div class="history-item-reason" style="font-size: 12px; line-height: 1.4; color: var(--text-main); word-break: break-word;">
+            ${escapeHtml(item.reason || '-')}
+          </div>
+          ${item.supersededAt ? `
+            <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">
+              <span data-i18n="runs.feedback.supersededAtLabel">${escapeHtml(t('runs.feedback.supersededAtLabel'))}:</span> ${formatTime(item.supersededAt)}
+            </div>
+          ` : ''}
+        `;
+
+        itemEl.addEventListener('click', () => {
+          showHistoryDetail(item.historyId || item.id, itemEl);
+        });
+        itemEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            showHistoryDetail(item.historyId || item.id, itemEl);
+          }
+        });
+
+        listEl.appendChild(itemEl);
+      });
+    }
+
+    async function loadHistoryPage(cursor = null) {
+      if (!isScopeValid()) return;
+      historySession.isLoading = true;
+      if (moreBtn) moreBtn.disabled = true;
+
+      const params = {
+        project: historySession.project,
+        runId: historySession.runId,
+        limit: 20
+      };
+      if (cursor) {
+        params.cursor = cursor;
+      }
+
+      try {
+        const res = await callBridge('runs.feedback.history.list', params);
+        if (!isScopeValid()) return;
+        historySession.isLoading = false;
+
+        // Check for snapshot drift when paging
+        if (cursor && historySession.snapshotHash && res.snapshotHash && res.snapshotHash !== historySession.snapshotHash) {
+          if (errorEl) {
+            errorEl.textContent = t('runs.feedback.historySnapshotStale');
+            errorEl.classList.remove('hidden');
+          }
+          if (moreBtn) moreBtn.classList.add('hidden');
+          return;
+        }
+
+        if (res.coverage === 'bounded_by_source_scan_cap') {
+          if (warningEl) warningEl.classList.remove('hidden');
+        } else {
+          if (warningEl) warningEl.classList.add('hidden');
+        }
+
+        historySession.snapshotHash = res.snapshotHash || historySession.snapshotHash;
+        historySession.cursor = res.cursor || null;
+
+        const newItems = res.items || [];
+        if (cursor) {
+          historySession.items = historySession.items.concat(newItems);
+          renderHistoryItems(newItems, true);
+        } else {
+          historySession.items = newItems;
+          renderHistoryItems(newItems, false);
+        }
+
+        if (historySession.cursor) {
+          if (moreBtn) {
+            moreBtn.classList.remove('hidden');
+            moreBtn.disabled = false;
+          }
+        } else {
+          if (moreBtn) moreBtn.classList.add('hidden');
+        }
+      } catch (err) {
+        if (!isScopeValid()) return;
+        historySession.isLoading = false;
+        if (errorEl) {
+          errorEl.textContent = t('runs.feedback.historyUnavailable');
+          errorEl.classList.remove('hidden');
+        }
+        if (moreBtn) moreBtn.classList.add('hidden');
+        if (!cursor && listEl) {
+          listEl.innerHTML = `<div class="empty-state-desc text-muted" style="padding: 16px; text-align: center;" data-i18n="runs.feedback.historyUnavailable">${escapeHtml(t('runs.feedback.historyUnavailable'))}</div>`;
+        }
+      }
+    }
+
+    moreBtn?.addEventListener('click', () => {
+      if (historySession.cursor && !historySession.isLoading) {
+        loadHistoryPage(historySession.cursor);
+      }
+    });
+
+    // Initial load
+    loadHistoryPage(null);
+  }
+
   async function openRunDetail(runId) {
     state.selectedRunId = runId;
     openDrawer({ key: 'workflows.loadingRunDetail' }, { key: 'workflows.runAudit' });
+    const capturedDrawerInstance = currentDrawerInstance;
+    const capturedProject = state.currentProject;
+    const capturedPage = state.currentPage;
+    const capturedRunId = runId;
 
     try {
       const run = await callBridge('runs.get', { id: runId });
+      const drawerEl = document.getElementById('detail-drawer');
+      if (
+        currentDrawerInstance !== capturedDrawerInstance ||
+        state.selectedRunId !== capturedRunId ||
+        state.currentProject !== capturedProject ||
+        state.currentPage !== capturedPage ||
+        !drawerEl ||
+        !drawerEl.isConnected ||
+        drawerEl.classList.contains('hidden')
+      ) {
+        return;
+      }
       if (!run) {
         const e = new Error('workflows.runNotFound');
         e.i18nKey = 'workflows.runNotFound';
         throw e;
       }
 
+      const actualProject = ((run.project && run.project !== '*') ? run.project : (state.currentProject !== '*' ? state.currentProject : '')).trim();
+      const hasActualProject = !!actualProject;
+      const runState = String(run.state || '').toLowerCase();
+      const isTerminal = ['completed', 'failed', 'cancelled', 'rejected'].includes(runState);
+      const isDry = !!(run.dryRun || run.isDryRun || run.is_dry_run);
+      const isPriv = !!(run.isPrivate || run.is_private || run.private || (run.security && run.security.private));
+      const isEligibleForFeedback = isTerminal && hasActualProject && !isDry && !isPriv && runState !== 'needs_review';
+
       const runSub = run.id ? { key: 'workflows.runSubtitle', params: { id: run.id.substring(0, 8) } } : { key: 'workflows.runAudit' };
       setDrawerTitle(run.title ? run.title : { key: 'workflows.runDetail' }, runSub);
 
-      const isResumable = ['waiting_child', 'blocked', 'needs_review'].includes(String(run.state || '').toLowerCase());
+      const isResumable = ['waiting_child', 'blocked', 'needs_review'].includes(runState);
       setDrawerCustomActions(`
+        ${isEligibleForFeedback ? `
+          <button type="button" id="btn-open-run-feedback" class="btn btn-secondary btn-sm" data-i18n="runs.feedback.btnOpen">${escapeHtml(t('runs.feedback.btnOpen'))}</button>
+          <button type="button" id="btn-run-feedback-history" class="btn btn-secondary btn-sm" data-i18n="runs.feedback.btnHistory">${escapeHtml(t('runs.feedback.btnHistory'))}</button>
+        ` : ''}
         ${isResumable ? `<button id="btn-drawer-resume" class="btn btn-primary btn-sm" data-i18n="workflows.btnResumeRun">${escapeHtml(t('workflows.btnResumeRun'))}</button>` : ''}
         <button id="btn-drawer-replay" class="btn btn-secondary btn-sm" data-i18n="workflows.btnReplayRun">${escapeHtml(t('workflows.btnReplayRun'))}</button>
       `);
+
+      if (isEligibleForFeedback) {
+        document.getElementById('btn-open-run-feedback')?.addEventListener('click', (e) => {
+          openRunFeedbackModal(run, e.currentTarget);
+        });
+        document.getElementById('btn-run-feedback-history')?.addEventListener('click', (e) => {
+          openRunFeedbackHistoryModal(run, e.currentTarget);
+        });
+      }
 
       document.getElementById('btn-drawer-replay')?.addEventListener('click', async () => {
         try {
@@ -8393,6 +9097,23 @@
           </div>
         </div>
 
+        ${isEligibleForFeedback ? `
+          <div class="card" id="run-feedback-summary-card" style="margin-top: 12px; padding: 12px 14px; background: var(--bg-subtle);">
+            <div class="card-header" style="margin-bottom: 6px;">
+              <span class="card-title" data-i18n="runs.feedback.cardTitle">${escapeHtml(t('runs.feedback.cardTitle'))}</span>
+              <span class="badge-subtle" data-i18n="runs.feedback.badgeManual">${escapeHtml(t('runs.feedback.badgeManual'))}</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.5;" data-i18n="runs.feedback.desc">
+              ${escapeHtml(t('runs.feedback.desc'))}
+            </div>
+            <div id="run-feedback-card-content" style="margin-top: 8px;">
+              <div style="font-size: 14px; color: var(--text-muted);" data-i18n="common.loading">
+                ${escapeHtml(t('common.loading'))}
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
         ${(run.compositionMode === 'pipeline' && Array.isArray(run.stageResults) && run.stageResults.length > 0) ? `
           <div class="card" style="margin-top: 12px; padding: 12px 14px; background: var(--bg-subtle);">
             <div class="card-header" style="margin-bottom: 8px;">
@@ -8422,28 +9143,50 @@
           </div>
         ` : ''}
 
-        ${(run.output || run.outputHash || run.outputDelivery) ? `
-          <div class="card" style="margin-top: 12px; padding: 12px 14px; background: var(--bg-subtle);">
-            <div class="card-header" style="margin-bottom: 8px;">
-              <span class="card-title">交付产物</span>
-              <span class="status-badge status-sage">已交付</span>
+        ${(() => {
+          const rawOutput = run.output;
+          const hasMeaningfulOutput = rawOutput !== undefined && rawOutput !== null && (typeof rawOutput === 'string' ? rawOutput.trim().length > 0 : (typeof rawOutput === 'object' ? Object.keys(rawOutput).length > 0 : Boolean(rawOutput)));
+          const rawHash = (typeof run.outputHash === 'string') ? run.outputHash.trim() : '';
+          const delivery = (run.outputDelivery && typeof run.outputDelivery === 'object') ? run.outputDelivery : null;
+          const deliveryTarget = (delivery && typeof delivery.target === 'string') ? delivery.target.trim() : '';
+          const deliveryPath = (delivery && typeof delivery.path === 'string') ? delivery.path.trim() : '';
+          const deliveryState = (delivery && typeof delivery.state === 'string') ? delivery.state.trim().toLowerCase() : '';
+          const hasDelivery = Boolean(delivery && (deliveryTarget || deliveryPath || deliveryState));
+          if (!hasMeaningfulOutput && !rawHash && !hasDelivery) return '';
+          const shortPath = deliveryPath ? (deliveryPath.split(/[\/\\]/).filter(Boolean).pop() || deliveryPath) : '';
+          let statusBadgeHtml = '';
+          if (deliveryState === 'delivered') {
+            statusBadgeHtml = `<span class="status-badge status-sage" data-i18n="runs.output.delivered">${escapeHtml(t('runs.output.delivered'))}</span>`;
+          } else if (deliveryState === 'prepared') {
+            statusBadgeHtml = `<span class="status-badge status-amber" data-i18n="runs.output.pending">${escapeHtml(t('runs.output.pending'))}</span>`;
+          } else if (!delivery && hasMeaningfulOutput) {
+            statusBadgeHtml = `<span class="status-badge status-slate" data-i18n="runs.output.generated">${escapeHtml(t('runs.output.generated'))}</span>`;
+          }
+          return `
+            <div class="card" style="margin-top: 12px; padding: 12px 14px; background: var(--bg-subtle);">
+              <div class="card-header" style="margin-bottom: 8px;">
+                <span class="card-title" style="font-size: 14px; font-weight: normal;" data-i18n="runs.output.title">${escapeHtml(t('runs.output.title'))}</span>
+                ${statusBadgeHtml}
+              </div>
+              ${(deliveryTarget || shortPath) ? `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 14px; margin-bottom: 8px;">
+                  ${deliveryTarget ? `<div><span class="text-secondary" data-i18n="runs.output.target">${escapeHtml(t('runs.output.target'))}:</span> <strong>${escapeHtml(deliveryTarget)}</strong></div>` : ''}
+                  ${shortPath ? `<div><span class="text-secondary" data-i18n="runs.output.location">${escapeHtml(t('runs.output.location'))}:</span> <code class="code-badge" title="${escapeHtml(deliveryPath)}">${escapeHtml(shortPath)}</code></div>` : ''}
+                </div>
+              ` : ''}
+              ${hasMeaningfulOutput ? `<div class="artifact-output-box">${escapeHtml(typeof rawOutput === 'string' ? rawOutput : JSON.stringify(rawOutput, null, 2))}</div>` : ''}
+              ${(deliveryPath || rawHash) ? `
+                <details style="margin-top: 8px; font-size: 14px;">
+                  <summary class="text-secondary" style="cursor: pointer;" data-i18n="inbox.detailsSummary">${escapeHtml(t('inbox.detailsSummary'))}</summary>
+                  <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px; padding-left: 8px;">
+                    ${deliveryPath ? `<div><span class="text-secondary" data-i18n="runs.output.canonicalPath">${escapeHtml(t('runs.output.canonicalPath'))}:</span> <code class="code-badge" style="word-break: break-all;">${escapeHtml(deliveryPath)}</code></div>` : ''}
+                    ${rawHash ? `<div><span class="text-secondary" data-i18n="runs.output.hash">${escapeHtml(t('runs.output.hash'))}:</span> <span class="font-mono" style="word-break: break-all;">${escapeHtml(rawHash)}</span></div>` : ''}
+                  </div>
+                </details>
+              ` : ''}
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; margin-bottom: 8px;">
-              ${run.outputDelivery && run.outputDelivery.target ? `
-                <div><span class="text-secondary">目标:</span> <strong>${escapeHtml(run.outputDelivery.target)}</strong></div>
-              ` : ''}
-              ${run.outputDelivery && run.outputDelivery.path ? `
-                <div><span class="text-secondary">路径:</span> <code class="code-badge">${escapeHtml(run.outputDelivery.path)}</code></div>
-              ` : ''}
-              ${run.outputHash ? `
-                <div style="grid-column: 1 / -1;"><span class="text-secondary">Hash:</span> <span class="font-mono" style="word-break: break-all;">${escapeHtml(run.outputHash)}</span></div>
-              ` : ''}
-            </div>
-            ${run.output ? `
-              <div class="artifact-output-box">${escapeHtml(typeof run.output === 'string' ? run.output : JSON.stringify(run.output, null, 2))}</div>
-            ` : ''}
-          </div>
-        ` : ''}
+          `;
+        })()}
 
         ${run.context ? `
           <div class="card" style="margin-top: 12px; padding: 12px 14px; background: var(--bg-subtle);">
@@ -8526,7 +9269,91 @@
           if (childId) openRunDetail(childId);
         });
       });
+
+      if (isEligibleForFeedback) {
+        const cardContentEl = document.getElementById('run-feedback-card-content');
+        const capturedEpoch = cardContentEl ? (cardContentEl._feedbackEpoch || 0) : 0;
+
+        callBridge('runs.feedback.prepare', { project: actualProject, runId: run.id })
+          .then(prep => {
+            const drawerEl = document.getElementById('detail-drawer');
+            if (
+              currentDrawerInstance !== capturedDrawerInstance ||
+              state.selectedRunId !== capturedRunId ||
+              state.currentProject !== capturedProject ||
+              state.currentPage !== capturedPage ||
+              !drawerEl ||
+              !drawerEl.isConnected ||
+              drawerEl.classList.contains('hidden') ||
+              !cardContentEl ||
+              !cardContentEl.isConnected ||
+              (cardContentEl._feedbackEpoch || 0) !== (capturedEpoch || 0)
+            ) {
+              return;
+            }
+            const isValid =
+              prep &&
+              typeof prep === 'object' &&
+              !Array.isArray(prep) &&
+              ('feedback' in prep) &&
+              (
+                prep.feedback === null ||
+                (
+                  typeof prep.feedback === 'object' &&
+                  !Array.isArray(prep.feedback) &&
+                  (
+                    prep.feedback.outcome === 'good' ||
+                    prep.feedback.outcome === 'bad' ||
+                    prep.feedback.outcome === 'clear'
+                  )
+                )
+              );
+            if (!isValid) {
+              cardContentEl.innerHTML = `
+                <div style="font-size: 14px; color: var(--text-muted);" data-i18n="runs.feedback.currentUnavailable">
+                  ${escapeHtml(t('runs.feedback.currentUnavailable'))}
+                </div>
+              `;
+              return;
+            }
+            updateRunFeedbackCard(prep.feedback);
+          })
+          .catch(() => {
+            const drawerEl = document.getElementById('detail-drawer');
+            if (
+              currentDrawerInstance !== capturedDrawerInstance ||
+              state.selectedRunId !== capturedRunId ||
+              state.currentProject !== capturedProject ||
+              state.currentPage !== capturedPage ||
+              !drawerEl ||
+              !drawerEl.isConnected ||
+              drawerEl.classList.contains('hidden') ||
+              !cardContentEl ||
+              !cardContentEl.isConnected ||
+              (cardContentEl._feedbackEpoch || 0) !== (capturedEpoch || 0)
+            ) {
+              return;
+            }
+            cardContentEl.innerHTML = `
+              <div style="font-size: 14px; color: var(--text-muted);" data-i18n="runs.feedback.currentUnavailable">
+                ${escapeHtml(t('runs.feedback.currentUnavailable'))}
+              </div>
+            `;
+          });
+      }
     } catch (err) {
+      const drawerEl = document.getElementById('detail-drawer');
+      if (
+        currentDrawerInstance !== capturedDrawerInstance ||
+        state.selectedRunId !== capturedRunId ||
+        state.currentProject !== capturedProject ||
+        state.currentPage !== capturedPage ||
+        !drawerEl ||
+        !drawerEl.isConnected ||
+        drawerEl.classList.contains('hidden')
+      ) {
+        return;
+      }
       setDrawerTitle({ key: 'common.loadFailed' }, { key: 'common.error' });
       const drawerContent = document.getElementById('drawer-content');
       if (drawerContent) {
@@ -10021,38 +10848,65 @@
   }
 
   function openArtifactDrawer(art) {
-    openDrawer(art.title || { key: 'setupL.artifacts.drawerTitle' }, art.path);
+    const loc = formatAssetLocation(art.path, art.scope, state.currentProject);
+    openDrawer(art.title || { key: 'setupL.artifacts.drawerTitle' }, loc.displayText);
     const drawerContent = document.getElementById('drawer-content');
     if (!drawerContent) return;
 
     drawerContent.innerHTML = `
-      <div class="card" style="margin-bottom: 12px;">
-        <div class="card-header"><span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span></div>
-        <div style="font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <div class="card location-identity" style="margin-bottom: 12px; padding: 14px 16px;">
+        <div class="card-header" style="margin-bottom: 8px;"><span class="card-title" data-i18n="setupL.drawer.basicInfo">${escapeHtml(t('setupL.drawer.basicInfo'))}</span></div>
+        <div style="font-size: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
           <div><span class="text-secondary" data-i18n="setup.colType">${escapeHtml(t('setup.colType'))}:</span> ${escapeHtml(art.type || 'configuration')}</div>
           <div><span class="text-secondary" data-i18n="setup.colProvider">${escapeHtml(t('setup.colProvider'))}:</span> <span class="code-badge">${escapeHtml(art.provider || 'generic')}</span></div>
           <div><span class="text-secondary" data-i18n="setup.colScope">${escapeHtml(t('setup.colScope'))}:</span> <span class="code-badge">${escapeHtml(art.scope || 'project')}</span></div>
           <div><span class="text-secondary" data-i18n="setupL.drawer.tokens">${escapeHtml(t('setupL.drawer.tokens'))}:</span> ${escapeHtml(String(art.tokens || '-'))}</div>
         </div>
-        <details class="memory-meta-details" style="margin-top: 8px;">
-          <summary style="font-size: 11px; color: var(--text-secondary); cursor: pointer;" data-i18n="memory.techMetaSummary">${escapeHtml(t('memory.techMetaSummary'))}</summary>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; font-size: 11px; margin-top: 6px; color: var(--text-secondary);">
+        <div class="asset-location" style="margin-top: 10px; font-size: 14px; font-family: var(--font-mono); color: var(--text-secondary);" title="${escapeHtml(art.path || '')}">
+          <span class="text-secondary">${escapeHtml(loc.scopePrefix)}</span> › <span class="font-semibold">${escapeHtml(loc.relativePath)}</span>
+        </div>
+        <details class="memory-meta-details location-identity" style="margin-top: 10px;">
+          <summary style="font-size: 13px; color: var(--text-secondary); cursor: pointer;" data-i18n="comfort.locationAndIdentity">${escapeHtml(t('comfort.locationAndIdentity'))}</summary>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; font-size: 12px; margin-top: 8px; color: var(--text-secondary);">
             <div><span>ID:</span> <span class="font-mono">${escapeHtml(art.id || '-')}</span></div>
             <div><span>Hash:</span> <span class="font-mono">${escapeHtml(art.hash || '-')}</span></div>
-            <div style="grid-column: 1 / -1;"><span data-i18n="setup.colPath">${escapeHtml(t('setup.colPath'))}:</span> <span class="font-mono" style="font-size: 10px; word-break: break-all;">${escapeHtml(art.path || '-')}</span></div>
+            <div style="grid-column: 1 / -1;">
+              <span data-i18n="setup.colPath">${escapeHtml(t('setup.colPath'))}:</span>
+              <span class="font-mono" style="font-size: 12px; word-break: break-all;">${escapeHtml(art.path || '-')}</span>
+              ${art.path ? `<button type="button" class="btn btn-ghost btn-sm btn-drawer-copy-path" data-clipboard="${escapeHtml(art.path)}" style="padding: 2px 6px; font-size: 11px; margin-left: 6px;" data-i18n="comfort.copyFullPath">${escapeHtml(t('comfort.copyFullPath'))}</button>` : ''}
+            </div>
           </div>
         </details>
-        <div style="display: flex; gap: 6px; margin-top: 10px;">
+        <div style="display: flex; gap: 6px; margin-top: 12px;">
           <button class="btn btn-secondary btn-sm btn-drawer-setup-history" data-id="${escapeHtml(art.id)}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
           <button class="btn btn-secondary btn-sm btn-drawer-setup-relations" data-id="${escapeHtml(art.id)}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
           ${art.path ? `<button class="btn btn-ghost btn-sm btn-drawer-reveal-path" data-path="${escapeHtml(art.path)}" data-i18n="setupL.artifacts.reveal">${escapeHtml(t('setupL.artifacts.reveal'))}</button>` : ''}
         </div>
       </div>
       <div>
-        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.drawer.readonlyPreview">${escapeHtml(t('setupL.drawer.readonlyPreview'))}</h3>
-        <div class="code-view">${art.content ? escapeHtml(art.content) : tHtml('setupL.drawer.noContent')}</div>
+        <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 6px;" data-i18n="setupL.drawer.readonlyPreview">${escapeHtml(t('setupL.drawer.readonlyPreview'))}</h3>
+        <div class="code-view" style="font-size: 13px;">${art.content ? escapeHtml(art.content) : tHtml('setupL.drawer.noContent')}</div>
       </div>
     `;
+
+    drawerContent.querySelector('.btn-drawer-copy-path')?.addEventListener('click', async (e) => {
+      const text = e.currentTarget.getAttribute('data-clipboard');
+      if (text) {
+        try {
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const input = document.createElement('textarea');
+            input.value = text;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            input.remove();
+          }
+          showToast({ key: 'comfort.copiedToast' });
+        } catch {}
+      }
+    });
 
     drawerContent.querySelector('.btn-drawer-setup-history')?.addEventListener('click', () => {
       openSetupHistoryAndDiffModal(art);
@@ -10194,6 +11048,92 @@
     });
   }
 
+  function formatAssetLocation(fullPath, scope, currentProject) {
+    const s = String(scope || '').trim().toLowerCase();
+    let scopePrefix = '';
+    if (s === 'project') {
+      scopePrefix = t('comfort.scopeProject');
+    } else if (s === 'global') {
+      scopePrefix = t('comfort.scopeGlobal');
+    } else if (s === 'user') {
+      scopePrefix = t('comfort.scopeUser');
+    } else if (s === 'shared') {
+      scopePrefix = t('comfort.scopeShared');
+    } else if (s === 'workspace') {
+      scopePrefix = t('comfort.scopeWorkspace');
+    } else if (scope) {
+      scopePrefix = String(scope).trim();
+    }
+
+    if (!fullPath || typeof fullPath !== 'string' || !fullPath.trim()) {
+      const fallbackPrefix = scopePrefix || t('comfort.scopeProject');
+      return {
+        displayText: fallbackPrefix || '-',
+        scopePrefix: fallbackPrefix || '-',
+        relativePath: '-'
+      };
+    }
+
+    const normPath = fullPath.trim().replace(/\\/g, '/').replace(/\/+$/, '');
+
+    if (!normPath.startsWith('/') && !/^[a-zA-Z]:/.test(normPath)) {
+      const rel = normPath.replace(/^\.\//, '');
+      const prefix = scopePrefix || t('comfort.scopeProject');
+      return {
+        displayText: `${prefix} › ${rel}`,
+        scopePrefix: prefix,
+        relativePath: rel
+      };
+    }
+
+    const candidates = [];
+    if (currentProject && typeof currentProject === 'string' && currentProject.trim()) {
+      candidates.push(currentProject.trim());
+    }
+    if (state && state.dashboard && Array.isArray(state.dashboard.projects)) {
+      for (const p of state.dashboard.projects) {
+        if (p) {
+          if (typeof p.root === 'string' && p.root.trim()) candidates.push(p.root.trim());
+          if (typeof p.path === 'string' && p.path.trim()) candidates.push(p.path.trim());
+        }
+      }
+    }
+
+    let longestCand = null;
+    for (const cand of candidates) {
+      const normCand = cand.replace(/\\/g, '/').replace(/\/+$/, '');
+      if (!normCand) continue;
+      if (normPath === normCand || normPath.startsWith(normCand + '/')) {
+        if (!longestCand || normCand.length > longestCand.length) {
+          longestCand = normCand;
+        }
+      }
+    }
+
+    if (longestCand) {
+      let rel = normPath.slice(longestCand.length).replace(/^\/+/, '');
+      if (!rel) {
+        const segs = normPath.split('/').filter(Boolean);
+        rel = segs[segs.length - 1] || '.';
+      }
+      const prefix = scopePrefix || t('comfort.scopeProject');
+      return {
+        displayText: `${prefix} › ${rel}`,
+        scopePrefix: prefix,
+        relativePath: rel
+      };
+    }
+
+    const segs = normPath.split('/').filter(Boolean);
+    const basename = segs.length > 0 ? segs[segs.length - 1] : normPath;
+    const prefix = scopePrefix || (s === 'project' ? t('comfort.scopeProject') : t('comfort.scopeGlobal'));
+    return {
+      displayText: `${prefix} › ${basename}`,
+      scopePrefix: prefix,
+      relativePath: basename
+    };
+  }
+
   function renderArtifactsSection(target, typeName) {
     const artifacts = (state.dashboard && state.dashboard.artifacts) || [];
     const filtered = artifacts.filter(a => {
@@ -10208,7 +11148,7 @@
 
     target.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <span class="text-secondary" style="font-size: 13px;" data-i18n="setupL.artifacts.countSummary" data-i18n-params="${escapeHtml(JSON.stringify({ count: filtered.length, type: typeName }))}">${escapeHtml(t('setupL.artifacts.countSummary', { count: filtered.length, type: typeName }))}</span>
+        <span class="text-secondary" style="font-size: 14px;" data-i18n="setupL.artifacts.countSummary" data-i18n-params="${escapeHtml(JSON.stringify({ count: filtered.length, type: typeName }))}">${escapeHtml(t('setupL.artifacts.countSummary', { count: filtered.length, type: typeName }))}</span>
       </div>
 
       ${filtered.length === 0 ? `
@@ -10218,7 +11158,7 @@
         </div>
       ` : `
         <div class="table-wrapper">
-          <table class="data-table">
+          <table class="data-table" id="asset-list">
             <thead>
               <tr>
                 <th data-i18n="setupL.table.titleOrId">${escapeHtml(t('setupL.table.titleOrId'))}</th>
@@ -10228,15 +11168,17 @@
               </tr>
             </thead>
             <tbody>
-              ${filtered.map(a => `
-                <tr>
+              ${filtered.map(a => {
+                const loc = formatAssetLocation(a.path, a.scope, state.currentProject);
+                return `
+                <tr data-testid="asset-row" data-asset-id="${escapeHtml(a.id)}">
                   <td>
-                    <strong>${escapeHtml(a.title || a.id)}</strong>
-                    <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); word-break: break-all;">${escapeHtml(a.path || '')}</div>
+                    <strong style="font-size: 14px;">${escapeHtml(a.title || a.id)}</strong>
+                    <div class="asset-location" data-testid="asset-location" title="${escapeHtml(a.path || '')}" style="font-size: 14px; font-family: var(--font-mono); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(loc.displayText)}</div>
                   </td>
                   <td>
-                    <span class="code-badge">${escapeHtml(a.provider || 'generic')}</span>
-                    <span style="font-size: 12px; color: var(--text-secondary); margin-left: 4px;">${escapeHtml(a.scope || 'project')}</span>
+                    <span class="code-badge" style="font-size: 12px;">${escapeHtml(a.provider || 'generic')}</span>
+                    <span style="font-size: 14px; color: var(--text-secondary); margin-left: 4px;">${escapeHtml(a.scope || 'project')}</span>
                     ${a.contentStatus ? `<div style="margin-top: 4px;">${getSetupContentStatusBadge(a.contentStatus)}</div>` : ''}
                   </td>
                   <td>
@@ -10261,7 +11203,8 @@
                     </div>
                   </td>
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -12534,6 +13477,7 @@
   async function openAskDetailModal(askId) {
     const currentProject = state.currentProject;
     const currentPage = state.currentPage;
+    const thisRenderGeneration = renderGeneration;
     if (!currentProject || !askId) return;
 
     openModal({ key: 'ask.modalTitle' }, `
@@ -12541,18 +13485,26 @@
     `, `<button class="btn btn-secondary" id="btn-close-ask-detail" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
 
     const thisModalInstance = currentModalInstance;
+    const isFresh = (ignoreGen = false) => (
+      currentModalInstance === thisModalInstance &&
+      state.currentProject === currentProject &&
+      state.currentPage === currentPage &&
+      (ignoreGen || renderGeneration === thisRenderGeneration) &&
+      document.getElementById('modal-container') &&
+      !document.getElementById('modal-container').classList.contains('hidden')
+    );
     document.getElementById('btn-close-ask-detail')?.addEventListener('click', closeModal);
 
     let item = null;
     try {
       item = await callBridge('ask.get', { project: currentProject, id: askId });
     } catch (e) {
-      if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
+      if (!isFresh()) return;
       const b = document.getElementById('modal-body');
       if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
       return;
     }
-    if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
+    if (!isFresh()) return;
 
     const b = document.getElementById('modal-body');
     const f = document.getElementById('modal-footer');
@@ -12820,11 +13772,11 @@
       if (!confirm(t('ask.cancelConfirm'))) return;
       try {
         await callBridge('ask.cancel', { project: currentProject, id: askId, askHash: item.askHash });
-        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
+        if (!isFresh()) return;
         showToast({ key: 'ask.cancelSuccess' });
         openAskDetailModal(askId);
       } catch (err) {
-        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
+        if (!isFresh()) return;
         showToast(err.message, 'error');
       }
     });
@@ -12841,15 +13793,24 @@
           decision: 'approve',
           snapshotHash: item.approval.snapshotHash
         });
-        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
+        if (!isFresh()) return;
         showToast({ key: 'inbox.approvedToast' });
         openAskDetailModal(askId);
       } catch (err) {
-        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
+        if (!isFresh()) return;
         showToast({ key: 'inbox.approveFailedToast', params: { error: err.message } }, 'error');
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = t('inbox.btnApprove');
+        const isExpired = err && (err.message === 'Approval expired; no action was executed. Review a new request.' || String(err.message || '').includes('Approval expired; no action was executed. Review a new request.'));
+        if (isExpired) {
+          const refreshRes = await refreshDashboard(true, true);
+          if (!isFresh(true)) return;
+          if (refreshRes && refreshRes.success !== false) {
+            openAskDetailModal(askId);
+          }
+        } else {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = t('inbox.btnApprove');
+          }
         }
       }
     });
@@ -12908,11 +13869,11 @@
           }
         }
         const res = await callBridge('ask.followup', followParams);
-        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
+        if (!isFresh()) return;
         showToast({ key: 'ask.followupSuccess' });
         openAskDetailModal(res.id);
       } catch (err) {
-        if (currentModalInstance !== thisModalInstance || state.currentProject !== currentProject || state.currentPage !== currentPage) return;
+        if (!isFresh()) return;
         showToast(err.message, 'error');
         if (submitFollowBtn) {
           submitFollowBtn.disabled = false;
@@ -13820,9 +14781,14 @@
       `;
     }
 
+    const loc = formatAssetLocation(item.sourcePath || item.assetPath || item.path, item.project ? 'project' : 'global', item.project || currentProject);
+
     b.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-        <h3 style="font-size: 14px; font-weight: 600; margin: 0;">${escapeHtml(item.title || docId)}</h3>
+        <div>
+          <h3 style="font-size: 14px; font-weight: 600; margin: 0;">${escapeHtml(item.title || docId)}</h3>
+          <div class="asset-location" data-testid="asset-location" title="${escapeHtml(item.sourcePath || item.assetPath || item.path || '')}" style="font-size: 14px; font-family: var(--font-mono); color: var(--text-secondary); margin-top: 2px;">${escapeHtml(loc.displayText)}</div>
+        </div>
         <div style="display: flex; gap: 6px;">
           ${isArchived ? `<span class="status-badge status-neutral" data-i18n="library.badgeArchived">${escapeHtml(t('library.badgeArchived'))}</span>` : ''}
           ${isPrivate
@@ -14521,7 +15487,7 @@
                 <tr>
                   <td>
                     <strong>${escapeHtml(a.title || a.id)}</strong>
-                    <div style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(a.path || '')}</div>
+                    <div class="asset-location" data-testid="asset-location" title="${escapeHtml(a.path || '')}" style="font-size: 14px; font-family: var(--font-mono); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(formatAssetLocation(a.path, a.scope, state.currentProject).displayText)}</div>
                   </td>
                   <td>
                     <span class="code-badge">${escapeHtml(a.provider || 'generic')}</span>
@@ -16954,7 +17920,171 @@
     }
   }
 
+let labRecallDraft = null;
+
+function getVariantRecallConfig(variant) {
+  if (!variant || !variant.recall) return null;
+  const r = variant.recall;
+  if (r.enabled === true) {
+    return {
+      mode: 'on',
+      query: typeof r.query === 'string' ? r.query : '',
+      retrievalMode: ['lexical', 'semantic', 'hybrid'].includes(r.mode) ? r.mode : 'hybrid',
+      budget: Number.isInteger(r.budget) ? r.budget : 2000
+    };
+  }
+  if (r.enabled === false) {
+    return {
+      mode: r.strictOff === true ? 'strict_off' : 'off',
+      query: '',
+      retrievalMode: 'hybrid',
+      budget: 2000
+    };
+  }
+  return null;
+}
+
+function renderRecallOnControls(side, boundDraft = labRecallDraft, boundModalId = (boundDraft?.modalId ?? currentModalInstance)) {
+  const container = document.getElementById(`lab-${side}-recall-on-controls`);
+  const modeEl = document.getElementById(`lab-${side}-recall-mode`);
+  if (!container || !modeEl) return;
+  if (boundModalId && currentModalInstance !== boundModalId) return;
+  const isOn = modeEl.value === 'on';
+  if (!isOn) {
+    container.innerHTML = '';
+    container.classList.add('hidden');
+    return;
+  }
+  container.classList.remove('hidden');
+  const d = boundDraft?.[side] || {};
+  const currentQuery = d.query || '';
+  const currentRetMode = d.retrievalMode || 'hybrid';
+  const currentBudget = d.budget || 2000;
+
+  container.innerHTML = `
+    <div class="form-group" style="margin-bottom: 8px;">
+      <label for="lab-${side}-recall-query" class="form-label" style="font-size: 14px;" data-i18n="lab.recall.queryLabel">${escapeHtml(t('lab.recall.queryLabel'))}</label>
+      <input type="text" id="lab-${side}-recall-query" class="form-input" style="min-height: 32px; font-size: 14px;" placeholder="${escapeHtml(t('lab.recall.queryPlaceholder'))}" data-i18n-placeholder="lab.recall.queryPlaceholder" value="${escapeHtml(currentQuery)}">
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="lab-${side}-retrieval-mode" class="form-label" style="font-size: 14px;" data-i18n="lab.recall.retrievalModeLabel">${escapeHtml(t('lab.recall.retrievalModeLabel'))}</label>
+        <select id="lab-${side}-retrieval-mode" class="form-select" style="min-height: 32px; font-size: 14px;">
+          <option value="hybrid" ${currentRetMode === 'hybrid' ? 'selected' : ''} data-i18n="lab.recall.modeHybrid">${escapeHtml(t('lab.recall.modeHybrid'))}</option>
+          <option value="lexical" ${currentRetMode === 'lexical' ? 'selected' : ''} data-i18n="lab.recall.modeLexical">${escapeHtml(t('lab.recall.modeLexical'))}</option>
+          <option value="semantic" ${currentRetMode === 'semantic' ? 'selected' : ''} data-i18n="lab.recall.modeSemantic">${escapeHtml(t('lab.recall.modeSemantic'))}</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="lab-${side}-recall-budget" class="form-label" style="font-size: 14px;" data-i18n="lab.recall.budgetLabel">${escapeHtml(t('lab.recall.budgetLabel'))}</label>
+        <input type="number" id="lab-${side}-recall-budget" class="form-input font-mono" style="min-height: 32px; font-size: 14px;" min="1" max="4000" value="${currentBudget}" placeholder="2000">
+      </div>
+    </div>
+    <div class="form-help" style="font-size: 12px;" data-i18n="lab.recall.scopeHelp">${escapeHtml(t('lab.recall.scopeHelp'))}</div>
+  `;
+
+  const qEl = document.getElementById(`lab-${side}-recall-query`);
+  const rmEl = document.getElementById(`lab-${side}-retrieval-mode`);
+  const bEl = document.getElementById(`lab-${side}-recall-budget`);
+  if (qEl) {
+    qEl.addEventListener('input', (e) => {
+      if (boundModalId && currentModalInstance !== boundModalId) return;
+      if (boundDraft && boundDraft[side]) boundDraft[side].query = e.target.value;
+    });
+  }
+  if (rmEl) {
+    rmEl.addEventListener('change', (e) => {
+      if (boundModalId && currentModalInstance !== boundModalId) return;
+      if (boundDraft && boundDraft[side]) boundDraft[side].retrievalMode = e.target.value;
+    });
+  }
+  if (bEl) {
+    bEl.addEventListener('input', (e) => {
+      if (boundModalId && currentModalInstance !== boundModalId) return;
+      if (boundDraft && boundDraft[side]) boundDraft[side].budget = e.target.value;
+    });
+  }
+}
+
+function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
+  const sideLabel = side === 'baseline' ? 'Baseline' : 'Candidate';
+  const modeEl = document.getElementById(`lab-${side}-recall-mode`);
+  const recallMode = modeEl ? modeEl.value : 'not_configured';
+
+  if (!['not_configured', 'off', 'strict_off', 'on'].includes(recallMode)) {
+    showToast({ key: 'lab.recall.unknownMode', params: { side: sideLabel } }, 'error');
+    return false;
+  }
+
+  if (recallMode === 'not_configured') {
+    delete variantObj.recall;
+    return true;
+  }
+
+  if (recallMode === 'off') {
+    variantObj.recall = { enabled: false, strictOff: false };
+    return true;
+  }
+
+  if (recallMode === 'strict_off') {
+    const explicitMems = (variantObj && Array.isArray(variantObj.memoryIds) && variantObj.memoryIds.length > 0)
+      ? variantObj.memoryIds
+      : (side === 'candidate' && Array.isArray(candidateMemIds) && candidateMemIds.length > 0 ? candidateMemIds : []);
+    if (explicitMems.length > 0) {
+      showToast({
+        key: side === 'baseline' ? 'lab.recall.strictConflictBaseline' : 'lab.recall.strictConflictCandidate',
+        params: { side: sideLabel, count: explicitMems.length }
+      }, 'error');
+      return false;
+    }
+    variantObj.recall = { enabled: false, strictOff: true };
+    return true;
+  }
+
+  if (recallMode === 'on') {
+    const queryEl = document.getElementById(`lab-${side}-recall-query`);
+    const query = (queryEl?.value || '').trim();
+    if (!query) {
+      showToast({ key: 'lab.recall.queryRequired', params: { side: sideLabel } }, 'error');
+      return false;
+    }
+
+    const retModeEl = document.getElementById(`lab-${side}-retrieval-mode`);
+    const retMode = retModeEl?.value || 'hybrid';
+    if (!['lexical', 'semantic', 'hybrid'].includes(retMode)) {
+      showToast({ key: 'lab.recall.invalidMode', params: { side: sideLabel } }, 'error');
+      return false;
+    }
+
+    const budgetEl = document.getElementById(`lab-${side}-recall-budget`);
+    const rawBudget = (budgetEl?.value || '').trim();
+    if (!rawBudget || !/^\d+$/.test(rawBudget)) {
+      showToast({ key: 'lab.recall.budgetRange', params: { side: sideLabel } }, 'error');
+      return false;
+    }
+    const budget = Number(rawBudget);
+    if (!Number.isInteger(budget) || budget < 1 || budget > 4000) {
+      showToast({ key: 'lab.recall.budgetRange', params: { side: sideLabel } }, 'error');
+      return false;
+    }
+
+    variantObj.recall = {
+      enabled: true,
+      query,
+      mode: retMode,
+      scope: 'project',
+      budget
+    };
+    return true;
+  }
+  showToast({ key: 'lab.recall.unknownMode', params: { side: sideLabel } }, 'error');
+  return false;
+}
+
+
   function openCreateLabModal(initialConfig = {}) {
+    const uiProjectAtOpen = state.currentProject;
+    const uiPageAtOpen = state.currentPage;
     const defaultBaseline = JSON.stringify(initialConfig.baseline || {}, null, 2);
 
     let defaultCandidateObj = initialConfig.candidate || {};
@@ -16981,6 +18111,13 @@
     const candidateMemIds = initialConfig.candidateMemoryIds || (defaultCandidateObj.memoryIds || []);
     const candidateFileList = initialConfig.candidateFiles || (defaultCandidateObj.files || []);
     const candidateExplanation = initialConfig.candidateExplanation || '';
+    const baseRecallInit = getVariantRecallConfig(initialConfig.baseline);
+    const candRecallInit = getVariantRecallConfig(initialConfig.candidate);
+    labRecallDraft = {
+      modalId: null,
+      baseline: baseRecallInit || { mode: 'not_configured', query: '', retrievalMode: 'hybrid', budget: 2000 },
+      candidate: candRecallInit || { mode: 'not_configured', query: '', retrievalMode: 'hybrid', budget: 2000 }
+    };
 
     const modalBody = `
       <div class="mode-switch" role="tablist" aria-label="${escapeHtml(t('lab.create.modeSwitchAria'))}" data-i18n-aria-label="lab.create.modeSwitchAria">
@@ -17188,6 +18325,39 @@
           </div>
         </details>
       </div>
+
+      <!-- Memory Recall Section for Baseline and Candidate -->
+      <div id="lab-recall-section" class="card" style="background: var(--bg-subtle); padding: 12px; margin-bottom: 12px;">
+        <div style="font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 10px;" data-i18n="lab.recall.sectionTitle">${escapeHtml(t('lab.recall.sectionTitle'))}</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="card" style="background: var(--bg-card); padding: 10px 12px; margin-bottom: 0; border: 1px solid var(--border-color, #e2e8f0);">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 8px;" data-i18n="lab.recall.baselineSideLabel">${escapeHtml(t('lab.recall.baselineSideLabel'))}</div>
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label for="lab-baseline-recall-mode" class="form-label" style="font-size: 14px;" data-i18n="lab.recall.modeLabel">${escapeHtml(t('lab.recall.modeLabel'))}</label>
+              <select id="lab-baseline-recall-mode" class="form-select" style="min-height: 32px; font-size: 14px;">
+                <option value="not_configured" ${labRecallDraft.baseline.mode === 'not_configured' ? 'selected' : ''} data-i18n="lab.recall.modeNotConfigured">${escapeHtml(t('lab.recall.modeNotConfigured'))}</option>
+                <option value="off" ${labRecallDraft.baseline.mode === 'off' ? 'selected' : ''} data-i18n="lab.recall.modeOff">${escapeHtml(t('lab.recall.modeOff'))}</option>
+                <option value="strict_off" ${labRecallDraft.baseline.mode === 'strict_off' ? 'selected' : ''} data-i18n="lab.recall.modeStrictOff">${escapeHtml(t('lab.recall.modeStrictOff'))}</option>
+                <option value="on" ${labRecallDraft.baseline.mode === 'on' ? 'selected' : ''} data-i18n="lab.recall.modeOn">${escapeHtml(t('lab.recall.modeOn'))}</option>
+              </select>
+            </div>
+            <div id="lab-baseline-recall-on-controls" class="${labRecallDraft.baseline.mode === 'on' ? '' : 'hidden'}"></div>
+          </div>
+          <div class="card" style="background: var(--bg-card); padding: 10px 12px; margin-bottom: 0; border: 1px solid var(--border-color, #e2e8f0);">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 8px;" data-i18n="lab.recall.candidateSideLabel">${escapeHtml(t('lab.recall.candidateSideLabel'))}</div>
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label for="lab-candidate-recall-mode" class="form-label" style="font-size: 14px;" data-i18n="lab.recall.modeLabel">${escapeHtml(t('lab.recall.modeLabel'))}</label>
+              <select id="lab-candidate-recall-mode" class="form-select" style="min-height: 32px; font-size: 14px;">
+                <option value="not_configured" ${labRecallDraft.candidate.mode === 'not_configured' ? 'selected' : ''} data-i18n="lab.recall.modeNotConfigured">${escapeHtml(t('lab.recall.modeNotConfigured'))}</option>
+                <option value="off" ${labRecallDraft.candidate.mode === 'off' ? 'selected' : ''} data-i18n="lab.recall.modeOff">${escapeHtml(t('lab.recall.modeOff'))}</option>
+                <option value="strict_off" ${labRecallDraft.candidate.mode === 'strict_off' ? 'selected' : ''} data-i18n="lab.recall.modeStrictOff">${escapeHtml(t('lab.recall.modeStrictOff'))}</option>
+                <option value="on" ${labRecallDraft.candidate.mode === 'on' ? 'selected' : ''} data-i18n="lab.recall.modeOn">${escapeHtml(t('lab.recall.modeOn'))}</option>
+              </select>
+            </div>
+            <div id="lab-candidate-recall-on-controls" class="${labRecallDraft.candidate.mode === 'on' ? '' : 'hidden'}"></div>
+          </div>
+        </div>
+      </div>
     `;
 
     openModal({ key: 'lab.modal.createTitle' }, modalBody, `
@@ -17196,6 +18366,24 @@
     `);
 
     const thisModalId = currentModalInstance;
+    labRecallDraft.modalId = thisModalId;
+    const thisModalDraft = labRecallDraft;
+    const saveBtn = document.getElementById('btn-save-lab');
+    const modalContentEl = saveBtn ? (saveBtn.closest('.modal-content') || saveBtn.closest('.modal') || saveBtn.parentElement) : null;
+
+    function isModalSubmissionContextValid() {
+      if (thisModalId !== currentModalInstance) return false;
+      if (state.currentProject !== uiProjectAtOpen || state.currentPage !== uiPageAtOpen) return false;
+      const currentSaveBtn = document.getElementById('btn-save-lab');
+      if (!saveBtn || !saveBtn.isConnected || currentSaveBtn !== saveBtn) return false;
+      if (modalContentEl && !modalContentEl.isConnected) return false;
+      if (typeof saveBtn.checkVisibility === 'function') {
+        if (!saveBtn.checkVisibility()) return false;
+      } else if (saveBtn.offsetParent === null && window.getComputedStyle(saveBtn).display === 'none') {
+        return false;
+      }
+      return true;
+    }
 
     document.querySelectorAll('.mode-switch-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -17217,7 +18405,26 @@
       });
     });
 
-    document.getElementById('btn-cancel-lab').addEventListener('click', closeModal);
+    ['baseline', 'candidate'].forEach(side => {
+      const modeEl = document.getElementById(`lab-${side}-recall-mode`);
+      if (modeEl) {
+        modeEl.addEventListener('change', () => {
+          if (thisModalId && currentModalInstance !== thisModalId) return;
+          if (thisModalDraft && thisModalDraft[side]) {
+            thisModalDraft[side].mode = modeEl.value;
+          }
+          renderRecallOnControls(side, thisModalDraft, thisModalId);
+        });
+      }
+      renderRecallOnControls(side, thisModalDraft, thisModalId);
+    });
+
+    document.getElementById('btn-cancel-lab').addEventListener('click', () => {
+      if (labRecallDraft && labRecallDraft.modalId === thisModalId) {
+        labRecallDraft = null;
+      }
+      closeModal();
+    });
     document.getElementById('btn-save-lab').addEventListener('click', async () => {
       const submitBtn = document.getElementById('btn-save-lab');
 
@@ -17367,6 +18574,9 @@
           return;
         }
 
+        if (!validateAndApplyRecall('baseline', baselineObj)) return;
+        if (!validateAndApplyRecall('candidate', candidateObj, candidateMemIds)) return;
+
         const payload = {
           title,
           project,
@@ -17396,12 +18606,13 @@
 
         try {
           const res = await callBridge('lab.run', payload);
-          if (thisModalId !== currentModalInstance) return;
+          if (!isModalSubmissionContextValid()) return;
+          if (labRecallDraft && labRecallDraft.modalId === thisModalId) labRecallDraft = null;
           closeModal();
           showLabCreatedPendingModal(payload.title, res && res.approvalId, project);
           await refreshDashboard(true, true);
         } catch (err) {
-          if (thisModalId !== currentModalInstance) return;
+          if (!isModalSubmissionContextValid()) return;
           showToast({ key: 'lab.actions.createAgentFailed', params: { error: err.message } }, 'error');
           submitBtn.disabled = false;
           window.VelaI18n.setElementDescriptor(submitBtn, { key: 'lab.actions.submitLab' });
@@ -17508,6 +18719,9 @@
           return;
         }
 
+        if (!validateAndApplyRecall('baseline', baselineObj)) return;
+        if (!validateAndApplyRecall('candidate', candidateObj)) return;
+
         submitBtn.disabled = true;
         window.VelaI18n.setElementDescriptor(submitBtn, { key: 'lab.actions.submitting' });
 
@@ -17522,12 +18736,13 @@
             timeoutSeconds,
             repetitions
           });
-          if (thisModalId !== currentModalInstance) return;
+          if (!isModalSubmissionContextValid()) return;
+          if (labRecallDraft && labRecallDraft.modalId === thisModalId) labRecallDraft = null;
           closeModal();
           showLabCreatedPendingModal(title, res && res.approvalId, project);
           await refreshDashboard(true, true);
         } catch (err) {
-          if (thisModalId !== currentModalInstance) return;
+          if (!isModalSubmissionContextValid()) return;
           showToast({ key: 'lab.actions.createCmdFailed', params: { error: err.message } }, 'error');
           submitBtn.disabled = false;
           window.VelaI18n.setElementDescriptor(submitBtn, { key: 'lab.actions.submitLab' });
@@ -17564,6 +18779,179 @@
   }
 
   let labDetailSequence = 0;
+
+  function renderLabRecallSideReview(variant, sideKey) {
+    const isCand = sideKey === 'candidate';
+    const sideTitleKey = isCand ? 'lab.recallReview.candidateTitle' : 'lab.recallReview.baselineTitle';
+    const r = variant && variant.recall;
+
+    let stateBadge = '';
+    if (!r) {
+      stateBadge = `<span class="status-badge status-neutral" data-i18n="lab.recallReview.notConfigured">${escapeHtml(t('lab.recallReview.notConfigured'))}</span>`;
+    } else if (r.strictOff) {
+      stateBadge = `<span class="status-badge status-amber" data-i18n="lab.recallReview.strictOff">${escapeHtml(t('lab.recallReview.strictOff'))}</span>`;
+    } else if (r.enabled === true) {
+      stateBadge = `<span class="status-badge status-sage" data-i18n="lab.recallReview.recallOn">${escapeHtml(t('lab.recallReview.recallOn'))}</span>`;
+    } else if (r.enabled === false) {
+      stateBadge = `<span class="status-badge status-neutral" data-i18n="lab.recallReview.recallOff">${escapeHtml(t('lab.recallReview.recallOff'))}</span>`;
+    } else {
+      stateBadge = `<span class="status-badge status-neutral" data-i18n="lab.recallReview.notConfigured">${escapeHtml(t('lab.recallReview.notConfigured'))}</span>`;
+    }
+
+    const inj = variant && variant.memoryInjection;
+    let injText = '';
+    let injKey = '';
+    if (inj === 'none') {
+      injKey = 'lab.recallReview.injectionNone';
+      injText = t(injKey);
+    } else if (inj === 'explicit_ids') {
+      injKey = 'lab.recallReview.injectionExplicit';
+      injText = t(injKey);
+    } else if (inj === 'recall') {
+      injKey = 'lab.recallReview.injectionRecall';
+      injText = t(injKey);
+    } else if (inj === 'explicit_ids_plus_recall') {
+      injKey = 'lab.recallReview.injectionBoth';
+      injText = t(injKey);
+    } else if (inj) {
+      injText = String(inj);
+    } else {
+      injKey = 'lab.recallReview.notRecorded';
+      injText = t(injKey);
+    }
+
+    let countHtml = '';
+    if (!r || !r.enabled) {
+      countHtml = `<span class="text-muted" data-i18n="lab.recallReview.notApplicable">${escapeHtml(t('lab.recallReview.notApplicable'))}</span>`;
+    } else if (Array.isArray(r.items)) {
+      if (r.items.length === 0) {
+        countHtml = `<span class="text-secondary font-mono" data-i18n="lab.recallReview.emptySelection">${escapeHtml(t('lab.recallReview.emptySelection'))}</span>`;
+      } else {
+        countHtml = `<span class="font-mono"><strong>${r.items.length}</strong></span>`;
+      }
+    } else {
+      countHtml = `<span class="text-muted" data-i18n="lab.recallReview.missingItems">${escapeHtml(t('lab.recallReview.missingItems'))}</span>`;
+    }
+
+    let budgetHtml = '';
+    if (r && r.enabled) {
+      const used = (r.usedTokens !== null && r.usedTokens !== undefined) ? `${r.usedTokens} tok` : t('lab.recallReview.notRecorded');
+      const req = (r.budget !== null && r.budget !== undefined) ? `${r.budget} tok` : t('lab.recallReview.notRecorded');
+      budgetHtml = `<span class="font-mono">${escapeHtml(used)} / ${escapeHtml(req)}</span>`;
+    } else {
+      budgetHtml = `<span class="text-muted" data-i18n="lab.recallReview.notApplicable">${escapeHtml(t('lab.recallReview.notApplicable'))}</span>`;
+    }
+
+    let modeHtml = '';
+    if (r && r.enabled) {
+      const reqMode = r.requestedRetrievalMode || r.mode || t('lab.recallReview.notRecorded');
+      const actMode = r.retrievalMode || t('lab.recallReview.notRecorded');
+      modeHtml = `<span class="font-mono">${escapeHtml(reqMode)}</span> → <span class="font-mono">${escapeHtml(actMode)}</span>`;
+    } else {
+      modeHtml = `<span class="text-muted" data-i18n="lab.recallReview.notApplicable">${escapeHtml(t('lab.recallReview.notApplicable'))}</span>`;
+    }
+
+    let statusVal = '';
+    let incVal = '';
+    let truncVal = '';
+    if (r && r.enabled) {
+      statusVal = r.status || t('lab.recallReview.notRecorded');
+      incVal = r.indexIncomplete === true ? t('lab.recallReview.yes') : (r.indexIncomplete === false ? t('lab.recallReview.no') : t('lab.recallReview.notRecorded'));
+      truncVal = r.truncated === true ? t('lab.recallReview.yes') : (r.truncated === false ? t('lab.recallReview.no') : t('lab.recallReview.notRecorded'));
+    }
+
+    const isRecallOn = !!(r && r.enabled);
+    const reqModeStr = isRecallOn ? (r.requestedRetrievalMode || r.mode) : '';
+    const isSemanticOrHybrid = (reqModeStr === 'semantic' || reqModeStr === 'hybrid');
+    const actModeStr = isRecallOn ? r.retrievalMode : '';
+    const isFailedClosed = isRecallOn && (
+      r.status === 'failed_closed' ||
+      (r.status && r.status !== 'ok') ||
+      r.indexIncomplete === true ||
+      (isSemanticOrHybrid && actModeStr && actModeStr !== reqModeStr)
+    );
+
+    const hasTechDetails = !!(variant && (variant.finalContextHash || (r && (r.finalContextHash || r.query || r.scope))));
+
+    return `
+      <div class="lab-recall-side-card">
+        <div class="lab-recall-side-header">
+          <span style="font-weight: 600;" data-i18n="${sideTitleKey}">${escapeHtml(t(sideTitleKey))}</span>
+          ${stateBadge}
+        </div>
+        <div class="lab-recall-metric-list">
+          <div class="lab-recall-metric-row">
+            <span class="lab-recall-metric-label" data-i18n="lab.recallReview.injectionSource">${escapeHtml(t('lab.recallReview.injectionSource'))}</span>
+            <span class="lab-recall-metric-value"${injKey ? ` data-i18n="${injKey}"` : ''}>${escapeHtml(injText)}</span>
+          </div>
+          <div class="lab-recall-metric-row">
+            <span class="lab-recall-metric-label" data-i18n="lab.recallReview.selectedCount">${escapeHtml(t('lab.recallReview.selectedCount'))}</span>
+            <span class="lab-recall-metric-value">${countHtml}</span>
+          </div>
+          <div class="lab-recall-metric-row">
+            <span class="lab-recall-metric-label" data-i18n="lab.recallReview.budget">${escapeHtml(t('lab.recallReview.budget'))}</span>
+            <span class="lab-recall-metric-value">${budgetHtml}</span>
+          </div>
+          <div class="lab-recall-metric-row">
+            <span class="lab-recall-metric-label" data-i18n="lab.recallReview.retrievalMode">${escapeHtml(t('lab.recallReview.retrievalMode'))}</span>
+            <span class="lab-recall-metric-value">${modeHtml}</span>
+          </div>
+          ${isRecallOn ? `
+            <div class="lab-recall-metric-row">
+              <span class="lab-recall-metric-label" data-i18n="lab.recallReview.statusLabel">${escapeHtml(t('lab.recallReview.statusLabel'))}</span>
+              <span class="lab-recall-metric-value font-mono"><strong>${escapeHtml(statusVal)}</strong></span>
+            </div>
+            <div class="lab-recall-metric-row">
+              <span class="lab-recall-metric-label" data-i18n="lab.recallReview.indexIncomplete">${escapeHtml(t('lab.recallReview.indexIncomplete'))}</span>
+              <span class="lab-recall-metric-value">${escapeHtml(incVal)}</span>
+            </div>
+            <div class="lab-recall-metric-row">
+              <span class="lab-recall-metric-label" data-i18n="lab.recallReview.truncated">${escapeHtml(t('lab.recallReview.truncated'))}</span>
+              <span class="lab-recall-metric-value">${escapeHtml(truncVal)}</span>
+            </div>
+          ` : ''}
+        </div>
+
+        ${isFailedClosed ? `
+          <div class="alert-banner alert-danger" style="margin-top: 8px; font-size: 14px; line-height: 1.4;">
+            <strong data-i18n="lab.recallReview.failClosedTitle">${escapeHtml(t('lab.recallReview.failClosedTitle'))}</strong>
+            <div style="margin-top: 2px;" data-i18n="lab.recallReview.failClosedMessage">${escapeHtml(t('lab.recallReview.failClosedMessage'))}</div>
+          </div>
+        ` : ''}
+
+        ${hasTechDetails ? `
+          <details class="lab-recall-tech-details" style="margin-top: 8px; font-size: 14px;">
+            <summary style="cursor: pointer; color: var(--text-secondary);" data-i18n="lab.recallReview.technicalDetailsSummary">${escapeHtml(t('lab.recallReview.technicalDetailsSummary'))}</summary>
+            <div style="margin-top: 6px; padding: 6px 8px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; line-height: 1.45;">
+              ${variant && variant.finalContextHash ? `<div><span class="text-secondary" data-i18n="lab.recallReview.finalContextHash">${escapeHtml(t('lab.recallReview.finalContextHash'))}</span>: <code class="font-mono">${escapeHtml(variant.finalContextHash)}</code></div>` : ''}
+              ${r && r.finalContextHash ? `<div><span class="text-secondary" data-i18n="lab.recallReview.recallContextHash">${escapeHtml(t('lab.recallReview.recallContextHash'))}</span>: <code class="font-mono">${escapeHtml(r.finalContextHash)}</code></div>` : ''}
+              ${r && r.query ? `<div><span class="text-secondary" data-i18n="lab.recallReview.queryLabel">${escapeHtml(t('lab.recallReview.queryLabel'))}</span>: <span class="font-mono">${escapeHtml(r.query)}</span></div>` : ''}
+              ${r && r.scope ? `<div><span class="text-secondary" data-i18n="lab.recallReview.scopeLabel">${escapeHtml(t('lab.recallReview.scopeLabel'))}</span>: <span>${escapeHtml(r.scope)}</span></div>` : ''}
+            </div>
+          </details>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  function renderLabRecallFrozenReview(cmp) {
+    if (!cmp) return '';
+    return `
+      <div id="lab-recall-frozen-review" class="card">
+        <div class="card-header">
+          <span class="card-title" style="font-size: 16px; font-weight: 600;" data-i18n="lab.recallReview.title">${escapeHtml(t('lab.recallReview.title'))}</span>
+        </div>
+        <div class="lab-recall-review-grid">
+          ${renderLabRecallSideReview(cmp.baseline, 'baseline')}
+          ${renderLabRecallSideReview(cmp.candidate, 'candidate')}
+        </div>
+        <div class="lab-recall-audit-note">
+          <span data-i18n="lab.recallReview.auditNote">${escapeHtml(t('lab.recallReview.auditNote'))}</span>
+        </div>
+      </div>
+    `;
+  }
+
 
   async function openLabCompareDrawer(evalId) {
     const thisSeq = ++labDetailSequence;
@@ -17685,6 +19073,8 @@
             </div>
           </div>
         </div>
+
+        ${renderLabRecallFrozenReview(cmp)}
 
         ${isPending ? `
           <div class="empty-state">
@@ -18026,6 +19416,10 @@
   // 7. INBOX VIEW (Only pending approvals with frozen arguments)
   // -------------------------------------------------------------------------
   function renderInboxView(container) {
+    state.renderGeneration = (state.renderGeneration || 0) + 1;
+    const currentGeneration = state.renderGeneration;
+    const currentProject = state.currentProject;
+    const currentPage = state.currentPage;
     const approvals = (state.dashboard && state.dashboard.approvals) || [];
     const pendingApprovals = approvals.filter(a => {
       const st = (a.state || '').toLowerCase();
@@ -18046,20 +19440,22 @@
 
     function formatRelativePath(fullPath, basePath) {
       if (typeof fullPath !== 'string' || !fullPath) return null;
+      const normFull = fullPath.replace(/\\/g, '/');
       if (typeof basePath === 'string' && basePath) {
-        if (fullPath === basePath) return './';
-        const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/';
-        if (fullPath.startsWith(normalizedBase)) {
-          return fullPath.slice(normalizedBase.length) || './';
+        const normBase = basePath.replace(/\\/g, '/');
+        if (normFull === normBase) return './';
+        const normalizedBase = normBase.endsWith('/') ? normBase : normBase + '/';
+        if (normFull.startsWith(normalizedBase)) {
+          return normFull.slice(normalizedBase.length) || './';
         }
       }
-      return fullPath;
+      return normFull;
     }
 
     function getApprovalSummary(appr) {
       const args = parseApprovalArgs(appr.arguments);
       const projectPath = (typeof appr.project === 'string') ? appr.project : '';
-      const projectBasename = projectPath ? (projectPath.split('/').filter(Boolean).pop() || projectPath) : t('inbox.globalScope');
+      const projectBasename = projectPath ? (projectPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || projectPath) : t('inbox.globalScope');
 
       let targetDisplay = null;
       let commandDisplay = null;
@@ -18100,18 +19496,21 @@
       }
 
       if (executable !== null && executable !== undefined) {
-        if (rawArgv && rawArgv.length > 0) {
+        const relExec = formatRelativePath(executable, projectPath);
+        if (relExec) executable = relExec;
+        if (Array.isArray(rawArgv)) {
           commandDisplay = `${executable}  [argv: ${JSON.stringify(rawArgv)}]`;
         } else {
           commandDisplay = executable;
         }
-      } else if (rawArgv && rawArgv.length > 0) {
+      } else if (Array.isArray(rawArgv)) {
         commandDisplay = `[argv: ${JSON.stringify(rawArgv)}]`;
       }
 
       const rawContent = (typeof args.content === 'string') ? args.content :
                          (typeof args.CodeContent === 'string') ? args.CodeContent :
-                         (typeof args.patch === 'string') ? args.patch : null;
+                         (typeof args.patch === 'string') ? args.patch :
+                         (typeof args.diff === 'string') ? args.diff : null;
       if (rawContent && rawContent.trim()) {
         const lines = rawContent.trim().split('\n').slice(0, 3);
         let preview = lines.join('\n');
@@ -18142,10 +19541,56 @@
         taskDisplay = args.task.trim();
       }
       if (Array.isArray(args.verificationFiles) && args.verificationFiles.length > 0) {
-        protectedFilesDisplay = args.verificationFiles.map(f => typeof f === 'string' ? f : (f.path + (f.hash ? ' (' + f.hash.slice(0, 8) + ')' : ''))).join(', ');
+        protectedFilesDisplay = args.verificationFiles.map(f => {
+          const rawP = typeof f === 'string' ? f : (f && typeof f.path === 'string' ? f.path : (f && f.file ? f.file : ''));
+          return formatRelativePath(rawP, projectPath) || rawP;
+        }).filter(Boolean).join(', ');
       }
       if (Array.isArray(args.outputFiles) && args.outputFiles.length > 0) {
-        outputFilesDisplay = args.outputFiles.join(', ');
+        outputFilesDisplay = args.outputFiles.map(f => {
+          const rawP = typeof f === 'string' ? f : (f && typeof f.path === 'string' ? f.path : (f && f.file ? f.file : ''));
+          return formatRelativePath(rawP, projectPath) || rawP;
+        }).filter(Boolean).join(', ');
+      }
+
+      const rawTimeout = (args.timeout !== undefined && args.timeout !== null) ? args.timeout :
+                         ((appr.timeout !== undefined && appr.timeout !== null) ? appr.timeout : null);
+      let timeoutDisplay = null;
+      if (rawTimeout !== null && rawTimeout !== undefined && rawTimeout !== '') {
+        timeoutDisplay = typeof rawTimeout === 'number' ? `${rawTimeout}s` : String(rawTimeout);
+      }
+
+      const rawNetwork = (args.network !== undefined && args.network !== null) ? args.network :
+                         ((args.allowNetwork !== undefined && args.allowNetwork !== null) ? args.allowNetwork :
+                         ((args.networkAccess !== undefined && args.networkAccess !== null) ? args.networkAccess :
+                         ((appr.network !== undefined && appr.network !== null) ? appr.network : null)));
+      let networkDisplay = null;
+      if (rawNetwork !== null && rawNetwork !== undefined && rawNetwork !== '') {
+        if (typeof rawNetwork === 'boolean') {
+          networkDisplay = rawNetwork ? t('comfort.enabled') : t('comfort.disabled');
+        } else if (typeof rawNetwork === 'string') {
+          networkDisplay = rawNetwork;
+        } else if (Array.isArray(rawNetwork)) {
+          networkDisplay = rawNetwork.join(', ');
+        } else {
+          networkDisplay = Object.entries(rawNetwork).map(([k, v]) => `${k}: ${v}`).join(', ');
+        }
+      }
+
+      const rawEffect = (args.effect !== undefined && args.effect !== null) ? args.effect :
+                        ((args.sideEffect !== undefined && args.sideEffect !== null) ? args.sideEffect :
+                        ((appr.effect !== undefined && appr.effect !== null) ? appr.effect : null));
+      let effectDisplay = null;
+      if (rawEffect !== null && rawEffect !== undefined && rawEffect !== '') {
+        if (typeof rawEffect === 'boolean') {
+          effectDisplay = rawEffect ? t('comfort.enabled') : t('comfort.disabled');
+        } else if (typeof rawEffect === 'string') {
+          effectDisplay = rawEffect;
+        } else if (Array.isArray(rawEffect)) {
+          effectDisplay = rawEffect.join(', ');
+        } else {
+          effectDisplay = Object.entries(rawEffect).map(([k, v]) => `${k}: ${v}`).join(', ');
+        }
       }
 
       return {
@@ -18159,7 +19604,10 @@
         outputFilesDisplay,
         previewText,
         isFileOp,
-        toolName: frozenTool
+        toolName: frozenTool,
+        timeoutDisplay,
+        networkDisplay,
+        effectDisplay
       };
     }
 
@@ -18177,70 +19625,89 @@
           <div class="empty-state-desc" data-i18n="inbox.emptyDesc">${t('inbox.emptyDesc')}</div>
         </div>
       ` : `
-        <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div id="approval-list" style="display: flex; flex-direction: column; gap: 14px;">
           ${pendingApprovals.map(appr => {
             const summary = getApprovalSummary(appr);
+            let rawJsonDisplay = '{}';
+            try {
+              if (typeof appr.arguments === 'object' && appr.arguments !== null) {
+                rawJsonDisplay = JSON.stringify(appr.arguments, null, 2);
+              } else if (typeof appr.arguments === 'string') {
+                rawJsonDisplay = JSON.stringify(JSON.parse(appr.arguments), null, 2);
+              }
+            } catch {
+              rawJsonDisplay = String(appr.arguments || '{}');
+            }
             return `
-              <div class="card" style="margin-bottom: 0; padding: 16px 18px;">
+              <div class="card approval-card" data-testid="approval-card" data-approval-id="${escapeHtml(String(appr.id || ''))}" data-project="${escapeHtml(String(appr.project || ''))}" style="margin-bottom: 0; padding: 16px 18px;">
                 <div class="card-header" style="margin-bottom: 8px;">
                   <div>
-                    <strong style="font-size: 14px;">${escapeHtml(appr.title || t('inbox.defaultApprTitle'))}</strong>
-                    <span class="code-badge" style="margin-left: 6px;">${escapeHtml(summary.toolName)}</span>
+                    <strong style="font-size: 16px;">${escapeHtml(appr.title || t('inbox.defaultApprTitle'))}</strong>
+                    <span class="code-badge" style="margin-left: 6px; font-size: 14px;">${escapeHtml(summary.toolName)}</span>
                   </div>
-                  <span class="status-badge status-amber" data-i18n="inbox.statusPending">${t('inbox.statusPending')}</span>
+                  <span class="status-badge status-amber" style="font-size: 14px;" data-i18n="inbox.statusPending">${t('inbox.statusPending')}</span>
                 </div>
 
                 ${appr.intent || appr.description ? `
-                  <div style="font-size: 13px; color: var(--text-main); margin-bottom: 10px; line-height: 1.5;">
+                  <div style="font-size: 14px; color: var(--text-main); margin-bottom: 10px; line-height: 1.5;">
                     ${escapeHtml(appr.intent || appr.description)}
                   </div>
                 ` : ''}
 
-                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
-                  <div><strong data-i18n="inbox.metaProject">${t('inbox.metaProject')}</strong> <span class="font-mono" title="${escapeHtml(summary.projectPath)}">${escapeHtml(summary.projectBasename)}</span></div>
+                <div class="approval-impact" data-testid="approval-impact" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
+                  <div><strong data-i18n="inbox.metaProject">${t('inbox.metaProject')}</strong> <span class="font-mono">${escapeHtml(summary.projectBasename)}</span></div>
                   ${summary.agentDisplay ? `
-                    <div><strong data-i18n="inbox.metaEvalAgent">${t('inbox.metaEvalAgent')}</strong> <code class="code-badge font-mono">${escapeHtml(summary.agentDisplay)}</code></div>
+                    <div><strong data-i18n="inbox.metaEvalAgent">${t('inbox.metaEvalAgent')}</strong> <code class="code-badge font-mono" style="font-size: 14px;">${escapeHtml(summary.agentDisplay)}</code></div>
                   ` : ''}
                   ${summary.taskDisplay ? `
-                    <div style="margin-top: 2px;"><strong data-i18n="inbox.metaEvalTask">${t('inbox.metaEvalTask')}</strong> <div style="font-size: 11.5px; padding: 4px 6px; background: var(--bg-subtle); border-radius: 4px; margin-top: 2px; white-space: pre-wrap;">${escapeHtml(summary.taskDisplay)}</div></div>
+                    <div style="margin-top: 2px;"><strong data-i18n="inbox.metaEvalTask">${t('inbox.metaEvalTask')}</strong> <div style="font-size: 14px; padding: 4px 6px; background: var(--bg-subtle); border-radius: 4px; margin-top: 2px; white-space: pre-wrap;">${escapeHtml(summary.taskDisplay)}</div></div>
                   ` : ''}
                   ${summary.targetDisplay ? `
-                    <div><strong data-i18n="inbox.metaTargetFile">${t('inbox.metaTargetFile')}</strong> <code class="code-badge font-mono">${escapeHtml(summary.targetDisplay)}</code></div>
+                    <div><strong data-i18n="inbox.metaTargetFile">${t('inbox.metaTargetFile')}</strong> <code class="code-badge font-mono" style="font-size: 14px;">${escapeHtml(summary.targetDisplay)}</code></div>
                   ` : (summary.isFileOp ? `
                     <div><strong data-i18n="inbox.metaTargetFile">${t('inbox.metaTargetFile')}</strong> <span class="text-muted" data-i18n="inbox.noTargetFile">${t('inbox.noTargetFile')}</span></div>
                   ` : '')}
                   ${summary.commandDisplay ? `
-                    <div><strong>${summary.agentDisplay ? `<span data-i18n="inbox.metaVerifyCommand">${t('inbox.metaVerifyCommand')}</span>` : `<span data-i18n="inbox.metaExecCommand">${t('inbox.metaExecCommand')}</span>`}</strong> <code class="code-badge font-mono">${escapeHtml(summary.commandDisplay)}</code></div>
+                    <div><strong>${summary.agentDisplay ? `<span data-i18n="inbox.metaVerifyCommand">${t('inbox.metaVerifyCommand')}</span>` : `<span data-i18n="inbox.metaExecCommand">${t('inbox.metaExecCommand')}</span>`}</strong> <code class="code-badge font-mono" style="font-size: 14px;">${escapeHtml(summary.commandDisplay)}</code></div>
+                  ` : ''}
+                  ${summary.timeoutDisplay ? `
+                    <div><strong data-i18n="comfort.timeout">${t('comfort.timeout')}</strong> <span class="font-mono" style="font-size: 14px;">${escapeHtml(summary.timeoutDisplay)}</span></div>
+                  ` : ''}
+                  ${summary.networkDisplay ? `
+                    <div><strong data-i18n="comfort.network">${t('comfort.network')}</strong> <span class="font-mono" style="font-size: 14px;">${escapeHtml(summary.networkDisplay)}</span></div>
+                  ` : ''}
+                  ${summary.effectDisplay ? `
+                    <div><strong data-i18n="comfort.effect">${t('comfort.effect')}</strong> <span class="font-mono" style="font-size: 14px;">${escapeHtml(summary.effectDisplay)}</span></div>
                   ` : ''}
                   ${summary.protectedFilesDisplay ? `
-                    <div><strong data-i18n="inbox.metaProtectedFiles">${t('inbox.metaProtectedFiles')}</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml(summary.protectedFilesDisplay)}</span></div>
+                    <div><strong data-i18n="inbox.metaProtectedFiles">${t('inbox.metaProtectedFiles')}</strong> <span class="font-mono" style="font-size: 14px;">${escapeHtml(summary.protectedFilesDisplay)}</span></div>
                   ` : ''}
                   ${summary.outputFilesDisplay ? `
-                    <div><strong data-i18n="inbox.metaOutputFiles">${t('inbox.metaOutputFiles')}</strong> <span class="font-mono" style="font-size: 11px;">${escapeHtml(summary.outputFilesDisplay)}</span></div>
+                    <div><strong data-i18n="inbox.metaOutputFiles">${t('inbox.metaOutputFiles')}</strong> <span class="font-mono" style="font-size: 14px;">${escapeHtml(summary.outputFilesDisplay)}</span></div>
                   ` : ''}
                 </div>
 
                 ${summary.previewText ? `
-                  <div style="margin-bottom: 10px;">
-                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 3px;" data-i18n="inbox.previewTitle">${t('inbox.previewTitle')}</div>
-                    <pre class="code-view" style="font-size: 11px; padding: 6px 8px; max-height: 64px; overflow: hidden; margin: 0; white-space: pre-wrap; word-break: break-all;">${escapeHtml(summary.previewText)}</pre>
+                  <div class="approval-preview" style="margin-bottom: 10px;">
+                    <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 3px;" data-i18n="inbox.previewTitle">${t('inbox.previewTitle')}</div>
+                    <pre class="code-view" style="font-size: 14px; padding: 6px 8px; max-height: 80px; overflow: hidden; margin: 0; white-space: pre-wrap; word-break: break-all;">${escapeHtml(summary.previewText)}</pre>
                   </div>
                 ` : ''}
 
-                <details style="margin-bottom: 14px;">
+                <details class="approval-technical" data-testid="approval-technical-details" style="margin-bottom: 14px; font-size: 12px;">
                   <summary style="font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-secondary); user-select: none;" data-i18n="inbox.detailsSummary">
                     ${t('inbox.detailsSummary')}
                   </summary>
                   <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 6px;">
-                    ${summary.projectPath ? `<span data-i18n="inbox.fullProjectPath" data-i18n-params="${escapeHtml(JSON.stringify({ path: summary.projectPath }))}">${t('inbox.fullProjectPath', { path: escapeHtml(summary.projectPath) })}</span><br>` : ''}
-                    <span data-i18n="inbox.snapshotHash" data-i18n-params="${escapeHtml(JSON.stringify({ hash: appr.snapshotHash || t('common.none') }))}">${t('inbox.snapshotHash', { hash: appr.snapshotHash ? escapeHtml(appr.snapshotHash) : t('common.none') })}</span>
+                    <span data-testid="approval-full-project-path" data-i18n="inbox.fullProjectPath" data-i18n-params="${escapeHtml(JSON.stringify({ path: summary.projectPath || t('inbox.globalScope') }))}">${t('inbox.fullProjectPath', { path: escapeHtml(summary.projectPath || t('inbox.globalScope')) })}</span><br>
+                    <span data-testid="approval-snapshot-hash" data-i18n="inbox.snapshotHash" data-i18n-params="${escapeHtml(JSON.stringify({ hash: appr.snapshotHash || t('common.none') }))}">${t('inbox.snapshotHash', { hash: appr.snapshotHash ? escapeHtml(appr.snapshotHash) : t('common.none') })}</span>
                   </div>
-                  <div class="code-view" style="font-size: 12px; max-height: 160px; overflow-y: auto;">${escapeHtml(typeof appr.arguments === 'object' ? JSON.stringify(appr.arguments, null, 2) : appr.arguments || '{}')}</div>
+                  <div class="code-view" data-testid="approval-raw-json" style="font-size: 12px; max-height: 160px; overflow-y: auto;">${escapeHtml(rawJsonDisplay)}</div>
                 </details>
 
-                <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                  <button class="btn btn-secondary btn-sm btn-reject-appr" data-id="${escapeHtml(appr.id)}" data-hash="${escapeHtml(appr.snapshotHash || '')}" data-i18n="inbox.btnReject">${t('inbox.btnReject')}</button>
-                  <button class="btn btn-primary btn-sm btn-approve-appr" data-id="${escapeHtml(appr.id)}" data-hash="${escapeHtml(appr.snapshotHash || '')}" data-i18n="inbox.btnApprove">${t('inbox.btnApprove')}</button>
+                <div class="approval-actions" style="display: flex; justify-content: flex-end; gap: 8px;">
+                  <button class="btn btn-secondary btn-sm btn-reject-appr" data-testid="approval-reject" data-id="${escapeHtml(String(appr.id || ''))}" data-hash="${escapeHtml(String(appr.snapshotHash || ''))}" data-i18n="inbox.btnReject" style="font-size: 14px;">${t('inbox.btnReject')}</button>
+                  <button class="btn btn-primary btn-sm btn-approve-appr" data-testid="approval-approve" data-id="${escapeHtml(String(appr.id || ''))}" data-hash="${escapeHtml(String(appr.snapshotHash || ''))}" data-i18n="inbox.btnApprove" style="font-size: 14px;">${t('inbox.btnApprove')}</button>
                 </div>
               </div>
             `;
@@ -18249,53 +19716,59 @@
       `}
     `;
 
-    container.querySelectorAll('.btn-approve-appr').forEach(btn => {
+    container.querySelectorAll('.btn-approve-appr, .btn-reject-appr').forEach(btn => {
       btn.addEventListener('click', async () => {
-        btn.disabled = true;
+        const isApprove = btn.classList.contains('btn-approve-appr');
+        const decision = isApprove ? 'approve' : 'reject';
         const card = btn.closest('.card');
-        if (card) {
-          card.querySelectorAll('button').forEach(b => b.disabled = true);
-        }
-        const id = btn.getAttribute('data-id');
+        const cardId = btn.getAttribute('data-id');
         const snapshotHash = btn.getAttribute('data-hash');
-        try {
-          await callBridge('approvals.decide', {
-            id,
-            decision: 'approve',
-            snapshotHash
-          });
-          showToast({ key: 'inbox.approvedToast' });
-          await refreshDashboard(true, true);
-        } catch (err) {
-          showToast({ key: 'inbox.approveFailedToast', params: { error: err.message } }, 'error');
-          if (card) {
-            card.querySelectorAll('button').forEach(b => b.disabled = false);
-          }
-        }
-      });
-    });
+        const cardButtons = card ? card.querySelectorAll('button') : [btn];
 
-    container.querySelectorAll('.btn-reject-appr').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        const card = btn.closest('.card');
-        if (card) {
-          card.querySelectorAll('button').forEach(b => b.disabled = true);
+        cardButtons.forEach(b => { b.disabled = true; });
+
+        const capturedProject = currentProject;
+        const capturedPage = currentPage;
+        const capturedGeneration = currentGeneration;
+
+        function isSameScope() {
+          return state.currentProject === capturedProject &&
+            state.currentPage === capturedPage &&
+            state.renderGeneration === capturedGeneration &&
+            Boolean(card && card.isConnected && card.getAttribute('data-approval-id') === cardId && container.contains(card));
         }
-        const id = btn.getAttribute('data-id');
-        const snapshotHash = btn.getAttribute('data-hash');
+
         try {
           await callBridge('approvals.decide', {
-            id,
-            decision: 'reject',
+            id: cardId,
+            decision,
             snapshotHash
           });
-          showToast({ key: 'inbox.rejectedToast' });
+
+          if (!isSameScope()) return;
+
+          showToast({ key: isApprove ? 'inbox.approvedToast' : 'inbox.rejectedToast' });
           await refreshDashboard(true, true);
+
+          if (!isSameScope()) return;
         } catch (err) {
-          showToast({ key: 'inbox.rejectFailedToast', params: { error: err.message } }, 'error');
-          if (card) {
-            card.querySelectorAll('button').forEach(b => b.disabled = false);
+          if (!isSameScope()) return;
+
+          const errMessage = (err && typeof err.message === 'string') ? err.message : String(err || '');
+          const isExpired = errMessage === 'Approval expired; no action was executed. Review a new request.';
+          const failedToastKey = isApprove ? 'inbox.approveFailedToast' : 'inbox.rejectFailedToast';
+          showToast({ key: failedToastKey, params: { error: errMessage } }, 'error');
+
+          if (isExpired) {
+            cardButtons.forEach(b => { b.disabled = true; });
+            try {
+              await refreshDashboard(true, true);
+            } catch (_) {}
+            if (isSameScope()) {
+              cardButtons.forEach(b => { b.disabled = true; });
+            }
+          } else {
+            cardButtons.forEach(b => { b.disabled = false; });
           }
         }
       });
@@ -20281,6 +21754,9 @@
 
   function closeDrawer() {
     dismissActiveCaptureModal();
+    if (typeof dismissActiveRunFeedbackModal === 'function') {
+      dismissActiveRunFeedbackModal();
+    }
     currentDrawerInstance = ++drawerInstanceCounter;
     invalidateSessionDisclosures();
     const drawer = document.getElementById('detail-drawer');
@@ -20326,6 +21802,9 @@
     if (typeof activeHealthProposalModalInstance !== 'undefined' && activeHealthProposalModalInstance) {
       dismissActiveHealthProposalModal();
     }
+    if (typeof activeRunFeedbackModalInstance !== 'undefined' && activeRunFeedbackModalInstance) {
+      dismissActiveRunFeedbackModal();
+    }
     const thisModalInstance = ++modalInstanceCounter;
     currentModalInstance = thisModalInstance;
     const originalActive = document.activeElement;
@@ -20340,8 +21819,17 @@
     if (b) b.innerHTML = bodyHtml;
     if (f) {
       f.innerHTML = footerHtml;
-      if (!footerHtml) f.classList.add('hidden');
-      else f.classList.remove('hidden');
+      if (!footerHtml) {
+        f.classList.add('hidden');
+      } else {
+        f.classList.remove('hidden');
+        f.querySelectorAll('[data-close-modal]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (currentModalInstance !== thisModalInstance) return;
+            closeModal();
+          });
+        });
+      }
     }
     if (modal) modal.classList.remove('hidden');
 
@@ -20401,6 +21889,17 @@
           activeHealthProposalCleanup();
         } catch {}
         activeHealthProposalCleanup = null;
+      }
+    }
+    if (typeof activeRunFeedbackModalInstance !== 'undefined' && activeRunFeedbackModalInstance) {
+      activeRunFeedbackModalInstance = null;
+      runFeedbackGen++;
+      activeRunFeedbackSession = null;
+      if (typeof activeRunFeedbackCleanup === 'function') {
+        try {
+          activeRunFeedbackCleanup();
+        } catch {}
+        activeRunFeedbackCleanup = null;
       }
     }
     currentModalInstance = ++modalInstanceCounter;

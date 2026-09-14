@@ -113,6 +113,14 @@ jobs:
           python3 scripts/test-workspace-scope-accessibility-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-workspace-scope --output output/playwright/ci-workspace-scope --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
           python3 scripts/test-session-memory-capture-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-session-capture --output output/playwright/ci-session-capture --browser-executable "$BROWSER_EXECUTABLE"
           python3 scripts/test-workflow-health-proposal-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-health-proposal-ui --output output/playwright/ci-health-proposal-ui --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-ui-server-approval-cache.py > output/parity/ci-ui-server-approval-cache.json
+          python3 scripts/test-desktop-usability-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-desktop-usability --output output/playwright/ci-desktop-usability --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-run-feedback-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-run-feedback --output output/playwright/ci-run-feedback --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-run-feedback-drawer-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-run-feedback-drawer --output output/playwright/ci-run-feedback-drawer --browser-executable "$BROWSER_EXECUTABLE"
+          # This gate rejects both a delayed-prepare overwrite and incomplete
+          # race observations, while retaining its diagnosis receipt.
+          python3 scripts/test-run-feedback-ui21-prepare-race.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-run-feedback-prepare-race --output output/playwright/ci-run-feedback-prepare-race --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-lab-recall-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-lab-recall --output output/playwright/ci-lab-recall --browser-executable "$BROWSER_EXECUTABLE"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -155,6 +163,27 @@ jobs:
             output/playwright/ci-health-proposal-ui/*.json
             output/playwright/ci-health-proposal-ui/*.jsonl
             output/playwright/ci-health-proposal-ui/*.png
+            output/playwright/ci-desktop-usability/*.json
+            output/playwright/ci-desktop-usability/*.jsonl
+            output/playwright/ci-desktop-usability/*.png
+            output/playwright/ci-desktop-usability/*.txt
+            output/playwright/ci-desktop-usability/*.log
+            output/playwright/ci-run-feedback-drawer/*
+            output/playwright/ci-run-feedback/*.json
+            output/playwright/ci-run-feedback/*.jsonl
+            output/playwright/ci-run-feedback/*.png
+            output/playwright/ci-run-feedback/*.txt
+            output/playwright/ci-run-feedback/*.log
+            output/playwright/ci-run-feedback-prepare-race/*.json
+            output/playwright/ci-run-feedback-prepare-race/*.jsonl
+            output/playwright/ci-run-feedback-prepare-race/*.png
+            output/playwright/ci-run-feedback-prepare-race/*.txt
+            output/playwright/ci-run-feedback-prepare-race/*.log
+            output/playwright/ci-lab-recall/*.json
+            output/playwright/ci-lab-recall/*.jsonl
+            output/playwright/ci-lab-recall/*.png
+            output/playwright/ci-lab-recall/*.txt
+            output/playwright/ci-lab-recall/*.log
             output/parity/ci-session-history.json
             output/parity/ci-store-backup-*.json
             output/parity/ci-store-backup-*.log
@@ -162,6 +191,7 @@ jobs:
             output/parity/ci-ingestion-consumers*.json
             output/parity/ci-ingestion-loop*.json
             output/parity/ci-ui-server-lab-guards.json
+            output/parity/ci-ui-server-approval-cache.json
             output/parity/ci-session-plans.json
             output/parity/ci-mcp-stdio.json
             output/parity/ci-loop-controls*.json

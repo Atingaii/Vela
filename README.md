@@ -34,7 +34,7 @@
 > Core paths are implemented, with substantial compatibility and automation limits. This is not a complete implementation of the roadmap or a stable release. The development app is ad-hoc signed, has no Developer ID signature and is not Apple-notarized. Read [feature status and limitations](docs/status.md) before use.
 
 <p align="center">
-  <img src="docs/assets/vela-workspace.png" alt="Vela development workspace showing grouped agent sessions and their source messages" width="100%">
+  <img src="docs/assets/vela-workspace.png" alt="Vela development workspace with grouped agent sessions, readable controls and project navigation" width="100%">
 </p>
 
 <p align="center">
@@ -47,6 +47,8 @@
 - **Keep useful context:** save memories with provenance and explicit scope, recall active memories within a conservative budget, and export checkpoints containing user notes and a captured Git state.
 - **Review before running:** edit Markdown workflows, dry-run supported reads, approve frozen actions and inspect persisted run records. Project tests and agent commands require approval. New development requests have a [configurable seven-day expiry](docs/implementation/approval-expiry-contract.md).
 - **Compare actual outcomes:** inspect deterministic correction-based suggestions, preview and safely apply or undo supported file changes, and run baseline/candidate commands in separate Git worktrees at the same commit.
+- **Record human feedback:** assess completed runs with a reason, inspect prior revisions, and reopen persisted feedback without changing objective execution results.
+- **Control Lab memory:** independently select Recall OFF, strict Memory OFF or an explicit project recall for each variant; review the frozen selection before approval.
 - **Own reference material:** import text, HTML, text-based PDF, DOC/DOCX, ODT, RTF or an explicit document URL. Edit, export, archive, restore or explicitly refresh sources with version history. Library imports default to private; paragraph search and reviewed Ask use eligible public sources.
 
 Sessions, Memory and Workflows are directly accessible from the sidebar. Project configuration, observed usage, Improve and Lab remain available alongside global Search, Inbox and Settings. Keyboard shortcuts are discoverable in menus and tooltips.
@@ -77,7 +79,7 @@ bash scripts/package-macos.sh
 open releases/Vela.app
 ```
 
-The package script defaults to the `dev` channel and produces `releases/Vela-macOS-arm64.zip` and `releases/SHA256SUMS`. Setting a channel does not sign, notarize or publish a release. The installed application uses Swift, AppKit, the system WKWebView, SQLite and other macOS frameworks; it does not require Electron, Node.js or a Python runtime.
+The package script limits build concurrency to two jobs by default (`VELA_BUILD_JOBS` overrides it) and defaults to the `dev` channel and produces `releases/Vela-macOS-arm64.zip` and `releases/SHA256SUMS`. Setting a channel does not sign, notarize or publish a release. The installed application uses Swift, AppKit, the system WKWebView, SQLite and other macOS frameworks; it does not require Electron, Node.js or a Python runtime.
 
 ## First project and CLI
 

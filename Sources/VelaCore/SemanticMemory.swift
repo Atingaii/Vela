@@ -77,7 +77,9 @@ final class SemanticMemory {
         return stableHash(try jsonString(source))
     }
     static func isIndexable(_ item: JSON, project: String) -> Bool {
-        guard string(item,"state").lowercased() == "active", !privateLibraryPath(string(item,"sourceFile")) else { return false }
+        guard string(item,"state").lowercased() == "active",
+              ModelImprovement.falseOrAbsent(item["sourceLabeledPrivate"]) else { return false }
+        for key in ["sourcePath","sourceFile","assetPath"] where privateLibraryPath(string(item,key)) { return false }
         if let privacy = item["private"] {
             guard let value = privacy as? NSNumber, CFGetTypeID(value) == CFBooleanGetTypeID(), !value.boolValue else { return false }
         }

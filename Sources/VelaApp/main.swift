@@ -362,6 +362,11 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         window.center()
 
         let config = WKWebViewConfiguration()
+        #if !VELA_PACKAGED
+        if ProcessInfo.processInfo.environment["VELA_NATIVE_QA"] == "1" {
+            config.websiteDataStore = WKWebsiteDataStore.nonPersistent()
+        }
+        #endif
         let userContentController = WKUserContentController()
 
         // Native bridge injection (forMainFrameOnly: true)
@@ -1583,6 +1588,9 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             "checkpoint.save", "checkpoint.list", "checkpoint.export",
             "library.add", "library.list", "library.get", "library.update", "library.remove", "library.restore", "library.refresh", "library.history", "library.export", "library.index", "library.index.status", "library.search",
             "workflows.list", "workflows.save", "workflows.run", "runs.list", "runs.get",
+            "runs.feedback.prepare", "runs.feedback.record",
+            "runs.feedback.history.list", "runs.feedback.history.get",
+            "runs.feedback.get", "runs.feedback.list",
             "workflows.health", "workflows.replay", "workflows.build",
             "workflows.health.proposal.get", "workflows.health.proposal.list", "workflows.health.proposeTimeout", "workflows.health.proposal.decide",
             "guidelines.list", "guidelines.save", "regression.list",

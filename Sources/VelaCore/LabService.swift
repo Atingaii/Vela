@@ -67,13 +67,17 @@ extension AutomationService {
             evaluation["modelIdentity"] = ["requested":string(agent,"model"),"requestFixed":true,"providerResolvedVersion":NSNull()] as JSON
             evaluation["promotionPolicy"] = ["minimumRepetitions":3,"maximumTokenRatio":1.2,"absoluteTokenTolerance":100,"requireTaskSuccess":true,"requireMeasuredImprovement":true]
         }
-        evaluation = try store.put("eval",evaluation)
-        var frozen: JSON = ["evalId":string(evaluation,"id"),"project":root,"commit":commit,"command":command,"timeoutSeconds":timeout,"repetitions":repetitions,"baseline":baseline,"candidate":candidate]
+        // The evaluation and its executable approval are one authorization
+        // record.  Allocate both identities before writing so a preference or
+        // storage failure cannot leave a pending eval or approval unpaired.
+        let evaluationID = UUID().uuidString.lowercased()
+        evaluation["id"] = evaluationID
+        var frozen: JSON = ["evalId":evaluationID,"project":root,"commit":commit,"command":command,"timeoutSeconds":timeout,"repetitions":repetitions,"baseline":baseline,"candidate":candidate]
         if let agent { frozen["agent"] = agent; frozen["task"] = task; frozen["verificationFiles"] = protectedFiles; frozen["outputFiles"] = evaluation["outputFiles"] }
         if let source = evaluation["sourceSuggestionId"] { frozen["sourceSuggestionId"] = source; frozen["sourceSuggestionHash"] = evaluation["sourceSuggestionHash"] }
-        let approval = try createApproval(title:"Run paired evaluation: " + string(evaluation,"title"),tool:"lab.execute",arguments:frozen,project:root,runId:string(evaluation,"id"),stepIndex:0)
+        let approval = try pendingApproval(title:"Run paired evaluation: " + string(evaluation,"title"),tool:"lab.execute",arguments:frozen,project:root,runId:evaluationID,stepIndex:0)
         evaluation["approvalId"] = approval["id"]
-        return try store.put("eval",evaluation)
+        return try store.putBatch([("eval",evaluation),("approval",approval)],expectingAbsent:[("eval",evaluationID),("approval",string(approval,"id"))],createOnly:true)[0]
     }
 
     /// Legacy `memoryIds` remain an explicit caller-selected context channel.  Recall is
@@ -102,7 +106,7 @@ extension AutomationService {
         let exclusions = IngestionExclusionService(store:store)
         let memories = try ids.map { id -> JSON in
             let memory = try object("memory",id)
-            guard string(memory,"project") == project, string(memory,"scope") == "project", memory["private"] as? Bool != true, !privateLibraryPath(string(memory,"sourceFile")), ["active","candidate"].contains(string(memory,"state")), try exclusions.allowsMemoryRecall(memory,project:project) else { throw VelaError("Evaluation memory is excluded by the current ingestion policy") }
+            guard try labMemoryEligible(memory,project:project,states:["active","candidate"],exclusions:exclusions) else { throw VelaError("Evaluation memory is excluded by the current ingestion policy") }
             return explicitMemoryReceipt(memory)
         }
         let recall = try evaluationRecall(input["recall"], project:project, explicitIDs:Set(ids))
@@ -123,9 +127,23 @@ extension AutomationService {
 
     private func labMemorySourceHash(_ memory: JSON) -> String {
         let source: JSON = ["id":string(memory,"id"),"project":string(memory,"project"),"scope":string(memory,"scope"),
-                            "state":string(memory,"state"),"private":memory["private"] as? Bool ?? false,
-                            "sourceFile":string(memory,"sourceFile"),"title":string(memory,"title"),"content":string(memory,"content")]
+                            "state":string(memory,"state"),"private":memory["private"] ?? NSNull(),
+                            "sourceLabeledPrivate":memory["sourceLabeledPrivate"] ?? NSNull(),
+                            "sourcePath":string(memory,"sourcePath"),"sourceFile":string(memory,"sourceFile"),"assetPath":string(memory,"assetPath"),
+                            "title":string(memory,"title"),"content":string(memory,"content")]
         return stableHash((try? jsonString(source)) ?? "")
+    }
+
+    /// Lab is a context-injection boundary. Its narrower project-only selection
+    /// must fail closed for every privacy marker and source path, even when a
+    /// lower retrieval implementation happened to return an item.
+    private func labMemoryEligible(_ memory: JSON, project: String, states: Set<String>, exclusions: IngestionExclusionService) throws -> Bool {
+        guard string(memory,"project") == project, string(memory,"scope").lowercased() == "project",
+              states.contains(string(memory,"state").lowercased()),
+              ModelImprovement.falseOrAbsent(memory["private"]),
+              ModelImprovement.falseOrAbsent(memory["sourceLabeledPrivate"]) else { return false }
+        for key in ["sourcePath","sourceFile","assetPath"] where privateLibraryPath(string(memory,key)) { return false }
+        return try exclusions.allowsMemoryRecall(memory,project:project)
     }
 
     private func evaluationRecall(_ raw: Any?, project: String, explicitIDs: Set<String>) throws -> JSON {
@@ -152,9 +170,10 @@ extension AutomationService {
         guard actualMode == mode, status == "ok", result["indexIncomplete"] as? Bool != true else {
             throw VelaError("Lab Recall did not obtain the requested \(mode) retrieval; choose lexical explicitly or retry when semantic indexing is available")
         }
-        let items = (result["items"] as? [JSON] ?? []).filter { memory in
-            string(memory,"project") == project && string(memory,"scope").lowercased() == "project" && string(memory,"state").lowercased() == "active" &&
-            memory["private"] as? Bool != true && !privateLibraryPath(string(memory,"sourceFile")) && !explicitIDs.contains(string(memory,"id"))
+        let exclusions = IngestionExclusionService(store:store)
+        let items = try (result["items"] as? [JSON] ?? []).reduce(into:[JSON]()) { accepted,memory in
+            guard !explicitIDs.contains(string(memory,"id")), try labMemoryEligible(memory,project:project,states:["active"],exclusions:exclusions) else { return }
+            accepted.append(memory)
         }.map { memory -> JSON in
             ["id":string(memory,"id"),"title":string(memory,"title"),"content":string(memory,"content"),
              "contentHash":stableHash(string(memory,"title") + "\n" + string(memory,"content")),"sourceHash":labMemorySourceHash(memory),
@@ -179,18 +198,16 @@ extension AutomationService {
             // cannot establish that a later private/lifecycle change is safe to send.
             guard !string(frozen,"sourceHash").isEmpty else { throw VelaError("Frozen explicit Lab memory lacks a source receipt; prepare a new evaluation") }
             let current = try object("memory",try requireString(frozen,"id"))
-            guard string(current,"project") == project, string(current,"scope").lowercased() == "project", ["active","candidate"].contains(string(current,"state").lowercased()),
-                  current["private"] as? Bool != true, !privateLibraryPath(string(current,"sourceFile")),
+            guard try labMemoryEligible(current,project:project,states:["active","candidate"],exclusions:exclusions),
                   stableHash(string(current,"title") + "\n" + string(current,"content")) == string(frozen,"contentHash"),
-                  labMemorySourceHash(current) == string(frozen,"sourceHash"), try exclusions.allowsMemoryRecall(current,project:project) else { throw VelaError("Frozen explicit Lab memory changed, became private, was excluded, or is no longer eligible; prepare a new evaluation") }
+                  labMemorySourceHash(current) == string(frozen,"sourceHash") else { throw VelaError("Frozen explicit Lab memory changed, became private, was excluded, or is no longer eligible; prepare a new evaluation") }
         }
         let recall = variant["recall"] as? JSON ?? [:]
         for frozen in recall["items"] as? [JSON] ?? [] {
             let current = try object("memory",try requireString(frozen,"id"))
-            guard string(current,"project") == project, string(current,"scope").lowercased() == "project", string(current,"state").lowercased() == "active",
-                  current["private"] as? Bool != true, !privateLibraryPath(string(current,"sourceFile")),
+            guard try labMemoryEligible(current,project:project,states:["active"],exclusions:exclusions),
                   stableHash(string(current,"title") + "\n" + string(current,"content")) == string(frozen,"contentHash"),
-                  labMemorySourceHash(current) == string(frozen,"sourceHash"), try exclusions.allowsMemoryRecall(current,project:project) else { throw VelaError("Frozen Lab Recall source changed, became private, was excluded, or is no longer active; prepare a new evaluation") }
+                  labMemorySourceHash(current) == string(frozen,"sourceHash") else { throw VelaError("Frozen Lab Recall source changed, became private, was excluded, or is no longer active; prepare a new evaluation") }
         }
         if !explicit.isEmpty || recall["enabled"] as? Bool == true {
             guard !string(variant,"finalContextHash").isEmpty, stableHash(string(variant,"context")) == string(variant,"finalContextHash") else { throw VelaError("Frozen Lab memory context is invalid") }

@@ -47,11 +47,22 @@ final class LabRecallVariantTests: XCTestCase {
         return try XCTUnwrap(store.get("eval", string(created,"id")))
     }
 
+    /// The source-receipt shape emitted before the privacy/path fields joined the
+    /// hash. It is intentionally reproduced only to verify conservative upgrade
+    /// behavior for already-pending evaluations.
+    private func legacyLabMemorySourceHash(_ memory: JSON) throws -> String {
+        let source: JSON = ["id":string(memory,"id"),"project":string(memory,"project"),"scope":string(memory,"scope"),
+                            "state":string(memory,"state"),"private":memory["private"] as? Bool ?? false,
+                            "sourceFile":string(memory,"sourceFile"),"title":string(memory,"title"),"content":string(memory,"content")]
+        return stableHash(try jsonString(source))
+    }
+
     func testExplicitOffAndRecallOnReachRealAgentContextWithActiveProjectBudgetOnly() throws {
         try fixture { root, agent, store, service in
             let active = try store.put("memory", ["id":"active-hit","project":root.path,"scope":"project","state":"active","private":false,"title":"Clamp guidance","content":"Use a bounded clamp implementation."])
             _ = try store.put("memory", ["id":"candidate-hit","project":root.path,"scope":"project","state":"candidate","private":false,"title":"Clamp draft","content":"bounded clamp draft"])
             _ = try store.put("memory", ["id":"private-hit","project":root.path,"scope":"project","state":"active","private":true,"title":"Clamp secret","content":"private clamp secret"])
+            _ = try store.put("memory", ["id":"source-labeled-hit","project":root.path,"scope":"project","state":"active","private":false,"sourceLabeledPrivate":true,"title":"Clamp source label","content":"RECALL_SOURCE_LABELED_SENTINEL"])
             let other = root.deletingLastPathComponent().appendingPathComponent("other"); try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
             _ = try store.put("project", ["path":other.path,"project":other.path,"title":"other"])
             _ = try store.put("memory", ["id":"cross-hit","project":other.path,"scope":"project","state":"active","private":false,"title":"Clamp cross","content":"cross project"])
@@ -78,6 +89,7 @@ final class LabRecallVariantTests: XCTestCase {
             XCTAssertTrue(contexts["candidate", default: ""].contains("Clamp guidance"))
             XCTAssertFalse(contexts["candidate", default: "unexpected"].contains("private clamp secret"))
             XCTAssertFalse(contexts["candidate", default: "unexpected"].contains("cross project"))
+            XCTAssertFalse(contexts["candidate", default: "unexpected"].contains("RECALL_SOURCE_LABELED_SENTINEL"))
             XCTAssertFalse(FileManager.default.fileExists(atPath: store.root.appendingPathComponent("lab-worktrees/" + string(created,"id")).path))
         }
     }
@@ -120,4 +132,51 @@ final class LabRecallVariantTests: XCTestCase {
             } catch { XCTFail("Unexpected semantic Lab error: \(error)") }
         }
     } }
+
+    func testSourceLabeledMemoryIsRejectedAtFreezeAndBeforeCandidateExecution() throws {
+        try fixture { root,agent,store,service in
+            let labeled = try store.put("memory", ["id":"source-labeled","project":root.path,"scope":"project","state":"active","private":false,"sourceLabeledPrivate":true,"title":"Needle labeled","content":"source labeled needle"])
+            XCTAssertThrowsError(try service.handle("lab.run", request(root,agent,baseline:["files":[]],candidate:["files":[],"memoryIds":[string(labeled,"id")]])))
+            var available = labeled; available["sourceLabeledPrivate"] = false; _ = try store.put("memory",available)
+            let created = try XCTUnwrap(service.handle("lab.run", request(root,agent,baseline:["files":[],"recall":["enabled":false,"strictOff":true]],candidate:["files":[],"recall":["enabled":true,"query":"source labeled needle","mode":"lexical","scope":"project","budget":300]])) as? JSON)
+            var relabeled = available; relabeled["sourceLabeledPrivate"] = true; _ = try store.put("memory",relabeled)
+            let approval = try XCTUnwrap(store.get("approval",string(created,"approvalId")))
+            let decision = try XCTUnwrap(service.handle("approvals.decide",["id":approval["id"]!,"decision":"approve","snapshotHash":approval["snapshotHash"]!]) as? JSON)
+            XCTAssertEqual(string(decision,"state"),"failed")
+            let evaluation = try XCTUnwrap(store.get("eval",string(created,"id")))
+            XCTAssertEqual(string(evaluation,"state"),"failed")
+            XCTAssertEqual((evaluation["results"] as? [JSON] ?? []).map { string($0,"variant") },["baseline"])
+            XCTAssertFalse((evaluation["results"] as? [JSON] ?? []).contains { string($0,"variant") == "candidate" })
+        }
+    }
+
+    func testLegacyRecallReceiptFailsClosedAndARebuiltEvaluationExecutes() throws {
+        try fixture { root,agent,store,service in
+            let memory = try store.put("memory", ["id":"legacy-receipt-source","project":root.path,"scope":"project","state":"active","private":false,"title":"Legacy receipt source","content":"legacy recall fixture"])
+            let candidate: JSON = ["files":[],"recall":["enabled":true,"query":"legacy recall fixture","mode":"lexical","scope":"project","budget":300]]
+            let created = try XCTUnwrap(service.handle("lab.run",request(root,agent,baseline:["files":[],"recall":["enabled":false,"strictOff":true]],candidate:candidate)) as? JSON)
+            var evaluation = try XCTUnwrap(store.get("eval",string(created,"id")))
+            let currentApproval = try XCTUnwrap(store.get("approval",string(created,"approvalId")))
+            var legacyCandidate = try XCTUnwrap(evaluation["candidate"] as? JSON)
+            var legacyRecall = try XCTUnwrap(legacyCandidate["recall"] as? JSON)
+            var legacyItems = try XCTUnwrap(legacyRecall["items"] as? [JSON])
+            XCTAssertEqual(legacyItems.count,1)
+            legacyItems[0]["sourceHash"] = try legacyLabMemorySourceHash(memory)
+            legacyRecall["items"] = legacyItems; legacyCandidate["recall"] = legacyRecall; evaluation["candidate"] = legacyCandidate
+            var frozen = try XCTUnwrap(currentApproval["arguments"] as? JSON); frozen["candidate"] = legacyCandidate
+            let legacyApproval = try service.pendingApproval(id:"legacy-receipt-approval",title:string(currentApproval,"title"),tool:"lab.execute",arguments:frozen,project:root.path,runId:string(evaluation,"id"),stepIndex:0)
+            try store.remove("approval",string(currentApproval,"id")); evaluation["approvalId"] = legacyApproval["id"]
+            _ = try store.putBatch([("eval",evaluation),("approval",legacyApproval)],expectingAbsent:[("approval",string(legacyApproval,"id"))],createOnly:false)
+            let rejected = try XCTUnwrap(service.handle("approvals.decide",["id":legacyApproval["id"]!,"decision":"approve","snapshotHash":legacyApproval["snapshotHash"]!]) as? JSON)
+            XCTAssertEqual(string(rejected,"state"),"failed")
+            XCTAssertTrue(string(rejected["result"] as? JSON ?? [:],"output").contains("Frozen Lab Recall source changed"))
+            let failed = try XCTUnwrap(store.get("eval",string(created,"id")))
+            XCTAssertEqual(string(failed,"state"),"failed")
+            XCTAssertEqual((failed["results"] as? [JSON] ?? []).map { string($0,"variant") },["baseline"])
+            let rebuilt = try XCTUnwrap(service.handle("lab.run",request(root,agent,baseline:["files":[],"recall":["enabled":false,"strictOff":true]],candidate:candidate)) as? JSON)
+            let completed = try approve(service,store,rebuilt)
+            XCTAssertEqual(string(completed,"state"),"completed",string(completed,"error"))
+            XCTAssertEqual((completed["results"] as? [JSON] ?? []).map { string($0,"variant") },["baseline","candidate"])
+        }
+    }
 }

@@ -53,6 +53,8 @@
 
 通知默认关闭。启用后，Vela 会合并新的审批、完成与失败事件，点击可返回对应项目，并使用三种简短的原创提示音；设置中可单独试听。 当前 ad-hoc 包在验收机器上被 macOS 拒绝通知授权，系统横幅投递尚未通过验收，详见[验收边界](docs/verification.md#explicit-environment-limitation)。
 
+运行记录现在支持带理由的人工评估、历史修订和重启后读取；评估不会改变客观执行结果。Lab 可独立设置两侧的自动召回、关闭召回或严格禁用 Memory，并在审批前查看冻结选择。
+
 ## 安装
 
 在 [0.1.0-preview.2 发布页](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2)下载 Apple Silicon 压缩包和 `SHA256SUMS`，核对校验值后，将 `Vela.app` 移入 Applications。最低系统要求为 **macOS 13**；本预览版不提供 Intel 构建。

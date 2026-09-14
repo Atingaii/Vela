@@ -1,0 +1,270 @@
+{
+  "format": "vela-ui-authoring-provenance-v1",
+  "date": "2026-09-14",
+  "route": "user-authorized compatible API",
+  "requestedModel": "gemini-3.8-flash",
+  "reasoningEffort": "high",
+  "upstreamModelIndependentlyVerified": false,
+  "rootAuthoredUI": false,
+  "integratedSHA256": {
+    "app.js": "7ab1bcd10324f5d480d744d0d3aeaef24deb8499f1c24761bf640fbad442a2dc",
+    "app.css": "b60f04aaf34f3c2284d18bcc303c7cbb51685c801bd8801b278f95cb179f2a33",
+    "i18n.js": "39da41c18ddd712f8608bbb77e202068ecd312d3f22515b68154d2a1b4d33722"
+  },
+  "nativeSHA256": "ac19f37f4a442cdf77bf2c325c3c921e77f5db6b4932af2eb226d67a1a9c39cf",
+  "authoring": [
+    {
+      "job": "asset-table-fit-r2",
+      "status": 429,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "1320ef54790ee66974cad5e4a50b5baffc6bc5e9b28d3cc85f5e22ce899c142e",
+      "responseSHA256": "deb814bd55c194db09c460159bf3e82cda0ba9253ac29588f22a5027170aedb9",
+      "reportedModel": null,
+      "finishReason": null,
+      "integrated": false
+    },
+    {
+      "job": "asset-table-fit",
+      "status": 429,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "19adb60896cd8cd822b5d13066091f35507fe55b6c00a640858781841b7eb93f",
+      "responseSHA256": "deb814bd55c194db09c460159bf3e82cda0ba9253ac29588f22a5027170aedb9",
+      "reportedModel": null,
+      "finishReason": null,
+      "integrated": false
+    },
+    {
+      "job": "comfort-assets-final",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "ee11e1e936e09ed891b8735efff80df53255f206554764ceccd67b7ff27541d8",
+      "responseSHA256": "fc20fd511b6eb9099f4b366b58d89c238ce9aa651bc4993348cc164aed6b5bc8",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "comfort-behavior-stream",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "6e8bdc0f036c01dbd9fb31f8c733ff8cfe7cbc1d65032329942f2a34e5ddcfd0",
+      "responseSHA256": "1c35a08700422cd626d8c204c99bd2585b55ddc2668c93501e3fe5198afa3c4c",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "length",
+      "integrated": false
+    },
+    {
+      "job": "comfort-corrections",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "74befd95cd5a2b8e52989c4fe70af3fbd9e9058cc42d7e283fd01907a8c032b0",
+      "responseSHA256": "2c829f2ce67e1cc70c7f2d0940f96d6d7381739a4e31f397477b51869a2bc6f0",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "comfort-css-stream",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "32c735d53b0f11904eaa56e26fac11375025118d8f8a4df62b8aca0bbd54213b",
+      "responseSHA256": "dcefc684932f221deaf2b6b984b71a5bf5b9dffa24068ecc959d31b2be3d2730",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "comfort-css",
+      "status": 524,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "ade8fe4cdca02deabcf8decc6974de221f9c8533b32e5aa277e21ea7007dce3d",
+      "responseSHA256": "ce2174a1556bdf70c9b4a6f524abb531c7cc94f4ce01848cdd5053e04c1268af",
+      "reportedModel": null,
+      "finishReason": null,
+      "integrated": false
+    },
+    {
+      "job": "comfort-inbox-final",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "228520898087a9001f7dc5cb36f726c8fcb33119c80d43e8816372b250a6fe27",
+      "responseSHA256": "65906c9df89374c981eed761be6a29b0581daaf4457dd86f50ad71251697de3b",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "feedback-integration-r2",
+      "status": 429,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "ab5dc731cb57fa7209991e7f2625800ab2c63cdf47693521021de0058ecee5c0",
+      "responseSHA256": "deb814bd55c194db09c460159bf3e82cda0ba9253ac29588f22a5027170aedb9",
+      "reportedModel": null,
+      "finishReason": null,
+      "integrated": false
+    },
+    {
+      "job": "feedback-integration",
+      "status": 429,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "ab5dc731cb57fa7209991e7f2625800ab2c63cdf47693521021de0058ecee5c0",
+      "responseSHA256": "deb814bd55c194db09c460159bf3e82cda0ba9253ac29588f22a5027170aedb9",
+      "reportedModel": null,
+      "finishReason": null,
+      "integrated": false
+    },
+    {
+      "job": "feedback-prepare-repair",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "cf15e009f362c42d176eafabe735cda357eac9a4e1683b3d9adf791015d940d4",
+      "responseSHA256": "fce924637a0a4240c66a8b3f848de96524555b1652ff40cd42b917ebb91fd251",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "lab-recall-form-repair",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "1a4c398fbd7d9d984956e6b350676bf9796ef9bc607d7bd257dab55b716e26d6",
+      "responseSHA256": "3cee65174ab35291f58c333b10ecca8bcbb65ce3e23b629dbcc924e23f043d50",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "lab-recall-form",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "e69eab58d15f5afc04d69821b158c55e3c6f167834f9aa3e0269dd6d5176d405",
+      "responseSHA256": "c82b175270e7077f4de70a5b1483dbbac711aaa1f42bc9bba55baf9688d2e3a1",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "lab-recall-review",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "e3e9a9e6c1ee0ee36bd79eeafae87d53e9b148048bb85d25c8f5e248a723c708",
+      "responseSHA256": "1673881527fd595b5a58d02883a3dedae7413469b93783266e6dd1a020d5a6da",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "feedback-reopen-final-wiring",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "737fd63cb104cc97d344fe834e84e3e6af08338d4be81cbf2be941aa9a15b632",
+      "responseSHA256": "920d2c7c35bf81d6fbb11cc069bca2066f248e0992fbf4f8060344b39bfd1720",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "feedback-reopen-header-fit",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "78e465ccb3b78d559bab9f5ee7c08af681767375f441e46d286368fbee1b8e92",
+      "responseSHA256": "d78d7c982b3920ccad36b5a42f6c4d3b22523a4dfe0bcc1113a2ad40a12450fb",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "asset-table-fit-r3",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "1320ef54790ee66974cad5e4a50b5baffc6bc5e9b28d3cc85f5e22ce899c142e",
+      "responseSHA256": "d0bd2f7f33c8f8a1c15003093aa4d9dada5a3960464861bef5db0227b7903b03",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "native-close-output-contract",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "3aa31d5d14aa3f8c57908f320b2a6c4d7a9b5666456d55b59c278755026beb7d",
+      "responseSHA256": "e9dce341cc83ebcd3becfa0401aa8e7a1b1b03c4eb7efd0ef4828c8cfa29c037",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "native-feedback-polish",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "8e561d3d9ccf316d82bb21c38b479db548e4464c58e5b2cf9ac084a0b919b864",
+      "responseSHA256": "135576cc523921f39889efa8d205768bcbc3c233819537375c3d05477b8cd75c",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "run-table-drawer-fit",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "ee8d965a6cd14fdeb4135ec6f8668f1c66d74bd83ed7bd452b8c80917f783dd4",
+      "responseSHA256": "3d664fd1520115037341b7a959a7fb463360ce2fb0074cfec53c497be99b48de",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "feedback-reopen-scope-repair",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "283facb74d55908b868a0ea8ebb8962ff520f6f87e60b78f1305cf5cc50e05d3",
+      "responseSHA256": "475434b93925e7a43e03ee9511da7965d27f043c29a589ca4c26d00a0dde4a02",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "native-qa-datastore",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "d380b7135e33bd58f4c43ea42608762b926522bd842e0c64b3784af1f1b6de7c",
+      "responseSHA256": "66613c0094c1582d710713e16078e4f75a4e3b71f70d52e39dd0e434d221bcb6",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    },
+    {
+      "job": "lab-scope-close",
+      "status": 200,
+      "requestedModel": "gemini-3.8-flash",
+      "requestedReasoningEffort": "high",
+      "requestSHA256": "5732053ff2bfa7ff09180cec4e811d0bd2eeb1388bd64784cc7e122f56cff924",
+      "responseSHA256": "9417494820d2dac712cc368d4a15287bc511b349ae89587fa5ff14d6587e381e",
+      "reportedModel": "gemini-3.8-flash",
+      "finishReason": "stop",
+      "integrated": true
+    }
+  ]
+}

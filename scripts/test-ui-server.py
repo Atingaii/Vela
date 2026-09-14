@@ -86,8 +86,12 @@ class Bridge:
         self.fixture, self.base = fixture, base
         self.events, self.next_id, self.failed = 0, 0, False
         self.lock, self.responses = threading.Lock(), queue.Queue(maxsize=64)
+        # Renderer-visible approvals are cached only as the frozen identity shown
+        # by a real helper response.  A decision must not call inbox.list first:
+        # that read may itself expire an otherwise displayed approval.
+        self.displayed_approvals = {}
         self.transcript = base / 'harness-rpc.jsonl'
-        env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'HOME': str(base), 'LANG': 'en_US.UTF-8',
+        env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'LANG': 'en_US.UTF-8',
                'VELA_HOME': fixture['home'], 'VELA_SESSION_ROOT': fixture['sessionRoot'],
                'VELA_DISABLE_DISCOVERY': '1', 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull}
         self.process = subprocess.Popen([str(binary), 'rpc', '--no-schedule', '--home', fixture['home']],
@@ -128,7 +132,25 @@ class Bridge:
                 raise ValueError('Unexpected helper response.')
             if 'error' in response:
                 raise ValueError(response['error'].get('message', 'CLI error'))
-            return response.get('result')
+            result = response.get('result')
+            rows = result if method == 'inbox.list' and isinstance(result, list) else result.get('approvals', []) if method == 'dashboard.get' and isinstance(result, dict) else []
+            for row in rows:
+                if not isinstance(row, dict) or row.get('project') not in self.fixture['projects']:
+                    continue
+                if not all(isinstance(row.get(key), str) and row.get(key) for key in ('id', 'project', 'snapshotHash', 'tool')) or not isinstance(row.get('arguments'), dict):
+                    continue
+                self.displayed_approvals[row['id']] = json.loads(json.dumps({key: row[key] for key in ('id', 'project', 'snapshotHash', 'tool', 'arguments')}))
+            return result
+
+    def displayed_approval_for_decision(self, params):
+        if set(params) != {'id', 'decision', 'snapshotHash'} or params.get('decision') not in ('approve', 'reject'):
+            raise ValueError('Approval decision has an unsupported shape.')
+        approval = self.displayed_approvals.get(params.get('id'))
+        if not approval or approval.get('project') not in self.fixture['projects']:
+            raise ValueError('Unknown fixture approval.')
+        if params.get('snapshotHash') != approval.get('snapshotHash'):
+            raise ValueError('Approval snapshot does not match the renderer-visible fixture approval.')
+        return approval
 
     def local_path(self, value, project=None):
         root = Path(project or self.fixture['project'])
@@ -340,9 +362,7 @@ class Bridge:
             if evaluation.get('project') not in self.fixture['projects']:
                 raise ValueError('Only a fixture evaluation may be reviewed.')
         if method == 'approvals.decide':
-            approval = next((a for a in self.rpc('inbox.list', {}) if a['id'] == params.get('id')), None)
-            if not approval or approval.get('project') not in self.fixture['projects']:
-                raise ValueError('Unknown fixture approval.')
+            approval = self.displayed_approval_for_decision(params)
             if params.get('decision') == 'reject':
                 # Explicit rejection cannot invoke the reviewed tool. Keep the
                 # fixture-project identity gate, including for seeded commands.

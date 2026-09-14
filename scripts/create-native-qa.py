@@ -59,10 +59,9 @@ def main():
         source = source.resolve(strict=True)
         assert source.is_file()
         shutil.copy2(source, dest)
-    isolated_home = base / 'native-home'; isolated_home.mkdir(exist_ok=True)
-    env = dict(HOME=str(isolated_home), PATH='/usr/bin:/bin:/usr/sbin:/sbin', LANG='en_US.UTF-8',
+    env = dict(PATH='/usr/bin:/bin:/usr/sbin:/sbin', LANG='en_US.UTF-8',
                VELA_HOME=fixture['home'], VELA_SESSION_ROOT=fixture['sessionRoot'], VELA_DISABLE_DISCOVERY='1',
-               VELA_CAPTURE_DIRECTORY=str(capture), GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_NOSYSTEM='1')
+               VELA_NATIVE_QA='1', VELA_CAPTURE_DIRECTORY=str(capture), GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_NOSYSTEM='1')
     # JSON string escapes are valid C literals here: generated controlled ASCII paths only.
     assert all(value.isascii() for value in [str(marker), str(macos / 'VelaHost'), str(base), *env.values()])
     cstr = json.dumps
@@ -115,7 +114,11 @@ int main(int argc, char **argv) {
     receipt = dict(format='vela-native-qa-launcher-v1', synthetic=True, bundle=str(bundle),
                    fixture=str(args.fixture.resolve()), sourceSHA256=hashlib.sha256(source.read_bytes()).hexdigest(),
                    files={str(p.relative_to(bundle)):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths if p.is_file()},
-                   inheritedEnvironmentRequired=False, missingMarkerRejected=True, verification=verified.stdout.strip(),
+                   inheritedEnvironmentRequired=False, homeOverride=False,
+                   fixtureHome=fixture['home'], fixtureSessionRoot=fixture['sessionRoot'],
+                   fixtureCaptureDirectory=str(capture), discoveryDisabled=True,
+                   requestedWebsiteDataStore='nonPersistent',
+                   missingMarkerRejected=True, verification=verified.stdout.strip(),
                    uiLaunched=False, actualLaunchServicesRestartVerified=False)
     (capture / ('launcher-' + args.name + '.json')).write_text(json.dumps(receipt, indent=2) + '\n')
     source.unlink()

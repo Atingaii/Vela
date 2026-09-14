@@ -254,7 +254,10 @@ final class MemoryService {
         let terms = query.split(whereSeparator: { $0.isWhitespace || $0.isPunctuation }).map(String.init)
         let policy = try exclusions.memoryRecallPolicy(project:project)
         var candidates = try store.list("memory",limit:10000).filter { item in
-            guard string(item,"state").lowercased() == "active", ModelImprovement.falseOrAbsent(item["private"]), !privateLibraryPath(string(item,"sourceFile")) else { return false }
+            guard string(item,"state").lowercased() == "active",
+                  ModelImprovement.falseOrAbsent(item["private"]),
+                  ModelImprovement.falseOrAbsent(item["sourceLabeledPrivate"]) else { return false }
+            for key in ["sourcePath","sourceFile","assetPath"] where privateLibraryPath(string(item,key)) { return false }
             guard policy.allows(item) else { return false }
             let scope = string(item,"scope","project").lowercased()
             guard scope == "global" || string(item,"project") == project else { return false }

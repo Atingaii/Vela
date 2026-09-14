@@ -58,6 +58,7 @@ def main():
         active = call(binary,home,'memory.save',{'id':'active-hit','project':str(project),'scope':'project','state':'active','title':'Recall needle','content':'RECALL_ACTIVE_SENTINEL bounded guidance'})
         call(binary,home,'memory.save',{'id':'candidate-hit','project':str(project),'scope':'project','state':'candidate','title':'Recall candidate','content':'RECALL_CANDIDATE_SENTINEL'})
         call(binary,home,'memory.save',{'id':'private-hit','project':str(project),'scope':'project','state':'active','private':True,'title':'Recall private','content':'RECALL_PRIVATE_SENTINEL'})
+        call(binary,home,'memory.save',{'id':'source-labeled-hit','project':str(project),'scope':'project','state':'active','private':False,'sourceLabeledPrivate':True,'title':'Recall source-labeled','content':'RECALL_SOURCE_LABELED_SENTINEL'})
         call(binary,home,'memory.save',{'id':'cross-hit','project':str(other),'scope':'project','state':'active','title':'Recall cross','content':'RECALL_CROSS_SENTINEL'})
         created = call(binary,home,'lab.run',spec(project,agent,{'files':[],'recall':{'enabled':False,'strictOff':True}}, {'files':[],'recall':{'enabled':True,'query':'recall needle','mode':'lexical','scope':'project','budget':500}}))
         frozen = created['candidate']; recall = frozen['recall']; ids = [item['id'] for item in recall['items']]
@@ -73,15 +74,21 @@ def main():
         contexts = {row['variant']:agent_context(row) for row in completed['results']}
         assert 'RECALL_ACTIVE_SENTINEL' not in contexts['baseline']
         assert 'RECALL_ACTIVE_SENTINEL' in contexts['candidate']
-        assert 'RECALL_PRIVATE_SENTINEL' not in contexts['candidate'] and 'RECALL_CROSS_SENTINEL' not in contexts['candidate'] and 'RECALL_CANDIDATE_SENTINEL' not in contexts['candidate']
+        assert 'RECALL_PRIVATE_SENTINEL' not in contexts['candidate'] and 'RECALL_CROSS_SENTINEL' not in contexts['candidate'] and 'RECALL_CANDIDATE_SENTINEL' not in contexts['candidate'] and 'RECALL_SOURCE_LABELED_SENTINEL' not in contexts['candidate']
         assert not (home/'lab-worktrees'/created['id']).exists()
-        receipt['checks'].append({'name':'off-on-agent-context','passed':True,'approvalHash':before_hash,'recalledIDs':ids,'budget':recall['budget'],'usedTokens':recall['usedTokens'],'agentContextsObserved':['baseline','candidate'],'privateCrossCandidateExcluded':True,'cleanup':True})
+        receipt['checks'].append({'name':'off-on-agent-context','passed':True,'approvalHash':before_hash,'recalledIDs':ids,'budget':recall['budget'],'usedTokens':recall['usedTokens'],'agentContextsObserved':['baseline','candidate'],'privateCrossCandidateExcluded':True,'sourceLabeledPrivateExcluded':True,'cleanup':True})
         try:
             call(binary,home,'lab.run',spec(project,agent,{'files':[],'memoryIds':['active-hit'],'recall':{'enabled':False,'strictOff':True}}, {'files':[]}))
             raise AssertionError('strict OFF accepted explicit memory IDs')
         except RuntimeError as error:
             assert 'strict Recall-OFF' in str(error), error
         receipt['checks'].append({'name':'strict-off-rejects-explicit-memoryids','passed':True})
+        try:
+            call(binary,home,'lab.run',spec(project,agent,{'files':[]}, {'files':[],'memoryIds':['source-labeled-hit']}))
+            raise AssertionError('explicit Lab memory accepted a source-labeled-private record')
+        except RuntimeError as error:
+            assert 'excluded' in str(error), error
+        receipt['checks'].append({'name':'explicit-source-labeled-memory-rejected-at-freeze','passed':True})
         stale = call(binary,home,'lab.run',spec(project,agent,{'files':[],'recall':{'enabled':False,'strictOff':True}}, {'files':[],'recall':{'enabled':True,'query':'recall needle','mode':'lexical','scope':'project','budget':500}}))
         call(binary,home,'memory.save',{'id':'active-hit','project':str(project),'scope':'project','state':'active','title':'Recall needle','content':'changed after frozen approval'})
         stale_approval = next(item for item in call(binary,home,'inbox.list',{'project':str(project)}) if item['id'] == stale['approvalId'])
@@ -98,6 +105,15 @@ def main():
         private_eval = call(binary,home,'lab.compare',{'id':private_stale['id']})
         assert private_eval['state'] == 'failed' and [row['variant'] for row in private_eval['results']] == ['baseline'] and not (home/'lab-worktrees'/private_stale['id']).exists(), private_eval
         receipt['checks'].append({'name':'private-lifecycle-revocation-rejected-before-agent','passed':True,'agentResults':1,'staleCandidateAgentStarted':False,'cleanup':True})
+        call(binary,home,'memory.save',{'id':'active-hit','project':str(project),'scope':'project','state':'active','private':False,'sourceLabeledPrivate':False,'title':'Recall needle','content':'RECALL_ACTIVE_SENTINEL bounded guidance'})
+        labeled_stale = call(binary,home,'lab.run',spec(project,agent,{'files':[],'recall':{'enabled':False,'strictOff':True}}, {'files':[],'recall':{'enabled':True,'query':'recall needle','mode':'lexical','scope':'project','budget':500}}))
+        call(binary,home,'memory.save',{'id':'active-hit','project':str(project),'scope':'project','state':'active','private':False,'sourceLabeledPrivate':True,'title':'Recall needle','content':'RECALL_ACTIVE_SENTINEL bounded guidance'})
+        labeled_approval = next(item for item in call(binary,home,'inbox.list',{'project':str(project)}) if item['id'] == labeled_stale['approvalId'])
+        labeled_decision = call(binary,home,'approvals.decide',{'id':labeled_approval['id'],'decision':'approve','snapshotHash':labeled_approval['snapshotHash']})
+        assert labeled_decision['state'] == 'failed', labeled_decision
+        labeled_eval = call(binary,home,'lab.compare',{'id':labeled_stale['id']})
+        assert labeled_eval['state'] == 'failed' and [row['variant'] for row in labeled_eval['results']] == ['baseline'] and not (home/'lab-worktrees'/labeled_stale['id']).exists(), labeled_eval
+        receipt['checks'].append({'name':'source-labeled-revocation-rejected-before-candidate-agent','passed':True,'approvalState':labeled_decision['state'],'agentResults':1,'staleCandidateAgentStarted':False,'cleanup':True})
     finally:
         shutil.rmtree(base, ignore_errors=True)
         receipt['temporaryFixturesRemoved'] = not base.exists()
