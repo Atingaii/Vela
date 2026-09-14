@@ -18,7 +18,7 @@
   font-style: normal;
   font-weight: 300 700;
   font-display: swap;
-  src: url('assets/fonts/space-grotesk-latin.woff2') format('woff2');
+  src: url("assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11") format('woff2');
 }
 
 @font-face {
@@ -26,7 +26,7 @@
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url('assets/fonts/inter-latin.woff2') format('woff2');
+  src: url("assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8") format('woff2');
 }
 
 /* --------------------------------------------------------------------------

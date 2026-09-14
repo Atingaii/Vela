@@ -34,6 +34,11 @@ try {
   browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) }); context = await browser.newContext(); await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: result.baseUrl });
   const page = await context.newPage(), probe = await context.newPage(), consoleProblems = [], missingResponses = new Map();
   for (const p of [page, probe]) { p.on('console', (m) => { if (m.type() === 'error') consoleProblems.push(`${p.url()}: ${m.text()}`); }); p.on('pageerror', (e) => consoleProblems.push(`${p.url()}: ${e.message}`)); p.on('response', (r) => { try { if (new URL(r.url()).origin === new URL(result.baseUrl).origin && r.status() >= 400) missingResponses.set(r.url(), r.status()); } catch {} }); }
+  await page.goto(result.baseUrl + '/', {waitUntil:'networkidle'});
+  await page.evaluate(() => document.fonts.ready.then(() => true));
+  result.fontRequests = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(url => new URL(url).pathname.endsWith('.woff2')));
+  const fontPaths = result.fontRequests.map(url => new URL(url).pathname);
+  if (new Set(fontPaths).size !== fontPaths.length) fail('duplicate-font-download', result.fontRequests.join(' | '), '/');
   result.catalogueFilters = [];
   for (const prefix of ['', '/en']) {
     await page.setViewportSize({width:1440,height:900}); await page.goto(result.baseUrl+prefix+'/usecases/', {waitUntil:'networkidle'});
