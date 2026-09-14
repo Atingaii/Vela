@@ -1,0 +1,90 @@
+{
+  "format": "vela-native-reading-observations-v1",
+  "observedAt": "2026-09-14T04:40:39.616439+00:00",
+  "sourceCommit": "953d5a040cae06a38fae57c13249956648c794e2",
+  "host": "macOS AppKit/WKWebView development QA wrapper, isolated synthetic fixture, real Swift helper",
+  "uiHashes": {
+    "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+    "app.css": "c4e98fbacd99c0c90fcef842ad69ed81285b9ab5d20b1db9e9dbd01fd8927689",
+    "app.js": "045ec9a048f97f5effec889df7e5b2adb29622705749e55d9ac5bd98998050fe",
+    "content.js": "50e10b6b97af5f956f201c766d8370e466bafc538e81eabeaf55777427215013",
+    "i18n.js": "e991edbd1a65e47fdaf06d4aab618ba397a4f634bd4a1f5faef22137a50e8c0a",
+    "index.html": "7faeea91e5a8c7662d8e6e5736595ba6e5b520a379db9d0fb9cf6749e0af6c9f",
+    "reading.css": "8b7bcc5dfed8b335a1e70f92b0f13806bc4aef57a8cb2192ff12f2189d74dbe6",
+    "vendor/marked.LICENSE": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+    "vendor/marked.js": "b147274a9ce27d17276587167e49483d719f6893eeca3a3667a59797661d3556",
+    "vendor/prism-bash.js": "6260814110e5182f2956e3bd257429548d9dbf2a9b66a63719b26cf9fac966a7",
+    "vendor/prism-clike.js": "c76ba4e240932bdc75546be30e550f5ba5e13815ff71511c76e9e27ac3072444",
+    "vendor/prism-core.js": "6caad316dd991f24f8004e0b9c19c055cb5829ff65e973fbee406f96d81b8e7e",
+    "vendor/prism-css.js": "8c9760dba7f26ea842016919544dd9b73a78a36d5b07a1e9842c333ed18ab6ae",
+    "vendor/prism-javascript.js": "0345ea83e12b7b974e953c79a64dea35a40308309449db70b82020fb688ac321",
+    "vendor/prism-json.js": "956d86baa5ae7ec4106758f354ac2d140bdcd7fc103dece02f73ed12b8d663e4",
+    "vendor/prism-markup.js": "879fc9d256c352d980e053857fa707330853b8bfb67ce284ea661a24dec5756e",
+    "vendor/prism-python.js": "ed4385685bcf2d4935c8dbbab4bde16603da1329e092d2bf36c3dadd67e9a85c",
+    "vendor/prism-swift.js": "69c8a062618949fbc7b69989ab7fb2b7bc111b28ea329e53713c7a2885614b20",
+    "vendor/prism.LICENSE": "2b947f0901a7ffcf08a89957da9783c0e9c6e72cb6ce8e959f501ab5409e4d2b",
+    "vendor/purify.LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "vendor/purify.js": "f263b05369e050fa175d4ecb9c9358eb4253602d510297adfb31df48b2f1c4d5"
+  },
+  "screenshots": {
+    "vela-agents-3CFBC55B-94BB-47D1-B4D8-80CB460E5DD5.png": "e5e5cecc19dbd5f384fdd39fdc9081ef7e81dee606934497a46f662bfb6b547a",
+    "vela-agents-626A62C5-4403-476E-9386-26BB9EA9BD04.png": "c7cc0f64a658203620e7a45e1548c5f4b4fc6d292dc4685953e2d1b62ab2c530",
+    "vela-inbox-B4314EEE-3F25-4FCB-88F5-F7DA27DE26AC.png": "aaefbb190e22e84ba9cf49ad39ec7e22e171ef2b9e9e94228276196df4a1195e",
+    "vela-memory-A8D6F9DD-EC71-4BA2-9B0F-B52FFAFFC798.png": "45979e19b7d121f393be0fd6553637b87f08d0be663efdb3c55787ac4de5aebb",
+    "vela-memory-F9AB90AE-3CD3-4FC6-9BAF-5A85DC9492DA.png": "54d9839a5635f7a37b0490be71aa38653d868a2c85e185c6f66874d70456153e"
+  },
+  "checks": [
+    {
+      "name": "Session opens in the main reading area with sidebar available and highlighted tool code",
+      "passed": true
+    },
+    {
+      "name": "Memory shows separate status filters and Ask / Tools / New controls",
+      "passed": true
+    },
+    {
+      "name": "Tools menu opens; Escape closes it",
+      "passed": true
+    },
+    {
+      "name": "Approval Markdown Preview renders headings; Source exposes original content",
+      "passed": true
+    },
+    {
+      "name": "Native Copy button reports Copied (clipboard bytes independently tested in browser)",
+      "passed": true
+    },
+    {
+      "name": "Native Approve & Run executes fixture file.write; count changes from 3 to 2",
+      "passed": true
+    },
+    {
+      "name": "Language changes to Simplified Chinese including native menu labels",
+      "passed": true
+    },
+    {
+      "name": "Quit and relaunch preserves Simplified Chinese and two remaining approvals",
+      "passed": true
+    },
+    {
+      "name": "Explicit Memory navigation begins at the page heading",
+      "passed": true
+    },
+    {
+      "name": "Native sound preview action reports played without requesting notification permission",
+      "passed": true
+    }
+  ],
+  "approvedFile": {
+    "fixtureRelativePath": "Harbor/docs/verification.md",
+    "bytes": 50,
+    "sha256": "cc762b8a250dabf67e6d5981bc4cf59ce9b07ba4881b2fd7ffb3b46da8b27ed1"
+  },
+  "limitations": [
+    "Synthetic QA wrapper is not a notarized installation",
+    "No full product native acceptance or real provider parity claim",
+    "Native clipboard byte identity not independently read; browser exact-copy assertions cover it",
+    "Sound action success observed; acoustic quality and system notification delivery not assessed",
+    "No formal resource-budget benchmark in this record"
+  ]
+}

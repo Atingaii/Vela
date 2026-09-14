@@ -345,8 +345,8 @@
         // Update localized live status text
         if (statusEl) {
           statusEl.textContent = isEn
-            ? `Showing ${visibleCount} of 4 scenarios`
-            : `显示 ${visibleCount} / 4 个场景`;
+            ? `Showing ${visibleCount} of ${taskRows.length} scenarios`
+            : `显示 ${visibleCount} / ${taskRows.length} 个场景`;
         }
       });
     });

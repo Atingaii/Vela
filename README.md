@@ -38,7 +38,7 @@
 </p>
 
 <p align="center">
-  <em>Current development interface, verified locally in a browser against the real Swift helper and an isolated synthetic project. Native WKWebView verification of this redesign is pending; this UI is not included in the preview.2 download.</em>
+  <em>Actual macOS development interface, captured in WKWebView against the real Swift helper and isolated synthetic projects. Reading, Memory menus, approval execution and language persistence were checked locally. This UI is not included in the preview.2 download.</em>
 </p>
 
 ## What you can use

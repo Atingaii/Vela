@@ -38,7 +38,7 @@
 </p>
 
 <p align="center">
-  <em>当前开发版界面：已在本机浏览器中通过真实 Swift helper 与隔离合成工程验证。本次重构的原生 WKWebView 验证仍待完成；此界面尚未包含在 preview.2 下载中。</em>
+  <em>当前 macOS 开发版实图：原生 WKWebView 连接真实 Swift helper 与隔离合成工程。本机已检查会话阅读、Memory 菜单、审批执行及语言持久化；此界面尚未包含在 preview.2 下载中。</em>
 </p>
 
 ## 当前可用能力

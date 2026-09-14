@@ -34,6 +34,20 @@ try {
   browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) }); context = await browser.newContext(); await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: result.baseUrl });
   const page = await context.newPage(), probe = await context.newPage(), consoleProblems = [], missingResponses = new Map();
   for (const p of [page, probe]) { p.on('console', (m) => { if (m.type() === 'error') consoleProblems.push(`${p.url()}: ${m.text()}`); }); p.on('pageerror', (e) => consoleProblems.push(`${p.url()}: ${e.message}`)); p.on('response', (r) => { try { if (new URL(r.url()).origin === new URL(result.baseUrl).origin && r.status() >= 400) missingResponses.set(r.url(), r.status()); } catch {} }); }
+  result.catalogueFilters = [];
+  for (const prefix of ['', '/en']) {
+    await page.setViewportSize({width:1440,height:900}); await page.goto(result.baseUrl+prefix+'/usecases/', {waitUntil:'networkidle'});
+    const total=await page.locator('.usecases-table tbody tr[data-category]').count();
+    if(total!==8) fail('catalogue-count', `Expected eight scenarios, got ${total}`, prefix+'/usecases/');
+    for (const category of ['sessions','memory','workflows','lab','all']) {
+      await page.locator(`.catalogue-pill[data-filter="${category}"]`).click();
+      const visible=await page.locator('.usecases-table tbody tr[data-category]:visible').count(), expected=category==='all'?8:2;
+      const status=await page.locator('#filter-status').innerText();
+      result.catalogueFilters.push({path:prefix+'/usecases/',category,total,visible,expected,status});
+      if(visible!==expected || !new RegExp(`${expected} (?:of|/) ${total}`).test(status)) fail('catalogue-filter', `${category}: ${visible} visible; ${status}`, prefix+'/usecases/');
+      if(await page.locator(`.catalogue-pill[data-filter="${category}"]`).getAttribute('aria-pressed')!=='true') fail('catalogue-filter-aria',category,prefix+'/usecases/');
+    }
+  }
   if (visualOnly) {
     result.visualOnly = true; result.visual = [];
     for (const locale of ['zh', 'en']) for (const kind of ['home', 'comparisons', 'docs']) for (const width of [375, 1440]) {
@@ -48,7 +62,7 @@ try {
       if (kind === 'home' || kind === 'comparisons') await page.screenshot({ path: join(output, `${locale}-${kind}-${width}-top.png`) });
       await page.screenshot({ path: join(output, `${locale}-${kind}-${width}.png`), fullPage: true });
     }
-    for (const [url, status] of missingResponses) fail('missing-local-resource', `${url} → ${status}`);
+  for (const [url, status] of missingResponses) fail('missing-local-resource', `${url} → ${status}`);
     if (consoleProblems.length) for (const message of consoleProblems) fail('browser-console', message);
   } else {
   for (const file of files) {
