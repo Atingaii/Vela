@@ -44,6 +44,7 @@
 ## What you can use
 
 - **Observe sessions:** browse normalized messages and supported tool events, inspect project setup, and review token counts reported by local logs. Inferred states and incomplete history are labeled.
+- **Edit project instructions:** read current Markdown, edit a block or the whole document, review the complete change and request approval. Changes are written only after approval and can be undone from the file’s history; external edits are protected. See the [Setup editing guide](docs/implementation/setup-editing-guide.md) for supported files and draft behavior.
 - **Keep useful context:** save memories with provenance and explicit scope, recall active memories within a conservative budget, and export checkpoints containing user notes and a captured Git state.
 - **Review before running:** edit Markdown workflows, dry-run supported reads, approve frozen actions and inspect persisted run records. Project tests and agent commands require approval. New development requests have a [configurable seven-day expiry](docs/implementation/approval-expiry-contract.md).
 - **Compare actual outcomes:** inspect deterministic correction-based suggestions, preview and safely apply or undo supported file changes, and run baseline/candidate commands in separate Git worktrees at the same commit.

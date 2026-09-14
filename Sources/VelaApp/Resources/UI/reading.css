@@ -489,3 +489,41 @@ body.sidebar-collapsed .collapsed-project-control { display:flex; }
 .approval-impact strong { font-size:var(--font-meta); font-weight:500; color:var(--text-muted); flex:0 0 auto; }
 .approval-impact code,
 .approval-impact .font-mono { font-size:13px !important; overflow-wrap:anywhere; }
+
+/* Project documents: read first; edit a block without losing its surroundings. */
+.setup-editable-block { position:relative; padding:6px 0 8px; }
+.setup-editable-block > .reading-prose { padding-right:42px; }
+.setup-editable-block .btn-edit-setup-block { position:absolute; top:4px; right:-5px; padding:6px; opacity:0; display:flex; gap:5px; align-items:center; }
+.setup-editable-block .btn-edit-setup-block span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+.setup-editable-block:hover .btn-edit-setup-block,.setup-editable-block:focus-within .btn-edit-setup-block { opacity:1; }
+@media (hover:none) { .setup-editable-block .btn-edit-setup-block { opacity:1; } }
+.setup-edit-note { font-size:13px; line-height:1.65; color:var(--text-secondary); margin:8px 0 14px; }
+.reading-empty { padding:0 20px; margin:18px 0; color:var(--text-secondary); font-size:14px; line-height:1.65; }
+.setup-edit-history { border-top:1px solid var(--border-subtle); margin-top:28px; padding-top:22px; }
+.setup-edit-history-row { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 0; border-bottom:1px solid var(--border-subtle); }
+.setup-edit-history-row > div { display:flex; flex-direction:column; font-size:14px; }
+.setup-edit-history-row time { color:var(--text-muted); font-size:13px; }
+#modal-dialog:has(.setup-editor) { width:820px; max-width:calc(100vw - 40px); }
+.setup-editor { min-width:0; }
+.setup-edit-target { display:flex; flex-wrap:wrap; gap:5px 12px; margin:0 0 8px; font-size:14px; line-height:1.6; }
+.setup-edit-target strong { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.setup-edit-target span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-secondary); }
+.setup-editor-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin:18px 0; }
+.setup-editor-toolbar .tabs-nav { margin:0; }
+.setup-editor-toolbar .setup-edit-note { margin:0; }
+#setup-editor-source { display:block; width:100%; min-height:260px; height:36vh; max-height:460px; resize:vertical; padding:16px 18px; margin-top:8px; font:14px/1.75 var(--font-mono); tab-size:2; color:var(--text-main); background:var(--bg-subtle); border:1px solid var(--border-color); border-radius:12px; white-space:pre-wrap; overflow-wrap:normal; }
+#setup-editor-source:focus { outline:2px solid var(--brand-ink); outline-offset:2px; }
+#setup-editor-preview,#setup-editor-diff { min-height:260px; }
+.setup-editor-spacer { flex:1; }
+/* Keep new/critical notices away from dialog footer actions as well. */
+body:has(#modal-container:not(.hidden)) #toast-container { top:12px; bottom:auto; left:50%; right:auto; transform:translateX(-50%); width:max-content; max-width:min(360px,calc(100vw - 40px)); }
+.setup-editor .alert-banner .btn { display:block; margin-top:10px; }
+.setup-editor .diff-container { max-height:none; }
+.setup-undo p { margin-bottom:12px; }
+.reading-change-line { margin:14px 0; font-size:13px; font-weight:500; }
+.reading-change-mark { display:inline-block; min-width:18px; font-weight:600; }
+.reading-change-line > .reading-code { margin-top:8px; }
+.reading-change-context { margin:14px 0; font-size:13px; color:var(--text-secondary); }
+.reading-change-context summary { padding:8px 0; cursor:pointer; }
+.reading-change-removed .reading-code { background:#fff5f3; border-left:3px solid #ac5545; }
+.reading-change-added .reading-code { background:#f1f8f3; border-left:3px solid #438358; }

@@ -56,7 +56,7 @@
 | ID / 功能子项 | Blume 来源 / 状态 | Vela 实现位置与状态 | 未关闭的验收项 |
 | --- | --- | --- | --- |
 | B20 Rules/Skills/Hooks/MCP/指令清单 | O1 已交付 | `SetupCatalog` + `SetupInventoryService` 的版本化五 harness 原生公开位置、项目/global 观察、来源 URL、JSON/Markdown 脱敏与重复字节关系 | 自定义/profile/managed/插件位置、完整跨范围继承、当前有效值来源；磁盘存在不等于运行时加载 |
-| B21 类型详情、关系、诊断、历史 | O2 已交付 | 不可变脱敏版本、分页历史、真实源 hash 与文本 diff、删除/重现、同名 Skill/同目录 override 约定；12/12 Core + 7/7 CLI | TOML/YAML 正文 diff 暂不保存；混合认证仅 metadata；完整类型语义、失效引用图、编辑恢复与 UI 仍待验收 |
+| B21 类型详情、关系、诊断、历史 | O2 已交付 | 不可变脱敏版本、分页观察历史、真实源 hash 与文本 diff、删除/重现、同名 Skill/同目录 override 约定。开发分支另有项目 instruction/skill Markdown 按块或全文编辑→完整差异→冻结审批→写入→CAS Undo，见 [独立编辑证据](../evidence/2026-09-14-setup-editing.json)。 | TOML/YAML 正文 diff 暂不保存；混合认证仅 metadata；完整类型语义、失效引用图和全部类型编辑恢复未覆盖；新编辑流程原生实测被锁屏及交互服务超时阻挡，编辑历史仅最近 100 条。 |
 | B22 配置审计与模型判断 | R2 D：18 检查的报告，公开覆盖 U | `setup.audit` 仅格式/重复/保守大小 | 语义冲突、失效引用、MCP 漂移、规则适用性；原创检查+正负例，不复制私有 catalog |
 | B23 周期审计、抑制与重新出现 | R2 D：报告描述 | 未有单独完整审计策略 | 可配置频率、Dismiss 后抑制、源改变重评、无新证据不反复推送 |
 | B24 Artifact 导出/同步/冲突恢复 | R2 C：报告描述；公开 U | Markdown 资产与 SafeApply，无同等跨设备同步 | 所有权、加密、合并冲突、离线恢复；不要将本地文件可读写成同步完成 |
@@ -146,4 +146,4 @@ Vela is not yet a functional superset of Blume. This inventory keeps 52 capabili
 
 ## Root-provided read-only observation — Blume 1.0.74
 
-Root observed the public desktop UI read-only, without copying assets, screenshots, private project names or treating it as a parity pass. Agents, Setup, Usage and Improve expose top tabs. Setup separates project/global groups and uses Content, Related and Details views; its Markdown reader provides an Edit block action per block, which Vela does not yet provide and is being implemented separately. Source presentation uses a short filename. Quota numbers were not verified because Claude was not connected and Codex had aborted. This is a design observation only, not full UI acceptance or evidence for account, quota, provider or private-project behavior.
+Root observed the public desktop UI read-only, without copying assets, screenshots, private project names or treating it as a parity pass. Agents, Setup, Usage and Improve expose top tabs. Setup separates project/global groups and uses Content, Related and Details views; its Markdown reader provides an Edit block action per block. Vela subsequently implemented block/full-document editing for eligible project instruction/skill Markdown, complete review, frozen approval and CAS-protected Undo; [13 browser journeys passed](../evidence/2026-09-14-setup-editing.json), with native editing still unverified after macOS lock and CUA activation timeouts. Global and other configuration types remain outside this edit flow, so this does not close full Setup parity. Source presentation uses a short filename. Quota numbers were not verified because Claude was not connected and Codex had aborted. This is a design observation only, not full UI acceptance or evidence for account, quota, provider or private-project behavior.

@@ -1582,7 +1582,7 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         let allowlistedMethods: Set<String> = [
             "dashboard.get", "projects.list", "projects.add", "projects.remove",
             "agents.list", "sessions.list", "sessions.get", "sessions.refresh",
-            "setup.list", "setup.scan", "setup.audit", "usage.get",
+            "setup.list", "setup.scan", "setup.audit", "setup.edit.get", "setup.edit.preview", "setup.edit.prepare", "setup.edit.undo", "usage.get",
             "memory.list", "memory.save", "memory.transition", "recall", "search",
             "memory.capture.prepare", "memory.capture",
             "checkpoint.save", "checkpoint.list", "checkpoint.export",

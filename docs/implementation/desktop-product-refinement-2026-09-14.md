@@ -27,11 +27,14 @@ The existing Swift/AppKit/WKWebView/SQLite stack and packaged resource allowlist
 | Local core boundary | Existing black-box RPC/MCP regression script passed | [Build evidence](../evidence/2026-09-14-workbuddy-v3-package.json) |
 | macOS development bundle | Two-job release build, ad-hoc signature verification, resource allowlist and exact V3 UI bytes passed | [Build evidence](../evidence/2026-09-14-workbuddy-v3-package.json) |
 | Idle observation | 20 seconds, five samples; directly attributable host/helper averaged 0.9% CPU, maximum combined RSS 113.46 MiB | [Raw scoped observation](../evidence/2026-09-14-workbuddy-v3-idle.json) |
+| Hosted CI at `289d67c` | macOS tests, SDK/OpenClaw integration, real-helper browser flows, package and resource audit passed | [Exact commit and run](../evidence/2026-09-14-workbuddy-v3-ci.json); predates Setup editing |
 | Public website HTTP deployment | Preview deployment and `velo.codes`: 32 pages, 11 selected resources and 32 navigation targets matched source bytes after automatic analytics was disabled | [Cloudflare V3 evidence](../evidence/2026-09-14-cloudflare-workbuddy-v3.json) |
 
 The memory observation excludes WebKit XPC processes whose ownership could not be established through the available process interfaces; it is **not total application memory**. Browser and native fixtures are synthetic projects using the actual local helper, not live provider or remote-account proof. This Command Line Tools environment did not run XCTest. The development app is ad-hoc signed and not Apple-notarized.
 
 The native screenshot set is captured from this V3 UI, without editing the captured pixels. Website and README captions identify the development version and synthetic data. Historical screenshots and failed test receipts remain separate evidence.
+
+The later [project Markdown editing flow](setup-editing-guide.md) has [separately versioned evidence](../evidence/2026-09-14-setup-editing.json). Its new editor and approval interactions are not covered by the V3 native checks or idle observation above.
 
 The Cloudflare deployment and custom domain were checked by bounded HTTP byte verification, not browser interaction. The original custom-domain V3 record remains red because a Cloudflare-managed automatic analytics snippet changed every HTML body; the account user disabled it and the r2 record matched all checked source bytes. This does not prove desktop behavior, catalogue-wide claims or preview.2 contents.
 

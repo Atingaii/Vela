@@ -335,7 +335,7 @@ do {
                 if !isMCP || request["id"] != nil { emit(response) }
                 continue
             }
-            let automationMethods = ["workflows.","runs.","improve.","lab.","reuse.","daemon.","schedules.","watches.","approvals.","inbox.","outputs.","connectors.","evidence.","ask.","loops.","replay."]
+            let automationMethods = ["workflows.","runs.","improve.","lab.","reuse.","daemon.","schedules.","watches.","approvals.","inbox.","outputs.","connectors.","evidence.","ask.","loops.","replay.","setup.edit."]
             let queue = isControl ? controlQueue : !isMCP && method == "history.advance" ? historyQueue : !isMCP && method == "usage.quota.read" ? providerQueue : (!isMCP && automationMethods.contains(where:method.hasPrefix) ? automationQueue : foundationQueue)
             queue.async {
                 defer { pending.leave(); capacity.signal() }

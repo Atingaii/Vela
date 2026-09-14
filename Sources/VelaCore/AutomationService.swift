@@ -4,6 +4,7 @@ import CoreFoundation
 public final class AutomationService {
     let store: VelaStore
     let files: SafeApplyService
+    let setupEdits: SetupEditService
     let lock = NSRecursiveLock()
     let readTools: Set<String> = ["git.status", "git.diff", "git.log"]
     let executableTools: Set<String> = ["shell.test", "shell.typecheck", "agent.run"]
@@ -18,6 +19,7 @@ public final class AutomationService {
     public init(store: VelaStore, recoverInterruptedFiles: Bool = true, approvalClock: @escaping () -> Date = Date.init) {
         self.store = store
         files = SafeApplyService(store: store)
+        setupEdits = SetupEditService(store: store, files: files)
         self.approvalClock = approvalClock
         if recoverInterruptedFiles { try? files.recoverInterrupted() }
         // Executing approvals are intentionally not retried after a crash: external side effects
@@ -27,6 +29,13 @@ public final class AutomationService {
     public func handle(_ method: String, _ params: JSON) throws -> Any? {
         lock.lock(); defer { lock.unlock() }
         switch method {
+        case "setup.edit.get":
+            let root = try project(requireString(params,"project")); return try setupEdits.get(project:root,params:params)
+        case "setup.edit.preview":
+            let root = try project(requireString(params,"project")); return try setupEdits.preview(project:root,params:params)
+        case "setup.edit.prepare": return try prepareSetupEdit(params)
+        case "setup.edit.undo":
+            let root = try project(requireString(params,"project")); return try setupEdits.undo(project:root,params:params)
         case "workflows.list": return try store.list("workflow", project: checkedProject(params)).filter { params["includeArchived"] as? Bool == true || string($0,"state") != "archived" }
         case "workflows.save": return try saveWorkflow(params)
         case "workflows.get": return try inspectWorkflow(params)
@@ -140,6 +149,18 @@ public final class AutomationService {
             [string(row,"path"),string(row,"root"),string(row,"project")].filter { !$0.isEmpty }.contains { canonicalProject($0) == value }
         }) else { throw VelaError("Register this project before allowing automation") }
         return value
+    }
+
+    private func prepareSetupEdit(_ params: JSON) throws -> JSON {
+        let root = try project(requireString(params,"project"))
+        let prepared = try setupEdits.prepare(project:root,params:params)
+        let editID = "setup-edit-" + UUID().uuidString.lowercased(), runID = "setup-edit-run-" + UUID().uuidString.lowercased(), approvalID = "setup-edit-approval-" + UUID().uuidString.lowercased()
+        let frozen: JSON = ["editId":editID,"artifactId":string(prepared.source.artifact,"id"),"relativePath":prepared.source.relativePath,"baseHash":prepared.source.hash,"sourceIdentity":prepared.source.identity,"before":prepared.source.content,"content":prepared.content,"afterHash":stableHash(prepared.content)]
+        let approval = try pendingApproval(id:approvalID,title:"Apply setup edit: " + prepared.source.relativePath,tool:"setup.file.edit",arguments:frozen,project:root,runId:runID,stepIndex:0)
+        let run: JSON = ["id":runID,"title":"Edit setup artifact: " + prepared.source.relativePath,"project":root,"state":"pending_approval","internalRun":true,"dryRun":false,"startedAt":isoNow(),"startedEpoch":Date().timeIntervalSince1970,"durationMs":0,"guidelinesUsed":[] as [JSON],"memoryUsed":[] as [JSON],"inputs":JSON(),"steps":[["id":"setup-file-edit","title":"Apply reviewed setup edit","tool":"setup.file.edit","arguments":frozen,"state":"pending_approval","approvalId":approvalID]] as [JSON]]
+        let edit: JSON = ["id":editID,"title":"Setup edit: " + prepared.source.relativePath,"project":root,"artifactId":string(prepared.source.artifact,"id"),"relativePath":prepared.source.relativePath,"baseHash":prepared.source.hash,"afterHash":stableHash(prepared.content),"sourceIdentity":prepared.source.identity,"approvalId":approvalID,"runId":runID,"state":"pending_approval","createdAt":isoNow()]
+        _ = try store.putBatch([("setup_edit",edit),("approval",approval),("run",run)],expectingAbsent:[("setup_edit",editID),("approval",approvalID),("run",runID)])
+        return ["artifactId":string(prepared.source.artifact,"id"),"project":root,"preview":prepared.preview,"approval":approval,"run":run]
     }
 
     func saveWorkflow(_ params: JSON, validatingDependencies: Bool = true, persist: Bool = true, allowArchived: Bool = false) throws -> JSON {
@@ -446,6 +467,7 @@ public final class AutomationService {
             let began = Date()
             let journal = try files.apply(project:project,operations:[arguments])
             return ["exitCode":0,"output":"Wrote \(string(arguments,"path"))","journalId":string(journal,"id"),"durationMs":Int(Date().timeIntervalSince(began)*1000)]
+        case "setup.file.edit": return try setupEdits.execute(project:project,arguments:arguments)
         case "lab.execute": return try executeEvaluation(arguments)
         case "knowledge.answer": return try executeKnowledgeQuery(arguments,project:project)
         case "ask.route.proposal.execute": return try executeAskRouteProposal(arguments,project:project)
@@ -554,7 +576,9 @@ public final class AutomationService {
             owner["state"] = "expired"; owner["expiredAt"] = approval["expiredAt"]
             _ = try store.put(ownerReference.kind,owner)
         }
-        return try store.put("approval",approval)
+        let expired = try store.put("approval",approval)
+        try setupEdits.mark(approval:expired,state:"expired")
+        return expired
     }
 
     /// Reads the deadline only after BEGIN IMMEDIATE succeeds. Therefore a
@@ -586,7 +610,9 @@ public final class AutomationService {
                     guard string(evaluation,"state") == "pending_approval" else { throw VelaError("Evaluation is no longer pending approval") }
                     evaluation["state"] = "rejected"; _ = try store.put("eval",evaluation)
                 }
-                return .claimed(try store.put("approval",approval),pendingRun)
+                let rejected = try store.put("approval",approval)
+                try setupEdits.mark(approval:rejected,state:"rejected")
+                return .claimed(rejected,pendingRun)
             }
             approval["state"] = "executing"
             return .claimed(try store.put("approval",approval),pendingRun)
@@ -631,6 +657,7 @@ public final class AutomationService {
         } catch {
             result = ["exitCode":-1,"output":error.localizedDescription]
             approval["state"] = "failed"; approval["result"] = result
+            try? setupEdits.mark(approval:approval,state:"failed")
             if tool == "lab.execute", var evaluation = try? object("eval",string(approval,"runId")) { evaluation["state"] = "failed"; evaluation["error"] = error.localizedDescription; _ = try? store.put("eval",evaluation) }
         }
         approval["completedAt"] = isoNow(); approval = try store.put("approval",approval)

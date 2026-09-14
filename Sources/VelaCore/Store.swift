@@ -540,6 +540,31 @@ public final class VelaStore {
         sql += " ORDER BY updatedAt DESC,id ASC LIMIT ?"; values.append(max(0,min(limit,10000)))
         return try select(sql,values).map { try readEditedAsset($0) }
     }
+    /// Setup edit history deliberately uses the artifact predicate in SQLite:
+    /// a busy project must not deserialize every journal (and its before/after
+    /// bodies) merely to render one Markdown file's edit history.
+    func setupEditPage(project: String, artifactID: String, limit: Int = 100) throws -> (items: [JSON], hasMore: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        try validateIdentifier(artifactID)
+        guard (1...100).contains(limit) else { throw VelaError("Invalid setup edit page") }
+        let rows = try select("SELECT json FROM objects WHERE kind='setup_edit' AND project=? AND json_extract(json,'$.artifactId')=? ORDER BY json_extract(json,'$.createdAt') DESC,id DESC LIMIT ?",[canonicalProject(project),artifactID,limit + 1])
+        return (Array(rows.prefix(limit)),rows.count > limit)
+    }
+    /// This exact lookup avoids treating the first thousand historical edits
+    /// as a permission filter for Undo.
+    func setupEditForJournal(project: String, artifactID: String, journalID: String) throws -> JSON? {
+        lock.lock(); defer { lock.unlock() }
+        try validateIdentifier(artifactID); try validateIdentifier(journalID)
+        return try select("SELECT json FROM objects WHERE kind='setup_edit' AND project=? AND json_extract(json,'$.artifactId')=? AND json_extract(json,'$.journalId')=? LIMIT 1",[canonicalProject(project),artifactID,journalID]).first
+    }
+    /// A linkage-failed applied edit has no setup_edit.journalId. Return only
+    /// fixed journal fields; callers never need to load arbitrary operation
+    /// bodies while deciding whether the history row needs review.
+    func setupEditJournal(project: String, editID: String, artifactID: String) throws -> JSON? {
+        lock.lock(); defer { lock.unlock() }
+        try validateIdentifier(editID); try validateIdentifier(artifactID)
+        return try select("SELECT json_object('id',id,'state',json_extract(json,'$.state'),'origin',json_extract(json,'$.origin'),'setupEditId',json_extract(json,'$.setupEditId'),'setupArtifactId',json_extract(json,'$.setupArtifactId'),'project',project) FROM objects WHERE kind='apply_journal' AND project=? AND json_extract(json,'$.origin')='setup_edit' AND json_extract(json,'$.setupEditId')=? AND json_extract(json,'$.setupArtifactId')=? ORDER BY updatedAt DESC,id DESC LIMIT 1",[canonicalProject(project),editID,artifactID]).first
+    }
     // Workflow management enumerates identities without opening every asset.
     // One malformed Markdown file must not hide all other validation results.
     // Replay cleanup reads identities only, after filtering the exact retained

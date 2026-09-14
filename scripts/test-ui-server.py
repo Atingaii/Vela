@@ -26,6 +26,7 @@ UI = ROOT / 'Sources/VelaApp/Resources/UI'
 READ = set('dashboard.get projects.list agents.list sessions.refresh sessions.list sessions.get setup.list setup.scan setup.audit usage.get memory.list recall search guidelines.list library.list checkpoint.list checkpoint.export workflows.list workflows.health runs.list runs.get inbox.list improve.list improve.preview lab.list lab.compare regression.list evidence.get reuse.outcomes settings.get system.version'.split())
 READ.update('memory.archive.export memory.archive.validate memory.semantic.status workflows.plan.get workflows.plan.list improve.model.describe improve.model.list improve.model.get daemon.status daemon.plan schedules.list usage.quota.status connectors.status connectors.action.list connectors.action.get outputs.list outputs.get outputs.inbox'.split())
 READ.update('setup.catalog setup.get setup.history setup.diff setup.relations workflows.get workflows.validate loops.describe loops.get loops.list ask.describe ask.get ask.list ask.citations'.split())
+READ.add('setup.edit.get')
 READ.update('library.get library.history library.export library.index.status library.search watches.describe watches.get watches.preview'.split())
 READ.update('history.describe history.sources history.get history.jobs history.page history.raw history.branch sessions.plan.describe sessions.plan.get sessions.plan.events sessions.relations.describe sessions.relations.get sessions.relations.children sessions.relations.events sessions.relations.resolve'.split())
 READ.add('memory.capture.prepare')
@@ -34,6 +35,7 @@ READ.update('workflows.health.proposal.get workflows.health.proposal.list'.split
 WRITE = set('projects.add memory.save memory.transition guidelines.save library.add checkpoint.save workflows.build workflows.save workflows.run approvals.decide improve.analyze improve.apply improve.undo lab.run lab.promote reuse.preview settings.save'.split())
 WRITE.update('memory.archive.import memory.semantic.index outputs.markRead'.split())
 WRITE.update('workflows.clone workflows.setEnabled workflows.remove workflows.restore loops.plan loops.cancel ask.create ask.followup ask.cancel'.split())
+WRITE.update('setup.edit.preview setup.edit.prepare setup.edit.undo'.split())
 WRITE.update('library.update library.remove library.restore library.index'.split())
 WRITE.update('history.discover history.start history.advance history.pause history.resume history.cancel'.split())
 WRITE.add('memory.capture')
@@ -92,6 +94,10 @@ class Bridge:
         # by a real helper response.  A decision must not call inbox.list first:
         # that read may itself expire an otherwise displayed approval.
         self.displayed_approvals = {}
+        # Edit preview/prepare calls are admitted only after a real, fixture
+        # scoped setup.edit.get response.  This is deliberately separate from
+        # generic approval caching: setup.file.edit is never a generic tool.
+        self.setup_edits = {}
         self.transcript = base / 'harness-rpc.jsonl'
         env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'LANG': 'en_US.UTF-8',
                'VELA_HOME': fixture['home'], 'VELA_SESSION_ROOT': fixture['sessionRoot'],
@@ -159,6 +165,69 @@ class Bridge:
         if params.get('snapshotHash') != approval.get('snapshotHash'):
             raise ValueError('Approval snapshot does not match the renderer-visible fixture approval.')
         return approval
+
+    def cache_displayed_approval(self, row):
+        if (not isinstance(row, dict) or row.get('project') not in self.fixture['projects']
+                or not all(isinstance(row.get(key), str) and row.get(key)
+                           for key in ('id', 'project', 'snapshotHash', 'tool'))
+                or not isinstance(row.get('arguments'), dict)):
+            raise ValueError('Setup edit did not return a usable fixture approval.')
+        self.displayed_approvals[row['id']] = json.loads(json.dumps(
+            {key: row[key] for key in ('id', 'project', 'snapshotHash', 'tool', 'arguments')}))
+
+    def setup_edit_get(self, params):
+        if set(params) != {'project', 'artifactId'} or params.get('project') not in self.fixture['projects']:
+            raise ValueError('Setup edit lookup requires an explicit fixture project and artifact id.')
+        if not isinstance(params.get('artifactId'), str) or not params['artifactId']:
+            raise ValueError('Setup edit artifact id is invalid.')
+        result = self.rpc('setup.edit.get', params)
+        if not isinstance(result, dict) or result.get('project') != params['project'] or result.get('artifactId') != params['artifactId']:
+            raise ValueError('Setup edit lookup returned a different fixture artifact.')
+        relative = result.get('relativePath')
+        if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
+            raise ValueError('Setup edit lookup returned an unsafe relative path.')
+        self.local_path(relative, params['project'])
+        return result
+
+    def setup_edit_request(self, method, params):
+        required = {'project', 'artifactId', 'baseHash', 'sourceIdentity', 'content'}
+        if set(params) != required or params.get('project') not in self.fixture['projects']:
+            raise ValueError('Setup edit preview and prepare require their exact frozen request shape.')
+        if (not isinstance(params.get('artifactId'), str) or not params['artifactId']
+                or not isinstance(params.get('baseHash'), str) or not params['baseHash']
+                or not isinstance(params.get('sourceIdentity'), dict)
+                or not isinstance(params.get('content'), str)
+                or len(params['content'].encode()) > 65536):
+            raise ValueError('Setup edit request has invalid fixture fields.')
+        current = self.setup_edit_get({'project': params['project'], 'artifactId': params['artifactId']})
+        if current.get('editable') is not True:
+            raise ValueError('This fixture setup artifact is not editable.')
+        if (params['baseHash'] != current.get('baseHash')
+                or params['sourceIdentity'] != current.get('sourceIdentity')):
+            raise ValueError('Setup edit request no longer matches the real fixture source.')
+        self.setup_edits[(params['project'], params['artifactId'])] = json.loads(json.dumps({
+            'relativePath': current['relativePath'], 'baseHash': params['baseHash'],
+            'sourceIdentity': params['sourceIdentity'], 'content': params['content'],
+        }))
+        result = self.rpc(method, params)
+        if not isinstance(result, dict) or result.get('project') != params['project'] or result.get('artifactId') != params['artifactId']:
+            raise ValueError('Setup edit response does not belong to the requested fixture artifact.')
+        if method == 'setup.edit.prepare':
+            approval = result.get('approval')
+            expected = {'editId', 'artifactId', 'relativePath', 'baseHash', 'sourceIdentity',
+                        'before', 'content', 'afterHash'}
+            if (not isinstance(approval, dict) or approval.get('tool') != 'setup.file.edit'
+                    or set(approval.get('arguments', {})) != expected
+                    or approval['arguments'].get('artifactId') != params['artifactId']
+                    or approval['arguments'].get('relativePath') != current['relativePath']
+                    or approval['arguments'].get('baseHash') != params['baseHash']
+                    or approval['arguments'].get('sourceIdentity') != params['sourceIdentity']
+                    or approval['arguments'].get('content') != params['content']):
+                raise ValueError('Setup edit approval does not freeze the reviewed fixture request.')
+            self.cache_displayed_approval(approval)
+            self.setup_edits[(params['project'], params['artifactId'])]['approvalId'] = approval['id']
+            self.setup_edits[(params['project'], params['artifactId'])]['arguments'] = json.loads(json.dumps(approval['arguments']))
+        return result
 
     def local_path(self, value, project=None):
         root = Path(project or self.fixture['project'])
@@ -254,6 +323,20 @@ class Bridge:
             raise ValueError('Method not available through the test harness: ' + method)
         if params.get('project') not in [None, '', *self.fixture['projects']]:
             raise ValueError('Project must be the isolated fixture project.')
+        if method == 'setup.edit.get':
+            return self.setup_edit_get(params)
+        if method in ('setup.edit.preview', 'setup.edit.prepare'):
+            return self.setup_edit_request(method, params)
+        if method == 'setup.edit.undo':
+            if (set(params) != {'project', 'artifactId', 'journalId'}
+                    or params.get('project') not in self.fixture['projects']
+                    or not isinstance(params.get('artifactId'), str) or not params['artifactId']
+                    or not isinstance(params.get('journalId'), str) or not params['journalId']):
+                raise ValueError('Setup edit undo requires exact fixture project, artifact, and journal identities.')
+            current = self.setup_edit_get({'project': params['project'], 'artifactId': params['artifactId']})
+            if current.get('editable') is not True:
+                raise ValueError('This fixture setup artifact is not editable.')
+            return self.rpc(method, params)
         if method.startswith('runs.feedback.'):
             project = params.get('project')
             if project not in self.fixture['projects']:
@@ -384,6 +467,18 @@ class Bridge:
                 self.synthetic_provider(request.get('agent'))
                 if [entry.get('id') for entry in request.get('catalog', [])] != ['git.status']:
                     raise ValueError('Fixture loop catalog changed.')
+            elif tool == 'setup.file.edit':
+                expected = {'editId', 'artifactId', 'relativePath', 'baseHash', 'sourceIdentity',
+                            'before', 'content', 'afterHash'}
+                arguments = approval['arguments']
+                matching = next((value for value in self.setup_edits.values()
+                                 if value.get('approvalId') == approval['id']), None)
+                if (not matching or set(arguments) != expected
+                        or arguments != matching.get('arguments')
+                        or not isinstance(arguments.get('relativePath'), str)
+                        or Path(arguments['relativePath']).is_absolute()):
+                    raise ValueError('Setup edit approval is not the exact cached fixture request.')
+                self.local_path(arguments['relativePath'], approval['project'])
             else:
                 self.tool(tool, arguments, approval['project'])
         return self.rpc(method, params)

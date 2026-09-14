@@ -44,6 +44,7 @@
 ## 当前可用能力
 
 - **观察会话**：查看统一的消息和受支持工具事件、扫描项目 Setup、汇总本地日志报告的 token。状态推断与不完整历史明确标记。
+- **编辑项目指令**：读取当前 Markdown，修改一个内容块或全文，检查完整差异后提交审批。批准后才会写入，可从文件的修改记录撤销，并保护外部改动。支持的文件类型和草稿行为见 [Setup 编辑指南](docs/implementation/setup-editing-guide.md)。
 - **保留上下文**：保存带来源和作用域的 Memory，以保守预算召回 Active 内容，导出包含用户记录和真实 Git 快照的 Checkpoint。
 - **审阅后执行**：编辑 Markdown Workflow，Dry Run 支持的只读工具，审批冻结的动作快照，查看持久化运行记录。项目测试和 Agent 命令需要审批。开发版新请求默认[七天有效，可配置](docs/implementation/approval-expiry-contract.md)。
 - **比较实际结果**：检查确定性规则提取的纠错建议，预览并安全应用/撤销受支持的文件变更，在同一 Git 提交的独立 worktree 中运行 baseline/candidate 命令。

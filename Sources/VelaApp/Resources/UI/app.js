@@ -10817,7 +10817,8 @@
 
   function openArtifactDrawer(art) {
     const loc = formatAssetLocation(art.path, art.scope, state.currentProject);
-    openDrawer(setupAssetDisplayName(art) || { key: 'setupL.artifacts.drawerTitle' }, loc.displayText);
+    const projectLabel = setupProjectLabel(art.project);
+    openDrawer(setupAssetDisplayName(art) || { key: 'setupL.artifacts.drawerTitle' }, art.scope !== 'global' && projectLabel ? `${projectLabel} · ${loc.relativePath}` : loc.displayText);
     const drawerContent = document.getElementById('drawer-content');
     if (!drawerContent) return;
 
@@ -10828,7 +10829,7 @@
       <section>
         <h3 class="section-heading" data-i18n="setupL.drawer.readonlyPreview">${escapeHtml(t('setupL.drawer.readonlyPreview'))}</h3>
         ${assetDiag.length > 0 ? `<p class="setup-row-diag" role="status" data-i18n="asset.diagnosticsFound" data-i18n-params="${escapeHtml(JSON.stringify({ count: assetDiag.length }))}">${escapeHtml(t('asset.diagnosticsFound', { count: assetDiag.length }))}</p>` : ''}
-        ${art.content ? VelaContent.file(art.content, art.path || setupAssetDisplayName(art)) : `<p class="text-secondary">${tHtml('setupL.drawer.noContent')}</p>`}
+        <div data-setup-document>${art.content ? VelaContent.file(art.content, art.path || setupAssetDisplayName(art)) : `<p class="text-secondary">${tHtml('setupL.drawer.noContent')}</p>`}</div>
         <div style="display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap;">
           <button class="btn btn-secondary btn-sm btn-drawer-setup-history" data-id="${escapeHtml(art.id)}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
           <button class="btn btn-secondary btn-sm btn-drawer-setup-relations" data-id="${escapeHtml(art.id)}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
@@ -10899,6 +10900,310 @@
         } catch (err) {
           showToast({ key: 'setupL.toast.revealFailed', params: { error: err.message } }, 'error');
         }
+      }
+    });
+    loadSetupEditing(art, currentDrawerInstance);
+  }
+
+  // Drafts live only in this window, never in localStorage or a project file.
+  // Opening and every Review/prepare use a fresh authoritative snapshot; Preview is local rendering.
+  const setupEditDrafts = new Map();
+  const setupEditRequests = new Map();
+  const setupEditRequestLimit = 32;
+  let setupEditRequestCounter = 0;
+  let activeSetupEdit = null;
+
+  function setupEditKey(art) {
+    return JSON.stringify([art.project || state.currentProject, art.id]);
+  }
+
+  function setupProjectLabel(path) {
+    if (!path) return '';
+    const project = (state.dashboard.projects || []).find(item => (item.path || item.id) === path);
+    return project?.title || project?.name || String(path).split('/').filter(Boolean).pop() || t('common.unnamedProject');
+  }
+
+  function setupSourceIdentityKey(identity) {
+    if (!identity || typeof identity !== 'object' || Array.isArray(identity)) return '';
+    const ordered = value => Array.isArray(value) ? value.map(ordered) : value && typeof value === 'object' ? Object.keys(value).sort().map(key => [key, ordered(value[key])]) : value;
+    return JSON.stringify(ordered(identity));
+  }
+
+  function setupEditChangeLabel(value) {
+    const labels = { applied: 'setupEdit.applied', undone: 'setupEdit.undone', pending_approval: 'setupEdit.pending', rejected: 'setupEdit.rejected', expired: 'setupEdit.expired', failed: 'setupEdit.failed', needs_review: 'setupEdit.needsReview' };
+    return labels[value] || 'setupEdit.unknown';
+  }
+
+  function setupEditBlockLabel(block, index) {
+    if (block.kind === 'heading') return block.source.trim().replace(/^#{1,6}\s*/, '').slice(0, 70);
+    return t(`setupEdit.block.${['code','list','blockquote','metadata'].includes(block.kind) ? block.kind : 'paragraph'}`, { number: index + 1 });
+  }
+
+  async function loadSetupEditing(art, drawerInstance) {
+    const project = art.project || state.currentProject;
+    if (art.scope === 'global' || !project || !['instruction', 'skill'].includes(art.type)) return;
+    const current = () => currentDrawerInstance === drawerInstance && !document.getElementById('detail-drawer').classList.contains('hidden');
+    try {
+      const snapshot = await callBridge('setup.edit.get', { project, artifactId: art.id });
+      if (!current()) return;
+      const body = document.getElementById('drawer-content');
+      if (snapshot.editable) {
+        // The inventory is an observation. After a reviewed write (or an
+        // external edit), reading/copying must use the same current source as
+        // the editor, including an intentionally empty document.
+        const documentView = body.querySelector('[data-setup-document]');
+        if (documentView) documentView.innerHTML = VelaContent.file(snapshot.content, art.path);
+        if (snapshot.observationStale) documentView?.insertAdjacentHTML('afterend', `<p class="setup-edit-note" role="status" data-i18n="setupEdit.currentSource">${escapeHtml(t('setupEdit.currentSource'))}</p>`);
+        setDrawerCustomActions(`<button type="button" id="btn-setup-edit" class="btn btn-secondary btn-sm" data-i18n="setupEdit.edit">${escapeHtml(t('setupEdit.edit'))}</button>`);
+        document.getElementById('btn-setup-edit').addEventListener('click', () => openSetupEditor(art));
+        const blocks = VelaContent.blocks(snapshot.content);
+        const preview = body.querySelector('.reading-file-preview');
+        // Inline controls are offered only when offsets are exact. The original
+        // source/copy controls keep the whole document, including its metadata.
+        if (preview && blocks.length) {
+          preview.innerHTML = blocks.map((block, index) => block.kind === 'metadata'
+            ? `<details class="technical-disclosure reading-frontmatter"><summary data-i18n="reading.metadata">${escapeHtml(t('reading.metadata'))}</summary>${VelaContent.code(block.source)}<button type="button" class="btn btn-ghost btn-sm btn-edit-setup-block" data-block="${index}" data-i18n="setupEdit.editBlock">${escapeHtml(t('setupEdit.editBlock'))}</button></details>`
+            : `<div class="setup-editable-block">${VelaContent.markdown(block.source)}<button type="button" class="btn btn-ghost btn-sm btn-edit-setup-block" data-block="${index}" data-i18n-aria-label="setupEdit.editBlockLabel" data-i18n-params="${escapeHtml(JSON.stringify({ block: setupEditBlockLabel(block, index) }))}" aria-label="${escapeHtml(t('setupEdit.editBlockLabel', { block: setupEditBlockLabel(block, index) }))}">${VelaContent.icon('edit')}<span data-i18n="setupEdit.editBlock">${escapeHtml(t('setupEdit.editBlock'))}</span></button></div>`).join('');
+          preview.querySelectorAll('.btn-edit-setup-block').forEach(button => button.addEventListener('click', () => openSetupEditor(art, blocks[Number(button.dataset.block)])));
+        }
+      } else {
+        body.insertAdjacentHTML('beforeend', `<p class="setup-edit-note" data-i18n="setupEdit.readOnly">${escapeHtml(t('setupEdit.readOnly'))}</p>`);
+      }
+      const changes = Array.isArray(snapshot.changes) ? snapshot.changes : [];
+      if (changes.length) {
+        body.insertAdjacentHTML('beforeend', `<section class="setup-edit-history"><h3 class="section-heading" data-i18n="setupEdit.changes">${escapeHtml(t('setupEdit.changes'))}</h3>${changes.map(change => `<div class="setup-edit-history-row"><div><span data-i18n="${setupEditChangeLabel(change.state)}">${escapeHtml(t(setupEditChangeLabel(change.state)))}</span><time>${escapeHtml(formatTime(change.createdAt))}</time></div>${change.canUndo ? `<button type="button" class="btn btn-secondary btn-sm btn-setup-undo" data-journal="${escapeHtml(change.journalId)}" data-i18n="setupEdit.undo">${escapeHtml(t('setupEdit.undo'))}</button>` : ''}</div>`).join('')}</section>`);
+        body.querySelectorAll('.btn-setup-undo').forEach(button => button.addEventListener('click', () => openSetupUndo(art, button.dataset.journal)));
+        if (snapshot.changesHasMore) body.querySelector('.setup-edit-history').insertAdjacentHTML('beforeend', `<p class="setup-edit-note" data-i18n="setupEdit.historyLimit">${escapeHtml(t('setupEdit.historyLimit'))}</p>`);
+      }
+    } catch (error) {
+      if (!current()) return;
+      const body = document.getElementById('drawer-content');
+      body.insertAdjacentHTML('beforeend', `<p class="setup-edit-note" role="status" data-i18n="setupEdit.unavailable">${escapeHtml(t('setupEdit.unavailable'))}</p>`);
+    }
+  }
+
+  async function openSetupEditor(art, requestedBlock = null) {
+    const project = art.project || state.currentProject;
+    const key = setupEditKey(art);
+    let existing = setupEditDrafts.get(key);
+    openModal({ key: 'setupEdit.title', params: { name: setupAssetDisplayName(art) } }, `<div class="setup-editor"><p data-i18n="common.loading">${escapeHtml(t('common.loading'))}</p></div>`);
+    const instance = currentModalInstance;
+    const current = () => currentModalInstance === instance && !document.getElementById('modal-container').classList.contains('hidden');
+    let snapshot;
+    try {
+      snapshot = await callBridge('setup.edit.get', { project, artifactId: art.id });
+      if (!current()) return;
+      if (!snapshot.editable || typeof snapshot.content !== 'string') throw new Error(t('setupEdit.readOnly'));
+    } catch (error) {
+      if (current()) {
+        document.getElementById('modal-body').innerHTML = `<p class="alert-banner alert-warning" role="alert">${escapeHtml(error.message)}</p>${existing ? `<h3 data-i18n="setupEdit.savedDraft">${escapeHtml(t('setupEdit.savedDraft'))}</h3>${VelaContent.file(existing.content, art.path)}<button type="button" id="btn-setup-unavailable-discard" class="btn btn-ghost" data-i18n="setupEdit.discard">${escapeHtml(t('setupEdit.discard'))}</button>` : ''}`;
+        document.getElementById('btn-setup-unavailable-discard')?.addEventListener('click', () => { setupEditDrafts.delete(key); closeModal(); });
+      }
+      return;
+    }
+    // Re-read after the fresh get: a late prepare can settle while this editor opens.
+    existing = setupEditDrafts.get(key);
+    let carriedRequest = setupEditRequests.get(key);
+    // A fresh get is authoritative for a previously submitted request. Terminal
+    // history releases the same-payload gate; needs_review remains explicit.
+    if (carriedRequest?.approvalId) {
+      const change = (Array.isArray(snapshot.changes) ? snapshot.changes : []).find(item => item?.approvalId === carriedRequest.approvalId);
+      if (change && ['applied', 'rejected', 'expired', 'failed', 'undone'].includes(change.state)) {
+        setupEditRequests.delete(key); carriedRequest = undefined;
+      } else if (change?.state === 'needs_review') {
+        carriedRequest.state = 'unknown';
+      }
+    }
+    // Never let an old prepare callback mutate a reopened editor's draft object.
+    // The request record remains separate and blocks only its exact frozen payload.
+    const draft = existing && carriedRequest ? { ...existing, requestUnknown: false } : (existing || { content: snapshot.content, baseHash: snapshot.baseHash, sourceIdentity: snapshot.sourceIdentity, requestUnknown: false });
+    if (existing && carriedRequest) setupEditDrafts.set(key, draft);
+    let stale = draft.baseHash !== snapshot.baseHash || setupSourceIdentityKey(draft.sourceIdentity) !== setupSourceIdentityKey(snapshot.sourceIdentity);
+    let selection = !existing && requestedBlock && snapshot.content.slice(requestedBlock.start, requestedBlock.end) === requestedBlock.source ? { ...requestedBlock } : null;
+    let mode = 'write', busy = false, generation = 0, reviewedContent = null;
+    // Keep at most eight changed drafts. Never silently evict an existing edit.
+    if (!existing && setupEditDrafts.size >= 8) {
+      document.getElementById('modal-body').innerHTML = `<p class="alert-banner alert-warning" data-i18n="setupEdit.draftLimit">${escapeHtml(t('setupEdit.draftLimit'))}</p>`;
+      return;
+    }
+    const saveDraft = () => {
+      if (draft.content !== snapshot.content || draft.requestUnknown || stale) setupEditDrafts.set(key, draft);
+      else setupEditDrafts.delete(key);
+    };
+    const onRequestSettled = event => {
+      if (event.detail?.key === key && current()) updateActions();
+    };
+    window.addEventListener('vela:setup-edit-request-settled', onRequestSettled);
+    activeSetupEdit = { instance, key, saveDraft, cleanup: () => window.removeEventListener('vela:setup-edit-request-settled', onRequestSettled) };
+    document.getElementById('modal-body').innerHTML = `<div class="setup-editor">
+      <p class="setup-edit-target" data-testid="setup-edit-target"><strong>${escapeHtml(setupProjectLabel(project))}</strong><span title="${escapeHtml(snapshot.relativePath)}">${escapeHtml(snapshot.relativePath)}</span></p>
+      <p class="setup-edit-note" data-i18n="setupEdit.intro">${escapeHtml(t('setupEdit.intro'))}</p>
+      ${stale ? `<div class="alert-banner alert-warning" role="alert"><span data-i18n="setupEdit.stale">${escapeHtml(t('setupEdit.stale'))}</span><button type="button" id="btn-setup-rebase" class="btn btn-secondary btn-sm" data-i18n="setupEdit.reload">${escapeHtml(t('setupEdit.reload'))}</button></div>` : ''}
+      ${draft.requestUnknown ? `<p class="alert-banner alert-warning" role="alert" data-i18n="setupEdit.requestUnknown">${escapeHtml(t('setupEdit.requestUnknown'))}</p>` : ''}
+      <p id="setup-edit-request-state" class="alert-banner alert-warning" role="status" hidden></p>
+      <div class="setup-editor-toolbar"><div class="tabs-nav" role="group" data-i18n-aria-label="setupEdit.viewLabel" aria-label="${escapeHtml(t('setupEdit.viewLabel'))}">${['write','preview','diff'].map(view => `<button type="button" class="tab-btn ${view === 'write' ? 'active' : ''}" data-edit-view="${view}" aria-pressed="${view === 'write'}" data-i18n="setupEdit.${view}">${escapeHtml(t('setupEdit.' + view))}</button>`).join('')}</div><span id="setup-edit-scope" class="setup-edit-note"></span></div>
+      <div id="setup-editor-write"><label for="setup-editor-source" class="setup-edit-note" data-i18n="setupEdit.sourceLabel">${escapeHtml(t('setupEdit.sourceLabel'))}</label><textarea id="setup-editor-source" class="form-textarea" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-describedby="setup-edit-help"></textarea><p id="setup-edit-help" class="setup-edit-note" data-i18n="setupEdit.draftNote">${escapeHtml(t('setupEdit.draftNote'))}</p></div>
+      <div id="setup-editor-preview" hidden></div><div id="setup-editor-diff" hidden></div>
+      <p id="setup-edit-error" class="alert-banner alert-warning" role="alert" hidden></p>
+    </div>`;
+    document.getElementById('modal-footer').classList.remove('hidden');
+    document.getElementById('modal-footer').innerHTML = `<button type="button" id="btn-setup-discard" class="btn btn-ghost" data-i18n="setupEdit.discard">${escapeHtml(t('setupEdit.discard'))}</button><span class="setup-editor-spacer"></span><button type="button" class="btn btn-secondary" id="btn-setup-editor-close" data-i18n="common.close">${escapeHtml(t('common.close'))}</button><button type="button" class="btn btn-primary" id="btn-setup-review" data-i18n="setupEdit.review">${escapeHtml(t('setupEdit.review'))}</button><button type="button" class="btn btn-primary" id="btn-setup-request" data-i18n="setupEdit.request" hidden>${escapeHtml(t('setupEdit.request'))}</button>`;
+    const area = document.getElementById('setup-editor-source');
+    area.maxLength = 65536;
+    const usesCRLF = snapshot.content.includes('\r\n') && !snapshot.content.replace(/\r\n/g, '').includes('\n');
+    const errorBox = document.getElementById('setup-edit-error');
+    const reviewButton = document.getElementById('btn-setup-review');
+    const requestButton = document.getElementById('btn-setup-request');
+    const params = () => ({ project, artifactId: art.id, baseHash: draft.baseHash, sourceIdentity: draft.sourceIdentity, content: draft.content });
+    const requestMatchesDraft = request => Boolean(request && request.content === draft.content && request.baseHash === draft.baseHash && setupSourceIdentityKey(request.sourceIdentity) === setupSourceIdentityKey(draft.sourceIdentity));
+    const matchingRequest = () => {
+      const request = setupEditRequests.get(key);
+      return requestMatchesDraft(request) ? request : null;
+    };
+    function setError(error) { errorBox.textContent = error.message || String(error); errorBox.hidden = false; }
+    function updateRequestState() {
+      const request = matchingRequest();
+      const state = document.getElementById('setup-edit-request-state');
+      if (!request || !state) return false;
+      const messageKey = request.state === 'inFlight' ? 'setupEdit.requestPending' : request.state === 'submitted' ? 'setupEdit.requestSubmitted' : 'setupEdit.requestUnknown';
+      state.dataset.i18n = messageKey;
+      state.textContent = t(messageKey);
+      state.hidden = false;
+      return true;
+    }
+    function updateActions() {
+      const tooLarge = new TextEncoder().encode(draft.content).length > 65536;
+      const changed = draft.content !== snapshot.content;
+      const requestBlocked = updateRequestState();
+      const state = document.getElementById('setup-edit-request-state');
+      if (state && !requestBlocked) state.hidden = true;
+      reviewButton.disabled = busy || stale || draft.requestUnknown || requestBlocked || !changed || tooLarge;
+      requestButton.disabled = busy || stale || draft.requestUnknown || requestBlocked || reviewedContent !== draft.content || tooLarge;
+      reviewButton.hidden = mode === 'diff' && reviewedContent === draft.content;
+      requestButton.hidden = !reviewButton.hidden;
+      area.readOnly = busy;
+      document.getElementById('btn-setup-discard').disabled = busy;
+      if (tooLarge) setError({ message: t('setupEdit.tooLarge') });
+    }
+    function updateScope() {
+      const scope = document.getElementById('setup-edit-scope');
+      scope.innerHTML = selection ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-setup-edit-whole" data-i18n="setupEdit.whole">${escapeHtml(t('setupEdit.whole'))}</button>` : `<span data-i18n="setupEdit.wholeLabel">${escapeHtml(t('setupEdit.wholeLabel'))}</span>`;
+      document.getElementById('btn-setup-edit-whole')?.addEventListener('click', () => { if (busy) return; selection = null; area.value = draft.content; updateScope(); area.focus(); });
+    }
+    async function setView(view) {
+      if (busy || !current()) return;
+      mode = view;
+      ['write','preview','diff'].forEach(name => {
+        document.getElementById('setup-editor-' + name).hidden = name !== view;
+        const button = document.querySelector(`[data-edit-view="${name}"]`);
+        button.classList.toggle('active', name === view); button.setAttribute('aria-pressed', String(name === view));
+      });
+      errorBox.hidden = true;
+      if (view === 'preview') document.getElementById('setup-editor-preview').innerHTML = VelaContent.file(draft.content, art.path);
+      if (view === 'diff') {
+        const seq = ++generation;
+        const target = document.getElementById('setup-editor-diff');
+        target.innerHTML = `<p data-i18n="common.loading">${escapeHtml(t('common.loading'))}</p>`;
+        busy = true; updateActions();
+        try {
+          const frozen = params();
+          const preview = await callBridge('setup.edit.preview', frozen);
+          if (!current() || generation !== seq) return;
+          // Only the helper's freshly validated before/after becomes a review.
+          if (preview.before !== snapshot.content || preview.after !== frozen.content) throw new Error(t('setupEdit.changedDuringReview'));
+          target.innerHTML = VelaContent.change(preview.before, preview.after);
+          if (target.querySelector('[data-review-complete="false"]')) throw new Error(t('reading.changeTooLarge'));
+          reviewedContent = frozen.content;
+        } catch (error) {
+          if (current()) { target.innerHTML = ''; reviewedContent = null; setError(error); }
+        } finally { if (current()) { busy = false; updateActions(); } }
+      }
+      updateActions();
+    }
+    area.value = selection ? draft.content.slice(selection.start, selection.end) : draft.content;
+    area.addEventListener('input', () => {
+      // HTML textareas normalize CRLF to LF; retain a document's uniform EOL
+      // convention when composing the new source instead of rewriting it.
+      const edited = usesCRLF ? area.value.replace(/\n/g, '\r\n') : area.value;
+      if (selection) {
+        draft.content = draft.content.slice(0, selection.start) + edited + draft.content.slice(selection.end);
+        selection.end = selection.start + edited.length;
+      } else draft.content = edited;
+      reviewedContent = null; errorBox.hidden = true; saveDraft(); updateActions();
+    });
+    document.querySelectorAll('[data-edit-view]').forEach(button => button.addEventListener('click', () => setView(button.dataset.editView)));
+    document.getElementById('btn-setup-editor-close').addEventListener('click', closeModal);
+    document.getElementById('btn-setup-discard').addEventListener('click', () => {
+      setupEditDrafts.delete(key); activeSetupEdit?.cleanup?.(); activeSetupEdit = null; closeModal();
+    });
+    document.getElementById('btn-setup-rebase')?.addEventListener('click', () => {
+      // Preserve the exact draft for copying instead of silently discarding or
+      // rebasing it onto a source the user has not compared.
+      mode = 'preview';
+      document.getElementById('setup-editor-preview').innerHTML = `<h3 data-i18n="setupEdit.savedDraft">${escapeHtml(t('setupEdit.savedDraft'))}</h3>${VelaContent.file(draft.content, art.path)}<h3 data-i18n="setupEdit.diskVersion">${escapeHtml(t('setupEdit.diskVersion'))}</h3>${VelaContent.file(snapshot.content, art.path)}<button type="button" class="btn btn-secondary" id="btn-setup-use-current-base" data-i18n="setupEdit.useCurrentBase">${escapeHtml(t('setupEdit.useCurrentBase'))}</button>`;
+      ['write','diff'].forEach(name => { document.getElementById('setup-editor-' + name).hidden = true; });
+      document.getElementById('setup-editor-preview').hidden = false;
+      document.querySelectorAll('[data-edit-view]').forEach(button => { button.classList.toggle('active', button.dataset.editView === 'preview'); button.setAttribute('aria-pressed', String(button.dataset.editView === 'preview')); });
+      document.getElementById('btn-setup-use-current-base').addEventListener('click', () => {
+        draft.baseHash = snapshot.baseHash; draft.sourceIdentity = snapshot.sourceIdentity;
+        stale = false; reviewedContent = null; saveDraft();
+        document.getElementById('btn-setup-rebase').closest('.alert-banner').hidden = true;
+        setView('diff');
+      });
+      updateActions();
+    });
+    reviewButton.addEventListener('click', () => setView('diff'));
+    requestButton.addEventListener('click', async () => {
+      if (busy || requestButton.disabled || !current()) return;
+      const frozen = params();
+      if (!setupEditRequests.has(key) && setupEditRequests.size >= setupEditRequestLimit) {
+        setError({ message: t('setupEdit.requestLimit') }); return;
+      }
+      const request = { id: ++setupEditRequestCounter, state: 'inFlight', ...frozen };
+      setupEditRequests.set(key, request);
+      saveDraft();
+      busy = true; updateActions();
+      try {
+        const result = await callBridge('setup.edit.prepare', frozen);
+        if (!result?.approval?.id) throw new Error(t('setupEdit.requestUnknown'));
+        if (setupEditRequests.get(key) === request) { request.state = 'submitted'; request.approvalId = result.approval.id; }
+        // Delete only the exact draft that submitted this exact frozen payload.
+        if (setupEditDrafts.get(key) === draft && requestMatchesDraft(request)) setupEditDrafts.delete(key);
+        window.dispatchEvent(new CustomEvent('vela:setup-edit-request-settled', { detail: { key, requestId: request.id, state: 'submitted' } }));
+        if (!current()) { await refreshDashboard(true, true); return; }
+        const route = activeRouteEpoch, page = state.currentPage, scope = state.currentProject;
+        activeSetupEdit.cleanup?.(); activeSetupEdit = null; closeModal(); closeDrawer();
+        showToast({ key: 'setupEdit.requested' });
+        await refreshDashboard(true, true);
+        if (activeRouteEpoch === route && state.currentPage === page && state.currentProject === scope) navigateTo('inbox');
+      } catch (error) {
+        // A broken bridge can lose the response after prepare committed. Keep
+        // the exact frozen request separate from later reopened draft content.
+        if (setupEditRequests.get(key) === request) request.state = 'unknown';
+        if (setupEditDrafts.get(key) === draft && requestMatchesDraft(request)) { draft.requestUnknown = true; saveDraft(); }
+        window.dispatchEvent(new CustomEvent('vela:setup-edit-request-settled', { detail: { key, requestId: request.id, state: 'unknown' } }));
+        if (current()) { setError({ message: t('setupEdit.requestUnknown') + ' ' + error.message }); }
+      } finally { if (current()) { busy = false; updateActions(); } }
+    });
+    updateScope(); updateActions(); area.focus();
+  }
+
+  function openSetupUndo(art, journalId) {
+    const project = art.project || state.currentProject;
+    openModal({ key: 'setupEdit.undoTitle' }, `<div class="setup-undo"><p data-i18n="setupEdit.undoPrompt" data-i18n-params="${escapeHtml(JSON.stringify({ name: setupAssetDisplayName(art) }))}">${escapeHtml(t('setupEdit.undoPrompt', { name: setupAssetDisplayName(art) }))}</p><p class="setup-edit-note" data-i18n="setupEdit.undoNote">${escapeHtml(t('setupEdit.undoNote'))}</p><p id="setup-undo-error" class="alert-banner alert-warning" role="alert" hidden></p></div>`, `<button class="btn btn-secondary" data-close-modal data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button><button class="btn btn-primary" id="btn-setup-confirm-undo" data-i18n="setupEdit.undo">${escapeHtml(t('setupEdit.undo'))}</button>`);
+    const instance = currentModalInstance;
+    document.getElementById('btn-setup-confirm-undo').addEventListener('click', async event => {
+      const button = event.currentTarget; button.disabled = true;
+      try {
+        const result = await callBridge('setup.edit.undo', { project, artifactId: art.id, journalId });
+        if (currentModalInstance !== instance) return;
+        if (result?.outcomeUnknown || result?.state !== 'undone') throw new Error(t('setupEdit.undoUncertain'));
+        closeModal(); closeDrawer();
+        showToast({ key: 'setupEdit.undone' });
+        await refreshDashboard(true, true);
+      } catch (error) {
+        if (currentModalInstance !== instance) return;
+        const box = document.getElementById('setup-undo-error'); box.textContent = error.message; box.hidden = false;
       }
     });
   }
@@ -19408,7 +19713,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
       let commandDisplay = null;
       let previewText = null;
 
-      const rawTargetCandidates = [args.path, args.targetFile, args.file, args.target, args.filePath];
+      const rawTargetCandidates = [args.relativePath, args.path, args.targetFile, args.file, args.target, args.filePath];
       const rawTarget = rawTargetCandidates.find(t => typeof t === 'string' && t.trim().length > 0) || null;
       if (rawTarget) {
         targetDisplay = formatRelativePath(rawTarget, projectPath);
@@ -19543,6 +19848,8 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
         protectedFilesDisplay,
         outputFilesDisplay,
         previewText,
+        setupChange: appr.tool === 'setup.file.edit' && typeof args.before === 'string' && typeof args.content === 'string' ? { before: args.before, after: args.content } : null,
+        setupTitle: appr.tool === 'setup.file.edit' ? t('setupEdit.approvalTitle', { name: setupAssetDisplayName({ path: args.relativePath || '', type: 'instruction' }) }) : null,
         isFileOp,
         toolName: frozenTool,
         timeoutDisplay,
@@ -19579,11 +19886,11 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
               rawJsonDisplay = String(appr.arguments || '{}');
             }
             return `
-              <div class="card approval-card" data-testid="approval-card" data-approval-id="${escapeHtml(String(appr.id || ''))}" data-project="${escapeHtml(String(appr.project || ''))}">
+              <div class="card approval-card" data-testid="approval-card" data-tool="${escapeHtml(String(appr.tool || ''))}" data-approval-id="${escapeHtml(String(appr.id || ''))}" data-project="${escapeHtml(String(appr.project || ''))}">
                 <div class="card-header approval-card-head">
                   <div class="approval-card-heading">
-                    <strong>${escapeHtml(appr.title || t('inbox.defaultApprTitle'))}</strong>
-                    <span class="approval-tool"><span data-i18n="inbox.toolLabel">${escapeHtml(t('inbox.toolLabel'))}</span> · <span class="font-mono">${escapeHtml(summary.toolName)}</span></span>
+                    <strong>${escapeHtml(summary.setupTitle || appr.title || t('inbox.defaultApprTitle'))}</strong>
+                    <span class="approval-tool">${summary.setupChange ? `<span data-i18n="setupEdit.changeType">${escapeHtml(t('setupEdit.changeType'))}</span>` : `<span data-i18n="inbox.toolLabel">${escapeHtml(t('inbox.toolLabel'))}</span> · <span class="font-mono">${escapeHtml(summary.toolName)}</span>`}</span>
                   </div>
                   <span class="status-badge status-amber" data-i18n="inbox.statusPending">${t('inbox.statusPending')}</span>
                 </div>
@@ -19627,7 +19934,9 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
                   ` : ''}
                 </div>
 
-                ${summary.previewText ? `
+                ${summary.setupChange ? `
+                  <section class="approval-preview setup-approval-change"><h3 class="section-heading" data-i18n="setupEdit.diff">${escapeHtml(t('setupEdit.diff'))}</h3>${VelaContent.change(summary.setupChange.before, summary.setupChange.after)}<details class="technical-disclosure"><summary data-i18n="setupEdit.fullResult">${escapeHtml(t('setupEdit.fullResult'))}</summary>${VelaContent.file(summary.setupChange.after, summary.targetDisplay || 'change.md')}</details></section>
+                ` : summary.previewText ? `
                   <div class="approval-preview" style="margin-bottom: 10px;">
                     <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 3px;" data-i18n="inbox.previewTitle">${t('inbox.previewTitle')}</div>
                     ${VelaContent.file(summary.previewText, summary.targetDisplay || 'change.txt')}
@@ -19679,7 +19988,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
         }
 
         try {
-          await callBridge('approvals.decide', {
+          const result = await callBridge('approvals.decide', {
             id: cardId,
             decision,
             snapshotHash
@@ -19687,7 +19996,15 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
 
           if (!isSameScope()) return;
 
-          showToast({ key: isApprove ? 'inbox.approvedToast' : 'inbox.rejectedToast' });
+          if (result?.state === 'needs_review' || result?.result?.outcomeUnknown) {
+            showToast({ key: 'inbox.executionUncertain' }, 'warning');
+          } else if (isApprove && result?.state !== 'executed') {
+            showToast({ key: 'inbox.executionFailed' }, 'error');
+          } else if (!isApprove && result?.state !== 'rejected') {
+            showToast({ key: 'inbox.executionUncertain' }, 'warning');
+          } else {
+            showToast({ key: isApprove ? 'inbox.approvedToast' : 'inbox.rejectedToast' });
+          }
           await refreshDashboard(true, true);
 
           if (!isSameScope()) return;
@@ -21654,6 +21971,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
   }
 
   function openDrawer(title = '', subtitle = '', triggerEl = null) {
+    if (activeSetupEdit) closeModal();
     dismissActiveCaptureModal();
     const thisDrawerInstance = ++drawerInstanceCounter;
     currentDrawerInstance = thisDrawerInstance;
@@ -21739,6 +22057,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
   }
 
   function closeDrawer() {
+    if (activeSetupEdit) closeModal();
     dismissActiveCaptureModal();
     if (typeof dismissActiveRunFeedbackModal === 'function') {
       dismissActiveRunFeedbackModal();
@@ -21777,6 +22096,14 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
   }
 
   function openModal(title, bodyHtml, footerHtml = '', triggerEl = null) {
+    // Success notices from the previous view should not travel into a new
+    // editing task or cover its actions. Warnings and errors remain visible.
+    document.querySelectorAll('#toast-container .toast-info').forEach(toast => toast._dismiss?.(true));
+    if (activeSetupEdit) {
+      activeSetupEdit.saveDraft();
+      activeSetupEdit.cleanup?.();
+      activeSetupEdit = null;
+    }
     if (typeof searchLocaleCleanup === 'function') {
       try {
         searchLocaleCleanup();
@@ -21852,6 +22179,11 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
   }
 
   function closeModal() {
+    if (activeSetupEdit) {
+      activeSetupEdit.saveDraft();
+      activeSetupEdit.cleanup?.();
+      activeSetupEdit = null;
+    }
     if (typeof searchLocaleCleanup === 'function') {
       try {
         searchLocaleCleanup();

@@ -26,6 +26,7 @@ jobs:
           python3 scripts/test-portable-support.py
           python3 scripts/check-ui-translations.py
           python3 scripts/test-release-resources.py
+          node scripts/test-content-blocks.mjs
       - name: JSONL and MCP integration
         run: |
           python3 scripts/test-rpc.py
@@ -47,6 +48,7 @@ jobs:
           python3 scripts/test-quota-rpc.py
           python3 scripts/test-memory-archives.py
           python3 scripts/test-setup-rpc.py
+          python3 scripts/test-setup-edit-rpc.py --binary .build/debug/vela --output output/parity/ci-setup-edit.json
           python3 scripts/test-model-improvement-rpc.py
           python3 scripts/test-ask-route-rpc.py
           python3 scripts/test-workflow-health-rpc.py
@@ -114,6 +116,7 @@ jobs:
           python3 scripts/test-workspace-scope-accessibility-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-workspace-scope --output output/playwright/ci-workspace-scope --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
           python3 scripts/test-session-memory-capture-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-session-capture --output output/playwright/ci-session-capture --browser-executable "$BROWSER_EXECUTABLE"
           python3 scripts/test-workflow-health-proposal-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-health-proposal-ui --output output/playwright/ci-health-proposal-ui --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-setup-edit-ui.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-setup-edit-ui --output output/playwright/ci-setup-edit-ui --browser-executable "$BROWSER_EXECUTABLE"
           python3 scripts/test-ui-server-approval-cache.py > output/parity/ci-ui-server-approval-cache.json
           python3 scripts/test-desktop-usability-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-desktop-usability --output output/playwright/ci-desktop-usability --browser-executable "$BROWSER_EXECUTABLE"
           python3 scripts/test-run-feedback-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-run-feedback --output output/playwright/ci-run-feedback --browser-executable "$BROWSER_EXECUTABLE"
@@ -140,6 +143,7 @@ jobs:
             output/playwright/ci-engineering/*.json
             output/playwright/ci-engineering/*.jsonl
             output/playwright/ci-engineering/*.png
+            output/playwright/ci-setup-edit-ui/
             output/playwright/ci-rich-content/*.json
             output/playwright/ci-rich-content/*.png
             output/playwright/ci-ask-consumer/*.json
@@ -188,6 +192,7 @@ jobs:
             output/playwright/ci-lab-recall/*.txt
             output/playwright/ci-lab-recall/*.log
             output/parity/ci-session-history.json
+            output/parity/ci-setup-edit.json
             output/parity/ci-store-backup-*.json
             output/parity/ci-store-backup-*.log
             output/parity/ci-ingestion-exclusions*.json

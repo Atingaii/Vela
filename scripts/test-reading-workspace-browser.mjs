@@ -38,7 +38,13 @@ try {
  await skill.locator('.row-title.btn-preview-artifact').click();const setupReader=page.locator('#detail-drawer:not(.hidden) .reading-file');await page.locator('#detail-drawer:not(.hidden) .reading-file[data-view="preview"]').waitFor();
  assert.equal(await setupReader.locator('.reading-prose').isVisible(),true);assert.match(await setupReader.locator('.reading-prose').innerText(),/Inspect the diff and the assertion that covers invalid input\./);
  const metadata=setupReader.locator('details.reading-frontmatter');assert.equal(await metadata.count(),1);assert.equal(await metadata.evaluate(e=>e.open),false);await metadata.locator('summary').click();assert.match(await metadata.innerText(),/name: review-request-boundary/);
- assert.equal(await setupReader.locator('img,svg,[onclick],[onerror]').count(),0);
+ // User Markdown must not create active media, handlers, or SVG. The edit
+ // control itself deliberately owns one fixed semantic SVG, so scope that
+ // exception to the trusted button rather than globally rejecting the reader.
+ assert.equal(await setupReader.locator('img,[onclick],[onerror]').count(),0);
+ assert.equal(await setupReader.locator('.reading-prose svg').count(),0);
+ assert.equal(await setupReader.locator('svg').evaluateAll(nodes=>nodes.filter(node=>!(node.matches('svg.semantic-icon') && node.closest('.btn-edit-setup-block'))).length),0);
+ assert.ok(await setupReader.locator('.btn-edit-setup-block svg.semantic-icon').count()>0);
  const expectedSkill='---\nname: review-request-boundary\ndescription: Review request validation changes.\n---\n\nInspect the diff and the assertion that covers invalid input.\n';
  await setupReader.locator('.reading-source').click();assert.equal(await setupReader.locator('.reading-file-source code').textContent(),expectedSkill);await setupReader.locator('.reading-copy').click();assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),expectedSkill);await setupReader.locator('.reading-preview').click();
  await page.screenshot({path:output+'/setup-skill-reading.png'});result.checks.push({name:'actual-setup-skill-markdown-metadata-source-copy-inert-html',passed:true,sourceBytes:expectedSkill.length});

@@ -4,6 +4,12 @@
 
 目标已扩展为覆盖 Blume、Walrus Memory/MemWal、px0 的全部已交付能力，见[228 项逐项台账](parity/README.md)。旧版最小范围不是删减目标的依据。实现、隔离测试、真实提供方、桌面接通、发布验收分别记录；测试总数不能抵消缺失功能。
 
+## 2026-09-14 项目文档编辑与审批
+
+项目 Setup Markdown 的编辑路径已接通：当前原文阅读、精确块或全文编辑、完整差异、冻结审批、写入后重新读取及带文件版本保护的 Undo。编辑器明确显示项目与相对位置，普通成功提示不会遮挡弹窗操作；空文档、草稿恢复、审批晚响应、监听清理和双语均有实际交互检查。该入口只编辑已识别的项目 instruction/skill Markdown，不开放全局、脱敏或任意配置写入；修改记录目前展示最近 100 条。见[使用指南](implementation/setup-editing-guide.md)。
+
+本机验证为 5 项新增 Core portable 方法、17 项共享 Core 回归、14 项实际 RPC、13 项使用打包 helper 的最终 UI 浏览器检查；打包 helper 的 14 项 RPC 另行通过。阅读器 6 项回归使用同一内容渲染代码与打包 helper，早于最后的弹窗提示修正，不计作最终 UI 全量回归。开发包已核对资源、签名和 UI 一致性；新编辑流程的原生窗口实测先遇 macOS 锁屏，随后最终 QA 的 CUA 启动和读取又超时，尚未完成。精确版本、历史测试缺口与范围见[验收证据](evidence/2026-09-14-setup-editing.json)，不借用之前原生 V3 的结果补记通过。
+
 ## 2026-09-14 产品界面 V3 打磨
 
 WorkBuddy 的 Deepseek-V4.1-Flash 提供初稿，Codex 完成审查、集成和后续修正。新版统一九页信息层级、工作流主次导航、作用域资产列表、单一记忆入口、设置分类和技术信息折叠；技能文件复用本地 Markdown/源码阅读器，完整复制保持原字节。隐藏额度面板的展开状态不再阻止日志用量刷新。
@@ -26,7 +32,7 @@ V3 同源本机浏览器检查为工程 11/11、本地化 6/6、阅读 6/6、设
 | 会话观察 | Claude/Codex 增量日志、部分 Cursor 导出/SQLite、Pi v1/v2/v3 分支记录与 OMP 元数据；有界流式读取、来源版本、身份/轮转检查 | 完整历史回填及所有私有 Cursor 格式仍未完成。日志推断不等于进程存活证明；Pi 最新持久化分支不冒充当前活跃分支 |
 | 显式历史回填 | Claude/Codex/Pi/OMP JSONL来源清单、固定epoch、分批读取与重启续传、稳定分页和完整原文分块；解析/原文/分支分别计量 | 历史回填桌面发现/分页/启停/续传/原文分块已通过 UI17 实测和 972 CI；Cursor、未知格式与完整大负载仍未验收，未解析原文不计为归一化功能 |
 | 会话计划 | Codex update_plan、Claude Todo/Task 的持久化调用与成功回执配对；只读任务状态、来源hash/位置、提议/失败/未知区分 | UI17 的全部项目 scope 与后台刷新展开/锚点缺陷保留为历史反例。UI18 r7 已在冻结 renderer→真实隔离 helper 的完整 8 项浏览器路径中复验 explicit project、展开首屏、默认首 cursor、无旧 cursor、stale guard 与 anchor；其真实 held `sessions.relations.get` + 用户 wheel 反例从 r6 的红结果变为 r7 保持阅读位置的通过结果。嵌套 held-response 加 wheel 的反例只在 Chrome 实测，机制是 Chromium 原生 scroll anchoring 的证据支持推断而非 setter trace 结论。另有匹配 r7 的 WKWebView 普通刷新、父子关系导航和双语 Search/Actions 实测；没有原生 held-response 覆盖，仅保存一张刷新后截图，不声称保存前后成对证据。完整历史投影/未文档化格式仍不足，计划完成不证明工程验证通过 |
-| Setup | 五harness公开位置目录、项目/全局配置扫描、脱敏版本历史/差异、来源关系、删除/重新出现痕迹与不完整扫描保护 | Setup 目录/历史/diff/关系入口已通过真实 helper 浏览器验收；完整原生操作仍需持续验证。TOML/YAML无安全解析器时只给元数据/hash，不提供原文；实际加载配置仍未知，不执行被扫描的 Hook/MCP |
+| Setup | 五harness公开位置目录、项目/全局配置扫描、脱敏版本历史/差异、来源关系、删除/重新出现痕迹与不完整扫描保护；项目 instruction/skill Markdown 的块/全文编辑、冻结审批与 Undo | 编辑闭环已通过真实 helper 浏览器验收，新原生编辑流程受锁屏及交互服务超时阻挡，尚未实测；仅最近 100 条编辑历史，无旧记录翻页。全局/脱敏内容不可编辑，TOML/YAML无安全解析器时只给元数据/hash；实际加载配置仍未知，不执行被扫描的 Hook/MCP |
 | Memory | 九类内容、七类作用域、Candidate/Active/Superseded/Archived、来源消息、Markdown 人工编辑；同项目已索引 session 单消息可经 Core identity/hash 重验捕获为 candidate observation；Active-only Recall | 捕获只重读已索引记录、不打开 provider 文件；新建需 review，不自动激活，后续人工编辑保留来源并标为 user-derived。完整提取、合并、遗忘、团队策略与所有插件入口仍按台账验收 |
 | 语义 Recall | 系统已安装 NaturalLanguage 模型、本地分页索引、lexical/semantic/hybrid、版本/维度/sourceHash 校验、明确语言与不可用状态 | 默认仍可离线词面检索，不自动下载。真实合成中英文语义召回与界面取消/索引流程已测，不能据此宣称真实长期检索质量达标；Library向量后端仍需实现 |
 | Library与Ask | 资料版本、审阅后编辑/归档/恢复/导出/重抓；FTS5段落/原文位置与本地重排；独立审批问答与重新核验的续问 | 真实Codex一次来源问答已通过，FTS路径有独立Core/CLI验证。缺标记/错误privacy/私有来源与消失资产反例已修；引用存在不证明语义正确。YouTube、vault与完整批量来源管线仍需接通 |

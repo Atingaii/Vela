@@ -68,13 +68,18 @@
       return `<div class="reading-prose">${clean(marked.parse(text, {renderer, gfm:true, breaks:false, async:false}))}</div>`;
     } catch (_) { return `<div class="reading-prose">${code(text)}</div>`; }
   }
+  function frontmatterInfo(text, isMarkdown) {
+    // Keep this detection shared by file() and blocks(): an arbitrary --- rule is not metadata.
+    const match = isMarkdown && text.length <= 64000 ? text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/) : null;
+    return match && /^[A-Za-z_][\w-]*:\s/m.test(match[1]) ? match : null;
+  }
   function file(source, filename = '') {
     const text = String(source ?? '');
     const ext = String(filename).split('.').pop().toLowerCase();
     const isMarkdown = ['md','markdown','mdx'].includes(ext);
     // Read prose first; keep the exact source, including front matter, for copying.
-    const frontmatter = isMarkdown && text.length <= 64000 ? text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/) : null;
-    const hasMetadata = frontmatter && /^[A-Za-z_][\w-]*:\s/m.test(frontmatter[1]);
+    const frontmatter = frontmatterInfo(text, isMarkdown);
+    const hasMetadata = Boolean(frontmatter);
     const previewText = hasMetadata ? text.slice(frontmatter[0].length) : text;
     return `<section class="reading-file" data-view="${isMarkdown ? 'preview' : 'source'}">
       <div class="reading-file-toolbar">
@@ -82,10 +87,69 @@
         ${isMarkdown ? `<button type="button" class="btn btn-sm btn-ghost reading-preview" aria-pressed="true">${textLabel('preview')}</button><button type="button" class="btn btn-sm btn-ghost reading-source" aria-pressed="false">${textLabel('source')}</button>` : ''}
         <button type="button" class="btn btn-sm btn-ghost reading-copy">${textLabel('copy')}</button>
       </div>
+      ${text === '' ? `<p class="reading-empty">${textLabel('emptyFile')}</p>` : ''}
       ${isMarkdown ? `<div class="reading-file-preview">${markdown(previewText)}${hasMetadata ? `<details class="technical-disclosure reading-frontmatter"><summary>${textLabel('metadata')}</summary>${code(frontmatter[1])}</details>` : ''}</div>` : ''}
       <div class="reading-file-source">${code(text, ext)}</div>
       <span class="reading-original" hidden data-source="${escape(JSON.stringify(text))}"></span>
     </section>`;
+  }
+  const MAX_READING_BYTES = 64 * 1024;
+  const MAX_READING_BLOCKS = 256;
+  function utf8Length(text) {
+    // TextEncoder is available in supported WKWebView. No fallback means no guessed bound.
+    try { return new TextEncoder().encode(text).length; } catch (_) { return Infinity; }
+  }
+  function blocks(source) {
+    const text = String(source ?? '');
+    // Marked normalizes CRLF in its raw token stream. Reject all carriage returns,
+    // including metadata-only documents, rather than manufacture character offsets.
+    if (!window.marked?.lexer || text.includes('\r') || utf8Length(text) > MAX_READING_BYTES) return [];
+    const frontmatter = frontmatterInfo(text, true);
+    const prefix = frontmatter ? frontmatter[0] : '';
+    const remainder = text.slice(prefix.length);
+    let tokens;
+    try { tokens = window.marked.lexer(remainder, {gfm:true}); } catch (_) { return []; }
+    if (!Array.isArray(tokens) || tokens.some(token => typeof token?.raw !== 'string')) return [];
+    // marked may normalize CRLF. Only trust offsets after its raw token stream round-trips exactly.
+    if (tokens.map(token => token.raw).join('') !== remainder) return [];
+    let offset = prefix.length;
+    const result = prefix ? [{id:0,start:0,end:prefix.length,kind:'metadata',source:prefix}] : [];
+    for (const token of tokens) {
+      const start = offset, end = start + token.raw.length;
+      offset = end;
+      if (token.type === 'space') continue; // whitespace remains in offsets but never becomes an edit target.
+      if (result.length >= MAX_READING_BLOCKS) return [];
+      result.push({id:result.length,start,end,kind:String(token.type || 'text'),source:text.slice(start,end)});
+    }
+    return offset === text.length ? result : [];
+  }
+  function linesWithEndings(text) {
+    // A line owns its terminating LF. This keeps a common line whole, including
+    // its newline, and avoids splitting a surrogate pair or a visual line in a diff.
+    return text.match(/[^\n]*\n|[^\n]+/g) || [];
+  }
+  function change(before, after) {
+    const left = String(before ?? ''), right = String(after ?? '');
+    if (utf8Length(left) > MAX_READING_BYTES || utf8Length(right) > MAX_READING_BYTES) {
+      return `<section class="reading-change" role="status" data-review-complete="false"><span data-i18n="reading.changeTooLarge">${escape(label('changeTooLarge'))}</span></section>`;
+    }
+    const leftLines = linesWithEndings(left), rightLines = linesWithEndings(right);
+    let prefixCount = 0;
+    const prefixLimit = Math.min(leftLines.length, rightLines.length);
+    while (prefixCount < prefixLimit && leftLines[prefixCount] === rightLines[prefixCount]) prefixCount++;
+    let suffixCount = 0;
+    const suffixLimit = Math.min(leftLines.length - prefixCount, rightLines.length - prefixCount);
+    while (suffixCount < suffixLimit &&
+           leftLines[leftLines.length - suffixCount - 1] === rightLines[rightLines.length - suffixCount - 1]) suffixCount++;
+    const unchangedPrefix = leftLines.slice(0, prefixCount).join('');
+    const unchangedSuffix = suffixCount ? leftLines.slice(leftLines.length - suffixCount).join('') : '';
+    const removed = leftLines.slice(prefixCount, leftLines.length - suffixCount).join('');
+    const inserted = rightLines.slice(prefixCount, rightLines.length - suffixCount).join('');
+    // Keep prefix and suffix separate: joining them would fabricate adjacency across the replacement.
+    const context = (unchangedPrefix || unchangedSuffix) ? `<details class="technical-disclosure reading-change-context"><summary>${textLabel('changeUnchanged')}</summary>${unchangedPrefix ? `<div data-change-region="prefix">${code(unchangedPrefix, 'text')}</div>` : ''}${unchangedSuffix ? `<div data-change-region="suffix">${code(unchangedSuffix, 'text')}</div>` : ''}</details>` : '';
+    const removedLine = removed ? `<div class="reading-change-line reading-change-removed"><span class="reading-change-mark" aria-hidden="true">−</span>${textLabel('changeRemoved')}${code(removed, 'text')}</div>` : '';
+    const insertedLine = inserted ? `<div class="reading-change-line reading-change-added"><span class="reading-change-mark" aria-hidden="true">+</span>${textLabel('changeAdded')}${code(inserted, 'text')}</div>` : '';
+    return `<section class="reading-change" data-review-complete="true" data-before-bytes="${utf8Length(left)}" data-after-bytes="${utf8Length(right)}">${context}${removedLine}${insertedLine}</section>`;
   }
   function tool(message) {
     const source = String(message.content ?? '');
@@ -205,5 +269,5 @@
       document.getElementById('project-selector')?.focus();
     });
   });
-  window.VelaContent = Object.freeze({markdown, code, file, tool, icon, workflowKind});
+  window.VelaContent = Object.freeze({markdown, code, file, tool, blocks, change, icon, workflowKind});
 })();

@@ -1,0 +1,39 @@
+{
+  "format": "vela-ci-completion-v1",
+  "runId": 34861378034,
+  "headSha": "289d67c58e3dabe9830fae8d5f6e1ac8d9616c86",
+  "status": "completed",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "name": "Installed SDKs and OpenClaw integration",
+      "conclusion": "success",
+      "startedAt": "2026-09-14T15:19:25Z",
+      "completedAt": "2026-09-14T15:23:55Z"
+    },
+    {
+      "name": "macOS build and tests",
+      "conclusion": "success",
+      "startedAt": "2026-09-14T15:19:24Z",
+      "completedAt": "2026-09-14T15:31:54Z"
+    }
+  ],
+  "hostedFrozenRendererFlows": "success",
+  "harnessFix": "scripts/test-run-feedback-browser.py defines its complete CHECKS contract before argument parsing",
+  "localRegression": {
+    "path": "output/playwright/ci957-run-feedback-repro-r1/results.json",
+    "sha256": "effc5d0c9d2264688fc36c53e3d0ee50b4d4c5a610f09c21cdf3a1a16ec44517",
+    "completeSuite": true
+  },
+  "priorFailureReceipt": {
+    "path": "output/parity/ci-957c599-review.json",
+    "sha256": "c2d5f966d29d324d73aaaeaa57013fc6cc7748e4b5d37cf236f16ca113e03b11"
+  },
+  "cleanupReceipt": {
+    "path": "output/parity/ci-harness-temp-cleanup-2026-09-14.json",
+    "sha256": "cebaaff578bd9260af2fb31f34cb4732c32699aaf75a86ded7afd9ec507e4ab6"
+  },
+  "url": "https://github.com/Atingaii/Vela/actions/runs/34861378034",
+  "recordSHA256": "f028ab4fbd3e6d664649079cab4fe59c34e3529cb108ece29418a939659b1431",
+  "scopeNote": "CI for the V3 desktop/website branch plus test-harness compatibility repairs. This commit predates the new Setup editing implementation; no native, external-provider or full-product acceptance is inferred."
+}

@@ -294,6 +294,21 @@ final class SetupInventoryService {
     }
 }
 
+/// Stable descriptor identities used only to freeze a reviewed Setup edit.
+/// They cover the project root, each ancestor and the file itself so an
+/// identical-byte replacement cannot satisfy a later SafeApply transaction.
+enum SetupSourceIdentity {
+    static func value(file: stat, root: stat, ancestors: [(String,stat)]) -> JSON {
+        ["device":String(file.st_dev),"inode":String(file.st_ino),"bytes":file.st_size,
+         "modifiedSeconds":file.st_mtimespec.tv_sec,"modifiedNanoseconds":file.st_mtimespec.tv_nsec,
+         "rootDevice":String(root.st_dev),"rootInode":String(root.st_ino),
+         "ancestors":ancestors.map { ["name":$0.0,"device":String($0.1.st_dev),"inode":String($0.1.st_ino)] as JSON }]
+    }
+    static func matches(_ expected: JSON, file: stat, root: stat, ancestors: [(String,stat)]) throws -> Bool {
+        try jsonString(expected) == jsonString(value(file:file,root:root,ancestors:ancestors))
+    }
+}
+
 private enum SetupFileSnapshot {
     struct Snapshot { let content: String?, identity: JSON, bytes: Int }
     static func directoryExists(root: URL,relative: String) throws -> Bool {
@@ -324,8 +339,10 @@ private enum SetupFileSnapshot {
         }
         var info = stat()
         guard fstatat(parent,components.last!,&info,AT_SYMLINK_NOFOLLOW) == 0, info.st_mode & S_IFMT == S_IFREG, info.st_nlink == 1 else { throw VelaError("Setup source must be a regular file without symbolic or hard links") }
-        let identity: JSON = ["device":String(info.st_dev),"inode":String(info.st_ino),"bytes":info.st_size,"modifiedSeconds":info.st_mtimespec.tv_sec,"modifiedNanoseconds":info.st_mtimespec.tv_nsec]
-        if metadataOnly { return Snapshot(content:nil,identity:identity,bytes:Int(info.st_size)) }
+        if metadataOnly {
+            var rootInfo = stat(); guard fstat(rootFD,&rootInfo) == 0 else { throw VelaError("Cannot verify setup root") }
+            return Snapshot(content:nil,identity:SetupSourceIdentity.value(file:info,root:rootInfo,ancestors:anchors.map { ($0.1,$0.2) }),bytes:Int(info.st_size))
+        }
         guard info.st_size >= 0, info.st_size <= limit else { throw VelaError("Setup file exceeds its remaining byte limit") }
         let fd = openat(parent,components.last!,O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
         guard fd >= 0 else { throw VelaError("Setup source cannot be opened safely") }; descriptors.append(fd)
@@ -346,9 +363,213 @@ private enum SetupFileSnapshot {
             guard fstatat(ancestor,name,&actual,AT_SYMLINK_NOFOLLOW) == 0, actual.st_mode & S_IFMT == S_IFDIR, actual.st_dev == expected.st_dev, actual.st_ino == expected.st_ino else { throw VelaError("Setup ancestry changed during reading") }
         }
         guard let content = String(data:data,encoding:.utf8) else { throw VelaError("Setup source is not UTF-8") }
-        return Snapshot(content:content,identity:identity,bytes:data.count)
+        return Snapshot(content:content,identity:SetupSourceIdentity.value(file:opened,root:originalRoot,ancestors:anchors.map { ($0.1,$0.2) }),bytes:data.count)
     }
     private static func same(_ a: stat,_ b: stat) -> Bool {
         a.st_mode & S_IFMT == S_IFREG && b.st_mode & S_IFMT == S_IFREG && b.st_nlink == 1 && a.st_dev == b.st_dev && a.st_ino == b.st_ino && a.st_size == b.st_size && a.st_mtimespec.tv_sec == b.st_mtimespec.tv_sec && a.st_mtimespec.tv_nsec == b.st_mtimespec.tv_nsec && a.st_ctimespec.tv_sec == b.st_ctimespec.tv_sec && a.st_ctimespec.tv_nsec == b.st_ctimespec.tv_nsec
+    }
+}
+
+/// The editable subset of the Setup inventory.  This is deliberately separate
+/// from discovery: discovery retains only sanitized observations, while an
+/// edit is allowed to read a small, current, secret-free Markdown file through
+/// the same descriptor-safe source boundary immediately before it is frozen.
+final class SetupEditService {
+    static let maxEditableBytes = 64 * 1024
+    private let store: VelaStore
+    private let files: SafeApplyService
+    /// Test-only barrier between the authoritative preflight and SafeApply's
+    /// own descriptor open. Production never assigns this hook.
+    var afterVerifiedBeforeApplyForTesting: (() throws -> Void)?
+    /// Test-only simulation of ledger persistence failing after SafeApply has
+    /// committed. Production never assigns this hook.
+    var afterApplyBeforeLinkForTesting: (() throws -> Void)?
+    /// Test-only simulation of the second ledger write failing after Undo has
+    /// committed. Production never assigns this hook.
+    var afterUndoBeforeLinkForTesting: (() throws -> Void)?
+
+    init(store: VelaStore, files: SafeApplyService) {
+        self.store = store
+        self.files = files
+    }
+
+    struct Source {
+        let artifact: JSON
+        let project: String
+        let relativePath: String
+        let content: String
+        let hash: String
+        let identity: JSON
+    }
+
+    private func editability(project: String, artifactID: String) throws -> (artifact: JSON?, reason: String?) {
+        guard let artifact = try store.get("artifact", artifactID), string(artifact,"origin") == "setup" else {
+            throw VelaError("Setup artifact not found")
+        }
+        guard string(artifact,"scope") == "project" else { return (artifact,"global") }
+        guard string(artifact,"project") == project else { throw VelaError("Setup artifact belongs to another project") }
+        guard string(artifact,"state") == "active" else { return (artifact,"unavailable") }
+        guard artifact["redacted"] as? Bool != true else { return (artifact,"redacted") }
+        guard string(artifact,"contentStatus") == "sanitized" else { return (artifact,"withheld") }
+        guard ["instruction","skill"].contains(string(artifact,"type")) else { return (artifact,"unsupported_type") }
+        let relative = string(artifact,"relativePath")
+        guard !relative.isEmpty,
+              URL(fileURLWithPath:relative).pathExtension.lowercased() == "md",
+              let catalog = SetupCatalog.match(relative,global:false),
+              ["instruction","skill"].contains(catalog.type), catalog.type == string(artifact,"type"),
+              URL(fileURLWithPath:project).appendingPathComponent(relative).path == string(artifact,"path") else {
+            return (artifact,"unsupported_type")
+        }
+        return (artifact,nil)
+    }
+
+    private func current(project: String, artifactID: String) throws -> Source {
+        let eligibility = try editability(project:project,artifactID:artifactID)
+        guard let artifact = eligibility.artifact else { throw VelaError("Setup artifact not found") }
+        if let reason = eligibility.reason { throw VelaError("Setup artifact is not editable: \(reason)") }
+        let relative = string(artifact,"relativePath")
+        let snapshot = try SetupFileSnapshot.read(root:URL(fileURLWithPath:project),relative:relative,limit:Self.maxEditableBytes,metadataOnly:false)
+        guard let content = snapshot.content, !content.contains("\0"), ModelImprovement.redact(content) == content else {
+            throw VelaError("Setup artifact contains sensitive content and cannot be edited")
+        }
+        return Source(artifact:artifact,project:project,relativePath:relative,content:content,hash:stableHash(content),identity:snapshot.identity)
+    }
+
+    private func identityEquals(_ left: JSON, _ right: JSON) throws -> Bool {
+        try jsonString(left) == jsonString(right)
+    }
+
+    private func requireRequest(_ params: JSON) throws -> (artifactID: String, baseHash: String, identity: JSON, content: String) {
+        guard Set(params.keys) == Set(["project","artifactId","baseHash","sourceIdentity","content"]) else { throw VelaError("Unsupported setup edit parameter") }
+        let artifactID = try requireString(params,"artifactId")
+        let baseHash = try requireString(params,"baseHash")
+        guard baseHash.range(of:"^[a-f0-9]{64}$",options:.regularExpression) != nil else { throw VelaError("Invalid setup edit base hash") }
+        guard let identity = params["sourceIdentity"] as? JSON, identity.count <= 8,
+              try jsonString(identity).utf8.count <= 1024 else { throw VelaError("Invalid setup edit source identity") }
+        guard let content = params["content"] as? String, !content.contains("\0"), content.utf8.count <= Self.maxEditableBytes,
+              ModelImprovement.redact(content) == content else { throw VelaError("Setup edit content is invalid or contains sensitive content") }
+        return (artifactID,baseHash,identity,content)
+    }
+
+    private func verified(project: String, request: (artifactID: String, baseHash: String, identity: JSON, content: String)) throws -> Source {
+        let source = try current(project:project,artifactID:request.artifactID)
+        guard source.hash == request.baseHash, try identityEquals(source.identity,request.identity) else {
+            throw VelaError("Setup source changed; reopen and review the current file")
+        }
+        return source
+    }
+
+    private func changes(project: String, artifactID: String) throws -> (items: [JSON], hasMore: Bool) {
+        let page = try store.setupEditPage(project:project,artifactID:artifactID)
+        return (page.items.map { item in
+            let journal = !string(item,"journalId").isEmpty ? (try? store.get("apply_journal",string(item,"journalId"))) : (try? store.setupEditJournal(project:project,editID:string(item,"id"),artifactID:artifactID))
+            let journalID = journal.map { string($0,"id") } ?? "", approvalID = string(item,"approvalId")
+            let approval = try? store.get("approval",approvalID)
+            let journalState = string(journal ?? [:],"state"), approvalState = string(approval ?? [:],"state")
+            let linked = string(item,"state") == "applied" && journalState == "applied" && approvalState == "executed"
+            // A successful filesystem Undo can itself lose its setup_edit
+            // linkage. Its apply journal is then `undone`, so it must be
+            // surfaced for manual review rather than offered as a retry.
+            let uncertain = !linked && journal != nil && (["executing","needs_review"].contains(approvalState) ||
+                (string(item,"state") == "applied" && journalState == "undone" && approvalState == "executed"))
+            return ["journalId":journalID.isEmpty ? NSNull() : journalID,"approvalId":item["approvalId"] ?? NSNull(),"state":linked ? "applied" : uncertain ? "needs_review" : item["state"] ?? "unknown","createdAt":item["createdAt"] ?? NSNull(),"canUndo":linked] as JSON
+        },page.hasMore)
+    }
+
+    func get(project: String, params: JSON) throws -> JSON {
+        guard Set(params.keys) == Set(["project","artifactId"]) else { throw VelaError("Unsupported setup edit parameter") }
+        let artifactID = try requireString(params,"artifactId")
+        let eligibility = try editability(project:project,artifactID:artifactID)
+        guard let artifact = eligibility.artifact else { throw VelaError("Setup artifact not found") }
+        let history = try changes(project:project,artifactID:artifactID)
+        var result: JSON = ["artifactId":artifactID,"project":project,"relativePath":artifact["relativePath"] ?? NSNull(),"type":artifact["type"] ?? NSNull(),"editable":false,"reason":eligibility.reason ?? "unavailable","content":"","baseHash":NSNull(),"sourceIdentity":NSNull(),"changes":history.items,"changesHasMore":history.hasMore]
+        guard eligibility.reason == nil else { return result }
+        do {
+            let source = try current(project:project,artifactID:artifactID)
+            result["editable"] = true; result.removeValue(forKey:"reason")
+            result["content"] = source.content; result["baseHash"] = source.hash; result["sourceIdentity"] = source.identity
+            result["sourceBytes"] = source.content.utf8.count
+            result["observedHash"] = artifact["hash"] ?? NSNull()
+            let identityChanged = try !identityEquals(artifact["sourceIdentity"] as? JSON ?? [:],source.identity)
+            result["observationStale"] = string(artifact,"hash") != source.hash || identityChanged
+        } catch {
+            result["reason"] = error.localizedDescription.contains("sensitive") ? "redacted" : error.localizedDescription.contains("byte limit") ? "too_large" : "unavailable"
+        }
+        return result
+    }
+
+    func preview(project: String, params: JSON) throws -> JSON {
+        let request = try requireRequest(params), source = try verified(project:project,request:request)
+        let operations: [JSON] = [["path":source.relativePath,"baseHash":source.hash,"content":request.content]]
+        let records = try files.previewSetupEdit(project:project,operation:operations[0],sourceIdentity:source.identity)
+        guard let record = records.first else { throw VelaError("Setup edit preview is unavailable") }
+        return ["artifactId":request.artifactID,"project":project,"path":source.relativePath,"baseHash":source.hash,"afterHash":stableHash(request.content),"sourceIdentity":source.identity,"operations":records,"before":record["before"] ?? NSNull(),"after":request.content]
+    }
+
+    func prepare(project: String, params: JSON) throws -> (source: Source, content: String, preview: JSON) {
+        let request = try requireRequest(params), source = try verified(project:project,request:request)
+        let preview = try self.preview(project:project,params:params)
+        return (source,request.content,preview)
+    }
+
+    func execute(project: String, arguments: JSON) throws -> JSON {
+        guard Set(arguments.keys) == Set(["editId","artifactId","relativePath","baseHash","sourceIdentity","before","content","afterHash"]) else { throw VelaError("Frozen setup edit payload is invalid") }
+        let editID = try requireString(arguments,"editId"), artifactID = try requireString(arguments,"artifactId"), relative = try requireString(arguments,"relativePath"), baseHash = try requireString(arguments,"baseHash"), afterHash = try requireString(arguments,"afterHash")
+        guard let identity = arguments["sourceIdentity"] as? JSON, let before = arguments["before"] as? String, let content = arguments["content"] as? String,
+              before.utf8.count <= Self.maxEditableBytes, !before.contains("\0"), ModelImprovement.redact(before) == before,
+              stableHash(before) == baseHash,
+              content.utf8.count <= Self.maxEditableBytes, !content.contains("\0"), ModelImprovement.redact(content) == content,
+              stableHash(content) == afterHash else { throw VelaError("Frozen setup edit payload is invalid") }
+        guard var edit = try store.get("setup_edit",editID), string(edit,"state") == "pending_approval", string(edit,"project") == project,
+              string(edit,"artifactId") == artifactID, string(edit,"relativePath") == relative,
+              string(edit,"baseHash") == baseHash, string(edit,"afterHash") == afterHash,
+              try identityEquals(edit["sourceIdentity"] as? JSON ?? [:],identity) else { throw VelaError("Setup edit provenance changed; no write was performed") }
+        let source = try verified(project:project,request:(artifactID,baseHash,identity,content))
+        guard source.relativePath == relative, source.content == before else { throw VelaError("Setup edit target changed; no write was performed") }
+        let expected = stableHash(try jsonString(edit))
+        try afterVerifiedBeforeApplyForTesting?()
+        let journal = try files.applySetupEdit(project:project,operation:["path":relative,"baseHash":baseHash,"content":content],editID:editID,artifactID:artifactID,sourceIdentity:identity)
+        do {
+            try afterApplyBeforeLinkForTesting?()
+            edit["state"] = "applied"; edit["journalId"] = journal["id"]; edit["appliedAt"] = isoNow()
+            _ = try store.putBatch([("setup_edit",edit)],expecting:[("setup_edit",editID,expected)])
+        } catch {
+            return ["exitCode":-1,"outcomeUnknown":true,"output":"Setup edit was applied but its ledger link needs review: \(error.localizedDescription)","journalId":journal["id"] ?? NSNull(),"artifactId":artifactID,"durationMs":0]
+        }
+        return ["exitCode":0,"output":"Applied reviewed setup edit","journalId":journal["id"] ?? NSNull(),"artifactId":artifactID,"durationMs":0]
+    }
+
+    func mark(approval: JSON, state: String) throws {
+        guard string(approval,"tool") == "setup.file.edit", let arguments = approval["arguments"] as? JSON else { return }
+        let editID = string(arguments,"editId")
+        guard !editID.isEmpty, var edit = try store.get("setup_edit",editID), string(edit,"approvalId") == string(approval,"id"), ["pending_approval","applied"].contains(string(edit,"state")) else { return }
+        if string(edit,"state") == "applied" && state != "undone" { return }
+        edit["state"] = state; edit["updatedAt"] = isoNow(); _ = try store.put("setup_edit",edit)
+    }
+
+    func undo(project: String, params: JSON) throws -> JSON {
+        guard Set(params.keys) == Set(["project","artifactId","journalId"]) else { throw VelaError("Unsupported setup edit parameter") }
+        let artifactID = try requireString(params,"artifactId"), journalID = try requireString(params,"journalId")
+        guard var edit = try store.setupEditForJournal(project:project,artifactID:artifactID,journalID:journalID), string(edit,"state") == "applied",
+              let journal = try store.get("apply_journal",journalID), string(journal,"state") == "applied", string(journal,"project") == project,
+              let approval = try store.get("approval",string(edit,"approvalId")), string(approval,"state") == "executed", string(approval,"tool") == "setup.file.edit",
+              string(approval,"project") == project, string(approval,"runId") == string(edit,"runId"),
+              let arguments = approval["arguments"] as? JSON, string(arguments,"editId") == string(edit,"id"), string(arguments,"artifactId") == artifactID,
+              string(arguments,"relativePath") == string(edit,"relativePath"), string(arguments,"baseHash") == string(edit,"baseHash"), string(arguments,"afterHash") == string(edit,"afterHash"),
+              string(journal,"origin") == "setup_edit", string(journal,"setupEditId") == string(edit,"id"), string(journal,"setupArtifactId") == artifactID,
+              let operations = journal["operations"] as? [JSON], operations.count == 1,
+              string(operations[0],"path") == URL(fileURLWithPath:canonicalProject(project)).appendingPathComponent(string(edit,"relativePath")).path,
+              string(operations[0],"afterHash") == string(edit,"afterHash") else {
+            throw VelaError("No applied setup edit journal is available to undo")
+        }
+        let undo = try files.undo(journalID:journalID)
+        do {
+            try afterUndoBeforeLinkForTesting?()
+            edit["state"] = "undone"; edit["undoneAt"] = isoNow(); edit["undoJournalId"] = undo["id"]
+            _ = try store.put("setup_edit",edit)
+            return ["artifactId":artifactID,"journalId":journalID,"undoJournalId":undo["id"] ?? NSNull(),"state":"undone"]
+        } catch {
+            return ["artifactId":artifactID,"journalId":journalID,"undoJournalId":undo["id"] ?? NSNull(),"state":"needs_review","outcomeUnknown":true,"message":"Undo completed but its setup edit ledger needs review: \(error.localizedDescription)"]
+        }
     }
 }
