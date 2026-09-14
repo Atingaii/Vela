@@ -1,6 +1,6 @@
 # 功能状态与限制
 
-**当前开发分支：基于 0.1.0-preview.2 的未发布完整能力扩展。产品总验收仍为 No-Go。** 下载仍是 [preview.2](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2)，不包含下面新增的开发分支功能。源码：[Atingaii/Vela](https://github.com/Atingaii/Vela)；[公开官网](https://vela-engineering.zzzsssaa.chatgpt.site)。
+**当前开发分支：基于 0.1.0-preview.2 的未发布完整能力扩展。产品总验收仍为 No-Go。** 下载仍是 [preview.2](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2)，不包含下面新增的开发分支功能。源码：[Atingaii/Vela](https://github.com/Atingaii/Vela)；[公开官网](https://velo.codes)。
 
 目标已扩展为覆盖 Blume、Walrus Memory/MemWal、px0 的全部已交付能力，见[228 项逐项台账](parity/README.md)。旧版最小范围不是删减目标的依据。实现、隔离测试、真实提供方、桌面接通、发布验收分别记录；测试总数不能抵消缺失功能。
 
@@ -107,3 +107,8 @@ UI20 健康提案已由同一指定模型实现并合入开发源码：完整4�
 本机原生 UI20 实际点击过期工作流审批，返回明确失败且未执行目标写入；退出后只读核验 approval/run/step 均 expired，重启后该卡片消失。即时刷新仍失败：错误后旧卡片和数量仍缓存为 pending，切换页面也未更新；该项仍需指定 Antigravity 模型实现修复。新包、最终提交CI、其他原生入口与整体产品验收继续单独记录，不能把511项通过视为228项功能与全部发布门槛通过。
 
 `14f188c` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34788378857)已全部通过，包含511项真实XCTest、15项旧helper升级/审批有效期检查、renderer、已安装SDK/OpenClaw与macOS打包审计；[CI证据](parity/ci-14f188c-evidence-2026-09-14.json)。本机另使用独立64MiB磁盘镜像验证了真实SQLITE_FULL：备份明确失败且未留下bundle，持久Store（包括WAL）、资产与项目内容未变，镜像已卸载并清理；[ENOSPC证据](parity/backup-enospc-evidence-2026-09-14.json)。这是一个实际磁盘满断点，不等于HG-5的恢复、权限、全部崩溃和并发矩阵通过。
+
+
+2026-09-14 官网已从提交 `93c2848` 显式部署到用户 Cloudflare Pages 项目 `velo`，正式域名 [velo.codes](https://velo.codes) 已活动并启用 SSL。20页面、8资源、20站内导航的正式域名 HTTP 检查全通过，另在浏览器实测双语保留栏目、主题、场景筛选、详情及文档深链接；[部署证据](parity/cloudflare-production-evidence-2026-09-14.json)。首轮证书配置失败与域名激活中的单资源522保留，最终复验通过。该部署不替换 preview.2 下载，也不代表客户端或全部营销文案验收。
+
+用户新增全功能规格的[188项初步源码筛查](parity/final-spec-2026-09-14.md)记录132项部分实现、26项缺失、21项后端有证据、6项外部未验及3项范围/翻译，不能视为逐功能通过。[客户端易用性评审](implementation/desktop-usability-review-2026-09-14.md)已从产品与使用者角度明确相对路径、按需技术详情、16px正文/14px常规控件及中性宽松布局。UI作者仍受指定Antigravity模型约束；本轮探测未取得模型回复，未实施这次界面重构。旧三组独立QA进程和其合成fixture已清理，释放36,024,320 allocated bytes；另清理本轮Cloudflare/npx工具缓存401,854,464 allocated bytes，合计约418MiB；测试证据、交付包和待实施材料保留。产品总验收仍为No-Go。

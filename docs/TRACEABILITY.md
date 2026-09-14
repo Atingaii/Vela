@@ -1,5 +1,7 @@
 # Vela 需求追踪 / Traceability
 
+2026-09-14 新增的最终规格另见 [188 项初步源码筛查](parity/final-spec-2026-09-14.md)。它保留新增需求与具体缺口，不替换下面的历史证据，也不表示逐项原生验收完成。
+
 **原始基线：2026-09-12，`6c2bf54` / `0.1.0-preview.2`；已核实增量截至 `972155b7`。** 本表保留原始需求；只有附带新运行证据的条目更新，不能将既有报告等同于后续版本重新执行。`Missing` 表示没有所要求的路径；`Partial` 表示存在子集；`Implemented` 仅描述窄项实现，仍须独立通过 [ACCEPTANCE](ACCEPTANCE.md)。
 
 **English:** Each original requirement maps to a PRD requirement, a design rule, code, a named test and an evidence record. Partial test support is not complete acceptance. All 78 functional and 35 non-functional requirements are retained, including gaps and implementation-equivalent architecture choices.

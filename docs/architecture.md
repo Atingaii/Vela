@@ -72,7 +72,7 @@ RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但�
 | `LabService.swift` / `AgentEvaluation.swift` / `ReuseService.swift` | 同提交独立 verifier、版本化指标、候选晋升、项目 Hook 和后续来源收据；[ADR 0003](adr/0003-evaluation-and-reuse-evidence.md) |
 | `ReplayFixture.swift` / `WorkflowReplay.swift` / `ReplayExecutableSnapshot.swift` | 显式保留历史输入、审批后比较两个固定工作流版本、同一原生执行文件快照及有界清理；未知结果停止后续执行，不推断语义胜出；[ADR 0028](adr/0028-historical-workflow-replay.md) |
 | `Preferences.swift` / `NotificationPolicy.swift` | 严格偏好类型、通知来源/静默基线/去重；原生壳承担 OS 投递；[ADR 0002](adr/0002-native-notification-policy.md) |
-| `website/dist` | 独立静态官网，不连接用户本地数据库 |
+| `website/dist` | 独立中英文静态官网，经 Cloudflare Pages `velo` 显式部署至 `velo.codes`，不连接用户本地数据库；[ADR 0046](adr/0046-cloudflare-pages-official-website.md) |
 
 ## 本地数据与模型
 

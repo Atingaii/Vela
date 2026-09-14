@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-14T00:06:55.663349+00:00",
+  "scope": "Production static website deployment and browser sample, separate from full desktop acceptance.",
+  "overallProductAcceptance": "No-Go",
+  "sourceCommit": "93c28486812a4ec94477e62dd93188eabca65a97",
+  "hosting": {
+    "provider": "Cloudflare Pages",
+    "project": "velo",
+    "productionOrigin": "https://velo.codes",
+    "pagesOrigin": "https://velo-5i0.pages.dev",
+    "deploymentID": "6d80146f-271d-4d16-871f-462e03fe5a87",
+    "immutableDeploymentURL": "https://6d80146f.velo-5i0.pages.dev",
+    "customDomainObservedStatus": "Active; SSL enabled in Cloudflare dashboard",
+    "createdDNSRecord": {
+      "type": "CNAME",
+      "name": "@",
+      "target": "velo-5i0.pages.dev",
+      "ttl": "Auto"
+    },
+    "nameserversChanged": false,
+    "unrelatedDNSRecordsChanged": false,
+    "automaticGitHubDeployment": false,
+    "credentialStorage": "OS keychain; no credential included in repository"
+  },
+  "deployedFiles": {
+    "_headers": {
+      "sha256": "53805c7dabbd461a2ea8c5d625ad8ee2cc4575d16778a9fea3f23683df7f0904",
+      "bytes": 140
+    },
+    "assets/fonts/Inter-OFL.txt": {
+      "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a",
+      "bytes": 4380
+    },
+    "assets/fonts/README.md": {
+      "sha256": "0c287da9cef6ae1264c426ef922ade4f835027685947988d0e95150bc464b631",
+      "bytes": 882
+    },
+    "assets/fonts/Space-Grotesk-OFL.txt": {
+      "sha256": "c6dec685825f73b18c20926fddc65e8315642e12986f15db0699170940a09efc",
+      "bytes": 4402
+    },
+    "assets/fonts/inter-latin.woff2": {
+      "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3",
+      "bytes": 352240
+    },
+    "assets/fonts/space-grotesk-latin.woff2": {
+      "sha256": "8e085aa438094f11487a836652edd5c054fa6a96f63fc7c282105ee3a4b08c07",
+      "bytes": 49256
+    },
+    "assets/mark.svg": {
+      "sha256": "f3b3e9d694b4505013dc45b687bea5aa882d2a67b07ffd787815234317943b78",
+      "bytes": 572
+    },
+    "assets/vela-approval.png": {
+      "sha256": "d93bdf38093ec06b09eb09bbc68b1dac51fbf8e9988dee0213647a4f217440e2",
+      "bytes": 84943
+    },
+    "assets/vela-sessions.png": {
+      "sha256": "7c482b1edee5f47add1d0da2b71d2c34c0c5f4a23e3e636876651c15d202f749",
+      "bytes": 145107
+    },
+    "assets/vela-workspace.png": {
+      "sha256": "d03eb222b21bb6ecd33ab3c66b964412442e78581a8dac65169d0dd2f74c4661",
+      "bytes": 192590
+    },
+    "comparisons/index.html": {
+      "sha256": "93cbc0cd3469bef41b03c924dbbcd81d59d455257fd1d16d7ff23f219165edda",
+      "bytes": 24598
+    },
+    "docs.html": {
+      "sha256": "8de616f4e586d85891d139a753af13b9c050ca2eb05072ce1889b178cb015523",
+      "bytes": 25615
+    },
+    "en/comparisons/index.html": {
+      "sha256": "3684be4e6fb9342e48af67eed9887fde665fe09ec6095917ddd7cdc507bbe4ca",
+      "bytes": 25185
+    },
+    "en/docs.html": {
+      "sha256": "020f071676164bba60ba0b85ccff2fbadd402f8f9637d6eac71ceee2d67970e2",
+      "bytes": 25573
+    },
+    "en/index.html": {
+      "sha256": "7dd9affddfc41e7bb26b76d85dcf9e2473d5129a1e3af031c06dbf6e7e2b5375",
+      "bytes": 26021
+    },
+    "en/privacy.html": {
+      "sha256": "0300eac559f8db45879860324fd5d1a2a473f6e0bdf14f8b6fa634c639a46265",
+      "bytes": 10290
+    },
+    "en/releases.html": {
+      "sha256": "fbbf6cb938b374d810e460505912922d7e956e2c540a14a917812622e08ad208",
+      "bytes": 14779
+    },
+    "en/usecases/compare-and-reuse/index.html": {
+      "sha256": "a74bce7dbbba3078f7248f7f8c88a90e3a00f46f743150e7219a8824682efbc0",
+      "bytes": 13674
+    },
+    "en/usecases/index.html": {
+      "sha256": "ed61c4e671ece78cc942bbbc66cf61b97a38a7628928ad9c306b12fc63391734",
+      "bytes": 13488
+    },
+    "en/usecases/project-memory/index.html": {
+      "sha256": "4436404a297e1de7185b576ac9f1bbca1ac65b779d4eb9cbf124fdf9c73dc6de",
+      "bytes": 12332
+    },
+    "en/usecases/review-workflows/index.html": {
+      "sha256": "0b9bee4fe38ce9bc8efffc90e2182755d531beb3dbd4b5aef6816591a8f4c6bd",
+      "bytes": 12197
+    },
+    "en/usecases/session-review/index.html": {
+      "sha256": "b0b59a186c0dd9157d299f1222f8ad2cfbeeff52a851253a0312709a278bbca0",
+      "bytes": 12475
+    },
+    "index.html": {
+      "sha256": "0bdf36754e6c968ee0b04f11810200e693a955057cd2e229843c54bc267a58b7",
+      "bytes": 25797
+    },
+    "privacy.html": {
+      "sha256": "0a086a44e6d1fed33a786faffa93f7c73bf96003e983c9bc6fb955666d4d9def",
+      "bytes": 10306
+    },
+    "releases.html": {
+      "sha256": "72e6875addf410c66f70be8eb36c202639a4c773d10d33f520d177ab41958586",
+      "bytes": 14707
+    },
+    "site.js": {
+      "sha256": "5abc1486febc9cf94a8ca964213a71cb395bda318909621ff17a38738f0af517",
+      "bytes": 13293
+    },
+    "styles.css": {
+      "sha256": "4a8d03b1dd75633b6dcab4e3b065fe988b98f3e9cca19f0cd453e91379289e63",
+      "bytes": 52620
+    },
+    "usecases/compare-and-reuse/index.html": {
+      "sha256": "0bc1b0a715952737e33ae9e0a777f631642850adaa3dc816cbb41cfff1f39639",
+      "bytes": 13314
+    },
+    "usecases/index.html": {
+      "sha256": "268b09fb7eebc98eb139fa0b97d46552a711256eb35ec85b4fad3b1f6bba9420",
+      "bytes": 13471
+    },
+    "usecases/project-memory/index.html": {
+      "sha256": "0586d74422c6610b5107d888c58cda40753523c8d2b665288ab3775a7601c74b",
+      "bytes": 11879
+    },
+    "usecases/review-workflows/index.html": {
+      "sha256": "0283dfabbb84407e55dc6dab827e84c8121e4291d2d33eaaae2945fbca1350f2",
+      "bytes": 11967
+    },
+    "usecases/session-review/index.html": {
+      "sha256": "0c36b706e6392f73f8f869d757674e62855c858f13537c87b70feb56d96725ba",
+      "bytes": 12028
+    }
+  },
+  "httpVerification": {
+    "startedAt": "2026-09-13T23:58:59.489917Z",
+    "finishedAt": "2026-09-13T23:59:03.272673Z",
+    "pageCount": 20,
+    "resourceCount": 8,
+    "navigationCount": 20,
+    "failedRecordCount": 0,
+    "sourceUnchanged": true,
+    "transport": "HTTP only; no browser executed",
+    "passed": true,
+    "certificateValidation": "Enabled, using the existing macOS system CA file /etc/ssl/cert.pem for this Python invocation.",
+    "httpToHTTPS": {
+      "status": 301,
+      "location": "https://velo.codes/",
+      "observedResponseDate": "Mon, 14 Sep 2026 00:05:43 GMT"
+    },
+    "cacheControlObserved": "public, max-age=0, must-revalidate",
+    "script": "scripts/verify-cloudflare-site.py",
+    "scriptSHA256": "f2ed8cf3f853e4b8363841285559efecc8b83c1e26af0eaa96a883e5cd56f8f7"
+  },
+  "browserVerification": {
+    "recordedAt": "2026-09-14T00:06:55.663349+00:00",
+    "method": "Manual CUA in-app browser interactions on the deployed production domain; read-only DOM checks and tab console inspection.",
+    "origin": "https://velo.codes",
+    "observedChecks": [
+      "Chinese homepage loaded with navigation, hero and product image; screenshot visually inspected in tool output.",
+      "Language link opened /en/ with English content.",
+      "English Comparisons opened /en/comparisons/.",
+      "Theme switched to dark; document theme=dark and no horizontal overflow.",
+      "Language switch preserved Comparisons route as /comparisons/ and retained dark theme.",
+      "Switched back to light; opened /usecases/.",
+      "Engineering memory filter changed visible cases from 4/4 to 1/4.",
+      "Memory case opened /usecases/project-memory/.",
+      "Documentation deep link opened /docs#memory with the memory section present.",
+      "Documentation DOM: zh-CN, light, no horizontal overflow, one image complete with nonzero natural width.",
+      "Tab warning/error console observations were empty on comparisons and documentation.",
+      "Returned to Chinese homepage in light theme and marked as deliverable."
+    ],
+    "screenshots": "Displayed and visually inspected through CUA; no separate screenshot file is claimed.",
+    "limitations": [
+      "Desktop-width browser sample only; not a complete mobile or accessibility audit.",
+      "Does not validate desktop functionality or the truth of all existing marketing copy.",
+      "No external GitHub download or release-install test in this website run."
+    ]
+  },
+  "retainedFailures": [
+    "The first immutable Pages run failed because this Python installation had no default CA file. The system CA rerun retained certificate verification and passed.",
+    "The first custom-domain run had one HTTP 522 for the workspace image during domain activation. The full second run passed all 48 records."
+  ],
+  "rawLocalReceipts": [
+    {
+      "path": "output/parity/cloudflare-production-r2.json",
+      "sha256": "2ce809d2fe20f036a1bd10cb1f108658f47ab39169c25ba2755843516d8274fe"
+    },
+    {
+      "path": "output/parity/cloudflare-production-r1.json",
+      "sha256": "ba7a6a5b5a34a30e8fe8c2867451f112233ff470331fc604265593829ed88e98"
+    },
+    {
+      "path": "output/parity/cloudflare-pages-deployment-r1.json",
+      "sha256": "10c61b61e4a8c59f6d44a3b8ada4203a5e9924ec777a5630e3605c98cfeb5076"
+    },
+    {
+      "path": "output/parity/cloudflare-pages-deployment-r2.json",
+      "sha256": "e79dc231db80194ff0b2c765ba7f1aa25ee7dad2804864a5da7426639dfe6d16"
+    },
+    {
+      "path": "output/parity/cloudflare-deployment-source-2026-09-14.json",
+      "sha256": "64e2f3acc2621adc13a315f5ee0c2d1f14e8a5faecda729d8203b1ecd4d12a7a"
+    },
+    {
+      "path": "output/parity/cloudflare-deploy-2026-09-14.log",
+      "sha256": "e8de39c4cf6afe5ebd45e1d27fece286674fb6da95ad3d412e4cf94ce82171f3"
+    },
+    {
+      "path": "output/parity/cloudflare-browser-production-2026-09-14.json",
+      "sha256": "b35be5301dea1c13e16ce2de1a13ecf30d258e3dfa53d6e74abc2f6c7ab8ae70"
+    },
+    {
+      "path": "output/parity/legacy-qa-resource-cleanup-2026-09-14.json",
+      "sha256": "30d210c5e42d513cb4a82af2ffaf3e329b756035a98230fcb687f61b989647ba"
+    },
+    {
+      "path": "output/parity/antigravity-current-probe-2026-09-14.json",
+      "sha256": "731aa94e7aeb2f8a5a24914fdad4722d8b8375826d9f9fade80b05c5990170d4"
+    },
+    {
+      "path": "output/parity/cloudflare-task-cache-cleanup-2026-09-14.json",
+      "sha256": "67dbfd9a69e1e1ba9de56ada41eadc5b21090133f085ebd68c0f14945a833fd5"
+    }
+  ],
+  "limitations": [
+    "No desktop UI implementation changed in this deployment. Required Antigravity model probes did not return a usable result.",
+    "The final 188-item matrix is preliminary source screening, not completed behavior acceptance.",
+    "Public macOS download remains v0.1.0-preview.2; no new release, Developer ID signature or notarization is claimed.",
+    "Old Sites binding remains independent and is not automatically updated.",
+    "Only the requested apex domain is bound; no www claim."
+  ],
+  "taskCleanup": {
+    "removed": [
+      "Three old isolated native QA processes/fixtures",
+      "Task-local Cloudflare npx cache",
+      ".wrangler",
+      "website/.wrangler"
+    ],
+    "oldQAAllocatedBytes": 36024320,
+    "cloudflareToolCacheAllocatedBytes": 401854464,
+    "totalAllocatedBytes": 437878784,
+    "retained": [
+      "Source and delivery packages",
+      "Verification evidence including failed attempts",
+      "Pending Antigravity brief",
+      "Pre-existing user caches and reusable dependencies",
+      "Cloudflare OS keychain authentication"
+    ]
+  }
+}

@@ -1,0 +1,2272 @@
+{
+  "format": "vela-final-spec-initial-source-screen-v2",
+  "auditDate": "2026-09-14",
+  "headSHA": "28e873259f6bc21b93c0cead41f097a2b23165a3",
+  "attachment": {
+    "source": "User-provided Vela final full-feature specification, attached on 2026-09-14; original retained locally.",
+    "sha256": "0480ba1022105b0a209f259fe3dfb1030854ae67ff2ec5da76be8329e66e2f01",
+    "numberedRequirements": 188
+  },
+  "interpretation": {
+    "adoptedNormativeContent": "编号 1–186 中的“必须/支持/默认/不得”等可测试产品要求；187–188 只保留为范围与定位，不能由测试数关闭。",
+    "assistantMetaExcluded": [
+      "开头“直接给最终全功能规格”、阶段排序与“无需继续想功能”的写作指令。",
+      "末尾“功能等价全部包含”“总体能力超过”的结论、覆盖推断与私有/未验证能力判断。",
+      "对 Blume/Walrus/px0 的引用、营销式比较和外部链接；它们不是 Vela 已实现或用户可验收的证据。",
+      "“后续逐项打勾验收”的过程建议；本审计只把可观察产品行为纳入矩阵。"
+    ],
+    "interpretationBoundary": "附件没有独立、可验证的用户确认消息可把作者的完成结论变成验收事实；本矩阵将编号规范视为待追踪目标，而非既成完成声明。",
+    "auditNature": "初步源码筛查：不是逐项行为验收、发布门禁或产品完成声明。",
+    "crossWindowClarification": "附件没有跨窗口标题；128 是 MCP Server，135 Menu Bar、185 一级导航、186 全局入口才是相关窗口/全局条目。"
+  },
+  "statusLegend": {
+    "backend_evidenced": "受限Core/RPC路径有证据；不表示整条规格、原生UI或外部条件完成",
+    "partial": "存在相邻切片但完整规格未关闭",
+    "missing": "未找到完整产品路径",
+    "external_unverified": "外部正向能力无独立真实验收",
+    "scope_or_translation": "定位/聚合/Electron专属翻译项，非独立完成项"
+  },
+  "counts": {
+    "backend_evidenced": 21,
+    "external_unverified": 6,
+    "missing": 26,
+    "partial": 132,
+    "scope_or_translation": 3
+  },
+  "items": [
+    {
+      "id": 1,
+      "title": "Home / Mission Control",
+      "status": "partial",
+      "implementation": "dashboard.get 返回 projects、sessions、memories、workflows、runs、suggestions、approvals、evals、artifacts、library；renderer 有页内导航。",
+      "codeEvidence": "FoundationService.swift:49-66（聚合但 stats 仅四项）；109-119（liveStatusAvailable=false）；app.js:781-787、1134-1173。",
+      "nativeValidation": "无 Home 全量字段及十个快捷操作的独立原生验收。",
+      "remainingGap": "缺统一活动时间线、今日 session、分类聚合、Memory conflict、回归/MCP/worker/background 状态和除 Search 外的完整快捷闭环。",
+      "sourceCheckpoints": "运行/审批/失败 Agent；项目/会话/今日数；三家 usage；Memory/Conflict/Improve；Workflow/Lab/Regression/Artifact/MCP/worker/activity；New Workflow/Search/Ask/Open Project/Resume/Run/Checkpoint/Evaluation/Doctor。",
+      "observedBehavior": "dashboard.get 返回 projects、sessions、memories、workflows、runs、suggestions、approvals、evals、artifacts、library；renderer 有页内导航。",
+      "explicitMissing": "缺统一活动时间线、今日 session、分类聚合、Memory conflict、回归/MCP/worker/background 状态和除 Search 外的完整快捷闭环。"
+    },
+    {
+      "id": 2,
+      "title": "Harness / Agent Platform",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "SessionEngine.swift:27; SessionHistoryService.swift:6; FoundationService.swift:78; status §会话观察",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 3,
+      "title": "Agent Monitor",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "SessionEngine.swift:27; SessionHistoryService.swift:6; FoundationService.swift:78; status §会话观察",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 4,
+      "title": "Subagent / Agent Tree",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "SessionEngine.swift:27; SessionHistoryService.swift:6; FoundationService.swift:78; status §会话观察",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 5,
+      "title": "Session Discovery",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "SessionEngine.swift:27; SessionHistoryService.swift:6; FoundationService.swift:78; status §会话观察",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 6,
+      "title": "Unified Session Model",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "SessionEngine.swift:27; SessionHistoryService.swift:6; FoundationService.swift:78; status §会话观察",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 7,
+      "title": "Session Timeline",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "SessionEngine.swift:27; SessionHistoryService.swift:6; FoundationService.swift:78; status §会话观察",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 8,
+      "title": "Session Detail",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "SessionEngine.swift:27; SessionHistoryService.swift:6; FoundationService.swift:78; status §会话观察",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 9,
+      "title": "Large Session Support",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "SessionEngine.swift:27; SessionHistoryService.swift:6; FoundationService.swift:78; status §会话观察",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 10,
+      "title": "Session Recovery",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "SessionEngine.swift:27; SessionHistoryService.swift:6; FoundationService.swift:78; status §会话观察",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 11,
+      "title": "Parser Versioning",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "SessionEngine.swift:27; SessionHistoryService.swift:6; FoundationService.swift:78; status §会话观察",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 12,
+      "title": "Self-run Isolation",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "SessionEngine.swift:27; SessionHistoryService.swift:6; FoundationService.swift:78; status §会话观察",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 13,
+      "title": "Projects",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "FoundationService.swift:49; IngestionExclusionService.swift:3; Store.swift:874",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 14,
+      "title": "Workspace / Worktree",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "FoundationService.swift:49; IngestionExclusionService.swift:3; Store.swift:874",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 15,
+      "title": "Project Exclusion",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "FoundationService.swift:49; IngestionExclusionService.swift:3; Store.swift:874",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 16,
+      "title": "Git Intelligence",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "FoundationService.swift:49; IngestionExclusionService.swift:3; Store.swift:874",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 17,
+      "title": "Read / Review Workspace",
+      "status": "missing",
+      "implementation": "未发现 repository reader；会话历史或原文查看不是工程阅读器。",
+      "codeEvidence": "全仓未见 repository tree、受控文件 open、recent/changed/agent-modified 文件或 workspace reader 服务；app.js:1134-1173 只是产品页路由。",
+      "nativeValidation": "无原生阅读器验收。",
+      "remainingGap": "需实现只读 tree/file/recent/changed/Git diff/agent-modified，并验收私有库、符号链接、超大仓库分页与零写入。",
+      "sourceCheckpoints": "Repository Tree；Open File；Recent/Changed/Agent Modified Files；Git Diff；轻量只读非 IDE。",
+      "observedBehavior": "未发现 repository reader；会话历史或原文查看不是工程阅读器。",
+      "explicitMissing": "需实现只读 tree/file/recent/changed/Git diff/agent-modified，并验收私有库、符号链接、超大仓库分页与零写入。"
+    },
+    {
+      "id": 18,
+      "title": "Code Navigation",
+      "status": "missing",
+      "implementation": "未见以 LSP 驱动的代码导航或工作区检索。",
+      "codeEvidence": "未定位 workspace/regex/symbol search、outline、definition/reference/hover 或 LSP client；MemoryService.swift:93-96 的 search 是记忆/资料搜索。",
+      "nativeValidation": "无原生导航验收。",
+      "remainingGap": "需定义项目根、server 生命周期、取消/限额与结果版本；所有列举导航路径缺失。",
+      "sourceCheckpoints": "Fuzzy/文件内/工作区/Regex/Symbol 搜索；Outline；Definition/References/Hover；Jump line/Back/Forward；通过 LSP。",
+      "observedBehavior": "未见以 LSP 驱动的代码导航或工作区检索。",
+      "explicitMissing": "需定义项目根、server 生命周期、取消/限额与结果版本；所有列举导航路径缺失。"
+    },
+    {
+      "id": 19,
+      "title": "LSP",
+      "status": "missing",
+      "implementation": "未见标准 LSP transport、language server 发现/启动或诊断协议。",
+      "codeEvidence": "全仓未见 typescript-language-server、gopls、rust-analyzer、pyright、clangd、jdtls 或 JSON-RPC LSP 客户端。",
+      "nativeValidation": "无原生 LSP 验收。",
+      "remainingGap": "八类语言和其他标准 LSP 均需实现可用性、超时、崩溃恢复与诊断版本契约。",
+      "sourceCheckpoints": "TypeScript/JavaScript、Go、Rust、Python、C/C++、Java、Kotlin、Swift、其他标准 LSP。",
+      "observedBehavior": "未见标准 LSP transport、language server 发现/启动或诊断协议。",
+      "explicitMissing": "八类语言和其他标准 LSP 均需实现可用性、超时、崩溃恢复与诊断版本契约。"
+    },
+    {
+      "id": 20,
+      "title": "Code Viewer",
+      "status": "missing",
+      "implementation": "未见面向工程文件的 read-only Code Viewer；history raw event viewer 不等同代码视图。",
+      "codeEvidence": "app.js:2466-2472 只打开 history raw event；未定位 syntax highlighter、virtualization、diagnostic overlay 或文件 diff component。",
+      "nativeValidation": "无原生 Code Viewer 验收。",
+      "remainingGap": "缺所有列出的 viewer 能力及零编辑写入验证。",
+      "sourceCheckpoints": "Syntax Highlight；Line Numbers；Large File Virtualization/Lazy Highlighting；Wrap；Selection/Copy；Diff/Search Highlight；Diagnostics；read-only。",
+      "observedBehavior": "未见面向工程文件的 read-only Code Viewer；history raw event viewer 不等同代码视图。",
+      "explicitMissing": "缺所有列出的 viewer 能力及零编辑写入验证。"
+    },
+    {
+      "id": 21,
+      "title": "Setup / Context Inventory",
+      "status": "partial",
+      "implementation": "固定 catalog 的公开、只读、受限扫描覆盖部分 instruction/rule/skill/hook/MCP/config。",
+      "codeEvidence": "SetupCatalog.swift:24-57（项目路径）、60-80（全局路径）、83-100（限制）；SetupInventoryService.swift:79-179（上限、脱敏、私有边界）。",
+      "nativeValidation": "无完整原生 Setup Inventory 验收。",
+      "remainingGap": "Guideline、Memory、Reference Docs 不在同一扫描模型；自定义 import/plugin、实际 provider load/override、凭据混合内容明确未覆盖。",
+      "sourceCheckpoints": "AGENTS/CLAUDE/Cursor Rules/Instructions/Skills/Hooks/MCP/Configs/Guidelines/Memory/Reference Docs。",
+      "observedBehavior": "固定 catalog 的公开、只读、受限扫描覆盖部分 instruction/rule/skill/hook/MCP/config。",
+      "explicitMissing": "Guideline、Memory、Reference Docs 不在同一扫描模型；自定义 import/plugin、实际 provider load/override、凭据混合内容明确未覆盖。"
+    },
+    {
+      "id": 22,
+      "title": "Artifact Model",
+      "status": "partial",
+      "implementation": "setup artifact 有观测记录；Memory/Workflow 等仍是独立模型，未统一为完整 Artifact。",
+      "codeEvidence": "SetupInventoryService.swift:140-179；MemoryService.swift:9-12、37-76。",
+      "nativeValidation": "无统一 Artifact 原生验收。",
+      "remainingGap": "缺统一 runtimePath/enabled/relationships/contextCost、跨类型 version/timestamps，也未证明 Workflow/Guideline/Reference 均进同一 schema。",
+      "sourceCheckpoints": "Rule/Instruction/Skill/Hook/MCP/Config/Guideline/Memory/Reference/Workflow；id/type/name/provider/scope/sourcePath/runtimePath/content/version/hash/enabled/timestamps/relationships/diagnostics/contextCost。",
+      "observedBehavior": "setup artifact 有观测记录；Memory/Workflow 等仍是独立模型，未统一为完整 Artifact。",
+      "explicitMissing": "缺统一 runtimePath/enabled/relationships/contextCost、跨类型 version/timestamps，也未证明 Workflow/Guideline/Reference 均进同一 schema。"
+    },
+    {
+      "id": 23,
+      "title": "Artifact Scope",
+      "status": "partial",
+      "implementation": "Setup artifact 只有 global/project；Memory 有部分项目内 scope，未构成统一 Artifact Scope。",
+      "codeEvidence": "SetupInventoryService.swift:53-71；MemoryService.swift:9、45-55。",
+      "nativeValidation": "无跨 Scope 原生验收。",
+      "remainingGap": "缺 User/Workspace，Repository/Branch/Worktree/Task/Session 没被 Setup Artifact 承载，且无 precedence/继承契约。",
+      "sourceCheckpoints": "Global/User/Project/Repository/Workspace/Branch/Worktree/Task/Session。",
+      "observedBehavior": "Setup artifact 只有 global/project；Memory 有部分项目内 scope，未构成统一 Artifact Scope。",
+      "explicitMissing": "缺 User/Workspace，Repository/Branch/Worktree/Task/Session 没被 Setup Artifact 承载，且无 precedence/继承契约。"
+    },
+    {
+      "id": 24,
+      "title": "Artifact Relationship Graph",
+      "status": "partial",
+      "implementation": "只推导三类同 scope 观测关系，且明确不推断 runtime merge。",
+      "codeEvidence": "SetupInventoryService.swift:227-240（identical_observed_bytes、same_declared_skill_name、documented_same_directory_override）。",
+      "nativeValidation": "无关系图谱原生验收。",
+      "remainingGap": "缺十类完整关系、统一图查询与运行时图谱；字节相同不是语义 duplicates。",
+      "sourceCheckpoints": "references/imports/depends_on/conflicts_with/duplicates/supersedes/derived_from/validated_by/applies_to/used_by。",
+      "observedBehavior": "只推导三类同 scope 观测关系，且明确不推断 runtime merge。",
+      "explicitMissing": "缺十类完整关系、统一图查询与运行时图谱；字节相同不是语义 duplicates。"
+    },
+    {
+      "id": 25,
+      "title": "Context Coverage",
+      "status": "missing",
+      "implementation": "没有 Artifact × Provider coverage 或 drift 结果。",
+      "codeEvidence": "SetupCatalog.swift:98-102（runtimeLoadedState=unavailable）；SetupInventoryService.swift:239（不推断 runtime merge）。",
+      "nativeValidation": "无原生 coverage/drift 验收。",
+      "remainingGap": "不能用发现文件代替实际 provider 载入；缺 coverage grid、unknown 和变更重算。",
+      "sourceCheckpoints": "每 Artifact 的 Claude/Codex/Cursor 覆盖和 Provider Drift。",
+      "observedBehavior": "没有 Artifact × Provider coverage 或 drift 结果。",
+      "explicitMissing": "不能用发现文件代替实际 provider 载入；缺 coverage grid、unknown 和变更重算。"
+    },
+    {
+      "id": 26,
+      "title": "Setup Audit",
+      "status": "partial",
+      "implementation": "有不可读、无效 JSON、重复字节、超大文本等有限诊断，不是 Setup Audit 全集。",
+      "codeEvidence": "SetupInventoryService.swift:95-123、155-179、242-272。",
+      "nativeValidation": "无完整原生 audit 验收。",
+      "remainingGap": "缺 conflict/contradictory/stale/broken/missing/path/package manager、dead/unused skill/hook、MCP drift/repo mismatch/stale unsafe command、memory conflict、verification/permission 等分析器。",
+      "sourceCheckpoints": "附件列出的 Rule/Skill/Hook/MCP/Provider/Repo/Command/Context/Memory/Permission 共 22 类自动审计。",
+      "observedBehavior": "有不可读、无效 JSON、重复字节、超大文本等有限诊断，不是 Setup Audit 全集。",
+      "explicitMissing": "缺 conflict/contradictory/stale/broken/missing/path/package manager、dead/unused skill/hook、MCP drift/repo mismatch/stale unsafe command、memory conflict、verification/permission 等分析器。"
+    },
+    {
+      "id": 27,
+      "title": "Audit Finding",
+      "status": "partial",
+      "implementation": "diagnostics 是嵌入 artifact 的简化 JSON，不是 Audit Finding 实体。",
+      "codeEvidence": "SetupInventoryService.swift:154-167、179 仅 code/severity/path/message。",
+      "nativeValidation": "无 finding 列表或操作原生验收。",
+      "remainingGap": "缺完整 schema 和七项操作，尤其没有安全 Fix 与 Safe Apply 关联。",
+      "sourceCheckpoints": "Title/Category/Severity/Affected Artifact/Evidence/Reason/Harness Applicability/Suggested Fix/Confidence；Preview/Fix/Ignore/Suppress/Dismiss/Open File。",
+      "observedBehavior": "diagnostics 是嵌入 artifact 的简化 JSON，不是 Audit Finding 实体。",
+      "explicitMissing": "缺完整 schema 和七项操作，尤其没有安全 Fix 与 Safe Apply 关联。"
+    },
+    {
+      "id": 28,
+      "title": "Audit Suppression",
+      "status": "missing",
+      "implementation": "未见 finding suppression 持久化或重报状态机。",
+      "codeEvidence": "SetupInventoryService.swift:182-202 仅观测 revision；全仓未定位 findingKey suppression store/route。",
+      "nativeValidation": "无原生 suppression 验收。",
+      "remainingGap": "需精确 suppression 记录、相关 hash 才 re-emit、跨重启和无关变更反例。",
+      "sourceCheckpoints": "findingKey/artifactHash/suppressedAt/reason；相关 Artifact 改变才重新报告。",
+      "observedBehavior": "未见 finding suppression 持久化或重报状态机。",
+      "explicitMissing": "需精确 suppression 记录、相关 hash 才 re-emit、跨重启和无关变更反例。"
+    },
+    {
+      "id": 29,
+      "title": "Context Cost",
+      "status": "partial",
+      "implementation": "setup 和 memory 有静态 tokenEstimate，不是 context cost 归因。",
+      "codeEvidence": "SetupInventoryService.swift:149-158；MemoryService.swift:58。",
+      "nativeValidation": "无 Context Cost 原生验收。",
+      "remainingGap": "缺四类成本、贡献和百分比；估算不等于实际加载成本。",
+      "sourceCheckpoints": "Always-on/Conditional/On-demand/Zero-context tokens；Token contribution；total percent。",
+      "observedBehavior": "setup 和 memory 有静态 tokenEstimate，不是 context cost 归因。",
+      "explicitMissing": "缺四类成本、贡献和百分比；估算不等于实际加载成本。"
+    },
+    {
+      "id": 30,
+      "title": "Context Budget",
+      "status": "missing",
+      "implementation": "未见按 Harness/Project/Artifact Type 的 context budget 服务。",
+      "codeEvidence": "SetupInventoryService.swift:157 仅单件 large-context warning。",
+      "nativeValidation": "无 budget 原生验收。",
+      "remainingGap": "缺预算来源/未知值、warning、largest/removals/unused/duplicate 的可验证输出。",
+      "sourceCheckpoints": "Harness/Project/Artifact Type 预算；warning/largest/removals/unused/duplicate。",
+      "observedBehavior": "未见按 Harness/Project/Artifact Type 的 context budget 服务。",
+      "explicitMissing": "缺预算来源/未知值、warning、largest/removals/unused/duplicate 的可验证输出。"
+    },
+    {
+      "id": 31,
+      "title": "Context Cost Ladder",
+      "status": "missing",
+      "implementation": "未见 Hook 到 Always-on Rule 的 planner 成本阶梯。",
+      "codeEvidence": "全仓未定位 context cost ladder 或 workflow planner 排序。",
+      "nativeValidation": "无 Planner 原生验收。",
+      "remainingGap": "缺选路、降级、must-keep 条件与避免永久 token tax 的行为反例。",
+      "sourceCheckpoints": "Deterministic Hook、Workflow、Reference、Guideline、Skill、Always-on Rule；避免永久 Token Tax。",
+      "observedBehavior": "未见 Hook 到 Always-on Rule 的 planner 成本阶梯。",
+      "explicitMissing": "缺选路、降级、must-keep 条件与避免永久 token tax 的行为反例。"
+    },
+    {
+      "id": 32,
+      "title": "Artifact Version History",
+      "status": "partial",
+      "implementation": "setup 有只读观测 revision/history/diff，不是所有配置资产的版本系统。",
+      "codeEvidence": "SetupInventoryService.swift:33-43、182-224；179 明示 historyFullyObserved=false。",
+      "nativeValidation": "无全部 Artifact 原生历史验收。",
+      "remainingGap": "缺全类型 history 和 required 字段组合；diff 明示非 apply patch。",
+      "sourceCheckpoints": "Version 1/2/3；beforeHash/afterHash/patch/source/reason/timestamp。",
+      "observedBehavior": "setup 有只读观测 revision/history/diff，不是所有配置资产的版本系统。",
+      "explicitMissing": "缺全类型 history 和 required 字段组合；diff 明示非 apply patch。"
+    },
+    {
+      "id": 33,
+      "title": "Safe Apply",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core 安全写入有跨进程锁、路径/身份验证、baseHash 重查、stage fsync、rename、journal/rollback。",
+      "codeEvidence": "SafeApply.swift:48-77、123-141、179-235、239-280。",
+      "nativeValidation": "无所有 Agent proposal 的完整原生 Safe Apply 验收。",
+      "remainingGap": "尚未证明所有 Agent/Workflow 提议只能经此入口；缺权限 UX、journal 版本可见性、崩溃恢复和各 proposal 端到端验收。",
+      "sourceCheckpoints": "Read Current/Resolve realpath/Verify base hash/Validate permission/Staging/fsync/Atomic rename/Record version；多文件 all-or-nothing。",
+      "observedBehavior": "受限 Core 安全写入有跨进程锁、路径/身份验证、baseHash 重查、stage fsync、rename、journal/rollback。",
+      "explicitMissing": "尚未证明所有 Agent/Workflow 提议只能经此入口；缺权限 UX、journal 版本可见性、崩溃恢复和各 proposal 端到端验收。"
+    },
+    {
+      "id": 34,
+      "title": "Safe Undo",
+      "status": "backend_evidenced",
+      "implementation": "undo 用 prior afterHash 作为下一次 apply baseHash，外部改动时拒绝覆盖。",
+      "codeEvidence": "SafeApply.swift:80-94、211-227、281-289。",
+      "nativeValidation": "无 Safe Undo 原生用户流程验收。",
+      "remainingGap": "缺 needs-review UI/人工恢复路径和各 proposal journal 接入验证。",
+      "sourceCheckpoints": "currentHash == expectedPostApplyHash 才 Undo；否则 needs review。",
+      "observedBehavior": "undo 用 prior afterHash 作为下一次 apply baseHash，外部改动时拒绝覆盖。",
+      "explicitMissing": "缺 needs-review UI/人工恢复路径和各 proposal journal 接入验证。"
+    },
+    {
+      "id": 35,
+      "title": "Memory Engine",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 36,
+      "title": "Memory Operations",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 37,
+      "title": "Automatic Memory Extraction",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "limited: UI19 Capture 的候选/来源旅程；不覆盖该完整条目",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 38,
+      "title": "Memory State",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "limited: UI19 Capture 的候选/来源旅程；不覆盖该完整条目",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 39,
+      "title": "Memory Authority",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 40,
+      "title": "Memory Scope",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 41,
+      "title": "Memory Space",
+      "status": "external_unverified",
+      "implementation": "本地 integration 有 project+namespace；可选 Walrus SDK 有 namespace/owner 范围校验，尚非完整 Memory Space。",
+      "codeEvidence": "MemoryIntegrationService.swift:4-14、63-68；sdk/walrus/src/index.ts:11-23、54-76；sdk/walrus/src/manifest.ts:53-60。",
+      "nativeValidation": "无 Memory Space 原生 UI 或真实远程账户验收。",
+      "remainingGap": "本地 namespace 明确 namespaceIsRemoteACL=false；无 Space 生命周期/成员权限，也无真实加密写入/恢复正向证据。",
+      "sourceCheckpoints": "Memory Space；namespace 隔离；远程范围/权限不可伪称。",
+      "observedBehavior": "本地 integration 有 project+namespace；可选 Walrus SDK 有 namespace/owner 范围校验，尚非完整 Memory Space。",
+      "explicitMissing": "本地 namespace 明确 namespaceIsRemoteACL=false；无 Space 生命周期/成员权限，也无真实加密写入/恢复正向证据。"
+    },
+    {
+      "id": 42,
+      "title": "Memory Ownership",
+      "status": "external_unverified",
+      "implementation": "Walrus SDK 有 expectedOwner、owner metadata/manifest/signer 核验；Core 本地 Memory 没有 Owner 模型。",
+      "codeEvidence": "sdk/walrus/src/index.ts:14、134-139、167-174；metadata.ts:27-48；manifest-reader.ts:16-18。",
+      "nativeValidation": "无 owner 账户或链上正向原生验收。",
+      "remainingGap": "真实 owner 创建/绑定/恢复与桌面凭据流未完成；不能把 transaction prepare 写成提交成功。",
+      "sourceCheckpoints": "Memory owner；owner-scoped memory/agent metadata；owner 身份和签名验证。",
+      "observedBehavior": "Walrus SDK 有 expectedOwner、owner metadata/manifest/signer 核验；Core 本地 Memory 没有 Owner 模型。",
+      "explicitMissing": "真实 owner 创建/绑定/恢复与桌面凭据流未完成；不能把 transaction prepare 写成提交成功。"
+    },
+    {
+      "id": 43,
+      "title": "Memory Delegates",
+      "status": "external_unverified",
+      "implementation": "Walrus SDK 可构造/校验 addDelegate/removeDelegate 交易，未见产品执行。",
+      "codeEvidence": "sdk/walrus/src/owner.ts:5-38；sdk/walrus/src/index.ts:167-176；docs/status.md:20。",
+      "nativeValidation": "无 delegate 原生验收。",
+      "remainingGap": "缺授权 UI、执行/撤销 receipt、链上成功/失败恢复与本地访问控制；预览交易不是授权生效。",
+      "sourceCheckpoints": "Delegate add/remove；受限权限；可验证授权与撤销。",
+      "observedBehavior": "Walrus SDK 可构造/校验 addDelegate/removeDelegate 交易，未见产品执行。",
+      "explicitMissing": "缺授权 UI、执行/撤销 receipt、链上成功/失败恢复与本地访问控制；预览交易不是授权生效。"
+    },
+    {
+      "id": 44,
+      "title": "Memory Provenance",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "limited: UI19 Capture 的候选/来源旅程；不覆盖该完整条目",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 45,
+      "title": "Memory Relations",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 46,
+      "title": "Memory Lifecycle",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 47,
+      "title": "Memory Conflict",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 48,
+      "title": "Recall Engine",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 49,
+      "title": "Recall Ranking",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 50,
+      "title": "Recall Token Budget",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 51,
+      "title": "Memory Canonical Store",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 52,
+      "title": "Restore / Reindex",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 53,
+      "title": "Local Memory Backend",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 54,
+      "title": "Walrus Memory Backend",
+      "status": "external_unverified",
+      "implementation": "可选/模拟或隔离路径存在，真实外部正向行为未证实",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "有可选接口或参考资料，但无独立真实账户/链上正向验收；不得标为可用。"
+    },
+    {
+      "id": 55,
+      "title": "Self-hosted Memory Backend",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "MemoryService.swift:3,15-94,243; SemanticMemory.swift:65,281; MemoryArchiveService.swift:18-48",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 56,
+      "title": "Checkpoint",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "Checkpoint/Reuse Core 与 status §Checkpoint / Reuse",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 57,
+      "title": "Checkpoint Trigger",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "Checkpoint/Reuse Core 与 status §Checkpoint / Reuse",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 58,
+      "title": "Handoff",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "Checkpoint/Reuse Core 与 status §Checkpoint / Reuse",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 59,
+      "title": "Native Session Transfer",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "Checkpoint/Reuse Core 与 status §Checkpoint / Reuse",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 60,
+      "title": "Engineering Library",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LibraryService.swift:6-25; LibraryIndex.swift:61-121; status §Library与Ask",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 61,
+      "title": "Library Operations",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LibraryService.swift:6-25; LibraryIndex.swift:61-121; status §Library与Ask",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 62,
+      "title": "Private Library",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LibraryService.swift:6-25; LibraryIndex.swift:61-121; status §Library与Ask",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 63,
+      "title": "Guidelines",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LibraryService.swift:6-25; LibraryIndex.swift:61-121; status §Library与Ask",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 64,
+      "title": "Guideline Operations",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LibraryService.swift:6-25; LibraryIndex.swift:61-121; status §Library与Ask",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 65,
+      "title": "Improve Engine",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "ImproveService.swift; ModelImprovement.swift; RunFeedback.swift:10; status §Improve",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 66,
+      "title": "Signal Types",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "ImproveService.swift; ModelImprovement.swift; RunFeedback.swift:10; status §Improve",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 67,
+      "title": "Behavioral Evidence",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "ImproveService.swift; ModelImprovement.swift; RunFeedback.swift:10; status §Improve",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 68,
+      "title": "Signal Normalization",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "ImproveService.swift; ModelImprovement.swift; RunFeedback.swift:10; status §Improve",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 69,
+      "title": "Signal Clustering",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "ImproveService.swift; ModelImprovement.swift; RunFeedback.swift:10; status §Improve",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 70,
+      "title": "Cluster",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "ImproveService.swift; ModelImprovement.swift; RunFeedback.swift:10; status §Improve",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 71,
+      "title": "Promotion",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "ImproveService.swift; ModelImprovement.swift; RunFeedback.swift:10; status §Improve",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 72,
+      "title": "Improve Planner",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "ImproveService.swift; ModelImprovement.swift; RunFeedback.swift:10; status §Improve",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 73,
+      "title": "Planner Targets",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "ImproveService.swift; ModelImprovement.swift; RunFeedback.swift:10; status §Improve",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 74,
+      "title": "Suggestion",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "ImproveService.swift; ModelImprovement.swift; RunFeedback.swift:10; status §Improve",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 75,
+      "title": "Suggestion Actions",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "ImproveService.swift; ModelImprovement.swift; RunFeedback.swift:10; status §Improve",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 76,
+      "title": "Automatic Workflow Discovery",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 77,
+      "title": "Workflow Builder",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 78,
+      "title": "Workflow Format",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 79,
+      "title": "Workflow Metadata",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 80,
+      "title": "Workflow Inputs",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 81,
+      "title": "Workflow Steps",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 82,
+      "title": "Workflow Trigger",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 83,
+      "title": "Watch Trigger",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 84,
+      "title": "Scheduler",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 85,
+      "title": "Sleep Recovery",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 86,
+      "title": "Workflow Retry",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 87,
+      "title": "Failure Policy",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 88,
+      "title": "Workflow Notification",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 89,
+      "title": "Dry Run",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "AutomationService.swift:30-62; WorkflowPlanning.swift:83; WorkflowWatch; SchedulerService.swift:115",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 90,
+      "title": "Tool Registry",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 91,
+      "title": "Built-in Tools",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 92,
+      "title": "Custom Local Tool",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 93,
+      "title": "Safe argv",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 94,
+      "title": "External Connectors",
+      "status": "external_unverified",
+      "implementation": "可选/模拟或隔离路径存在，真实外部正向行为未证实",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "有可选接口或参考资料，但无独立真实账户/链上正向验收；不得标为可用。"
+    },
+    {
+      "id": 95,
+      "title": "Connector Authentication",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 96,
+      "title": "Tool Capability",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 97,
+      "title": "Unknown Tool",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 98,
+      "title": "Approval Inbox",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 99,
+      "title": "Frozen Action",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 100,
+      "title": "Run Ledger",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 101,
+      "title": "Run Operations",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 102,
+      "title": "Run Why",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 103,
+      "title": "Workflow Health",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "limited: UI20 Health 原生旅程；仅覆盖 Health timeout proposal，不覆盖完整工作流健康规格",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 104,
+      "title": "Workflow Improve",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 105,
+      "title": "Workflow Replay",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "AutomationService.swift:30-121,449; ConnectorService.swift:286; WorkflowHealthProposal.swift:12-15",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 106,
+      "title": "Agent Lab",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 107,
+      "title": "Baseline vs Candidate",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 108,
+      "title": "Eval Dataset",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 109,
+      "title": "Eval Isolation",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 110,
+      "title": "Eval Assertions",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 111,
+      "title": "Eval Metrics",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 112,
+      "title": "Repeated Evaluation",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 113,
+      "title": "No Magic Score",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 114,
+      "title": "Promote / Reject",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 115,
+      "title": "Regression Detection",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 116,
+      "title": "Regression Result",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 117,
+      "title": "Evidence Graph",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 118,
+      "title": "Why Everywhere",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "LabService.swift:4; WorkflowComposition.swift; status §Lab",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 119,
+      "title": "Search",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:94; AskRouteService.swift:281; FoundationService.swift:89,120",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 120,
+      "title": "Search Types",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:94; AskRouteService.swift:281; FoundationService.swift:89,120",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 121,
+      "title": "Coding-oriented Ranking",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:94; AskRouteService.swift:281; FoundationService.swift:89,120",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 122,
+      "title": "Ask Vela",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:94; AskRouteService.swift:281; FoundationService.swift:89,120",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 123,
+      "title": "Usage",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:94; AskRouteService.swift:281; FoundationService.swift:89,120",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 124,
+      "title": "Usage Dimensions",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:94; AskRouteService.swift:281; FoundationService.swift:89,120",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 125,
+      "title": "Background Cost",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:94; AskRouteService.swift:281; FoundationService.swift:89,120",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 126,
+      "title": "Cost Efficiency",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:94; AskRouteService.swift:281; FoundationService.swift:89,120",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 127,
+      "title": "Smart Background Scheduling",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MemoryService.swift:94; AskRouteService.swift:281; FoundationService.swift:89,120",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 128,
+      "title": "MCP Server",
+      "status": "backend_evidenced",
+      "implementation": "存在静态 schema 的 stdio MCP、read/contribute 模式、项目注册和 fresh/private gate；与原始工具清单不同。",
+      "codeEvidence": "MCPTools.swift:4-6、130-199；MCPToolAccess.swift:13-57、154-211。",
+      "nativeValidation": "无第 128 项全工具集或跨窗口原生验收；MCP 不是 Menu Bar。",
+      "remainingGap": "缺 get_session/project/setup/artifact/run/suggestion/eval、run_workflow 等完整清单；缺 READ/CONTRIBUTE/EXECUTE/ADMIN 四层逐项行为。",
+      "sourceCheckpoints": "search/recall_memory/remember/get memory/session/checkpoint/project/setup/artifact/list-get-run workflow/get run-suggestion-eval/library_search。",
+      "observedBehavior": "存在静态 schema 的 stdio MCP、read/contribute 模式、项目注册和 fresh/private gate；与原始工具清单不同。",
+      "explicitMissing": "缺 get_session/project/setup/artifact/run/suggestion/eval、run_workflow 等完整清单；缺 READ/CONTRIBUTE/EXECUTE/ADMIN 四层逐项行为。"
+    },
+    {
+      "id": 129,
+      "title": "MCP Permission",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MCPTools/MCPToolAccess; status §本地 MCP",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 130,
+      "title": "MCP Contribution",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "MCPTools/MCPToolAccess; status §本地 MCP",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 131,
+      "title": "MCP Execute",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "MCPTools/MCPToolAccess; status §本地 MCP",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 132,
+      "title": "Terminal",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "NotificationPolicy.swift; AutomationProcess.swift; AutomationService.swift:82-98; RunFeedback.swift:10",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 133,
+      "title": "Terminal Backpressure",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "NotificationPolicy.swift; AutomationProcess.swift; AutomationService.swift:82-98; RunFeedback.swift:10",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 134,
+      "title": "Environment Sanitization",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "NotificationPolicy.swift; AutomationProcess.swift; AutomationService.swift:82-98; RunFeedback.swift:10",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 135,
+      "title": "Menu Bar",
+      "status": "partial",
+      "implementation": "原生 status item 显示 running/approval，并有 Open/Inbox/Refresh/Quit；非完整菜单栏控制面。",
+      "codeEvidence": "main.swift:516-580、582-590、536-546；FoundationService.swift:49-66 未给 failed/usage/workflow-run status 聚合。",
+      "nativeValidation": "无全部菜单项与动态状态的独立原生验收。",
+      "remainingGap": "缺 Failed Runs/Usage/Workflow Runs；缺 Search/Ask/Show Agents/Pause Monitoring/Settings status 快捷项。",
+      "sourceCheckpoints": "Running Agents/Needs Approval/Failed Runs/Usage/Workflow Runs；Open/Search/Ask/Show Agents/Pause/Settings/Quit。",
+      "observedBehavior": "原生 status item 显示 running/approval，并有 Open/Inbox/Refresh/Quit；非完整菜单栏控制面。",
+      "explicitMissing": "缺 Failed Runs/Usage/Workflow Runs；缺 Search/Ask/Show Agents/Pause Monitoring/Settings status 快捷项。"
+    },
+    {
+      "id": 136,
+      "title": "Notifications",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "NotificationPolicy.swift; AutomationProcess.swift; AutomationService.swift:82-98; RunFeedback.swift:10",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 137,
+      "title": "Inbox",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "NotificationPolicy.swift; AutomationProcess.swift; AutomationService.swift:82-98; RunFeedback.swift:10",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 138,
+      "title": "Wrapped / Engineering Review",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "NotificationPolicy.swift; AutomationProcess.swift; AutomationService.swift:82-98; RunFeedback.swift:10",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 139,
+      "title": "Feedback",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "NotificationPolicy.swift; AutomationProcess.swift; AutomationService.swift:82-98; RunFeedback.swift:10",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 140,
+      "title": "Account",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "StoreBackupService.swift:7; Store.swift; MemoryArchiveService.swift",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 141,
+      "title": "Device Management",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "StoreBackupService.swift:7; Store.swift; MemoryArchiveService.swift",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 142,
+      "title": "Import / Export",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "StoreBackupService.swift:7; Store.swift; MemoryArchiveService.swift",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 143,
+      "title": "Backup",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "StoreBackupService.swift:7; Store.swift; MemoryArchiveService.swift",
+      "nativeValidation": "limited: native backup recovery evidence exists; no full user-facing backup surface",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 144,
+      "title": "Store Layout",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "StoreBackupService.swift:7; Store.swift; MemoryArchiveService.swift",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 145,
+      "title": "SQLite",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "StoreBackupService.swift:7; Store.swift; MemoryArchiveService.swift",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 146,
+      "title": "Storage Port",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "StoreBackupService.swift:7; Store.swift; MemoryArchiveService.swift",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 147,
+      "title": "Canonical vs Derived Data",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "StoreBackupService.swift:7; Store.swift; MemoryArchiveService.swift",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 148,
+      "title": "Doctor",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "VelaCLI/main.swift:146,374-381; VelaApp Resources UI app.js",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 149,
+      "title": "Update",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "VelaCLI/main.swift:146,374-381; VelaApp Resources UI app.js",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 150,
+      "title": "Update Channels",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "VelaCLI/main.swift:146,374-381; VelaApp Resources UI app.js",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 151,
+      "title": "Raycast",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "VelaCLI/main.swift:146,374-381; VelaApp Resources UI app.js",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 152,
+      "title": "Keyboard-first",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "VelaCLI/main.swift:146,374-381; VelaApp Resources UI app.js",
+      "nativeValidation": "limited: UI18 scope/relations or Chrome renderer only; not full native requirement",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 153,
+      "title": "Theme",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "VelaCLI/main.swift:146,374-381; VelaApp Resources UI app.js",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 154,
+      "title": "Security",
+      "status": "scope_or_translation",
+      "implementation": "规范范围/定位，不独立实现",
+      "codeEvidence": "Sources/VelaApp/main.swift bridge allowlist; SafeApply.swift; Connector Keychain path",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "这是范围聚合/平台翻译项，不是独立可验收功能；需拆成原子能力，Electron 专属安全项应转换为 AppKit/WKWebView 等价边界。"
+    },
+    {
+      "id": 155,
+      "title": "Typed IPC",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "Sources/VelaApp/main.swift bridge allowlist; SafeApply.swift; Connector Keychain path",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 156,
+      "title": "File Sandbox",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "Sources/VelaApp/main.swift bridge allowlist; SafeApply.swift; Connector Keychain path",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 157,
+      "title": "Prompt Injection Boundary",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "Sources/VelaApp/main.swift bridge allowlist; SafeApply.swift; Connector Keychain path",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 158,
+      "title": "Child Process Security",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "Sources/VelaApp/main.swift bridge allowlist; SafeApply.swift; Connector Keychain path",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 159,
+      "title": "Credential Security",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "Sources/VelaApp/main.swift bridge allowlist; SafeApply.swift; Connector Keychain path",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 160,
+      "title": "Local-first",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "Sources/VelaApp/main.swift bridge allowlist; SafeApply.swift; Connector Keychain path",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 161,
+      "title": "Telemetry",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "Sources/VelaApp/main.swift bridge allowlist; SafeApply.swift; Connector Keychain path",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 162,
+      "title": "Optional Cloud Improve",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 163,
+      "title": "Optional Model Router",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 164,
+      "title": "Walrus / Distributed Ownership",
+      "status": "external_unverified",
+      "implementation": "可选/模拟或隔离路径存在，真实外部正向行为未证实",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "有可选接口或参考资料，但无独立真实账户/链上正向验收；不得标为可用。"
+    },
+    {
+      "id": 165,
+      "title": "Team",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 166,
+      "title": "Team Conflict Resolution",
+      "status": "missing",
+      "implementation": "未实现为完整产品能力",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "当前未找到对应完整产品路径；需先定义可观察输入、产物、拒绝/恢复反例，再实现。"
+    },
+    {
+      "id": 167,
+      "title": "Domain Model",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 168,
+      "title": "Search + Recall + Ask 统一 Retrieval Layer",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 169,
+      "title": "Permissions",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 170,
+      "title": "Change Ledger",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 171,
+      "title": "Everything Reversible",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 172,
+      "title": "Everything Explainable",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 173,
+      "title": "No Forced Findings",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "VelaStore/Core service boundaries; Workflow/approval ledgers",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 174,
+      "title": "Performance",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "scripts/package-macos.sh; tests and CI evidence; native-resource evidence",
+      "nativeValidation": "limited: 2-minute resource sample; whole-app/long-run criteria未验",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 175,
+      "title": "Worker Architecture",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "scripts/package-macos.sh; tests and CI evidence; native-resource evidence",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 176,
+      "title": "Worker Manager",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "scripts/package-macos.sh; tests and CI evidence; native-resource evidence",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 177,
+      "title": "Background Priorities",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "scripts/package-macos.sh; tests and CI evidence; native-resource evidence",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 178,
+      "title": "Packaging",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "scripts/package-macos.sh; tests and CI evidence; native-resource evidence",
+      "nativeValidation": "CI package/allowlist；非 Developer ID/notarization",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 179,
+      "title": "macOS Distribution",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "scripts/package-macos.sh; tests and CI evidence; native-resource evidence",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 180,
+      "title": "Testing",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "scripts/package-macos.sh; tests and CI evidence; native-resource evidence",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 181,
+      "title": "Harness Fixtures",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "scripts/package-macos.sh; tests and CI evidence; native-resource evidence",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 182,
+      "title": "Security Tests",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "scripts/package-macos.sh; tests and CI evidence; native-resource evidence",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 183,
+      "title": "Database Tests",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core/RPC 行为已实现并有本机或CI切片证据",
+      "codeEvidence": "scripts/package-macos.sh; tests and CI evidence; native-resource evidence",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已具备受限后端路径与测试/CI证据；仍需按本条所有输入范围及可访问原生入口逐一验收。"
+    },
+    {
+      "id": 184,
+      "title": "Complete Product Acceptance",
+      "status": "partial",
+      "implementation": "部分 Core、RPC、renderer 或隔离证据存在",
+      "codeEvidence": "scripts/package-macos.sh; tests and CI evidence; native-resource evidence",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "已有相邻或受限切片，但未覆盖本条列出的全部字段、操作、失败恢复、桌面入口或外部条件。"
+    },
+    {
+      "id": 185,
+      "title": "最终一级产品导航",
+      "status": "partial",
+      "implementation": "renderer/原生 View menu 只有 agents/workflows/setup/usage/improve/lab 六页，并有 scope guard。",
+      "codeEvidence": "app.js:1122-1173；main.swift:695-724。",
+      "nativeValidation": "无附件完整一级导航的原生验收。",
+      "remainingGap": "缺 Home、Sessions、Projects、Code、Memory、Library、Runs、Activity、Reports、Inbox、Connections、Doctor 等完整结构。",
+      "sourceCheckpoints": "Home；WORK；KNOWLEDGE；AUTOMATION；INTELLIGENCE；OBSERVABILITY；SYSTEM 下列全部一级项目。",
+      "observedBehavior": "renderer/原生 View menu 只有 agents/workflows/setup/usage/improve/lab 六页，并有 scope guard。",
+      "explicitMissing": "缺 Home、Sessions、Projects、Code、Memory、Library、Runs、Activity、Reports、Inbox、Connections、Doctor 等完整结构。"
+    },
+    {
+      "id": 186,
+      "title": "全局入口",
+      "status": "partial",
+      "implementation": "窗口内 Cmd/Ctrl+K 和原生 View Search 会触发 Search modal。",
+      "codeEvidence": "app.js:790-829；main.swift:718-721、900-911。",
+      "nativeValidation": "仅有 renderer Search/Actions 切片；无 Search+Ask+Commands 跨窗口原生验收。",
+      "remainingGap": "Ask Vela/Commands 未见同一 palette；缺无窗口唤醒、scope、键盘/读屏和 action 不误执行验证。",
+      "sourceCheckpoints": "Cmd+K；Search；Ask Vela；Commands。",
+      "observedBehavior": "窗口内 Cmd/Ctrl+K 和原生 View Search 会触发 Search modal。",
+      "explicitMissing": "Ask Vela/Commands 未见同一 palette；缺无窗口唤醒、scope、键盘/读屏和 action 不误执行验证。"
+    },
+    {
+      "id": 187,
+      "title": "最终产品核心定义",
+      "status": "scope_or_translation",
+      "implementation": "规范范围/定位，不独立实现",
+      "codeEvidence": "Sources/VelaApp/Resources/UI/app.js; product navigation and scope text",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "这是范围聚合/平台翻译项，不是独立可验收功能；需拆成原子能力，Electron 专属安全项应转换为 AppKit/WKWebView 等价边界。"
+    },
+    {
+      "id": 188,
+      "title": "产品最终定位",
+      "status": "scope_or_translation",
+      "implementation": "规范范围/定位，不独立实现",
+      "codeEvidence": "Sources/VelaApp/Resources/UI/app.js; product navigation and scope text",
+      "nativeValidation": "未见该完整条目的独立原生验收",
+      "remainingGap": "这是范围聚合/平台翻译项，不是独立可验收功能；需拆成原子能力，Electron 专属安全项应转换为 AppKit/WKWebView 等价边界。"
+    }
+  ],
+  "highValueBackendGaps": [
+    {
+      "priority": "P1",
+      "gap": "Artifact 治理闭环",
+      "requirements": [
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32
+      ],
+      "why": "现有 Setup scan/history/diff/relations 是局部资产读取，缺少统一 Artifact canonical model、scope/applicability、抑制键、context cost/budget 与关系图。",
+      "entryPoints": [
+        "Sources/VelaCore/SetupInventoryService.swift:7-44",
+        "Sources/VelaCore/SetupCatalog.swift",
+        "Sources/VelaCore/Store.swift"
+      ],
+      "minimumEndToEnd": "以两个项目和两个 harness 的 AGENTS/规则/技能夹具建立 canonical Artifact；扫描→finding→按 artifactHash suppress→源改变后重开→计算并返回 context budget；重启后核对历史与关系。",
+      "nativeBoundary": "需要独立原生 Setup/Audit 操作验收；当前浏览器 helper 证据不能代替。"
+    },
+    {
+      "priority": "P1",
+      "gap": "Memory 治理与生命周期",
+      "requirements": [
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55
+      ],
+      "why": "候选、来源、local semantic/lexical recall 已有，但 authority、冲突、关系、owner/delegate、到期策略与可重建索引没有完整统一合同；Walrus 正向链上写/恢复未验。",
+      "entryPoints": [
+        "Sources/VelaCore/MemoryService.swift:3-94,243",
+        "Sources/VelaCore/SemanticMemory.swift:65,281",
+        "Sources/VelaCore/MemoryArchiveService.swift:18-48"
+      ],
+      "minimumEndToEnd": "本地 canonical Memory 建立 authority/relations/expiry，再以 lexical+semantic+recent 三入口验证冲突降权、scope 与恢复/reindex；外部 Walrus 留为独立账户/链上验收，不能由 fixture 关闭。",
+      "nativeBoundary": "UI19 Capture 仅验证候选捕获；完整 Memory 管理、冲突、恢复和权限无原生闭环。"
+    },
+    {
+      "priority": "P1",
+      "gap": "只读工程阅读与 LSP",
+      "requirements": [
+        17,
+        18,
+        19,
+        20,
+        119,
+        120,
+        121,
+        122
+      ],
+      "why": "现有 search/session/library 路径不等于 repository tree、文件阅读、符号、definition/reference 或 LSP；这是规格中的直接用户工作流缺口。",
+      "entryPoints": [
+        "Sources/VelaCore/MemoryService.swift:94",
+        "Sources/VelaCore/Store.swift:874",
+        "Sources/VelaApp/Resources/UI/app.js"
+      ],
+      "minimumEndToEnd": "注册项目内安全 root→有界树/文件读取→文本/regex/path 搜索→一个真实标准 LSP 的 symbols/definition/reference，分别覆盖坏 root、symlink、超大文件、server不可用与跨项目拒绝。",
+      "nativeBoundary": "无原生 Code/LSP UI 验收。"
+    },
+    {
+      "priority": "P2",
+      "gap": "统一 harness live-adapter 合同",
+      "requirements": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "why": "已能读多种来源并有增量解析，但没有每个 Adapter 的 detect/version/discover/watch/parse/live/usage/setup/models/continue 可用性矩阵，也不能将日志推断标为实时进程状态。",
+      "entryPoints": [
+        "Sources/VelaCore/SessionEngine.swift:27",
+        "Sources/VelaCore/SessionHistoryService.swift:6",
+        "Sources/VelaCore/FoundationService.swift:78-89"
+      ],
+      "minimumEndToEnd": "为五 provider 固定 normal/running/approval/interrupted/malformed/partial/rotated/nested fixtures，声明每项 adapter method 的 supported/unavailable；FSEvents增量+重启去重并与真实进程存活信息分开。",
+      "nativeBoundary": "UI18 仅覆盖 session drawer/scope/relations，不覆盖完整 monitor/tree。"
+    },
+    {
+      "priority": "P2",
+      "gap": "可维护发布与恢复合同",
+      "requirements": [
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        149,
+        150,
+        171,
+        178,
+        179,
+        183
+      ],
+      "why": "SQLite migration、backup/restore、allowlist 已有切片，但没有 StoragePort、更新/回滚/通道、Developer ID/notarization 或完整跨版本恢复产品路径。",
+      "entryPoints": [
+        "Sources/VelaCore/Store.swift",
+        "Sources/VelaCore/StoreBackupService.swift:7",
+        "Sources/VelaCLI/main.swift:146",
+        "scripts/package-macos.sh"
+      ],
+      "minimumEndToEnd": "旧版 store→升级→备份→新位置 restore→索引重建→future schema拒绝→rollback binary拒写；每步保留 logical asset/ledger 验证，另以正式 Developer ID/notarization 验收发布。",
+      "nativeBoundary": "现有 native backup 恢复和 ad-hoc package 不关闭正式发布或跨设备恢复。"
+    }
+  ],
+  "evidenceInputs": {
+    "status": "docs/status.md",
+    "referenceLedgers": [
+      "docs/parity/blume.md",
+      "docs/parity/walrus-memory.md",
+      "docs/parity/px0.md"
+    ],
+    "headSourceSHA256": {
+      "Sources/VelaCore/AutomationService.swift": "274d1082c00b05929b482f83cc0b630a4c7c6d8a7d492a59a6025b868f27f438",
+      "Sources/VelaCore/MemoryService.swift": "2181ab2df1bb40d5e3b0e4541e924e4063464311dc6d2299354e7c51f06c7d4a",
+      "Sources/VelaCore/SetupInventoryService.swift": "64c6e2ef0ae632ad6e117efdf2849d56e66fba7a7ab3846a69f2e9989a956b53",
+      "Sources/VelaCore/Store.swift": "30a42a4cb3035e96d101a39e489dcdd16778c7f3659e84408a72f2c172d59c07",
+      "Sources/VelaCore/StoreBackupService.swift": "be55343eeaa43c7af1c027f724ddfb4eeb86253f197ce92d0d9f713f331ace58",
+      "Sources/VelaCore/SessionEngine.swift": "994ee8e0e329f01388eb6f6f80076df44eec4dc6fb2e3110c1016ef32f578c27",
+      "Sources/VelaCore/SemanticMemory.swift": "1e244cad95ad8cce91f85c1bd079d5aa51440c92ed0108b251150f03deedcde8",
+      "docs/status.md": "0e6b95d3ee79d964daf1d4768af22a86a4997307d1271d85bf7b42f5d71c9f81",
+      "docs/parity/blume.md": "1bb784e80c08b7d132dc3e7883eeb734cae962415ed0153697e56acfdb02eca3",
+      "docs/parity/walrus-memory.md": "8d020fd75052b66836853b50184350074032d33a94a66609bc7bc3670f690d45",
+      "docs/parity/px0.md": "ee54a6530684e02c48dbada7a5a68449ba2272ecbece531af343fa8a933e3c52"
+    },
+    "nativeEvidence": [
+      "docs/parity/ui18-renderer-evidence-2026-09-14.json",
+      "docs/parity/ui19-session-capture-evidence-2026-09-14.json",
+      "docs/parity/ui20-health-proposal-evidence-2026-09-14.json",
+      "docs/parity/native-resource-evidence-2026-09-14.json",
+      "docs/parity/native-3894dab6-evidence-2026-09-14.json"
+    ]
+  },
+  "limitations": [
+    "本文件是初步源码筛查，非最终逐项行为验收、发布门禁或产品完成声明。",
+    "函数、测试数量和局部 Chrome/CI 证据不等同整条用户需求完成。",
+    "原生列只计算相关独立原生路径，renderer/CI 不提升为 WKWebView 已验。",
+    "Walrus 抽样仅证明 SDK/本地范围子能力，真实链上和加密存储正向行为仍未验证。"
+  ],
+  "auditStatus": "initial_source_screening_not_final_per_item_behavioral_acceptance",
+  "priorityDeepChecks": [
+    {
+      "id": 1,
+      "title": "Home / Mission Control",
+      "status": "partial",
+      "implementation": "dashboard.get 返回 projects、sessions、memories、workflows、runs、suggestions、approvals、evals、artifacts、library；renderer 有页内导航。",
+      "codeEvidence": "FoundationService.swift:49-66（聚合但 stats 仅四项）；109-119（liveStatusAvailable=false）；app.js:781-787、1134-1173。",
+      "nativeValidation": "无 Home 全量字段及十个快捷操作的独立原生验收。",
+      "remainingGap": "缺统一活动时间线、今日 session、分类聚合、Memory conflict、回归/MCP/worker/background 状态和除 Search 外的完整快捷闭环。",
+      "sourceCheckpoints": "运行/审批/失败 Agent；项目/会话/今日数；三家 usage；Memory/Conflict/Improve；Workflow/Lab/Regression/Artifact/MCP/worker/activity；New Workflow/Search/Ask/Open Project/Resume/Run/Checkpoint/Evaluation/Doctor。",
+      "observedBehavior": "dashboard.get 返回 projects、sessions、memories、workflows、runs、suggestions、approvals、evals、artifacts、library；renderer 有页内导航。",
+      "explicitMissing": "缺统一活动时间线、今日 session、分类聚合、Memory conflict、回归/MCP/worker/background 状态和除 Search 外的完整快捷闭环。"
+    },
+    {
+      "id": 17,
+      "title": "Read / Review Workspace",
+      "status": "missing",
+      "implementation": "未发现 repository reader；会话历史或原文查看不是工程阅读器。",
+      "codeEvidence": "全仓未见 repository tree、受控文件 open、recent/changed/agent-modified 文件或 workspace reader 服务；app.js:1134-1173 只是产品页路由。",
+      "nativeValidation": "无原生阅读器验收。",
+      "remainingGap": "需实现只读 tree/file/recent/changed/Git diff/agent-modified，并验收私有库、符号链接、超大仓库分页与零写入。",
+      "sourceCheckpoints": "Repository Tree；Open File；Recent/Changed/Agent Modified Files；Git Diff；轻量只读非 IDE。",
+      "observedBehavior": "未发现 repository reader；会话历史或原文查看不是工程阅读器。",
+      "explicitMissing": "需实现只读 tree/file/recent/changed/Git diff/agent-modified，并验收私有库、符号链接、超大仓库分页与零写入。"
+    },
+    {
+      "id": 18,
+      "title": "Code Navigation",
+      "status": "missing",
+      "implementation": "未见以 LSP 驱动的代码导航或工作区检索。",
+      "codeEvidence": "未定位 workspace/regex/symbol search、outline、definition/reference/hover 或 LSP client；MemoryService.swift:93-96 的 search 是记忆/资料搜索。",
+      "nativeValidation": "无原生导航验收。",
+      "remainingGap": "需定义项目根、server 生命周期、取消/限额与结果版本；所有列举导航路径缺失。",
+      "sourceCheckpoints": "Fuzzy/文件内/工作区/Regex/Symbol 搜索；Outline；Definition/References/Hover；Jump line/Back/Forward；通过 LSP。",
+      "observedBehavior": "未见以 LSP 驱动的代码导航或工作区检索。",
+      "explicitMissing": "需定义项目根、server 生命周期、取消/限额与结果版本；所有列举导航路径缺失。"
+    },
+    {
+      "id": 19,
+      "title": "LSP",
+      "status": "missing",
+      "implementation": "未见标准 LSP transport、language server 发现/启动或诊断协议。",
+      "codeEvidence": "全仓未见 typescript-language-server、gopls、rust-analyzer、pyright、clangd、jdtls 或 JSON-RPC LSP 客户端。",
+      "nativeValidation": "无原生 LSP 验收。",
+      "remainingGap": "八类语言和其他标准 LSP 均需实现可用性、超时、崩溃恢复与诊断版本契约。",
+      "sourceCheckpoints": "TypeScript/JavaScript、Go、Rust、Python、C/C++、Java、Kotlin、Swift、其他标准 LSP。",
+      "observedBehavior": "未见标准 LSP transport、language server 发现/启动或诊断协议。",
+      "explicitMissing": "八类语言和其他标准 LSP 均需实现可用性、超时、崩溃恢复与诊断版本契约。"
+    },
+    {
+      "id": 20,
+      "title": "Code Viewer",
+      "status": "missing",
+      "implementation": "未见面向工程文件的 read-only Code Viewer；history raw event viewer 不等同代码视图。",
+      "codeEvidence": "app.js:2466-2472 只打开 history raw event；未定位 syntax highlighter、virtualization、diagnostic overlay 或文件 diff component。",
+      "nativeValidation": "无原生 Code Viewer 验收。",
+      "remainingGap": "缺所有列出的 viewer 能力及零编辑写入验证。",
+      "sourceCheckpoints": "Syntax Highlight；Line Numbers；Large File Virtualization/Lazy Highlighting；Wrap；Selection/Copy；Diff/Search Highlight；Diagnostics；read-only。",
+      "observedBehavior": "未见面向工程文件的 read-only Code Viewer；history raw event viewer 不等同代码视图。",
+      "explicitMissing": "缺所有列出的 viewer 能力及零编辑写入验证。"
+    },
+    {
+      "id": 21,
+      "title": "Setup / Context Inventory",
+      "status": "partial",
+      "implementation": "固定 catalog 的公开、只读、受限扫描覆盖部分 instruction/rule/skill/hook/MCP/config。",
+      "codeEvidence": "SetupCatalog.swift:24-57（项目路径）、60-80（全局路径）、83-100（限制）；SetupInventoryService.swift:79-179（上限、脱敏、私有边界）。",
+      "nativeValidation": "无完整原生 Setup Inventory 验收。",
+      "remainingGap": "Guideline、Memory、Reference Docs 不在同一扫描模型；自定义 import/plugin、实际 provider load/override、凭据混合内容明确未覆盖。",
+      "sourceCheckpoints": "AGENTS/CLAUDE/Cursor Rules/Instructions/Skills/Hooks/MCP/Configs/Guidelines/Memory/Reference Docs。",
+      "observedBehavior": "固定 catalog 的公开、只读、受限扫描覆盖部分 instruction/rule/skill/hook/MCP/config。",
+      "explicitMissing": "Guideline、Memory、Reference Docs 不在同一扫描模型；自定义 import/plugin、实际 provider load/override、凭据混合内容明确未覆盖。"
+    },
+    {
+      "id": 22,
+      "title": "Artifact Model",
+      "status": "partial",
+      "implementation": "setup artifact 有观测记录；Memory/Workflow 等仍是独立模型，未统一为完整 Artifact。",
+      "codeEvidence": "SetupInventoryService.swift:140-179；MemoryService.swift:9-12、37-76。",
+      "nativeValidation": "无统一 Artifact 原生验收。",
+      "remainingGap": "缺统一 runtimePath/enabled/relationships/contextCost、跨类型 version/timestamps，也未证明 Workflow/Guideline/Reference 均进同一 schema。",
+      "sourceCheckpoints": "Rule/Instruction/Skill/Hook/MCP/Config/Guideline/Memory/Reference/Workflow；id/type/name/provider/scope/sourcePath/runtimePath/content/version/hash/enabled/timestamps/relationships/diagnostics/contextCost。",
+      "observedBehavior": "setup artifact 有观测记录；Memory/Workflow 等仍是独立模型，未统一为完整 Artifact。",
+      "explicitMissing": "缺统一 runtimePath/enabled/relationships/contextCost、跨类型 version/timestamps，也未证明 Workflow/Guideline/Reference 均进同一 schema。"
+    },
+    {
+      "id": 23,
+      "title": "Artifact Scope",
+      "status": "partial",
+      "implementation": "Setup artifact 只有 global/project；Memory 有部分项目内 scope，未构成统一 Artifact Scope。",
+      "codeEvidence": "SetupInventoryService.swift:53-71；MemoryService.swift:9、45-55。",
+      "nativeValidation": "无跨 Scope 原生验收。",
+      "remainingGap": "缺 User/Workspace，Repository/Branch/Worktree/Task/Session 没被 Setup Artifact 承载，且无 precedence/继承契约。",
+      "sourceCheckpoints": "Global/User/Project/Repository/Workspace/Branch/Worktree/Task/Session。",
+      "observedBehavior": "Setup artifact 只有 global/project；Memory 有部分项目内 scope，未构成统一 Artifact Scope。",
+      "explicitMissing": "缺 User/Workspace，Repository/Branch/Worktree/Task/Session 没被 Setup Artifact 承载，且无 precedence/继承契约。"
+    },
+    {
+      "id": 24,
+      "title": "Artifact Relationship Graph",
+      "status": "partial",
+      "implementation": "只推导三类同 scope 观测关系，且明确不推断 runtime merge。",
+      "codeEvidence": "SetupInventoryService.swift:227-240（identical_observed_bytes、same_declared_skill_name、documented_same_directory_override）。",
+      "nativeValidation": "无关系图谱原生验收。",
+      "remainingGap": "缺十类完整关系、统一图查询与运行时图谱；字节相同不是语义 duplicates。",
+      "sourceCheckpoints": "references/imports/depends_on/conflicts_with/duplicates/supersedes/derived_from/validated_by/applies_to/used_by。",
+      "observedBehavior": "只推导三类同 scope 观测关系，且明确不推断 runtime merge。",
+      "explicitMissing": "缺十类完整关系、统一图查询与运行时图谱；字节相同不是语义 duplicates。"
+    },
+    {
+      "id": 25,
+      "title": "Context Coverage",
+      "status": "missing",
+      "implementation": "没有 Artifact × Provider coverage 或 drift 结果。",
+      "codeEvidence": "SetupCatalog.swift:98-102（runtimeLoadedState=unavailable）；SetupInventoryService.swift:239（不推断 runtime merge）。",
+      "nativeValidation": "无原生 coverage/drift 验收。",
+      "remainingGap": "不能用发现文件代替实际 provider 载入；缺 coverage grid、unknown 和变更重算。",
+      "sourceCheckpoints": "每 Artifact 的 Claude/Codex/Cursor 覆盖和 Provider Drift。",
+      "observedBehavior": "没有 Artifact × Provider coverage 或 drift 结果。",
+      "explicitMissing": "不能用发现文件代替实际 provider 载入；缺 coverage grid、unknown 和变更重算。"
+    },
+    {
+      "id": 26,
+      "title": "Setup Audit",
+      "status": "partial",
+      "implementation": "有不可读、无效 JSON、重复字节、超大文本等有限诊断，不是 Setup Audit 全集。",
+      "codeEvidence": "SetupInventoryService.swift:95-123、155-179、242-272。",
+      "nativeValidation": "无完整原生 audit 验收。",
+      "remainingGap": "缺 conflict/contradictory/stale/broken/missing/path/package manager、dead/unused skill/hook、MCP drift/repo mismatch/stale unsafe command、memory conflict、verification/permission 等分析器。",
+      "sourceCheckpoints": "附件列出的 Rule/Skill/Hook/MCP/Provider/Repo/Command/Context/Memory/Permission 共 22 类自动审计。",
+      "observedBehavior": "有不可读、无效 JSON、重复字节、超大文本等有限诊断，不是 Setup Audit 全集。",
+      "explicitMissing": "缺 conflict/contradictory/stale/broken/missing/path/package manager、dead/unused skill/hook、MCP drift/repo mismatch/stale unsafe command、memory conflict、verification/permission 等分析器。"
+    },
+    {
+      "id": 27,
+      "title": "Audit Finding",
+      "status": "partial",
+      "implementation": "diagnostics 是嵌入 artifact 的简化 JSON，不是 Audit Finding 实体。",
+      "codeEvidence": "SetupInventoryService.swift:154-167、179 仅 code/severity/path/message。",
+      "nativeValidation": "无 finding 列表或操作原生验收。",
+      "remainingGap": "缺完整 schema 和七项操作，尤其没有安全 Fix 与 Safe Apply 关联。",
+      "sourceCheckpoints": "Title/Category/Severity/Affected Artifact/Evidence/Reason/Harness Applicability/Suggested Fix/Confidence；Preview/Fix/Ignore/Suppress/Dismiss/Open File。",
+      "observedBehavior": "diagnostics 是嵌入 artifact 的简化 JSON，不是 Audit Finding 实体。",
+      "explicitMissing": "缺完整 schema 和七项操作，尤其没有安全 Fix 与 Safe Apply 关联。"
+    },
+    {
+      "id": 28,
+      "title": "Audit Suppression",
+      "status": "missing",
+      "implementation": "未见 finding suppression 持久化或重报状态机。",
+      "codeEvidence": "SetupInventoryService.swift:182-202 仅观测 revision；全仓未定位 findingKey suppression store/route。",
+      "nativeValidation": "无原生 suppression 验收。",
+      "remainingGap": "需精确 suppression 记录、相关 hash 才 re-emit、跨重启和无关变更反例。",
+      "sourceCheckpoints": "findingKey/artifactHash/suppressedAt/reason；相关 Artifact 改变才重新报告。",
+      "observedBehavior": "未见 finding suppression 持久化或重报状态机。",
+      "explicitMissing": "需精确 suppression 记录、相关 hash 才 re-emit、跨重启和无关变更反例。"
+    },
+    {
+      "id": 29,
+      "title": "Context Cost",
+      "status": "partial",
+      "implementation": "setup 和 memory 有静态 tokenEstimate，不是 context cost 归因。",
+      "codeEvidence": "SetupInventoryService.swift:149-158；MemoryService.swift:58。",
+      "nativeValidation": "无 Context Cost 原生验收。",
+      "remainingGap": "缺四类成本、贡献和百分比；估算不等于实际加载成本。",
+      "sourceCheckpoints": "Always-on/Conditional/On-demand/Zero-context tokens；Token contribution；total percent。",
+      "observedBehavior": "setup 和 memory 有静态 tokenEstimate，不是 context cost 归因。",
+      "explicitMissing": "缺四类成本、贡献和百分比；估算不等于实际加载成本。"
+    },
+    {
+      "id": 30,
+      "title": "Context Budget",
+      "status": "missing",
+      "implementation": "未见按 Harness/Project/Artifact Type 的 context budget 服务。",
+      "codeEvidence": "SetupInventoryService.swift:157 仅单件 large-context warning。",
+      "nativeValidation": "无 budget 原生验收。",
+      "remainingGap": "缺预算来源/未知值、warning、largest/removals/unused/duplicate 的可验证输出。",
+      "sourceCheckpoints": "Harness/Project/Artifact Type 预算；warning/largest/removals/unused/duplicate。",
+      "observedBehavior": "未见按 Harness/Project/Artifact Type 的 context budget 服务。",
+      "explicitMissing": "缺预算来源/未知值、warning、largest/removals/unused/duplicate 的可验证输出。"
+    },
+    {
+      "id": 31,
+      "title": "Context Cost Ladder",
+      "status": "missing",
+      "implementation": "未见 Hook 到 Always-on Rule 的 planner 成本阶梯。",
+      "codeEvidence": "全仓未定位 context cost ladder 或 workflow planner 排序。",
+      "nativeValidation": "无 Planner 原生验收。",
+      "remainingGap": "缺选路、降级、must-keep 条件与避免永久 token tax 的行为反例。",
+      "sourceCheckpoints": "Deterministic Hook、Workflow、Reference、Guideline、Skill、Always-on Rule；避免永久 Token Tax。",
+      "observedBehavior": "未见 Hook 到 Always-on Rule 的 planner 成本阶梯。",
+      "explicitMissing": "缺选路、降级、must-keep 条件与避免永久 token tax 的行为反例。"
+    },
+    {
+      "id": 32,
+      "title": "Artifact Version History",
+      "status": "partial",
+      "implementation": "setup 有只读观测 revision/history/diff，不是所有配置资产的版本系统。",
+      "codeEvidence": "SetupInventoryService.swift:33-43、182-224；179 明示 historyFullyObserved=false。",
+      "nativeValidation": "无全部 Artifact 原生历史验收。",
+      "remainingGap": "缺全类型 history 和 required 字段组合；diff 明示非 apply patch。",
+      "sourceCheckpoints": "Version 1/2/3；beforeHash/afterHash/patch/source/reason/timestamp。",
+      "observedBehavior": "setup 有只读观测 revision/history/diff，不是所有配置资产的版本系统。",
+      "explicitMissing": "缺全类型 history 和 required 字段组合；diff 明示非 apply patch。"
+    },
+    {
+      "id": 33,
+      "title": "Safe Apply",
+      "status": "backend_evidenced",
+      "implementation": "受限 Core 安全写入有跨进程锁、路径/身份验证、baseHash 重查、stage fsync、rename、journal/rollback。",
+      "codeEvidence": "SafeApply.swift:48-77、123-141、179-235、239-280。",
+      "nativeValidation": "无所有 Agent proposal 的完整原生 Safe Apply 验收。",
+      "remainingGap": "尚未证明所有 Agent/Workflow 提议只能经此入口；缺权限 UX、journal 版本可见性、崩溃恢复和各 proposal 端到端验收。",
+      "sourceCheckpoints": "Read Current/Resolve realpath/Verify base hash/Validate permission/Staging/fsync/Atomic rename/Record version；多文件 all-or-nothing。",
+      "observedBehavior": "受限 Core 安全写入有跨进程锁、路径/身份验证、baseHash 重查、stage fsync、rename、journal/rollback。",
+      "explicitMissing": "尚未证明所有 Agent/Workflow 提议只能经此入口；缺权限 UX、journal 版本可见性、崩溃恢复和各 proposal 端到端验收。"
+    },
+    {
+      "id": 34,
+      "title": "Safe Undo",
+      "status": "backend_evidenced",
+      "implementation": "undo 用 prior afterHash 作为下一次 apply baseHash，外部改动时拒绝覆盖。",
+      "codeEvidence": "SafeApply.swift:80-94、211-227、281-289。",
+      "nativeValidation": "无 Safe Undo 原生用户流程验收。",
+      "remainingGap": "缺 needs-review UI/人工恢复路径和各 proposal journal 接入验证。",
+      "sourceCheckpoints": "currentHash == expectedPostApplyHash 才 Undo；否则 needs review。",
+      "observedBehavior": "undo 用 prior afterHash 作为下一次 apply baseHash，外部改动时拒绝覆盖。",
+      "explicitMissing": "缺 needs-review UI/人工恢复路径和各 proposal journal 接入验证。"
+    },
+    {
+      "id": 128,
+      "title": "MCP Server",
+      "status": "backend_evidenced",
+      "implementation": "存在静态 schema 的 stdio MCP、read/contribute 模式、项目注册和 fresh/private gate；与原始工具清单不同。",
+      "codeEvidence": "MCPTools.swift:4-6、130-199；MCPToolAccess.swift:13-57、154-211。",
+      "nativeValidation": "无第 128 项全工具集或跨窗口原生验收；MCP 不是 Menu Bar。",
+      "remainingGap": "缺 get_session/project/setup/artifact/run/suggestion/eval、run_workflow 等完整清单；缺 READ/CONTRIBUTE/EXECUTE/ADMIN 四层逐项行为。",
+      "sourceCheckpoints": "search/recall_memory/remember/get memory/session/checkpoint/project/setup/artifact/list-get-run workflow/get run-suggestion-eval/library_search。",
+      "observedBehavior": "存在静态 schema 的 stdio MCP、read/contribute 模式、项目注册和 fresh/private gate；与原始工具清单不同。",
+      "explicitMissing": "缺 get_session/project/setup/artifact/run/suggestion/eval、run_workflow 等完整清单；缺 READ/CONTRIBUTE/EXECUTE/ADMIN 四层逐项行为。"
+    },
+    {
+      "id": 135,
+      "title": "Menu Bar",
+      "status": "partial",
+      "implementation": "原生 status item 显示 running/approval，并有 Open/Inbox/Refresh/Quit；非完整菜单栏控制面。",
+      "codeEvidence": "main.swift:516-580、582-590、536-546；FoundationService.swift:49-66 未给 failed/usage/workflow-run status 聚合。",
+      "nativeValidation": "无全部菜单项与动态状态的独立原生验收。",
+      "remainingGap": "缺 Failed Runs/Usage/Workflow Runs；缺 Search/Ask/Show Agents/Pause Monitoring/Settings status 快捷项。",
+      "sourceCheckpoints": "Running Agents/Needs Approval/Failed Runs/Usage/Workflow Runs；Open/Search/Ask/Show Agents/Pause/Settings/Quit。",
+      "observedBehavior": "原生 status item 显示 running/approval，并有 Open/Inbox/Refresh/Quit；非完整菜单栏控制面。",
+      "explicitMissing": "缺 Failed Runs/Usage/Workflow Runs；缺 Search/Ask/Show Agents/Pause Monitoring/Settings status 快捷项。"
+    },
+    {
+      "id": 185,
+      "title": "最终一级产品导航",
+      "status": "partial",
+      "implementation": "renderer/原生 View menu 只有 agents/workflows/setup/usage/improve/lab 六页，并有 scope guard。",
+      "codeEvidence": "app.js:1122-1173；main.swift:695-724。",
+      "nativeValidation": "无附件完整一级导航的原生验收。",
+      "remainingGap": "缺 Home、Sessions、Projects、Code、Memory、Library、Runs、Activity、Reports、Inbox、Connections、Doctor 等完整结构。",
+      "sourceCheckpoints": "Home；WORK；KNOWLEDGE；AUTOMATION；INTELLIGENCE；OBSERVABILITY；SYSTEM 下列全部一级项目。",
+      "observedBehavior": "renderer/原生 View menu 只有 agents/workflows/setup/usage/improve/lab 六页，并有 scope guard。",
+      "explicitMissing": "缺 Home、Sessions、Projects、Code、Memory、Library、Runs、Activity、Reports、Inbox、Connections、Doctor 等完整结构。"
+    },
+    {
+      "id": 186,
+      "title": "全局入口",
+      "status": "partial",
+      "implementation": "窗口内 Cmd/Ctrl+K 和原生 View Search 会触发 Search modal。",
+      "codeEvidence": "app.js:790-829；main.swift:718-721、900-911。",
+      "nativeValidation": "仅有 renderer Search/Actions 切片；无 Search+Ask+Commands 跨窗口原生验收。",
+      "remainingGap": "Ask Vela/Commands 未见同一 palette；缺无窗口唤醒、scope、键盘/读屏和 action 不误执行验证。",
+      "sourceCheckpoints": "Cmd+K；Search；Ask Vela；Commands。",
+      "observedBehavior": "窗口内 Cmd/Ctrl+K 和原生 View Search 会触发 Search modal。",
+      "explicitMissing": "Ask Vela/Commands 未见同一 palette；缺无窗口唤醒、scope、键盘/读屏和 action 不误执行验证。"
+    }
+  ],
+  "sampledExistingCapabilities": {
+    "walrusMemory": {
+      "finding": "Walrus SDK 已有 namespace/expectedOwner、manifest 范围匹配和 owner/delegate 交易准备；MemoryIntegration 有本地 project+namespace 候选 capture/recall。",
+      "boundary": "无真实远程写入/恢复或 owner/delegate 链上正向验收；本地 namespace 不等于远程 ACL。",
+      "evidence": [
+        "sdk/walrus/src/index.ts:11-23,54-76,167-176",
+        "sdk/walrus/src/manifest.ts:53-60",
+        "sdk/walrus/src/owner.ts:5-38",
+        "Sources/VelaCore/MemoryIntegrationService.swift:4-14,18-68",
+        "docs/status.md:20"
+      ]
+    }
+  }
+}

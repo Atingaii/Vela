@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="README.md">English</a> ·
-  <a href="https://vela-engineering.zzzsssaa.chatgpt.site">官方网站</a> ·
+  <a href="https://velo.codes">官方网站</a> ·
   <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2">下载预览版 (v0.1.0-preview.2)</a> ·
   <a href="docs/status.md">功能状态</a> ·
   <a href="docs/architecture.md">系统架构</a> ·

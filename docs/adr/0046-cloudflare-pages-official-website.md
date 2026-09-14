@@ -1,6 +1,6 @@
 # ADR 0046: Cloudflare Pages for the official website
 
-- Status: Accepted; deployment verification pending
+- Status: Accepted; production deployment verified 2026-09-14
 - Date: 2026-09-14
 
 ## Context
@@ -22,6 +22,10 @@ Use Cloudflare's official Wrangler CLI with Pages write and account/user/zone re
 - Direct Upload avoids granting Cloudflare access to unrelated GitHub repositories. Deployments remain explicit CLI operations; this decision does not claim that automatic GitHub deployment is configured.
 
 Website deployment does not change the desktop's acceptance state, signing, notarization or published download version. HTTPS, language routes, local assets and canonical metadata require verification against the deployed domain before reporting success.
+
+## Verified deployment
+
+Production is live at [velo.codes](https://velo.codes), associated with Pages project `velo` and its assigned hostname `velo-5i0.pages.dev`. The apex CNAME targets that hostname. Cloudflare reports the domain active with SSL enabled; the existing nameservers are unchanged. The deployment uses source commit `93c28486812a4ec94477e62dd93188eabca65a97`. All 20 page, 8 referenced resource and 20 local navigation HTTP checks passed. A separate browser sample verified language, theme, filtering and documentation navigation. See the [deployment evidence](../parity/cloudflare-production-evidence-2026-09-14.json) for failures retained, exact source and limitations.
 
 ## References
 

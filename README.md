@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="README.zh-CN.md">简体中文</a> ·
-  <a href="https://vela-engineering.zzzsssaa.chatgpt.site">Website</a> ·
+  <a href="https://velo.codes">Website</a> ·
   <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2">Download preview (v0.1.0-preview.2)</a> ·
   <a href="docs/status.md">Status</a> ·
   <a href="docs/architecture.md">Architecture</a> ·
