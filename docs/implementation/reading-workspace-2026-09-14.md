@@ -20,6 +20,9 @@ All flows below used synthetic local records and the real Swift helper, not user
 | Session-to-memory provenance, confirmation, idempotency and scope guards | 5/5 | `reading-memory-capture-r3` |
 | Locale surfaces, preserved user content, selected records and menus | 6/6 | `reading-localization-r2` |
 | Full renderer flow, guards and existing actions | 12/12 | `reading-full-ui-browser-r2` |
+| Starter templates, dry-run return, setup actions and shortcuts | 9/9 | `workspace-actions-final-r8` |
+| Session relation navigation | 5/5 | `reading-final-relations` |
+| Project scope, stale responses, refresh anchoring and accessibility | 8/8 | `reading-final-scope-r2` |
 | Full parity browser journeys | 5/5 | `reading-full-parity-r1` |
 | Full Memory lifecycle and reuse acceptance | 6/6 | `reading-full-acceptance-r1` |
 | Rich content injection, code rendering, exact copy, large text and locale | 6/6 | `reading-final-rich` |
@@ -43,3 +46,9 @@ This redesign has focused native evidence, not full product native completion. T
 ## 中文说明
 
 本轮直接重构主区阅读、Memory 菜单、审批格式化预览与完整源码，修复跨页面遗留滚动位置。官网扩为 32 个中英文页面、12 项能力和 8 个场景。上表为真实本地 helper 浏览器检查；本机原生已验证阅读、菜单、审批文件写入、语言及重启持久化，并保留真实截图。总体功能和发布验收没有因此标记全部完成。
+
+## Final regression corrections
+
+CI for `953d5a0` stopped in a legacy workspace-actions test. Native-style main reading hides the underlying list; the old test attempted to create another template while the prior dry-run detail was open. The test now verifies that detail opens, uses the visible Back to list action and asserts the list is interactable before continuing. The corresponding session-scope test follows the same visible transition. Full local reruns passed 9/9 and 8/8 respectively; no stale-response, permission or execution assertions were relaxed. Earlier red receipts remain available.
+
+A production browser also retained a prior `site.js` response with Cloudflare's four-hour browser TTL, although direct HTTP already returned the new bytes. HTML now versions local assets by content digest; changing a script, style or screenshot changes its URL without adding a runtime dependency. The deployment checker additionally compares HTML and asset bytes against the frozen local source. The old HTTP-only success was not sufficient to prove that an existing browser had switched versions. Cloudflare documents this distinction in [Browser Cache TTL](https://developers.cloudflare.com/cache/how-to/edge-browser-cache-ttl/set-browser-ttl/).

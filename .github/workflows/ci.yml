@@ -140,6 +140,8 @@ jobs:
             output/playwright/ci-engineering/*.json
             output/playwright/ci-engineering/*.jsonl
             output/playwright/ci-engineering/*.png
+            output/playwright/ci-rich-content/*.json
+            output/playwright/ci-rich-content/*.png
             output/playwright/ci-ask-consumer/*.json
             output/playwright/ci-ask-consumer/*.jsonl
             output/playwright/ci-ask-consumer/*.png

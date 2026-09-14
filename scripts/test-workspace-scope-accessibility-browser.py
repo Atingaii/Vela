@@ -137,9 +137,22 @@ def main():
         click('.nav-link[data-page="agents"]')
         wait('document.querySelector(".nav-link.active")?.dataset.page === "agents"', 'Sessions page did not settle.')
 
+    def return_to_session_list():
+        # Reading detail intentionally hides the main session list. A session
+        # transition therefore follows the visible product path: return first,
+        # then select the new row. This keeps the stale-result guard focused on
+        # its real contract rather than clicking a hidden control.
+        if value('!document.querySelector("#detail-drawer")?.classList.contains("hidden")'):
+            click('#btn-close-drawer')
+            wait('document.querySelector("#detail-drawer")?.classList.contains("hidden") === true',
+                 'Back to list did not close the session detail.')
+            wait('document.querySelector("#main-content")?.inert === false&&getComputedStyle(document.querySelector("#main-content")).visibility !== "hidden"',
+                 'Session list did not become interactable after returning from detail.')
+
     def open_session(session_id):
+        return_to_session_list()
         selector = '.session-title-btn[data-id="' + session_id + '"]'
-        wait('!!document.querySelector(' + json.dumps(selector) + ')', 'Session is absent from All Projects.')
+        wait('!!document.querySelector(' + json.dumps(selector) + ')', 'Session is absent from the current session list.')
         click(selector)
         wait('!document.querySelector("#detail-drawer").classList.contains("hidden")', 'Session drawer did not open.')
         wait('!!document.querySelector("#session-plan-body")', 'Plan region did not mount.')
@@ -401,7 +414,12 @@ def main():
             rpc('sessions.refresh', {})
             wait('!!window.__scopeHeld', 'Data-change polling did not receive and hold an actual dashboard result.', seconds=15)
             held_dashboard = value('window.__scopeHeld')
-            assert held_dashboard['method'] == 'dashboard.get' and held_dashboard['hadRealError'] is False, 'Dashboard hold did not follow a successful real bridge response.'
+            dashboard_receipt = [row for row in calls('dashboard.get')][-1:]
+            evidence['liveRefreshAttempt'] = {'actualDashboardHold': held_dashboard,
+                                               'dashboardBridgeReceipt': dashboard_receipt}
+            save()
+            assert held_dashboard['method'] == 'dashboard.get' and held_dashboard['hadRealError'] is False, ('Dashboard hold did not follow a successful real bridge response: ' +
+                                                                                                                 repr({'held': held_dashboard, 'receipt': dashboard_receipt}))
             value('(()=>{window.__scopeRelease();return true})()')
             wait('!window.__scopeHeld', 'Held dashboard result did not release.')
             wait(scoped_call_count_expression('sessions.get') + '>' + str(session_get_start),

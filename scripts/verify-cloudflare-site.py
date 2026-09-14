@@ -301,6 +301,7 @@ def check_page(response: dict, expected: PageSource) -> dict:
     checks: dict[str, object] = {
         "status200": response.get("status") == 200,
         "contentType": response.get("contentTypeValid") is True,
+        "bodyMatchesSource": response.get("bodySHA256") == sha256_file(expected.path),
     }
     if "body" not in response:
         checks.update({"title": False, "lang": False, "canonical": False, "alternates": False, "noLegacyOrigin": False, "finalRoute": False})
@@ -450,6 +451,12 @@ def main() -> int:
             else:
                 response.pop("body", None)
                 response["checks"] = {"status200": response.get("status") == 200, "contentType": response.get("contentTypeValid") is True}
+                asset_path = (site_root / urlsplit(url).path.lstrip("/")).resolve()
+                if asset_path.is_relative_to(site_root.resolve()) and asset_path.is_file():
+                    response["expectedSHA256"] = sha256_file(asset_path)
+                    response["checks"]["bodyMatchesSource"] = response.get("bodySHA256") == response["expectedSHA256"]
+                else:
+                    response["checks"]["bodyMatchesSource"] = False
                 evidence["resources"].append(response)
     for group in ("pages", "resources", "navigation"):
         evidence[group].sort(key=lambda item: item["url"])

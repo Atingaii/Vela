@@ -149,23 +149,30 @@ def main():
         def starter_templates():
             click('.nav-link[data-page="workflows"]'); wait('!!document.querySelector("#btn-wf-starters-menu")', 'Workflows view missing starter menu')
             expected = {'template-worktree-check': ['git.status', 'git.diff'], 'template-recent-changes': ['git.log', 'git.status'], 'template-handoff-review': ['git.status', 'git.diff', 'git.log']}
-            before_project = project_tree_hash(); opened = []
-            saved_runs = []
+            before_project = project_tree_hash(); opened = []; saved_runs = []; restored_states = []
+            def workflows_list_state():
+                return value("(()=>{const modal=document.querySelector('#modal-container');const menu=document.querySelector('#btn-wf-starters-menu');const pane=document.querySelector('.content-pane');return {modalHidden:!!modal?.classList.contains('hidden'),workflowsActive:document.querySelector('.nav-link.active')?.dataset.page==='workflows',drawerClosed:!document.body.classList.contains('has-inspector-open')&&!document.querySelector('.detail-drawer:not(.hidden)'),mainVisible:getComputedStyle(pane).visibility!=='hidden',menuVisible:!!menu&&menu.getClientRects().length>0&&getComputedStyle(menu).visibility!=='hidden'};})()")
+            def require_workflows_list(reason):
+                wait("(()=>{const modal=document.querySelector('#modal-container');const menu=document.querySelector('#btn-wf-starters-menu');const pane=document.querySelector('.content-pane');return !!modal?.classList.contains('hidden')&&document.querySelector('.nav-link.active')?.dataset.page==='workflows'&&!document.body.classList.contains('has-inspector-open')&&!document.querySelector('.detail-drawer:not(.hidden)')&&getComputedStyle(pane).visibility!=='hidden'&&!!menu&&menu.getClientRects().length>0&&getComputedStyle(menu).visibility!=='hidden';})()", reason)
+                state = workflows_list_state(); assert all(state.values()), state; restored_states.append(state)
             for template, tools in expected.items():
                 before_calls = value('window.__ui14.calls.length'); click('#btn-wf-starters-menu'); click('[data-template-id="' + template + '"]'); wait('!!document.querySelector("#wf-modal-title")', 'Starter did not open an editor')
                 assert value('document.querySelector("#wf-modal-trigger").value === "manual"'), 'Starter trigger is not manual'
                 actual = value('[...document.querySelectorAll(".wf-step-tool")].map(x=>x.value)'); assert actual == tools, (template, actual)
                 assert value('[...document.querySelectorAll(".wf-step-args")].every(x=>x.value.trim()==="{}")'), 'Starter arguments are not empty objects'
                 calls = value('window.__ui14.calls.slice(' + str(before_calls) + ').map(x=>x.method)'); assert 'workflows.save' not in calls and 'workflows.run' not in calls, 'Opening a starter mutated state'
-                opened.append({'template': template, 'tools': actual}); click('#btn-cancel-wf')
+                opened.append({'template': template, 'tools': actual}); click('#btn-cancel-wf'); require_workflows_list('Cancelling starter did not restore the visible Workflows list')
             assert project_tree_hash() == before_project, 'Opening unsaved starters changed the fixture project'
             for template, tools in expected.items():
                 save_before = value('window.__ui14.calls.filter(x=>x.method==="workflows.save"&&x.result).length'); click('#btn-wf-starters-menu'); click('[data-template-id="' + template + '"]'); click('#btn-save-wf'); wait('window.__ui14.calls.filter(x=>x.method==="workflows.save"&&x.result).length > ' + str(save_before), 'Explicit save did not reach helper')
                 saved = value('window.__ui14.calls.filter(x=>x.method==="workflows.save"&&x.result).at(-1).result'); assert saved['trigger'] == 'manual' and saved['enabled'] is False and [step['tool'] for step in saved['steps']] == tools and all(step['arguments'] == {} for step in saved['steps'])
-                workflow_id = saved['id']; wait('!!document.querySelector(".btn-wf-dryrun[data-id=\\"' + workflow_id + '\\"]")', 'Saved workflow lacks dry-run action'); click('.btn-wf-dryrun[data-id="' + workflow_id + '"]'); wait('window.__ui14.calls.some(x=>x.method==="workflows.run"&&x.params.id===' + json.dumps(workflow_id) + '&&x.params.dryRun===true)', 'Dry run was not issued')
-                saved_runs.append({'template': template, 'id': workflow_id, 'tools': tools})
+                workflow_id = saved['id']; dry_run_selector = '.btn-wf-dryrun[data-id="' + workflow_id + '"]'
+                wait('!!document.querySelector(' + json.dumps(dry_run_selector) + ')', 'Saved workflow lacks dry-run action'); click(dry_run_selector); wait('window.__ui14.calls.some(x=>x.method==="workflows.run"&&x.params.id===' + json.dumps(workflow_id) + '&&x.params.dryRun===true)', 'Dry run was not issued')
+                wait('document.body.classList.contains("has-inspector-open") && !!document.querySelector("#btn-close-drawer") && document.querySelector("#btn-close-drawer").getClientRects().length>0', 'Dry run did not open its inspected run detail')
+                click('#btn-close-drawer'); require_workflows_list('Closing dry-run detail did not restore the visible Workflows list')
+                saved_runs.append({'template': template, 'id': workflow_id, 'tools': tools, 'detailOpenedThenClosed': True})
             assert project_tree_hash() == before_project, 'Git-read dry run modified the fixture project'
-            return {'openedUnsaved': opened, 'savedThenDryRun': saved_runs, 'projectUnchanged': True}
+            return {'openedUnsaved': opened, 'restoredListStates': restored_states, 'savedThenDryRun': saved_runs, 'projectUnchanged': True}
         def sound_preview_and_visuals():
             click('.nav-link[data-page="settings"]'); wait('!!document.querySelector("#setting-notifications")', 'Settings did not load')
             assert not value('document.querySelector("#setting-notifications").checked'), 'Fixture notifications must start disabled'

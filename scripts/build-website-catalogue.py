@@ -85,3 +85,7 @@ for path in DIST.rglob('*.html'):
   s=s.replace('across all 4 use cases','across all 8 use cases').replace('全部 4 个','全部 8 个')
  path.write_text(s)
 print('Built',len(list(DIST.rglob('*.html'))),'bilingual pages')
+
+# A changed asset gets a new URL even in browsers retaining an older Cloudflare TTL.
+import runpy
+runpy.run_path(str(Path(__file__).with_name("version-website-assets.py")), run_name="__main__")
