@@ -7,6 +7,7 @@ Native dialog acceptance is explicitly a browser test boundary.
 """
 import argparse, hashlib, importlib.util, json, os
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES
 import select, shutil, signal, subprocess, time, traceback, urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,7 +38,7 @@ def main():
     server = subprocess.Popen(['python3',str(ROOT/'scripts/test-ui-server.py'),str(base/'fixture.json'),'--binary',str(binary),'--ui-directory',str(ui)],stdout=subprocess.PIPE,text=True)
     driver = None; results=[]
     def hashes():
-        return {name:hashlib.sha256((ui/name).read_bytes()).hexdigest() for name in ('app.js','i18n.js','app.css','index.html')}
+        return {name:hashlib.sha256((ui/name).read_bytes()).hexdigest() for name in UI_RESOURCES + DEVELOPMENT_UI_RESOURCES}
     evidence={'format':'vela-engineering-renderer-v1','synthetic':True,'sourceBefore':hashes(),'helperSHA256':hashlib.sha256(binary.read_bytes()).hexdigest(),
               'realProviderExecuted':False,'syntheticProviderProcess':True,'nativeDialogsTested':False,'checks':results,'completeSuite':False}
     def browser(*args):

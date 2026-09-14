@@ -19,6 +19,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES, copy_ui_resources
 import platform
 import select
 import shutil
@@ -64,7 +65,7 @@ def main():
     ui = ROOT / 'Sources/VelaApp/Resources/UI'
     if args.ui_snapshot:
         ui = base / 'ui-snapshot'
-        shutil.copytree(args.ui_snapshot.resolve(strict=True), ui)
+        copy_ui_resources(args.ui_snapshot.resolve(strict=True), ui, allow_development=True)
     project, home = fixture['project'], fixture['home']
     stamp = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
     env = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'HOME': str(base), 'VELA_HOME': home,
@@ -72,8 +73,8 @@ def main():
            'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull}
 
     def hashes():
-        return {str(p.relative_to(ui)): hashlib.sha256(p.read_bytes()).hexdigest()
-                for p in sorted(ui.rglob('*')) if p.is_file() and p.suffix in ('.js', '.css', '.html', '.json')}
+        return {name: hashlib.sha256((ui / name).read_bytes()).hexdigest()
+                for name in UI_RESOURCES + DEVELOPMENT_UI_RESOURCES}
 
     results = []
     evidence = {'format': 'vela-localization-browser-v1', 'synthetic': True, 'startedAt': stamp,
@@ -174,6 +175,13 @@ def main():
         browser('press', 'Escape'); browser('press', 'Escape')
         browser('click', '.nav-link[data-page=' + json.dumps(name) + ']')
         wait('document.querySelector(".nav-link.active")?.dataset.page===' + json.dumps(name), 'Route did not settle.')
+
+    def open_action_menu(trigger):
+        menu = 'details.action-menu:has(' + trigger + ')'
+        wait('!!document.querySelector(' + json.dumps(menu) + ')', 'Action menu is absent for ' + trigger)
+        if not value('document.querySelector(' + json.dumps(menu) + ').open'):
+            browser('click', menu + ' > summary')
+            wait('document.querySelector(' + json.dumps(menu) + ').open===true', 'Action menu did not open for ' + trigger)
 
     def nav(locale):
         expected = NAV[locale]
@@ -295,14 +303,20 @@ def main():
             assert rpc('sessions.get', {'id': session['id']}) == before
             page('memory')
             browser('click', '.btn-mem-view[data-id=' + json.dumps(memory['id']) + ']')
-            browser('wait', '#drawer-content .code-view')
+            browser('wait', '#drawer-content .reading-file[data-view="preview"]')
+            browser('click', '#drawer-content .reading-source')
+            source_code = '#drawer-content .reading-file[data-view="source"] .reading-file-source code'
+            browser('wait', source_code)
+            assert value('JSON.parse(document.querySelector("#drawer-content .reading-original").dataset.source)') == literal
             external_locale('en')
-            assert value('document.querySelector("#drawer-content .code-view").textContent') == literal
+            assert value('document.querySelector(' + json.dumps(source_code) + ').textContent') == literal
             assert value('document.querySelector("#drawer-content").textContent.includes(' + json.dumps(project) + ')')
             stored = next(m for m in rpc('memory.list', {'project': project}) if m['id'] == memory['id'])
             assert stored['content'] == literal and stored['title'] == memory['title']
             browser('press', 'Escape')
-            browser('click', '.btn-mem-supersede[data-id=' + json.dumps(memory['id']) + ']')
+            supersede_selector = '.btn-mem-supersede[data-id=' + json.dumps(memory['id']) + ']'
+            open_action_menu(supersede_selector)
+            browser('click', supersede_selector)
             notice = '[data-i18n="memory.supersedeNotice"]'
             browser('wait', notice)
             for locale in ['en', 'zh-CN', 'en']:
@@ -401,6 +415,8 @@ def main():
                     page(route)
                     if tab:
                         browser('click', tab)
+                    if trigger in ('#btn-recall-tester', '#btn-configure-reuse'):
+                        open_action_menu(trigger)
                     browser('click', trigger)
                     inspect(name, ready, '#modal-container')
                 except Exception as error:

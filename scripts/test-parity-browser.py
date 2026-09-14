@@ -8,6 +8,7 @@ is controlled to exercise user selection/cancellation races. Keep failed evidenc
 """
 import argparse, hashlib, importlib.util, json, os
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES
 import select, signal, subprocess, time, traceback, urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,7 +33,7 @@ def main():
     server = subprocess.Popen(['python3',str(ROOT/'scripts/test-ui-server.py'),str(base/'fixture.json'),'--binary',str(binary),'--ui-directory',str(ui)],stdout=subprocess.PIPE,text=True)
     driver = None; results=[]
     def hashes():
-        return {name:hashlib.sha256((ui/name).read_bytes()).hexdigest() for name in ('app.js','i18n.js','app.css','index.html')}
+        return {name:hashlib.sha256((ui/name).read_bytes()).hexdigest() for name in UI_RESOURCES + DEVELOPMENT_UI_RESOURCES}
     evidence={'format':'vela-parity-renderer-v1','synthetic':True,'sourceBefore':hashes(),'helperSHA256':hashlib.sha256(binary.read_bytes()).hexdigest(),
               'realProviderExecuted':False,'nativeDialogsTested':False,'checks':results,'completeSuite':False}
     def browser(*args):
@@ -50,6 +51,12 @@ def main():
         raise AssertionError(reason)
     def click(selector):
         browser('snapshot','-i'); browser('click',selector); browser('snapshot','-i')
+    def open_action_menu(trigger):
+        menu = 'details.action-menu:has(' + trigger + ')'
+        wait('!!document.querySelector(' + json.dumps(menu) + ')', 'Action menu is absent for ' + trigger)
+        if not value('document.querySelector(' + json.dumps(menu) + ').open'):
+            click(menu + ' > summary')
+            wait('document.querySelector(' + json.dumps(menu) + ').open===true', 'Action menu did not open for ' + trigger)
     def page(name):
         browser('press','Escape'); browser('press','Escape')
         click('.nav-link[data-page="'+name+'"]')
@@ -98,7 +105,7 @@ def main():
         for label,item in [('A',memory_a),('B',memory_b)]:
             (base/('archive-'+label+'.json')).write_text(json.dumps(rpc('memory.archive.export',{'project':project,'ids':[item['id']]})['archive']))
         def archive_race():
-            page('memory'); click('#btn-import-memory-archive')
+            page('memory'); open_action_menu('#btn-import-memory-archive'); click('#btn-import-memory-archive')
             browser('wait','#memory-archive-file-input')
             value("window.__velaUITest.nextRead={method:'memory.archive.validate',delay:1500}; true")
             browser('files','#memory-archive-file-input',str(base/'archive-A.json'))
@@ -118,7 +125,7 @@ def main():
         def archive_english():
             page('settings'); browser('select','#setting-locale','en')
             wait("window.VelaI18n.getLocale()==='en'",'English did not persist')
-            page('memory'); click('#btn-import-memory-archive')
+            page('memory'); open_action_menu('#btn-import-memory-archive'); click('#btn-import-memory-archive')
             browser('files','#memory-archive-file-input',str(base/'archive-B.json'))
             wait("!document.querySelector('#btn-confirm-import').disabled",'Archive did not validate')
             text=value("document.querySelector('#import-archive-preview-area').textContent")
@@ -127,14 +134,14 @@ def main():
 
         semantic=rpc('memory.save',{'project':project,'title':'Synthetic vehicle maintenance','content':'The automobile needs repair and regular maintenance.','state':'active','scope':'project','type':'fact'})
         def semantic_roundtrip():
-            page('memory'); click('#btn-semantic-memory')
+            page('memory'); open_action_menu('#btn-semantic-memory'); click('#btn-semantic-memory')
             wait("!!document.querySelector('#semantic-status-area code')",'Installed model status did not render')
             before=len(events()); click('#btn-start-semantic-index')
             wait("document.querySelector('#btn-start-semantic-index').style.display!=='none'",'Index did not settle',20)
             assert any(e['method']=='memory.semantic.index' and e['ok'] for e in events()[before:]), 'No actual indexing call'
             status=rpc('memory.semantic.status',{'project':project,'language':'en'})
             assert status['indexed']>0,status
-            click('#btn-close-semantic-modal'); click('#btn-recall-tester')
+            click('#btn-close-semantic-modal'); open_action_menu('#btn-recall-tester'); click('#btn-recall-tester')
             browser('fill','#recall-query','A car requires servicing')
             browser('select','#recall-project',project); browser('select','#recall-mode','semantic'); browser('select','#recall-language','en')
             click('#btn-do-recall')
@@ -144,7 +151,7 @@ def main():
         for i in range(12):
             rpc('memory.save',{'project':project,'title':'Cancellation fixture '+str(i),'content':'Vehicle repair procedure '+str(i),'state':'active','scope':'project','type':'fact'})
         def cancel_index():
-            page('memory'); click('#btn-semantic-memory')
+            page('memory'); open_action_menu('#btn-semantic-memory'); click('#btn-semantic-memory')
             wait("!!document.querySelector('#semantic-status-area code')",'Model status absent')
             wait("!document.body.textContent.includes(window.VelaI18n.t('memory.semanticIndexSuccessToast'))",'Earlier completion toast did not expire')
             browser('fill','#semantic-batch-size','1')

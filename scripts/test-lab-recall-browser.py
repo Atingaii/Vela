@@ -2,9 +2,10 @@
 """Fixture-only browser consumer for the Lab Recall contract; it never executes an approval."""
 import argparse, hashlib, importlib.util, json, os, select, shutil, signal, subprocess, time, traceback, urllib.request
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES, copy_ui_resources
 
 ROOT=Path(__file__).resolve().parents[1]
-FILES=('app.js','i18n.js','app.css','index.html','app-icon.svg','demo.js')
+FILES=UI_RESOURCES + DEVELOPMENT_UI_RESOURCES
 HARNESS=('test-ui-server.py','create-ui-fixture.py','test-ui-browser.py')
 CHECKS=('baseline-strict-off','candidate-lexical-preview','validation-scope-locales')
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -62,8 +63,7 @@ def main():
   for cmd in (['/usr/bin/git','-C',str(project),'-c','core.hooksPath=/dev/null','add','verify.py'],['/usr/bin/git','-C',str(project),'-c','core.hooksPath=/dev/null','-c','user.name=Vela Fixture','-c','user.email=fixture@invalid','commit','-m','Add synthetic Lab verifier']):
    committed=subprocess.run(cmd,text=True,capture_output=True,env=git_env,timeout=20); assert committed.returncode==0,committed.stderr or committed.stdout
   verifier_commit=subprocess.run(['/usr/bin/git','-C',str(project),'rev-parse','HEAD'],text=True,capture_output=True,env=git_env,timeout=20); verifier_commit.check_returncode(); ev['fixtureVerifierCommit']=verifier_commit.stdout.strip()
-  snap,helper=base/'ui-snapshot',base/'vela-frozen'; snap.mkdir()
-  for n in FILES: shutil.copyfile(ui/n,snap/n)
+  snap,helper=base/'ui-snapshot',base/'vela-frozen'; copy_ui_resources(ui,snap,allow_development=True)
   shutil.copy2(binary,helper); ev['uiFixture']={n:sha(snap/n) for n in FILES}; ev['helperFixture']=sha(helper); assert ev['uiBefore']==ev['uiFixture'] and ev['helperBefore']==ev['helperFixture']
   def core(m,x):
    r=subprocess.run([str(helper),'call',m,json.dumps(x),'--home',fx['home']],cwd=Path(project),text=True,capture_output=True,timeout=25); assert r.returncode==0,(m,r.stderr or r.stdout); return json.loads(r.stdout)

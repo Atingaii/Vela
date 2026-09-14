@@ -1,13 +1,28 @@
-"""Shared exact resource identities and dependency-free release validation."""
+"""Shared exact resource identities and dependency-free release/fixture validation."""
 import pathlib
+import shutil
 import struct
 import wave
 
 NOTIFICATION_SOUNDS = (
     'vela-approval.wav', 'vela-completed.wav', 'vela-error.wav',
 )
-UI_RESOURCES = ('index.html', 'app.js', 'i18n.js', 'app.css', 'app-icon.svg')
+# Release resources are relative POSIX paths. New vendor assets belong here before
+# fixtures, the package copier, or the release audit can serve/copy them.
+UI_RESOURCES = (
+    'index.html', 'app.js', 'i18n.js', 'app.css', 'app-icon.svg', 'content.js', 'reading.css',
+    'vendor/marked.js', 'vendor/marked.LICENSE',
+    'vendor/purify.js', 'vendor/purify.LICENSE',
+    'vendor/prism-core.js', 'vendor/prism-clike.js', 'vendor/prism-javascript.js',
+    'vendor/prism-json.js', 'vendor/prism-bash.js', 'vendor/prism-python.js',
+    'vendor/prism-swift.js', 'vendor/prism-css.js', 'vendor/prism-markup.js',
+    'vendor/prism.LICENSE',
+)
 DEVELOPMENT_UI_RESOURCES = ('demo.js',)
+
+
+def ui_resources(*, allow_development=False):
+    return UI_RESOURCES + (DEVELOPMENT_UI_RESOURCES if allow_development else ())
 
 
 def validate_regular_resource(path):
@@ -20,9 +35,7 @@ def validate_ui_resources(directory, *, allow_development=False):
     directory = pathlib.Path(directory)
     if directory.is_symlink() or not directory.is_dir():
         raise ValueError('UI resources must be an ordinary directory.')
-    allowed = set(UI_RESOURCES)
-    if allow_development:
-        allowed.update(DEVELOPMENT_UI_RESOURCES)
+    allowed = set(ui_resources(allow_development=allow_development))
     for path in directory.rglob('*'):
         relative = path.relative_to(directory).as_posix()
         if path.is_symlink():
@@ -31,8 +44,26 @@ def validate_ui_resources(directory, *, allow_development=False):
             continue
         if relative not in allowed or not path.is_file():
             raise ValueError(f'Unexpected UI resource: {relative}')
-    for name in UI_RESOURCES:
-        validate_regular_resource(directory / name)
+    for name in allowed:
+        candidate = directory / name
+        if candidate.is_symlink() or not candidate.is_file():
+            raise ValueError(f'Missing or linked release resource: {name}')
+
+
+def copy_ui_resources(source, target, *, allow_development=False, source_allow_development=None):
+    """Copy only declared ordinary resources, preserving future vendor subpaths."""
+    source, target = pathlib.Path(source), pathlib.Path(target)
+    if source_allow_development is None:
+        source_allow_development = allow_development
+    validate_ui_resources(source, allow_development=source_allow_development)
+    if target.is_symlink():
+        raise ValueError('UI target must not be a link.')
+    target.mkdir(parents=True, exist_ok=True)
+    for name in ui_resources(allow_development=allow_development):
+        destination = target / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source / name, destination, follow_symlinks=False)
+    validate_ui_resources(target, allow_development=allow_development)
 
 
 def validate_notification_sound(path):

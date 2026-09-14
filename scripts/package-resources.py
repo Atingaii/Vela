@@ -2,7 +2,7 @@
 import pathlib, plistlib, shutil, sys
 from release_resources import (NOTIFICATION_SOUNDS, UI_RESOURCES,
                                validate_notification_sound, validate_regular_resource,
-                               validate_ui_resources)
+                               validate_ui_resources, copy_ui_resources)
 
 bundle = pathlib.Path(sys.argv[1]).resolve()
 channel = sys.argv[2]
@@ -19,13 +19,7 @@ for name in NOTIFICATION_SOUNDS:
     validate_notification_sound(sounds / name)
 if target.exists():
     shutil.rmtree(target)
-target.mkdir(parents=True)
-for name in UI_RESOURCES:
-    path = source / name
-    dest = target / name
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(path, dest, follow_symlinks=False)
-validate_ui_resources(target)
+copy_ui_resources(source, target, source_allow_development=True)
 shutil.copy2(source.parent / 'Vela.icns', bundle / 'Contents/Resources/Vela.icns', follow_symlinks=False)
 validate_regular_resource(bundle / 'Contents/Resources/Vela.icns')
 for name in NOTIFICATION_SOUNDS:

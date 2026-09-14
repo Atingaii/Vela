@@ -12,7 +12,7 @@ Read `README.md` and `docs/architecture.md` before substantial changes. `docs/st
 
 ## UI implementation
 
-The project initiator requires Gemini-authored frontend and native UI implementation. Initially this used Antigravity CLI **Gemini 3.8 Flash (High)** (`gemini-3.8-flash-high`, effort `high`). On 2026-09-14, after the native quota was exhausted, the initiator authorized the supplied compatible API with model **`gemini-3.8-flash`** and reasoning effort **`high`**. Use that route for current UI authoring; record the requested model, effort, response metadata and source provenance without assuming the gateway proves upstream model identity. Other agents can plan, review, mechanically integrate, test and implement non-UI code. Never commit credentials or raw provider session logs. Keep credentials in memory for task-local calls, send only relevant source and synthetic examples, and do not embed this development authoring credential in Vela. Use compact, familiar developer-tool interactions, not decorative dashboard filler.
+On 2026-09-14, the initiator explicitly authorized Codex to implement the desktop and website UI directly, superseding the earlier Gemini authoring requirement. Use this current authorization; retain earlier provenance as historical evidence only. Keep credentials out of source and logs. Use familiar, readable developer-tool interactions with a restrained neutral palette, clear primary actions and progressive disclosure. Desktop layout should take inspiration from Codex without copying proprietary code or assets.
 
 ## Engineering
 

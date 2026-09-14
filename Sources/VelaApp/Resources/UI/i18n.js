@@ -14,6 +14,18 @@
   // Dictionary definitions
   const DICTIONARY = {
     'zh-CN': {
+      "reading.tools": "工具",
+      "reading.more": "更多操作",
+      "reading.back": "返回列表",
+      "reading.preview": "预览",
+      "reading.source": "源码",
+      "reading.copy": "复制",
+      "reading.copied": "已复制",
+      "reading.copyFailed": "复制失败，请选择源码复制",
+      "reading.content": "内容",
+      "reading.input": "输入",
+      "reading.output": "输出",
+
       "runs.feedback.currentUnavailable": "运行评估暂不可用",
       "lab.recall.unknownMode": "未知的记忆召回模式（{side}）",
 
@@ -2418,6 +2430,18 @@
       'sessions.relations.parentUnresolvedFallback': '未解析 ({status})'
     },
     'en': {
+      "reading.tools": "Tools",
+      "reading.more": "More actions",
+      "reading.back": "Back to list",
+      "reading.preview": "Preview",
+      "reading.source": "Source",
+      "reading.copy": "Copy",
+      "reading.copied": "Copied",
+      "reading.copyFailed": "Copy failed; select source to copy",
+      "reading.content": "Content",
+      "reading.input": "Input",
+      "reading.output": "Output",
+
       "runs.feedback.currentUnavailable": "Assessment is currently unavailable",
       "lab.recall.unknownMode": "Unknown memory recall mode for {side}",
 

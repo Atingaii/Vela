@@ -34,11 +34,11 @@
 > 核心路径已经实现，但适配、自动化和评测仍有明确限制；当前版本不代表完整产品路线图已经交付，也不是稳定版本。开发包使用 ad-hoc 签名，没有 Developer ID 签名，尚未通过 Apple 公证。使用前请阅读[功能状态与限制](docs/status.md)。
 
 <p align="center">
-  <img src="docs/assets/vela-workspace.png" alt="Vela 开发版工作区展示分组 Agent 会话与原始消息" width="100%">
+  <img src="docs/assets/vela-reading.png" alt="Vela 开发版工作区展示分组 Agent 会话与原始消息" width="100%">
 </p>
 
 <p align="center">
-  <em>真实 macOS 开发版截图，使用隔离的示例工程与合成会话日志，通过真实本地 helper 和数据库渲染；不含个人会话数据。本次工作区重构位于开发分支，尚未包含在 preview.2 下载中。</em>
+  <em>当前开发版界面：已在本机浏览器中通过真实 Swift helper 与隔离合成工程验证。本次重构的原生 WKWebView 验证仍待完成；此界面尚未包含在 preview.2 下载中。</em>
 </p>
 
 ## 当前可用能力

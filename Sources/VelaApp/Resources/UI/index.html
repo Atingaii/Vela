@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none';">
   <title>Vela</title>
   <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="reading.css">
 </head>
 <body>
   <!-- Demo banner in browser preview -->
@@ -173,15 +174,14 @@
   <div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
   <aside id="detail-drawer" class="detail-drawer hidden" aria-label="详情检查面板" data-i18n-aria-label="shell.detailDrawerAria" role="region">
     <header class="drawer-header">
+        <button id="btn-close-drawer" class="btn btn-ghost" title="Esc"><span aria-hidden="true">←</span><span data-i18n="reading.back">返回列表</span></button>
       <div class="drawer-title-group">
         <h2 id="drawer-title" class="drawer-title" data-i18n="shell.drawerTitle">详情</h2>
         <span id="drawer-subtitle" class="drawer-subtitle"></span>
       </div>
       <div class="drawer-actions">
         <div id="drawer-custom-actions"></div>
-        <button id="btn-close-drawer" class="btn-icon-subtle" title="关闭详情面板 (Esc)" aria-label="关闭详情面板" data-i18n-title="shell.closeDrawerTitle" data-i18n-aria-label="shell.closeDrawerTitle">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
+
       </div>
     </header>
     <div id="drawer-content" class="drawer-body"></div>
@@ -207,6 +207,18 @@
 
   <!-- Scripts -->
   <script src="i18n.js"></script>
+  <script src="vendor/marked.js"></script>
+  <script src="vendor/purify.js"></script>
+  <script src="vendor/prism-core.js" data-manual></script>
+  <script src="vendor/prism-clike.js"></script>
+  <script src="vendor/prism-javascript.js"></script>
+  <script src="vendor/prism-json.js"></script>
+  <script src="vendor/prism-bash.js"></script>
+  <script src="vendor/prism-python.js"></script>
+  <script src="vendor/prism-swift.js"></script>
+  <script src="vendor/prism-css.js"></script>
+  <script src="vendor/prism-markup.js"></script>
+  <script src="content.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

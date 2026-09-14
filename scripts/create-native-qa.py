@@ -16,8 +16,10 @@ import re
 import shutil
 import subprocess
 
+from release_resources import UI_RESOURCES, copy_ui_resources, validate_ui_resources
+
 ROOT = Path(__file__).resolve().parents[1]
-UI_FILES = ('app.js', 'i18n.js', 'app.css', 'index.html', 'app-icon.svg')
+UI_FILES = UI_RESOURCES
 
 
 def main():
@@ -42,15 +44,16 @@ def main():
     if bundle.exists() or bundle.is_symlink():
         parser.error('The named QA bundle already exists.')
     ui = args.ui_directory.resolve(strict=True)
-    for name in UI_FILES:
-        if (ui / name).is_symlink() or not (ui / name).is_file():
-            parser.error('Missing ordinary frozen UI resource: ' + name)
+    try:
+        validate_ui_resources(ui, allow_development=True)
+    except ValueError as error:
+        parser.error('Invalid frozen UI resources: ' + str(error))
     marker = Path(fixture['home']) / '.vela-ui-fixture.json'
     marker_bytes = marker.read_bytes()
     assert len(marker_bytes) < 4096 and not marker.is_symlink()
     macos, resources = bundle / 'Contents/MacOS', bundle / 'Contents/Resources'
-    macos.mkdir(parents=True); (resources / 'UI').mkdir(parents=True)
-    for name in UI_FILES: shutil.copyfile(ui / name, resources / 'UI' / name)
+    macos.mkdir(parents=True)
+    copy_ui_resources(ui, resources / 'UI', source_allow_development=True)
     assets = ROOT / 'Sources/VelaApp/Resources'
     shutil.copyfile(assets / 'Vela.icns', resources / 'Vela.icns')
     for name in ('vela-approval.wav', 'vela-completed.wav', 'vela-error.wav'):

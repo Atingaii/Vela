@@ -127,3 +127,5 @@ cron 以 UTC 分钟建立身份，按 IANA 时区判断触发；skip/latest/all 
 SPM 构建 VelaCore、vela、VelaDesktop，打包脚本只装允许的应用资源，测试/源码/内部材料不入包。Developer ID、公证、签名更新、系统通知和其他机器/架构分别验收。没有这些证据时，ad-hoc 包仍是开发预览。官网与应用分发相互独立。
 
 CI 配置存在不等于当前代码通过。Portable fallback 编译真实同步测试但不是 XCTest；最终测试必须绑定源码与 helper 快照。冷启动、RSS、CPU、事件延迟、大历史查询、长期并发稳定性使用独立测量，不由技术栈或包体推导。更多工具循环、完整历史/插件/维护/同步权限与产品 Golden Scenario 持续在 228 项台账中关闭，不再用原 MVP 范围将它们排除。
+
+The desktop uses a dedicated reading region instead of a fixed-width split inspector. Local Markdown/code rendering is bounded and sanitized, with exact approval source retained; all dependencies are explicitly packaged and network-free. See [ADR 0047](adr/0047-local-rich-content-and-reading-workspace.md).

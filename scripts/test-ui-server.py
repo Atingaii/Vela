@@ -19,6 +19,8 @@ import threading
 import time
 from urllib.parse import urlsplit
 
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES, validate_ui_resources
+
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / 'Sources/VelaApp/Resources/UI'
 READ = set('dashboard.get projects.list agents.list sessions.refresh sessions.list sessions.get setup.list setup.scan setup.audit usage.get memory.list recall search guidelines.list library.list checkpoint.list checkpoint.export workflows.list workflows.health runs.list runs.get inbox.list improve.list improve.preview lab.list lab.compare regression.list evidence.get reuse.outcomes settings.get system.version'.split())
@@ -133,7 +135,13 @@ class Bridge:
             if 'error' in response:
                 raise ValueError(response['error'].get('message', 'CLI error'))
             result = response.get('result')
+            # Cache only the exact frozen approval identity that was already
+            # rendered by a real helper response. Ask detail deliberately reads
+            # its pending approval through ask.get rather than pre-reading
+            # inbox.list (which could advance expiry projection).
             rows = result if method == 'inbox.list' and isinstance(result, list) else result.get('approvals', []) if method == 'dashboard.get' and isinstance(result, dict) else []
+            if method == 'ask.get' and isinstance(result, dict) and isinstance(result.get('approval'), dict):
+                rows = [*rows, result['approval']]
             for row in rows:
                 if not isinstance(row, dict) or row.get('project') not in self.fixture['projects']:
                     continue
@@ -401,10 +409,13 @@ def main():
         candidate = args.ui_directory.absolute()
         if candidate.is_symlink() or candidate.resolve(strict=True) != base / 'ui-snapshot':
             raise ValueError('A frozen UI must be the owned fixture ui-snapshot directory.')
-        for name in ('index.html', 'app.js', 'i18n.js', 'app.css', 'app-icon.svg'):
-            if (candidate / name).is_symlink() or not (candidate / name).is_file():
-                raise ValueError('Frozen UI resources must be ordinary files.')
+        try:
+            validate_ui_resources(candidate, allow_development=True)
+        except ValueError as error:
+            raise ValueError('Frozen UI resources must be declared ordinary files: ' + str(error)) from error
         ui_directory = candidate
+    else:
+        validate_ui_resources(ui_directory, allow_development=True)
     bridge = Bridge(args.binary.resolve(strict=True), fixture, base)
     prefix = '/' + secrets.token_urlsafe(32) + '/'
 
@@ -443,16 +454,25 @@ def main():
                     return self.respond(json.dumps({'revision': bridge.events}))
                 if path == '__bridge.js':
                     return self.respond(BRIDGE_JS, 'text/javascript')
-                types = {'index.html': 'text/html; charset=utf-8', 'app.js': 'text/javascript', 'i18n.js': 'text/javascript',
-                         'app.css': 'text/css', 'app-icon.svg': 'image/svg+xml'}
                 path = path or 'index.html'
-                if path not in types:
-                    raise ValueError('Not a test UI resource.')
+                allowed = set(UI_RESOURCES) | set(DEVELOPMENT_UI_RESOURCES)
+                if path not in allowed:
+                    raise ValueError('Not a declared test UI resource.')
+                types = {
+                    '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+                    '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+                    '.svg': 'image/svg+xml', '.json': 'application/json', '.license': 'text/plain; charset=utf-8', '.woff2': 'font/woff2',
+                    '.woff': 'font/woff', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                    '.gif': 'image/gif', '.webp': 'image/webp',
+                }
+                mime = types.get(Path(path).suffix.lower())
+                if not mime:
+                    raise ValueError('Unsupported declared UI resource type.')
                 body = (ui_directory / path).read_bytes()
                 if path == 'index.html':
                     body = body.replace(b"connect-src 'none'", b"connect-src 'self'").replace(
                         b'</head>', b'<script src="__bridge.js"></script></head>', 1)
-                self.respond(body, types[path])
+                self.respond(body, mime)
             except (ValueError, OSError) as error:
                 self.respond(json.dumps({'error': str(error)}), status=403)
 

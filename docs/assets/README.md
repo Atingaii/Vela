@@ -10,3 +10,5 @@ The native WebKit viewport is exported without visual editing by the development
 - `vela-sessions.png` and `vela-approval.png` retain the released preview.2 interface. Their copies in `website/dist/assets/` use the same pixels.
 
 The Vela icon and notification sound source files, generation details and license are documented under `Sources/VelaApp/Resources/Design/`. Website font licenses accompany the self-hosted font files. Third-party product references are not redistributed as Vela assets.
+
+`vela-reading.png` shows the current development renderer with the real local Swift helper and synthetic records, captured during `reading-workspace-r2` browser verification at 1250 × 800. It is not a native WKWebView verification receipt. The old native screenshots remain separate historical assets.

@@ -28,7 +28,7 @@ let server; let browser; let context;
 try {
   await mkdir(outputBase, { recursive: true }); await mkdir(output, { recursive: false }); result.sourceHash.before = await digestDirectory();
   const files = result.sourceHash.before.list.filter((file) => file.endsWith('.html'));
-  if (files.length !== 20) fail('page-count', `Expected 20 HTML pages, found ${files.length}`);
+  if (files.length !== 32) fail('page-count', `Expected 32 HTML pages, found ${files.length}`);
   for (const file of files) if (/\b(?:Blume|Walrus|MemWal|px0)\b/i.test(await readFile(file, 'utf8'))) fail('prohibited-comparison-brand', 'Found a prohibited comparison brand in source.', urlPath(file));
   let baseUrl = requestedUrl; if (!baseUrl) { server = await startServer(dist); baseUrl = server.url; } result.baseUrl = baseUrl.replace(/\/$/, '');
   browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) }); context = await browser.newContext(); await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: result.baseUrl });

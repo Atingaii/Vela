@@ -1085,35 +1085,6 @@
     if (btnCloseModal) btnCloseModal.addEventListener('click', closeModal);
     if (modalBackdrop) modalBackdrop.addEventListener('click', closeModal);
 
-    window.addEventListener('resize', () => {
-      const drawer = document.getElementById('detail-drawer');
-      if (drawer && !drawer.classList.contains('hidden')) {
-        const isWide = window.innerWidth >= 1150;
-        document.body.classList.toggle('has-inspector-open', isWide);
-        const backdrop = document.getElementById('drawer-backdrop');
-        if (backdrop) {
-          if (isWide) {
-            backdrop.classList.add('hidden');
-          } else {
-            backdrop.classList.remove('hidden');
-          }
-        }
-        if (isWide && drawerTrapHandler) {
-          document.removeEventListener('keydown', drawerTrapHandler, true);
-          drawerTrapHandler = null;
-        } else if (!isWide && !drawerTrapHandler) {
-          drawerTrapHandler = function(e) {
-            const modal = document.getElementById('modal-container');
-            const isModalOpen = modal && !modal.classList.contains('hidden');
-            if (!isModalOpen && drawer && !drawer.classList.contains('hidden')) {
-              trapFocus(drawer, e);
-            }
-          };
-          document.addEventListener('keydown', drawerTrapHandler, true);
-        }
-      }
-    });
-
     window.addEventListener('vela:localeChanged', (e) => {
       const incoming = e && e.detail && e.detail.locale;
       if (incoming === 'zh-CN' || incoming === 'en') {
@@ -1155,13 +1126,14 @@
     }
     activeRouteEpoch++; // User navigation invalidates pending notification routes
     renderGeneration++;
-    if (state.currentPage !== page) {
-      closeDrawer();
-    }
+    closeDrawer();
     state.currentPage = page;
     state.settingsDraft = null;
     syncNavLinks();
     renderCurrentPage();
+    // Explicit navigation starts at the page heading. Background refresh retains position.
+    const pageContainer = document.getElementById('page-container');
+    if (pageContainer) pageContainer.scrollTop = 0;
   }
 
   // =========================================================================
@@ -4943,6 +4915,50 @@
         ` : ''}
       </div>
 
+      <div style="margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <h3 style="font-size: 14px; font-weight: 600;" data-i18n="sessions.messagesTitle" data-i18n-params="${escapeHtml(JSON.stringify({ count: messages.length }))}">${escapeHtml(t('sessions.messagesTitle', { count: messages.length }))}</h3>
+          <span style="font-size: 12px; color: var(--text-secondary);" data-i18n="sessions.saveMsgMemoryHint">${escapeHtml(t('sessions.saveMsgMemoryHint'))}</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          ${messages.length === 0 ? `<div class="text-secondary" style="font-size: 13px; padding: 24px 0; text-align: center;" data-i18n="sessions.noMessages">${escapeHtml(t('sessions.noMessages'))}</div>` : ''}
+          ${messages.map((m, idx) => {
+            const msgId = m.id ? String(m.id) : '';
+            const msgIdAttr = msgId ? `id="session-msg-${escapeHtml(msgId)}"` : '';
+            const msgDataAttr = msgId ? `data-message-id="${escapeHtml(msgId)}"` : `data-message-index="${idx}"`;
+            const isTool = !!m.tool || m.role === 'tool';
+            const isPrivate = !!(m.private || m.isPrivate || session.private || session.isPrivate);
+            const hasValidRole = (m.role === 'user' || m.role === 'assistant') && !isTool;
+            const hasValidMsgId = typeof m.id === 'string' && m.id.trim().length > 0;
+            const hasValidProject = typeof session.project === 'string' && session.project.trim().length > 0;
+            const canCapture = !isPrivate && hasValidRole && hasValidMsgId && hasValidProject;
+            const btnTitleKey = isTool ? 'sessions.toolCannotCapture' : 'sessions.saveMsgMemoryTitle';
+            const btnTitle = t(btnTitleKey);
+            return `
+            <div class="card session-message-card" data-role="${escapeHtml(m.role || 'message')}" ${msgIdAttr} ${msgDataAttr} tabindex="-1" style="margin-bottom: 0; padding: 12px 14px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="status-badge status-neutral">${escapeHtml(m.role || 'message')}</span>
+                  <span style="font-size: 12px; color: var(--text-muted);">${formatTime(m.timestamp)}</span>
+                </div>
+                ${canCapture ? `
+                  <button class="btn btn-ghost btn-sm btn-save-msg-memory" data-idx="${idx}" data-i18n-title="sessions.saveMsgMemoryTitle" title="${escapeHtml(t('sessions.saveMsgMemoryTitle'))}" data-i18n="sessions.btnSaveMsgMemory">
+                    ${escapeHtml(t('sessions.btnSaveMsgMemory'))}
+                  </button>
+                ` : ''}
+              </div>
+              <div class="session-message-content">${isTool ? VelaContent.code(m.content || '', 'json') : VelaContent.markdown(m.content || '')}</div>
+              ${(m.input || m.output) ? `<details class="session-tool-detail"><summary>${escapeHtml(t('sessions.toolCallHeader', {tool: m.tool || 'tool'}))}</summary>
+                ${m.input ? VelaContent.file(typeof m.input === 'string' ? m.input : JSON.stringify(m.input, null, 2), 'input.json') : ''}
+                ${m.output ? VelaContent.file(typeof m.output === 'string' ? m.output : JSON.stringify(m.output, null, 2), 'output.json') : ''}
+              </details>` : ''}
+            </div>
+          `;
+          }).join('')}
+        </div>
+      </div>
+
       <!-- Observed Task Plan Section -->
       <div id="session-plan-section" class="card session-plan-card" style="padding: 12px 14px; margin-bottom: 16px; background: var(--bg-subtle);">
         <div class="session-plan-header">
@@ -4975,52 +4991,6 @@
           }
         </div>
       </details>
-
-      <div style="margin-bottom: 20px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-          <h3 style="font-size: 14px; font-weight: 600;" data-i18n="sessions.messagesTitle" data-i18n-params="${escapeHtml(JSON.stringify({ count: messages.length }))}">${escapeHtml(t('sessions.messagesTitle', { count: messages.length }))}</h3>
-          <span style="font-size: 12px; color: var(--text-secondary);" data-i18n="sessions.saveMsgMemoryHint">${escapeHtml(t('sessions.saveMsgMemoryHint'))}</span>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          ${messages.length === 0 ? `<div class="text-secondary" style="font-size: 13px; padding: 24px 0; text-align: center;" data-i18n="sessions.noMessages">${escapeHtml(t('sessions.noMessages'))}</div>` : ''}
-          ${messages.map((m, idx) => {
-            const msgId = m.id ? String(m.id) : '';
-            const msgIdAttr = msgId ? `id="session-msg-${escapeHtml(msgId)}"` : '';
-            const msgDataAttr = msgId ? `data-message-id="${escapeHtml(msgId)}"` : `data-message-index="${idx}"`;
-            const isTool = !!m.tool || m.role === 'tool';
-            const isPrivate = !!(m.private || m.isPrivate || session.private || session.isPrivate);
-            const hasValidRole = (m.role === 'user' || m.role === 'assistant') && !isTool;
-            const hasValidMsgId = typeof m.id === 'string' && m.id.trim().length > 0;
-            const hasValidProject = typeof session.project === 'string' && session.project.trim().length > 0;
-            const canCapture = !isPrivate && hasValidRole && hasValidMsgId && hasValidProject;
-            const btnTitleKey = isTool ? 'sessions.toolCannotCapture' : 'sessions.saveMsgMemoryTitle';
-            const btnTitle = t(btnTitleKey);
-            return `
-            <div class="card session-message-card" ${msgIdAttr} ${msgDataAttr} tabindex="-1" style="margin-bottom: 0; padding: 12px 14px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="status-badge status-neutral">${escapeHtml(m.role || 'message')}</span>
-                  <span style="font-size: 12px; color: var(--text-muted);">${formatTime(m.timestamp)}</span>
-                </div>
-                ${canCapture ? `
-                  <button class="btn btn-ghost btn-sm btn-save-msg-memory" data-idx="${idx}" data-i18n-title="sessions.saveMsgMemoryTitle" title="${escapeHtml(t('sessions.saveMsgMemoryTitle'))}" data-i18n="sessions.btnSaveMsgMemory">
-                    ${escapeHtml(t('sessions.btnSaveMsgMemory'))}
-                  </button>
-                ` : ''}
-              </div>
-              <div style="font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: var(--text-main); font-family: var(--font-system);">${escapeHtml(m.content || '')}</div>
-              ${m.tool ? `
-                <div style="margin-top: 8px; font-size: 12px; font-family: var(--font-mono); color: var(--text-secondary); background: var(--bg-subtle); padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border-color);">
-                  <div style="font-weight: 600; margin-bottom: ${m.input || m.output ? '4px' : '0'};">${escapeHtml(t('sessions.toolCallHeader', { tool: m.tool }))}</div>
-                  ${m.input ? `<div style="font-size: 11px; white-space: pre-wrap; word-break: break-all; color: var(--text-muted);">${escapeHtml(typeof m.input === 'string' ? m.input : JSON.stringify(m.input, null, 2))}</div>` : ''}
-                  ${m.output ? `<div style="font-size: 11px; white-space: pre-wrap; word-break: break-all; color: var(--text-secondary); margin-top: 4px; border-top: 1px dashed var(--border-color); padding-top: 4px;">${escapeHtml(typeof m.output === 'string' ? m.output : JSON.stringify(m.output, null, 2))}</div>` : ''}
-                </div>` : ''}
-            </div>
-          `;
-          }).join('')}
-        </div>
-      </div>
 
       <details class="card" style="padding: 12px 14px;" ${messages.length === 0 ? 'open' : ''}>
         <summary style="cursor: pointer; font-size: 13px; font-weight: 600; user-select: none;" data-i18n="sessions.techMetadataSummary">
@@ -12295,20 +12265,15 @@
     });
 
     target.innerHTML = `
-      <div class="memory-filter-bar">
-        ${filterTabs.map(tab => `
-          <button type="button" class="memory-filter-btn ${activeFilter === tab.key ? 'active' : ''}" data-filter="${tab.key}">
-            <span data-i18n="${tab.labelKey}">${tab.label}</span>
-            <span class="memory-filter-count">${tab.count}</span>
-          </button>
-        `).join('')}
-        <div style="margin-left: auto; display: flex; gap: 8px;">
-          <button id="btn-export-memory-archive" class="btn btn-secondary btn-sm" data-i18n="memory.btnExportArchive">${t('memory.btnExportArchive')}</button>
-          <button id="btn-import-memory-archive" class="btn btn-secondary btn-sm" data-i18n="memory.btnImportArchive">${t('memory.btnImportArchive')}</button>
-          <button id="btn-semantic-memory" class="btn btn-secondary btn-sm" data-i18n="memory.btnSemanticMemory">${t('memory.btnSemanticMemory')}</button>
+      <div class="memory-toolbar">
+        <div class="memory-filter-bar" aria-label="Memory filters">
+          ${filterTabs.map(tab => `<button type="button" class="memory-filter-btn ${activeFilter === tab.key ? 'active' : ''}" data-filter="${tab.key}" aria-pressed="${activeFilter === tab.key}"><span data-i18n="${tab.labelKey}">${tab.label}</span><span class="memory-filter-count">${tab.count}</span></button>`).join('')}
+        </div>
+        <div class="memory-primary-actions">
           <button id="btn-knowledge-ask" class="btn btn-secondary btn-sm" data-i18n="ask.modalBtn">${t('ask.modalBtn')}</button>
-          <button id="btn-configure-reuse" class="btn btn-secondary btn-sm" data-i18n="memory.btnConfigReuse">${t('memory.btnConfigReuse')}</button>
-          <button id="btn-recall-tester" class="btn btn-secondary btn-sm" data-i18n="memory.btnRecallTester">${t('memory.btnRecallTester')}</button>
+          <details class="action-menu"><summary class="btn btn-secondary btn-sm" data-i18n="reading.tools">${t('reading.tools')}</summary><div class="action-menu-items">
+            ${[['btn-configure-reuse','memory.btnConfigReuse'],['btn-recall-tester','memory.btnRecallTester'],['btn-semantic-memory','memory.btnSemanticMemory'],['btn-export-memory-archive','memory.btnExportArchive'],['btn-import-memory-archive','memory.btnImportArchive']].map(([id,key]) => `<button id="${id}" type="button" class="btn btn-ghost btn-sm" data-i18n="${key}">${t(key)}</button>`).join('')}
+          </div></details>
           <button id="btn-new-memory" class="btn btn-primary btn-sm" data-i18n="memory.btnNewMemory">${t('memory.btnNewMemory')}</button>
         </div>
       </div>
@@ -12359,17 +12324,18 @@
                   ${renderMemoryTypeBadge(m.type)}
                   ${renderMemoryScopeBadge(m.scope)}
                 </div>
-                <div class="memory-card-actions">
-                  ${st === 'candidate' ? `<button class="btn btn-secondary btn-sm btn-mem-activate" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnActivate">${t('memory.btnActivate')}</button>` : ''}
+                <div class="memory-card-actions"><button class="btn btn-ghost btn-sm btn-mem-view" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnViewDetails">${t('memory.btnViewDetails')}</button>
+                  <details class="action-menu"><summary class="btn btn-ghost btn-sm" aria-label="${escapeHtml(t('reading.more'))}" title="${escapeHtml(t('reading.more'))}">•••</summary><div class="action-menu-items"><button class="btn btn-ghost btn-sm btn-mem-edit" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnEdit">${t('memory.btnEdit')}</button>                  ${st === 'candidate' ? `<button class="btn btn-secondary btn-sm btn-mem-activate" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnActivate">${t('memory.btnActivate')}</button>` : ''}
                   ${st === 'active' ? `<button class="btn btn-ghost btn-sm btn-mem-supersede" data-id="${escapeHtml(m.id)}" title="${t('memory.btnSupersedeTitle')}" data-i18n-title="memory.btnSupersedeTitle" data-i18n="memory.btnSupersede">${t('memory.btnSupersede')}</button>` : ''}
                   ${st !== 'archived' ? `<button class="btn btn-ghost btn-sm btn-mem-archive" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnArchive">${t('memory.btnArchive')}</button>` : ''}
                   <button class="btn btn-ghost btn-sm btn-memory-outcomes" data-memory-id="${escapeHtml(m.id)}" data-i18n="memory.btnOutcomes">${t('memory.btnOutcomes')}</button>
-                  <button class="btn btn-ghost btn-sm btn-mem-edit" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnEdit">${t('memory.btnEdit')}</button>
-                  <button class="btn btn-ghost btn-sm btn-mem-view" data-id="${escapeHtml(m.id)}" data-i18n="memory.btnViewDetails">${t('memory.btnViewDetails')}</button>
+
+
+                </div></details>
                 </div>
               </div>
 
-              <div class="memory-content">${escapeHtml(m.content || '')}</div>
+              <div class="memory-content">${VelaContent.markdown(m.content || '')}</div>
 
               <div class="memory-provenance">
                 ${provenanceHtml}
@@ -12514,7 +12480,7 @@
               </div>
               <div>
                 <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 6px;" data-i18n="memory.drawerContentTitle">${t('memory.drawerContentTitle')}</h3>
-                <div class="code-view">${escapeHtml(m.content || '')}</div>
+                <div>${VelaContent.file(m.content || '', 'Memory.md')}</div>
               </div>
             `;
             const outcomesBtn = drawerBody.querySelector('.btn-drawer-memory-outcomes');
@@ -19512,14 +19478,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
                          (typeof args.patch === 'string') ? args.patch :
                          (typeof args.diff === 'string') ? args.diff : null;
       if (rawContent && rawContent.trim()) {
-        const lines = rawContent.trim().split('\n').slice(0, 3);
-        let preview = lines.join('\n');
-        if (preview.length > 180) {
-          preview = preview.slice(0, 180) + '...';
-        } else if (rawContent.trim().split('\n').length > 3) {
-          preview += '\n...';
-        }
-        previewText = preview;
+        previewText = rawContent;
       }
 
       const frozenTool = (typeof appr.tool === 'string' && appr.tool.trim()) ? appr.tool.trim() : t('inbox.defaultTool');
@@ -19690,7 +19649,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
                 ${summary.previewText ? `
                   <div class="approval-preview" style="margin-bottom: 10px;">
                     <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 3px;" data-i18n="inbox.previewTitle">${t('inbox.previewTitle')}</div>
-                    <pre class="code-view" style="font-size: 14px; padding: 6px 8px; max-height: 80px; overflow: hidden; margin: 0; white-space: pre-wrap; word-break: break-all;">${escapeHtml(summary.previewText)}</pre>
+                    ${VelaContent.file(summary.previewText, summary.targetDisplay || 'change.txt')}
                   </div>
                 ` : ''}
 
@@ -21692,8 +21651,9 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
     ensureDrawerUserScrollListener();
 
     if (drawer) drawer.classList.remove('hidden');
+    document.getElementById('main-content').inert = true;
 
-    const isWide = window.innerWidth >= 1150;
+    const isWide = true; // Content replacement: sidebar remains available at every supported width.
     document.body.classList.toggle('has-inspector-open', isWide);
 
     if (backdrop) {
@@ -21762,6 +21722,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
     const drawer = document.getElementById('detail-drawer');
     const backdrop = document.getElementById('drawer-backdrop');
     if (drawer) drawer.classList.add('hidden');
+    document.getElementById('main-content').inert = false;
     if (backdrop) backdrop.classList.add('hidden');
     document.body.classList.remove('has-inspector-open');
     state.selectedSessionId = null;

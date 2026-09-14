@@ -4,11 +4,17 @@
 
 目标已扩展为覆盖 Blume、Walrus Memory/MemWal、px0 的全部已交付能力，见[228 项逐项台账](parity/README.md)。旧版最小范围不是删减目标的依据。实现、隔离测试、真实提供方、桌面接通、发布验收分别记录；测试总数不能抵消缺失功能。
 
+## 2026-09-14 阅读界面重构
+
+本次由 Codex 直接实现，覆盖主区会话阅读、Memory 常用操作与工具菜单、完整审批 Markdown/源码预览和本地语法高亮。显式页面导航重置阅读位置，后台刷新保持位置；项目、记录与审批的 Core 边界保持。官网扩为 32 个中英文页面，包含 12 项产品能力、8 个使用场景和集成栏目。公开下载仍为 preview.2。
+
+本机真实 helper 浏览器回归及来源见[重构验收记录](implementation/reading-workspace-2026-09-14.md)。新一轮原生 WKWebView 交互验证因 Mac 锁屏尚待完成，不能用浏览器截图代替真机通过。原有 188/228 项总体需求台账和发布门槛仍未全部完成。
+
 ## 当前源码
 
 | 模块 | 已实现行为 | 尚需完成或验证的边界 |
 | --- | --- | --- |
-| 桌面与语言 | AppKit、系统 WKWebView、独立 Swift helper；分组会话、记忆、工作流、审批与设置；简体中文/English 持久化切换 | 当前交付平台 Apple Silicon、macOS 13+。本轮 UI 已经用户授权的 Gemini 兼容 API 实现；已验证入口与仍未验收的台账能力分开记录 |
+| 桌面与语言 | AppKit、系统 WKWebView、独立 Swift helper；分组会话、记忆、工作流、审批与设置；简体中文/English 持久化切换 | 当前交付平台 Apple Silicon、macOS 13+。最新 UI 由用户授权 Codex 直接重构；已验证入口与仍未验收的台账能力分开记录 |
 | 会话观察 | Claude/Codex 增量日志、部分 Cursor 导出/SQLite、Pi v1/v2/v3 分支记录与 OMP 元数据；有界流式读取、来源版本、身份/轮转检查 | 完整历史回填及所有私有 Cursor 格式仍未完成。日志推断不等于进程存活证明；Pi 最新持久化分支不冒充当前活跃分支 |
 | 显式历史回填 | Claude/Codex/Pi/OMP JSONL来源清单、固定epoch、分批读取与重启续传、稳定分页和完整原文分块；解析/原文/分支分别计量 | 历史回填桌面发现/分页/启停/续传/原文分块已通过 UI17 实测和 972 CI；Cursor、未知格式与完整大负载仍未验收，未解析原文不计为归一化功能 |
 | 会话计划 | Codex update_plan、Claude Todo/Task 的持久化调用与成功回执配对；只读任务状态、来源hash/位置、提议/失败/未知区分 | UI17 的全部项目 scope 与后台刷新展开/锚点缺陷保留为历史反例。UI18 r7 已在冻结 renderer→真实隔离 helper 的完整 8 项浏览器路径中复验 explicit project、展开首屏、默认首 cursor、无旧 cursor、stale guard 与 anchor；其真实 held `sessions.relations.get` + 用户 wheel 反例从 r6 的红结果变为 r7 保持阅读位置的通过结果。嵌套 held-response 加 wheel 的反例只在 Chrome 实测，机制是 Chromium 原生 scroll anchoring 的证据支持推断而非 setter trace 结论。另有匹配 r7 的 WKWebView 普通刷新、父子关系导航和双语 Search/Actions 实测；没有原生 held-response 覆盖，仅保存一张刷新后截图，不声称保存前后成对证据。完整历史投影/未文档化格式仍不足，计划完成不证明工程验证通过 |

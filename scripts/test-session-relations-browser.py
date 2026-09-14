@@ -11,6 +11,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES, copy_ui_resources
 import select
 import shutil
 import signal
@@ -20,7 +21,7 @@ import traceback
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-UI_FILES = ('app.js', 'i18n.js', 'app.css', 'index.html', 'app-icon.svg', 'demo.js')
+UI_FILES = UI_RESOURCES + DEVELOPMENT_UI_RESOURCES
 CHECKS = ('hierarchy-and-privacy', 'reported-is-not-child', 'event-pagination',
           'stale-and-duplicate-guards', 'locale-and-supported-size')
 
@@ -100,7 +101,7 @@ def main():
         evidence['fixtureSourcesBefore'] = source_hashes(Path(fixture['sessionRoot']))
         assert evidence['fixtureSourcesBefore'] == rel['allSourceFilesSHA256']
         ui, helper = base / 'ui-snapshot', base / 'vela-frozen'; ui.mkdir()
-        for name in UI_FILES: shutil.copyfile(ui_source / name, ui / name)
+        copy_ui_resources(ui_source, ui, allow_development=True)
         shutil.copy2(binary, helper); evidence['fixtureSourceBefore'] = hashes(ui); evidence['fixtureBinaryBefore'] = hashlib.sha256(helper.read_bytes()).hexdigest()
         assert evidence['sourceBefore'] == evidence['fixtureSourceBefore'] and evidence['binaryBefore'] == evidence['fixtureBinaryBefore']
         spec = importlib.util.spec_from_file_location('vela_browser_helpers', ROOT / 'scripts/test-ui-browser.py'); module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)

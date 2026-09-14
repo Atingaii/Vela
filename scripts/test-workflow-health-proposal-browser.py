@@ -7,8 +7,9 @@ bridge contracts are required; diagnostic subsets never report a full suite.
 """
 import argparse, hashlib, importlib.util, json, os, select, shutil, signal, sqlite3, subprocess, time, traceback, urllib.request
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES, copy_ui_resources
 ROOT=Path(__file__).resolve().parents[1]
-UI_FILES=('app.js','i18n.js','app.css','index.html','app-icon.svg','demo.js')
+UI_FILES=UI_RESOURCES + DEVELOPMENT_UI_RESOURCES
 HARNESS_FILES=('test-ui-server.py','create-ui-fixture.py','test-ui-browser.py')
 CHECKS=('readonly-preview','proposal-reject','uncertain-accept','recovery-stale-locales')
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
@@ -69,8 +70,7 @@ def main():
   ev['uiBefore']={n:sha(ui_source/n) for n in UI_FILES}; ev['helperBefore']=sha(binary)
   ev['harnessBefore']={n:sha(ROOT/'scripts'/n) for n in HARNESS_FILES}
   created=subprocess.run(['python3',str(ROOT/'scripts/create-ui-fixture.py'),str(base),'--binary',str(binary),'--with-routing-project'],capture_output=True,text=True,timeout=120); (out/'fixture-creation.log').write_text(created.stdout+created.stderr); created.check_returncode(); fixture=json.loads((base/'fixture.json').read_text()); project=fixture['project']; env=dict(os.environ,VELA_HOME=fixture['home'],VELA_SESSION_ROOT=fixture['sessionRoot'],VELA_DISABLE_DISCOVERY='1',GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_GLOBAL=os.devnull)
-  snap,helper=base/'ui-snapshot',base/'vela-frozen'; snap.mkdir()
-  for n in UI_FILES: shutil.copyfile(ui_source/n,snap/n)
+  snap,helper=base/'ui-snapshot',base/'vela-frozen'; copy_ui_resources(ui_source,snap,allow_development=True)
   shutil.copy2(binary,helper); ev['uiFixture']={n:sha(snap/n) for n in UI_FILES}; ev['helperFixture']=sha(helper); assert ev['uiBefore']==ev['uiFixture'] and ev['helperBefore']==ev['helperFixture']
   # Three actual helper runs: reject, uncertain accept, and recovery. Each runs
   # only the fixture-owned local sleep command after one recorded approval.

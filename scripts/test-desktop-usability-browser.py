@@ -18,6 +18,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES, copy_ui_resources
 import select
 import shutil
 import signal
@@ -29,7 +30,7 @@ import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-UI_FILES = ("index.html", "app.js", "i18n.js", "app.css", "app-icon.svg", "demo.js")
+UI_FILES = UI_RESOURCES + DEVELOPMENT_UI_RESOURCES
 CHECKS = (
     "selector-contract",
     "asset-path-does-not-overflow",
@@ -217,8 +218,7 @@ def main() -> int:
 
         frozen_ui, frozen_helper = fixture / "ui-snapshot", fixture / "vela-frozen"
         frozen_ui.mkdir()
-        for name in UI_FILES:
-            shutil.copyfile(ui_source / name, frozen_ui / name)
+        copy_ui_resources(ui_source, frozen_ui, allow_development=True)
         shutil.copy2(binary, frozen_helper)
         evidence["frozenUI"] = {name: sha(frozen_ui / name) for name in UI_FILES}
         evidence["frozenHelper"] = sha(frozen_helper)

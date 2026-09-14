@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES
 import select
 import shutil
 import signal
@@ -137,6 +138,13 @@ def main():
         browser('click', selector)
         browser('snapshot', '-i')
 
+    def open_action_menu(trigger):
+        menu = 'details.action-menu:has(' + trigger + ')'
+        wait_for('!!document.querySelector(' + json.dumps(menu) + ')', 'Action menu is absent for ' + trigger)
+        if not value('document.querySelector(' + json.dumps(menu) + ').open'):
+            click(menu + ' > summary')
+            wait_for('document.querySelector(' + json.dumps(menu) + ').open===true', 'Action menu did not open for ' + trigger)
+
     def page(name):
         browser('press', 'Escape')
         browser('press', 'Escape')
@@ -176,7 +184,7 @@ def main():
         report = base / ('browser-results-diagnostic.json' if selected_checks else 'browser-results.json')
         metadata_path = base / ('browser-metadata-diagnostic.json' if selected_checks else 'browser-metadata.json')
         def source_hashes():
-            files = {name: (args.ui_directory or ROOT / 'Sources/VelaApp/Resources/UI') / name for name in ('index.html', 'app.js', 'i18n.js', 'app.css')}
+            files = {name: (args.ui_directory or ROOT / 'Sources/VelaApp/Resources/UI') / name for name in UI_RESOURCES + DEVELOPMENT_UI_RESOURCES}
             files['helper'] = args.binary
             return {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in files.items()}
         source_before = source_hashes()
@@ -226,7 +234,9 @@ def main():
             click('#btn-save-mem')
             wait_for('document.querySelector("#modal-container").classList.contains("hidden")', 'Memory form did not save.')
             item = next(m for m in read('memory.list') if m['title'] == 'Renderer acceptance constraint')
+            open_action_menu('.btn-mem-activate[data-id="' + item['id'] + '"]')
             click('.btn-mem-activate[data-id="' + item['id'] + '"]')
+            open_action_menu('#btn-recall-tester')
             click('#btn-recall-tester')
             browser('fill', '#recall-query', 'Renderer acceptance constraint')
             browser('select', '#recall-project', str(project))

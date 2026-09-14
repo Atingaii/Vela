@@ -28,7 +28,9 @@ class ReleaseResourceTests(unittest.TestCase):
         self.ui = self.resources / 'UI'
         self.ui.mkdir(parents=True)
         for name in UI_RESOURCES:
-            (self.ui / name).write_text('synthetic release resource\n')
+            path = self.ui / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('synthetic release resource\n')
         (self.ui / 'demo.js').write_text('const SYNTHETIC_DEVELOPMENT_ONLY = true;\n')
         (self.resources / 'Vela.icns').write_bytes(b'synthetic icon')
         (self.resources / 'Sounds').mkdir()
@@ -65,7 +67,7 @@ runpy.run_path(sys.argv[0],run_name='__main__')
         result = self.package()
         self.assertEqual(result.returncode, 0, result.stderr)
         target = self.bundle / 'Contents/Resources/UI'
-        self.assertEqual({path.name for path in target.iterdir()}, set(UI_RESOURCES))
+        self.assertEqual({path.relative_to(target).as_posix() for path in target.rglob('*') if path.is_file()}, set(UI_RESOURCES))
         self.assertFalse((target / 'demo.js').exists())
         result = self.audit()
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -91,7 +93,7 @@ runpy.run_path(sys.argv[0],run_name='__main__')
                 result = self.package()
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(name, result.stderr)
-                external = self.root / ('linked-' + name)
+                external = self.root / ('linked-' + name.replace('/', '-'))
                 external.write_bytes(original)
                 path.symlink_to(external)
                 result = self.package()

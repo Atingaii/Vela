@@ -2,7 +2,8 @@
 """A delayed real feedback prepare must not overwrite the user's in-flight edit."""
 import argparse,hashlib,importlib.util,json,os,select,shutil,signal,subprocess,time,traceback
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1]; FILES=('app.js','i18n.js','app.css','index.html','app-icon.svg','demo.js')
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES, copy_ui_resources
+ROOT=Path(__file__).resolve().parents[1]; FILES=UI_RESOURCES + DEVELOPMENT_UI_RESOURCES
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def evaluate_gate(evidence):
  diagnosis=evidence.get('diagnosis') if isinstance(evidence.get('diagnosis'),dict) else {}
@@ -34,7 +35,7 @@ def main():
  try:
   harness=(ROOT/'scripts/test-ui-server.py',ROOT/'scripts/create-ui-fixture.py',ROOT/'scripts/test-ui-browser.py');ev['uiBefore']={n:sha(ui/n) for n in FILES};ev['helperBefore']=sha(binary);ev['harnessBefore']={x.name:sha(x) for x in harness}
   made=subprocess.run(['python3',str(ROOT/'scripts/create-ui-fixture.py'),str(base),'--binary',str(binary),'--with-routing-project'],cwd=ROOT,text=True,capture_output=True,timeout=120);(out/'fixture-creation.log').write_text(made.stdout+made.stderr);made.check_returncode();fx=json.loads((base/'fixture.json').read_text());project,run=fx['project'],fx['completedRun']
-  snap,helper=base/'ui-snapshot',base/'vela-frozen';snap.mkdir();[shutil.copyfile(ui/n,snap/n) for n in FILES];shutil.copy2(binary,helper);ev['uiFixture']={n:sha(snap/n) for n in FILES};ev['helperFixture']=sha(helper)
+  snap,helper=base/'ui-snapshot',base/'vela-frozen';copy_ui_resources(ui,snap,allow_development=True);shutil.copy2(binary,helper);ev['uiFixture']={n:sha(snap/n) for n in FILES};ev['helperFixture']=sha(helper)
   # Seed an actual current feedback so UI21's prepare continuation has a prefill value.
   direct=lambda m,x:subprocess.run([str(helper),'call',m,json.dumps(x),'--home',fx['home']],cwd=Path(project),text=True,capture_output=True,timeout=25)
   prep=direct('runs.feedback.prepare',{'project':project,'runId':run});assert prep.returncode==0,prep.stderr;prepared=json.loads(prep.stdout);seed=direct('runs.feedback.record',{'project':project,'runId':run,'runHash':prepared['runHash'],'previousFeedbackHash':None,'outcome':'bad','reason':'Synthetic delayed-prefill seed.'});assert seed.returncode==0,seed.stderr

@@ -105,6 +105,7 @@ jobs:
           BROWSER_EXECUTABLE="$(node -e "console.log(require('./.task-tmp/ui-browser-tools/node_modules/playwright').chromium.executablePath())")"
           test -x "$BROWSER_EXECUTABLE"
           python3 scripts/test-engineering-browser.py --fixture .task-tmp/ci-engineering --output output/playwright/ci-engineering
+          node scripts/test-rich-content-browser.mjs --fixture .task-tmp/ci-engineering --output output/playwright/ci-rich-content --browser-executable "$BROWSER_EXECUTABLE"
           python3 scripts/test-ask-consumer-contracts.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-ask-consumer --output output/playwright/ci-ask-consumer
           python3 scripts/test-library-watch-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-library-watch --output output/playwright/ci-library-watch
           python3 scripts/test-history-plan-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-history-plan --output output/playwright/ci-history-plan --browser-executable "$BROWSER_EXECUTABLE"

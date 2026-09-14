@@ -13,6 +13,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES, copy_ui_resources
 import select
 import shutil
 import signal
@@ -22,7 +23,7 @@ import traceback
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-UI_FILES = ('app.js', 'i18n.js', 'app.css', 'index.html', 'app-icon.svg', 'demo.js')
+UI_FILES = UI_RESOURCES + DEVELOPMENT_UI_RESOURCES
 CHECKS = ('discovery-pagination', 'source-start', 'pause-resume-persistence', 'cancel-resume',
           'event-pages-unicode-raw', 'plan-states', 'plan-event-pagination', 'project-isolation',
           'delayed-plan-routing', 'branch-pagination')
@@ -156,8 +157,7 @@ def main():
         project = fixture['project']
         ui = base / 'ui-snapshot'
         ui.mkdir()
-        for name in UI_FILES:
-            shutil.copyfile(ui_source / name, ui / name)
+        copy_ui_resources(ui_source, ui, allow_development=True)
         helper = base / 'vela-frozen'
         shutil.copy2(helper_source, helper)
         evidence['fixtureSourceBefore'] = hashes(ui)

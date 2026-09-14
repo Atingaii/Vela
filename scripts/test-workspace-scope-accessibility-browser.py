@@ -9,6 +9,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES, copy_ui_resources
 import re
 import select
 import shutil
@@ -19,7 +20,7 @@ import traceback
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-UI_FILES = ('index.html', 'app.js', 'i18n.js', 'app.css', 'app-icon.svg', 'demo.js')
+UI_FILES = UI_RESOURCES + DEVELOPMENT_UI_RESOURCES
 CHECKS = ('all-projects-harbor-plan', 'all-projects-beacon-plan',
           'all-projects-codex-relations-pagination', 'stale-bridge-results',
           'live-refresh-preserves-detail-intent', 'search-actions-listbox',
@@ -203,8 +204,7 @@ def main():
 
         frozen_ui, frozen_helper = fixture / 'ui-snapshot', fixture / 'vela-frozen'
         frozen_ui.mkdir()
-        for name in UI_FILES:
-            shutil.copyfile(ui_source / name, frozen_ui / name)
+        copy_ui_resources(ui_source, frozen_ui, allow_development=True)
         shutil.copy2(binary, frozen_helper)
         evidence['frozenUIHashes'] = {name: sha(frozen_ui / name) for name in UI_FILES}
         evidence['frozenHelperSHA256'] = sha(frozen_helper)

@@ -122,7 +122,7 @@ def source_inventory(site_root: Path, pages: list[PageSource]) -> dict:
         "root": str(site_root),
         "pageCount": len(page_records),
         "assetCount": len(asset_records),
-        "expectedPageCount": 20,
+        "expectedPageCount": 32,
         "aggregateSHA256": aggregate,
         "pages": page_records,
         "assets": asset_records,
@@ -465,7 +465,7 @@ def main() -> int:
     if not source_unchanged:
         bad.append({"sourceInventory": "changed while HTTP verification ran"})
     evidence["errors"] = evidence["sourceErrors"] + bad
-    evidence["summary"] = {"pageCount": len(evidence["pages"]), "resourceCount": len(evidence["resources"]), "navigationCount": len(evidence["navigation"]), "failedRecordCount": len(bad), "sourceUnchanged": source_unchanged, "transport": "HTTP only; no browser executed", "passed": len(pages) == 20 and not evidence["sourceErrors"] and not bad}
+    evidence["summary"] = {"pageCount": len(evidence["pages"]), "resourceCount": len(evidence["resources"]), "navigationCount": len(evidence["navigation"]), "failedRecordCount": len(bad), "sourceUnchanged": source_unchanged, "transport": "HTTP only; no browser executed", "passed": len(pages) == 32 and not evidence["sourceErrors"] and not bad}
     evidence["finishedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

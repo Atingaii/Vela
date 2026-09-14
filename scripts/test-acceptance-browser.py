@@ -22,6 +22,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES, copy_ui_resources
 import platform
 import select
 import shlex
@@ -65,7 +66,7 @@ def main():
     ui = ROOT / 'Sources/VelaApp/Resources/UI'
     if args.ui_snapshot:
         ui = base / 'ui-snapshot'
-        shutil.copytree(args.ui_snapshot.resolve(strict=True), ui)
+        copy_ui_resources(args.ui_snapshot.resolve(strict=True), ui, allow_development=True)
     harbor, beacon = fixture['project'], fixture['routingProject']
     stamp = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
     sources = Path(fixture['sessionRoot']) / 'codex'
@@ -106,7 +107,7 @@ def main():
         'playwrightVersion': json.loads((args.playwright_module.resolve().parent / 'package.json').read_text())['version'],
         'binarySHA256': hashlib.sha256(binary.read_bytes()).hexdigest(),
         'uiSHA256': {name: hashlib.sha256((ui / name).read_bytes()).hexdigest()
-                     for name in ('app.js', 'i18n.js', 'app.css', 'index.html')},
+                     for name in UI_RESOURCES + DEVELOPMENT_UI_RESOURCES},
         'realProviderExecuted': False, 'nativeIntegrationTested': False, 'fullGoldenScenarioPassed': False,
         'requestedChecks': [name for name in CHECKS if name in selected], 'completeSuite': False, 'checks': results}
 
@@ -144,6 +145,13 @@ def main():
 
     def click(selector):
         browser('click', selector)
+
+    def open_action_menu(trigger):
+        menu = 'details.action-menu:has(' + trigger + ')'
+        wait_for('!!document.querySelector(' + json.dumps(menu) + ')', 'Action menu is absent for ' + trigger)
+        if not value('document.querySelector(' + json.dumps(menu) + ').open'):
+            click(menu + ' > summary')
+            wait_for('document.querySelector(' + json.dumps(menu) + ').open===true', 'Action menu did not open for ' + trigger)
 
     def page(name, project=harbor):
         browser('press', 'Escape'); browser('press', 'Escape')
@@ -211,7 +219,9 @@ def main():
                 expected = sorted(m['id'] for m in actual if state == 'all' or m['state'].lower() == state)
                 assert cards() == expected, 'Visible Memory cards do not match persisted lifecycle: ' + state
             click('.memory-filter-btn[data-filter="candidate"]')
-            click('.btn-mem-activate[data-id=' + json.dumps(memories['candidate']['id']) + ']')
+            activation = '.btn-mem-activate[data-id=' + json.dumps(memories['candidate']['id']) + ']'
+            open_action_menu(activation)
+            click(activation)
             wait_for('!document.querySelector(".btn-mem-activate[data-id=\\"' + memories['candidate']['id'] + '\\"]")', 'Activation did not leave Candidate filter.')
             assert next(m for m in rpc('memory.list', {'project': harbor}) if m['id'] == memories['candidate']['id'])['state'] == 'active'
             return {'statesChecked': 5, 'transition': 'candidate→active'}
@@ -312,6 +322,7 @@ def main():
 
         def reuse_apply_undo():
             page('memory')
+            open_action_menu('#btn-configure-reuse')
             click('#btn-configure-reuse')
             browser('select', '#reuse-project-select', harbor)
             click('#btn-preview-reuse')
@@ -332,6 +343,7 @@ def main():
             wait_for('document.querySelector("#modal-container").classList.contains("hidden")', 'Safe Apply did not finish.')
             assert hook.read_text() == draft['operations'][0]['content']
             page('memory')
+            open_action_menu('#btn-configure-reuse')
             click('#btn-configure-reuse')
             browser('select', '#reuse-project-select', harbor)
             click('#btn-preview-reuse')

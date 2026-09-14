@@ -7,7 +7,7 @@ root = pathlib.Path(__file__).resolve().parents[1]
 required = ['README.md','README.zh-CN.md','LICENSE','CONTRIBUTING.md','SECURITY.md','CODE_OF_CONDUCT.md','CHANGELOG.md','docs/status.md','docs/architecture.md']
 required += ['website/dist/index.html','website/dist/docs.html','website/dist/privacy.html','website/dist/releases.html']
 required += ['website/dist/comparisons/index.html','website/dist/usecases/index.html']
-required += [f'website/dist/usecases/{slug}/index.html' for slug in ['session-review','project-memory','review-workflows','compare-and-reuse']]
+required += [f'website/dist/usecases/{slug}/index.html' for slug in ['session-review','project-memory','review-workflows','compare-and-reuse','configuration-audit','knowledge-search','workflow-health','usage-and-recovery']]
 errors = [f'Missing {name}' for name in required if not (root/name).is_file()]
 for directory in ['Sources/VelaApp/Resources','website/dist']:
     for p in (root/directory).rglob('*.js'):
