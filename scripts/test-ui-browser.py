@@ -253,9 +253,22 @@ def main():
             click('#btn-save-wf')
             wait_for('document.querySelector("#modal-container").classList.contains("hidden")', 'Workflow form did not save.')
             item = next(w for w in read('workflows.list') if w['title'] == 'Renderer approved note')
+            # Per-workflow mutating actions now live in the row's real
+            # disclosure menu.  Open it through the product control before
+            # exercising Dry Run; do not force-click a hidden action.
+            open_action_menu('.btn-wf-dryrun[data-id="' + item['id'] + '"]')
             click('.btn-wf-dryrun[data-id="' + item['id'] + '"]')
             assert not (project / 'docs/ui-browser-check.md').exists(), 'Dry Run wrote a file.'
+            # The real handler refreshes the dashboard and opens the dry-run
+            # record asynchronously.  Wait for that committed UI transition,
+            # then close its drawer before selecting the row's separate Run
+            # action.  Otherwise a late dashboard redraw can detach the menu
+            # while Playwright is opening it.
+            wait_for('!document.querySelector("#detail-drawer")?.classList.contains("hidden")', 'Dry Run did not complete and open its run detail.')
+            browser('press', 'Escape')
+            wait_for('document.querySelector("#detail-drawer")?.classList.contains("hidden")', 'Dry Run detail drawer did not close before Run selection.')
             page('workflows')
+            open_action_menu('.btn-wf-run[data-id="' + item['id'] + '"]')
             click('.btn-wf-run[data-id="' + item['id'] + '"]')
             # The product handler awaits workflows.run before it refreshes the
             # dashboard. A Playwright click only waits for the DOM event, so
