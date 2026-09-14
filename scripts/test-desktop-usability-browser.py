@@ -319,7 +319,10 @@ def main() -> int:
             assert value("!!document.querySelector(" + json.dumps(row + " .btn-setup-action-history") + ")"), "history action is absent from the opened asset menu"
             click(row + " details.action-menu > summary")
             wait("document.querySelector(" + json.dumps(row + " details.action-menu") + ")?.open===false", "asset secondary menu did not close")
-            click(row + " .btn-setup-view")
+            # The visible title is the primary read-only preview action. The
+            # same semantic class also appears inside the collapsed overflow
+            # menu, which must not be clicked while hidden.
+            click(row + " .row-title.btn-setup-view")
             wait("!document.querySelector('#detail-drawer')?.classList.contains('hidden')", "asset title did not open its read-only drawer")
             click("#btn-close-drawer")
             return {"assetId": artifact["id"], "relativePath": long_relative, "viewport": [1280, 720], "geometry": geometry,
