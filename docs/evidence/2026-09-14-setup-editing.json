@@ -8,7 +8,7 @@
   "nativeLimitation": "Earlier macOS lock prevented interaction. Latest final-UI QA activation and app reads timed out in CUA; no native interaction passed. Owned QA launcher stopped; isolated fixture retained.",
   "uiSHA256": {
     "index.html": "380127605c6c147ee7b58bb54e0e9d770204b7d6a811f38f6103b7ae97356786",
-    "app.js": "52dd8e2eca32d6fca8681c507620940f01484d0b39a5a45808fa8568f7e08232",
+    "app.js": "f2e81d78f43eda35105e4f919db5804d60c76934b777d63199097925bb6ad846",
     "i18n.js": "ad84691b013c75518bd4cd03e62189b9ef11fb1d04aa6a9b9a92b4c50bb33fb7",
     "app.css": "c4e98fbacd99c0c90fcef842ad69ed81285b9ab5d20b1db9e9dbd01fd8927689",
     "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
@@ -61,8 +61,8 @@
       "checks": 14
     },
     "setupBrowser": {
-      "path": "output/playwright/setup-edit-final-r5/results.json",
-      "sha256": "2ff9f7cd4aecab2c39cf20c150a1433ca80c8d9b2eacc931fdfee114ae09bc3c",
+      "path": "output/playwright/setup-edit-toast-lifecycle-r1/results.json",
+      "sha256": "168bae5b54ebd6903a851f8574a368e92a5bc75547e42a61c81cdb94bab02ea9",
       "passed": true,
       "checks": 13,
       "helperSHA256": "f6bfbccb46da0cae02447752b5b5d07057ccbfa8b6d05c8e1de8c937509ed059",
@@ -78,14 +78,22 @@
       "scopeNote": "Same content.js and packaged helper; app.js/reading.css precede the later modal toast correction. This is not a full regression of the final UI."
     },
     "package": {
-      "path": "output/parity/setup-edit-final-package-r4.json",
-      "sha256": "c505035a824b96749f32f65fadaf399b3a78114afa3cbca05910bdf9c6c2b4d6",
+      "path": "output/parity/setup-edit-final-package-r5.json",
+      "sha256": "14dfc9c4799789754204015b84ca35629b2cd6f578b3f999cff8daf3d21144fb",
       "passed": true
+    },
+    "workspaceBrowser": {
+      "path": "output/playwright/workspace-actions-toast-r2/results.json",
+      "sha256": "42542ac1b1443b8e9bb25a2930254ae8e7a24c59203672e95abfba2c6044e407",
+      "passed": true,
+      "checks": 9,
+      "sourceUnchanged": true,
+      "scopeNote": "Real packaged helper; original Cmd-K and toast expiry assertions preserved."
     }
   },
   "package": {
-    "archiveSHA256": "4ed04fa9083a266fe398de3e5498c16d89dfcb5a12c8a05d9b8eaa4b359b0c14",
-    "archiveBytes": 3974101,
+    "archiveSHA256": "f38c4d0198e978d9596c2c534bd09037e5ebf1a2a6f76acc55ff20ca4984ba87",
+    "archiveBytes": 3974107,
     "channel": "dev",
     "version": "0.1.0",
     "codesignVerified": true,
@@ -117,11 +125,12 @@
     "final-r2 had 10 passing checks; its 900px check observed the drawer rather than an open editor.",
     "final-r3 had 11 passing checks, but visual inspection found stale info toasts over the footer. Final-r4 verifies centre hit targets after the product fix.",
     "Final-r4 predates the late prepare response fix and discard-listener cleanup.",
-    "Race-r3 passed 12 checks; race-r2 retained a consumer draft-isolation failure. Final-r5 uses the packaged helper and adds request-settlement listener cleanup verification."
+    "Race-r3 passed 12 checks; race-r2 retained a consumer draft-isolation failure. Final-r5 uses the packaged helper and adds request-settlement listener cleanup verification.",
+    "CI 7180ac failed in Workspace Actions before the Setup browser command ran. Global modal dismissal conflicted with the Cmd-K toast contract; final UI limits old info dismissal to openSetupEditor. Both original 9-check Workspace Actions and 13-check Setup browser suites passed locally after this correction."
   ],
   "screenshot": {
     "path": "docs/assets/vela-setup-editing.png",
-    "source": "output/playwright/setup-edit-final-r5/browser/review-diff.png",
+    "source": "output/playwright/setup-edit-toast-lifecycle-r1/browser/review-diff.png",
     "sha256": "5f8ae9f2cd5eb70665fb9c5de1f96d4beb5ffa5877d6cda0646a610deb841144",
     "native": false,
     "pixelsModified": false

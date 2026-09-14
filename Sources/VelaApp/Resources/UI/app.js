@@ -10986,6 +10986,9 @@
     const project = art.project || state.currentProject;
     const key = setupEditKey(art);
     let existing = setupEditDrafts.get(key);
+    // A prior success notice can cover this editor's footer. This is scoped to
+    // starting an edit; lightweight dialogs such as Cmd-K retain their notices.
+    document.querySelectorAll('#toast-container .toast-info').forEach(toast => toast._dismiss?.(true));
     openModal({ key: 'setupEdit.title', params: { name: setupAssetDisplayName(art) } }, `<div class="setup-editor"><p data-i18n="common.loading">${escapeHtml(t('common.loading'))}</p></div>`);
     const instance = currentModalInstance;
     const current = () => currentModalInstance === instance && !document.getElementById('modal-container').classList.contains('hidden');
@@ -22096,9 +22099,6 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
   }
 
   function openModal(title, bodyHtml, footerHtml = '', triggerEl = null) {
-    // Success notices from the previous view should not travel into a new
-    // editing task or cover its actions. Warnings and errors remain visible.
-    document.querySelectorAll('#toast-container .toast-info').forEach(toast => toast._dismiss?.(true));
     if (activeSetupEdit) {
       activeSetupEdit.saveDraft();
       activeSetupEdit.cleanup?.();
