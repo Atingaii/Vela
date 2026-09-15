@@ -1,0 +1,833 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-15",
+  "scope": "Blume first: capability and interaction audit before redesign",
+  "referenceVersion": "1.0.74",
+  "velaCommit": "cc3bec71222c13347674691cca06865ba1fdfb36",
+  "overallParity": "not_achieved",
+  "allReferenceFunctionsExecuted": false,
+  "observations": [
+    {
+      "id": "N01",
+      "screen": "Agents 活动页",
+      "coverage": "实际导航",
+      "observed": "约 400 px 窄窗；状态分组、短标题、项目、相对时间、Dismiss 入口；底部 harness、搜索和设置。未隐藏真实会话。"
+    },
+    {
+      "id": "N02",
+      "screen": "Inactive 历史页",
+      "coverage": "实际导航",
+      "observed": "Show inactive 打开独立 last 7 days 页面，按日期分组，有 Back、Refresh；进入并返回。未验证七日以外完整历史。"
+    },
+    {
+      "id": "N03",
+      "screen": "会话详情与菜单",
+      "coverage": "实际导航",
+      "observed": "标题、branch、运行时间、turn、更新时间与项目/harness 关系；Recent activity、Todos、Sub-agents 三页。当前更多菜单看到 Copy conversation 和 Open worktree/path in；未执行复制、续接或外部打开。"
+    },
+    {
+      "id": "N04",
+      "screen": "活动、计划、子代理",
+      "coverage": "部分状态",
+      "observed": "活动中的工具请求压为 step/tool call 折叠行；Todos 和 Sub-agents 实际进入空状态。Open conversation 只见入口；非空计划、子代理图和完整 transcript 未复测。"
+    },
+    {
+      "id": "N05",
+      "screen": "Setup 首页",
+      "coverage": "实际导航",
+      "observed": "Recent projects 与 Global artifacts 分组；项目卡有简短路径、数量、更多入口；全局项区分 MCP、配置和目录。"
+    },
+    {
+      "id": "N06",
+      "screen": "项目 Setup",
+      "coverage": "实际导航",
+      "observed": "项目头部下分 Setup、Conversations、Worktrees。Setup 区分本项目与全局来源、目录/文件和 Show all；当前项目显示达到扫描上限提示，不能把该清单当完整扫描结果。"
+    },
+    {
+      "id": "N07",
+      "screen": "Artifact 文档",
+      "coverage": "实际导航",
+      "observed": "AGENTS.md 默认 Markdown 阅读；Content、Related、Details 分开；块级 Edit block 入口可见。点击首个编辑入口未出现可确认的编辑器，未保存任何 Blume 文件。"
+    },
+    {
+      "id": "N08",
+      "screen": "Artifact 关系与详情",
+      "coverage": "实际导航",
+      "observed": "Related 实际显示无关联；Details 用类型、provider、scope、influence、composition、source type、短文件名的定义列表。未验证非空关系和版本恢复。"
+    },
+    {
+      "id": "N09",
+      "screen": "Artifact 筛选菜单",
+      "coverage": "实际打开",
+      "observed": "全局类型多选菜单可见 All types、Configuration、Instruction、MCP server、Plugin、Skill；数量随已加载项目而定。未以未出现的类型推断产品不支持。"
+    },
+    {
+      "id": "N10",
+      "screen": "账户用量",
+      "coverage": "失败态实测",
+      "observed": "Usage 先 checking/skeleton，刷新暂不可用；随后 Claude Code 为 Not connected，给出打开终端、复制登录命令、完成登录、返回刷新的步骤；Codex 为 operation aborted。未得到成功账户额度。"
+    },
+    {
+      "id": "N11",
+      "screen": "Improve 首页",
+      "coverage": "实际导航",
+      "observed": "Beta；Processing summary 分 Signals、Clusters、Conversations；Analytics 与 Suggestions 分区。建议当前为空，未执行建议的 Preview/Apply/Snooze/Undo。"
+    },
+    {
+      "id": "N12",
+      "screen": "Analytics",
+      "coverage": "实际导航",
+      "observed": "当前版本可进入独立页面，last 30 days、Corrections/Steering/Frustration、待比较状态、以 user turns 为分母及多日趋势条件。未得到非空趋势质量验证。"
+    },
+    {
+      "id": "N13",
+      "screen": "Improvements 设置",
+      "coverage": "只读设置",
+      "observed": "Connected plans、空闲/额度窗口/关闭的处理方式、plan priority、来源、项目/global scope、Rules/Hooks/Skills/Docs、自动 Setup audit 和 Weekly 频率入口可见。优先级区域仍 loading；未改变设置或验证后台处理成功。"
+    },
+    {
+      "id": "N14",
+      "screen": "搜索",
+      "coverage": "入口已打开",
+      "observed": "Cmd+F 打开搜索，Conversations/Messages/Projects/Setup/Suggestions 分类，当前上下文类别及全局快捷键提示；未执行精确消息命中、高亮和返回源位置测试。"
+    },
+    {
+      "id": "N15",
+      "screen": "设置结构",
+      "coverage": "实际导航",
+      "observed": "Personalization、Intelligence、App 分组；Appearance、Behavior、Theme、Share、Improvements、Menu Bar、System 使用摘要行进入专页。"
+    },
+    {
+      "id": "N16",
+      "screen": "Appearance",
+      "coverage": "只读设置及预览",
+      "observed": "缩放 90/100/110/125/150%，包括图标与间距；petal effects、Sections All/By status、Cards Regular/Compact；实际展开合成卡片预览，未改偏好。"
+    },
+    {
+      "id": "N17",
+      "screen": "Behavior",
+      "coverage": "只读设置",
+      "observed": "Weekly Wrapped 开关与说明、Excluded Projects 路径/glob 输入、选择目录与 Add rule。说明索引删除范围、项目源文件保留和移除规则后重新发现；未执行排除或生成周报。"
+    },
+    {
+      "id": "N18",
+      "screen": "Menu Bar",
+      "coverage": "只读设置",
+      "observed": "开关、彩色状态、Filled/Bordered；Menu bar contents 与 Pinned mode contents 独立。打开内容菜单，看到状态数量、Agents/Usage 和 Claude/Codex usage 等选项；未改偏好。"
+    },
+    {
+      "id": "N19",
+      "screen": "Pin",
+      "coverage": "可逆往返操作",
+      "observed": "普通窄窗 → 约 180 px 宽悬浮条 → Expand pinned 恢复完整页面 → Unpin 返回普通窗口。已恢复 Pin 关闭。悬浮条不是仅把原大窗口置顶。"
+    },
+    {
+      "id": "N20",
+      "screen": "Theme 与分享",
+      "coverage": "只读设置",
+      "observed": "可选与锁定主题、分享/邀请解锁入口；未改主题、未登录、未分享。创建邀请链接中不等于已生成可用链接。"
+    },
+    {
+      "id": "N21",
+      "screen": "System 与菜单",
+      "coverage": "实际导航",
+      "observed": "System 实见登录时启动开关；原生菜单可见 About/Services/Hide/Quit 等。未确认更新通道、安装 MCP、备份、账号管理入口，不能据此判定不存在。"
+    },
+    {
+      "id": "N22",
+      "screen": "Feedback",
+      "coverage": "实际导航",
+      "observed": "支持聊天入口、功能请求列表、状态/评论/投票入口；经历加载后列表成功出现。未联系团队、提交、投票或留邮箱；板上 Shipped 标签不是本轮功能执行证据。"
+    },
+    {
+      "id": "N23",
+      "screen": "项目 Worktrees",
+      "coverage": "空状态实测",
+      "observed": "从项目详情切换到 Worktrees，显示 No worktrees found for this project。非空 worktree 发现、打开和身份关系未验证。"
+    },
+    {
+      "id": "N24",
+      "screen": "项目 Conversations",
+      "coverage": "列表实测",
+      "observed": "从同一项目切换 Conversations，可见关联会话、provider、相对时间、Running/Inactive。未把列表出现当作所有项目关系正确。"
+    }
+  ],
+  "items": [
+    {
+      "id": "B01",
+      "capability": "五 harness 发现",
+      "observations": [
+        "N01"
+      ],
+      "blumeScope": "官方声明；本机只确认已配置入口",
+      "velaEvidence": "code_review",
+      "vela": "FoundationService 列 Claude/Codex/Cursor/Pi/OMP；本轮只用隔离 fixture 查看列表。",
+      "gap": "分别验证五种真实安装/未安装/遗留目录与 GUI PATH；当前不能判为五 provider 全量对齐。",
+      "source": "Sources/VelaCore/FoundationService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B02",
+      "capability": "Claude 消息摄取",
+      "observations": [
+        "N01",
+        "N04"
+      ],
+      "blumeScope": "完整格式未复测",
+      "velaEvidence": "native_observed",
+      "vela": "合成 Claude 消息和待审批行能展示；常见 JSONL reader 已有。",
+      "gap": "逐版本真实消息、工具配对、分段/中断及错误展示；合成行不代表真实兼容。",
+      "source": "Sources/VelaCore/SessionEngine.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B03",
+      "capability": "Codex 消息摄取",
+      "observations": [
+        "N03",
+        "N04"
+      ],
+      "blumeScope": "真实会话可进入；完整格式未复测",
+      "velaEvidence": "native_observed",
+      "vela": "合成 Codex 详情、命令记录和正文在原生窗口可读。",
+      "gap": "完整输出类型、长文本、累计事件与日志替换；同输入逐段比较，不从一条命令推断全覆盖。",
+      "source": "Sources/VelaCore/SessionEngine.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B04",
+      "capability": "Cursor 消息摄取",
+      "observations": [],
+      "blumeScope": "本轮未运行该 provider",
+      "velaEvidence": "code_review",
+      "vela": "存在已知 composerData SQLite 与导出格式 reader。",
+      "gap": "当前 schema 与拆分 bubble、导入/实时状态、损坏库及非空 UI。",
+      "source": "Sources/VelaCore/SessionEngine.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B05",
+      "capability": "Pi 会话",
+      "observations": [],
+      "blumeScope": "本轮未运行该 provider",
+      "velaEvidence": "code_review",
+      "vela": "PiSessionReader 支持已知线性/树状版本。",
+      "gap": "真实版本 fixture、分支、工具结果和错误状态；未知版本保持不可用。",
+      "source": "Sources/VelaCore/PiSessionReader.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B06",
+      "capability": "OMP 会话",
+      "observations": [],
+      "blumeScope": "本轮未运行该 provider",
+      "velaEvidence": "code_review",
+      "vela": "同 reader 明确区分 OMP，已有 title slot/树读取。",
+      "gap": "迁移目录、标题变化、扩展角色和外置内容；真实端到端未关闭。",
+      "source": "Sources/VelaCore/PiSessionReader.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B07",
+      "capability": "增量与完整历史",
+      "observations": [
+        "N02"
+      ],
+      "blumeScope": "七日历史导航已操作；全历史未验",
+      "velaEvidence": "native_observed",
+      "vela": "默认页面混排活跃、完成、空闲；另有显式历史导入/分页能力。",
+      "gap": "把活动与非活动历史的日常入口分开，保留高级导入；返回位置、刷新、日期分组及大数据分页分别验收。",
+      "source": "Sources/VelaApp/Resources/UI/app.js",
+      "parityClosed": false
+    },
+    {
+      "id": "B08",
+      "capability": "分支与工作区身份",
+      "observations": [
+        "N06",
+        "N23",
+        "N24"
+      ],
+      "blumeScope": "项目会话列表与 worktree 空态已见",
+      "velaEvidence": "code_review",
+      "vela": "canonical 项目路径和部分持久化分支；缺同等项目 Setup/Conversations/Worktrees 导航。",
+      "gap": "非空 worktree 关系、同名项目、路径变化和跨页返回；空态不算关系验证。",
+      "source": "Sources/VelaCore/SessionEngine.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B09",
+      "capability": "会话状态与排序",
+      "observations": [
+        "N01",
+        "N02",
+        "N03"
+      ],
+      "blumeScope": "活动/非活动显示可见；全部终态未验",
+      "velaEvidence": "native_observed",
+      "vela": "有推断状态与来源说明，当前列表将所有分组堆在同页。",
+      "gap": "稳定活跃排序，状态变更不跳焦点；真实停止、等待、恢复及五 provider liveness 证据。",
+      "source": "Sources/VelaCore/SessionEngine.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B10",
+      "capability": "等待/完成通知",
+      "observations": [
+        "N01",
+        "N18"
+      ],
+      "blumeScope": "状态入口已见；系统通知未验",
+      "velaEvidence": "prior_evidence",
+      "vela": "NotificationPolicy、原生路由、提示音已实现；历史环境中 OS 拒绝通知授权。",
+      "gap": "签名应用获得实际系统授权后验证 banner、分组、静音与准确回到会话。",
+      "source": "Sources/VelaApp/main.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B11",
+      "capability": "工具调用与结果",
+      "observations": [
+        "N04"
+      ],
+      "blumeScope": "折叠步骤已见；多类型结果未验",
+      "velaEvidence": "native_observed",
+      "vela": "有 Markdown/代码渲染器、命令摘要、复制、原始参数披露；缺结果明确说明。",
+      "gap": "摘要优先，展开查看参数/输出；长命令、并行调用、错误、缺结果和代码换行，不把请求标成功。",
+      "source": "Sources/VelaApp/Resources/UI/content.js",
+      "parityClosed": false
+    },
+    {
+      "id": "B12",
+      "capability": "Todo / 计划",
+      "observations": [
+        "N04"
+      ],
+      "blumeScope": "独立页空态已操作",
+      "velaEvidence": "code_review",
+      "vela": "SessionPlanProjection/Service 与详情入口已有；当前布局把计划内容放在会话长页中。",
+      "gap": "活动/计划/子代理局部导航，非空计划与来源、未知/失败/完成分开；完整版本兼容另验。",
+      "source": "Sources/VelaCore/SessionPlanService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B13",
+      "capability": "子代理关系",
+      "observations": [
+        "N04"
+      ],
+      "blumeScope": "独立页空态已操作",
+      "velaEvidence": "code_review",
+      "vela": "Codex 受限关系投影、分页、独立状态和详情区域已有。",
+      "gap": "局部页展示并保留导航；非空多层关系、跨项目拒绝、历史边界和真实生命周期。",
+      "source": "Sources/VelaCore/SessionRelationService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B14",
+      "capability": "标题/摘要生成",
+      "observations": [
+        "N03"
+      ],
+      "blumeScope": "短标题展示已见；生成机制未验",
+      "velaEvidence": "code_review",
+      "vela": "使用源标题或首条用户消息，无同等模型摘要生成。",
+      "gap": "保留原始标题、可读展示与完整查看；若生成摘要须可追溯且失败可退回源标题。",
+      "source": "Sources/VelaCore/SessionEngine.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B15",
+      "capability": "改名与恢复标题",
+      "observations": [
+        "N03"
+      ],
+      "blumeScope": "本次菜单未见；不判缺失",
+      "velaEvidence": "code_review",
+      "vela": "尚无同等修改接口。",
+      "gap": "先确认参考入口与写回边界，再实现独立别名或受审写回、冲突检测和撤销。",
+      "source": "Sources/VelaCore/SessionEngine.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B16",
+      "capability": "项目/路径排除与恢复",
+      "observations": [
+        "N17"
+      ],
+      "blumeScope": "专页和规则入口已见；未删真实索引",
+      "velaEvidence": "code_review",
+      "vela": "IngestionExclusionService 已有 list/upsert/remove 与隔离检查；桌面 UI/bridge 未接。",
+      "gap": "把现有安全服务接入设置专页；预览影响、添加、撤回、恢复、搜索/Recall 隔离和准确文案。",
+      "source": "Sources/VelaCore/IngestionExclusionService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B17",
+      "capability": "同 harness Continue",
+      "observations": [
+        "N03"
+      ],
+      "blumeScope": "当前菜单未确认",
+      "velaEvidence": "code_review",
+      "vela": "Checkpoint 为中立说明，无原生 resume。",
+      "gap": "不能用复制说明当续接；取得公开 resume 契约后验证实际项目、会话 ID 与失败恢复。",
+      "source": "Sources/VelaCore/MemoryService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B18",
+      "capability": "跨 harness Transfer",
+      "observations": [
+        "N03"
+      ],
+      "blumeScope": "本轮未确认，旧报告含灰度",
+      "velaEvidence": "code_review",
+      "vela": "Checkpoint 导出不等于目标 agent 继续。",
+      "gap": "源快照、目标兼容、显式授权、真实目标任务继续与错误恢复。",
+      "source": "Sources/VelaCore/MemoryService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B19",
+      "capability": "内嵌终端",
+      "observations": [
+        "N03"
+      ],
+      "blumeScope": "本轮未确认",
+      "velaEvidence": "code_review",
+      "vela": "无通用 PTY；AutomationProcess 执行冻结请求。",
+      "gap": "先确认参考成熟入口；若接通需输入/尺寸/停止/重连及进程回收，不能拿命令展示当终端。",
+      "source": "Sources/VelaCore/AutomationProcess.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B20",
+      "capability": "配置清单与层级",
+      "observations": [
+        "N05",
+        "N06",
+        "N09"
+      ],
+      "blumeScope": "目录、类型筛选、范围与截断提示已见",
+      "velaEvidence": "native_observed",
+      "vela": "已有类型清单和版本扫描；当前按类型平铺，所有项目下同名文件缺足够项目区分。",
+      "gap": "项目入口→本地/全局目录→类型筛选→文档；显示实际项目名、相对来源、扫描不完整状态。",
+      "source": "Sources/VelaCore/SetupInventoryService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B21",
+      "capability": "文档详情、编辑、历史",
+      "observations": [
+        "N07",
+        "N08"
+      ],
+      "blumeScope": "阅读/关系/详情已操作；参考编辑保存未验",
+      "velaEvidence": "native_roundtrip",
+      "vela": "本轮原生标题块编辑→diff→冻结审批→精确写入→Undo 逐字节恢复通过。",
+      "gap": "文档内完成审阅并保留上下文；单行字段不用巨大编辑器；撤销留在文档；完整类型与冲突矩阵仍开放。",
+      "source": "Sources/VelaApp/Resources/UI/app.js",
+      "parityClosed": false
+    },
+    {
+      "id": "B22",
+      "capability": "配置审计语义",
+      "observations": [
+        "N13"
+      ],
+      "blumeScope": "周期设置入口可见；诊断执行未验",
+      "velaEvidence": "code_review",
+      "vela": "setup.audit 主要格式、重复与保守大小检查。",
+      "gap": "按类型解释问题和影响，再提供可审变更；规则冲突、失效引用、MCP 漂移要有正负例。",
+      "source": "Sources/VelaCore/SetupInventoryService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B23",
+      "capability": "周期审计和抑制",
+      "observations": [
+        "N13"
+      ],
+      "blumeScope": "自动审计/Weekly 入口可见",
+      "velaEvidence": "code_review",
+      "vela": "没有同等独立完整审计策略 UI。",
+      "gap": "频率、停用、Dismiss 抑制、源变化重评与无变化不重复推送；不能只接定时按钮。",
+      "source": "Sources/VelaApp/Resources/UI/app.js",
+      "parityClosed": false
+    },
+    {
+      "id": "B24",
+      "capability": "Artifact 同步与冲突",
+      "observations": [],
+      "blumeScope": "本轮未确认",
+      "velaEvidence": "code_review",
+      "vela": "本地 Markdown 与 SafeApply；无同等跨设备同步。",
+      "gap": "保留目标但先核实公开契约；所有权、可选同步、离线冲突与恢复不可由本地导出替代。",
+      "source": "Sources/VelaCore/SafeApply.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B25",
+      "capability": "多对象搜索",
+      "observations": [
+        "N14"
+      ],
+      "blumeScope": "分类入口已打开；实际命中未验",
+      "velaEvidence": "code_review",
+      "vela": "全局搜索和 actions 有 UI；缺 Blume 五对象类别筛选与同等精确返回体验。",
+      "gap": "上下文/全局边界、键盘类别、匹配高亮、精确消息定位、返回保留查询与隐私隔离。",
+      "source": "Sources/VelaApp/Resources/UI/app.js",
+      "parityClosed": false
+    },
+    {
+      "id": "B26",
+      "capability": "Raycast 入口",
+      "observations": [],
+      "blumeScope": "本轮未确认",
+      "velaEvidence": "code_review",
+      "vela": "无专用集成。",
+      "gap": "先核实参考公开入口，再测搜索、冷启动、准确目标和离线失败。",
+      "source": "Sources/VelaCLI/main.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B27",
+      "capability": "纠错/引导/摩擦识别",
+      "observations": [
+        "N11",
+        "N12"
+      ],
+      "blumeScope": "处理总览与分析页可见；非空证据未验",
+      "velaEvidence": "code_review",
+      "vela": "确定性检测与受审批的 Codex 模型提取已有。",
+      "gap": "信号→原始消息可返回；类别与用户语言可理解，真实正负样本和提取质量另验。",
+      "source": "Sources/VelaCore/ModelImprovement.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B28",
+      "capability": "跨会话聚类/阈值",
+      "observations": [
+        "N11",
+        "N13"
+      ],
+      "blumeScope": "阶段入口可见；聚类成功未验",
+      "velaEvidence": "code_review",
+      "vela": "来源去重、模型聚类、严格阶段 ID；显式选会话执行。",
+      "gap": "持续增量、近似/冲突、每阶段数量与真实进度、可取消恢复；不能用统计数字代替证据链。",
+      "source": "Sources/VelaCore/ModelImprovement.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B29",
+      "capability": "模型规划操作",
+      "observations": [
+        "N11",
+        "N22"
+      ],
+      "blumeScope": "官方 beta 说明；当前建议为空",
+      "velaEvidence": "prior_evidence",
+      "vela": "三阶段与五载体 create/update 已有真实 Codex 合成来源历史证据；删除规划不全。",
+      "gap": "完整 create/update/remove、候选修订与重新冻结；逐文件 diff 和实际任务改善仍需验证。",
+      "source": "Sources/VelaCore/ModelImprovement.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B30",
+      "capability": "Connected plans",
+      "observations": [
+        "N13"
+      ],
+      "blumeScope": "Claude/Codex 选项可见；priority loading",
+      "velaEvidence": "code_review",
+      "vela": "只能显式选择 Codex CLI/model，无其他分析 backend。",
+      "gap": "按已连接账户展示选择和修复，选择与 observed model 分开；多 provider 成功/拒绝/失效路径。",
+      "source": "Sources/VelaCore/ModelImprovement.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B31",
+      "capability": "手动/空闲/额度末段触发",
+      "observations": [
+        "N13"
+      ],
+      "blumeScope": "设置模式可见；后台成功未验",
+      "velaEvidence": "code_review",
+      "vela": "模型 pipeline 是 manual-only，已有预算上限。",
+      "gap": "明确 opt-in、真实 idle/额度信号、预算、去重和停用；不自动消耗未知额度。",
+      "source": "Sources/VelaCore/ModelImprovement.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B32",
+      "capability": "Harness / project / global / 类型范围",
+      "observations": [
+        "N13"
+      ],
+      "blumeScope": "范围选择可见；未变更",
+      "velaEvidence": "code_review",
+      "vela": "模型同项目输入及显式 carrier/path，完整范围策略未完成。",
+      "gap": "按目标来源组织设置；新增 provider 不扩大权限；禁用范围不进入提案。",
+      "source": "Sources/VelaCore/ModelImprovement.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B33",
+      "capability": "Evidence / Diff / Apply / Undo",
+      "observations": [
+        "N11"
+      ],
+      "blumeScope": "官方说明；本轮无建议可执行",
+      "velaEvidence": "native_roundtrip",
+      "vela": "SafeApply 已有；本轮只证明 Setup 单一原生写入/Undo 路径，不是 Improve 全流程。",
+      "gap": "建议详情中按证据→操作→差异→决定呈现；多文件冲突/故障点/恢复，不能从 Setup 成功外推。",
+      "source": "Sources/VelaCore/SafeApply.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B34",
+      "capability": "Snooze / Dismiss / Resolved / 修订",
+      "observations": [
+        "N11",
+        "N22"
+      ],
+      "blumeScope": "官方说明及请求板状态；本轮未执行",
+      "velaEvidence": "code_review",
+      "vela": "已有带 hash 的 Snooze/Dismiss/Reopen；完整修订流程仍缺。",
+      "gap": "已处理与待处理分流，延后到期、拒绝原因、编辑后重审及 Undo 返回位置。",
+      "source": "Sources/VelaCore/ModelImprovement.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B35",
+      "capability": "Cloud Improve 与同意撤销",
+      "observations": [],
+      "blumeScope": "本轮未登录/未确认",
+      "velaEvidence": "code_review",
+      "vela": "无 Vela 云 Improve。",
+      "gap": "保留需求而不暗中联网；先核实必要结果和数据合同，再明确同意、撤销与本地失败处理。",
+      "source": "docs/architecture.md",
+      "parityClosed": false
+    },
+    {
+      "id": "B36",
+      "capability": "Claude 账户窗口与连接修复",
+      "observations": [
+        "N10"
+      ],
+      "blumeScope": "未连接修复路径已见；额度成功未验",
+      "velaEvidence": "code_review",
+      "vela": "暂无 Claude 额度 adapter；日志 token 不能替代账户窗口。",
+      "gap": "正常/无登录/Keychain 拒绝/过期/限流/离线逐态实测及对应恢复操作。",
+      "source": "Sources/VelaCore/ProviderQuotaService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B37",
+      "capability": "Codex 账户窗口和重置",
+      "observations": [
+        "N10"
+      ],
+      "blumeScope": "参考请求中止；正常额度未验",
+      "velaEvidence": "prior_evidence",
+      "vela": "官方 app-server quota read/status 已有，历史真实读取成功；本轮未再读真实账户。",
+      "gap": "默认入口体现账户窗口、刷新/陈旧/错误；不要藏在日志表后；重置时区、同账号多 bucket 与重试。",
+      "source": "Sources/VelaCore/ProviderQuotaService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B38",
+      "capability": "Cursor 用量与额度",
+      "observations": [],
+      "blumeScope": "本轮未出现对应已连接账户",
+      "velaEvidence": "code_review",
+      "vela": "无账户 quota adapter；部分日志 usage。",
+      "gap": "先核实版本/账号能力；缺失显示不可用并给原因，真实连接与限流另测。",
+      "source": "Sources/VelaCore/ProviderQuotaService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B39",
+      "capability": "费用、历史、菜单栏用量",
+      "observations": [
+        "N18"
+      ],
+      "blumeScope": "菜单栏内容选项已打开；真实费用未验",
+      "velaEvidence": "code_review",
+      "vela": "无同等费用或菜单栏用量；costAvailable=false。",
+      "gap": "菜单栏独立信息选择、窗口/更新时间/陈旧状态；费用必须来自可追溯价格或提供方。",
+      "source": "Sources/VelaApp/main.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B40",
+      "capability": "窄窗、Pin 和菜单栏",
+      "observations": [
+        "N01",
+        "N18",
+        "N19"
+      ],
+      "blumeScope": "Pin→悬浮条→展开→Unpin 已往返",
+      "velaEvidence": "native_observed",
+      "vela": "现有最小窗口 900×620，普通菜单栏；缺窄 sidecar 和收拢悬浮条。",
+      "gap": "按内容重新组织窄布局与完整工作区，三态切换保留位置、焦点和选择；多屏/缩放/重启/关闭回收。",
+      "source": "Sources/VelaApp/main.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B41",
+      "capability": "首次引导和认证",
+      "observations": [
+        "N10"
+      ],
+      "blumeScope": "修复引导已见；未重置首启",
+      "velaEvidence": "code_review",
+      "vela": "主要手动加项目；没有完整 provider-aware 初次路径。",
+      "gap": "干净安装→发现 provider→缺失/权限恢复→首条会话；跳过/返回/离线/不创建假数据。",
+      "source": "Sources/VelaApp/Resources/UI/app.js",
+      "parityClosed": false
+    },
+    {
+      "id": "B42",
+      "capability": "更新与发行通道",
+      "observations": [
+        "N21"
+      ],
+      "blumeScope": "本轮未确认更新安装入口",
+      "velaEvidence": "code_review",
+      "vela": "dev/canary/stable 身份；当前 ad-hoc 包，无已验证更新机制。",
+      "gap": "签名/公证、检查/下载/安装/回滚、数据迁移和网络失败；通道字符串不代表更新完成。",
+      "source": "Sources/VelaApp/main.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B43",
+      "capability": "MCP 读写贡献和安装",
+      "observations": [
+        "N21"
+      ],
+      "blumeScope": "本轮未确认 Blume 对外 MCP 入口",
+      "velaEvidence": "code_review",
+      "vela": "受限 MCP 查询/贡献与手工配置已有。",
+      "gap": "区分 Setup 检查第三方 MCP 与产品自身 MCP；安装预览/Undo、精确客户端接入和最小权限。",
+      "source": "Sources/VelaCLI/main.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B44",
+      "capability": "本地数据与账号控制",
+      "observations": [
+        "N17",
+        "N21"
+      ],
+      "blumeScope": "排除说明可见；完整管理未验",
+      "velaEvidence": "code_review",
+      "vela": "本地存储、CLI backup/restore；桌面没有等价备份/恢复入口。",
+      "gap": "设置内可理解的数据位置、备份验证、恢复预览、选择性删除和撤销连接；原始文件与索引分开。",
+      "source": "Sources/VelaCore/StoreBackupService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B45",
+      "capability": "反馈/请求/支持",
+      "observations": [
+        "N22"
+      ],
+      "blumeScope": "支持与功能请求板已打开",
+      "velaEvidence": "code_review",
+      "vela": "GitHub Issues/社区文档；没有内建同等支持导航。",
+      "gap": "产品内帮助和反馈入口、可预览诊断；run feedback 是执行评估，不能冒充产品支持。",
+      "source": "Sources/VelaApp/Resources/UI/app.js",
+      "parityClosed": false
+    },
+    {
+      "id": "B46",
+      "capability": "账户/设备/邀请/公告",
+      "observations": [
+        "N20",
+        "N22"
+      ],
+      "blumeScope": "邀请和分享入口已见；账号/设备未验",
+      "velaEvidence": "code_review",
+      "vela": "无对应账号系统。",
+      "gap": "先核实必要用户结果；不为复制主题锁定而强制账号；分享内容预览、取消及真实可用链接。",
+      "source": "docs/architecture.md",
+      "parityClosed": false
+    },
+    {
+      "id": "B47",
+      "capability": "主题、缩放、密度、周报",
+      "observations": [
+        "N16",
+        "N17",
+        "N20"
+      ],
+      "blumeScope": "缩放/密度预览和周报开关已见",
+      "velaEvidence": "native_observed",
+      "vela": "中英文、主题和图标已有；缺系统化缩放、密度与周报。",
+      "gap": "90–150% 可读性、紧凑/标准预览、reduce motion；周报必须真实统计，生成/导出尚未确认。",
+      "source": "Sources/VelaApp/Resources/UI/app.css",
+      "parityClosed": false
+    },
+    {
+      "id": "B48",
+      "capability": "Analytics 趋势",
+      "observations": [
+        "N12"
+      ],
+      "blumeScope": "本版本已有可访问分析页，不能仍标纯 Soon",
+      "velaEvidence": "code_review",
+      "vela": "日志统计和 Lab 对照不是相同 signal trend。",
+      "gap": "统一三类信号、时间范围、分母、缺失与多日比较；没有改善结果不绘制虚假提升。",
+      "source": "Sources/VelaCore/ImproveService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B49",
+      "capability": "Domain Model",
+      "observations": [],
+      "blumeScope": "公开路线图；本轮未确认交付",
+      "velaEvidence": "code_review",
+      "vela": "项目资产不等价完整 domain model。",
+      "gap": "保留目标与证据不足，不从产品主页词汇推导实现；意图来源、权限、版本与冲突另定。",
+      "source": "docs/architecture.md",
+      "parityClosed": false
+    },
+    {
+      "id": "B50",
+      "capability": "Team Conflict Resolution",
+      "observations": [],
+      "blumeScope": "公开路线图；本轮未确认交付",
+      "velaEvidence": "code_review",
+      "vela": "未实现完整团队冲突解决。",
+      "gap": "必须先有真实双方证据、权限及人工决定路径；不能把本地文件冲突保护算作团队能力。",
+      "source": "docs/architecture.md",
+      "parityClosed": false
+    },
+    {
+      "id": "B51",
+      "capability": "Auto-Improve Mode",
+      "observations": [
+        "N13"
+      ],
+      "blumeScope": "后台处理设置可见，不等于自动效果验收",
+      "velaEvidence": "code_review",
+      "vela": "Lab 与显式晋升已有；完整自动验证循环未验。",
+      "gap": "区分自动提取建议与自动验证改进；同任务对照、失败拒绝、真实后续改善及回滚。",
+      "source": "Sources/VelaCore/ImproveService.swift",
+      "parityClosed": false
+    },
+    {
+      "id": "B52",
+      "capability": "Windows/Linux",
+      "observations": [],
+      "blumeScope": "官方发行说明；本轮只测 macOS",
+      "velaEvidence": "code_review",
+      "vela": "产品范围目前为 macOS。",
+      "gap": "平台差异明确保留，不能宣称跨平台完全替代；本轮 UI 对齐不扩为多平台重写。",
+      "source": "README.md",
+      "parityClosed": false
+    }
+  ]
+}

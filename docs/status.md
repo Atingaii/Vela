@@ -38,7 +38,7 @@ V3 同源本机浏览器检查为工程 11/11、本地化 6/6、阅读 6/6、设
 | 会话观察 | Claude/Codex 增量日志、部分 Cursor 导出/SQLite、Pi v1/v2/v3 分支记录与 OMP 元数据；有界流式读取、来源版本、身份/轮转检查 | 完整历史回填及所有私有 Cursor 格式仍未完成。日志推断不等于进程存活证明；Pi 最新持久化分支不冒充当前活跃分支 |
 | 显式历史回填 | Claude/Codex/Pi/OMP JSONL来源清单、固定epoch、分批读取与重启续传、稳定分页和完整原文分块；解析/原文/分支分别计量 | 历史回填桌面发现/分页/启停/续传/原文分块已通过 UI17 实测和 972 CI；Cursor、未知格式与完整大负载仍未验收，未解析原文不计为归一化功能 |
 | 会话计划 | Codex update_plan、Claude Todo/Task 的持久化调用与成功回执配对；只读任务状态、来源hash/位置、提议/失败/未知区分 | UI17 的全部项目 scope 与后台刷新展开/锚点缺陷保留为历史反例。UI18 r7 已在冻结 renderer→真实隔离 helper 的完整 8 项浏览器路径中复验 explicit project、展开首屏、默认首 cursor、无旧 cursor、stale guard 与 anchor；其真实 held `sessions.relations.get` + 用户 wheel 反例从 r6 的红结果变为 r7 保持阅读位置的通过结果。嵌套 held-response 加 wheel 的反例只在 Chrome 实测，机制是 Chromium 原生 scroll anchoring 的证据支持推断而非 setter trace 结论。另有匹配 r7 的 WKWebView 普通刷新、父子关系导航和双语 Search/Actions 实测；没有原生 held-response 覆盖，仅保存一张刷新后截图，不声称保存前后成对证据。完整历史投影/未文档化格式仍不足，计划完成不证明工程验证通过 |
-| Setup | 五harness公开位置目录、项目/全局配置扫描、脱敏版本历史/差异、来源关系、删除/重新出现痕迹与不完整扫描保护；项目 instruction/skill Markdown 的块/全文编辑、冻结审批与 Undo | 编辑闭环已通过真实 helper 浏览器验收，新原生编辑流程受锁屏及交互服务超时阻挡，尚未实测；仅最近 100 条编辑历史，无旧记录翻页。全局/脱敏内容不可编辑，TOML/YAML无安全解析器时只给元数据/hash；实际加载配置仍未知，不执行被扫描的 Hook/MCP |
+| Setup | 五harness公开位置目录、项目/全局配置扫描、脱敏版本历史/差异、来源关系、删除/重新出现痕迹与不完整扫描保护；项目 instruction/skill Markdown 的块/全文编辑、冻结审批与 Undo | 编辑闭环已通过真实 helper 浏览器验收；2026-09-15 一条隔离原生标题块编辑/审批/写入/精确 Undo 路径通过，完整原生矩阵仍未完成；仅最近 100 条编辑历史，无旧记录翻页。全局/脱敏内容不可编辑，TOML/YAML无安全解析器时只给元数据/hash；实际加载配置仍未知，不执行被扫描的 Hook/MCP |
 | Memory | 九类内容、七类作用域、Candidate/Active/Superseded/Archived、来源消息、Markdown 人工编辑；同项目已索引 session 单消息可经 Core identity/hash 重验捕获为 candidate observation；Active-only Recall | 捕获只重读已索引记录、不打开 provider 文件；新建需 review，不自动激活，后续人工编辑保留来源并标为 user-derived。完整提取、合并、遗忘、团队策略与所有插件入口仍按台账验收 |
 | 语义 Recall | 系统已安装 NaturalLanguage 模型、本地分页索引、lexical/semantic/hybrid、版本/维度/sourceHash 校验、明确语言与不可用状态 | 默认仍可离线词面检索，不自动下载。真实合成中英文语义召回与界面取消/索引流程已测，不能据此宣称真实长期检索质量达标；Library向量后端仍需实现 |
 | Library与Ask | 资料版本、审阅后编辑/归档/恢复/导出/重抓；FTS5段落/原文位置与本地重排；独立审批问答与重新核验的续问 | 真实Codex一次来源问答已通过，FTS路径有独立Core/CLI验证。缺标记/错误privacy/私有来源与消失资产反例已修；引用存在不证明语义正确。YouTube、vault与完整批量来源管线仍需接通 |
@@ -142,3 +142,9 @@ r4 renderer `app.js` `05e206cb…` 与同一冻结 helper 的串行浏览器验�
 当前 WorkBuddy V3 静态官网的部署 URL `https://cf33bf23.velo-5i0.pages.dev` 与正式域名 [velo.codes](https://velo.codes) 均通过 HTTP-only 字节复核：32 页、11 个选定资源、32 个站内导航全部匹配同一源码 aggregate `0fda5484…8b23`。正式域名的首份 V3 收据保留：Cloudflare 托管自动 analytics 注入使 32 个 HTML `bodyMatchesSource` 失败；用户关闭该设置后 r2 全部转绿。[精确证据](evidence/2026-09-14-cloudflare-workbuddy-v3.json)不包含浏览器交互，也不改变 preview.2、客户端验收或产品总 **No-Go**。
 
 用户新增全功能规格的[188项初步源码筛查](parity/final-spec-2026-09-14.md)记录132项部分实现、26项缺失、21项后端有证据、6项外部未验及3项范围/翻译，不能视为逐功能通过。[客户端易用性评审](implementation/desktop-usability-review-2026-09-14.md)已从产品与使用者角度明确相对路径、按需技术详情、16px正文/14px常规控件及中性宽松布局。UI作者仍受指定Antigravity模型约束；本轮探测未取得模型回复，未实施这次界面重构。旧三组独立QA进程和其合成fixture已清理，释放36,024,320 allocated bytes；另清理本轮Cloudflare/npx工具缓存401,854,464 allocated bytes，合计约418MiB；测试证据、交付包和待实施材料保留。产品总验收仍为No-Go。
+
+## Blume 本机功能与交互复核（2026-09-15）
+
+按用户要求先核对参考产品，再进行整体 UI 重构。[本轮审查](parity/blume-native-audit-2026-09-15.md)逐项覆盖既有 B01–B52，记录官方 Blume 1.0.74 的24条原生观察及当前 Vela 对应源码/界面。参考 Pin 已确认是可收拢悬浮条，Analytics 已有可访问页面，缩放/密度/周报/路径排除设置已见；登录后、非空建议/计划/子代理/worktree 与真实多 provider 成功路径继续保留未验，不再用旧 Soon/灰度标签覆盖本机可见事实。
+
+Vela 本轮仅新增一条合成项目的原生 Markdown 标题块编辑→审阅→冻结审批→精确写入→Undo 字节恢复证据；0次provider调用，未改真实项目。现有排除 Core 服务尚缺桌面入口，额度适配仍仅 Codex；窄窗、活动/历史分流、文档上下文与设置组织仍需重构。[机器证据](evidence/2026-09-15-blume-native-comparison.json)保存版本、hash、截图与范围。WorkBuddy Deepseek-V4.1-Flash 尝试恢复超时，未产生本轮设计代码；普通置顶提案已撤回，本轮没有合入 UI 改动，也没有更新发布包。**功能/UI 等价及全产品总验收仍未通过。**

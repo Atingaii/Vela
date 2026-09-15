@@ -1,12 +1,15 @@
 # Blume 功能对齐清单
 
-核对日期：2026-09-13。目标是将 Blume 的已交付产品能力逐项补齐，再验证 Vela 的额外改进；本清单不以功能名称相同、页面存在或测试总数代替验收。
+初始核对：2026-09-13；本机复核：2026-09-15。目标是将 Blume 的已交付产品能力逐项补齐，再验证 Vela 的额外改进；本清单不以功能名称相同、页面存在或测试总数代替验收。
 
-**当前结论：尚未达到 Blume 功能超集。** 本轮已增加 Pi/OMP 只读适配、Codex 官方账户额度、受审三阶段模型 Improve，以及公开配置清单和版本历史。会话续接、多 provider 真实账户额度、完整配置语义治理和实际改善效果等剩余项继续保留。
+**当前结论：尚未达到 Blume 功能超集。** 既有实现包括 Pi/OMP 只读适配、Codex 官方账户额度、受审三阶段模型 Improve，以及公开配置清单和版本历史。会话续接、多 provider 真实账户额度、完整配置语义治理和实际改善效果等剩余项继续保留。
+
+最新 [Blume 1.0.74 原生逐项核对](blume-native-audit-2026-09-15.md)覆盖 B01–B52 与 24 条本机观察；[结构化清单](blume-native-audit-2026-09-15.json)分别记录入口、执行及未确认范围。本轮只更新审查与证据，未合入 UI 重构。下文早期测试和未关闭项作为历史基线保留。
 
 ## 来源及判定规则
 
-- **O：官方说明**：公开产品页、发行文章和文档明确描述。未运行 Blume，不把说明当独立实测。
+- **O：官方说明**：公开产品页、发行文章和文档明确描述，不把说明当独立实测。
+- **N：本机观察**：2026-09-15 官方 Blume 1.0.74 的原生窗口、可访问性树和截图；N01–N24 见最新审查。只看到入口、成功操作、失败态和未确认分别记录，不把只读设置当后台执行成功。
 - **R：用户报告**：仅使用指定目录顶层三份 Markdown 的产品功能描述；不读取解包源码、`harvest/`、随包内部文档或私有提示词。报告静态可见不证明服务端开关、当前账号或当前安装可用。
 - **P：规划或受控开放**：官方明确 Soon/Next，或报告明确灰度未开放。保留为目标能力，独立记录，不伪装成当前已交付基线。
 - **U：本次未确认**：没有足够公开发布或独立运行证据；不推导“产品没有”。
@@ -25,7 +28,7 @@
 
 用户报告标记：**R1**=`Blume-Sidecar-完整逆向报告.md`（功能矩阵 §5）；**R2**=`Blume-Sidecar-模块详细说明.md`（B–O 产品模块）；**R3**=`Blume-Sidecar-技术架构与细节处理.md`（可靠性与数据边界）。这些标记说明需求来源，不发布其私有实现或引用内部提示词。
 
-**发布状态冲突已处理：** 首页 Auto-Fixes 的 Soon 标签不能覆盖带版本和日期的 Improve beta 发行说明。增量建议、证据、Apply/Snooze/Dismiss 按“官方已交付 beta”列入基线。Analytics、Domain Model 和 Auto-Improve Mode 仍分别保留其官方规划状态。7 月 Improve 文章对“本地”的表述也不能解释为模型厂商完全不收请求；Vela 需按实际 CLI 出站路径核验。
+**发布状态冲突已处理：** 首页 Auto-Fixes 的 Soon 标签不能覆盖带版本和日期的 Improve beta 发行说明。增量建议、证据、Apply/Snooze/Dismiss 按“官方已交付 beta”列入基线。Analytics 在 1.0.74 已有可访问页面（N12），旧 Soon 标签不能继续代表其全部当前状态；非空趋势/效果仍未验证。Domain Model 与完整 Auto-Improve Mode 继续保留公开规划及未确认状态，自动处理设置不等于自动效果验收。7 月 Improve 文章对“本地”的表述也不能解释为模型厂商完全不收请求；Vela 需按实际 CLI 出站路径核验。
 
 ## Agents 与会话
 
@@ -43,10 +46,10 @@
 | B10 待审批与完成提醒 | O1/O2 已交付 | `NotificationPolicy`、原生通知已实现；权限失败实测保留 | 真 macOS 授权、banner、点回准确会话；五 provider 的真实等待/完成事件 |
 | B11 工具调用及结果 | R2 B5/B9：报告描述 | Claude/Codex 常见工具；Pi/OMP 关联 toolCallId、name、结果和错误 | 起止时间、结果缺失/重排、并行 call、多个 tool 类型、完整参数显示 |
 | B12 Todo / 计划进度 | O2 已交付 | `SessionPlanProjection`/`SessionPlanService`：Codex update_plan 与 Claude TodoWrite/四 Task 工具的已知调用/结构化结果→独立有界 ledger、确认计数及来源事件；CLI/会话详情可读。[合同](../implementation/session-plan-contract.md) | 普通正文/会话 Completed 不推导计划完成；提案、失败、未知与 provider 确认分开。冻结合成数据的 Plan drawer 状态、事件分页和延迟响应路由已验；UI17 全部项目 scope 是已复现问题。完整 History 投影、全 provider/version（含未获官方合同的 Claude camelCase transcript）、真实 provider 和完整 UI 仍待完成，不以此关闭 B12 全量验收 |
-| B13 子代理关系与状态 | R2 B9/O7：报告描述 | `SessionRelationProjection/Service` 新增 Codex 固定公开版本的直接父声明、独立 fork、配对 spawn 回执、同项目来源解析、关系 epoch、只读分页与父子独立状态；[合同](../implementation/session-relations-contract.md) | 冻结合成数据的 Codex drawer 展开、隐私、分页、陈旧响应/重复 cursor 与支持尺寸已验，见 [972 CI](ci-972155b7-evidence-2026-09-13.json)；后台刷新收起已展开区域是单独的 UI17 已复现缺陷。仍限已索引窗口，其他 provider、v2/code-mode、完整历史图、实时子进程和原生完整流程未验收。缺失/私有/internal/冲突/重号不猜验证成功 |
+| B13 子代理关系与状态 | R2 B9；N04：本轮仅空状态 | `SessionRelationProjection/Service` 新增 Codex 固定公开版本的直接父声明、独立 fork、配对 spawn 回执、同项目来源解析、关系 epoch、只读分页与父子独立状态；[合同](../implementation/session-relations-contract.md) | 冻结合成数据的 Codex drawer 展开、隐私、分页、陈旧响应/重复 cursor 与支持尺寸已验，见 [972 CI](ci-972155b7-evidence-2026-09-13.json)；后台刷新收起已展开区域是单独的 UI17 已复现缺陷。仍限已索引窗口，其他 provider、v2/code-mode、完整历史图、实时子进程和原生完整流程未验收。缺失/私有/internal/冲突/重号不猜验证成功 |
 | B14 标题/摘要/元数据生成 | O5 描述功能处理；R2 B9 补充 | 首条用户消息或源标题；无模型摘要生成 | 显式处理设置、来源标题保护、模型可用性与错误；生成结果不能充当事实 |
 | B15 手动改名、恢复/回写标题 | R2 B9：报告描述；公开交付 U | OMP/Pi 标题只读，尚无修改接口 | Vela 名称与 provider 原名分离；冻结写入、原格式验证、Undo |
-| B16 项目/路径模式排除与恢复 | R2 B10：报告描述；公开交付 U | `projects.remove` 仅取消登记，不是 ingestion 排除 | 排除从摄取起生效、已有索引处理、glob/remote 多克隆一致性 |
+| B16 项目/路径模式排除与恢复 | N17：Behavior 专页有路径/glob、选择目录、影响说明和恢复说明；未执行真实索引删除 | `IngestionExclusionService` 已有 list/upsert/remove、投影撤回与规则代际检查；桌面 UI/bridge 未接通 | 接通已有服务；预览影响、添加/移除、恢复、搜索和 Recall 隔离与多克隆边界逐项测试 |
 | B17 同 harness Continue | R2 会话操作：报告描述；公开交付 U | Checkpoint 的中立说明文本；没有直接启动原生 resume | 真实 provider resume ID、终端身份、用户确认、错误与恢复 |
 | B18 跨 harness Transfer/Continue | R1 §5 明确灰度 0%；当前公开 U/P | `MemoryService checkpoint.export` 不是原生会话迁移 | 源快照→目标兼容格式/中立受控上下文→实际继续任务；保留全部目标，不冒称已公开基线 |
 | B19 内嵌终端 | R1 §5/R2 G：报告称可用；公开 U | 无通用交互式 PTY；`AutomationProcess` 只执行冻结请求 | PTY、尺寸、输入/输出、停止、重连、端到端进程回收及有限权限 |
@@ -56,9 +59,9 @@
 | ID / 功能子项 | Blume 来源 / 状态 | Vela 实现位置与状态 | 未关闭的验收项 |
 | --- | --- | --- | --- |
 | B20 Rules/Skills/Hooks/MCP/指令清单 | O1 已交付 | `SetupCatalog` + `SetupInventoryService` 的版本化五 harness 原生公开位置、项目/global 观察、来源 URL、JSON/Markdown 脱敏与重复字节关系 | 自定义/profile/managed/插件位置、完整跨范围继承、当前有效值来源；磁盘存在不等于运行时加载 |
-| B21 类型详情、关系、诊断、历史 | O2 已交付 | 不可变脱敏版本、分页观察历史、真实源 hash 与文本 diff、删除/重现、同名 Skill/同目录 override 约定。开发分支另有项目 instruction/skill Markdown 按块或全文编辑→完整差异→冻结审批→写入→CAS Undo，见 [独立编辑证据](../evidence/2026-09-14-setup-editing.json)。 | TOML/YAML 正文 diff 暂不保存；混合认证仅 metadata；完整类型语义、失效引用图和全部类型编辑恢复未覆盖；新编辑流程原生实测被锁屏及交互服务超时阻挡，编辑历史仅最近 100 条。 |
+| B21 类型详情、关系、诊断、历史 | O2；N07/N08：Content/Related/Details 实际可进入；块编辑入口可见，本轮参考保存未验 | 既有脱敏版本/历史/diff/关系及项目 instruction/skill 编辑。2026-09-15 新增一条原生标题块编辑→差异→冻结审批→精确写入→Undo 完整字节恢复，[证据](../evidence/2026-09-15-blume-native-comparison.json) | 原生单路径不等于全部类型和故障矩阵；编辑/审批/Undo 的文档上下文仍需重构。TOML/YAML、混合认证内容、完整类型语义及最近100条以外编辑历史继续待验 |
 | B22 配置审计与模型判断 | R2 D：18 检查的报告，公开覆盖 U | `setup.audit` 仅格式/重复/保守大小 | 语义冲突、失效引用、MCP 漂移、规则适用性；原创检查+正负例，不复制私有 catalog |
-| B23 周期审计、抑制与重新出现 | R2 D：报告描述 | 未有单独完整审计策略 | 可配置频率、Dismiss 后抑制、源改变重评、无新证据不反复推送 |
+| B23 周期审计、抑制与重新出现 | N13：自动 Setup audit 开关和 Weekly 频率入口已见；执行未验 | 未有单独完整审计策略与桌面入口 | 频率、停用、Dismiss 抑制、源变化重评、无新证据不反复推送；不以设置存在宣称后台成功 |
 | B24 Artifact 导出/同步/冲突恢复 | R2 C：报告描述；公开 U | Markdown 资产与 SafeApply，无同等跨设备同步 | 所有权、加密、合并冲突、离线恢复；不要将本地文件可读写成同步完成 |
 | B25 多对象全局搜索 | O2 已交付 | `VelaStore.search` +全局 UI，项目/会话/Memory 等 | 覆盖全部目标对象、精确消息、高亮、键盘筛选、旧记录分页 |
 | B26 Raycast 快速入口 | R1 §5/R2 H：报告称可用；公开 U | 没有专用 Raycast 集成 | 搜索协议、离线启动/返回准确会话、最小权限 |
@@ -66,8 +69,8 @@
 | B28 跨会话聚类、证据保留、触发阈值 | O2/O3 beta 已交付 | 确定性键/来源去重；新增结构化模型聚类和严格前阶段 ID 引用 | 真实语义相近/冲突验证、持续增量重跑去重；目前显式选择会话运行 |
 | B29 模型规划 create/update/remove | O3 beta 已交付 | 三阶段模型 pipeline；五载体的显式目标创建/替换、diff/evidence；一次真实 Codex 合成来源验收通过 | 删除规划、现有配置关系/语义保持、实际任务改善与原生入口仍未关闭 |
 | B30 Connected plans 选择 | O3 已交付 | Lab 与模型 Improve 可显式选择 Codex CLI/model；无其他分析 backend | Claude/Cursor 实际执行，requested 与 observed model 分开、版本/费用来源和失败分类 |
-| B31 手动、空闲与额度末段触发 | O3 已交付 | 确定性分析水位；模型 pipeline 明确 manual-only，三请求/时间/字节预算 | 真实 idle 来源、额度/重置窗口、背景 opt-in/预算与去重；缺配额不能触发假事件 |
-| B32 Harness / project / global / 类型范围 | O3 已交付 | 模型输入显式同项目会话，1–5 个 carrier/path 与冻结协议版本 | 完整全局/类型/多 harness 选择策略；新增 harness 不得暗中扩大用户授权 |
+| B31 手动、空闲与额度末段触发 | O3；N13：空闲/额度窗口/关闭模式实际可见，后台执行未验 | 确定性分析水位；模型 pipeline 为 manual-only，三请求/时间/字节预算 | 真实 idle/额度、背景 opt-in、预算、取消与去重；缺配额不能触发假事件 |
+| B32 Harness / project / global / 类型范围 | O3；N13：来源、项目/global、Rules/Hooks/Skills/Docs 设置已见；未改变 | 同项目模型输入、显式 carrier/path 和冻结协议 | 完整范围/多 harness 选择策略、禁用范围不可进入提案；新增 harness 不得扩大授权 |
 | B33 Evidence、Diff、Apply、Undo | O3 已交付 | `SafeApply`；模型候选另要求新鲜 suggestionHash/project/原引用校验，独立 Apply/Undo | 更全 target 类型、真实审阅可用性与故障点；不能声称任意外部副作用 exactly-once |
 | B34 Snooze/Dismiss/Resolved 与修订 | O2/O3 已交付；修订 R2 | 模型候选已支持带 hash 的 Snooze/Dismiss/Reopen，applied 不能被这些状态隐藏 | Snooze 到期、Resolved 证据、用户修订后重新冻结、跨阶段冲突保全 |
 | B35 Cloud Improve 与撤销同意 | O5：有显式开通前条件，P | 没有 Vela 云 Improve | 仍保留能力；实现时独立 consent、退出、不自动 fallback、可审计数据流 |
@@ -79,16 +82,16 @@
 | B36 Claude 账户窗口与连接修复 | O4 已交付 | `usage.get` 只汇总本地 tokens；quotaAvailable=false | 登录缺失、Keychain 被拒、过期、限流和正常账户窗口均真实区分 |
 | B37 Codex 账户窗口/重置 | O1/O5 已交付 | 官方 app-server 只读额度；规范化/fixture 及真实 Codex 0.154.0 账户读取成功 | 原生入口/刷新体验、真实错误与长期稳定性待验；其他 provider 未因此完成 |
 | B38 Cursor 用量与额度 | O1/O5 官方说明；R1 提示部分灰度 | 无账户配额；Cursor 日志 usage 也不完整 | 版本与账号类型、额度含义、限流、过期，不能复用 token 总和代替 |
-| B39 费用、历史快照、菜单栏用量 | O5 费用说明；R2 F 补充 | `costAvailable=false`；菜单栏无同等用量视图 | 可追溯价格/实际 provider 费用、币种、缓存/重置时间、旧数据标签 |
-| B40 窄 sidecar、固定、菜单栏 | O1 sidecar；R1/R2 O 补充 | AppKit 菜单栏/关窗保留；最小窗口 900×620 | 真正可用的窄窗/Pin/多屏；不以挤压现有大窗口算适配 |
+| B39 费用、历史快照、菜单栏用量 | O5/R2；N18：菜单栏与 Pinned 内容独立选择，状态数量/账户用量菜单已打开；真实费用未验 | `costAvailable=false`；无同等菜单栏用量 | 可追溯费用、币种、更新时间、重置/陈旧信息、菜单栏与窗口独立选择 |
+| B40 窄 sidecar、固定、菜单栏 | N01/N18/N19：约400px窄窗；Pin→约180px悬浮条→展开→Unpin 实际往返 | 普通 AppKit 菜单栏/关窗保留，最小900×620；无同等窄窗或悬浮条。本轮普通置顶提案未合入 | 重新组织窄内容与完整工作区，三态保留位置/焦点，多屏/缩放/重启/关闭回收；仅置顶不算 Pin 对齐 |
 | B41 首次引导与 auth guidance | O2 已交付；R1 旧开关存在歧义 | 手动加项目，未完整 provider-aware 引导 | 干净 Mac 首次运行，从发现/登录到第一条有效会话、撤销配置 |
 | B42 自动更新及稳定/预览通道 | R2 N：报告描述；公开细节 U | dev/canary/stable 身份隔离；无已验证更新通道 | 签名、公证、下载验证、安装握手、失败回退和旧数据迁移 |
 | B43 MCP read/contribute 与安装 | R1 §5/R2 J：报告称可用；公开 U | 受限 MCP read/contribute；手工配置 | 更全查询面/受限贡献语义、provider 安装预览/Undo、prompts，不能靠工具数量算等价 |
 | B44 本地资料、退出/删除/账号控制 | O5 描述 | 本地 store；新增 CLI 完整备份/恢复，含私有资产、History 与 output；没有连接账户或完整桌面数据管理入口 | 备份、选择性删除、保留来源、连接撤销与私有数据全部入口隔离 |
-| B45 反馈/功能请求与支持 | R1 §5/R2 K：报告称可用；公开仅邮箱链接 | GitHub Issues/社区文档，未内建板/支持面板 | 产品内跳转与上下文选择；外发须可预览，不附加私人 transcript |
-| B46 账户/设备管理、邀请、公告 | R1 §5/R2 K：报告称可用；公开交付 U | 无用户账户系统或对应功能 | 功能保留在完整目标；先确认用户结果与可用公开契约，再选择本地/可选服务架构 |
-| B47 主题、个性化及周报 | 主题 R1 报告称可用；Wrapped 明确灰度 0% | 有深浅色/语言与图标，无同等主题/周报 | 原创资产、真实统计及导出；周报不复用参考私有图案/标识 |
-| B48 Analytics 趋势 | O1 Soon，P | 有记录统计/Lab对照，完整长期结果仍缺 | Corrections/质量趋势的实际数据、缺失值与版本化口径 |
+| B45 反馈/功能请求与支持 | N22：支持聊天入口、请求列表/状态/评论/投票可见；未发送或投票 | GitHub Issues/社区文档，未内建同等入口 | 帮助/反馈可达、诊断可预览；run feedback 不是产品支持；外发不自动附私人 transcript |
+| B46 账户/设备管理、邀请、公告 | N20/N22：邀请/分享入口可见；登录后设备/公告和成功链接未确认 | 无对应账户系统 | 先核实用户结果与公开契约；保留目标，不为了主题解锁复制强制账号机制 |
+| B47 主题、个性化及周报 | N16/N17/N20：90–150%缩放、Sections/Card密度、实际卡片预览、主题与 Weekly Wrapped 开关已见；周报生成未验 | 深浅色/语言与图标；缺一致缩放、密度及周报 | 原创资产、缩放可读性、预览/reduce motion、真实统计与导出；不能继续只以旧灰度状态代表当前入口 |
+| B48 Analytics 趋势 | N12：1.0.74 独立 Analytics 页面已可进入，有时间范围/信号类别/分母说明；非空趋势未验 | 记录统计/Lab 对照不等于相同 signal trend | 分类、分母、时间范围、缺失值与多日比较；入口存在不证明真实纠错改善 |
 | B49 Local/Central Domain Model | O1 Soon/Next，P | 项目资产不是完整模型与团队意图系统 | 意图/决策来源、跨项目版本、权限、冲突及审计 |
 | B50 Team Conflict Resolution | O1 Next，P | 未实现 | 可重现实例、共享与本地隔离、冲突双方证据和人工决策 |
 | B51 Auto-Improve Mode | O1 Next，P | Lab 对照与显式晋升存在；未来复用链未验收 | 自动测试候选、回归拒绝、真实后续任务改善；无结果不得宣传超越 |
@@ -146,4 +149,4 @@ Vela is not yet a functional superset of Blume. This inventory keeps 52 capabili
 
 ## Root-provided read-only observation — Blume 1.0.74
 
-Root observed the public desktop UI read-only, without copying assets, screenshots, private project names or treating it as a parity pass. Agents, Setup, Usage and Improve expose top tabs. Setup separates project/global groups and uses Content, Related and Details views; its Markdown reader provides an Edit block action per block. Vela subsequently implemented block/full-document editing for eligible project instruction/skill Markdown, complete review, frozen approval and CAS-protected Undo; [13 browser journeys passed](../evidence/2026-09-14-setup-editing.json), with native editing still unverified after macOS lock and CUA activation timeouts. Global and other configuration types remain outside this edit flow, so this does not close full Setup parity. Source presentation uses a short filename. Quota numbers were not verified because Claude was not connected and Codex had aborted. This is a design observation only, not full UI acceptance or evidence for account, quota, provider or private-project behavior.
+Root observed the public desktop UI read-only, without copying assets, screenshots, private project names or treating it as a parity pass. Agents, Setup, Usage and Improve expose top tabs. Setup separates project/global groups and uses Content, Related and Details views; its Markdown reader provides an Edit block action per block. Vela subsequently implemented block/full-document editing for eligible project instruction/skill Markdown, complete review, frozen approval and CAS-protected Undo; [13 browser journeys passed](../evidence/2026-09-14-setup-editing.json), with native editing unverified at that earlier checkpoint after macOS lock and CUA activation timeouts. On 2026-09-15 one isolated native heading-edit, approval and byte-exact undo round trip passed; see the [new bounded audit](blume-native-audit-2026-09-15.md). This does not close the full native regression matrix. Global and other configuration types remain outside this edit flow, so this does not close full Setup parity. Source presentation uses a short filename. Quota numbers were not verified because Claude was not connected and Codex had aborted. This is a design observation only, not full UI acceptance or evidence for account, quota, provider or private-project behavior.

@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-15",
+  "purpose": "Blume capability and interaction comparison before implementation",
+  "scope": "52 mapped capabilities, 24 bounded reference observations, one Vela native edit roundtrip",
+  "overallParity": "not_achieved",
+  "allReferenceFeaturesExecuted": false,
+  "reference": {
+    "date": "2026-09-15",
+    "officialDownloadInfo": "https://updates.blume-page.com/desktop/stable/download-info?platform=mac",
+    "officialDownloadURL": "https://updates.blume-page.com/desktop/stable/Blume-1.0.74-arm64.dmg",
+    "downloadedAgainThisTurn": true,
+    "files": [
+      {
+        "file": "Blume-1.0.74-arm64-20260915.dmg",
+        "bytes": 188597393,
+        "sha256": "7058008a6224025f39d16f116aee2e6f54535f632358923fe97b8073ba5651df"
+      },
+      {
+        "file": "Blume-1.0.74-arm64.dmg",
+        "bytes": 188597393,
+        "sha256": "7058008a6224025f39d16f116aee2e6f54535f632358923fe97b8073ba5651df"
+      }
+    ],
+    "duplicateMatchesRetainedArtifact": true,
+    "codeSignatureVerificationExitCode": 0,
+    "codeSignatureDetails": "Executable=/Volumes/Blume 1.0.74-arm64/Blume.app/Contents/MacOS/Blume\nIdentifier=page.blume.sidecar\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20500 size=638 flags=0x10000(runtime) hashes=9+7 location=embedded\nSignature size=9035\nAuthority=Developer ID Application: Blume AS (5YWNUNABHW)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Sep 11, 2026 at 23:39:53\nInfo.plist entries=35\nTeamIdentifier=5YWNUNABHW\nRuntime Version=26.4.0\nSealed Resources version=2 rules=13 files=305\nInternal requirements count=1 size=180\n",
+    "notarizationOnlineAssessmentPerformed": false,
+    "noPrivateSourceOrAssetsExtracted": true
+  },
+  "baseline": {
+    "gitCommit": "cc3bec71222c13347674691cca06865ba1fdfb36",
+    "branch": "feat/acceptance-blume-refinement",
+    "nativeHostSHA256": "73ec57beaeed5af3112afa5e90edad446a6eb00e5b249e832cc2a62db0798700",
+    "helperSHA256": "998987b9627dcabcf37756161694244a6d094d0727f501909c3548e469d8b97a",
+    "uiSHA256": {
+      "index.html": "380127605c6c147ee7b58bb54e0e9d770204b7d6a811f38f6103b7ae97356786",
+      "app.css": "c4e98fbacd99c0c90fcef842ad69ed81285b9ab5d20b1db9e9dbd01fd8927689",
+      "reading.css": "88780a11b43a6eaa8b87e476abfc1ed1ed2c3d581739f1acde0e57d80e29d295",
+      "content.js": "74684dfd028bd89ed58b40f1a8ae9c0f201e6b393ad81eabc3a9b5909d67f600",
+      "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "i18n.js": "ad84691b013c75518bd4cd03e62189b9ef11fb1d04aa6a9b9a92b4c50bb33fb7",
+      "app.js": "f2e81d78f43eda35105e4f919db5804d60c76934b777d63199097925bb6ad846",
+      "vendor/prism-swift.js": "69c8a062618949fbc7b69989ab7fb2b7bc111b28ea329e53713c7a2885614b20",
+      "vendor/prism.LICENSE": "2b947f0901a7ffcf08a89957da9783c0e9c6e72cb6ce8e959f501ab5409e4d2b",
+      "vendor/prism-clike.js": "c76ba4e240932bdc75546be30e550f5ba5e13815ff71511c76e9e27ac3072444",
+      "vendor/prism-json.js": "956d86baa5ae7ec4106758f354ac2d140bdcd7fc103dece02f73ed12b8d663e4",
+      "vendor/marked.LICENSE": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+      "vendor/purify.js": "f263b05369e050fa175d4ecb9c9358eb4253602d510297adfb31df48b2f1c4d5",
+      "vendor/prism-python.js": "ed4385685bcf2d4935c8dbbab4bde16603da1329e092d2bf36c3dadd67e9a85c",
+      "vendor/purify.LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "vendor/marked.js": "b147274a9ce27d17276587167e49483d719f6893eeca3a3667a59797661d3556",
+      "vendor/prism-bash.js": "6260814110e5182f2956e3bd257429548d9dbf2a9b66a63719b26cf9fac966a7",
+      "vendor/prism-markup.js": "879fc9d256c352d980e053857fa707330853b8bfb67ce284ea661a24dec5756e",
+      "vendor/prism-javascript.js": "0345ea83e12b7b974e953c79a64dea35a40308309449db70b82020fb688ac321",
+      "vendor/prism-core.js": "6caad316dd991f24f8004e0b9c19c055cb5829ff65e973fbee406f96d81b8e7e",
+      "vendor/prism-css.js": "8c9760dba7f26ea842016919544dd9b73a78a36d5b07a1e9842c333ed18ab6ae"
+    },
+    "sourceUIMatchesCapturedBundle": true,
+    "sourcesUnchangedAtAuditEnd": true,
+    "isolatedFixture": true,
+    "automaticRealSourceDiscoveryDisabled": true,
+    "webDataStore": "nonPersistent",
+    "nativeCSSViewport": {
+      "width": 1250,
+      "height": 800,
+      "scale": 2
+    },
+    "referenceObservedWidthApproximately": 400,
+    "sameViewportVisualRegression": false
+  },
+  "referenceEvidence": {
+    "method": "CUA accessibility trees and screenshots observed in this task",
+    "observationLedger": "docs/parity/blume-native-audit-2026-09-15.json",
+    "screenshotsPublished": false,
+    "reason": "Reference windows included real local project/conversation information; only generic interaction observations are published",
+    "privateCodeOrAssetsCopied": false
+  },
+  "captures": [
+    {
+      "localCapture": "output/playwright/blume-alignment-before-20260915/vela-agents-9EC6DAFC-11D9-43BC-A22A-35399B23B0AD.png",
+      "sha256": "e9dbff205f1feafd2e732d69cb74e4046ea3a0d9cb8d4b38986677c3491fc54e",
+      "bytes": 260650,
+      "metadataSHA256": "3708dbed976dcc3c712181f80ad440727c2dc929b375b01a08337eff2c082a72",
+      "synthetic": true,
+      "kind": "actual-native-WKSnapshot",
+      "publishedCopy": "docs/assets/audit-20260915/session-detail.png"
+    },
+    {
+      "localCapture": "output/playwright/blume-alignment-before-20260915/vela-agents-E9769425-287A-44CE-9C08-07C984034613.png",
+      "sha256": "8b71ee7e4c07e5c7d10a4bb9d4618c02488d58e8340d1a93d7b0f568cc41bfb2",
+      "bytes": 285947,
+      "metadataSHA256": "eefad9667252093890e0a08e29f1bb52bfa68f8b16cd25110f09456905023ca6",
+      "synthetic": true,
+      "kind": "actual-native-WKSnapshot",
+      "publishedCopy": "docs/assets/audit-20260915/sessions.png"
+    },
+    {
+      "localCapture": "output/playwright/blume-alignment-before-20260915/vela-improve-7F59AC2B-EA6F-4B6A-9BA8-D116D0B87DBD.png",
+      "sha256": "9cd09ffdd7a6c67f1d4694a490a207a867cf3ca86142d5c5c15f2603a9634156",
+      "bytes": 213141,
+      "metadataSHA256": "8552d7b3bb92cdad940827cf168ce904ec6e310bd3e4893ca545daa59abe9904",
+      "synthetic": true,
+      "kind": "actual-native-WKSnapshot"
+    },
+    {
+      "localCapture": "output/playwright/blume-alignment-before-20260915/vela-setup-0F604D57-DFD0-48D0-A4F4-52C351EB1F72.png",
+      "sha256": "403f9e0a266fe67db53d7c00eff579def1ea9659d8b27ec774f4ca3f340f3b41",
+      "bytes": 202150,
+      "metadataSHA256": "6f3cf2bdc22eddfd1f17e9aa07784ad1890254dd75317256d5e5f5196b173d38",
+      "synthetic": true,
+      "kind": "actual-native-WKSnapshot"
+    },
+    {
+      "localCapture": "output/playwright/blume-alignment-before-20260915/vela-setup-A49A5460-73B8-4128-B2D3-43A920240FA6.png",
+      "sha256": "a45401fddf19114c15c1717ad2e3190d9f3923effb6b2d00efe05d6e6c085a5f",
+      "bytes": 237589,
+      "metadataSHA256": "e295ec08cb85bae0a849a6e2f86d41bc7865fa8856a7e9d79a36cc7d68bd913c",
+      "synthetic": true,
+      "kind": "actual-native-WKSnapshot"
+    },
+    {
+      "localCapture": "output/playwright/blume-alignment-before-20260915/vela-setup-C258A4DA-80CF-43CF-8D7C-46855AD442B8.png",
+      "sha256": "46492b4d7d9ab90b92c84a54a1e8cce00c1278bdfc775852b9db0e6181404217",
+      "bytes": 217390,
+      "metadataSHA256": "ab183e7a7bff10671a12b753969adddca0acb8ea15c318758a7ab0354a37ca97",
+      "synthetic": true,
+      "kind": "actual-native-WKSnapshot",
+      "publishedCopy": "docs/assets/audit-20260915/document-applied.png"
+    },
+    {
+      "localCapture": "output/playwright/blume-alignment-before-20260915/vela-usage-AD65B92C-3A65-44A8-B60B-F20B4F86D552.png",
+      "sha256": "d9722da8e5e4e6bb0df88556280819bdba5318d7824641ea7cf30f684332288b",
+      "bytes": 310547,
+      "metadataSHA256": "d0c24bcadb977b54a29eb6b989adfab158896b6a50d4c4d30884c7e42331e718",
+      "synthetic": true,
+      "kind": "actual-native-WKSnapshot",
+      "publishedCopy": "docs/assets/audit-20260915/usage.png"
+    }
+  ],
+  "nativeSetupEdit": {
+    "synthetic": true,
+    "file": "synthetic://Harbor/AGENTS.md",
+    "before": "# Working on Harbor\n\nKeep request validation explicit. Run tests before proposing a release.\n",
+    "beforeSHA256": "09468612d36d7a2ceef987c9bf67964efc972f7198dbd0127ec510ffe50895b0",
+    "steps": [
+      "opened_current_document",
+      "opened_heading_block_editor",
+      "changed_heading_only",
+      "reviewed_diff",
+      "submitted_frozen_approval",
+      "approved_from_native_inbox",
+      "verified_exact_file_bytes",
+      "reopened_current_document",
+      "inspected_applied_history",
+      "confirmed_undo",
+      "verified_byte_identical_restore"
+    ],
+    "applied": true,
+    "appliedContent": "# Harbor project instructions\n\nKeep request validation explicit. Run tests before proposing a release.\n",
+    "appliedSHA256": "0c2e4059a055127d98190b610ca134302de52f25f51372566048c41eb1c20f66",
+    "bodyUnchanged": true,
+    "undoRestoredExactBytes": true,
+    "afterUndoSHA256": "09468612d36d7a2ceef987c9bf67964efc972f7198dbd0127ec510ffe50895b0",
+    "providerCalls": 0,
+    "userFilesModified": false,
+    "limitations": [
+      "One native happy-path heading edit; not a full native regression suite",
+      "Approval button first accessibility click was invalidated before action; fresh state located the exact request",
+      "Undo returned to the Setup list instead of retaining the current document"
+    ]
+  },
+  "workBuddy": {
+    "selectedModelLabel": "Deepseek-V4.1-Flash",
+    "attemptedViaNativeUI": true,
+    "result": "session/resume timed out / UNKNOWN_STOP_REASON",
+    "uiChangedFiles": [],
+    "designNotesCreated": false,
+    "codeMerged": false,
+    "generationDeferredForReferenceAudit": true
+  },
+  "validation": {
+    "swiftBuild": {
+      "command": "swift build --jobs 2",
+      "result": "passed",
+      "purpose": "Restore the debug binary after reverting this-turn window proposal",
+      "secondsReportedByBuild": 3.36
+    },
+    "fullNativeRegressionRunThisTurn": false,
+    "fullProviderCompatibilityRunThisTurn": false,
+    "performanceRunThisTurn": false,
+    "newReleaseBuilt": false,
+    "repositoryCheck": {
+      "command": "python3 scripts/check-repository.py",
+      "result": "passed",
+      "output": "Repository and static asset checks passed"
+    },
+    "auditConsistency": {
+      "result": "passed",
+      "checks": [
+        "52 unique capability IDs, exactly once in the Markdown mapping",
+        "24 reference observations, every item reference resolves",
+        "All referenced source files and relative Markdown links exist",
+        "Four published native screenshots match original capture hashes",
+        "Native undo restored the original complete file SHA256",
+        "New public audit artifacts contain no credential pattern or absolute user-home path"
+      ]
+    },
+    "gitDiffCheck": {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  },
+  "limitations": [
+    "Blume account quota returned not connected / aborted, no successful quota windows verified",
+    "No populated reference suggestions, todo/subagent/worktree lifecycle or editing-save roundtrip was exercised",
+    "No new login, reference config write, exclusion deletion, product support message or sharing was performed",
+    "Source-level capability presence and historical tests are not reference equivalence",
+    "Current UI and application release were not redesigned or released in this audit"
+  ],
+  "cleanup": {
+    "terminated": [
+      "reference Blume app opened for audit",
+      "native QA app and helper",
+      "owned preview server PID 67376 and its helper"
+    ],
+    "nativeQAProcessExited": true,
+    "ownedPreviewServerExited": true,
+    "temporaryBrowserTabCloseRequested": true,
+    "removed": [
+      {
+        "path": ".task-tmp/blume-alignment-native-r1",
+        "bytes": 14538884,
+        "scope": "synthetic fixture/store/QA bundle created only for this audit"
+      },
+      {
+        "path": "../Vela-reference-sources/Blume-1.0.74-arm64-20260915.dmg",
+        "bytes": 188597393,
+        "scope": "duplicate download created this turn; identical original retained"
+      }
+    ],
+    "retained": [
+      "original reference DMG and pre-existing mounted volume",
+      "reusable .build and UI test dependencies",
+      "pre-existing .npm-cache and user data",
+      "audit captures/receipts and deferred WorkBuddy baseline/brief"
+    ],
+    "noPreExistingUserCachesDeleted": true,
+    "qaOSArtifacts": {
+      "bundleIdentifier": "ai.vela.qa.blume-alignment-before",
+      "preferences": "absent",
+      "webKit": "absent",
+      "caches": "absent",
+      "savedApplicationState": "absent"
+    }
+  }
+}
