@@ -28,12 +28,16 @@
     return 'light'; // Default LIGHT as strictly specified in brief
   }
 
+  const isEn = (document.documentElement.lang || '').toLowerCase().startsWith('en');
+
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
     themeToggleButtons.forEach(btn => {
       btn.innerHTML = theme === 'dark' ? SUN_ICON : MOON_ICON;
-      const label = theme === 'dark' ? '切换为浅色模式' : '切换为深色模式';
+      const label = theme === 'dark'
+        ? (isEn ? 'Switch to light mode' : '切换为浅色模式')
+        : (isEn ? 'Switch to dark mode' : '切换为深色模式');
       btn.setAttribute('aria-label', label);
       btn.setAttribute('title', label);
     });
@@ -186,14 +190,14 @@
         copyTextToClipboard(text, () => {
           btn.classList.add('copied');
           btn.setAttribute('aria-live', 'polite');
-          btn.textContent = '已复制';
+          btn.textContent = isEn ? 'Copied' : '已复制';
 
           setTimeout(() => {
             btn.classList.remove('copied');
             btn.innerHTML = originalHtml;
           }, 2000);
         }, () => {
-          btn.textContent = '复制失败';
+          btn.textContent = isEn ? 'Failed to copy' : '复制失败';
           setTimeout(() => {
             btn.innerHTML = originalHtml;
           }, 2000);
@@ -211,7 +215,7 @@
     function openToc() {
       toggle.setAttribute('aria-expanded', 'true');
       const hint = toggle.querySelector('.docs-toc-toggle-hint');
-      if (hint) hint.textContent = '收起 ▴';
+      if (hint) hint.textContent = isEn ? 'Collapse ▴' : '收起 ▴';
       const firstLink = content.querySelector('a');
       if (firstLink) {
         firstLink.focus();
@@ -221,7 +225,7 @@
     function closeToc(restoreFocus) {
       toggle.setAttribute('aria-expanded', 'false');
       const hint = toggle.querySelector('.docs-toc-toggle-hint');
-      if (hint) hint.textContent = '展开 ▾';
+      if (hint) hint.textContent = isEn ? 'Expand ▾' : '展开 ▾';
       if (restoreFocus) {
         toggle.focus();
       }
@@ -268,6 +272,94 @@
     });
   }
 
+  // Comparisons Page Factor Matrix & Details Interaction
+  function initComparisonsPage() {
+    const expandAllBtn = document.getElementById('btn-expand-all');
+    const collapseAllBtn = document.getElementById('btn-collapse-all');
+    const detailCards = document.querySelectorAll('.factor-detail-card');
+
+    if (expandAllBtn && collapseAllBtn) {
+      expandAllBtn.addEventListener('click', () => {
+        detailCards.forEach(card => card.setAttribute('open', ''));
+      });
+      collapseAllBtn.addEventListener('click', () => {
+        detailCards.forEach(card => card.removeAttribute('open'));
+      });
+    }
+
+    // When clicking a factor link in the comparison table, open the target detail card
+    document.querySelectorAll('.factor-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const hash = link.getAttribute('href');
+        if (hash && hash.startsWith('#')) {
+          const targetCard = document.querySelector(hash);
+          if (targetCard && targetCard.tagName.toLowerCase() === 'details') {
+            targetCard.setAttribute('open', '');
+          }
+        }
+      });
+    });
+
+    // Also handle direct hash load or back/forward
+    function handleHashOpen() {
+      if (window.location.hash) {
+        try {
+          const target = document.querySelector(window.location.hash);
+          if (target && target.tagName.toLowerCase() === 'details') {
+            target.setAttribute('open', '');
+          }
+        } catch (e) {}
+      }
+    }
+    window.addEventListener('hashchange', handleHashOpen);
+    handleHashOpen();
+  }
+
+  // Accessible Category Filter for Usecases Catalogue
+  function initUsecasesFilter() {
+    const filterButtons = document.querySelectorAll('.catalogue-pill[data-filter]');
+    const taskRows = document.querySelectorAll('.usecases-table tbody tr[data-category]');
+    const statusEl = document.getElementById('filter-status');
+    if (!filterButtons.length || !taskRows.length) return;
+
+    filterButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filter = btn.getAttribute('data-filter');
+
+        // Update aria-pressed and active state
+        filterButtons.forEach(b => {
+          const isActive = (b === btn);
+          b.classList.toggle('active', isActive);
+          b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        // Filter task rows and track visible count
+        let visibleCount = 0;
+        taskRows.forEach(row => {
+          const cat = row.getAttribute('data-category');
+          const shouldShow = (filter === 'all' || cat === filter);
+          row.style.display = shouldShow ? '' : 'none';
+          if (shouldShow) visibleCount++;
+        });
+
+        // Update localized live status text
+        if (statusEl) {
+          statusEl.textContent = isEn
+            ? `Showing ${visibleCount} of ${taskRows.length} scenarios`
+            : `显示 ${visibleCount} / ${taskRows.length} 个场景`;
+        }
+      });
+    });
+  }
+
+  // Harmless language preference persistence (does not force-redirect shared URLs)
+  function initLangPersistence() {
+    try {
+      const lang = isEn ? 'en' : 'zh-CN';
+      localStorage.setItem('vela-lang', lang);
+    } catch (e) {}
+  }
+
   // Initialize on DOM Ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
@@ -275,11 +367,17 @@
       initMobileMenu();
       initCopyButtons();
       initDocsToc();
+      initComparisonsPage();
+      initUsecasesFilter();
+      initLangPersistence();
     });
   } else {
     initTheme();
     initMobileMenu();
     initCopyButtons();
     initDocsToc();
+    initComparisonsPage();
+    initUsecasesFilter();
+    initLangPersistence();
   }
 })();

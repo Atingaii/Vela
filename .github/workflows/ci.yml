@@ -23,9 +23,199 @@ jobs:
       - name: Repository and website checks
         run: |
           python3 scripts/check-repository.py
+          python3 scripts/test-portable-support.py
+          python3 scripts/check-ui-translations.py
           python3 scripts/test-release-resources.py
+          node scripts/test-content-blocks.mjs
       - name: JSONL and MCP integration
-        run: python3 scripts/test-rpc.py
+        run: |
+          python3 scripts/test-rpc.py
+          python3 scripts/test-mcp-stdio.py --output output/parity/ci-mcp-stdio.json
+          python3 scripts/test-rpc-limits.py
+          python3 scripts/test-restart.py
+      - name: Capability contracts and responsive controls
+        run: |
+          python3 scripts/test-provider-rpc.py
+          python3 scripts/test-session-history-rpc.py --output output/parity/ci-session-history.json
+          python3 scripts/test-ingestion-exclusions-rpc.py --output output/parity/ci-ingestion-exclusions.json
+          python3 scripts/test-store-backup-cli.py --binary .build/debug/vela --source-root . --output output/parity/ci-store-backup-cli.json
+          python3 scripts/test-store-backup-no-recovery.py --binary .build/debug/vela --source-root . --output output/parity/ci-store-backup-no-recovery.json
+          python3 scripts/test-store-backup-format.py --binary .build/debug/vela --output output/parity/ci-store-backup-format.json
+          python3 scripts/test-store-backup-runtime.py --binary .build/debug/vela --source-root . --fixture-parent .task-tmp --output output/parity/ci-store-backup-runtime.json
+          python3 scripts/test-ingestion-consumer-guards-rpc.py --binary .build/debug/vela --output output/parity/ci-ingestion-consumers.json
+          python3 scripts/test-ingestion-loop-guard-rpc.py --binary .build/debug/vela --output output/parity/ci-ingestion-loop.json
+          python3 scripts/test-session-plans-rpc.py --output output/parity/ci-session-plans.json
+          python3 scripts/test-quota-rpc.py
+          python3 scripts/test-memory-archives.py
+          python3 scripts/test-setup-rpc.py
+          python3 scripts/test-setup-edit-rpc.py --binary .build/debug/vela --output output/parity/ci-setup-edit.json
+          python3 scripts/test-model-improvement-rpc.py
+          python3 scripts/test-ask-route-rpc.py
+          python3 scripts/test-workflow-health-rpc.py
+          python3 scripts/test-workflow-health-proposal-rpc.py --binary .build/debug/vela --output output/parity/ci-health-proposal
+          python3 scripts/test-session-memory-capture-rpc.py --binary .build/debug/vela --output output/parity/ci-session-memory-capture.json
+          python3 scripts/test-session-growing-rewrite-rpc.py --binary .build/debug/vela --output output/parity/ci-session-growing-rewrite.json
+          python3 scripts/test-run-feedback-rpc.py --binary .build/debug/vela --output output/parity/ci-run-feedback.json
+          python3 scripts/test-run-feedback-bridge.py --binary .build/debug/vela --output output/parity/ci-run-feedback-bridge.json
+          python3 scripts/test-ui-server-ci55-lab-guards.py --binary .build/debug/vela --output output/parity/ci-ui-server-lab-guards.json
+          python3 scripts/test-lab-recall-variant-rpc.py --binary .build/debug/vela --output output/parity/ci-lab-recall.json
+          python3 scripts/test-lab-explicit-memory-guard-rpc.py --binary .build/debug/vela --output output/parity/ci-lab-explicit-memory-guard.json
+          python3 scripts/test-lab-semantic-recall-rpc.py --binary .build/debug/vela --output output/parity/ci-lab-semantic-recall.json
+          python3 scripts/test-workflow-retry-rpc.py
+          python3 scripts/test-rpc-lab-shutdown.py --binary .build/debug/vela --output output/parity/ci-rpc-lab-shutdown.json
+          python3 scripts/test-automation-sigmask-rpc.py --binary .build/debug/vela --output output/parity/ci-automation-sigmask.json
+          python3 scripts/verify-knowledge-query.py --output output/parity/ci-knowledge-lexical
+          python3 scripts/verify-knowledge-query.py --retrieval-mode library_fts --output output/parity/ci-knowledge-fts
+          python3 scripts/test-loop-rpc-control.py --output output/parity/ci-loop-controls.json
+          python3 scripts/test-loop-rpc-control.py --saturate --output output/parity/ci-loop-controls-saturated.json
+          python3 scripts/test-workflow-replay-rpc.py --output output/parity/ci-workflow-replay.json
+          python3 scripts/test-replay-rpc-control.py --output output/parity/ci-replay-controls.json
+          python3 scripts/test-replay-rpc-control.py --saturate --output output/parity/ci-replay-controls-saturated.json
+      - name: Approval expiry with an actual pre-expiry helper
+        run: |
+          test ! -e .task-tmp/ci-approval-legacy
+          git fetch --depth=1 origin 3894dab6d9dcf7fd07b15ca6bc895402e248b11e
+          mkdir .task-tmp/ci-approval-legacy
+          git archive 3894dab6d9dcf7fd07b15ca6bc895402e248b11e Package.swift Sources Tests | tar -x -C .task-tmp/ci-approval-legacy
+          swift build --package-path .task-tmp/ci-approval-legacy --product vela
+          python3 scripts/test-approval-expiry-rpc.py --binary .build/debug/vela --legacy-binary .task-tmp/ci-approval-legacy/.build/debug/vela --source-root . --output output/parity/ci-approval-expiry.json
+      - name: Install isolated browser test dependencies
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.task-tmp/ci-browser
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund --prefix .task-tmp/ui-browser-tools --save-exact playwright@1.62.1
+          node .task-tmp/ui-browser-tools/node_modules/playwright/cli.js install chromium
+      - name: Real-helper renderer acceptance
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.task-tmp/ci-browser
+        run: |
+          python3 scripts/create-ui-fixture.py .task-tmp/ci-ui --with-routing-project
+          python3 scripts/test-ui-browser.py .task-tmp/ci-ui/fixture.json --driver playwright
+          python3 scripts/test-acceptance-browser.py --fixture .task-tmp/ci-acceptance --output output/playwright/ci-acceptance
+          python3 scripts/test-localization-browser.py --fixture .task-tmp/ci-localization --output output/playwright/ci-localization
+      - name: Frozen capability and engineering renderer flows
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.task-tmp/ci-browser
+        run: |
+          python3 scripts/create-ui-fixture.py .task-tmp/ci-capabilities --with-routing-project
+          cp -R Sources/VelaApp/Resources/UI .task-tmp/ci-capabilities/ui-snapshot
+          cp .build/debug/vela .task-tmp/ci-capabilities/vela-frozen
+          python3 scripts/test-parity-browser.py --fixture .task-tmp/ci-capabilities --output output/playwright/ci-capabilities
+          python3 scripts/create-ui-fixture.py .task-tmp/ci-engineering --with-routing-project
+          cp -R Sources/VelaApp/Resources/UI .task-tmp/ci-engineering/ui-snapshot
+          cp .build/debug/vela .task-tmp/ci-engineering/vela-frozen
+          BROWSER_EXECUTABLE="$(node -e "console.log(require('./.task-tmp/ui-browser-tools/node_modules/playwright').chromium.executablePath())")"
+          test -x "$BROWSER_EXECUTABLE"
+          python3 scripts/test-engineering-browser.py --fixture .task-tmp/ci-engineering --output output/playwright/ci-engineering
+          node scripts/test-rich-content-browser.mjs --fixture .task-tmp/ci-engineering --output output/playwright/ci-rich-content --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-ask-consumer-contracts.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-ask-consumer --output output/playwright/ci-ask-consumer
+          python3 scripts/test-library-watch-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-library-watch --output output/playwright/ci-library-watch
+          python3 scripts/test-history-plan-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-history-plan --output output/playwright/ci-history-plan --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-workspace-actions-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-workspace-actions --output output/playwright/ci-workspace-actions --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
+          python3 scripts/test-session-relations-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-session-relations --output output/playwright/ci-session-relations --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
+          python3 scripts/test-workspace-scope-accessibility-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-workspace-scope --output output/playwright/ci-workspace-scope --browser-executable "$BROWSER_EXECUTABLE" --frozen-selectors
+          python3 scripts/test-session-memory-capture-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-session-capture --output output/playwright/ci-session-capture --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-workflow-health-proposal-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-health-proposal-ui --output output/playwright/ci-health-proposal-ui --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-setup-edit-ui.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-setup-edit-ui --output output/playwright/ci-setup-edit-ui --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-ui-server-approval-cache.py > output/parity/ci-ui-server-approval-cache.json
+          python3 scripts/test-desktop-usability-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-desktop-usability --output output/playwright/ci-desktop-usability --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-run-feedback-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-run-feedback --output output/playwright/ci-run-feedback --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-run-feedback-drawer-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-run-feedback-drawer --output output/playwright/ci-run-feedback-drawer --browser-executable "$BROWSER_EXECUTABLE"
+          # This gate rejects both a delayed-prepare overwrite and incomplete
+          # race observations, while retaining its diagnosis receipt.
+          python3 scripts/test-run-feedback-ui21-prepare-race.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-run-feedback-prepare-race --output output/playwright/ci-run-feedback-prepare-race --browser-executable "$BROWSER_EXECUTABLE"
+          python3 scripts/test-lab-recall-browser.py --ui-directory .task-tmp/ci-engineering/ui-snapshot --binary .task-tmp/ci-engineering/vela-frozen --fixture .task-tmp/ci-lab-recall --output output/playwright/ci-lab-recall --browser-executable "$BROWSER_EXECUTABLE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Vela-renderer-acceptance
+          path: |
+            .task-tmp/ci-ui/browser-results.json
+            .task-tmp/ci-ui/browser-metadata.json
+            .task-tmp/ci-ui/failure-*.png
+            output/playwright/ci-acceptance/results.json
+            output/playwright/ci-acceptance/*.png
+            output/playwright/ci-localization/results.json
+            output/playwright/ci-localization/*.png
+            output/playwright/ci-capabilities/*.json
+            output/playwright/ci-capabilities/*.jsonl
+            output/playwright/ci-capabilities/*.png
+            output/playwright/ci-engineering/*.json
+            output/playwright/ci-engineering/*.jsonl
+            output/playwright/ci-engineering/*.png
+            output/playwright/ci-setup-edit-ui/
+            output/playwright/ci-rich-content/*.json
+            output/playwright/ci-rich-content/*.png
+            output/playwright/ci-ask-consumer/*.json
+            output/playwright/ci-ask-consumer/*.jsonl
+            output/playwright/ci-ask-consumer/*.png
+            output/playwright/ci-library-watch/*.json
+            output/playwright/ci-library-watch/*.jsonl
+            output/playwright/ci-library-watch/*.png
+            output/playwright/ci-history-plan/*.json
+            output/playwright/ci-history-plan/*.jsonl
+            output/playwright/ci-history-plan/*.png
+            output/playwright/ci-workspace-actions/*.json
+            output/playwright/ci-workspace-actions/*.jsonl
+            output/playwright/ci-workspace-actions/*.png
+            output/playwright/ci-session-relations/*.json
+            output/playwright/ci-session-relations/*.jsonl
+            output/playwright/ci-session-relations/*.png
+            output/playwright/ci-workspace-scope/*.json
+            output/playwright/ci-workspace-scope/*.jsonl
+            output/playwright/ci-workspace-scope/*.png
+            output/playwright/ci-session-capture/*.json
+            output/playwright/ci-session-capture/*.jsonl
+            output/playwright/ci-session-capture/*.png
+            output/playwright/ci-health-proposal-ui/*.json
+            output/playwright/ci-health-proposal-ui/*.jsonl
+            output/playwright/ci-health-proposal-ui/*.png
+            output/playwright/ci-desktop-usability/*.json
+            output/playwright/ci-desktop-usability/*.jsonl
+            output/playwright/ci-desktop-usability/*.png
+            output/playwright/ci-desktop-usability/*.txt
+            output/playwright/ci-desktop-usability/*.log
+            output/playwright/ci-run-feedback-drawer/*
+            output/playwright/ci-run-feedback/*.json
+            output/playwright/ci-run-feedback/*.jsonl
+            output/playwright/ci-run-feedback/*.png
+            output/playwright/ci-run-feedback/*.txt
+            output/playwright/ci-run-feedback/*.log
+            output/playwright/ci-run-feedback-prepare-race/*.json
+            output/playwright/ci-run-feedback-prepare-race/*.jsonl
+            output/playwright/ci-run-feedback-prepare-race/*.png
+            output/playwright/ci-run-feedback-prepare-race/*.txt
+            output/playwright/ci-run-feedback-prepare-race/*.log
+            output/playwright/ci-lab-recall/*.json
+            output/playwright/ci-lab-recall/*.jsonl
+            output/playwright/ci-lab-recall/*.png
+            output/playwright/ci-lab-recall/*.txt
+            output/playwright/ci-lab-recall/*.log
+            output/parity/ci-session-history.json
+            output/parity/ci-setup-edit.json
+            output/parity/ci-store-backup-*.json
+            output/parity/ci-store-backup-*.log
+            output/parity/ci-ingestion-exclusions*.json
+            output/parity/ci-ingestion-consumers*.json
+            output/parity/ci-ingestion-loop*.json
+            output/parity/ci-ui-server-lab-guards.json
+            output/parity/ci-ui-server-approval-cache.json
+            output/parity/ci-session-plans.json
+            output/parity/ci-mcp-stdio.json
+            output/parity/ci-loop-controls*.json
+            output/parity/ci-replay-controls*.json
+            output/parity/ci-workflow-replay.json
+            output/parity/ci-rpc-lab-shutdown.json
+            output/parity/ci-automation-sigmask.json
+            output/parity/ci-approval-expiry*.json
+            output/parity/ci-health-proposal/*.json
+            output/parity/ci-session-memory-capture.json
+            output/parity/ci-session-growing-rewrite.json
+            output/parity/ci-run-feedback*.json
+            output/parity/ci-lab-*.json
+            output/parity/ci-knowledge-*/receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Package and audit macOS application
         run: bash scripts/package-macos.sh
       - uses: actions/upload-artifact@v4
@@ -34,4 +224,64 @@ jobs:
           path: |
             releases/Vela-macOS-arm64.zip
             releases/SHA256SUMS
+          retention-days: 14
+  optional-sdks:
+    name: Installed SDKs and OpenClaw integration
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build the real local helper
+        run: swift build
+      - name: Install optional package development dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefix sdk/typescript
+          npm ci --ignore-scripts --no-audit --no-fund --prefix sdk/walrus
+          npm ci --ignore-scripts --no-audit --no-fund --prefix sdk/ai
+      - name: Verify installed packages outside their source directories
+        run: |
+          python3 scripts/test-sdks.py
+          python3 scripts/test-walrus-sdk.py
+      - name: Verify installed AI SDK middleware with real helper and local HTTP
+        env:
+          VELA_AI_TEST_OUTPUT: ${{ github.workspace }}/output/parity/ci-ai
+        run: python3 scripts/test-ai-integrations.py
+      - name: Verify installed Python Responses wrappers with real helper and local HTTP
+        env:
+          VELA_PYTHON_AI_TEST_OUTPUT: ${{ github.workspace }}/output/parity/ci-python-ai
+        run: python3 scripts/test-python-ai-integrations.py
+      - name: Verify installed LangChain wrappers with real helper and local HTTP
+        env:
+          VELA_LANGCHAIN_TEST_OUTPUT: ${{ github.workspace }}/output/parity/ci-langchain
+        run: python3 scripts/test-langchain-integrations.py
+      - name: Install the pinned isolated OpenClaw host
+        run: npm install --ignore-scripts --omit=optional --no-audit --no-fund --prefix .task-tmp/ci-openclaw openclaw@2026.9.4
+      - name: Verify real host loading, CLI and hooks with local fixtures
+        env:
+          VELA_TEST_OPENCLAW_ROOT: ${{ github.workspace }}/.task-tmp/ci-openclaw/node_modules/openclaw
+        run: python3 scripts/test-openclaw.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Vela-optional-SDK-verification
+          path: |
+            output/parity/sdk/*.json
+            output/parity/sdk/*.log
+            output/parity/walrus-sdk/package-results.json
+            output/parity/walrus-sdk/*.log
+            output/parity/openclaw/*.json
+            output/parity/openclaw/*.log
+            output/parity/ci-ai/*.json
+            output/parity/ci-ai/*.log
+            output/parity/ci-python-ai/*.json
+            output/parity/ci-python-ai/*.log
+            output/parity/ci-langchain/*.json
+            output/parity/ci-langchain/*.log
+          if-no-files-found: ignore
           retention-days: 14

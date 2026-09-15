@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-14",
+  "sourceCommit": "14f188c6a64cd2bec16fbfc467f8e3300fd3abf1",
+  "scope": "Bounded local backup-create ENOSPC failure only; not complete reliability or data-integrity acceptance.",
+  "harness": {
+    "path": "scripts/test-backup-enospc.py",
+    "sha256": "fbd5284c6740f90ff502144e497f83a18962d7b79aca8292595d53160274927f"
+  },
+  "helperSHA256": "5807bde288a406d313d36cc8349dd8884f8f6b10dc7196e6cccbc947dc762b34",
+  "receipt": {
+    "path": "output/parity/backup-enospc-14f188c-r6.json",
+    "sha256": "754cafe975e1ae4817e5e471ae50521b3f08abc8c183e92f907167d0910e565d"
+  },
+  "rawTranscript": {
+    "path": "output/parity/backup-enospc-14f188c-r6.raw.json",
+    "sha256": "782ea83d739c8ecf9b2521fc495bb7f5ed6859408c7b11b969b7b8bbffb2b7ad"
+  },
+  "environment": {
+    "ownedImage": "64 MiB HFS+",
+    "fillLimitBytes": 67108864,
+    "verification": "Before filling, verify the owned image/device/mount using hdiutil attach/info and a device number different from its parent.",
+    "remainingBytes": 16384
+  },
+  "observed": {
+    "backupExitCode": 1,
+    "error": "Vela: SQLite backup did not complete (step 13, finish 13)",
+    "destinationExists": false,
+    "remainingEntries": [],
+    "persistentStoreChangedPaths": [],
+    "runtimeSidecarsObserved": [
+      ".composition.lock",
+      ".daemon.lock",
+      ".scheduler.lock",
+      "vela.sqlite3-shm"
+    ],
+    "walCompared": true,
+    "projectUnchanged": true,
+    "detached": true,
+    "fixtureRemoved": true
+  },
+  "cleanupContract": "After any attempted attach, retain the image/fixture unless safe detach or an explicit absence from hdiutil info is established. Never recursively remove an uncertain mounted fixture.",
+  "history": [
+    "r1: incorrect hdiutil image parameters, no product backup path reached.",
+    "r2-r4: intermediate harness assertions; successful r4 product SQLITE_FULL observation retained separately from later harness hardening.",
+    "r5: bounded fill, mount identity, WAL comparison and empty-residue assertion verified.",
+    "r6: attach-timeout cleanup guard added; actual normal ENOSPC path rerun, passed. The timeout-retention branch was reviewed, not fault-injected."
+  ],
+  "limits": [
+    "The isolated synthetic Store was about 99 KiB; this is one backup-create disk-full point.",
+    "Restore disk-full, permissions, every crash point and all concurrency combinations remain separate.",
+    "No claim of system-disk saturation or complete product acceptance."
+  ]
+}

@@ -1,0 +1,131 @@
+{
+  "format": "vela-ui19-session-capture-evidence-v1",
+  "recordedAt": "2026-09-14",
+  "author": {
+    "tool": "Antigravity CLI 1.2.2",
+    "model": "gemini-3.8-flash-high",
+    "effort": "high",
+    "conversationId": "00566f07-2bc2-4595-9fbd-baa7e6a8f864",
+    "exitCode": 0
+  },
+  "integration": {
+    "captureAuthor": {
+      "cli": "Antigravity CLI",
+      "model": "gemini-3.8-flash-high",
+      "effort": "high",
+      "conversationId": "00566f07-2bc2-4595-9fbd-baa7e6a8f864",
+      "exitCode": 0
+    },
+    "mechanicalIntegration": {
+      "captureFreeze": ".task-tmp/ui19-capture-freeze-r3",
+      "anchorPatch": ".task-tmp/ui18-anchor-fix-r7/r6-to-r7-app.js.diff",
+      "anchorAuthorConversationId": "8f8794cb-d4e2-4ffd-b20f-e578836d16f5"
+    },
+    "sha256": {
+      "app.js": "96eb4e9ef46c3b9795d795ee000c7da668765f4779da31af2b72bd2fe72e74aa",
+      "app.css": "bb916bfaa20ba11d0597e8fb4b0ff86a04e3087aa0f3e54267b3d7a98d50a28a",
+      "i18n.js": "4c74c0975fcba65092482e21ca617ee3b4da79e96ab6d575704b2c6e89ff959e",
+      "native-main.swift": "23e33e2a333569f8c8918327924c1175ec73bd6ef666f4ad7230cac16d32ae51",
+      "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+      "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058",
+      "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93"
+    }
+  },
+  "verification": [
+    {
+      "path": "output/playwright/ui19-integrated-capture-r1/results.json",
+      "sha256": "8aaad8c4d572773990f3d8b39bd739dbab8b8f218803011a86619949cfda3fc6",
+      "completeSuite": true,
+      "sourceUnchanged": true,
+      "checks": [
+        {
+          "name": "prepare-cancel-confirm",
+          "passed": true
+        },
+        {
+          "name": "idempotency-and-source-edit",
+          "passed": true
+        },
+        {
+          "name": "stale-and-scope-guards",
+          "passed": true
+        },
+        {
+          "name": "ineligible-and-locales",
+          "passed": true
+        },
+        {
+          "name": "all-projects-and-pending",
+          "passed": true
+        }
+      ],
+      "cleanup": true
+    },
+    {
+      "path": "output/playwright/ui19-integrated-scope-r1/results.json",
+      "sha256": "cb83248953a0574896e931d99492da5818f7ed9dd5eaa58a5f4b9d08c649ecdb",
+      "completeSuite": true,
+      "sourceUnchanged": true,
+      "checks": [
+        {
+          "name": "all-projects-harbor-plan",
+          "passed": true
+        },
+        {
+          "name": "all-projects-beacon-plan",
+          "passed": true
+        },
+        {
+          "name": "all-projects-codex-relations-pagination",
+          "passed": true
+        },
+        {
+          "name": "stale-bridge-results",
+          "passed": true
+        },
+        {
+          "name": "live-refresh-preserves-detail-intent",
+          "passed": true
+        },
+        {
+          "name": "all-projects-live-anchor-and-stale-guards",
+          "passed": true
+        },
+        {
+          "name": "search-actions-listbox",
+          "passed": true
+        },
+        {
+          "name": "search-actions-tablist",
+          "passed": true
+        }
+      ],
+      "cleanup": null
+    }
+  ],
+  "historicalFailures": [
+    {
+      "path": "output/playwright/ui19-capture-browser-r1/results.json",
+      "classification": "UI undefined provenance variable and ineligible tool capture control; fixed by the designated author. The initial raw rewrite fixture also targeted the wrong JSONL field."
+    },
+    {
+      "path": "output/playwright/ui19-capture-browser-r2/results.json",
+      "classification": "The source editor selector and size-growing rewrite fixture were harness problems. Actual held capture scope switch left the previous modal open; fixed in UI19 r3."
+    },
+    {
+      "path": "output/playwright/ui19-capture-browser-r3/results.json",
+      "classification": "After the true modal fix, four checks passed. The last check inherited a memory.capture.prepare response hold from an earlier check. The harness now explicitly clears per-check interception; the unmodified frozen UI passed all five checks."
+    }
+  ],
+  "limits": {
+    "en": "Real local helper with synthetic session files; no provider execution. Browser evidence only. Native capture flow, notifications, full parity and Golden improvement remain separate gates. Equal-byte rewrite testing does not establish growing-prefix rewrite support; a separate real CLI audit reproduced that gap.",
+    "zhCN": "真实本地 helper 与合成 Session 文件，零 provider 调用；这里只证明浏览器路径。原生采集、通知、完整 parity 和 Golden 改善仍分别验收。同字节重写测试不证明增长前缀重写能力，后者已被独立真实 CLI 复现为缺口。"
+  },
+  "nativeUI19": {
+    "path": "output/playwright/native-ui19-r1/results.json",
+    "sha256": "f503d52cc9663bec083b40952a8efa519c3a7599d2cacaeef2e1d4b977d88bd2",
+    "functionalStatus": "passed for recorded synthetic native journeys",
+    "visualStatus": "failed: capture notice title and description compressed side-by-side in both languages",
+    "limits": "No held RPC/race claim. Frozen UI19 native source/helper recorded in the linked receipt. Subsequent UI20 layout repair requires its own verification."
+  }
+}

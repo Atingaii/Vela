@@ -1,0 +1,91 @@
+{
+  "format": "vela-session-relations-ci-regression-v1",
+  "date": "2026-09-13",
+  "baseCommit": "17cc948c0ead065d428564f28324374f14c10f87",
+  "scope": {
+    "en": "Test synchronization fix for the automatic first-page request when opening observed relation evidence. No product UI or Core changes.",
+    "zh-CN": "修正展开关联证据时自动加载首屏的测试同步问题；未更改产品 UI 或 Core。"
+  },
+  "priorCI": {
+    "runId": 34764702979,
+    "macJobId": 103743494988,
+    "sdkJobId": 103743494857,
+    "sdkConclusion": "success",
+    "macConclusion": "failure",
+    "legacyRendererAcceptance": "success",
+    "failureCheck": "reported-is-not-child",
+    "failure": "Transient #btn-load-relation-events disappeared while Playwright awaited a redundant click after opening its auto-loading disclosure."
+  },
+  "fix": {
+    "path": "scripts/test-session-relations-browser.py",
+    "sha256": "019546aac60b55c9aad186c4ac3118d19812cf584129ae96490ab76ab044a10b",
+    "behavior": "Wait for the actual disclosure first-page response, assert exactly one successful request with the exact project/session/limit and 50 actual records; retain all source, privacy, pagination, stale-response and locale assertions."
+  },
+  "localResult": {
+    "receipt": "output/playwright/ui17-relations-ci-race-fixed/results.json",
+    "sha256": "a25e6c7d276068d45963779c3c593068262dc3729c27f1f2d59e94b777c5852a",
+    "passed": 5,
+    "total": 5,
+    "completeSuite": true,
+    "binarySHA256": "f05dc75ad935b59828f46f296f1a5aa5e58439c44db03188dd842a71c3c0d86e",
+    "ui": {
+      "app.js": "d4adec2078d08eaac41100b9d70b9dbccb9c496574d65714e28182f5b8a6a11f",
+      "i18n.js": "265b6af7067b45bd1207bff56a134b9d1d267774cb99e1f616188db1a500947a",
+      "app.css": "70cb9e547a0104eb81be98b2c53977722594797fb46b21faeea31cbb87691c6d",
+      "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+      "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058"
+    },
+    "cleanup": {
+      "removedOwnedFixture": ".task-tmp/ui17-relations-ci-race-fixed",
+      "removedFiles": 144,
+      "browserAndServerStopped": true,
+      "evidenceRetained": true
+    }
+  },
+  "limits": [
+    "Synthetic renderer fixture with the actual frozen helper; not native UI or provider delivery.",
+    "All Projects plan routing remains a separate known UI17 issue assigned to the required Antigravity author.",
+    "This local pass does not declare the replacement hosted CI run passed."
+  ],
+  "followUp": {
+    "ciRunId": 34765161493,
+    "commit": "e4d64cd44f81ed1d29f17fc82afa001446f315d5",
+    "originalFirstPageCheckPassed": true,
+    "macConclusion": "failure",
+    "failureCheck": "stale-and-duplicate-guards",
+    "artifactId": 10320456257,
+    "artifactSHA256": "aa8365ba849c8a9def547093f9f81b8c4dc9414de1871e57edd6ffa60f62c99c",
+    "observedCause": "A periodic dashboard.get returned the changed session; sessions.get then rebuilt the open drawer and removed the deliberately stale cursor. Suppressing vela:refresh events alone did not isolate periodic dashboard reads.",
+    "productFollowUp": "UI17 live detail refresh collapses expanded relation evidence; queued separately for the required Antigravity UI author. No product-fix claim in this test-only increment.",
+    "testFix": "Hold actual background dashboard read responses while testing stale cursors, retaining the real payload; verify all 40 real child IDs have rendered before rewriting the next source epoch; release all holds even on failure.",
+    "scriptSHA256": "a5474b37213742a85fcaa8cb30b1f4cb5daf868d58f64ec31b1162bc82d2fb73",
+    "localReceipt": "output/playwright/ui17-relations-poll-isolation/results.json",
+    "localReceiptSHA256": "e0aafd3f3bdb8e8fbe388ea312727c28cd589d750e5ab03e6cd8619a5cd4e26e",
+    "completeSuite": true,
+    "passed": 5,
+    "total": 5,
+    "staleCheck": {
+      "check": "stale-and-duplicate-guards",
+      "passed": true,
+      "sameDrawerRefresh": "latest-generation-wins",
+      "duplicateContinuationSuppressed": true,
+      "lateProjectAndFailureIgnored": true,
+      "staleGetChildrenEpochReset": true,
+      "actualBackgroundDashboardResponsesHeld": 1,
+      "payloadMocked": false,
+      "heldContinuationVisibleChildren": 40,
+      "pageErrors": []
+    },
+    "binarySHA256": "f05dc75ad935b59828f46f296f1a5aa5e58439c44db03188dd842a71c3c0d86e",
+    "ui": {
+      "app.js": "d4adec2078d08eaac41100b9d70b9dbccb9c496574d65714e28182f5b8a6a11f",
+      "i18n.js": "265b6af7067b45bd1207bff56a134b9d1d267774cb99e1f616188db1a500947a",
+      "app.css": "70cb9e547a0104eb81be98b2c53977722594797fb46b21faeea31cbb87691c6d",
+      "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+      "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058"
+    },
+    "fixtureRemoved": true
+  }
+}

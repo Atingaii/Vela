@@ -1,0 +1,95 @@
+{
+  "format": "vela-session-capture-health-evidence-v1",
+  "baseCommit": "972155b726d9e812b3cf47b7b35b3f9e4178afd1",
+  "helperSHA256": "f0138540654e15ed1fdbda864e8268304d6a10822171a68728c50d1bdb8aff62",
+  "scope": {
+    "en": "Indexed user/assistant message capture into candidate Memory, and reviewed timeout proposals that create disabled workflow clones. No automatic activation, repair, replay or provider call.",
+    "zh-CN": "将已索引的用户/助手消息保存为候选记忆，以及审阅超时提案后创建停用工作流候选；不自动激活、修复、重放或调用模型。"
+  },
+  "integratedSourceSHA256": {
+    "Sources/VelaCore/MemoryService.swift": "ce2b8293f1eb616f536a8a6d24a45229a9adc2f940f560d73d49943216d87523",
+    "Sources/VelaCore/WorkflowHealth.swift": "4258f9163b9cbbbbc465cece3da420940d6b0a03b29014949250f9d33c4cd600",
+    "Sources/VelaCore/WorkflowHealthProposal.swift": "e4270b0dc4a22df7abe703dc9bde77e0240579a34cb03434ac6622446b16f4fb",
+    "Sources/VelaCore/AutomationService.swift": "ef9e42d5a7f0591f1f1d2d091e592e403f67de31ce7e75f35cea1db5056582aa",
+    "Tests/VelaCoreTests/SessionMemoryCaptureTests.swift": "c78db5dce5da5dc6b4c16ac3657e4e2d3f6d70f3d5aa18caca1f1624d86e50c1",
+    "Tests/VelaCoreTests/WorkflowHealthProposalTests.swift": "9c4e9ddf788655aa271d6f990a9e3ae72001e6e87de50140d69c7d49456b1208",
+    "sdk/typescript/src/index.ts": "edc5ac15ed739e36672cb40ef01c51b41801ff47a265db7edc9d20b3440bc0be",
+    "sdk/typescript/test/sdk.test.mjs": "65f88ccab2c0c3e2799f7ec8043e0717abfcc90277d7f71dbb49eadcdfceb308",
+    "sdk/typescript/README.md": "7ffaf10fc4fde8be92081f577ab26610f72dfdd418d96cf28c39aae08201f9dc",
+    "sdk/python/src/vela/__init__.py": "60550032d2f0600959636c5cf6e7c1cd945aa04d14198b3ed1b1ab0e103fc22d",
+    "sdk/python/tests/test_sdk.py": "0b89b5eb34456e3118a80f05861ce086def61e2f013fa28e44bb15ca45bba842",
+    "sdk/python/README.md": "ee84c7504180b48e7ca7fa4c84e8860497cd2acec1f17f0d680c61c5a979db6c"
+  },
+  "localVerification": [
+    {
+      "command": "swift build",
+      "exitCode": 0
+    },
+    {
+      "command": "python3 scripts/test-portable.py --receipt output/parity/memory-health-capture-portable-r8.json",
+      "exitCode": 0,
+      "methodCount": 454,
+      "portableFallback": "not XCTest"
+    },
+    {
+      "command": "test-workflow-health-proposal-rpc.py",
+      "exitCode": 0,
+      "receipt": "output/parity/health-proposal-r11-final.json",
+      "providerRuns": 0
+    },
+    {
+      "command": "test-session-memory-capture-rpc.py",
+      "exitCode": 0,
+      "receipt": "output/parity/session-memory-capture-rpc-r6-final.json",
+      "providerCalls": 0
+    },
+    {
+      "command": "test-sdks.py",
+      "exitCode": 0,
+      "typescriptInstalledTests": 15,
+      "pythonInstalledTests": 16,
+      "receipt": "output/parity/session-memory-capture-sdk-r6-final"
+    }
+  ],
+  "rawIntegrationReceipt": {
+    "path": ".task-tmp/memory-capture-core-r1/output/parity/memory-health-capture-integration-r1.json",
+    "sha256": "02406e9ad303f844a5e9338f6aa69050f78a5e5f0677c27594e21e0f8f5ed69a"
+  },
+  "reviewFixes": [
+    "Capture provenance cannot be forged or replaced through ordinary saves; edited content retains original hash and user_edit label.",
+    "Unrelated session append preserves the selected message hash; source/privacy/content changes are rechecked with a session-record CAS before creation.",
+    "Capture source identities reject control characters and oversized identities.",
+    "Health final batch CAS protects the proposal, run and persisted workflow; explicit recover resets an interrupted accepting proposal without cloning.",
+    "Health failure updates use CAS and do not overwrite concurrent state."
+  ],
+  "knownFailuresRetained": [
+    "First Health portable run had an existing FSEvents gap observation failure; unchanged test passed on the subsequent complete run.",
+    "Initial capture portable compilation failures were corrected in test compatibility; they are not counted as passes.",
+    "An earlier installed Python SDK run exposed a queued-cancellation close race; final full installed SDK run passed."
+  ],
+  "limits": [
+    "Portable 454 is a local compatibility runner result; hosted XCTest for this new increment is pending.",
+    "The desktop capture preview and Health proposal entrance are not implemented in this source checkpoint.",
+    "Health candidates are disabled hypotheses, not proof of higher success rate or an authorized rerun.",
+    "Final health candidate batch CAS-protects proposal, inspected run and persisted workflow records; a deterministic service-level interleave between inspection and batch could not be created without adding a production test hook, so that exact schedule is not claimed as independently exercised.",
+    "Complete reference parity and product release gates remain No-Go."
+  ],
+  "independentRootVerification": {
+    "coreCLIAndTestFilesMatchedTestedStage": 115,
+    "capture": {
+      "receipt": "output/parity/session-memory-capture-root-r1.json",
+      "sha256": "8fd2fbd8734ead2feacfea29dff4adcd5b6b963a25f9303bde0e9ec463a523c4",
+      "result": "pass",
+      "providerCalls": 0
+    },
+    "health": {
+      "receipt": "output/parity/health-proposal-root-r2/results.json",
+      "sha256": "b53f21f9135eb768a6ccf9f6626808db08469cb985fb9074ec50b636a69dbff2",
+      "result": "pass",
+      "scriptSHA256": "fd38a8b8f70d79bd85acc6a9bbc725aebd41eed59a7a77e821fc477f3231bc62",
+      "frozenSourceUnchanged": true,
+      "completeOriginalWorkflowRunApprovalUnchanged": true,
+      "candidateStepsContextRetryPreserved": true
+    }
+  }
+}

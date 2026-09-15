@@ -1,0 +1,194 @@
+{
+  "format": "vela-agent-evidence-v1",
+  "date": "2026-09-13",
+  "fixture": "synthetic-python-clamp-task-v1",
+  "realProvider": true,
+  "evalId": "938a7aa2-0bc7-416a-9437-e08b1240d9c4",
+  "modelRequested": "gpt-5.6-sol",
+  "modelProviderResolvedVersion": null,
+  "agentVersion": "codex-cli 0.154.0",
+  "taskSHA256": "f7ec622d331bce4a5c76388979a627814dbd2979c852d183399e7532e4d00274",
+  "repoCommit": "0c3178099fe7df570349fd976ecc523999a19f04",
+  "executionBinarySHA256": "bd4fce783c8ab6bd9e7a62b2d5372b9ad1c7c44dbe9f4e0d6949e06edc824089",
+  "analysisBinarySHA256": "35165f408ecb6641465efb471659de2e322a7c92be19a03114e70e8ff6d623ba",
+  "analysisVersion": "codex-test-observation-v3",
+  "summary": {
+    "baseline": {
+      "averageDurationMs": 67158.66666666667,
+      "averageTokens": 142437.33333333334,
+      "passRate": 1,
+      "runs": 3,
+      "successes": 3,
+      "testExecutingRuns": 3,
+      "testExecutionRate": 1,
+      "testObservationCoverage": 3,
+      "testObservedRuns": 3,
+      "validRuns": 3
+    },
+    "candidate": {
+      "averageDurationMs": 62717.333333333336,
+      "averageTokens": 108768.66666666667,
+      "passRate": 1,
+      "runs": 3,
+      "successes": 3,
+      "testExecutingRuns": 3,
+      "testExecutionRate": 1,
+      "testObservationCoverage": 3,
+      "testObservedRuns": 3,
+      "validRuns": 3
+    },
+    "corrections": null,
+    "decision": "inconclusive",
+    "futureEffect": "not_measured",
+    "interpretation": "Local task/test-execution comparison, not a claim of longitudinal correction reduction. Promotion always needs human review.",
+    "reasons": [
+      "No sufficient measured improvement; do not infer a benefit from a tie."
+    ]
+  },
+  "runs": [
+    {
+      "variant": "baseline",
+      "repetition": 1,
+      "durationMs": 66902,
+      "tokens": 151838,
+      "protocolComplete": true,
+      "testExecutionObserved": true,
+      "tests": [
+        {
+          "command": "/bin/zsh -lc \"/usr/bin/python3 verify.py && /usr/bin/python3 - <<'PY'\nfrom bounds import clamp\n\nhuge = 10 ** 1000\nassert clamp(huge, -huge, huge) == huge\nassert clamp(-huge, 0, huge) == 0\nassert clamp(1.0, 1, 2) == 1.0\n\nfor args in ((1, 0.0, float('nan')), (1, float('-inf'), 2), (1, True, 2)):\n    expected = TypeError if any(isinstance(x, bool) for x in args) else ValueError\n    try:\n        clamp(*args)\n    except expected:\n        pass\n    else:\n        raise AssertionError((args, expected))\nPY\n/usr/bin/python3 -m py_compile bounds.py\ngit diff --check && git status --short && git diff -- bounds.py\"",
+          "scriptExitCode": 0,
+          "testExitCode": null,
+          "matchKind": "unconditional_leading_invocation"
+        },
+        {
+          "command": "/bin/zsh -lc \"PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 verify.py && PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 - <<'PY'\nimport ast\nfrom pathlib import Path\n\nast.parse(Path('bounds.py').read_text())\nPY\ngit diff --check\ngit diff --name-only\nfind . -maxdepth 3 \\\\( -name '__pycache__' -o -name '*.pyc' \\\\) -print\"",
+          "scriptExitCode": 0,
+          "testExitCode": null,
+          "matchKind": "unconditional_leading_invocation"
+        }
+      ],
+      "independentVerificationExitCode": 0,
+      "verificationIntact": true,
+      "rawOutputSHA256": "7d75220ebb8f647b6511cb57ee6b7b7eae5f72766440b3ac92ff72f4dd114be9"
+    },
+    {
+      "variant": "candidate",
+      "repetition": 1,
+      "durationMs": 47223,
+      "tokens": 107241,
+      "protocolComplete": true,
+      "testExecutionObserved": true,
+      "tests": [
+        {
+          "command": "/bin/zsh -lc '/usr/bin/python3 verify.py'",
+          "scriptExitCode": 0,
+          "testExitCode": 0,
+          "matchKind": "complete_simple_command"
+        }
+      ],
+      "independentVerificationExitCode": 0,
+      "verificationIntact": true,
+      "rawOutputSHA256": "a80401b935f1870368c9ba6600a835c576bec0c65f8a75df3056f6e48cee97e6"
+    },
+    {
+      "variant": "candidate",
+      "repetition": 2,
+      "durationMs": 53737,
+      "tokens": 88760,
+      "protocolComplete": true,
+      "testExecutionObserved": true,
+      "tests": [
+        {
+          "command": "/bin/zsh -lc \"/usr/bin/python3 verify.py && /usr/bin/python3 - <<'PY'\nfrom bounds import clamp\n\nhuge = 10 ** 1000\nassert clamp(huge, -huge, huge) == huge\nassert clamp(0, -huge, huge) == 0\nassert clamp(1.0, 1.0, 2.0) == 1.0\nprint('additional edge checks passed')\nPY\ngit diff --check\ngit status --short\ngit diff -- bounds.py\"",
+          "scriptExitCode": 0,
+          "testExitCode": null,
+          "matchKind": "unconditional_leading_invocation"
+        }
+      ],
+      "independentVerificationExitCode": 0,
+      "verificationIntact": true,
+      "rawOutputSHA256": "a4f8014293e2f22430589c05d4712639793672c8c06f7ad034e9da484af9eb3a"
+    },
+    {
+      "variant": "baseline",
+      "repetition": 2,
+      "durationMs": 72075,
+      "tokens": 151605,
+      "protocolComplete": true,
+      "testExecutionObserved": true,
+      "tests": [
+        {
+          "command": "/bin/zsh -lc \"/usr/bin/python3 verify.py && /usr/bin/python3 - <<'PY'\nfrom bounds import clamp\n\nhuge = 10 ** 10000\nassert clamp(huge, -huge, huge) == huge\nassert clamp(0, 0, 1.0) == 0\nassert clamp(1.0, 0, 1.0) == 1.0\nassert clamp(-1, 0.0, 1) == 0.0\n\nfor args, error in [\n    ((True, 0, 1), TypeError),\n    ((0, False, 1), TypeError),\n    ((0, 0, True), TypeError),\n    ((float('nan'), 0, 1), ValueError),\n    ((0, float('-inf'), 1), ValueError),\n    ((0, 0, float('inf')), ValueError),\n    ((0, 2, 1), ValueError),\n]:\n    try:\n        clamp(*args)\n    except error:\n        pass\n    else:\n        raise AssertionError((args, error))\n\nprint('supplemental checks passed')\nPY\n/usr/bin/python3 -m py_compile bounds.py\ngit diff --check && git diff -- bounds.py && git status --short\"",
+          "scriptExitCode": 0,
+          "testExitCode": null,
+          "matchKind": "unconditional_leading_invocation"
+        }
+      ],
+      "independentVerificationExitCode": 0,
+      "verificationIntact": true,
+      "rawOutputSHA256": "e9a4801a69bb3b8ba5cd093bea135408f7377407b1d3558956b134cbc01b6fbe"
+    },
+    {
+      "variant": "baseline",
+      "repetition": 3,
+      "durationMs": 62499,
+      "tokens": 123869,
+      "protocolComplete": true,
+      "testExecutionObserved": true,
+      "tests": [
+        {
+          "command": "/bin/zsh -lc \"/usr/bin/python3 verify.py && /usr/bin/python3 - <<'PY'\nfrom bounds import clamp\n\nassert clamp(0.0, 0, 1) is not None\nassert clamp(10**1000, -(10**1001), 10**1001) == 10**1000\nassert clamp(-5, -2, 3) == -2\nassert clamp(5, -2, 3) == 3\nfor args in ((1, 0, True), (1, object(), 2), (float('nan'), 0, 1), (1, 0, float('inf'))):\n    try:\n        clamp(*args)\n    except (TypeError, ValueError):\n        pass\n    else:\n        raise AssertionError(args)\nprint('supplemental checks passed')\nPY\ngit diff --check && git diff -- bounds.py && git status --short\"",
+          "scriptExitCode": 0,
+          "testExitCode": null,
+          "matchKind": "unconditional_leading_invocation"
+        }
+      ],
+      "independentVerificationExitCode": 0,
+      "verificationIntact": true,
+      "rawOutputSHA256": "0fb92b35e97ac98c281d8572cf9555899c1e8bffb2ec238e64f02836411b0e8e"
+    },
+    {
+      "variant": "candidate",
+      "repetition": 3,
+      "durationMs": 87192,
+      "tokens": 130305,
+      "protocolComplete": true,
+      "testExecutionObserved": true,
+      "tests": [
+        {
+          "command": "/bin/zsh -lc '/usr/bin/python3 verify.py'",
+          "scriptExitCode": 0,
+          "testExitCode": 0,
+          "matchKind": "complete_simple_command"
+        }
+      ],
+      "independentVerificationExitCode": 0,
+      "verificationIntact": true,
+      "rawOutputSHA256": "caa014c13822b911df9fd309361e2a66ae0ecb212f4450dea14e58767ad6834e"
+    }
+  ],
+  "originalGitStatusUnchanged": true,
+  "originalWorktreeContentEquality": "not_measured",
+  "cleanupFailureCount": 0,
+  "promotionAttempt": "refused",
+  "candidateStateAfterAttempt": "candidate",
+  "previousScorerDefect": {
+    "baselineTestExecutingRuns": 0,
+    "candidateTestExecutingRuns": 2,
+    "decision": "ready_for_review",
+    "reason": "Scorer missed leading invocations inside compound shell commands. This conclusion is superseded, never promoted."
+  },
+  "priorFailedAttempt": {
+    "state": "failed",
+    "providerTaskRuns": 0,
+    "reason": "Configuration scalar JSON encoding failed before executing a provider task; fixed before the six runs."
+  },
+  "futureCorrectionReduction": "not_measured",
+  "fullGoldenScenarioPassed": false,
+  "limitations": [
+    "One small synthetic Python task, three repetitions per variant.",
+    "Token totals are provider-reported per turn, not independently priced account usage.",
+    "A successful compound script establishes a leading invocation, not the individual test exit status.",
+    "No causal or longitudinal claim; no candidate promotion from tied outcomes."
+  ]
+}

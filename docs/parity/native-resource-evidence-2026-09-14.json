@@ -1,0 +1,159 @@
+{
+  "format": "vela-native-resource-observation-v1",
+  "recordedAt": "2026-09-14",
+  "receipt": "output/playwright/native-ui20-nfr-r1/results.json",
+  "receiptSHA256": "c446cf72a800f257fdc8093e50de167b829ef5739021eddd145c375bef75b46f",
+  "status": "measured_not_full_nfr_pass",
+  "synthetic": true,
+  "fixtureLoad": {
+    "sessions": 5,
+    "projects": 2,
+    "providers": [
+      "claude",
+      "codex",
+      "cursor"
+    ],
+    "refreshes": 1,
+    "description": "Harbor synthetic fixture created through actual helper; UI displayed five sessions; one native Incremental Refresh completed."
+  },
+  "measurement": {
+    "sampleCount": 25,
+    "sampleIntervalSeconds": 5,
+    "durationSeconds": 123.113,
+    "rawSamples": "nfr-ps-samples.json",
+    "event": {
+      "event": "native_incremental_refresh_completed",
+      "wallTime": 1789324051.2476459,
+      "monotonicSeconds": 158848.613355416,
+      "evidence": "CUA AX toast 已扫描并增量刷新会话"
+    },
+    "eventAfterSample": 15,
+    "coldStartInteractive": "not reported: CUA getApp returns an already-accessible AX tree but its client discovery/launch timing is not an instrumented cold-cache measurement. One launch is not a p95 distribution."
+  },
+  "processAttribution": {
+    "reliablyAttributed": [
+      "VelaHost main process",
+      "its direct vela helper child"
+    ],
+    "notReliablyAttributed": [
+      "WKWebView/WebContent: no WebKit/WebContent executable appeared in the VelaHost descendant process tree in any sample; omitted rather than estimated."
+    ],
+    "wholeAppClaim": false
+  },
+  "resources": {
+    "rssKiB": {
+      "minimum": 96320,
+      "median": 97632,
+      "maximum": 106704
+    },
+    "rssMiB": {
+      "minimum": 94.062,
+      "median": 95.344,
+      "maximum": 104.203
+    },
+    "rssMBDecimal": {
+      "minimum": 98.632,
+      "median": 99.975,
+      "maximum": 109.265
+    },
+    "initialSettling": {
+      "sampleCount": 4,
+      "rssKiB": {
+        "minimum": 96320,
+        "median": 96384.0,
+        "maximum": 96512
+      },
+      "psPercentCpuPerProcess": {
+        "minimum": 0.0,
+        "median": 0.1,
+        "maximum": 0.6
+      }
+    },
+    "idleAfterSettlingBeforeFocus": {
+      "sampleCount": 10,
+      "rssKiB": {
+        "minimum": 96768,
+        "median": 97240.0,
+        "maximum": 97872
+      },
+      "psPercentCpuPerProcess": {
+        "minimum": 0.0,
+        "median": 0.0,
+        "maximum": 0.4
+      }
+    },
+    "focusAndRefreshWindow": {
+      "sampleCount": 11,
+      "rssKiB": {
+        "minimum": 104912,
+        "median": 105920,
+        "maximum": 106704
+      },
+      "psPercentCpuPerProcess": {
+        "minimum": 0.0,
+        "median": 0.0,
+        "maximum": 9.4
+      }
+    }
+  },
+  "nfrComparison": [
+    {
+      "target": "cold start: visible p95 ≤1.5s; interactive p95 ≤2s",
+      "result": "unavailable",
+      "reason": "No reliable cold-cache timer or distribution."
+    },
+    {
+      "target": "idle CPU <0.5%",
+      "result": "observed sampled pass only",
+      "observed": {
+        "idleMaximumPerProcessPercent": 0.4,
+        "idleMedianPerProcessPercent": 0.0,
+        "idleWindowSamples": "4-13 (20–65 seconds after first sample; excludes later CUA focus/refresh)"
+      },
+      "reason": "Ten post-settling pre-focus samples peak at 0.4% in ps output. This bounded sample supports an observed threshold result only; ps precision, no cold-cache control, and no long/concurrent distribution prevent a durable CPU claim."
+    },
+    {
+      "target": "Main+Watcher <120 MB",
+      "result": "observed partial pass",
+      "observedMaximumMBDecimal": 109.265,
+      "thresholdMBDecimal": 120,
+      "reason": "Main+helper are reliably attributed; no distinct watcher process appeared. This is a two-minute fixture sample, not a durable full-app result."
+    },
+    {
+      "target": "full process <220 MB",
+      "result": "not established",
+      "observedReliablyAttributedMaximumMBDecimal": 109.265,
+      "reason": "WKWebView child could not be reliably attributed; no whole-app sum claimed."
+    },
+    {
+      "target": "event→UI p95 <300ms",
+      "result": "not measured",
+      "reason": "Refresh completion toast was observed, but no shared source/index/UI timestamps or distribution."
+    },
+    {
+      "target": "tab p95 <50ms; Session first page p95 <150ms",
+      "result": "not measured",
+      "reason": "One initial AX-visible content load is not a repeated interaction distribution."
+    },
+    {
+      "target": "concurrent/long-term stability",
+      "result": "not measured",
+      "reason": "No provider, concurrent agents, background analysis, Lab, or long duration."
+    }
+  ],
+  "freeze": {
+    "uiManifestSHA256": "1aaae700b24249c0d70f678fa390ddbeb32438ed08f15439b8c82d2567a6a7e8",
+    "uiAppJSSHA256": "c5e25f5ec26bafeb17d3f079d67f76d81070a7e90a2c96f80ebf2f1b9ec46a70",
+    "nativeMainSHA256": "a5b22603d9261c7b32c1fdcea9206b0419e8dcfca82dc1513c4d731c2f3a1b6b",
+    "helperBeforeSHA256": "d1a1e969c53ae3368b564fc10912c22aa8c7a221403b50a69ff023246bd1f12b",
+    "helperAfterSHA256": "d1a1e969c53ae3368b564fc10912c22aa8c7a221403b50a69ff023246bd1f12b",
+    "privateHostSHA256": "0d3e5750103217f1e7c7442c0e182e50b7742efec52068162672308bab43dee8",
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O"
+  },
+  "cleanup": {
+    "bundleExited": true,
+    "privateFixtureRemoved": true,
+    "privateBuildRemoved": true,
+    "workspaceEvidenceRetained": true
+  }
+}

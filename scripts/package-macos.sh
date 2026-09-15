@@ -2,13 +2,18 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VELA_CHANNEL="${VELA_CHANNEL:-dev}"
+VELA_BUILD_JOBS="${VELA_BUILD_JOBS:-2}"
 case "$VELA_CHANNEL" in dev|canary|stable) ;; *) echo "Unknown channel" >&2; exit 1;; esac
+if ! [[ "$VELA_BUILD_JOBS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "VELA_BUILD_JOBS must be a positive integer." >&2
+  exit 1
+fi
 if [[ -n "${VELA_NOTARY_PROFILE:-}" && -z "${VELA_SIGN_IDENTITY:-}" ]]; then
   echo "Notarization requires VELA_SIGN_IDENTITY and VELA_NOTARY_PROFILE." >&2
   exit 1
 fi
-swift build -c release --arch arm64 -Xswiftc -DVELA_PACKAGED -Xswiftc -gnone -Xswiftc -file-prefix-map -Xswiftc "$PWD=."
-VELA_BIN_DIR="$(swift build -c release --arch arm64 --show-bin-path)"
+swift build --jobs "$VELA_BUILD_JOBS" -c release --arch arm64 -Xswiftc -DVELA_PACKAGED -Xswiftc -gnone -Xswiftc -file-prefix-map -Xswiftc "$PWD=."
+VELA_BIN_DIR="$(swift build --jobs "$VELA_BUILD_JOBS" -c release --arch arm64 --show-bin-path)"
 VELA_BUNDLE="$PWD/releases/Vela.app"
 mkdir -p "$VELA_BUNDLE/Contents/MacOS" "$VELA_BUNDLE/Contents/Resources/UI"
 install -m 755 "$VELA_BIN_DIR/VelaDesktop" "$VELA_BUNDLE/Contents/MacOS/VelaDesktop"

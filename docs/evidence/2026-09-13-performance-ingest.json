@@ -1,0 +1,990 @@
+{
+  "format": "vela-ingest-benchmark-v1",
+  "timestampUTC": "2026-09-12T15:46:08.645550+00:00",
+  "environment": {
+    "binary": ".build/arm64-apple-macosx/release/vela",
+    "binarySHA256": "3d91f2f554c361e222b17e6cbbdce11b9fcd1847b9c2952d37af9183b7ee3fc2",
+    "binaryBuild": "release",
+    "commit": "6c2bf54e99e19fdeedcf7e0ddfa49beed58c5d21",
+    "workingTreeDirty": true,
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "python": "3.14.7",
+    "sqlitePython": "3.50.4",
+    "swift": "Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101)\nTarget: arm64-apple-macosx26.0",
+    "cpu": "Apple M2 Pro",
+    "memoryBytes": 34359738368
+  },
+  "suite": "matrix",
+  "samplesPerCase": 3,
+  "units": "MB = 1,000,000 bytes; tail bytes and RSS KiB reported separately",
+  "cache": "Fresh store/helper for each sample, shared generated sources; OS caches not evicted",
+  "metric": "Explicit sessions.refresh RPC elapsed, including 50 ms RSS sampling overhead",
+  "limits": "Single synthetic provider; no full backfill, watcher-to-UI latency, real agent concurrency or cold launch claim",
+  "results": [
+    {
+      "case": {
+        "axis": "sessions",
+        "sessions": 10
+      },
+      "input": {
+        "sourceFiles": 10,
+        "sourceBytes": 75380,
+        "rawMessages": 100,
+        "fixtureSHA256": "c06fa6622123496c2b037f25c413330e0646f59a7df8a99c0dd710ed61b2bc60",
+        "sourceProvider": "claude synthetic documented JSONL subset",
+        "selectedFilesExpected": 10,
+        "completeInputExpected": true
+      },
+      "generationMs": 2.042,
+      "samples": [
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 23.604,
+          "sourceFilesChecked": 10,
+          "sourcesUpdated": 10,
+          "indexedSessions": 10,
+          "retainedMessages": 100,
+          "truncatedSessions": 0,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 10,
+          "maximumRetainedMessages": 10,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12048,
+            "sampledMaximum": 16480,
+            "samples": [
+              12048,
+              16480
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 24.013,
+          "sourceFilesChecked": 10,
+          "sourcesUpdated": 10,
+          "indexedSessions": 10,
+          "retainedMessages": 100,
+          "truncatedSessions": 0,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 10,
+          "maximumRetainedMessages": 10,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12096,
+            "sampledMaximum": 16512,
+            "samples": [
+              12096,
+              16512
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 25.221,
+          "sourceFilesChecked": 10,
+          "sourcesUpdated": 10,
+          "indexedSessions": 10,
+          "retainedMessages": 100,
+          "truncatedSessions": 0,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 10,
+          "maximumRetainedMessages": 10,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12048,
+            "sampledMaximum": 16480,
+            "samples": [
+              12048,
+              16480
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        }
+      ],
+      "medianRefreshMs": 24.013,
+      "maximumRefreshMs": 25.221,
+      "correctnessPassed": true,
+      "completeFixtureInputRetained": true,
+      "timingThreshold": null,
+      "performanceGate": "not decided by this benchmark"
+    },
+    {
+      "case": {
+        "axis": "sessions",
+        "sessions": 100
+      },
+      "input": {
+        "sourceFiles": 100,
+        "sourceBytes": 754700,
+        "rawMessages": 1000,
+        "fixtureSHA256": "ad1fc2482b1fdc758e76bd1b13789b41626b3df26b0e9aabd0e3f2caa40e0277",
+        "sourceProvider": "claude synthetic documented JSONL subset",
+        "selectedFilesExpected": 60,
+        "completeInputExpected": false
+      },
+      "generationMs": 15.748,
+      "samples": [
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 142.381,
+          "sourceFilesChecked": 60,
+          "sourcesUpdated": 60,
+          "indexedSessions": 60,
+          "retainedMessages": 600,
+          "truncatedSessions": 0,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 60,
+          "maximumRetainedMessages": 10,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12032,
+            "sampledMaximum": 20976,
+            "samples": [
+              12032,
+              17184,
+              19360,
+              20976
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": [
+            {
+              "discoveredFiles": 100,
+              "message": "Indexed the 60 most recently modified sources; older source files remain on disk and are not fully indexed",
+              "provider": "claude",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 134.857,
+          "sourceFilesChecked": 60,
+          "sourcesUpdated": 60,
+          "indexedSessions": 60,
+          "retainedMessages": 600,
+          "truncatedSessions": 0,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 60,
+          "maximumRetainedMessages": 10,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12064,
+            "sampledMaximum": 21568,
+            "samples": [
+              12064,
+              17712,
+              20352,
+              21568
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": [
+            {
+              "discoveredFiles": 100,
+              "message": "Indexed the 60 most recently modified sources; older source files remain on disk and are not fully indexed",
+              "provider": "claude",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 132.789,
+          "sourceFilesChecked": 60,
+          "sourcesUpdated": 60,
+          "indexedSessions": 60,
+          "retainedMessages": 600,
+          "truncatedSessions": 0,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 60,
+          "maximumRetainedMessages": 10,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12048,
+            "sampledMaximum": 21616,
+            "samples": [
+              12048,
+              17920,
+              20800,
+              21616
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": [
+            {
+              "discoveredFiles": 100,
+              "message": "Indexed the 60 most recently modified sources; older source files remain on disk and are not fully indexed",
+              "provider": "claude",
+              "severity": "info"
+            }
+          ]
+        }
+      ],
+      "medianRefreshMs": 134.857,
+      "maximumRefreshMs": 142.381,
+      "correctnessPassed": true,
+      "completeFixtureInputRetained": false,
+      "timingThreshold": null,
+      "performanceGate": "not decided by this benchmark"
+    },
+    {
+      "case": {
+        "axis": "sessions",
+        "sessions": 1000
+      },
+      "input": {
+        "sourceFiles": 1000,
+        "sourceBytes": 7556900,
+        "rawMessages": 10000,
+        "fixtureSHA256": "f0ba7c381da08e2b86bd9bf884f53dd37f12a0ee068548b34e5cdc3d9b3f63c1",
+        "sourceProvider": "claude synthetic documented JSONL subset",
+        "selectedFilesExpected": 60,
+        "completeInputExpected": false
+      },
+      "generationMs": 165.901,
+      "samples": [
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 164.631,
+          "sourceFilesChecked": 60,
+          "sourcesUpdated": 60,
+          "indexedSessions": 60,
+          "retainedMessages": 600,
+          "truncatedSessions": 0,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 60,
+          "maximumRetainedMessages": 10,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12080,
+            "sampledMaximum": 21552,
+            "samples": [
+              12080,
+              17776,
+              19552,
+              21552
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": [
+            {
+              "discoveredFiles": 1000,
+              "message": "Indexed the 60 most recently modified sources; older source files remain on disk and are not fully indexed",
+              "provider": "claude",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 141.044,
+          "sourceFilesChecked": 60,
+          "sourcesUpdated": 60,
+          "indexedSessions": 60,
+          "retainedMessages": 600,
+          "truncatedSessions": 0,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 60,
+          "maximumRetainedMessages": 10,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12080,
+            "sampledMaximum": 22480,
+            "samples": [
+              12080,
+              18496,
+              21216,
+              22480
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": [
+            {
+              "discoveredFiles": 1000,
+              "message": "Indexed the 60 most recently modified sources; older source files remain on disk and are not fully indexed",
+              "provider": "claude",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 135.186,
+          "sourceFilesChecked": 60,
+          "sourcesUpdated": 60,
+          "indexedSessions": 60,
+          "retainedMessages": 600,
+          "truncatedSessions": 0,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 60,
+          "maximumRetainedMessages": 10,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12080,
+            "sampledMaximum": 22448,
+            "samples": [
+              12080,
+              18464,
+              21264,
+              22448
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": [
+            {
+              "discoveredFiles": 1000,
+              "message": "Indexed the 60 most recently modified sources; older source files remain on disk and are not fully indexed",
+              "provider": "claude",
+              "severity": "info"
+            }
+          ]
+        }
+      ],
+      "medianRefreshMs": 141.044,
+      "maximumRefreshMs": 164.631,
+      "correctnessPassed": true,
+      "completeFixtureInputRetained": false,
+      "timingThreshold": null,
+      "performanceGate": "not decided by this benchmark"
+    },
+    {
+      "case": {
+        "axis": "file_size",
+        "megabytes": 1
+      },
+      "input": {
+        "sourceFiles": 1,
+        "sourceBytes": 1000288,
+        "rawMessages": 1344,
+        "fixtureSHA256": "79260251b1466524aea5e70cf61472fff87f8d6860a747e14987ce3b102cba15",
+        "sourceProvider": "claude synthetic documented JSONL subset",
+        "selectedFilesExpected": 1,
+        "completeInputExpected": false
+      },
+      "generationMs": 6.039,
+      "samples": [
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 58.573,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12016,
+            "sampledMaximum": 21024,
+            "samples": [
+              12016,
+              21024,
+              21024
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 59.278,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12048,
+            "sampledMaximum": 21296,
+            "samples": [
+              12048,
+              20864,
+              21296
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 58.971,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12032,
+            "sampledMaximum": 21168,
+            "samples": [
+              12032,
+              17472,
+              21168
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        }
+      ],
+      "medianRefreshMs": 58.971,
+      "maximumRefreshMs": 59.278,
+      "correctnessPassed": true,
+      "completeFixtureInputRetained": false,
+      "timingThreshold": null,
+      "performanceGate": "not decided by this benchmark"
+    },
+    {
+      "case": {
+        "axis": "file_size",
+        "megabytes": 10
+      },
+      "input": {
+        "sourceFiles": 1,
+        "sourceBytes": 10000328,
+        "rawMessages": 13420,
+        "fixtureSHA256": "a283817615342e27c61ce756c7b967bd54cff894a4afa9314441bde557dea47f",
+        "sourceProvider": "claude synthetic documented JSONL subset",
+        "selectedFilesExpected": 1,
+        "completeInputExpected": false
+      },
+      "generationMs": 57.796,
+      "samples": [
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 57.149,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12096,
+            "sampledMaximum": 21280,
+            "samples": [
+              12096,
+              21280,
+              21280
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 59.332,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12096,
+            "sampledMaximum": 21280,
+            "samples": [
+              12096,
+              15616,
+              21280
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 58.067,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12096,
+            "sampledMaximum": 21280,
+            "samples": [
+              12096,
+              21280,
+              21280
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        }
+      ],
+      "medianRefreshMs": 58.067,
+      "maximumRefreshMs": 59.332,
+      "correctnessPassed": true,
+      "completeFixtureInputRetained": false,
+      "timingThreshold": null,
+      "performanceGate": "not decided by this benchmark"
+    },
+    {
+      "case": {
+        "axis": "file_size",
+        "megabytes": 50
+      },
+      "input": {
+        "sourceFiles": 1,
+        "sourceBytes": 50000097,
+        "rawMessages": 67039,
+        "fixtureSHA256": "dba29c3523f39a193ff2b1ac6d8a2658ad5799452fa8d6bb89285fc08c090283",
+        "sourceProvider": "claude synthetic documented JSONL subset",
+        "selectedFilesExpected": 1,
+        "completeInputExpected": false
+      },
+      "generationMs": 293.46,
+      "samples": [
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 61.02,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12064,
+            "sampledMaximum": 20928,
+            "samples": [
+              12064,
+              17872,
+              20928
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 60.489,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12096,
+            "sampledMaximum": 21232,
+            "samples": [
+              12096,
+              20624,
+              21232
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 63.826,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12128,
+            "sampledMaximum": 21360,
+            "samples": [
+              12128,
+              15680,
+              21360
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        }
+      ],
+      "medianRefreshMs": 61.02,
+      "maximumRefreshMs": 63.826,
+      "correctnessPassed": true,
+      "completeFixtureInputRetained": false,
+      "timingThreshold": null,
+      "performanceGate": "not decided by this benchmark"
+    },
+    {
+      "case": {
+        "axis": "file_size",
+        "megabytes": 500
+      },
+      "input": {
+        "sourceFiles": 1,
+        "sourceBytes": 500000274,
+        "rawMessages": 669493,
+        "fixtureSHA256": "7aae3014bc4a8e5cfc72cba49dc4328fada7e4c31ca3683f74e37907de5d8d71",
+        "sourceProvider": "claude synthetic documented JSONL subset",
+        "selectedFilesExpected": 1,
+        "completeInputExpected": false
+      },
+      "generationMs": 2871.816,
+      "samples": [
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 61.066,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 350,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 350,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12064,
+            "sampledMaximum": 21248,
+            "samples": [
+              12064,
+              17168,
+              21248
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 59.689,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 350,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 350,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12096,
+            "sampledMaximum": 21728,
+            "samples": [
+              12096,
+              20688,
+              21728
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 60.358,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 350,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 350,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12080,
+            "sampledMaximum": 20944,
+            "samples": [
+              12080,
+              15568,
+              20944
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        }
+      ],
+      "medianRefreshMs": 60.358,
+      "maximumRefreshMs": 61.066,
+      "correctnessPassed": true,
+      "completeFixtureInputRetained": false,
+      "timingThreshold": null,
+      "performanceGate": "not decided by this benchmark"
+    },
+    {
+      "case": {
+        "axis": "messages",
+        "messages": 10000
+      },
+      "input": {
+        "sourceFiles": 1,
+        "sourceBytes": 7449008,
+        "rawMessages": 10000,
+        "fixtureSHA256": "78a92305943f72e7565c0cfcc472394b2a11a7b4833c6484be3acc076d8838e2",
+        "sourceProvider": "claude synthetic documented JSONL subset",
+        "selectedFilesExpected": 1,
+        "completeInputExpected": false
+      },
+      "generationMs": 45.681,
+      "samples": [
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 59.784,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12128,
+            "sampledMaximum": 21280,
+            "samples": [
+              12128,
+              17264,
+              21280
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 59.32,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12080,
+            "sampledMaximum": 21264,
+            "samples": [
+              12080,
+              17440,
+              21264
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 132.477,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12096,
+            "sampledMaximum": 21200,
+            "samples": [
+              12096,
+              15424,
+              21200,
+              21200
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        }
+      ],
+      "medianRefreshMs": 59.784,
+      "maximumRefreshMs": 132.477,
+      "correctnessPassed": true,
+      "completeFixtureInputRetained": false,
+      "timingThreshold": null,
+      "performanceGate": "not decided by this benchmark"
+    },
+    {
+      "case": {
+        "axis": "messages",
+        "messages": 100000
+      },
+      "input": {
+        "sourceFiles": 1,
+        "sourceBytes": 74589008,
+        "rawMessages": 100000,
+        "fixtureSHA256": "f5dd039e4b3615755d9b8355797d025a0a6124a6ca2e2358e01437d459e13cee",
+        "sourceProvider": "claude synthetic documented JSONL subset",
+        "selectedFilesExpected": 1,
+        "completeInputExpected": false
+      },
+      "generationMs": 418.938,
+      "samples": [
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 58.897,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12064,
+            "sampledMaximum": 21248,
+            "samples": [
+              12064,
+              16800,
+              21248
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 58.929,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12064,
+            "sampledMaximum": 21264,
+            "samples": [
+              12064,
+              16544,
+              21264
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        },
+        {
+          "cliVersion": "0.1.0-preview.2",
+          "refreshElapsedMs": 59.035,
+          "sourceFilesChecked": 1,
+          "sourcesUpdated": 1,
+          "indexedSessions": 1,
+          "retainedMessages": 351,
+          "truncatedSessions": 1,
+          "historyFullyIndexed": false,
+          "perSessionFullyIndexed": 0,
+          "maximumRetainedMessages": 351,
+          "initialFileLimit": 60,
+          "initialTailBytes": 262144,
+          "helperRssKiB": {
+            "baseline": 12080,
+            "sampledMaximum": 21296,
+            "samples": [
+              12080,
+              20640,
+              21296
+            ],
+            "cadenceMs": 50,
+            "meaning": "Sampled helper RSS; short peaks and other processes are not covered"
+          },
+          "diagnostics": []
+        }
+      ],
+      "medianRefreshMs": 58.929,
+      "maximumRefreshMs": 59.035,
+      "correctnessPassed": true,
+      "completeFixtureInputRetained": false,
+      "timingThreshold": null,
+      "performanceGate": "not decided by this benchmark"
+    }
+  ]
+}

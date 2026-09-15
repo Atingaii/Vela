@@ -1,0 +1,65 @@
+{
+  "recordedAt": "2026-09-13",
+  "sourceRoot": "../Vela-reference-sources",
+  "references": [
+    {
+      "directory": "MemWal",
+      "role": "original memory reference",
+      "commit": "493c9e66851e1b542ce5f55a547827f64e141c45",
+      "readmeSHA256": "27bc13a7bb6c3d23114e0d3436ebc5c952ffe5fcac5bf5d2a7cb1add0895e411",
+      "licenseSHA256": "a3f9dff42b066ebbddeef56f507d61c7af670af72f9ed3d0797ff2cf9898071f",
+      "sourceExecuted": false
+    },
+    {
+      "directory": "px0-workflows",
+      "role": "original workflow reference",
+      "commit": "df7e6eba9df7759cb0c924ac84563a7874bfb051",
+      "readmeSHA256": "08778c69f151aff4609b4006d10da594142df2552d72b68082a2341bafb81d6c",
+      "licenseSHA256": "d15850ed7f28b9db8e43f69ba13f8856c2173652e0aee942c0a2d05be514fb0f",
+      "sourceExecuted": false
+    },
+    {
+      "directory": "px0",
+      "role": "current repository changed product; not replacement scope",
+      "commit": "012194dc2e67280ad934f9bc174fa052e37cf596",
+      "readmeSHA256": "2af5452d3b24e6964af15d6894784a0299f44c87008eaf9ac8d7643d51816387",
+      "licenseSHA256": "d15850ed7f28b9db8e43f69ba13f8856c2173652e0aee942c0a2d05be514fb0f",
+      "sourceExecuted": false
+    }
+  ],
+  "blume": {
+    "path": "../Vela-reference-sources/Blume-1.0.74-arm64.dmg",
+    "bytes": 188597393,
+    "sha256": "7058008a6224025f39d16f116aee2e6f54535f632358923fe97b8073ba5651df",
+    "source": "https://updates.blume-page.com/desktop/stable/Blume-1.0.74-arm64.dmg",
+    "downloadedAt": "2026-09-13",
+    "installed": false,
+    "executed": false,
+    "imageVerify": {
+      "exitCode": 0,
+      "rawOutputSHA256": "e3af798c80c82c908a2f38b39972fdfc4132b3e8729a7e600e9f2324810250bf",
+      "summary": "hdiutil verify completed successfully; all reported CRC32 checks passed."
+    },
+    "mountAndSignature": {
+      "attemptedReadOnlyMount": true,
+      "signatureVerified": false,
+      "installed": false,
+      "executed": false,
+      "observed": "hdiutil attached disk4 without a mounted app filesystem; signature check not run",
+      "cleanup": "Confirmed exact downloaded image in hdiutil info, detached /dev/disk4 successfully; removed empty owned mount directory",
+      "dmgChecksumVerified": true
+    }
+  },
+  "privateBlumeRepository": {
+    "url": "https://github.com/blumepage/sidecar-prototype",
+    "unauthenticatedHTTPStatus": 404,
+    "sourceDownloaded": false
+  },
+  "px0IdentityChange": {
+    "current": "012194dc2e67280ad934f9bc174fa052e37cf596",
+    "workflow": "df7e6eba9df7759cb0c924ac84563a7874bfb051",
+    "recovery": "SHA discovered via fork parent, confirmed by official GitHub commit endpoint and fetched directly from official px0-ai/px0 remote",
+    "notSwappingProductScope": true
+  },
+  "publicRecord": "Reference checkout locations are relative to the Vela repository; full local command output is summarized."
+}

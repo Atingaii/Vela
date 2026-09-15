@@ -1,0 +1,169 @@
+{
+  "format": "vela-ci-source-evidence-v1",
+  "commit": "b16e7b999e8e67e5f0570739d08e6c9530437a07",
+  "run": {
+    "id": 34778165737,
+    "url": "https://github.com/Atingaii/Vela/actions/runs/34778165737",
+    "status": "completed",
+    "conclusion": "success",
+    "updatedAt": "2026-09-13T19:44:21Z"
+  },
+  "jobs": [
+    {
+      "id": 103780023539,
+      "name": "Installed SDKs and OpenClaw integration",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build the real local helper",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install optional package development dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed packages outside their source directories",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed AI SDK middleware with real helper and local HTTP",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed Python Responses wrappers with real helper and local HTTP",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify installed LangChain wrappers with real helper and local HTTP",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install the pinned isolated OpenClaw host",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify real host loading, CLI and hooks with local fixtures",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 103780023647,
+      "name": "macOS build and tests",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and test the real core",
+          "conclusion": "success"
+        },
+        {
+          "name": "Repository and website checks",
+          "conclusion": "success"
+        },
+        {
+          "name": "JSONL and MCP integration",
+          "conclusion": "success"
+        },
+        {
+          "name": "Capability contracts and responsive controls",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install isolated browser test dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Real-helper renderer acceptance",
+          "conclusion": "success"
+        },
+        {
+          "name": "Frozen capability and engineering renderer flows",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package and audit macOS application",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "testSummary": [
+    "2026-09-13T19:38:33.6603620Z \t Executed 482 tests, with 0 failures (0 unexpected) in 119.051 (119.089) seconds",
+    "2026-09-13T19:38:33.6605140Z \t Executed 482 tests, with 0 failures (0 unexpected) in 119.051 (119.090) seconds"
+  ],
+  "releaseSummary": [
+    "2026-09-13T19:44:17.3441720Z Release allowlist passed",
+    "2026-09-13T19:44:17.7635610Z Packaged: /Users/runner/work/Vela/Vela/releases/Vela.app"
+  ],
+  "overallProductAcceptance": "No-Go",
+  "nativeScope": "See separately retained local QA wrapper evidence; CI runner is not the user's Mac."
+}

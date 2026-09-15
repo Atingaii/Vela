@@ -1,0 +1,64 @@
+{
+  "format": "vela-native-acceptance-evidence-v1",
+  "observedAtUTC": "2026-09-13T16:20:37.468660+00:00",
+  "author": "root via CUA native AX, keyboard, screenshots and development WKWebView capture",
+  "sourceCommit": "83689c8a3f2ff8067ad2edbffac3b323361bdcf4",
+  "renderer": "Antigravity CLI Gemini 3.8 Flash High ui18 query-freeze-r4 (not yet integrated)",
+  "rendererConversation": "077aa111-797c-40f2-b850-36853dbe291e",
+  "syntheticFixture": true,
+  "fixtureDescription": "synthetic Codex relation/plan logs; 65 indexed sessions",
+  "providerRuns": 0,
+  "bundleFilesSHA256": {
+    "Contents/Info.plist": "ad79855c20ca273ae2e3f1ed0f63bb9703a8976feed6ee648602b2828c725f13",
+    "Contents/_CodeSignature/CodeResources": "8d5fcd702b588628a83f6b4fbc14db0a3523e808f6a5425d59cd0174600ea5b5",
+    "Contents/MacOS/VelaQA": "c22b2c5ad1102a5be00eadb6d31caa42b40cfab91bf4acca0bdf70a940914ecc",
+    "Contents/MacOS/VelaHost": "748b90431515f425e89d82ebd87bad78e59b475a1cc17308b10fd07e9f8f44f1",
+    "Contents/MacOS/vela": "c0c16f97166cfb1f53fd94c19ea417aad64bcd67263eb8dd5df1b9498b7bfae0",
+    "Contents/Resources/vela-completed.wav": "240bdb6816d12423e16dee0eb7128f5cfb8eca38d4cfbc05135fcc55671ed00a",
+    "Contents/Resources/vela-error.wav": "e8942535396f882bf381d19afe0952f67e30e2620bca4df8005f0ee6903ea374",
+    "Contents/Resources/vela-approval.wav": "0c399c3e60bbb5adc4f80fceba4a5bd81c3dbd60c3df6dada46ff75cce9c2635",
+    "Contents/Resources/Vela.icns": "deeb9b65a5a5e89f201ecbc9f868d668e4fc27766dd7919f9ffc9dd30a375ebd",
+    "Contents/Resources/UI/index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+    "Contents/Resources/UI/app.css": "cad3a760777c54b62cfbd312b4b69d668d2620af714571e6ea678f1cfe2b76c1",
+    "Contents/Resources/UI/app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+    "Contents/Resources/UI/i18n.js": "388e8f419ac44caee93030ac240b5ce0460b36ccaaf38b14597cd63662a0c78d",
+    "Contents/Resources/UI/app.js": "b3ede9f56acb15ad4ab543393da92964a55fe18627dfe96d54f763f897692004"
+  },
+  "passedChecks": [
+    "All Projects: open relations-parent; Plan RPC renders no observed plan without project-root error",
+    "Expand relations; actual first page and Load More append second-page children",
+    "Open second-page relations-child-11; expand parent link; return relations-parent",
+    "Cmd+K; Shift+Tab from input; ArrowRight selects Actions; Tab + Down + Enter navigates Workflows",
+    "Cmd+K; native typeText relations-parent; Enter returns actual indexed result; Down + Enter opens matching detail",
+    "Settings language Simplified Chinese → English → Simplified Chinese; interface and native menus change immediately"
+  ],
+  "notes": [
+    "Synthetic fixture has 65 indexed sessions, parent 71 tool messages and no confirmed task-plan tool; no provider or model request was used.",
+    "Native AX setValue did not populate the WKWebView search field; keyboard typeText succeeded. This was a control-method limitation, not a search success.",
+    "Actions tab visual highlight is under investigation despite correct selected AX state/content and routing; not marked as a visual pass.",
+    "Native recheck from an explicitly clicked input, then Shift+Tab → ArrowRight → Tab → ArrowDown, showed the correct blue Actions tab and second selected action. Chrome r4 tab-state regression also passed; earlier visual observation remains recorded as unconfirmed/intermittent, not a code fix."
+  ],
+  "nativeCaptureFilesSHA256": {
+    "vela-settings-5D5A81C7-8594-4D9D-9463-3947BB6378BB.json": "64ea78424c95cabcda323838140747b116b85678d926fc740fdcb4d8db86099e",
+    "vela-settings-5D5A81C7-8594-4D9D-9463-3947BB6378BB.png": "514630de28075bd7dfcca4ba51a1883386cc8cd25b590c2644b86580cec49189",
+    "vela-settings-B1325898-8A17-4A2B-BE7A-597BB6EE9C0E.json": "726319f47a5470fe4eee01cdf2de2d5c2accae316524d73b4a51b9b24b18f7b8",
+    "vela-settings-B1325898-8A17-4A2B-BE7A-597BB6EE9C0E.png": "8eae9a4365d56bb8795b467ed7dc182f53e7a3df1debae75166cd41a336dafd8",
+    "vela-workflows-7C62F01D-3E98-441F-A102-0615F04E6250.json": "f8e16c708b702e7c67ebae5cfd0fc49fcac1a722eb3ce867f7f733006b0c4aff",
+    "vela-workflows-7C62F01D-3E98-441F-A102-0615F04E6250.png": "a51c6a674034afdd4d1a157687eb5e3fb8e2dde31589bd782e2bb53d911178b4",
+    "vela-workflows-FDEBC8E1-6DE7-4319-86CA-DE7D76B942E4.json": "9e727e195ed1dc0e38e2f0f4d0dc123b844a9b7e76767c6e29be51a72212c84d",
+    "vela-workflows-FDEBC8E1-6DE7-4319-86CA-DE7D76B942E4.png": "ab8e856d352227625ef2660b55ed0e0e1403a261c7aa19e279f1058384a53581"
+  },
+  "receipt": {
+    "path": "output/playwright/native-ui18-scope-r1/native-observation.json",
+    "sha256": "3b0c26c5117b7cc496e7574c14bf40c87c66fd9ae82bad3db3b3c22137d35070"
+  },
+  "limitations": [
+    "No confirmed task-plan tool in this native fixture; no-observed-plan is the expected result.",
+    "This renderer predates live disclosure/scroll fixes and capture/Health UI wiring.",
+    "No notarization, external account, remote memory transaction, system banner or hardware sound claim.",
+    "The initial lock-screen block is preserved in the raw receipt; these actions followed the user unlocking the Mac.",
+    "Passing this bounded native sequence does not establish full feature parity or all native functions."
+  ],
+  "nativeQuitConfirmed": true,
+  "acceptance": "partial; full product remains No-Go"
+}

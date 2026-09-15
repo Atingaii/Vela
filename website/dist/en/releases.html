@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Release Log &amp; Roadmap — Vela</title>
+  <meta name="description" content="Vela release changelog, capability milestones, code signing instructions, known limitations, and active development branch updates.">
+  <link rel="icon" href="../assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <link rel="canonical" href="https://velo.codes/en/releases.html">
+  <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/releases.html">
+  <link rel="alternate" hreflang="en" href="https://velo.codes/en/releases.html">
+  <link rel="alternate" hreflang="x-default" href="https://velo.codes/releases.html">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="../assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="../styles.css?v=7fe760bdbb331b9d">
+
+  <!-- Immediate theme application -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/en/" class="brand-link" aria-label="Vela Homepage">
+          <img src="../assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="Main Navigation"><a href="/en/product/" class="nav-link">Product</a><a href="/en/usecases/" class="nav-link">Use Cases</a><a href="/en/integrations/" class="nav-link">Integrations</a><a href="/en/comparisons/" class="nav-link">Comparisons</a></nav>
+      </div>
+
+      <div class="header-actions">
+        <a href="/en/docs.html" class="header-docs-link">Docs</a>
+
+        <!-- Theme Toggle Button -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="Switch to dark mode" title="Switch to dark mode">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- Language Switcher -->
+        <a href="/releases.html" class="header-lang-link" hreflang="zh-CN" lang="zh-CN" aria-label="切换至简体中文">简体中文</a>
+
+        <!-- GitHub Repository Button -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub repository" title="GitHub repository">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="Mobile menu"><a href="/en/integrations/" class="nav-link">Integrations</a><a href="/en/product/" class="nav-link">Product</a>
+      <a href="/en/usecases/" class="nav-link">Use Cases</a>
+      <a href="/en/comparisons/" class="nav-link">Comparisons</a>
+      <a href="/en/docs.html" class="nav-link">Docs</a>
+      <a href="/en/releases.html" class="nav-link active" aria-current="page">Releases</a>
+      <a href="/en/privacy.html" class="nav-link">Privacy</a>
+      <a href="/releases.html" class="nav-link lang-switch-link" hreflang="zh-CN" lang="zh-CN">简体中文</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub Repository ↗</a>
+    </div>
+  </header>
+
+  <!-- Releases Article Layout -->
+  <main class="article-page-wrapper">
+    <div class="container article-container">
+      <div class="article-header">
+        <div class="section-eyebrow">RELEASE LOG &amp; ROADMAP</div>
+        <h1 class="article-h1">Release Changelog &amp; Roadmap</h1>
+        <p class="article-lead">
+          Documenting release milestones, architectural evolution, and known boundaries. The current published release package is <code>0.1.0-preview.2</code>; in-progress development work is noted separately below and not conflated with the release download.
+        </p>
+      </div>
+
+      <!-- Dev Branch Notice Card (Unpublished) -->
+      <article class="release-entry-card" style="border-left: 3px solid var(--badge-dev-text);">
+        <header class="release-card-header">
+          <div class="release-version-title">
+            <strong style="color: var(--badge-dev-text);">Active Development Source · Under Evolution (Not Yet Released)</strong>
+            <span class="version-badge-dev" style="margin-bottom: 0;">In Development</span>
+          </div>
+          <span class="release-date">Branch: feature / main</span>
+        </header>
+
+        <div class="release-card-body">
+          <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 14px;">
+            The following capabilities are merged or being tested on the development branch, and <strong>are not included in the 0.1.0-preview.2 download</strong>. Run via local source build to evaluate:
+          </p>
+          <ul style="padding-left: 20px; font-size: 14px; line-height: 1.75; color: var(--text-secondary); margin-bottom: 16px;">
+            <li><strong>Agent Lab Paired Worktrees:</strong> Runs baseline and candidate tasks in independent Git worktrees branched from the same commit, evaluated by a separate verifier script.</li>
+            <li><strong>Empirical Outcomes &amp; Inconclusive:</strong> Explicitly classifies results into Improved, Worse, and Inconclusive (insufficient evidence or stochastic variance).</li>
+            <li><strong>SessionStart Hook Generation &amp; SafeApply/Undo:</strong> Generates read-only hook definitions from promoted rules, safely applies them to local projects, and retains Undo hash snapshots.</li>
+          </ul>
+          <div style="font-size: 13px; color: var(--text-faint);">
+            Inspect detailed development status and verification notes: <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">docs/status.md ↗</a>
+          </div>
+        </div>
+      </article>
+
+      <!-- Release Card: 0.1.0-preview.2 (Current Published Release) -->
+      <article class="release-entry-card">
+        <header class="release-card-header">
+          <div class="release-version-title">
+            <strong>0.1.0-preview.2 · Developer Preview</strong>
+            <span class="version-badge-preview" style="margin-bottom: 0;">Current Release</span>
+          </div>
+          <span class="release-date">Developer Preview</span>
+        </header>
+
+        <div class="release-card-body">
+          <div class="release-meta-row">
+            <div>
+              <span style="font-size: 13.5px; color: var(--text-faint);">Supported Architecture:</span>
+              <code class="inline-code">macOS 13.0+ · Apple Silicon (arm64)</code>
+            </div>
+            <div>
+              <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="btn btn-primary-amber" style="height: 38px; padding: 0 16px; font-size: 13px;" target="_blank" rel="noopener noreferrer">
+                Download macOS Preview →
+              </a>
+            </div>
+          </div>
+
+          <h3 class="release-section-heading">Key Improvements</h3>
+          <ul style="padding-left: 20px; font-size: 14.5px; line-height: 1.75; color: var(--text-secondary); margin-bottom: 20px;">
+            <li><strong>Workspace Redesign:</strong> Major overhaul of the native session workspace and inbox views, improving log browsing efficiency and context extraction responsiveness.</li>
+            <li><strong>Notification &amp; Sound Categorization:</strong> Introduced granular notification toggles and sound feedback settings, allowing mute controls for routine completions according to engineer preference.</li>
+            <li><strong>Native Interface Integration:</strong> Standardized empirical UI representations, connecting authentic macOS native screenshots and approval details.</li>
+            <li><strong>Core Verification Suite:</strong> Consolidated automated test pipelines in the repository (including system test scripts, native RPC communication tests, and full-repo contract checks).</li>
+          </ul>
+
+          <h3 class="release-section-heading warning">Code Signing &amp; Gatekeeper Instructions</h3>
+          <div class="callout-box" style="margin-top: 8px;">
+            <strong>Signing Notice:</strong> The preview build is ad-hoc signed without a Developer ID signature or Apple notarization. Download <code class="inline-code">Vela-macOS-arm64.zip</code> and <code class="inline-code">SHA256SUMS</code> to the same directory and execute <code class="inline-code">shasum -a 256 -c SHA256SUMS</code> to verify integrity.<br><br>
+            If intercepted by macOS Gatekeeper on initial launch, open macOS <strong>System Settings ➔ Privacy &amp; Security</strong>, scroll to the bottom, and click <strong>"Open Anyway"</strong>. <strong>Never disable Gatekeeper globally.</strong> Compiling from official source is supported at any time.
+          </div>
+        </div>
+      </article>
+
+      <!-- Release Card: 0.1.0-preview.1 (Foundation) -->
+      <article class="release-entry-card">
+        <header class="release-card-header">
+          <div class="release-version-title">
+            <strong style="color: var(--text-secondary);">0.1.0-preview.1 · Foundation Release</strong>
+            <span class="pill-badge" style="margin-bottom: 0; padding: 2px 10px; font-size: 11px; opacity: 0.7;">Archive</span>
+          </div>
+          <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.1" class="btn-tertiary-link" style="height: 32px; font-size: 12px;" target="_blank" rel="noopener noreferrer">
+            Release Archive ↗
+          </a>
+        </header>
+
+        <div class="release-card-body">
+          <h3 class="release-section-heading">Initial Core Capabilities</h3>
+          <ul style="padding-left: 20px; font-size: 14.5px; line-height: 1.75; color: var(--text-secondary); margin-bottom: 16px;">
+            <li><strong>Native AppKit Host:</strong> WebKit process isolation and menu bar integration, with ⌘1..6 module navigation and global ⌘K search.</li>
+            <li><strong>Agent Log Ingestion:</strong> Bounded discovery of Claude Code and Codex logs (Cursor format supported via read-only import), timeline rendering, and inferred session states.</li>
+            <li><strong>Workflows &amp; Dry Run:</strong> Markdown workflows (<code class="inline-code">*.md</code>) orchestrating Git checks and build commands with read-only real execution and mutating stub rehearsals.</li>
+            <li><strong>Inbox Gating &amp; Parameter Freezing:</strong> Commands queue with frozen parameter hashes requiring explicit single-action approval.</li>
+            <li><strong>Memory Lifecycle &amp; Recall:</strong> Four-state lifecycle (Candidate ➔ Active ➔ Superseded ➔ Archived); lexical recall strictly limited to active entries; Private Library completely blocked from agent retrieval.</li>
+            <li><strong>Deterministic Improvement Suggestions:</strong> Generated suggestions requiring 3+ occurrences across 2+ sessions; sequential worktree runs comparing exit codes and durations.</li>
+            <li><strong>stdio MCP Interface:</strong> Built-in <code class="inline-code">vela mcp</code> providing read-only project context to external agents.</li>
+          </ul>
+
+          <p style="font-size: 13.5px; color: var(--text-faint); margin-top: 16px;">
+            For full commit history and changelog details, see <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/CHANGELOG.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">CHANGELOG.md</a> and <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">Feature Status (docs/status.md)</a>.
+          </p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="/en/usecases/" class="footer-link">Use Cases</a>
+        <a href="/en/comparisons/" class="footer-link">Comparisons</a>
+        <a href="/en/docs.html" class="footer-link">Docs</a>
+        <a href="/en/releases.html" class="footer-link">Releases</a>
+        <a href="/en/privacy.html" class="footer-link">Privacy</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">Report Vulnerability</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../site.js?v=acf1c37e1928f8dc"></script>
+</body>
+</html>

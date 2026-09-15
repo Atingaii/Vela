@@ -1,0 +1,68 @@
+{
+  "format": "vela-local-package-verification-v1",
+  "date": "2026-09-14",
+  "sourceCommit": "42bad41fa1658fcf345dc0d07ae2c92d436939ff",
+  "host": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "xcodeSelect": "/Library/Developer/CommandLineTools",
+    "xctestRun": false,
+    "xctestReason": "This host selects CommandLineTools; repository documentation and scripts/test-portable.py describe the portable fallback as explicitly not XCTest."
+  },
+  "build": {
+    "command": "VELA_BUILD_JOBS=2 VELA_CHANNEL=dev bash scripts/package-macos.sh",
+    "exitCode": 0,
+    "log": "output/parity/workbuddy-v3-package-2026-09-14.log",
+    "logSHA256": "ca38508143ecdc09ca37ed0b080a274f2dac662da7f978ecd3fb014a387002a6",
+    "jobs": 2
+  },
+  "rpcRegression": {
+    "command": "python3 scripts/test-rpc.py",
+    "exitCode": 0,
+    "executedScripts": 1,
+    "log": "output/parity/workbuddy-v3-test-rpc-2026-09-14.log",
+    "logSHA256": "37f6bedba305595305ef67c22cdae35da5fcd5b1bda248ecf4f08c7573378b2d",
+    "scope": "black-box JSONL RPC/MCP: persisted settings, private retrieval boundary, candidate-only contribution, dry run"
+  },
+  "package": {
+    "bundle": "releases/Vela.app",
+    "zip": "releases/Vela-macOS-arm64.zip",
+    "zipSHA256": "83f6db7427e2cdfa835aaf9a19b592b6a3b57aeaf4bb18f4b13b422223507395",
+    "sha256Sums": "83f6db7427e2cdfa835aaf9a19b592b6a3b57aeaf4bb18f4b13b422223507395  Vela-macOS-arm64.zip",
+    "desktopBinarySHA256": "682ef4842278de4be841f6232b9b91a609dc3db6f115ae3286a98e2931f89e0d",
+    "cliBinarySHA256": "dca9fea4b5118b245e1c8a093fa55be2a50d732fe4f6aebf7c634ba804799280",
+    "codesign": {
+      "verifiedDeepStrict": true,
+      "signature": "ad-hoc",
+      "teamIdentifier": null,
+      "notarized": false
+    },
+    "allowlistPassed": true,
+    "uiResources": {
+      "app.js": {
+        "sourceSHA256": "20c332d2f093d203de0c09126714ffa5ce6e48f2ef9f2c6561cd3a1671ad87be",
+        "packageSHA256": "20c332d2f093d203de0c09126714ffa5ce6e48f2ef9f2c6561cd3a1671ad87be"
+      },
+      "content.js": {
+        "sourceSHA256": "735938e0bdef0e1714ce48881c76e70e5fecf2a00fa631d062e19130089af3c6",
+        "packageSHA256": "735938e0bdef0e1714ce48881c76e70e5fecf2a00fa631d062e19130089af3c6"
+      },
+      "i18n.js": {
+        "sourceSHA256": "8c251d97fde352b54633f9911335b78e3364103c8ce515ac5fefb313f39b2130",
+        "packageSHA256": "8c251d97fde352b54633f9911335b78e3364103c8ce515ac5fefb313f39b2130"
+      },
+      "reading.css": {
+        "sourceSHA256": "b1b4bb1fee56e3fa30c56e6559f7f8f253599198b0c0a2c6656b882ee4d8942a",
+        "packageSHA256": "b1b4bb1fee56e3fa30c56e6559f7f8f253599198b0c0a2c6656b882ee4d8942a"
+      },
+      "index.html": {
+        "sourceSHA256": "380127605c6c147ee7b58bb54e0e9d770204b7d6a811f38f6103b7ae97356786",
+        "packageSHA256": "380127605c6c147ee7b58bb54e0e9d770204b7d6a811f38f6103b7ae97356786"
+      }
+    }
+  },
+  "limitations": [
+    "This is a local development package only. It is ad-hoc signed, is not notarized, and is not a formal release.",
+    "No browser or native UI was started for this task.",
+    "No XCTest count is claimed; the local host uses CommandLineTools."
+  ]
+}

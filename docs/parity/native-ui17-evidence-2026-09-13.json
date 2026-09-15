@@ -1,0 +1,76 @@
+{
+  "format": "vela-native-ui17-development-evidence-v1",
+  "date": "2026-09-13",
+  "completeProductAcceptance": false,
+  "syntheticFixture": true,
+  "rendererMock": false,
+  "helperInputSHA256": "f05dc75ad935b59828f46f296f1a5aa5e58439c44db03188dd842a71c3c0d86e",
+  "bundleFilesUnchanged": true,
+  "viewport": {
+    "width": 1250,
+    "height": 800
+  },
+  "checks": {
+    "localServiceReady": true,
+    "settingsNavigation": true,
+    "approvalSoundPreviewReturnedSuccess": true,
+    "nativeLocaleSwitchZhToEn": true,
+    "nativeEditViewWindowMenusBecameEnglish": true,
+    "quitThenRestartLocaleEnglish": true,
+    "projectDropdownSwitchedToHarbor": true
+  },
+  "scopeLimits": [
+    "Only approval sound was previewed in this native increment; no hardware hearing assertion or OS notification-banner test.",
+    "Only settings, locale persistence, native menu synchronization and project switch were exercised on this QA bundle; UI17 other flows have separate full renderer tests.",
+    "Native UI checks stopped after the tool reported a user window change; no subsequent navigation was attributed to the assistant.",
+    "This is an isolated debug QA host with captured UI17 resources, not the ad-hoc release archive launch."
+  ],
+  "captures": [
+    {
+      "path": "output/playwright/native-ui17/vela-settings-661CDA7E-B7AE-40AE-ABA7-20932BEE35F3.json",
+      "sha256": "64ea78424c95cabcda323838140747b116b85678d926fc740fdcb4d8db86099e",
+      "bytes": 5023
+    },
+    {
+      "path": "output/playwright/native-ui17/vela-settings-661CDA7E-B7AE-40AE-ABA7-20932BEE35F3.png",
+      "sha256": "514630de28075bd7dfcca4ba51a1883386cc8cd25b590c2644b86580cec49189",
+      "bytes": 139995
+    },
+    {
+      "path": "output/playwright/native-ui17/vela-settings-7953A05E-8677-43B6-BC1D-6D8ECE142D67.json",
+      "sha256": "de5fd5aec0077b119caf6cd242ad7db8c68d2f1901ce308dbe94938b5727ba6d",
+      "bytes": 5017
+    },
+    {
+      "path": "output/playwright/native-ui17/vela-settings-7953A05E-8677-43B6-BC1D-6D8ECE142D67.png",
+      "sha256": "fea6f625833bad2871ddff5ae4e02d528e54398ddbb24e0da307ebb2a1a9a89a",
+      "bytes": 142035
+    },
+    {
+      "path": "output/playwright/native-ui17/vela-settings-D24A447D-8FAF-4FD6-BF6F-8E0A078C9F79.json",
+      "sha256": "8191585e9611c75f9f94de5d86f009065bb2898ec52442198e28af0689dc77ca",
+      "bytes": 5021
+    },
+    {
+      "path": "output/playwright/native-ui17/vela-settings-D24A447D-8FAF-4FD6-BF6F-8E0A078C9F79.png",
+      "sha256": "173402b27ef75cd1eb44abfe2ce473ac14aef53f3320d7961464c06f77d6f5ce",
+      "bytes": 139996
+    },
+    {
+      "path": "output/playwright/native-ui17/vela-settings-EC08FFFB-E817-4A94-BD05-251CB05A4FBD.json",
+      "sha256": "64ea78424c95cabcda323838140747b116b85678d926fc740fdcb4d8db86099e",
+      "bytes": 5023
+    },
+    {
+      "path": "output/playwright/native-ui17/vela-settings-EC08FFFB-E817-4A94-BD05-251CB05A4FBD.png",
+      "sha256": "fea6f625833bad2871ddff5ae4e02d528e54398ddbb24e0da307ebb2a1a9a89a",
+      "bytes": 142035
+    }
+  ],
+  "receiptSHA256": "af97f79acd4ae44b4aa70d866b8f1233fe0a54fee0d098f403491bb0510d7aff",
+  "uiSources": {
+    "app.js": "d4adec2078d08eaac41100b9d70b9dbccb9c496574d65714e28182f5b8a6a11f",
+    "app.css": "70cb9e547a0104eb81be98b2c53977722594797fb46b21faeea31cbb87691c6d",
+    "i18n.js": "265b6af7067b45bd1207bff56a134b9d1d267774cb99e1f616188db1a500947a"
+  }
+}

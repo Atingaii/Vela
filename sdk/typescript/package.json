@@ -1,0 +1,15 @@
+{
+  "name": "@vela-engineering/sdk",
+  "version": "0.1.0-dev.1",
+  "description": "Explicit local-helper client for Vela project memory",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"}},
+  "files": ["dist", "README.md", "LICENSE"],
+  "engines": {"node": ">=22"},
+  "license": "MIT",
+  "repository": {"type": "git", "url": "https://github.com/Atingaii/Vela.git", "directory": "sdk/typescript"},
+  "scripts": {"build": "tsc -p tsconfig.json", "prepack": "npm run build", "test": "node --test test/*.mjs"},
+  "devDependencies": {"@types/node": "^22.0.0", "typescript": "^5.9.0"}
+}

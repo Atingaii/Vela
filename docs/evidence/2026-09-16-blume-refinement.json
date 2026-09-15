@@ -1,0 +1,213 @@
+{
+  "format": "vela-blume-refinement-v1",
+  "date": "2026-09-16",
+  "completeBlumeParity": false,
+  "referenceVersion": "Blume 1.0.74 arm64",
+  "referenceDMGSHA256": "7058008a6224025f39d16f116aee2e6f54535f632358923fe97b8073ba5651df",
+  "referenceDetails": "docs/implementation/blume-native-followup-2026-09-16.md",
+  "authors": {
+    "ui": "Antigravity CLI Gemini 3.8 Flash High",
+    "conversation": "724e9249-152d-456a-a8d1-064223f3a942",
+    "foundation": "GPT-5.6 Terra",
+    "verification": "primary model, local Mac"
+  },
+  "browserSuites": [
+    {
+      "suite": "appearance-r7",
+      "passed": true,
+      "checks": [
+        "Explicit dark theme renders and persists through real settings.save",
+        "System appearance follows matchMedia and radio group keyboard navigation",
+        "Rapid combined changes serialize actual writes and preserve final selection",
+        "Explicit failed transport rolls back DOM, radio state, and leaves persisted settings unchanged",
+        "Unrelated notification draft stays unsaved and remains in the UI after appearance save",
+        "A delayed real pre-save dashboard response cannot roll back confirmed appearance preferences or CSS-token scale",
+        "Cross-Settings-remount appearance writes serialize real RPCs and retain unrelated drafts",
+        "Narrow companion at 150% has scaled body text and no document overflow",
+        "Full reload restores persisted appearance controls and styling"
+      ],
+      "receiptSHA256": "c171436b5bb968e75f2840a6c3c5856bf06b24692bb2545a25a3185b03b06252",
+      "browserClosed": true
+    },
+    {
+      "suite": "shell-r7",
+      "passed": true,
+      "checks": [
+        "both-locales-and-supported-workspace-companion-sizes-have-no-horizontal-overflow",
+        "activity-and-history-partition-real-dashboard-session-states",
+        "plan-and-subagents-tabs-wait-for-real-background-data-and-restore-list-focus-scroll",
+        "project-selector-stays-synchronized-through-shell-routes",
+        "setup-same-name-skill-relation-is-loaded-through-real-scan-and-details",
+        "all-visible-desktop-and-companion-routes-are-reachable-with-a-content-container",
+        "late-real-dashboard-response-does-not-displace-a-newer-route"
+      ],
+      "receiptSHA256": "927efdd438ce86b26d52e37e73864424e90aaee049383b1ac51e231fd57627ef",
+      "browserClosed": true
+    },
+    {
+      "suite": "setup-edit-r7",
+      "passed": true,
+      "checks": [
+        "block-edit-preserves-unselected-source-bytes",
+        "preview-is-helper-backed-complete-diff",
+        "prepare-keeps-source-unchanged-and-creates-document-context-approval",
+        "document-context-approval-applies-exact-reviewed-source",
+        "history-and-ui-undo-restore-exact-original-source",
+        "draft-survives-close-reopen-and-locale-switch",
+        "external-change-surfaces-stale-base-and-preserves-draft",
+        "external-change-after-prepare-fails-document-context-review-without-overwrite-or-success-toast",
+        "late-real-prepare-close-reopen-preserves-distinct-draft-prevents-duplicate-and-releases-terminal-request",
+        "empty-source-to-nonempty-ui-approval-and-undo",
+        "open-setup-editor-has-no-900px-horizontal-overflow-and-reachable-footer",
+        "nonempty-document-ui-clear-complete-diff-and-zero-byte-approval",
+        "closed-and-discarded-editors-release-request-settlement-listeners"
+      ],
+      "receiptSHA256": "109db64649ba3325d57aa984b2c32b4dbd4f7314f0aeb27efdf93d940724ffdd",
+      "browserClosed": true
+    },
+    {
+      "suite": "design-r7",
+      "passed": true,
+      "checks": [
+        "all-nine-pages-zh-CN-1250x800",
+        "all-nine-pages-en-1250x800",
+        "companion-core-pages-440x760",
+        "activity-history-entry-and-account-default-use-visible-current-shell-controls",
+        "sidebar-collapse-removes-hidden-navigation-from-focus",
+        "workflow-agent-setup-lab-tabs-expose-single-pressed-selection",
+        "actual-tool-command-is-exact-copyable-raw-and-html-inert",
+        "workflow-icons-follow-real-trigger-and-step-class",
+        "saved-workflow-long-titles-and-menu",
+        "saved-workflow-descriptions-are-exact-two-line-clamped",
+        "all-projects-workflow-opens-correct-definition-scope",
+        "memory-filters-never-duplicate-header-actions",
+        "setup-memory-home-is-secondary-menu-route",
+        "settings-category-switch-preserves-unsaved-draft",
+        "empty-and-query-no-result-explain-next-step",
+        "approval-source-is-complete-not-list-truncated"
+      ],
+      "receiptSHA256": "46ea395194f3653f5d11add09e4570b99dc782f85bff30caaea03c216e47750d",
+      "browserClosed": true
+    }
+  ],
+  "nativeAcceptance": {
+    "passed": false,
+    "reason": "CUA reports Mac locked",
+    "finalQAConstructed": true,
+    "finalQALaunched": false,
+    "realAccountSuccess": false,
+    "totalProcessMemoryVerified": false
+  },
+  "historicalFailures": [
+    "r4 menu bounds assertion measured the wrong element and used invalid boundingBox fields; original green is not menu evidence.",
+    "r6/r6b/r6c reproduced summary click -> container scroll -> closed details before asynchronous positioning; final synchronous activation passed r7.",
+    "quota baseline placed the input beside its label in a narrow view; scoped Gemini CSS passed follow-up."
+  ],
+  "rendererSHA256": {
+    "app.js": "d5e9c51bb8cbcdbd6a4f8e1d3abda3b04133ada9aa134b4537f9af7629fe8e07",
+    "appearance.js": "791b1d650021c74632bfe48a65024cdb8aa56e1fe9387ed4f2d2815ea7c3c39d",
+    "app.css": "c4e98fbacd99c0c90fcef842ad69ed81285b9ab5d20b1db9e9dbd01fd8927689",
+    "reading.css": "2e7b57f3f8a31329e271480b4eed3dc28ec1243fa13c9199ae343aa064a4438b",
+    "index.html": "a6b96f2b63bd39b7acace54c1ab7f9f1e34d059bb29d584d1b47ce92309fa9d7",
+    "i18n.js": "586c0d3bee931271bdf5f3788581dfe6cb7681a027284025382b79e53560674e",
+    "content.js": "052f87297a4ad2c11f276e4708c2f0b5527ed22cb76f7331e56e90507a3633dd"
+  },
+  "coreAndHostSHA256": {
+    "Sources/VelaApp/main.swift": "085779a5702d92d053a710ad79afe3afabe33871fa4ce4a0b73aca58b30a1ce9",
+    "Sources/VelaApp/Localization.swift": "a926897c2752984ae21376390133377fd514cb6f99c97cf144564159090d488f",
+    "Sources/VelaCore/Preferences.swift": "58e00c04a70f56df4ecfb93dbf51847c3400d69384e4ff4b26105ce9eee20220"
+  },
+  "package": {
+    "path": "releases/Vela-macOS-arm64.zip",
+    "sha256": "16a7b014fd2bff0f2ead28f2329bd9bfcb5f63a9b0f367973faaf488273a08a7",
+    "helperSHA256": "5fe425aef5456a62b884b0685f81cf720df5d75dcc7c8d46100801ef206d2c89",
+    "signature": "ad-hoc",
+    "notarized": false,
+    "resourceAllowlistPassed": true,
+    "publicReleaseUpdated": false
+  },
+  "screenshots": [
+    {
+      "path": "docs/assets/blume-refinement-20260916/sessions.png",
+      "sha256": "bdb143da307b2035a1029edfe49d374861448abc2dfa51c2698e3a2f10263a39",
+      "native": false,
+      "synthetic": true
+    },
+    {
+      "path": "docs/assets/blume-refinement-20260916/setup.png",
+      "sha256": "c8cee115dfcc887a133044baa486bd44ce9e34275b7bdffdffdbe4e6a610e992",
+      "native": false,
+      "synthetic": true
+    },
+    {
+      "path": "docs/assets/blume-refinement-20260916/appearance-dark.png",
+      "sha256": "9b5b4cf774fe36eb0c5ae04aa2f52c844ca5ec4dd4cb7c14a126a9b1fa2e7377",
+      "native": false,
+      "synthetic": true
+    },
+    {
+      "path": "docs/assets/blume-refinement-20260916/quota-companion.png",
+      "sha256": "c83824e2f7232e5578a800398d65d7b5262854ef0792b1935a3740b66fbc26da",
+      "native": false,
+      "synthetic": true
+    }
+  ],
+  "quotaStates": {
+    "passed": true,
+    "cases": [
+      "neverread",
+      "fresh0",
+      "fresh100",
+      "null",
+      "reset-missing",
+      "expired",
+      "stale-error"
+    ],
+    "views": [
+      "1250 light",
+      "440 light 100%",
+      "440 dark 150%"
+    ],
+    "syntheticProvider": true,
+    "realAccountSuccess": false,
+    "temporaryFixturesRemoved": true,
+    "receiptSHA256": "b61cd37fe2e96b8233b469c25dd84feb28d6bea23c3b0c831e67e8c5ede61da6"
+  },
+  "backendChecks": [
+    {
+      "name": "RPC/MCP integration against release helper",
+      "passed": true,
+      "receiptSHA256": "37f6bedba305595305ef67c22cdae35da5fcd5b1bda248ecf4f08c7573378b2d"
+    },
+    {
+      "name": "Appearance real RPC: 30 valid combinations and 24 invalid/mixed patches",
+      "passed": true,
+      "receiptSHA256": "8ba53673233a7359bd837513fe1502635645f4f8c9e254d35b2c32e9b711af2a"
+    },
+    {
+      "name": "Project setup edit RPC: 14 scenarios",
+      "passed": true,
+      "receiptSHA256": "e11ee8d905ec10619c99bcaf2602d5912a45b5f83b9ed1a2d03d0853ea8a1190"
+    },
+    {
+      "name": "Portable LocalizationTests: 7 methods; not XCTest",
+      "passed": true,
+      "receiptSHA256": "926ac1f00616b7a3edf82c74d5258f824c728a03de7bd95322bdcb057b0c8c8d"
+    },
+    {
+      "name": "Native fixture boundary: 3 negative cases",
+      "passed": true,
+      "receiptSHA256": "199ba496f288116d36c62f29346d4fbf0bd75745a1c893abfcbdaa4c6d5b1033"
+    }
+  ],
+  "cleanup": {
+    "taskOwnedTargetsRemoved": 15,
+    "logicalBytesRemoved": 87371415,
+    "testServersStopped": true,
+    "oldQAStopped": true,
+    "antigravitySessionExited": true,
+    "temporaryCliGrantsRemoved": true,
+    "finalIsolatedQARetained": true,
+    "preExistingDependenciesPreserved": true
+  }
+}

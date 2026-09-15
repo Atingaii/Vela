@@ -1,0 +1,210 @@
+{
+  "format": "vela-ui20-health-proposal-evidence-v1",
+  "recordedAt": "2026-09-14",
+  "author": {
+    "tool": "Antigravity CLI 1.2.2",
+    "model": "gemini-3.8-flash-high",
+    "effort": "high",
+    "conversationId": "756a613a-7ec4-4c31-96bb-3a3bfe289764",
+    "exitCode": 0
+  },
+  "source": {
+    "app.js": "c5e25f5ec26bafeb17d3f079d67f76d81070a7e90a2c96f80ebf2f1b9ec46a70",
+    "app.css": "0544e72261d603878892064dac115430e3bbda4b71affa4b3270f0ffc6c9e939",
+    "i18n.js": "baac643281aa12f5ee4f4399003acba839adaddb39296abe93eb51ac4d5e34f3",
+    "native-main.swift": "a5b22603d9261c7b32c1fdcea9206b0419e8dcfca82dc1513c4d731c2f3a1b6b",
+    "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+    "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058",
+    "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93"
+  },
+  "helperSHA256": "68d6c88e96919636e724d00558927c3032c27967b97d0e7ae12c9297be034c15",
+  "verification": [
+    {
+      "path": "output/playwright/ui20-health-r6/results.json",
+      "sha256": "9a58dcd757f54ef7bd7b89895e95801769e942702b3b8caed1d84b21d45f82a6",
+      "completeSuite": true,
+      "sourceUnchanged": true,
+      "checks": [
+        {
+          "name": "readonly-preview",
+          "passed": true
+        },
+        {
+          "name": "proposal-reject",
+          "passed": true
+        },
+        {
+          "name": "uncertain-accept",
+          "passed": true
+        },
+        {
+          "name": "recovery-stale-locales",
+          "passed": true
+        }
+      ],
+      "cleanup": true
+    },
+    {
+      "path": "output/playwright/ui20-capture-r1/results.json",
+      "sha256": "aee8dc6c623ee65313bc294fe022c90023270f63cf0a1ef003d0bdf77ac74434",
+      "completeSuite": true,
+      "sourceUnchanged": true,
+      "checks": [
+        {
+          "name": "prepare-cancel-confirm",
+          "passed": true
+        },
+        {
+          "name": "idempotency-and-source-edit",
+          "passed": true
+        },
+        {
+          "name": "stale-and-scope-guards",
+          "passed": true
+        },
+        {
+          "name": "ineligible-and-locales",
+          "passed": true
+        },
+        {
+          "name": "all-projects-and-pending",
+          "passed": true
+        }
+      ],
+      "cleanup": true
+    },
+    {
+      "path": "output/playwright/ui20-scope-r1/results.json",
+      "sha256": "d32460a28d82174ebbfc32150dc756313a82de43282c4b91b75e70f2ed49a5c9",
+      "completeSuite": true,
+      "sourceUnchanged": true,
+      "checks": [
+        {
+          "name": "all-projects-harbor-plan",
+          "passed": true
+        },
+        {
+          "name": "all-projects-beacon-plan",
+          "passed": true
+        },
+        {
+          "name": "all-projects-codex-relations-pagination",
+          "passed": true
+        },
+        {
+          "name": "stale-bridge-results",
+          "passed": true
+        },
+        {
+          "name": "live-refresh-preserves-detail-intent",
+          "passed": true
+        },
+        {
+          "name": "all-projects-live-anchor-and-stale-guards",
+          "passed": true
+        },
+        {
+          "name": "search-actions-listbox",
+          "passed": true
+        },
+        {
+          "name": "search-actions-tablist",
+          "passed": true
+        }
+      ],
+      "cleanup": null
+    }
+  ],
+  "native": {
+    "path": "output/playwright/native-ui20-health-r3/results.json",
+    "sha256": "8a4f96faa5d3afa9577ad0cdc55ccd5a6b71fc9e658d4d03719cbbfadbfa9d6e",
+    "checks": [
+      {
+        "name": "Health preview → reject",
+        "passed": true,
+        "actual": "Native preview opened for real timeout_observed finding; Create then Reject produced rejected proposal and no candidate."
+      },
+      {
+        "name": "needs_review acknowledgement gate → accept",
+        "passed": true,
+        "actual": "AX showed unchecked acknowledgement disables Accept; checking it enabled actual accept and produced one disabled candidate preserving ordinary fields/steps except requested timeout and generated identity metadata."
+      },
+      {
+        "name": "source workflow/run/approval immutable",
+        "passed": true,
+        "actual": "Seed source snapshot hashes and persisted run workflowSnapshots match. A separately captured post-approval invariant before/after receipt preserves workflow/run/approval through actual UI rejection."
+      },
+      {
+        "name": "explicit recovery",
+        "passed": true,
+        "actual": "An owned private SQLite accepting seam returned to pending_review after native explicit Recover, with no candidate. Renderer did not write accepting."
+      },
+      {
+        "name": "normal scope refresh",
+        "passed": true,
+        "actual": "Native Incremental Refresh returned “Scanned and incrementally refreshed sessions”; no held-response race was attempted."
+      },
+      {
+        "name": "capture preview Chinese layout",
+        "passed": true,
+        "actual": "Candidate preview opened, visually stacked title/description/content, then Cancel; no confirmation."
+      },
+      {
+        "name": "capture preview English layout",
+        "passed": true,
+        "actual": "Candidate preview opened, visually stacked title/description/content, then Cancel; no confirmation."
+      }
+    ],
+    "helper": "68d6c88e96919636e724d00558927c3032c27967b97d0e7ae12c9297be034c15",
+    "limits": [
+      "No provider or model execution.",
+      "Recovery accepting is an owned SQLite crash-state seam, not a real process-crash/restart proof.",
+      "Normal session refresh was exercised; no delayed/held nested-loader race was claimed.",
+      "Capture covers preview/cancel layout only; no candidate confirmation.",
+      "The acceptance source fixture has no context or retry fields; the separately maintained RPC regression covers richer clone semantics."
+    ],
+    "rootVisualReview": [
+      "Chinese capture title/description are vertically stacked.",
+      "English capture title/description are vertically stacked.",
+      "The English Sessions background page header remains narrow while its drawer is open; supplied to UI21 author."
+    ],
+    "cleanupConfirmedAbsent": [
+      "/private/tmp/vela-native-ui20-r3",
+      "/private/tmp/vela-native-ui20-r3-build"
+    ]
+  },
+  "limits": [
+    "Owned synthetic projects and real local helper; no provider invocation.",
+    "Health browser covers explicit recovery and held decide response after normal dialog dismissal/project change; other held methods remain untested.",
+    "Capture preserves source provenance and writes candidate only; no activation or improvement claim.",
+    "Scope nested held-response scrolling remains a Chrome result.",
+    "Overall 228-item reference parity and Golden acceptance remain incomplete."
+  ],
+  "retainedFailures": [
+    {
+      "path": "output/playwright/ui20-health-r1/results.json",
+      "sha256": "836db015a278c751b63e2a44af0b478840c879cd7a39302bdf2d689ef60524c1",
+      "reason": "Actual UI generation contract and loading errors; corrected by UI author."
+    },
+    {
+      "path": "output/playwright/ui20-health-r2/results.json",
+      "sha256": "6c5f40fcdefaf290048c5842f23a04b21caf6f7f10cd84a4820eaa8fd64aface",
+      "reason": "Harness clicked navigation through an open modal backdrop."
+    },
+    {
+      "path": "output/playwright/ui20-health-r3/results.json",
+      "sha256": "c2cec0a3f916d8e6e79eb0bb8c71be9f73bb13674f22d2f50403ac80aebb4696",
+      "reason": "Harness confused hidden modal DOM with an open dialog."
+    },
+    {
+      "path": "output/playwright/ui20-health-r4/results.json",
+      "sha256": "962fc374b818ae036b9f24543c0975827caf2296fb678563e9a5c9e139e8b4dd",
+      "reason": "Harness read localized control before asynchronous rendering finished."
+    },
+    {
+      "path": "output/playwright/ui20-health-r5/results.json",
+      "sha256": "c02e4fd05b75a6b06d1eb063d1fc90da60308b70b8072130f0a526bf59fb1764",
+      "reason": "Harness split presence/read across a normal refresh; final uses one atomic text observation."
+    }
+  ]
+}

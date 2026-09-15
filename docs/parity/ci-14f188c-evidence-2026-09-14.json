@@ -1,0 +1,103 @@
+{
+  "format": "vela-ci-evidence-v1",
+  "commit": {
+    "requestedHeadSHA": "14f188c6a64cd2bec16fbfc467f8e3300fd3abf1",
+    "workflowCheckoutMergeSHA": "7e7efe1021646b038ad5e83a5e69439e7c39cd1a",
+    "checkoutNote": "This pull-request CI run tested GitHub’s merge ref; requestedHeadSHA remains the submitted commit."
+  },
+  "run": {
+    "id": 34788378857,
+    "url": "https://github.com/Atingaii/Vela/actions/runs/34788378857",
+    "workflow": "CI",
+    "status": "completed",
+    "conclusion": "success",
+    "createdAt": "2026-09-13T22:59:37Z",
+    "completedAt": "2026-09-13T23:11:43Z"
+  },
+  "jobs": [
+    {
+      "id": 103807945596,
+      "name": "macOS build and tests",
+      "conclusion": "success",
+      "environment": {
+        "os": "macOS 14.8.9 (23J631)",
+        "image": "macos-14-arm64",
+        "imageVersion": "20260831.0302.1"
+      },
+      "evidence": {
+        "xctest": {
+          "suite": "VelaPackageTests.xctest / All tests",
+          "executed": 511,
+          "failures": 0,
+          "unexpectedFailures": 0,
+          "durationSeconds": 137.034
+        },
+        "approvalExpiryLegacyHelper": {
+          "step": "Approval expiry with an actual pre-expiry helper",
+          "result": "success",
+          "legacyCommit": "3894dab6d9dcf7fd07b15ca6bc895402e248b11e",
+          "legacyBuild": "swift build --package-path .task-tmp/ci-approval-legacy --product vela",
+          "harness": "scripts/test-approval-expiry-rpc.py",
+          "checks": 15,
+          "resultReceipt": "output/parity/ci-approval-expiry.json"
+        },
+        "renderer": {
+          "realHelperRendererAcceptance": "success",
+          "frozenCapabilityAndEngineeringRendererFlows": "success",
+          "browserDependency": "playwright@1.62.1 with Chromium"
+        },
+        "package": {
+          "step": "Package and audit macOS application",
+          "result": "success",
+          "releaseAllowlist": "passed",
+          "packaged": "releases/Vela.app"
+        }
+      }
+    },
+    {
+      "id": 103807945704,
+      "name": "Installed SDKs and OpenClaw integration",
+      "conclusion": "success",
+      "evidence": {
+        "localHelperBuild": "success",
+        "installedSdkSteps": [
+          "Verify installed packages outside their source directories",
+          "Verify installed AI SDK middleware with real helper and local HTTP",
+          "Verify installed Python Responses wrappers with real helper and local HTTP",
+          "Verify installed LangChain wrappers with real helper and local HTTP"
+        ],
+        "openClaw": {
+          "version": "2026.9.4",
+          "result": "success",
+          "tests": 7,
+          "mode": "real host loader/CLI/hook runner with isolated helper"
+        },
+        "langchain": {
+          "testsPassed": 36,
+          "baseSDKTestsPassed": 16,
+          "pythonVersion": "3.12.10",
+          "provider": "synthetic_loopback_chat_completions_http_sse",
+          "realModelQuality": "not_tested",
+          "existingUserAccounts": "not_used"
+        }
+      }
+    }
+  ],
+  "noGoBoundaries": [
+    "The 511 count is XCTest from the macOS CI log; it is not the local portable runner count.",
+    "Renderer evidence is isolated Playwright Chromium acceptance; it does not establish macOS WKWebView/CUA native interaction coverage.",
+    "SDK verification uses local HTTP and synthetic loopback fixtures; the logged LangChain result explicitly says realModelQuality=not_tested and existingUserAccounts=not_used.",
+    "This run does not establish external-provider, account-backed, or Golden quality acceptance."
+  ],
+  "logEvidence": {
+    "macosJobLog": {
+      "bytes": 665533,
+      "sha256": "d33254bd3d3b938d16ace23ed3944bab5e27c3ec1493231366a9a64c8a7ae4cd"
+    },
+    "sdkJobLog": {
+      "bytes": 67135,
+      "sha256": "ec7ee6fd86273f13776d590325a761452f724fa2a40c59b999874b1832f2a86d"
+    },
+    "extractedAt": "2026-09-14T07:13:42+08:00"
+  }
+}

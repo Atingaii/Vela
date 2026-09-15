@@ -4,14 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>版本发行记录 — Vela</title>
-  <meta name="description" content="Vela 版本发布日志、功能特性改进、安全签名说明与已知限制。">
-  <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+  <meta name="description" content="Vela 版本发布日志、功能特性改进、安全签名说明、已知限制与开发分支动态。">
+  <link rel="icon" href="assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <link rel="canonical" href="https://velo.codes/releases.html">
+  <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/releases.html">
+  <link rel="alternate" hreflang="en" href="https://velo.codes/en/releases.html">
+  <link rel="alternate" hreflang="x-default" href="https://velo.codes/releases.html">
 
   <!-- Preload core self-hosted fonts -->
-  <link rel="preload" href="assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
 
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=7fe760bdbb331b9d">
 
   <!-- Immediate theme application -->
   <script>
@@ -32,26 +36,23 @@
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand-group">
-        <a href="index.html" class="brand-link" aria-label="Vela 首页">
-          <img src="assets/mark.svg" alt="" width="22" height="22" class="brand-mark-img">
+        <a href="/" class="brand-link" aria-label="Vela 首页">
+          <img src="assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
           <span>Vela</span>
         </a>
-        <nav class="site-nav" aria-label="主导航">
-          <a href="index.html#sessions" class="nav-link">会话上下文</a>
-          <a href="index.html#workflows" class="nav-link">工作流与审批</a>
-          <a href="index.html#ownership" class="nav-link">本地优先</a>
-          <a href="docs.html" class="nav-link">技术文档</a>
-          <a href="releases.html" class="nav-link active">发行记录</a>
-        </nav>
+        <nav class="site-nav" aria-label="主导航"><a href="/product/" class="nav-link">产品功能</a><a href="/usecases/" class="nav-link">使用场景</a><a href="/integrations/" class="nav-link">工具集成</a><a href="/comparisons/" class="nav-link">产品对比</a></nav>
       </div>
 
       <div class="header-actions">
-        <a href="docs.html" class="header-docs-link">技术文档</a>
+        <a href="/docs.html" class="header-docs-link">文档</a>
 
         <!-- Theme Toggle Button -->
         <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
         </button>
+
+        <!-- Language Switcher -->
+        <a href="/en/releases.html" class="header-lang-link" hreflang="en" lang="en" aria-label="Switch to English">English</a>
 
         <!-- GitHub Repository Button -->
         <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
@@ -66,13 +67,13 @@
     </div>
 
     <!-- Mobile Navigation Drawer -->
-    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单">
-      <a href="index.html#sessions" class="nav-link">会话上下文</a>
-      <a href="index.html#workflows" class="nav-link">工作流与审批</a>
-      <a href="index.html#ownership" class="nav-link">本地优先</a>
-      <a href="docs.html" class="nav-link">技术文档</a>
-      <a href="releases.html" class="nav-link active">发行记录</a>
-      <a href="privacy.html" class="nav-link">数据隐私</a>
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单"><a href="/integrations/" class="nav-link">工具集成</a><a href="/product/" class="nav-link">产品功能</a>
+      <a href="/usecases/" class="nav-link">使用场景</a>
+      <a href="/comparisons/" class="nav-link">产品对比</a>
+      <a href="/docs.html" class="nav-link">文档</a>
+      <a href="/releases.html" class="nav-link active" aria-current="page">发行记录</a>
+      <a href="/privacy.html" class="nav-link">数据隐私</a>
+      <a href="/en/releases.html" class="nav-link lang-switch-link" hreflang="en" lang="en">English</a>
       <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
     </div>
   </header>
@@ -84,16 +85,41 @@
         <div class="section-eyebrow">RELEASE LOG &amp; ROADMAP</div>
         <h1 class="article-h1">版本发行记录</h1>
         <p class="article-lead">
-          记录各版本的更新内容与已知限制。所有架构决策与测试验证记录均如实沉淀在代码仓库中。
+          记录各版本的更新内容、架构演进与已知限制。当前公开下载安装包为 <code>0.1.0-preview.2</code>；开发中的源码改动在下方独立标注，不混淆为已打包下载。
         </p>
       </div>
 
-      <!-- Release Card: 0.1.0-preview.2 (Current) -->
+      <!-- Dev Branch Notice Card (Unpublished) -->
+      <article class="release-entry-card" style="border-left: 3px solid var(--badge-dev-text);">
+        <header class="release-card-header">
+          <div class="release-version-title">
+            <strong style="color: var(--badge-dev-text);">当前源码开发分支 · 演进中（未发布下载）</strong>
+            <span class="version-badge-dev" style="margin-bottom: 0;">源码开发中</span>
+          </div>
+          <span class="release-date">Branch: feature / main</span>
+        </header>
+
+        <div class="release-card-body">
+          <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 14px;">
+            以下能力已合入或正在源码分支中验证，<strong>尚未打包发布至 0.1.0-preview.2 安装包中</strong>。需通过本地编译运行体验：
+          </p>
+          <ul style="padding-left: 20px; font-size: 14px; line-height: 1.75; color: var(--text-secondary); margin-bottom: 16px;">
+            <li><strong>Agent Lab 双工作树对照：</strong>在基于同 Commit 的独立 Git worktree 中分别运行 Baseline 与 Candidate 任务，执行独立 Verifier 检验。</li>
+            <li><strong>客观判定边界与 Inconclusive：</strong>明确界定 Improved、Worse 与 Inconclusive（证据不足/方差波动）三类真实判定。</li>
+            <li><strong>SessionStart Hook 生成与 SafeApply/Undo：</strong>受限晋升的规则可生成只读 Hook 预览，确认应用至本地工程并保留 Undo 哈希事务快照。</li>
+          </ul>
+          <div style="font-size: 13px; color: var(--text-faint);">
+            查看开发状态与实证记录：<a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">docs/status.md ↗</a>
+          </div>
+        </div>
+      </article>
+
+      <!-- Release Card: 0.1.0-preview.2 (Current Published Release) -->
       <article class="release-entry-card">
         <header class="release-card-header">
           <div class="release-version-title">
             <strong>0.1.0-preview.2 · 开发者预览版</strong>
-            <span class="pill-badge" style="margin-bottom: 0; padding: 2px 10px; font-size: 11px;">当前最新</span>
+            <span class="version-badge-preview" style="margin-bottom: 0;">当前发布版本</span>
           </div>
           <span class="release-date">Developer Preview</span>
         </header>
@@ -143,16 +169,16 @@
           <h3 class="release-section-heading">首发核心能力</h3>
           <ul style="padding-left: 20px; font-size: 14.5px; line-height: 1.75; color: var(--text-secondary); margin-bottom: 16px;">
             <li><strong>原生 AppKit 桌面宿主：</strong>采用 WebKit 进程隔离与菜单栏常驻项，提供 ⌘1..6 模块快捷切换与全局 ⌘K 上下文检索。</li>
-            <li><strong>智能体日志捕获：</strong>有界读取并自动发现 Claude Code 与 Codex 本地日志（Cursor 格式为实验性解析），推断会话状态并展示调用时间线与 Token 消耗。</li>
+            <li><strong>智能体日志捕获：</strong>有界读取并自动发现 Claude Code 与 Codex 本地日志（Cursor 格式为只读导入），推断会话状态并展示调用时间线。</li>
             <li><strong>Workflows 引擎与 Dry Run：</strong>编排 Markdown 工作流（<code>*.md</code>）及 Git 检查与测试步骤；支持只读真实运行、写操作模拟的 Dry Run 试运行与运行记录重放。</li>
             <li><strong>待办把关 (Inbox) 与参数冻结：</strong>任何文件修改与测试脚本在计算冻结参数哈希后进入待办列表，由工程师显式审批单次放行。</li>
-            <li><strong>Setup 配置与保守估算预算召回：</strong>实现 Memory 状态流转机制（candidate ➔ active ➔ superseded ➔ archived）；仅 active 状态记忆参与 Recall 召回；项目规约由工程团队手动维护，未注入到外部模型 Prompt；私密知识库（Private Library）严格排除在 Agent 检索之外。</li>
-            <li><strong>确定性 Improve 建议与 Lab 实验：</strong>以“同一模式在至少 2 个会话中出现 3 次以上信号”确定性规则生成建议；在相同 Git HEAD 的双独立 Worktree 中先后执行命令以客观对比退出码与耗时（非操作系统沙箱）。</li>
+            <li><strong>Setup 配置与预算召回：</strong>实现 Memory 状态流转机制（Candidate ➔ Active ➔ Superseded ➔ Archived）；仅 Active 状态记忆参与 Recall 召回；项目规约由工程团队手动维护，未注入到外部模型 Prompt；私密知识库（Private Library）严格排除在 Agent 检索之外。</li>
+            <li><strong>确定性 Improve 建议与 Lab 实验：</strong>以“同一模式在至少 2 个会话中出现 3 次以上信号”确定性规则生成建议；在相同 Git HEAD 的双独立 Worktree 中先后执行命令以客观对比退出码与耗时。</li>
             <li><strong>标准 stdio MCP 接口：</strong>内置 <code class="inline-code">vela mcp</code>，为外部智能体提供只读工程上下文。</li>
           </ul>
 
           <p style="font-size: 13.5px; color: var(--text-faint); margin-top: 16px;">
-            完整的代码提交记录与演进历史，请访问官方 <a href="https://github.com/Atingaii/Vela/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">CHANGELOG.md</a> 与 <a href="https://github.com/Atingaii/Vela/blob/main/docs/status.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">功能状态文档 (docs/status.md)</a>。
+            完整的代码提交记录与演进历史，请访问官方 <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/CHANGELOG.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">CHANGELOG.md</a> 与 <a href="https://github.com/Atingaii/Vela/blob/fe960fb2b256e6a7a64d0563c84ac086c36794bb/docs/status.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">功能状态文档 (docs/status.md)</a>。
           </p>
         </div>
       </article>
@@ -168,15 +194,17 @@
       </div>
 
       <div class="footer-links">
-        <a href="docs.html" class="footer-link">技术文档</a>
-        <a href="privacy.html" class="footer-link">数据隐私</a>
-        <a href="releases.html" class="footer-link">发行记录</a>
+        <a href="/usecases/" class="footer-link">使用场景</a>
+        <a href="/comparisons/" class="footer-link">产品对比</a>
+        <a href="/docs.html" class="footer-link">技术文档</a>
+        <a href="/releases.html" class="footer-link">发行记录</a>
+        <a href="/privacy.html" class="footer-link">数据隐私</a>
         <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
         <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">安全漏洞反馈</a>
       </div>
     </div>
   </footer>
 
-  <script src="site.js"></script>
+  <script src="site.js?v=acf1c37e1928f8dc"></script>
 </body>
 </html>

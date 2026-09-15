@@ -1,6 +1,8 @@
 # Vela 当前 API 契约
 
-本文对应 `0.1.0-preview.1` 的实际实现，供原生壳、Web UI、CLI 和 MCP 集成使用。完整产品需求见 [requirements.md](../requirements.md)，交付状态见 [status.md](../status.md)。本文不代表 P0–P2 全部功能已完成；不支持的能力不能用模拟结果替代。
+本文维护基础 API；2026-09-13 当前开发源码的扩展见下方专门合同，正式安装包版本以发行说明为准。完整产品需求见 [requirements.md](../requirements.md)，交付状态见 [status.md](../status.md)。不支持或未经验证的能力不能用模拟结果替代。
+
+扩展合同：[工作流规划](workflow-planning-contract.md)、[组合与产物](workflow-composition-contract.md)、[工作流管理](workflow-management-contract.md)、[工具与文件变化触发](workflow-watch-contract.md)、[模型工具循环](agent-loop-contract.md)、[带来源问答](knowledge-query-contract.md)、[连接器](connectors-contract.md)、[Library管理与检索](library-contract.md)、[语义Memory](semantic-memory-contract.md)、[模型调优](model-improvement-contract.md)、[Setup历史](setup-inventory-contract.md)、[会话历史回填](session-history-contract.md)、[OpenClaw记忆集成](openclaw-memory-contract.md)、[可选Walrus适配器](walrus-remote-contract.md)。这些合同覆盖下文相同入口的新增行为，并分别记录环境与验收边界。
 
 所有前端 UI、样式与原生界面由用户指定的 Antigravity CLI `gemini-3.8-flash-high`（High）实现。核心实现不复制 Blume 私有源码、提示词或品牌。以下类型中的 `?` 表示可选字段，`JSON` 表示 JSON 对象。
 
@@ -9,7 +11,7 @@
 ### JSONL helper
 
 ```text
-vela rpc [--home PATH] [--no-watch]
+vela rpc [--home PATH] [--no-watch] [--no-schedule]
 stdin  → {"id":"request-1","method":"sessions.list","params":{}}
 stdout ← {"id":"request-1","result":[]}
 stdout ← {"id":"request-1","error":{"message":"...","code":-32602}}
@@ -17,8 +19,9 @@ stdout ← {"event":"data.changed"}
 ```
 
 - 请求、响应各占一行，stdout 只输出 JSON，诊断写 stderr。无效 JSON 返回错误；解析后的单行上限为 2,000,000 字节，路由方法名少于 100 字符、params 少于 80 个键，服务进一步验证类型、大小和权限。
-- helper 内有两条串行队列：`workflows.* / runs.* / improve.* / lab.* / approvals.* / inbox.* / evidence.*` 进入 Automation 队列，其余请求进入 Foundation 队列。两队列可并行，跨队列响应可能乱序，客户端必须按 `id` 关联，不能按发送顺序解包。
-- 最多 32 个已进入处理队列的请求。长 Workflow / Lab 不占用 Foundation 请求队列，但共享 SQLite 和进程资源，不等于完全性能隔离。
+- helper 分开 Foundation、Automation 与配额读取队列：工作流、运行、审批、调优、实验、daemon、调度、产物、连接器、Ask与Loop进入 Automation 队列；`usage.quota.read` 使用独立 Provider 队列。响应可能乱序，客户端必须按 `id` 关联。`--no-schedule` 禁止该helper自动tick，用于SDK和隔离测试，不修改持久化调度设置。
+- 普通请求最多32个，队列满时立即返回`-32001`，不阻塞后续控制帧的读取。`loops.get/list/cancel`与`ask.get/list/cancel/citations`使用独立控制队列（最多8个）及独立服务锁；模型运行时仍可查询和请求取消。两实例共享线程安全Store，文件恢复仅在主服务启动时运行。长操作仍共享SQLite和进程资源，不等于完全性能隔离。
+- 显式`history.advance`使用独立 utility 队列；会话历史服务按实例锁协调作业与游标，不占用 Foundation 的通用服务锁。历史读取与默认近期会话列表分开，不隐式把全部转录装进 dashboard。
 - RPC 默认启动 FSEvents 和初次受限索引；摄取确实更新数据后发送无 `id` 的 `data.changed`。这不是每次对象修改的通用变更总线，客户端仍须处理方法响应与必要刷新。
 - Scheduler 在 Automation 队列上于启动约 10 秒后开始、每 30 秒 tick；长自动化期间排队，不与同 helper 中的执行重叠。
 - stdin EOF 后等待已提交请求完成，再停止 watcher 和 timer。`vela mcp` 不启动 watcher 或 Scheduler；MCP 请求全部走 Foundation 队列。
@@ -40,7 +43,7 @@ Bridge 普通请求超时 180 秒，长操作超时 1,800 秒。客户端超时�
 | 原生方法 | 参数 | 返回与边界 |
 | --- | --- | --- |
 | `system.ready` | `{}` | `true` |
-| `system.info` | `{}` | `{channel,home,version,helperRunning,notificationsStatus,launchAtLoginStatus,launchAtLoginSupported}`；其中壳版本字段与 CLI `system.version` 分开维护，发行版本以打包元信息/CLI为准 |
+| `system.info` | `{}` | `{channel,home,version,helperRunning,notificationsStatus,launchAtLoginStatus,launchAtLoginSupported,locale}`；locale 为已确认的 `zh-CN` / `en`。其中壳版本字段与 CLI `system.version` 分开维护，发行版本以打包元信息/CLI为准 |
 | `system.chooseProject` | `{}` | 所选目录绝对路径字符串；取消为 `null`；选择本身不登记项目 |
 | `system.openExternal` | `{url}` | 仅 HTTPS；成功发起系统打开后返回 `true` |
 | `system.reveal` | `{path}` | 仅已存在且位于 Vela store 或已知项目范围内的文件/目录 |
@@ -49,6 +52,8 @@ Bridge 普通请求超时 180 秒，长操作超时 1,800 秒。客户端超时�
 | `system.version` | `{}` | 转发 helper，返回 `{version,platform:"macOS",home}` |
 
 `settings.save` 经桌面壳调用时会处理通知授权和 `SMAppService` 登录启动登记；经 CLI 直接调用只保存偏好。界面允许清单不包含所有 CLI 内部方法，例如 `signals.record`、`suggestions.draft`、`ask`、`doctor` 不属于当前 WebKit 通用桥接入口。
+
+桌面固定文案的语言以真实偏好响应为准；原生壳通过 `CustomEvent('vela:localeChanged', {detail:{locale}})` 通知 renderer，其中 locale 仅为 `zh-CN` 或 `en`。`system.ready` 后也发送当前确认值。该事件不授予写入权限、不改变项目作用域，不要求 WebKit 重载。设置控件与原生 Language 菜单均仅保存 `{locale}`，纯语言补丁不触发通知授权或登录启动登记，不顺带保存其他未提交草稿。错误时保留旧确认语言。显式绑定仅覆盖固定文案，用户正文、命令、路径、provider 输出和 ID 保持原样；见 [ADR 0005](../adr/0005-desktop-localization.md)。
 
 ## 2. 本地存储与核心服务
 
@@ -92,7 +97,7 @@ public final class VelaStore {
 | `projects.list` | `{}` | project 数组 |
 | `projects.add` | `{path}` | 登记存在的绝对目录或 `~/` 路径，返回 `{id,title,path,project,state}`；不要求必须是 Git 仓库 |
 | `projects.remove` | `{id}` | 仅移除登记，`{removed:true,filesDeleted:false}`；不是删除工程、清空所有历史或永久排除摄取 |
-| `agents.list` | `{}` | 三个 harness 的检测结果：`provider,installed,executable,sourceDirectories,quotaAvailable:false,liveStatusAvailable:false,capabilities`；当前运行卡片来自 Session，不能把此列表误当进程清单 |
+| `agents.list` | `{}` | Claude/Codex/Cursor/Pi/OMP 五个 harness 的检测结果；当前运行卡片来自 Session，不能把此列表误当进程清单；Codex额度由专用显式接口读取 |
 | `sessions.refresh` | `{}` | `{sourceFilesChecked,sourcesUpdated,sessionCount,historyFullyIndexed:false,initialFileLimit,initialTailBytes,diagnostics}` |
 | `sessions.list` | `{project?,query?}` | 轻量 session 数组；query 匹配标题/正文索引 |
 | `sessions.get` | `{id}` | session 及保留范围内的 messages；移除内部 usageByMessage |
@@ -111,13 +116,24 @@ Artifact 常见字段：`id,origin,title,type,scope,provider,path,project,state,
 
 ```text
 usage = {
-  providers: [{provider,inputTokens,outputTokens,totalTokens,sessionCount,quotaAvailable:false}],
-  daily: [{date,tokens}], totalTokens, sessionCount,
-  quotaAvailable:false, costAvailable:false, historyFullyIndexed:false, coverage
+  inputTokens: integer|null, outputTokens: integer|null, totalTokens: integer|null,
+  observedInputTokens: integer|null, observedOutputTokens: integer|null,
+  observedTotalTokens: integer|null,
+  usageAvailable: boolean, coverage: "complete"|"partial"|"unavailable"|"overflow",
+  sessionCount, observedSessionCount, missingUsageSessionCount,
+  providers: [{provider, ...same aggregate fields..., quotaAvailable:false}],
+  daily: [{date, ...same aggregate fields..., tokens: integer|null, observedTokens: integer|null}],
+  quotaAvailable:false, costAvailable:false, historyFullyIndexed:false, coverageDescription
 }
 ```
 
-daily 把会话用量归入 session 起始日，不是每次 token 发生时刻的精准日账。没有订阅窗口百分比、价格或 reset 数据，不能从 token 总量推导配额。
+计数仅接受 JSON 非负整数，范围 `0...9,007,199,254,740,991`；布尔、字符串、非整数、负数、越界和加法溢出不能转成 0。真实 provider `0` 保持数字 0，缺失则为 null。某维度的 `inputTokens/outputTokens` 要求当前聚合范围内每个 Session 的该维度完整；`totalTokens/usageAvailable` 还要求每个 Session 的两类计数均完整且总和可表示。`complete` 只指此次最多 10,000 个已选索引 Session 的可用计数，不能推导完整 provider 历史。
+
+混合有数据和无数据时，完整 total 为 null，`observed*` 保留能证明的部分和，coverage 为 partial；没有任何有效计数为 unavailable。已观察值的加法也无法安全表示时 coverage 为 overflow，对应和为 null，不能 clamp 或将失败项当零。`observedSessionCount` 含至少一个有效观测分量；`missingUsageSessionCount` 表示缺少完整两分量的 Session 数，并非缺少日志的原始 Session 数。
+
+Session `tokenInput/tokenOutput` 可为 null，追加 `observedTokenInput/observedTokenOutput`、`usageAvailable`、`usageStatus`（同四态）和说明性 `usageCoverage`。Claude 按 assistant message ID 记录计数；缺失事件随后补报可以恢复，同 ID 重复 partial 不抹去已有用量，超过 4,096 条计数账本后只声明有界观测子集。Codex 使用其累计事件；缓存子字段缺省按 provider 可选字段处理，主 input/output 缺失仍不可用。没有主计数时不能从缓存字段推断全部输入。
+
+daily.tokens 与 totalTokens 同义，daily.observedTokens 与 observedTotalTokens 同义。daily 把会话用量归入 session 起始日，不是每次 token 发生时刻的精准日账。UI 不得以 `tokens || 0` 为未知日期绘制零柱；展示 observed 子集时必须明确标为已观测。没有订阅窗口百分比、价格或 reset 数据，不能从 token 总量推导配额。边界依据见 [ADR 0004](../adr/0004-nullable-observed-usage.md)。
 
 ### Memory、Recall 与 Library
 
@@ -129,7 +145,7 @@ daily 把会话用量归入 session 起始日，不是每次 token 发生时刻�
 | `recall` | `{project,query?,branch?,worktree?,task?,sessionId?,files?:string[],symbols?:string[],budget?}` | `{items,usedTokens,budget,tokenAccounting,truncated}`；没有单独的scope字符串筛选器 |
 | `search` | `{query,project?,includePrivate?}` | 人类本地搜索，默认排除private；当前索引类别为 session/memory/workflow/guideline/library/checkpoint/artifact |
 | `library.list` | `{project?}` | 人类管理用 Library 数组 |
-| `library.add` | `{id?,title,project?,content?,path?,url?,private?}` | 返回 Library；url 优先于path，导入上限2 MiB，当前默认private=true |
+| `library.add` | `{id?,title,project?,content?,path?,url?,private?,folder?}` | 返回 Library；content/path/url必须且只能选一个，导入上限2 MiB，默认private=true；管理和段落检索见专门合同 |
 | `checkpoint.list` | `{project?}` | Checkpoint 数组 |
 | `checkpoint.save` | `{id?,project,title?,goal,completed?,pending?,tests?,nextActions?,decisions?:string[],failures?:string[],changedFiles?:string[],sessionId?}` | 本地 Markdown及对象；completed/pending/tests/nextActions支持字符串或字符串数组，并尝试捕获真实Git branch/commit/status |
 | `checkpoint.export` | `{id,provider?}` | `{path,content,command,provider,executed:false}`；provider默认codex，可选claude/cursor；command是交接提示文本，不是已执行的原生session迁移或保证可直接运行的shell命令 |
@@ -283,8 +299,8 @@ vela mcp [--contribute] [--home PATH]
 
 ## 7. Settings、诊断与未完成范围
 
-- `settings.get {}`：默认telemetry=false、notifications=false、analysisEnabled=false、launchAtLogin=false；notificationSound、notifyApprovals、notifyCompleted、notifyErrors默认true。旧偏好自动补齐新字段，保留既有选择；返回preferences对象。`dashboard.get.settings`使用相同默认值。
-- `settings.save {notifications?,analysisEnabled?,launchAtLogin?,notificationSound?,notifyApprovals?,notifyCompleted?,notifyErrors?}`：仅接受这七个布尔字段，拒绝未知键、字符串和数值0/1，telemetry始终false。声音与分类开关受notifications总开关控制。analysisEnabled控制上述后台确定性证据分析；保存本身不立即分析，等待下个Scheduler tick。
+- `settings.get {}`：默认telemetry=false、notifications=false、analysisEnabled=false、launchAtLogin=false；notificationSound、notifyApprovals、notifyCompleted、notifyErrors默认true；locale默认`"zh-CN"`。旧偏好自动补齐新字段，保留既有有效选择，缺失或无效的已存 locale 读取回退`"zh-CN"`；返回preferences对象。`dashboard.get.settings`使用相同默认值，项目筛选不改变全局语言。
+- `settings.save {notifications?,analysisEnabled?,launchAtLogin?,notificationSound?,notifyApprovals?,notifyCompleted?,notifyErrors?,locale?}`：接受七个严格布尔字段及 locale 严格字符串枚举`"zh-CN"`/`"en"`。布尔字符串和数值0/1、未知键、无效 locale 均在保存前拒绝整个补丁，telemetry始终false。locale-only 合并保留其他偏好，重开 helper 后仍生效。声音与分类开关受notifications总开关控制。analysisEnabled控制上述后台确定性证据分析；保存本身不立即分析，等待下个Scheduler tick。
 - `dashboard.get`额外返回`notificationScope`：无项目筛选时为`"*"`，否则为所选项目绝对路径。原生通知策略仅消费全局快照，按集合首次建立静默基线、消费静音期间的转移，同批事件每类最多一条。UI的项目筛选不重置通知基线。
 - 首次观察即完成/失败的 Run，仅在其真实`createdAt`处于静默基线到当前观察时间之间时通知；避免漏掉两次轮询之间完成的快任务。首次见到的会话只考虑待审批，且要求`lastActivitySource`或`startedAtSource`为`provider`、对应日期有效并处于上述区间；旧记录缺来源、历史回填、索引时钟及未来日期均不推断成新待审批。首次导入终态会话保持静默。会话通知始终标记推断性质。
 - `VelaNotificationEvent`提供`kind,source,recordID,project,title,inferred,count,sources,spansProjects,isAggregate`。`sources`为去重排序的`session/run/approval`数组；混合来源时`source="mixed"`。多条聚合的`recordID`为空，跨项目聚合的`project`为空且`spansProjects=true`。原生通知点击透传这些字段，单对象路由先加载其项目，跨项目路由先加载全局；混合来源通过列表级入口选择来源，不能打开代表对象或虚构分来源计数。策略只提供事件数据，实际系统投递、声音和导航由原生壳负责。详见[ADR 0002](../adr/0002-native-notification-policy.md)。

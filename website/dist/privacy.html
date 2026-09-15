@@ -4,14 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>隐私与数据说明 — Vela</title>
-  <meta name="description" content="Vela 本地优先隐私说明：工程数据保存在本地目录、无遥测上报、私密文档与外部智能体严格隔离。">
-  <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+  <meta name="description" content="Vela 本地优先隐私说明：工程数据保存在本地目录、无商业遥测上报、私密文档与外部智能体严格隔离。">
+  <link rel="icon" href="assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <link rel="canonical" href="https://velo.codes/privacy.html">
+  <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/privacy.html">
+  <link rel="alternate" hreflang="en" href="https://velo.codes/en/privacy.html">
+  <link rel="alternate" hreflang="x-default" href="https://velo.codes/privacy.html">
 
   <!-- Preload core self-hosted fonts -->
-  <link rel="preload" href="assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
 
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=7fe760bdbb331b9d">
 
   <!-- Immediate theme application -->
   <script>
@@ -32,26 +36,23 @@
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand-group">
-        <a href="index.html" class="brand-link" aria-label="Vela 首页">
-          <img src="assets/mark.svg" alt="" width="22" height="22" class="brand-mark-img">
+        <a href="/" class="brand-link" aria-label="Vela 首页">
+          <img src="assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
           <span>Vela</span>
         </a>
-        <nav class="site-nav" aria-label="主导航">
-          <a href="index.html#sessions" class="nav-link">会话上下文</a>
-          <a href="index.html#workflows" class="nav-link">工作流与审批</a>
-          <a href="index.html#ownership" class="nav-link">本地优先</a>
-          <a href="docs.html" class="nav-link">技术文档</a>
-          <a href="releases.html" class="nav-link">发行记录</a>
-        </nav>
+        <nav class="site-nav" aria-label="主导航"><a href="/product/" class="nav-link">产品功能</a><a href="/usecases/" class="nav-link">使用场景</a><a href="/integrations/" class="nav-link">工具集成</a><a href="/comparisons/" class="nav-link">产品对比</a></nav>
       </div>
 
       <div class="header-actions">
-        <a href="docs.html" class="header-docs-link">技术文档</a>
+        <a href="/docs.html" class="header-docs-link">文档</a>
 
         <!-- Theme Toggle Button -->
         <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
         </button>
+
+        <!-- Language Switcher -->
+        <a href="/en/privacy.html" class="header-lang-link" hreflang="en" lang="en" aria-label="Switch to English">English</a>
 
         <!-- GitHub Repository Button -->
         <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
@@ -66,13 +67,13 @@
     </div>
 
     <!-- Mobile Navigation Drawer -->
-    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单">
-      <a href="index.html#sessions" class="nav-link">会话上下文</a>
-      <a href="index.html#workflows" class="nav-link">工作流与审批</a>
-      <a href="index.html#ownership" class="nav-link">本地优先</a>
-      <a href="docs.html" class="nav-link">技术文档</a>
-      <a href="releases.html" class="nav-link">发行记录</a>
-      <a href="privacy.html" class="nav-link active">数据隐私</a>
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单"><a href="/integrations/" class="nav-link">工具集成</a><a href="/product/" class="nav-link">产品功能</a>
+      <a href="/usecases/" class="nav-link">使用场景</a>
+      <a href="/comparisons/" class="nav-link">产品对比</a>
+      <a href="/docs.html" class="nav-link">文档</a>
+      <a href="/releases.html" class="nav-link">发行记录</a>
+      <a href="/privacy.html" class="nav-link active" aria-current="page">数据隐私</a>
+      <a href="/en/privacy.html" class="nav-link lang-switch-link" hreflang="en" lang="en">English</a>
       <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
     </div>
   </header>
@@ -109,25 +110,25 @@
       </div>
 
       <div class="docs-section">
-        <h2>3. 私密知识库绝对隔离机制 (Private Library)</h2>
+        <h2>3. 私密资料的检索边界 (Private Library)</h2>
         <p>
           在 Library 知识库中标记为“私密 (Private)”的文档，仅供工程师在本地应用界面中手动检索或阅读。
         </p>
         <p>
-          面向外部智能体的 stdio MCP 接口与内部检索函数在底层逻辑上强制过滤私密内容。私密条目不会进入外部智能体检索、工作流或模型 Prompt 上下文中，确保本地敏感工程备忘得到妥善隔离。
+          Vela 的 stdio MCP 与自动召回会排除标记为 Private 的 Library 条目。该标记约束 Vela 自身的检索接口，并非文件系统沙箱；你显式批准的脚本或第三方 Coding Agent 仍受其自身权限和数据处理方式约束。
         </p>
       </div>
 
       <div class="docs-section">
-        <h2>4. 明确的网络通信边界说明</h2>
+        <h2>4. 明确的网络通信与模型数据流边界</h2>
         <p>
-          Vela 自身不主动产生任何未经请求的后台网络通信，但以下由用户明确触发或批准的操作会产生正常的外部网络流量：
+          Vela 自身不主动产生任何未经请求的后台网络通信，请勿将“本地优先”误解为“物理隔离断网”或“任何数据永不离机”。以下操作会产生正常的外部网络交互：
         </p>
         <ul>
+          <li><strong>编码智能体 Provider 数据流：</strong>Coding Agent 本身（如 Claude Code、Codex CLI、Cursor）在执行问答或代码生成时，依据其自身 Harness 与用户的 API 密钥配置，会将上下文 Prompt 发送至其对应的模型服务商（Anthropic、OpenAI 等）。Vela 作为工程支持层仅监听其本地生成的日志文件。</li>
           <li><strong>显式网页导入：</strong>当你在 Library 中主动输入外部 URL 要求提取网页知识时，系统会向目标网址发起 HTTP 请求并处理可能发生的重定向。</li>
-          <li><strong>外部链接跳转：</strong>在界面中点击 GitHub 仓库、文档或 Releases 链接时，会在系统默认浏览器中打开对应网页。</li>
           <li><strong>经批准执行的外部命令：</strong>在 Workflows 工作流或 Lab 实验中，由工程师明确点击批准执行的外部脚本或第三方智能体命令，可能依据其自身逻辑访问网络。</li>
-          <li><strong>官方展示站点：</strong>本展示网站由网络托管平台提供，访问网站时的标准 HTTP 请求日志依照托管服务商的安全与网络规约处理。</li>
+          <li><strong>外部链接跳转：</strong>在界面中点击 GitHub 仓库、文档或 Releases 链接时，会在系统默认浏览器中打开对应网页。</li>
         </ul>
       </div>
 
@@ -152,15 +153,17 @@
       </div>
 
       <div class="footer-links">
-        <a href="docs.html" class="footer-link">技术文档</a>
-        <a href="privacy.html" class="footer-link">数据隐私</a>
-        <a href="releases.html" class="footer-link">发行记录</a>
+        <a href="/usecases/" class="footer-link">使用场景</a>
+        <a href="/comparisons/" class="footer-link">产品对比</a>
+        <a href="/docs.html" class="footer-link">技术文档</a>
+        <a href="/releases.html" class="footer-link">发行记录</a>
+        <a href="/privacy.html" class="footer-link">数据隐私</a>
         <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
         <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">安全漏洞反馈</a>
       </div>
     </div>
   </footer>
 
-  <script src="site.js"></script>
+  <script src="site.js?v=acf1c37e1928f8dc"></script>
 </body>
 </html>

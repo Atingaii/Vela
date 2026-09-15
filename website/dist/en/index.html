@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vela — The Engineering Layer for Coding Agents</title>
+  <meta name="description" content="Local-first engineering support layer for coding agents on macOS. Retain fragmented sessions from Claude Code, Codex, and Cursor into persistent context for your next step. Inspect evidence, preserve project memory, and review workflows before running.">
+  <link rel="icon" href="../assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <link rel="canonical" href="https://velo.codes/en/">
+  <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/">
+  <link rel="alternate" hreflang="en" href="https://velo.codes/en/">
+  <link rel="alternate" hreflang="x-default" href="https://velo.codes/">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="../assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="../styles.css?v=7fe760bdbb331b9d">
+
+  <!-- Immediate theme application to prevent flash -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Site Header (62px height, x70-1180 content alignment) -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/en/" class="brand-link" aria-label="Vela Homepage">
+          <img src="../assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="Main Navigation"><a href="/en/product/" class="nav-link">Product</a><a href="/en/usecases/" class="nav-link">Use Cases</a><a href="/en/integrations/" class="nav-link">Integrations</a><a href="/en/comparisons/" class="nav-link">Comparisons</a></nav>
+      </div>
+
+      <div class="header-actions">
+        <a href="/en/docs.html" class="header-docs-link">Docs</a>
+
+        <!-- Theme Toggle Button (Square) -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="Switch to dark mode" title="Switch to dark mode">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- Language Switcher Button -->
+        <a href="/" class="header-lang-link" hreflang="zh-CN" lang="zh-CN" aria-label="切换至简体中文">简体中文</a>
+
+        <!-- GitHub Repository Button (Square) -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub Repository" title="GitHub Repository">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="Mobile menu"><a href="/en/integrations/" class="nav-link">Integrations</a><a href="/en/product/" class="nav-link">Product</a>
+      <a href="/en/usecases/" class="nav-link">Use Cases</a>
+      <a href="/en/comparisons/" class="nav-link">Comparisons</a>
+      <a href="/en/docs.html" class="nav-link">Docs</a>
+      <a href="/en/releases.html" class="nav-link">Releases</a>
+      <a href="/en/privacy.html" class="nav-link">Privacy</a>
+      <a href="/" class="nav-link lang-switch-link" hreflang="zh-CN" lang="zh-CN">简体中文</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub Repository ↗</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <div class="hero-container">
+        <div class="pill-badge">
+          <span class="pill-dot"></span>
+          <span>local-first · open source</span>
+        </div>
+
+        <h1 class="hero-heading">
+          <span>Your sessions.</span>
+          <span>Your context.</span>
+          <span class="gradient-text">Your next step.</span>
+        </h1>
+
+        <p class="hero-description">
+          The engineering layer for coding agents on macOS. Turn fragmented conversations across Claude Code, Codex, and Cursor into persistent engineering context for your next step. Inspect evidence, preserve project memory, and review workflows before running mutations. Keep your data local, keep your tools familiar.
+        </p>
+
+        <!-- Command Box with Working Copy Action -->
+        <div class="hero-command-box">
+          <div class="command-content">
+            <span class="command-prompt">$</span>
+            <code id="hero-clone-cmd">git clone https://github.com/Atingaii/Vela.git</code>
+          </div>
+          <button type="button" class="btn-copy" data-copy-target="#hero-clone-cmd" aria-label="Copy clone command" title="Copy code">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+        </div>
+
+        <!-- Hero CTA Group -->
+        <div class="hero-cta-group">
+          <div class="hero-cta-primary-wrap">
+            <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="btn btn-primary-amber" target="_blank" rel="noopener noreferrer">
+              Download macOS Preview →
+            </a>
+          </div>
+          <div class="hero-cta-secondary-wrap">
+            <a href="/en/docs.html" class="btn btn-secondary-outline">
+              Read Documentation
+            </a>
+            <a href="https://github.com/Atingaii/Vela" class="btn-tertiary-link" target="_blank" rel="noopener noreferrer">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+              <span>Star on GitHub</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="hero-meta-line">
+          macOS 13+ · Apple Silicon (arm64) · MIT · ad-hoc signed
+        </div>
+      </div>
+    </section>
+
+    <!-- Hero Screenshot Section -->
+    <section style="padding-bottom: 72px;">
+      <div class="container">
+        <div class="product-screenshot-frame">
+          <img
+            src="../assets/vela-reading.png?v=1493458eb64f64c1"
+            alt="Vela development reading workspace with rendered conversation and tool code"
+            width="1250"
+            height="800"
+            loading="lazy"
+            class="product-screenshot-img"
+          >
+          <div class="screenshot-caption">
+            <span>Actual macOS development UI · Native WKWebView · Synthetic data</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+<section class="narrative-section product-overview"><div class="container"><div class="section-eyebrow">THE WORKSPACE</div><h2 class="section-h2">Explore the whole workspace.</h2><p class="section-lead">Twelve connected capabilities, from session history and configuration to knowledge, automation, evaluation and recovery.</p><div class="overview-links"><a href="/en/product/#sessions"><span>01</span>Sessions & history<span>↗</span></a><a href="/en/product/#memory"><span>02</span>Project memory<span>↗</span></a><a href="/en/product/#library"><span>03</span>Library & Ask<span>↗</span></a><a href="/en/product/#setup"><span>04</span>Setup & assets<span>↗</span></a><a href="/en/product/#workflows"><span>05</span>Workflows & schedules<span>↗</span></a><a href="/en/product/#approvals"><span>06</span>Approvals & recovery<span>↗</span></a><a href="/en/product/#improve"><span>07</span>Improvement proposals<span>↗</span></a><a href="/en/product/#lab"><span>08</span>Agent Lab<span>↗</span></a><a href="/en/product/#feedback"><span>09</span>Run feedback<span>↗</span></a><a href="/en/product/#usage"><span>10</span>Usage & quota<span>↗</span></a><a href="/en/product/#handoff"><span>11</span>Handoff & integrations<span>↗</span></a><a href="/en/product/#ownership"><span>12</span>Local ownership & backup<span>↗</span></a></div><a class="text-link" href="/en/product/">Explore all capabilities →</a></div></section>
+<section class="context-story container"><figure><img src="/assets/vela-context-stitch.png?v=ff01dc2d8ef92b3a" alt="A small black character stitches a reviewed bookmark into a notebook between two conversations." width="1672" height="941" loading="lazy" decoding="async"><figcaption>Concept illustration · context is reviewed, not automatically trusted</figcaption></figure><div><div class="section-eyebrow">OBSERVE / REMEMBER / VERIFY</div><h2>A session ends. The useful part stays.</h2><p>Read the source, keep a reviewed piece of context, and offer it to the next session. Vela keeps the history of that decision; only a later comparison can tell you whether it helped.</p></div></section>
+    <!-- Section: 4 Use Case Task Entries -->
+    <section class="narrative-section">
+      <div class="container">
+        <div style="max-width: 760px; margin-bottom: 24px;">
+          <div class="section-eyebrow">ENGINEERING TASKS</div>
+          <h2 class="section-h2">
+            Clear engineering levers for coding agents
+          </h2>
+          <p class="section-lead">
+            Designed for session inspection, project memory retention, read-only workflow rehearsals, and comparative testing. Keep familiar habits while gating mutations behind explicit approvals.
+          </p>
+        </div>
+
+        <div class="cards-grid-four">
+          <!-- Task 1 -->
+          <div class="clean-card">
+            <div>
+              <div class="card-eyebrow">01 / Session Review</div>
+              <h3 class="card-title">Find the origin of changes</h3>
+              <p class="card-body">
+                Pinpoint tool calls and context evidence across Claude Code, Codex, and Cursor session logs to trace decision rationale.
+              </p>
+            </div>
+            <a href="/en/usecases/session-review/" class="card-meta-pill" style="color: var(--accent-amber);">preview.2 foundation · dev extensions · Details →</a>
+          </div>
+
+          <!-- Task 2 -->
+          <div class="clean-card">
+            <div>
+              <div class="card-eyebrow">02 / Project Memory</div>
+              <h3 class="card-title">Preserve constraints worth reusing</h3>
+              <p class="card-body">
+                Save exact build patterns and verification constraints as candidate proposals, activate via review, and recall within token budgets.
+              </p>
+            </div>
+            <a href="/en/usecases/project-memory/" class="card-meta-pill" style="color: var(--accent-amber);">preview.2 foundation · dev extensions · Details →</a>
+          </div>
+
+          <!-- Task 3 -->
+          <div class="clean-card">
+            <div>
+              <div class="card-eyebrow">03 / Review Workflows</div>
+              <h3 class="card-title">Inspect first, mutate after</h3>
+              <p class="card-body">
+                Dry-run plans before execution, inspect frozen parameter hashes in Inbox before single-approval runs, and retain Undo transaction logs.
+              </p>
+            </div>
+            <a href="/en/usecases/review-workflows/" class="card-meta-pill" style="color: var(--accent-amber);">preview.2 foundation · dev extensions · Details →</a>
+          </div>
+
+          <!-- Task 4 -->
+          <div class="clean-card">
+            <div>
+              <div class="card-eyebrow">04 / Compare &amp; Reuse</div>
+              <h3 class="card-title">Retain evidence and uncertainty</h3>
+              <p class="card-body">
+                Run paired baseline vs candidate evaluations on the same task in isolated Git worktrees, with an independent verifier determining boundaries.
+              </p>
+            </div>
+            <a href="/en/usecases/compare-and-reuse/" class="card-meta-pill" style="color: var(--badge-dev-text); border-color: var(--badge-dev-border); background-color: var(--badge-dev-bg);">Current dev branch · Details →</a>
+          </div>
+        </div>
+
+        <div style="margin-top: 32px; text-align: center;">
+          <a href="/en/usecases/" style="font-size: 14.5px; font-weight: 500; color: var(--accent-amber); display: inline-flex; align-items: center; gap: 6px;">
+            <span>Explore read, write, and execution cadence across all 8 use cases</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Section 1: Sessions & Evidence -->
+    <section class="narrative-section" id="sessions">
+      <div class="container">
+        <div class="two-column-layout">
+          <div class="prose-column">
+            <div class="section-eyebrow">SESSIONS &amp; EVIDENCE</div>
+            <h2 class="section-h2">
+              Turn scattered agent sessions<br>
+              <span class="gradient-text">into reusable experience.</span>
+            </h2>
+            <p class="section-lead">
+              A finished session should not mean lost context. Vela monitors local log streams from registered projects, structuring tool events and code modifications into clear records.
+            </p>
+            <ul class="feature-bullet-list">
+              <li class="feature-bullet-item">
+                <span class="feature-bullet-marker"></span>
+                <div>
+                  <strong>Multi-agent log ingestion:</strong> Automatically discovers Claude Code and Codex session logs (Cursor format supported via read-only import), using bounded reads on discovery to manage I/O and memory overhead.
+                </div>
+              </li>
+              <li class="feature-bullet-item">
+                <span class="feature-bullet-marker"></span>
+                <div>
+                  <strong>Inferred session status:</strong> Derives timelines and status strictly from supported local log events rather than unverified background process probes; missing evidence is honestly labeled as unknown.
+                </div>
+              </li>
+              <li class="feature-bullet-item">
+                <span class="feature-bullet-marker"></span>
+                <div>
+                  <strong>Turn evidence into Candidate Memory:</strong> Click any message to propose candidate project memory, transitioning to active only after human review to keep noise out of recall.
+                </div>
+              </li>
+            </ul>
+
+            <div class="callout-limits" style="margin-top: 24px;">
+              <div class="callout-limits-title">Status Inference &amp; Ingestion Limits</div>
+              <div class="callout-limits-content">
+                <p style="margin: 0; font-size: 13.5px;">Runtime status is inferred from recent log events, not an independent system daemon probe; initial ingestion is bounded to 60 log files with a 256 KB tail window without full retrospective guarantees.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Product Screenshot 1 -->
+          <div class="product-screenshot-frame">
+            <img
+              src="../assets/vela-reading.png?v=1493458eb64f64c1"
+              alt="Vela macOS native session workspace showing session list, message detail, inferred status, and memory actions"
+              width="1250"
+              height="800"
+              loading="lazy"
+              class="product-screenshot-img"
+            >
+            <div class="screenshot-caption">
+              <span>Actual macOS development UI · isolated nonpersistent synthetic fixture · not the preview.2 download</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Section 2: Workflows & Approvals -->
+    <section class="narrative-section" id="workflows">
+      <div class="container">
+        <div class="two-column-layout reverse">
+          <div class="prose-column">
+            <div class="section-eyebrow">WORKFLOWS &amp; APPROVALS</div>
+            <h2 class="section-h2">
+              Inspect read-only dry runs.<br>
+              <span class="gradient-text">Approve before execution.</span>
+            </h2>
+            <p class="section-lead">
+              Assemble repetitive Git checks, environment validations, and local builds into governed pipelines. Every mutating step undergoes parameter hash freezing to prevent unintended file writes and command executions.
+            </p>
+            <ul class="feature-bullet-list">
+              <li class="feature-bullet-item">
+                <span class="feature-bullet-marker"></span>
+                <div>
+                  <strong>Dry Run safety rehearsals:</strong> Read-only Git commands (status/diff/log) execute against your current working directory; mutating and test commands are stubbed to safely preview planned changes without side effects.
+                </div>
+              </li>
+              <li class="feature-bullet-item">
+                <span class="feature-bullet-marker"></span>
+                <div>
+                  <strong>Inbox gating &amp; parameter freezing:</strong> File modifications and test commands enter your Inbox after computing frozen parameter hashes, requiring explicit, single-action engineer approval.
+                </div>
+              </li>
+              <li class="feature-bullet-item">
+                <span class="feature-bullet-marker"></span>
+                <div>
+                  <strong>Single-approval principle:</strong> Approvals apply strictly once to frozen parameters without automated retries for uncertain remote side effects, keeping operations bounded to what was reviewed.
+                </div>
+              </li>
+            </ul>
+
+            <div class="callout-limits" style="margin-top: 24px;">
+              <div class="callout-limits-title">Rehearsal &amp; Execution Boundaries</div>
+              <div class="callout-limits-content">
+                <p style="margin: 0; font-size: 13.5px;">Dry Run stubs mutating operations; a successful preview verifies plan schema rather than physical test passes; currently restricted to registered local workspace files and commands, not arbitrary unvetted SaaS automation.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Product Screenshot 2 -->
+          <div class="product-screenshot-frame">
+            <img
+              src="../assets/vela-approval-current.png?v=6f93858163a4a311"
+              alt="Vela Inbox approval interface"
+              width="1250"
+              height="800"
+              loading="lazy"
+              class="product-screenshot-img"
+            >
+            <div class="screenshot-caption">
+              <span>Actual macOS development UI · isolated nonpersistent synthetic fixture · not the preview.2 download</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Section 3: Local Storage Layout & Privacy -->
+    <section class="narrative-section" id="ownership">
+      <div class="container">
+        <div class="two-column-layout">
+          <div class="prose-column">
+            <div class="section-eyebrow">LOCAL OWNERSHIP &amp; STORAGE</div>
+            <h2 class="section-h2">
+              Your engineering assets.<br>
+              <span class="gradient-text">No cloud account required.</span>
+            </h2>
+            <p class="section-lead">
+              Built with native Swift and AppKit desktop architecture powered by local SQLite, without bundled Electron, Chromium, or Node.js runtimes. Assets remain human-readable and under your complete control.
+            </p>
+            <ul class="feature-bullet-list">
+              <li class="feature-bullet-item">
+                <span class="feature-bullet-marker"></span>
+                <div>
+                  <strong>Plaintext Markdown &amp; local SQLite:</strong> Long-term engineering assets are stored in human-readable Markdown files, while fast indexing and audit logs run on local SQLite WAL.
+                </div>
+              </li>
+              <li class="feature-bullet-item">
+                <span class="feature-bullet-marker"></span>
+                <div>
+                  <strong>Strict Private Library isolation:</strong> Private Library entries are excluded at the lowest layer from MCP and agent context retrieval, protecting personal notes and credentials.
+                </div>
+              </li>
+              <li class="feature-bullet-item">
+                <span class="feature-bullet-marker"></span>
+                <div>
+                  <strong>Budget-capped lexical recall:</strong> CLI recalls active memories within a conservative 1,000-token budget by default, avoiding automatic dumps at session startup and eliminating remote vector dependencies.
+                </div>
+              </li>
+            </ul>
+
+            <div class="callout-limits" style="margin-top: 24px;">
+              <div class="callout-limits-title">Data &amp; Network Boundaries</div>
+              <div class="callout-limits-content">
+                <p style="margin: 0; font-size: 13.5px;">Vela includes no built-in commercial telemetry; however, explicitly imported URLs and user-approved remote agent commands still communicate over the network. Local-first is not physical air-gapping.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Directory Tree Structure Box -->
+          <div class="structure-card">
+            <div class="structure-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              <span>Current preview ~/.vela-dev local storage directory layout</span>
+            </div>
+            <div class="tree-line">.vela-dev/</div>
+            <div class="tree-line">├── vela.sqlite3           <span class="comment">// SQLite indexes, run records &amp; approval snapshots</span></div>
+            <div class="tree-line">└── assets/</div>
+            <div class="tree-line">    ├── memory/            <span class="comment">// Reviewed &amp; saved project memories (Markdown)</span></div>
+            <div class="tree-line">    ├── workflow/          <span class="comment">// Reusable multi-step workflow definitions (*.md)</span></div>
+            <div class="tree-line">    ├── guideline/         <span class="comment">// Project guideline snapshots (unprompted)</span></div>
+            <div class="tree-line">    ├── library/           <span class="comment">// Knowledge base (Private entries excluded from agents)</span></div>
+            <div class="tree-line">    └── checkpoint/        <span class="comment">// Cross-model handoff checkpoints</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Section 5: Preview Download Close Section -->
+    <section class="download-close-section">
+      <div class="container download-close-inner">
+        <div class="section-eyebrow" style="justify-content: center;">DEVELOPER PREVIEW</div>
+        <h2 class="section-h2">
+          Run Vela locally.<br>
+          <span class="gradient-text">Power your next engineering session.</span>
+        </h2>
+        <p class="section-lead">
+          Developer preview build for Apple Silicon (macOS 13+). No registration required; download and run with sessions and project memory stored locally.
+        </p>
+
+        <div class="download-close-actions">
+          <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="btn btn-primary-amber" target="_blank" rel="noopener noreferrer">
+            Download macOS Preview →
+          </a>
+          <a href="/en/docs.html" class="btn btn-secondary-outline">
+            Read Documentation &amp; Install Guide
+          </a>
+          <a href="/en/releases.html" class="btn-tertiary-link">
+            View Release Changelog ↗
+          </a>
+        </div>
+
+        <p class="download-caveat">
+          Security notice: Current build is ad-hoc signed, without Developer ID signature or Apple notarization. If macOS presents a security prompt on initial open, visit macOS System Settings ➔ Privacy &amp; Security and click "Open Anyway". Building from official source is also supported.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="/en/usecases/" class="footer-link">Use Cases</a>
+        <a href="/en/comparisons/" class="footer-link">Comparisons</a>
+        <a href="/en/docs.html" class="footer-link">Docs</a>
+        <a href="/en/releases.html" class="footer-link">Releases</a>
+        <a href="/en/privacy.html" class="footer-link">Privacy</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">Report Vulnerability</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../site.js?v=acf1c37e1928f8dc"></script>
+</body>
+</html>

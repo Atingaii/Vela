@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>使用场景 — Vela</title>
+  <meta name="description" content="使用场景 · 面向 Coding Agent 的本地工程工作区。">
+  <link rel="icon" href="/assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <link rel="canonical" href="https://velo.codes/usecases/">
+  <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/usecases/">
+  <link rel="alternate" hreflang="en" href="https://velo.codes/en/usecases/">
+  <link rel="alternate" hreflang="x-default" href="https://velo.codes/usecases/">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="/assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="/styles.css?v=7fe760bdbb331b9d">
+
+  <!-- Immediate theme application to prevent flash -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Site Header (62px height, x70-1180 content alignment) -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/" class="brand-link" aria-label="Vela 首页">
+          <img src="/assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="主导航"><a href="/product/" class="nav-link">产品功能</a><a href="/usecases/" class="nav-link">使用场景</a><a href="/integrations/" class="nav-link">工具集成</a><a href="/comparisons/" class="nav-link">产品对比</a></nav>
+      </div>
+
+      <div class="header-actions">
+        <a href="/docs.html" class="header-docs-link">文档</a>
+
+        <!-- Theme Toggle Button (Square) -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- Language Switcher Button -->
+        <a href="/en/usecases/" class="header-lang-link" hreflang="en" lang="en" aria-label="Switch to English">English</a>
+
+        <!-- GitHub Repository Button (Square) -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="展开导航菜单" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单"><a href="/integrations/" class="nav-link">工具集成</a><a href="/product/" class="nav-link">产品功能</a>
+      <a href="/usecases/" class="nav-link">使用场景</a>
+      <a href="/comparisons/" class="nav-link">产品对比</a>
+      <a href="/docs.html" class="nav-link">文档</a>
+      <a href="/releases.html" class="nav-link">发行记录</a>
+      <a href="/privacy.html" class="nav-link">数据隐私</a>
+      <a href="/en/usecases/" class="nav-link lang-switch-link" hreflang="en" lang="en">English</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
+    </div>
+  </header>
+
+  <main>
+<section class="catalogue-hero container"><div class="section-eyebrow">USE CASES</div><h1 class="catalogue-title">从一个待解问题，<br>到清楚的下一步。</h1><p class="catalogue-lead">八个日常工程场景。从具体问题开始，看清需要的输入，留下可以检查的结果。</p></section><section class="container usecase-catalogue"><div class="catalogue-pills" role="toolbar" aria-label="筛选使用场景"><button class="catalogue-pill active" data-filter="all" aria-pressed="true">全部任务 <span class="catalogue-pill-count">8</span></button><button class="catalogue-pill " data-filter="sessions" aria-pressed="false">观察与配置 <span class="catalogue-pill-count">2</span></button><button class="catalogue-pill " data-filter="memory" aria-pressed="false">知识与记忆 <span class="catalogue-pill-count">2</span></button><button class="catalogue-pill " data-filter="workflows" aria-pressed="false">运行与审阅 <span class="catalogue-pill-count">2</span></button><button class="catalogue-pill " data-filter="lab" aria-pressed="false">验证与维护 <span class="catalogue-pill-count">2</span></button></div><div id="filter-status" class="filter-status" role="status" aria-live="polite">显示 8 / 8 个场景</div><div class="usecases-table-wrapper" tabindex="0"><table class="usecases-table"><thead><tr><th scope="col">想完成的事</th><th scope="col">使用的输入</th><th scope="col">留下的结果</th><th scope="col">何时使用</th></tr></thead><tbody><tr data-category="sessions"><td><a class="usecase-task-link" href="/usecases/session-review/">接手昨天的改动<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">这段代码为什么这样改？</p></td><td>会话日志、工具调用、计划</td><td>带有来源的改动来由和 Checkpoint</td><td><span class="case-cadence">继续工作前</span></td></tr><tr data-category="memory"><td><a class="usecase-task-link" href="/usecases/project-memory/">记住项目的约定<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">不要再重复说明测试和构建约束。</p></td><td>会话消息、已审阅的项目知识</td><td>下次会话可使用的项目记忆</td><td><span class="case-cadence">完成一次任务后</span></td></tr><tr data-category="workflows"><td><a class="usecase-task-link" href="/usecases/review-workflows/">放心运行重复任务<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">发布前，把需要检查的内容走一遍。</p></td><td>工作流定义、Git 状态、项目脚本</td><td>有执行记录和输出的工作流</td><td><span class="case-cadence">提交或发布前</span></td></tr><tr data-category="lab"><td><a class="usecase-task-link" href="/usecases/compare-and-reuse/">验证一次配置改进<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">这条新规则是否真的有帮助？</p></td><td>基线与候选配置、验证命令</td><td>可追溯的比较，或明确的不确定</td><td><span class="case-cadence">修改工程规则时</span></td></tr><tr data-category="sessions"><td><a class="usecase-task-link" href="/usecases/configuration-audit/">梳理分散的配置<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">各个 Agent 从哪里读取项目规约？</p></td><td>Rules、Skills、Hooks、MCP 文件</td><td>脱敏资产目录、历史与配置诊断</td><td><span class="case-cadence">接入或维护项目时</span></td></tr><tr data-category="memory"><td><a class="usecase-task-link" href="/usecases/knowledge-search/">从项目资料中找答案<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">哪份资料解释了这条接口约束？</p></td><td>已公开给 Agent 的 Library 资料</td><td>带来源位置的回答与可继续的问答</td><td><span class="case-cadence">阅读陌生项目时</span></td></tr><tr data-category="workflows"><td><a class="usecase-task-link" href="/usecases/workflow-health/">回顾自动化的实际表现<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">任务完成了，但产物真的有用吗？</p></td><td>Run 输出、健康诊断、历史反馈</td><td>分开的执行状态、评估与变更历史</td><td><span class="case-cadence">工作流结束后</span></td></tr><tr data-category="lab"><td><a class="usecase-task-link" href="/usecases/usage-and-recovery/">让本地工作区保持可控<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">知道用了多少，也能保留和恢复记录。</p></td><td>日志用量、本地索引与资产</td><td>真实计量和可审查的恢复记录</td><td><span class="case-cadence">定期维护时</span></td></tr></tbody></table></div></section><aside class="availability-note container">本指南介绍当前开发分支能力。公开下载仍为 preview.2，较新的能力需要从源码构建；具体版本请查看<a href="/releases.html">发行记录</a>。</aside>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="/usecases/" class="footer-link">使用场景</a>
+        <a href="/comparisons/" class="footer-link">产品对比</a>
+        <a href="/docs.html" class="footer-link">技术文档</a>
+        <a href="/releases.html" class="footer-link">发行记录</a>
+        <a href="/privacy.html" class="footer-link">数据隐私</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">安全漏洞反馈</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/site.js?v=acf1c37e1928f8dc"></script>
+</body>
+</html>

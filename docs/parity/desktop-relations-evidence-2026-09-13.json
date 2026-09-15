@@ -1,0 +1,259 @@
+{
+  "format": "vela-desktop-session-relations-evidence-v1",
+  "recordedAt": "2026-09-13",
+  "status": "Codex relation functional browser scope passed with synthetic data; UI16 supported narrow visual recheck passed. This is not a full-product certification.",
+  "authoring": {
+    "tool": "Antigravity CLI 1.2.2",
+    "model": "gemini-3.8-flash-high",
+    "effort": "high",
+    "conversation": "f3ae9d95-5ea8-478c-98a8-b641e8bb8d15",
+    "authorExitedSuccessfully": true
+  },
+  "frozenInputs": {
+    "uiSHA256": {
+      "app.js": "f322c440ad02a7e1cca088cded2e5b83682bb4f3c19be86d97acdde678f99685",
+      "app.css": "e48cda9f3a982394414286027a8765ae9afaef0eedae3c9d738326163e00715f",
+      "i18n.js": "c0baaab7a81ae1e1f5d376cf3eb5c3bca14111922e2520c30689a80c87fa285c"
+    },
+    "helperSHA256": "224bd499ef79cfb5060a2086a60cd782141f6c7f59052948c69023720f9f1a95",
+    "uiSnapshotPath": "withheld local frozen snapshot; UI files are identified by SHA-256 below",
+    "helperPath": "withheld local helper snapshot; executable is identified by SHA-256 below"
+  },
+  "runner": {
+    "browser": "Google Chrome.app isolated profile",
+    "script": "scripts/test-session-relations-browser.py",
+    "scriptSHA256": "14ff8ba74cf8bd515663f1d232dea63d6ecb67352781fc0449cd382ecb1622fe",
+    "fixtureBuilder": "scripts/create-session-relations-fixture.py",
+    "fixtureBuilderSHA256": "7a0ded0253c3a40eee7fa62b8f0221ed2ff77fcf2811eeeeed604970b4214418",
+    "bridge": "scripts/test-ui-server.py",
+    "bridgeSHA256": "7d4b04b7f8a384f3dd0fae10d9315efd5d6bde10845f5409ab207756a2dcbb39"
+  },
+  "evidence": {
+    "result": "output/playwright/session-relations-ui15-r5/results.json",
+    "screenshots": [
+      "output/playwright/session-relations-ui15-r5/hierarchy-and-privacy.png",
+      "output/playwright/session-relations-ui15-r5/reported-is-not-child.png",
+      "output/playwright/session-relations-ui15-r5/event-pagination.png",
+      "output/playwright/session-relations-ui15-r5/stale-and-duplicate-guards.png",
+      "output/playwright/session-relations-ui15-r5/relations-900x620.png",
+      "output/playwright/session-relations-ui15-r5/relations-1250x720.png"
+    ],
+    "completeSuite": true,
+    "sourceUnchanged": true,
+    "helperUnchanged": true,
+    "pageErrors": []
+  },
+  "nativeInteractionScope": {
+    "receipt": "output/playwright/native-ui15/native-interaction-receipt.json",
+    "status": "scoped interactions passed against the actual native app with isolated synthetic Codex relation logs",
+    "bundleFilesMatched": 12,
+    "captureCount": 8,
+    "coverage": [
+      "native project picker selected Harbor",
+      "parent drawer loaded all known child pages and terminal marker without aggregating child error into parent state",
+      "child-to-parent relation navigation loaded the actual child drawer and returned to the parent",
+      "one events continuation page confirmed sequence 67 after the initial page"
+    ],
+    "notClaimed": [
+      "complete native 128-event pagination",
+      "native race injection or request-generation behavior",
+      "UI16 narrow-header repair",
+      "provider process liveness, notification/audio hardware, restart persistence, or complete product acceptance"
+    ]
+  },
+  "checks": [
+    {
+      "name": "hierarchy-and-privacy",
+      "result": "passed",
+      "coverage": [
+        "parent and visible child",
+        "private withheld",
+        "cross-project withheld",
+        "orphan unresolved",
+        "conflicting metadata plain state"
+      ]
+    },
+    {
+      "name": "reported-is-not-child",
+      "result": "passed",
+      "coverage": [
+        "reported-only spawn remains unavailable",
+        "corroborated child is separately linked"
+      ]
+    },
+    {
+      "name": "event-pagination",
+      "result": "passed",
+      "coverage": [
+        "128 retained events",
+        "three pages",
+        "truncation visible"
+      ]
+    },
+    {
+      "name": "stale-and-duplicate-guards",
+      "result": "passed",
+      "coverage": [
+        "latest same-drawer refresh wins",
+        "same held child cursor is not requested twice",
+        "epoch reset/reload",
+        "late success and injected post-response error after project replacement do not overwrite"
+      ]
+    },
+    {
+      "name": "locale-and-supported-size",
+      "result": "passed",
+      "coverage": [
+        "Related Sessions / 关联会话",
+        "900x620",
+        "1200x720",
+        "single-line heading, badge wrapping, Refresh bounds and no title overlap"
+      ]
+    }
+  ],
+  "r2Correction": {
+    "evidence": "output/playwright/session-relations-ui15-r2/results.json",
+    "status": "test-harness assumption corrected",
+    "detail": "Two observed children requests used different after cursors because the first page had completed and rendered the next control. They were legitimate sequential pages, not a duplicate-cursor product failure. The final check holds a real continuation response and verifies that its same cursor is issued once before settlement."
+  },
+  "visualObservation": {
+    "status": "resolved-ui16",
+    "detail": "The UI15 narrow Plan header failure is retained as history. UI16 passes the geometry recheck at 900x620 and 1200x720: the heading remains one line, the long badge wraps without clipping, and Refresh remains visible within the header without title overlap.",
+    "failedHistoryScreenshots": [
+      "output/playwright/session-relations-ui15-r5/relations-900x620.png",
+      "output/playwright/session-relations-ui15-r5/relations-1250x720.png"
+    ],
+    "passedUI16Screenshots": [
+      "output/playwright/session-relations-ui16-visual1200/relations-900x620.png",
+      "output/playwright/session-relations-ui16-visual1200/relations-1200x720.png"
+    ]
+  },
+  "limits": [
+    "All records are owned synthetic Codex JSONL fixture data; no user store, provider, workflow, process-liveness check, or native notification/audio interaction ran.",
+    "The relation contract remains bounded current-source observation, not a complete historical graph or a full golden visual test.",
+    "This browser result covers the Codex UI relation drawer only. Other providers and native interaction remain separately accepted."
+  ],
+  "cleanup": {
+    "ownedFixtureRemoved": true,
+    "serverAndBrowserStopped": true,
+    "evidenceRetained": true
+  },
+  "ui16Recheck": {
+    "authoring": {
+      "tool": "Antigravity CLI 1.2.2",
+      "model": "gemini-3.8-flash-high",
+      "effort": "high",
+      "conversation": "6340f12f-6ac4-4e51-98ba-991d049c933f",
+      "authorExitedSuccessfully": true
+    },
+    "frozenInputs": {
+      "uiSHA256": {
+        "app.js": "89af6a6ab2a592981c0262c2a4555ab2dc6c0b734b90005cd141a4143e728496",
+        "app.css": "70cb9e547a0104eb81be98b2c53977722594797fb46b21faeea31cbb87691c6d",
+        "i18n.js": "c0baaab7a81ae1e1f5d376cf3eb5c3bca14111922e2520c30689a80c87fa285c"
+      },
+      "helperSHA256": "224bd499ef79cfb5060a2086a60cd782141f6c7f59052948c69023720f9f1a95",
+      "uiSnapshotPath": "withheld local frozen snapshot; UI files are identified by SHA-256 below"
+    },
+    "fullRelationSuite": "output/playwright/session-relations-ui16/results.json",
+    "visualDiagnostic": "output/playwright/session-relations-ui16-visual1200/results.json",
+    "screenshots": [
+      "output/playwright/session-relations-ui16-visual1200/relations-900x620.png",
+      "output/playwright/session-relations-ui16-visual1200/relations-1200x720.png"
+    ],
+    "result": "passed",
+    "geometry": [
+      "titleLines=1 at 900x620 and 1200x720",
+      "Refresh is within both drawer and header bounds",
+      "title and Refresh do not overlap",
+      "long badge wraps without horizontal overflow"
+    ],
+    "scope": "isolated Chrome renderer with owned synthetic fixture; not an actual native-window capture"
+  },
+  "ui17IncrementalLocaleVisual": {
+    "scope": "selected locale-and-supported-size only; not a full relation suite",
+    "authoring": {
+      "tool": "Antigravity CLI 1.2.2",
+      "model": "gemini-3.8-flash-high",
+      "effort": "high",
+      "conversation": "34b012d6-71b4-420c-ac5e-aa2622b0ca97",
+      "authorExitedSuccessfully": true
+    },
+    "frozenInputs": {
+      "uiSHA256": {
+        "app.js": "d4adec2078d08eaac41100b9d70b9dbccb9c496574d65714e28182f5b8a6a11f",
+        "app.css": "70cb9e547a0104eb81be98b2c53977722594797fb46b21faeea31cbb87691c6d",
+        "i18n.js": "265b6af7067b45bd1207bff56a134b9d1d267774cb99e1f616188db1a500947a"
+      },
+      "helperSHA256": "224bd499ef79cfb5060a2086a60cd782141f6c7f59052948c69023720f9f1a95",
+      "uiSnapshotPath": "withheld local frozen snapshot; UI files are identified by SHA-256 below"
+    },
+    "runnerSHA256": "b51d3bcc204890502cc30ba6ab78fc6b7bc1e808869711ab14f17db3beb91224",
+    "result": "passed",
+    "evidence": "output/playwright/session-relations-ui17-locale-r2/results.json",
+    "screenshots": [
+      "output/playwright/session-relations-ui17-locale-r2/relations-zh-CN-900x620.png",
+      "output/playwright/session-relations-ui17-locale-r2/relations-zh-CN-1250x720.png",
+      "output/playwright/session-relations-ui17-locale-r2/relations-en-900x620.png",
+      "output/playwright/session-relations-ui17-locale-r2/relations-en-1250x720.png"
+    ],
+    "assertions": [
+      "actual settings.save confirmation precedes each locale assertion",
+      "document lang and i18n runtime locale match saved value",
+      "zh/en relation and Plan headings are localized",
+      "unavailable badge is compact while its explanatory body remains complete",
+      "no horizontal overflow; title is not vertically wrapped; badge and Refresh remain inside the Plan header"
+    ],
+    "initialHarnessFailure": {
+      "evidence": "output/playwright/session-relations-ui17-locale/results.json",
+      "cause": "The test read #setting-locale immediately after navigation only confirmed active; the settings view had not rerendered the control. The runner now waits for the control and records actual settings.save completion.",
+      "productFinding": false
+    }
+  },
+  "ui17FinalFullRenderer": {
+    "scope": "complete Relations suite only; aggregate file records companion History/Plan and Actions suites",
+    "frozenUI": {
+      "app.js": "d4adec2078d08eaac41100b9d70b9dbccb9c496574d65714e28182f5b8a6a11f",
+      "app.css": "70cb9e547a0104eb81be98b2c53977722594797fb46b21faeea31cbb87691c6d",
+      "i18n.js": "265b6af7067b45bd1207bff56a134b9d1d267774cb99e1f616188db1a500947a",
+      "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+      "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058"
+    },
+    "helperSHA256": "6f9c4abccfbc6ad5a409694148a181202faa311945a75854b7b8f655e1a10cd5",
+    "result": "output/playwright/session-relations-ui17-final/results.json",
+    "resultSHA256": "baaaec29254fbc6c03ac7dd68e1735b464c1fe3cf889c79f38952a8df2e3971b",
+    "runner": "scripts/test-session-relations-browser.py",
+    "runnerSHA256": "b51d3bcc204890502cc30ba6ab78fc6b7bc1e808869711ab14f17db3beb91224",
+    "checkCount": 5,
+    "completeSuite": true,
+    "selectedChecksPassed": true,
+    "sourceUnchanged": true,
+    "binaryUnchanged": true,
+    "cleanup": {
+      "ownedFixtureRemoved": true,
+      "browserAndServerStopped": true
+    },
+    "limits": [
+      "synthetic renderer evidence only; not a native, provider, or Golden claim"
+    ]
+  },
+  "ui17SignalMaskFixFullRenderer": {
+    "scope": "complete Relations suite after helper signal-mask fix; companion full suites are in ui17-final-renderer-evidence",
+    "helperSHA256": "f05dc75ad935b59828f46f296f1a5aa5e58439c44db03188dd842a71c3c0d86e",
+    "result": "output/playwright/session-relations-ui17-final-f05/results.json",
+    "resultSHA256": "008a5cab3c2f094e25c547f01cf5c032bc388d0d5a7358a1af5f644da6cf2f0e",
+    "checkCount": 5,
+    "completeSuite": true,
+    "selectedChecksPassed": true,
+    "sourceUnchanged": true,
+    "binaryUnchanged": true,
+    "cleanup": {
+      "ownedFixtureRemoved": true,
+      "browserAndServerStopped": true
+    },
+    "limits": [
+      "synthetic renderer only; not native, provider, or Golden acceptance"
+    ]
+  }
+}

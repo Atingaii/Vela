@@ -1,0 +1,104 @@
+{
+  "format": "vela-native-b0-package-evidence-v1",
+  "commit": "b0e2728291579031ee8e760c97e0b3e06d768427",
+  "status": "passed",
+  "method": "CUA AppKit/WKWebView isolated QA wrapper built from packaged host/helper/UI; separate identity and ad-hoc resigning; not a distribution installation.",
+  "checks": [
+    {
+      "name": "startup-and-incremental-refresh",
+      "passed": true,
+      "sessions": 5
+    },
+    {
+      "name": "zh-to-en-and-native-menu-sync",
+      "passed": true
+    },
+    {
+      "name": "exact-memory-source-preview-and-cancel",
+      "passed": true,
+      "canonicalRowCountsUnchanged": true,
+      "sourceBytesUnchanged": true
+    },
+    {
+      "name": "quit-and-restart-language-persistence",
+      "passed": true,
+      "initialHostPID": 88353,
+      "newHostPID": 89153
+    },
+    {
+      "name": "normal-quit-owned-host-helper-stop",
+      "passed": true
+    }
+  ],
+  "packageFilesSHA256": {
+    "Contents/Info.plist": "29912dce50b03563c9dedafd3730bb30653a3053991b642041565c780904b16d",
+    "Contents/_CodeSignature/CodeResources": "dabd027fa190845b633a21ff9a44251215862cc366033000059049171f7caae3",
+    "Contents/MacOS/VelaDesktop": "090485120026860e5125c8a1d5e4f3a293d9a2e0b29cc85e6f77111b3b14da00",
+    "Contents/MacOS/vela": "840c7a862779059671048a1c9dd3a750aa7ef70d49d708a4f5933711a73c11e0",
+    "Contents/Resources/vela-completed.wav": "240bdb6816d12423e16dee0eb7128f5cfb8eca38d4cfbc05135fcc55671ed00a",
+    "Contents/Resources/vela-error.wav": "e8942535396f882bf381d19afe0952f67e30e2620bca4df8005f0ee6903ea374",
+    "Contents/Resources/vela-approval.wav": "0c399c3e60bbb5adc4f80fceba4a5bd81c3dbd60c3df6dada46ff75cce9c2635",
+    "Contents/Resources/Vela.icns": "deeb9b65a5a5e89f201ecbc9f868d668e4fc27766dd7919f9ffc9dd30a375ebd",
+    "Contents/Resources/UI/index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+    "Contents/Resources/UI/app.css": "0544e72261d603878892064dac115430e3bbda4b71affa4b3270f0ffc6c9e939",
+    "Contents/Resources/UI/app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+    "Contents/Resources/UI/i18n.js": "baac643281aa12f5ee4f4399003acba839adaddb39296abe93eb51ac4d5e34f3",
+    "Contents/Resources/UI/app.js": "c5e25f5ec26bafeb17d3f079d67f76d81070a7e90a2c96f80ebf2f1b9ec46a70"
+  },
+  "screenshots": "Viewed via CUA tool in conversation; no standalone PNG saved.",
+  "knownUnfixedUI": "UI20; narrow English session heading with drawer remains a UI21 follow-up.",
+  "cleanup": {
+    "ownedProcessesStopped": true,
+    "ownedNativeCheckoutRemoved": true,
+    "failedPreparationFixtureRemoved": true,
+    "evidenceRetained": true
+  },
+  "boundaries": [
+    "No provider or model execution.",
+    "No system notification delivery, installation/notarization or full-product parity claim.",
+    "Excluded-Memory execution gates were verified separately through real packaged/helper tests and are not new UI controls."
+  ],
+  "preparationFailure": {
+    "fixture": "/private/tmp/vela-native-b0e27282-r1",
+    "status": "failed-before-launch",
+    "reason": "fixture outside test-ui-server repository .task-tmp allowlist; no product code changed"
+  },
+  "nativeReceipt": {
+    "path": "output/playwright/native-b0-package-r1/results.json",
+    "sha256": "f6d7c8b9a3b392a8634d26a605f5b0778ff3f20ec745989b20e3ec31583c33ad"
+  },
+  "releaseHelperRPC": {
+    "legacyUpgrade": {
+      "path": "output/parity/ingestion-recall-release-b0-r1.json",
+      "sha256": "61f20ecb84091047ddc1e4f3b73168c078796edb1be7af717350ae118096747c",
+      "checksPassed": 7,
+      "synthetic": true
+    },
+    "consumers": {
+      "path": "output/parity/ingestion-consumer-guards-release-b0-r1.json",
+      "sha256": "a56ee192269abda7a3c86be4b84a932f57cb1313eab519cf9d4ad864c97b23cb",
+      "checksPassed": 28,
+      "synthetic": true
+    },
+    "agentLoop": {
+      "path": "output/parity/ingestion-loop-guard-release-b0-r1.json",
+      "sha256": "3f7ccf8f8be0f3c359884a0c31f71a60773c5bf27cedff2955f6209f8ad32502",
+      "checksPassed": 16,
+      "synthetic": true
+    },
+    "lab": {
+      "path": "output/parity/lab-explicit-memory-guard-release-b0-r1.json",
+      "sha256": "304c01b646200405145a83413928a4347863216c3c43d41293e4d1dc58873804",
+      "checksPassed": 8,
+      "synthetic": true
+    }
+  },
+  "zip": {
+    "bytes": 3696119,
+    "sha256": "f852b0964598aa184251a7225834f46fb05daca52422d98885afdb02ecd7c828"
+  },
+  "packageAudit": {
+    "path": "releases/development-b0e27282/package-receipt.json",
+    "sha256": "f54282ad07900eacd66c44c6c24878cc1f45b6265b33c8c978222da7ed5f4ed8"
+  }
+}

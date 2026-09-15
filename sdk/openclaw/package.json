@@ -1,0 +1,14 @@
+{
+  "name":"@vela-engineering/openclaw", "version":"0.1.0-dev.1", "type":"module",
+  "description":"Explicitly scoped OpenClaw memory integration for Vela",
+  "main":"dist/index.js", "types":"dist/index.d.ts",
+  "exports":{".":{"types":"./dist/index.d.ts","import":"./dist/index.js"}},
+  "files":["dist","openclaw.plugin.json","README.md","LICENSE"],
+  "engines":{"node":">=24.16.0 <25 || >=26.1.0"},
+  "openclaw":{"extensions":["./dist/index.js"]},
+  "peerDependencies":{"openclaw":"2026.9.4","@vela-engineering/sdk":"0.1.0-dev.1","@vela-engineering/walrus":"0.1.0-dev.1"},
+  "peerDependenciesMeta":{"openclaw":{"optional":true},"@vela-engineering/sdk":{"optional":true},"@vela-engineering/walrus":{"optional":true}},
+  "scripts":{"build":"node build.mjs","prepack":"npm run build","test":"node --test test/*.mjs"},
+  "license":"MIT",
+  "repository":{"type":"git","url":"https://github.com/Atingaii/Vela.git","directory":"sdk/openclaw"}
+}

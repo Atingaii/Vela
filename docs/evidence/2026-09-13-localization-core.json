@@ -1,0 +1,74 @@
+{
+  "startedAt": "2026-09-12T18:32:58.492693+00:00",
+  "runner": "portable fallback; not XCTest",
+  "command": "python3 scripts/test-portable.py",
+  "sourceSHA256": {
+    "Sources/VelaCore/AgentEvaluation.swift": "a49f6c6ab1b49a0c1a08f1adfde8960b4f2cc18a78011d0fea44a6b04d976124",
+    "Sources/VelaCore/AutomationProcess.swift": "3cf63693533f82dc041440aff5f2c6ba169bb175f18598660998f4ebda84b02f",
+    "Sources/VelaCore/AutomationService.swift": "b678d50339e64fafb7088363687ca03394c31647bdda1cc81c65edee41997431",
+    "Sources/VelaCore/ContextService.swift": "c1f2b7f964858b43454d0ef585341c4ede99d274f075e61fd2852e341dee09d7",
+    "Sources/VelaCore/FoundationIO.swift": "68da683995703920bbfc5f360ee34c12440861007b3e0a8f9f20132fe5e437dc",
+    "Sources/VelaCore/FoundationService.swift": "8115e12f736a173d6480117b321e0dd41e16f3f7e7d17f7268a93898c1bf0504",
+    "Sources/VelaCore/ImproveService.swift": "758f2e46c166a0bb29eed68bec492ed87a58a0f01af2406f79995c6b35bea2bc",
+    "Sources/VelaCore/LabService.swift": "24aca0818e0e9c61ce9e7b17046aaaf9ad80aa16c182dc676ab76c8a511e0757",
+    "Sources/VelaCore/MemoryService.swift": "24e2355e60b565bed6d056bfcfca25b7f26b84b2e66ebe3d13008e37812a393e",
+    "Sources/VelaCore/NotificationPolicy.swift": "6774c1e3af7467b4b831d38ab485e66623b93e4ce8b83e775ffedcbabcdcf192",
+    "Sources/VelaCore/Preferences.swift": "095a81498a6431b456403e9c2c1a861c8428f7da75adc621220d12b57d18edee",
+    "Sources/VelaCore/ReuseService.swift": "bbd10112b49b163f7107a79317ae8bae76e8c38f47b4bc5d915fe2af5ae8ca24",
+    "Sources/VelaCore/SafeApply.swift": "51b3cb381da45dcf2971770fa249ab931ee7d81bf58aa0737869cbe5af7f101f",
+    "Sources/VelaCore/SchedulerService.swift": "e2546f1a1b2b3348454c4236c6985c5e73ff65ec955ea5807076fee299ff9d1d",
+    "Sources/VelaCore/SessionEngine.swift": "58003a6b2574a73c9cc6b9bb83c5c74153673c8ad54571e9666062e7a9219a3d",
+    "Sources/VelaCore/Store.swift": "e01351d6b8f7ea1830fe52b09a7d66571e7b8c2a9583e20f42b33ac983289632",
+    "Tests/VelaCoreTests/AgentEvaluationRevisionTests.swift": "5030f5f6e0026807b6224aa840af9653ea096a9c9fe2a8cf4019f479606186f0",
+    "Tests/VelaCoreTests/AgentEvaluationTests.swift": "ce7dde14a12159950b1725cca296266401b54f27d0e21ebee4e23756d08ea44f",
+    "Tests/VelaCoreTests/AgentLabIntegrityTests.swift": "47a15847e8979ec9d2625187057b539ca82c881a077abb088389f4f2000ab66e",
+    "Tests/VelaCoreTests/AutomationTests.swift": "ee279535cb7b463a84030f26cd64cbc422033589c17a52b6f71dccdb66712f85",
+    "Tests/VelaCoreTests/ContextTests.swift": "59a1d465fe2147eb5ea144558466f35ac6725f0daab41f5803a48a5ceab31c62",
+    "Tests/VelaCoreTests/FoundationTests.swift": "77dfa9083d1d682e2a74bde8f4885a34c5ec9c961f7250606fb8908ecffe007c",
+    "Tests/VelaCoreTests/ImproveAcceptanceTests.swift": "789638684ae7e82f6d00f0d30b7f6665454421044d98852a585cc37eb3e06abc",
+    "Tests/VelaCoreTests/IntegrityTests.swift": "040868e8d61d306ea7f2eebc410533ffc15804a409d43a0b4e7d43d9c9c130d2",
+    "Tests/VelaCoreTests/LocalizationTests.swift": "31f0697a5b1d1dda23da355badf250f61ecfc5731fd19ecb61441d6c75e6db80",
+    "Tests/VelaCoreTests/NotificationTests.swift": "461a823325a69fa944247b8429bd1626fbfb438224f84d05a6e0682505d03c74",
+    "Tests/VelaCoreTests/UsageIntegrityTests.swift": "96a17447e34370e0bf4f6cb3c4d3eed76bcef17b6760b53864d8dddb2b718ca3",
+    "scripts/test-portable.py": "584b4b0bdaab36496b6aa0f26035787b8e2941e677bf6408c058ef3d2240a876"
+  },
+  "nativeXCTestAvailable": false,
+  "exitCode": 0,
+  "elapsedSeconds": 21.120411166004487,
+  "passedMethods": 99,
+  "failedMethods": 0,
+  "logSHA256": "576383b280b9954b932b4af88eeb3ec7bc22bfab4d3591fe08352b163e3f9eeb",
+  "sourceUnchanged": true,
+  "format": "vela-localization-core-v1",
+  "integration": [
+    {
+      "command": "python3 scripts/test-rpc.py",
+      "exitCode": 0,
+      "seconds": 0.77,
+      "log": "output/playwright/localization-integration/test-rpc.py.log",
+      "logSHA256": "37f6bedba305595305ef67c22cdae35da5fcd5b1bda248ecf4f08c7573378b2d"
+    },
+    {
+      "command": "python3 scripts/test-rpc-limits.py",
+      "exitCode": 0,
+      "seconds": 7.95,
+      "log": "output/playwright/localization-integration/test-rpc-limits.py.log",
+      "logSHA256": "c05a011ca5994bd8c40af5c810d0a34bc279e6f0f7b54217c4b942be2b1a58cb"
+    },
+    {
+      "command": "python3 scripts/test-restart.py",
+      "exitCode": 0,
+      "seconds": 0.14,
+      "log": "output/playwright/localization-integration/test-restart.py.log",
+      "logSHA256": "bcf326824fa2e643f9381cfa3fb92fd32b959f9783dc18f4d03b65f5678de2e3"
+    },
+    {
+      "command": "python3 scripts/test-release-resources.py",
+      "exitCode": 0,
+      "seconds": 0.06,
+      "log": "output/playwright/localization-integration/test-release-resources.py.log",
+      "logSHA256": "24cefc2bc38a1c71e18591075993695fc72546b32ff6b5baab3d98032ce96fb5"
+    }
+  ],
+  "scope": "Core and CLI integration only; renderer, native UI and hosted XCTest tracked separately."
+}

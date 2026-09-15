@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-14",
+  "kind": "approval-expiry-and-canonical-backup-evidence",
+  "status": "local_checkpoints_with_explicit_limits",
+  "scope": "Development-branch evidence. Separate snapshots, binaries, native observations and final checks are bound below. Overall product acceptance remains No-Go.",
+  "approvalExpiry": {
+    "helperSHA256": "69088aa8a9a8928bd91f650e8dc087d86344c2edc3d927e9ed95fa3b4cd0a91c",
+    "cliReceipt": {
+      "path": "output/parity/approval-expiry-cli-committed-r1.json",
+      "sha256": "0dc6d2c26dc2b2c147a63e556abcb355ec8f4fc35f508aa1276427ef7899e8ce",
+      "passed": true,
+      "checks": 15,
+      "providerRuns": 0,
+      "synthetic": true,
+      "fixtureRemoved": true,
+      "coverage": [
+        "seven-day default and invalid policy rejection",
+        "expired claim terminalizes the frozen run without writing",
+        "writer wait crosses deadline inside claim transaction",
+        "oldest-first project-isolated pending pagination and explicit expired projection",
+        "restart persistence and legacy no-expiresAt compatibility"
+      ]
+    },
+    "publicCreatorFocused": {
+      "path": "output/parity/stage-approval-expiry-public-creation-r4.json",
+      "sha256": "ceb13dda19e5282d264b5b99f869ace77fa4c9915df63b464d5b0027c8cefacf",
+      "passed": true,
+      "exitCode": 0,
+      "portableRunner": "synchronous assertion compatibility layer, not XCTest",
+      "methods": 4,
+      "publicCreationSurfaces": 9,
+      "coverage": [
+        "workflow",
+        "agent loop",
+        "workflow plan",
+        "model improvement",
+        "knowledge ask",
+        "ask-route proposal",
+        "Lab",
+        "workflow replay",
+        "connector action using injected MockTransport"
+      ],
+      "assertions": [
+        "approval and linked owner/run/step become expired through real public creation",
+        "no synthetic provider or mock connector write begins after expiry"
+      ]
+    },
+    "retainedPreFixDiagnostics": [
+      {
+        "path": "output/parity/stage-approval-expiry-focused-r11.json",
+        "sha256": "d9131b7fc0b72ae507cf61fbf4040148322eb3cbb028a8348ca22b1a8e0fc563",
+        "result": "Intermediate focused run failed; source changed during that run. It is retained as diagnostic history, not a frozen final result."
+      },
+      {
+        "path": "output/parity/stage-approval-expiry-public-replay-r4.json",
+        "sha256": "93f72bb41837430799061b2090db562a1cab1c50084a966eb0b01b630b641db9",
+        "result": "Test harness incorrectly expected runId in a deliberately redacted replay approval view; corrected test reads its persisted approval by ID."
+      },
+      {
+        "path": "output/parity/approval-backup-full-root-r1.json",
+        "sha256": "99c1678ec4c89e536abd7857455aa74a74c152d9530ddfcdd267ae1d853edbbd",
+        "result": "Frozen integrated root run: 511 executed, 510 passed. AskRouteService factory change had been omitted during integration, so Ask Route still created an approval without expiresAt. The public-creation test correctly failed. Corrected by mechanically integrating the already-reviewed stage factory call; assertions were not changed."
+      }
+    ],
+    "pending": [
+      "Hosted CI, exact-commit development package and final package native tests are tracked separately. Dedicated desktop expiry settings and immediate stale Inbox refresh remain incomplete."
+    ],
+    "nativeObservation": {
+      "helperSHA256": "69088aa8a9a8928bd91f650e8dc087d86344c2edc3d927e9ed95fa3b4cd0a91c",
+      "ui": "UI20 native",
+      "method": "Root CUA actual approval click, Command-Q, restart, Inbox inspection and second Command-Q; independent readonly SQLite/ps audit.",
+      "backendSafetyObserved": true,
+      "observedResult": "Approving expired expiry-native-must-not-exist.txt returned “Approval expired; no action was executed. Review a new request.”; no approval success was reported.",
+      "uiImmediateRefreshPassed": false,
+      "knownFailure": "The old Inbox card/count remained cached as pending after navigating away and back.",
+      "acceptance": "Execution safety and restart persistence observed; immediate UI refresh is still failing. UI edits remain assigned to the user-required Antigravity model, currently unavailable.",
+      "restartReflectsExpiry": true,
+      "receipts": [
+        {
+          "path": "output/playwright/native-approval-expiry-r1/cua-observations-first-launch.json",
+          "sha256": "11e10baa9e8ea0a0c78a6ca26b6e8e0316449d6ea1de24d3e65bea392f607aae"
+        },
+        {
+          "path": "output/playwright/native-approval-expiry-r1/cua-observations-restart.json",
+          "sha256": "ef3fb9ffced72eaf78e4bb06326891be817bc387d884328213e72bec9b80fbae"
+        },
+        {
+          "path": "output/playwright/native-approval-expiry-r1/after-expired-native-second-exit-r4.json",
+          "sha256": "3cb877588a90ff1607220d6f94d90de7e02663bcbdfa76b51cb3d380398967db"
+        }
+      ],
+      "snapshotBoundary": "This workflow-only native check used helper690 before the omitted AskRoute factory was integrated. It does not verify Ask Route or the final package."
+    }
+  },
+  "canonicalBackup": {
+    "helperSHA256": "69088aa8a9a8928bd91f650e8dc087d86344c2edc3d927e9ed95fa3b4cd0a91c",
+    "harnesses": [
+      {
+        "path": "output/parity/approval-backup-cli-root-r1.json",
+        "sha256": "612ad1dd58dda4001de7ed02ac2c817cd8f572f62caea13f2956222d706f0c23",
+        "passed": true,
+        "checks": 19,
+        "fixtureRemoved": true,
+        "coverage": "actual CLI create/restore; five assets and managed output; History raw/source fields; settings; private Recall/MCP isolation; pending restored needs_review; tamper, traversal and three symlink rejections."
+      },
+      {
+        "path": "output/parity/approval-backup-no-recovery-root-r1.json",
+        "sha256": "cc15032b744554df2c954bb1dca264c8f47f40628ddba583cc04692938b3f750",
+        "passed": true,
+        "checks": 4,
+        "fixtureRemoved": true,
+        "coverage": "actual readonly workflow output plus crash seam; backup does not recover or alter a committing SafeApply journal."
+      },
+      {
+        "path": "output/parity/approval-backup-format-root-r1.json",
+        "sha256": "9f5f354f229ab7046875d210390d067d4e8e32cf1d657ef383b8235ef4d9b4f5",
+        "passed": true,
+        "checks": 4,
+        "fixtureRemoved": true,
+        "coverage": "malformed and hostile backup format rejection with source/bundle/sentinel integrity."
+      },
+      {
+        "path": "output/parity/approval-backup-runtime-root-r2.json",
+        "sha256": "80f9b91f6286ff0ffc563573aa5b56eb145a336262e35922f6f5d9c80b9fee26",
+        "passed": true,
+        "checks": 3,
+        "fixtureRemoved": true,
+        "coverage": "restored watch re-enable, lease rejection, concurrent restore and existing-target protection."
+      }
+    ],
+    "retainedPreFixDiagnostic": {
+      "path": "output/parity/backup-no-recovery-baseline-r3.json",
+      "sha256": "c8ece91b373a72689c337141c536664ed4a748b951a2e1202bd120b1be87df5f",
+      "passed": false,
+      "result": "pre-fix backup initialized Router, recovered a committing journal and changed managed output; the fixed r1 receipt above remains separate."
+    },
+    "nativePathCompatibility": {
+      "path": "docs/parity/backup-canonical-native-recovery-evidence-2026-09-14.json",
+      "state": "passed compatibility composition: debug writer9bb → unchanged packaged3894 reader19e4/UI20",
+      "retainedRed": "earlier /private/tmp standardizedFileURL versus canonical-path rejection is retained; this draft does not claim native restore acceptance.",
+      "sha256": "a80a59865dd80bc2726ce3c2e49bb328e19c1d2232a0c3a477e47f3648bc4a3f",
+      "boundary": "Does not certify the final new package. Earlier invalid preflight method/response assumptions and corrected launcher-marker seam remain documented."
+    }
+  },
+  "limits": [
+    "Focused/public creator tests use synthetic providers and MockTransport; no external account or real model success is inferred.",
+    "Native workflow expiry rejected execution and persisted across restart, but immediate UI refresh still fails.",
+    "Backup compatibility combines explicitly different writer and reader binaries.",
+    "Hosted CI, exact-commit development packaging, final package native tests, real provider outcomes and system notifications require their own evidence.",
+    "The public preview.2 download is unchanged. Overall product acceptance remains No-Go."
+  ],
+  "finalIntegratedRoot": {
+    "path": "output/parity/approval-backup-full-root-r2.json",
+    "sha256": "fa4bb0195c97188f207d1ca1ff1f121fd696c71d140a6d68552612abe30de9b1",
+    "passed": true,
+    "exitCode": 0,
+    "methods": 511,
+    "compiledInputs": 129,
+    "snapshotSHA256": "fb5055aa2eb10de689ba6495af82679c823866e1013b85848eca13ccda85c0b5",
+    "matchesWorkingTreeAtEnd": true,
+    "matchesCurrentRoot": true,
+    "runner": "portable synchronous assertion compatibility layer; not local XCTest",
+    "helperSHA256": "5807bde288a406d313d36cc8349dd8884f8f6b10dc7196e6cccbc947dc762b34",
+    "approvalCLI": {
+      "path": "output/parity/approval-expiry-cli-root-r2.json",
+      "sha256": "f941f99e7303c52e9a90a21cb388374ddad388edc43ee246f2cd4b256640b95d",
+      "checks": 15,
+      "passed": true,
+      "inputsUnchanged": true,
+      "fixtureRemoved": true,
+      "legacySHA256": "250eb1b411a52e0afa5ae1f620286eeaa5139cb7c7d774273fcf1e693f91e346"
+    },
+    "integrationComparison": {
+      "path": "output/parity/approval-expiry-root-core-integration-r2.json",
+      "sha256": "a60a6dcc6c188c9890070b01697e36421f86f4b8924dc6491b90c30562109708"
+    }
+  }
+}

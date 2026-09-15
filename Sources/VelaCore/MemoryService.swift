@@ -1,18 +1,39 @@
 import Foundation
-import PDFKit
 
 final class MemoryService {
     let store: VelaStore
-    init(store: VelaStore) { self.store = store }
-    private let scopes: Set<String> = ["global","project","repository","branch","worktree","task","session"]
+    private let exclusions: IngestionExclusionService
+    // Internal fixture hook; no RPC, CLI, or UI path can invoke it.
+    var captureAfterIngestionAdmissionForTesting: (() throws -> Void)?
+    init(store: VelaStore) { self.store = store; exclusions = IngestionExclusionService(store:store) }
+    private let scopes: Set<String> = ["global","project","repository","branch","worktree","task","session","namespace"]
     private let types: Set<String> = ["decision","constraint","preference","failure","fact","workflow knowledge","observation","hypothesis","checkpoint"]
     private let states: Set<String> = ["candidate","active","superseded","archived"]
 
     func handle(_ method: String, _ params: JSON) throws -> Any? {
         switch method {
+        case "memory.integration.capture", "memory.integration.recall", "memory.integration.stats":
+            return try MemoryIntegrationService(store:store).handle(method,params)
+        case "memory.archive.export", "memory.archive.validate", "memory.archive.import", "memory.archive.fromWalrusRecords":
+            return try MemoryArchiveService(store:store).handle(method,params)
+        case "memory.semantic.index", "memory.semantic.status", "memory.semantic.embed", "memory.semantic.query", "memory.semantic.recent":
+            return try SemanticMemory(store:store).handle(method,params)
         case "memory.list": return try store.list("memory",project: checkedProject(params))
+        case "memory.capture.prepare": return try prepareSessionCapture(params)
+        case "memory.capture": return try captureSessionMessage(params)
         case "memory.save":
             let existing = try (params["id"] as? String).flatMap { try store.get("memory",$0) }
+            let existingProvenance = existing?["provenance"] as? JSON ?? [:]
+            let isObservedCapture = string(existingProvenance,"origin") == "observed_session_capture"
+            let reservedCaptureKeys: Set<String> = ["provenance","captureProtocol","captureIdentity","sourceHash","sourceIdentity","sourceObservation","requiresReview","modelCalls","capturedAt","originalContentHash"]
+            guard Set(params.keys).intersection(reservedCaptureKeys).isEmpty else { throw VelaError("Session capture provenance is managed by Core") }
+            if let existing, isObservedCapture {
+                for key in ["sourceSession","sourceMessage","sourceFile","sourceCommit"] where params[key] != nil {
+                    guard captureFieldEqual(params[key], existing[key]) else {
+                        throw VelaError("Observed capture source fields are immutable")
+                    }
+                }
+            }
             var object = existing ?? [:]; object.merge(params) { _,new in new }
             let title = try requireString(params,"title"); let content = try requireString(params,"content")
             guard title.count <= 300, content.utf8.count <= 512 * 1024 else { throw VelaError("Memory is too large") }
@@ -28,12 +49,30 @@ final class MemoryService {
             case "worktree": object["worktree"] = canonicalProject(try requireString(object,"worktree"))
             case "task": _ = try requireString(object,"task")
             case "session": _ = try requireString(object,"sourceSession")
+            case "namespace":
+                let namespace = try requireString(object,"namespace")
+                guard namespace.utf8.count <= 256, namespace.rangeOfCharacter(from:.controlCharacters) == nil else { throw VelaError("Invalid memory namespace") }
             default: break
             }
             if let id = params["id"] as? String, let existing = try store.get("memory",id), string(existing,"project") != string(object,"project") { throw VelaError("Memory cannot be moved between project scopes") }
             object["tokens"] = tokenEstimate(content)
             object["lastConfirmed"] = state == "active" ? isoNow() : NSNull()
-            object["provenance"] = ["sourceSession": object["sourceSession"] ?? NSNull(),"sourceMessage": object["sourceMessage"] ?? NSNull(),"sourceFile": object["sourceFile"] ?? NSNull(),"sourceCommit": object["sourceCommit"] ?? NSNull(),"origin": "user"] as JSON
+            if isObservedCapture {
+                var provenance = existingProvenance
+                let originalHash = string(provenance,"originalContentHash")
+                guard !originalHash.isEmpty else { throw VelaError("Observed capture provenance is incomplete") }
+                if stableHash(content) == originalHash {
+                    provenance["contentEqualsObservedSource"] = true
+                } else {
+                    provenance["contentEqualsObservedSource"] = false
+                    provenance["derivedBy"] = "user_edit"
+                    provenance["userEditedAt"] = isoNow()
+                    object["derivedFromCapture"] = true
+                }
+                object["provenance"] = provenance
+            } else {
+                object["provenance"] = ["sourceSession": object["sourceSession"] ?? NSNull(),"sourceMessage": object["sourceMessage"] ?? NSNull(),"sourceFile": object["sourceFile"] ?? NSNull(),"sourceCommit": object["sourceCommit"] ?? NSNull(),"origin": "user"] as JSON
+            }
             return try store.put("memory",object)
         case "memory.transition":
             let id = try requireString(params,"id"); let newState = try requireString(params,"state").lowercased()
@@ -53,27 +92,8 @@ final class MemoryService {
             return try store.put("memory",memory)
         case "recall": return try recall(params)
         case "search": return try store.search(try requireString(params,"query"),project:checkedProject(params),includePrivate:params["includePrivate"] as? Bool ?? false)
-        case "library.list": return try store.list("library",project:checkedProject(params))
-        case "library.add":
-            var item = params; item["title"] = try requireString(params,"title")
-            if let project = try checkedProject(params) { item["project"] = project }
-            if let sourceURL = params["url"] as? String {
-                guard let url = URL(string:sourceURL), ["http","https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil, url.user == nil, url.password == nil else { throw VelaError("Library URL must be an explicit HTTP or HTTPS URL without embedded credentials") }
-                let downloaded = try FoundationDownload.fetch(url)
-                item["content"] = try extractDocument(downloaded.0,extension:url.pathExtension,mime:downloaded.1)
-                item["sourceURL"] = url.absoluteString
-            } else if let source = params["path"] as? String {
-                let path = canonicalProject(source); let url = URL(fileURLWithPath:path)
-                let metadata = try url.resourceValues(forKeys:[.isRegularFileKey,.fileSizeKey])
-                guard metadata.isRegularFile == true, (metadata.fileSize ?? Int.max) <= 2 * 1024 * 1024 else { throw VelaError("Library import supports regular documents up to 2 MB") }
-                item["content"] = try extractDocument(Data(contentsOf:url),extension:url.pathExtension,mime:"")
-                item["sourcePath"] = path; item.removeValue(forKey:"path")
-            }
-            _ = try requireString(item,"content")
-            guard string(item,"content").utf8.count <= 2 * 1024 * 1024 else { throw VelaError("Extracted library text exceeds 2 MB") }
-            item["private"] = privateLibraryPath(string(item,"sourcePath")) || (params["private"] as? Bool ?? true)
-            item["tokens"] = tokenEstimate(string(item,"content")); item["state"] = "active"
-            return try store.put("library",item)
+        case let name where name.hasPrefix("library."):
+            return try LibraryService(store:store).handle(name,params)
         case "checkpoint.list": return try store.list("checkpoint",project:checkedProject(params))
         case "checkpoint.save":
             var item = params; item["project"] = try checkedProject(params,required:true)
@@ -107,37 +127,142 @@ final class MemoryService {
         }
     }
 
-    private func extractDocument(_ data: Data, extension ext: String, mime: String) throws -> String {
-        let ext = ext.lowercased()
-        if ext == "pdf" || mime.contains("pdf") {
-            guard let document = PDFDocument(data:data), let text = document.string, !text.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty else { throw VelaError("PDF has no extractable text; scanned PDFs require OCR before import") }
-            return text
+    private static let sessionCaptureProtocol = "vela-session-memory-capture-v1"
+    private static let sessionCaptureMaximumBytes = 32 * 1024
+
+    private func captureFieldEqual(_ supplied: Any?, _ existing: Any?) -> Bool {
+        guard let supplied, let existing else { return supplied == nil && existing == nil }
+        return (try? jsonString(["value": supplied])) == (try? jsonString(["value": existing]))
+    }
+
+    /// Resolves one already-indexed message. This never reads provider files or
+    /// follows caller paths; the later capture call re-resolves the same record.
+    private func resolvedSessionCapture(_ params: JSON, capture: Bool) throws -> (project: String, session: JSON, message: JSON, identity: String, sourceHash: String) {
+        let expectedKeys: Set<String> = capture ? ["project","sessionId","messageId","expectedSourceHash","sourceIdentity"] : ["project","sessionId","messageId"]
+        guard Set(params.keys) == expectedKeys else { throw VelaError("Unsupported session memory capture parameter") }
+        let project = try checkedProject(params,required:true)!
+        guard let registration = try store.get("project",stableHash(project)), string(registration,"path") == project else {
+            throw VelaError("Session memory capture requires a registered project")
         }
-        if ext == "docx" || mime.contains("wordprocessingml") {
-            let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("vela-docx-" + UUID().uuidString,isDirectory:true)
-            try FileManager.default.createDirectory(at:temporary,withIntermediateDirectories:true)
-            defer { try? FileManager.default.removeItem(at:temporary) }
-            let source = temporary.appendingPathComponent("document.docx"); try data.write(to:source,options:.atomic)
-            let result = try FoundationCommand.run("/usr/bin/textutil",["-convert","txt","-stdout",source.path],timeout:15)
-            guard result.code == 0, !result.output.isEmpty else { throw VelaError("DOCX text extraction failed") }
-            return result.output
+        let sessionID = try captureIdentifier(params,"sessionId"), messageID = try captureIdentifier(params,"messageId")
+        guard let session = try store.get("session",sessionID), capturableSession(session,project:project) else {
+            throw VelaError("Session source is unavailable, private, internal or outside the selected project")
         }
-        guard let text = String(data:data,encoding:.utf8), !text.contains("\0") else { throw VelaError("Unsupported document format; use UTF-8 text, HTML, PDF or DOCX") }
-        if ["html","htm"].contains(ext) || mime.contains("html") {
-            return text.replacingOccurrences(of:"(?is)<(?:script|style)[^>]*>.*?</(?:script|style)>",with:"",options:.regularExpression).replacingOccurrences(of:"(?i)</?(?:p|div|br|h[1-6]|li|section|article)[^>]*>",with:"\n",options:.regularExpression).replacingOccurrences(of:"<[^>]+>",with:"",options:.regularExpression).replacingOccurrences(of:"&nbsp;",with:" ").replacingOccurrences(of:"&amp;",with:"&").replacingOccurrences(of:"&lt;",with:"<").replacingOccurrences(of:"&gt;",with:">").trimmingCharacters(in:.whitespacesAndNewlines)
+        let matching = (session["messages"] as? [JSON] ?? []).filter { string($0,"id") == messageID }
+        guard matching.count == 1, let message = matching.first, ModelImprovement.falseOrAbsent(message["private"]) else {
+            throw VelaError("Session message is unavailable, private or ambiguous")
         }
-        return text
+        let role = string(message,"role")
+        guard ["user","assistant"].contains(role) else { throw VelaError("Only observed user or assistant messages can be captured") }
+        let content = string(message,"content")
+        guard !content.isEmpty, !content.contains("\0"), content.utf8.count <= Self.sessionCaptureMaximumBytes,
+              ModelImprovement.redact(content) == content else { throw VelaError("Session message is oversized or contains a credential pattern") }
+        let identity = ModelImprovement.identity(session)
+        guard !identity.isEmpty, identity.utf8.count <= 1024,
+              identity.rangeOfCharacter(from:.controlCharacters) == nil else { throw VelaError("Session source identity is unavailable") }
+        // A later unrelated message must not invalidate this observed message. Current
+        // session visibility is rechecked above and the final create uses a whole-record CAS.
+        let snapshot: JSON = ["protocol":Self.sessionCaptureProtocol,"project":project,"sessionId":sessionID,
+                              "provider":string(session,"provider"),"sourceIdentity":identity,
+                              "messageId":messageID,"role":role,"contentHash":stableHash(content)]
+        let sourceHash = stableHash(try jsonString(snapshot))
+        if params["expectedSourceHash"] != nil || params["sourceIdentity"] != nil {
+            guard string(params,"expectedSourceHash") == sourceHash, string(params,"sourceIdentity") == identity else {
+                throw VelaError("Session source changed; prepare a new capture")
+            }
+        }
+        return (project,session,message,identity,sourceHash)
+    }
+
+    private func captureIdentifier(_ params: JSON, _ key: String) throws -> String {
+        let value = try requireString(params,key)
+        guard value.utf8.count <= 512, value.rangeOfCharacter(from:.controlCharacters) == nil else { throw VelaError("Invalid session memory capture \(key)") }
+        return value
+    }
+
+    private func capturableSession(_ session: JSON, project: String) -> Bool {
+        guard string(session,"project") == project,
+              ["claude","codex","cursor","pi","omp"].contains(string(session,"provider")),
+              ModelImprovement.falseOrAbsent(session["private"]),
+              ModelImprovement.falseOrAbsent(session["sourceLabeledPrivate"]),
+              ModelImprovement.falseOrAbsent(session["internalRun"]),
+              (session["scope"] == nil || session["scope"] is String),
+              ["","project"].contains(string(session,"scope").lowercased()),
+              !privateLibraryPath(string(session,"sourcePath")) else { return false }
+        return true
+    }
+
+    private func prepareSessionCapture(_ params: JSON) throws -> JSON {
+        let source = try resolvedSessionCapture(params,capture:false)
+        return ["protocol":Self.sessionCaptureProtocol,"project":source.project,"sessionId":string(source.session,"id"),
+                "messageId":string(source.message,"id"),"sourceIdentity":source.identity,"expectedSourceHash":source.sourceHash,
+                "role":string(source.message,"role"),"content":string(source.message,"content"),"contentBytes":string(source.message,"content").utf8.count,
+                "sourceCoverage":"currently indexed session message; not a complete provider-history assertion",
+                "state":"candidate","sourceObservation":"observed","modelCalls":0] as JSON
+    }
+
+    private func captureSessionMessage(_ params: JSON) throws -> JSON {
+        guard Set(params.keys) == Set(["project","sessionId","messageId","expectedSourceHash","sourceIdentity"]) else {
+            throw VelaError("Unsupported session memory capture parameter")
+        }
+        let source = try resolvedSessionCapture(params,capture:true)
+        let sessionID = string(source.session,"id"), messageID = string(source.message,"id"), provider = string(source.session,"provider")
+        // The durable identity intentionally excludes caller presentation fields and
+        // source bytes. A replay of the same observed snapshot returns this object;
+        // a changed source with the same provider/session/message identity is refused.
+        let identityKey = provider + "\0" + source.identity + "\0" + sessionID + "\0" + messageID
+        let id = "capture-" + String(stableHash(Self.sessionCaptureProtocol + "\0" + source.project + "\0" + identityKey).prefix(32))
+        let policy = try exclusions.memoryAdmission(project:source.project,session:source.session)
+        guard !policy.excluded else { throw VelaError("Session source is excluded from Memory capture") }
+        try captureAfterIngestionAdmissionForTesting?()
+        if let existing = try store.get("memory",id) {
+            let provenance = existing["provenance"] as? JSON ?? [:]
+            guard string(provenance,"captureIdentity") == identityKey,
+                  string(provenance,"sourceHash") == source.sourceHash,
+                  string(existing,"project") == source.project else {
+                throw VelaError("Captured session identity changed; do not overwrite the existing candidate")
+            }
+            var result = existing; result["created"] = false; result["idempotent"] = true
+            return result
+        }
+        let content = string(source.message,"content"), role = string(source.message,"role")
+        let title = "Observed \(role) message"
+        let ingestionSource: Any = (source.session["ingestionSource"] as? JSON) ?? NSNull()
+        let memory: JSON = ["id":id,"title":title,"content":content,"type":"observation","scope":"project","project":source.project,
+                            "state":"candidate","tokens":tokenEstimate(content),"provenance":["origin":"observed_session_capture","sourceObservation":"observed",
+                            "captureProtocol":Self.sessionCaptureProtocol,"captureIdentity":identityKey,"sourceHash":source.sourceHash,
+                            "originalContentHash":stableHash(content),"contentEqualsObservedSource":true,"sourceIdentity":source.identity,"sessionId":sessionID,"messageId":messageID,"provider":provider,
+                            "sourceSession":source.session["sourceSessionId"] ?? NSNull(),"sourcePath":source.session["sourcePath"] ?? NSNull(),"ingestionSource":ingestionSource,
+                            "sourceCoverage":"currently indexed session message; not a complete provider-history assertion"] as JSON,
+                            "sourceSession":sessionID,"sourceMessage":messageID,"capturedAt":isoNow(),"requiresReview":true,"modelCalls":0]
+        let saved = try store.putBatch([("memory",memory)],expecting:[("session",sessionID,stableHash(try jsonString(source.session)))] + policy.expected,expectingAbsent:[("memory",id)] + policy.absent,createOnly:true).last!
+        var result = saved; result["created"] = true; result["idempotent"] = false; result["requiresReview"] = true
+        return result
     }
 
     func recall(_ params: JSON) throws -> JSON {
+        guard params["retrievalMode"] == nil || params["retrievalMode"] is String else { throw VelaError("Invalid retrieval mode") }
+        let mode = string(params,"retrievalMode","lexical")
+        guard ["lexical","semantic","hybrid"].contains(mode) else { throw VelaError("Invalid retrieval mode") }
+        if mode != "lexical" { return try SemanticMemory(store:store).recall(params) { try self.lexicalRecall(params) } }
+        return try lexicalRecall(params)
+    }
+    private func lexicalRecall(_ params: JSON) throws -> JSON {
         let project = try checkedProject(params,required:true)!
         let budget = max(0,min(params["budget"] == nil ? 2000 : intValue(params,"budget"),4000))
         let query = string(params,"query").lowercased()
         let terms = query.split(whereSeparator: { $0.isWhitespace || $0.isPunctuation }).map(String.init)
+        let policy = try exclusions.memoryRecallPolicy(project:project)
         var candidates = try store.list("memory",limit:10000).filter { item in
-            guard string(item,"state").lowercased() == "active", item["private"] as? Bool != true else { return false }
+            guard string(item,"state").lowercased() == "active",
+                  ModelImprovement.falseOrAbsent(item["private"]),
+                  ModelImprovement.falseOrAbsent(item["sourceLabeledPrivate"]) else { return false }
+            for key in ["sourcePath","sourceFile","assetPath"] where privateLibraryPath(string(item,key)) { return false }
+            guard policy.allows(item) else { return false }
             let scope = string(item,"scope","project").lowercased()
             guard scope == "global" || string(item,"project") == project else { return false }
+            let namespace = string(params,"namespace")
+            if !namespace.isEmpty { return scope == "namespace" && string(item,"namespace") == namespace }
             switch scope {
             case "global","project","repository": return true
             case "branch": return !string(params,"branch").isEmpty && string(item,"branch") == string(params,"branch")

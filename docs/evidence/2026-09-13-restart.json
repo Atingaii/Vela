@@ -1,0 +1,60 @@
+{
+  "format": "vela-restart-regression-v1",
+  "verifiedAtUTC": "2026-09-12T16:21:20.676342+00:00",
+  "binarySHA256": "35165f408ecb6641465efb471659de2e322a7c92be19a03114e70e8ff6d623ba",
+  "cliVersion": "0.1.0-preview.2",
+  "passed": true,
+  "forcedTerminations": 2,
+  "reopens": 2,
+  "phases": [
+    {
+      "phase": "first_helper_killed_after_success_responses",
+      "terminationReturnCode": -9,
+      "acknowledgedMemories": 1,
+      "confirmedMessages": 1,
+      "incompleteSourceRecordPresent": true
+    },
+    {
+      "phase": "second_helper_killed_after_continuation_and_new_success_responses",
+      "terminationReturnCode": -9,
+      "acknowledgedMemories": 2,
+      "confirmedMessages": 2,
+      "partialRecordCompletedExactlyOnce": true
+    },
+    {
+      "phase": "second_reopen_and_two_unchanged_refreshes",
+      "memoryCount": 2,
+      "sessionCount": 1,
+      "messageCount": 2,
+      "duplicateMessages": 0,
+      "assetsUnchanged": true,
+      "settingsUnchanged": true,
+      "completeSourceBytes": 441
+    }
+  ],
+  "assetEvidence": [
+    {
+      "memoryID": "06b1c080-650f-44af-a784-9f9c730581b6",
+      "assetSHA256": "7e95cf411c58d9e9526cf7fb4694bcbf294e57e24d59775b602b7d56e8b037cc"
+    },
+    {
+      "memoryID": "72d72787-fac1-4740-be88-fa02da24b443",
+      "assetSHA256": "dafabc2cfd2dfb7e5e610a1cd45597b1f2d7b77af89ff2e2fb0488555e6f5bde"
+    }
+  ],
+  "covered": [
+    "Acknowledged Memory and Markdown assets survive helper SIGKILL",
+    "Acknowledged settings and timestamps survive two reopens",
+    "Confirmed session and unfinished UTF-8 JSONL record recover without duplicate messages"
+  ],
+  "limits": [
+    "Process SIGKILL with OS still running is not power-loss or disk-full durability",
+    "Only writes acknowledged before termination are asserted; no claim about unacknowledged in-flight writes",
+    "Explicit refresh with --no-watch; no FSEvents/UI recovery timing or automatic restart claim",
+    "Synthetic Claude JSONL fixture only; not all provider formats or a crash-point matrix"
+  ],
+  "cleanup": {
+    "temporaryStoreAndLogsRemoved": true,
+    "allTestHelpersReaped": true
+  }
+}

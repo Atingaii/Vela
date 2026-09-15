@@ -1,0 +1,167 @@
+{
+  "format": "vela-ui18-renderer-evidence-v1",
+  "observedAtLocalDate": "2026-09-14",
+  "acceptance": "bounded synthetic renderer-to-real-helper evidence; full product remains No-Go",
+  "rendererAuthoring": {
+    "provenancePath": ".task-tmp/ui-round18/author-provenance.json",
+    "provenanceSHA256": "4d51e0f49e405e89ec9ac79663bdb37d65197d73543c2531ac83541aaa25f9f0",
+    "tool": "Antigravity CLI 1.2.2",
+    "model": "gemini-3.8-flash-high",
+    "effort": "high",
+    "conversation": "077aa111-797c-40f2-b850-36853dbe291e",
+    "ptySession": 38140,
+    "authorExitedSuccessfully": true
+  },
+  "integratedRenderer": {
+    "resourceDirectory": "Sources/VelaApp/Resources/UI",
+    "filesSHA256": {
+      "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "app.css": "cad3a760777c54b62cfbd312b4b69d668d2620af714571e6ea678f1cfe2b76c1",
+      "app.js": "71db445adeb1e7a42961d24eed38fe1f9b28bbe6d9fd36b9016e3307357660a4",
+      "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058",
+      "i18n.js": "388e8f419ac44caee93030ac240b5ce0460b36ccaaf38b14597cd63662a0c78d",
+      "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458"
+    },
+    "checkpoint": "r7 mechanical copy: only app.js changed from r6; the other five renderer resources retain their r6 hashes."
+  },
+  "ui18R6ScopeAccessibility": {
+    "resultPath": "output/playwright/ui18-anchor-full-extended-r6/results.json",
+    "resultSHA256": "e94b9468257fc5c9df6cb617b6893b1d7928c206304125b54e6d8efbf84df679",
+    "runnerPath": "scripts/test-workspace-scope-accessibility-browser.py",
+    "runnerSHA256": "dd5e957acf14506e52aa48fd991da46b6eca70a891b856b70c081e77acaef21e",
+    "helperSHA256": "f0138540654e15ed1fdbda864e8268304d6a10822171a68728c50d1bdb8aff62",
+    "syntheticFixture": true,
+    "realProviderRuns": 0,
+    "completeSuite": true,
+    "sourceUnchanged": true,
+    "checks": [
+      "all-projects-harbor-plan",
+      "all-projects-beacon-plan",
+      "all-projects-codex-relations-pagination",
+      "stale-bridge-results",
+      "live-refresh-preserves-detail-intent",
+      "all-projects-live-anchor-and-stale-guards",
+      "search-actions-listbox",
+      "search-actions-tablist"
+    ],
+    "result": "8/8 baseline checks passed against the copied frozen UI and real isolated helper; no page or console errors in those recorded checks. A subsequent nested-loader user-intent follow-up is recorded separately as open below.",
+    "specificCoverage": [
+      "All Projects Harbor and Beacon detail Plan reads carry each session's explicit project, then render a real first Plan-events page.",
+      "Relations use the public omitted/default first cursor, then an advancing child cursor and event sequence cursor on their second pages.",
+      "A successful and a failed post-result bridge hold cannot rewrite a later session or project selection.",
+      "Changed source reloads one cursor-free first page for Plan events, relation children and relation events while keeping all three disclosures open and retaining the reading anchor.",
+      "The independent All Projects live path holds a successful real sessions.get result; a Playwright wheel changes drawer scrollTop 347 to 707 and it remains 707 after release/re-render. This hold is before captureScrollAnchor, so it proves refresh preserves the latest reading position but does not by itself prove cancellation during an asynchronous nested loader. Held parent responses do not overwrite a new session or a Beacon project switch.",
+      "Search/Actions has one listbox with direct options; query replacement clears stale options/active descendant; tab clicks and Arrow/Home/End synchronize active class, aria-selected, aria-controls and visible tabpanel."
+    ]
+  },
+  "legacyRendererOnSameR6Bytes": {
+    "receiptPath": "output/playwright/ui18-legacy-root-r1/receipt.json",
+    "receiptSHA256": "456655f2d544c424214b85a322b00ef8180080b8eb1313b3a2bb0131eb1e1d85",
+    "browserResultsPath": "output/playwright/ui18-legacy-root-r1/browser-results.json",
+    "browserResultsSHA256": "29b3b2c487ee6f97193b94e4675f9a6663546d04cded7504b8884c8a0eab66c2",
+    "browserMetadataPath": "output/playwright/ui18-legacy-root-r1/browser-metadata.json",
+    "browserMetadataSHA256": "a793c0f891c3817c1e73f1de97b0b8dded51e19c660e285405f06560c86de15f",
+    "completeSuite": true,
+    "sourceUnchanged": true,
+    "helperSHA256": "f0138540654e15ed1fdbda864e8268304d6a10822171a68728c50d1bdb8aff62",
+    "result": "12/12 passed: filtering, setup, memory, workflow, draft, keyboard, rapid-navigation, live-detail, routing, routing-failure, routing-unknown and routing-aggregate."
+  },
+  "r5ToR6AnchorComparison": {
+    "r5AppJS": "c574fd43bca69a8e1fcf9a87756da5645232a319bb440f147d6597824f4f1251",
+    "r5ResultPath": "output/playwright/ui18-open-full-r5-r5/results.json",
+    "r5ResultSHA256": "d4647ce1e1c7364d0b70a2609f0ead3f3417a5d0b40527da9a1b0ccefebf4e60",
+    "r5ActualFailure": "Only live-refresh-preserves-detail-intent failed. The parent stayed selected, drawer and all three disclosures remained open with loaded bodies, and fresh cursor-free first pages each occurred once; the reading anchor moved from scrollTop 347 / relative -28.953125 to scrollTop 5812 / relative -5493.953125.",
+    "r6AppJS": "6a77a300bf8fff400347eba5e2f5bddf27a5a66d6afff260fb3025065f03a717",
+    "r6Result": "The same selected-project live check passed with anchorBefore and anchorAfter both scrollTop 347 / relative -28.953125. The separate All Projects and held-wheel check also passed."
+  },
+  "openNestedLoaderUserIntentFollowUp": {
+    "resultPath": "output/playwright/ui18-anchor-extension-r6-r4/results.json",
+    "resultSHA256": "7822250a855e4787c97a459efc43c48335385855844710006a8575cc742d0465",
+    "runnerSHA256": "9ad6fc0553ab109eaa9a48e3b4368bdf382caa11f3960171bfad70a616cf4106",
+    "freeze": "r6 app.js 6a77a300bf8fff400347eba5e2f5bddf27a5a66d6afff260fb3025065f03a717; helper f0138540654e15ed1fdbda864e8268304d6a10822171a68728c50d1bdb8aff62; sourceUnchanged true",
+    "method": "A real source-header change triggered live capture/rebuild. The test held the successful real sessions.relations.get result after sessions.get had returned and the live anchor had been established, sent Playwright wheel input to #drawer-content, then released the real nested loader.",
+    "actualFailure": "scrollTop moved 347 to 707 during the held nested response, then 6044 after release; relation-summary relative position moved -388.953125 to -5725.953125.",
+    "conclusion": "Retained r6 renderer red result. It is repaired by the separately frozen r7 browser evidence below; this historical failure remains the direct comparison and is not removed."
+  },
+  "testEvidenceCorrections": [
+    {
+      "issue": "An early Beacon Plan diagnostic waited for any bridge call, so its preceding sessions.get could be observed before sessions.plan.get.",
+      "correction": "The runner now waits for the same sessionId and exact sessions.plan.get/events methods before asserting explicit project and cursor parameters.",
+      "classification": "test synchronization correction; not a renderer failure"
+    },
+    {
+      "issue": "An early live diagnostic compared a global method count captured after prior checks with a wait filtered to the current Harbor id, producing an impossible threshold in a complete suite.",
+      "correction": "All starts, waits and slices now use the same current-session filter. The runner records DOM open/body/selected diagnostics, requires one fresh first page for each read, and checks exact cursor-free parameters before testing the anchor.",
+      "classification": "test counting correction; the final r5 anchor failure above is the retained renderer failure"
+    }
+  ],
+  "stageOnlyRegressions": [
+    {
+      "resultPath": "output/playwright/ui18-open-history-r5/results.json",
+      "resultSHA256": "ac89f467f5328c92132c614f53b18ebc61af7f108757950a24b0eed449849648",
+      "freeze": "r5 app.js c574fd43bca69a8e1fcf9a87756da5645232a319bb440f147d6597824f4f1251",
+      "result": "10/10 History/Plan checks passed",
+      "boundary": "different UI freeze; this is a stage regression, not r6 full-suite evidence"
+    },
+    {
+      "resultPath": "output/playwright/ui18-open-relations-r5/results.json",
+      "resultSHA256": "b394bdd3b007f37de74fda8b343973aee19cbe613dfe9d14d5b4330f04da7c35",
+      "freeze": "r5 app.js c574fd43bca69a8e1fcf9a87756da5645232a319bb440f147d6597824f4f1251",
+      "result": "5/5 Session Relations checks passed",
+      "boundary": "different UI freeze; this is a stage regression, not r6 full-suite evidence"
+    },
+    {
+      "resultPath": "output/playwright/ui18-query-workspace-actions-r2/results.json",
+      "resultSHA256": "7362254ea158b47839e0ca9c736451b77fe331d0dd4857d6d7daa72f8861ea12",
+      "freeze": "r4 app.js b3ede9f56acb15ad4ab543393da92964a55fe18627dfe96d54f763f897692004",
+      "result": "9/9 Workspace Actions checks passed",
+      "boundary": "different UI freeze; this is a stage regression, not r6 full-suite evidence"
+    }
+  ],
+  "nativeBoundary": {
+    "evidencePath": "docs/parity/native-ui18-scope-evidence-2026-09-14.json",
+    "evidenceSHA256": "c20bef106bff4dcdc7714c2d4f7e0657cb339fe9668a3b33c489f7400ae0e635",
+    "rendererFreeze": "r4 app.js b3ede9f56acb15ad4ab543393da92964a55fe18627dfe96d54f763f897692004",
+    "conclusion": "partial native AX/WKWebView scope sequence only; it does not cover r6 live-anchor code, new capture or Health UI, full native accessibility, Golden Scenario, signing/notarization, provider work or release acceptance"
+  },
+  "ciBoundary": "Commit 46595a72 completed hosted CI run 34770795639 successfully, including 454 actual XCTest methods and the complete UI18 r7 eight-check renderer runner. This does not verify native interaction, UI19/20, real model improvement, or release acceptance.",
+  "nestedLoaderR7Repair": {
+    "provenancePath": ".task-tmp/ui18-anchor-fix-r7/author-provenance.json",
+    "provenanceSHA256": "2547815337e70bbd3fd978f537489d20180cc38b55de55cb7596b76b5a202776",
+    "tool": "Antigravity CLI 1.2.2",
+    "model": "gemini-3.8-flash-high",
+    "effort": "high",
+    "conversation": "8f8794cb-d4e2-4ffd-b20f-e578836d16f5",
+    "authorExitedSuccessfully": true,
+    "baseAppJS": "6a77a300bf8fff400347eba5e2f5bddf27a5a66d6afff260fb3025065f03a717",
+    "appJS": "71db445adeb1e7a42961d24eed38fe1f9b28bbe6d9fd36b9016e3307357660a4",
+    "mechanicalDiffPath": ".task-tmp/ui18-anchor-fix-r7/r6-to-r7-app.js.diff",
+    "mechanicalDiffSHA256": "a5939dc2c2dd56cc73683719001cad80d937fd62db38072c459290caefa9456c",
+    "sourceChange": "Only app.js changed: drawer content receives overflow-anchor:none while installing the user-intent listener and while opening the drawer. No cursor, scope, stale-result, or test assertion was relaxed.",
+    "resultPath": "output/playwright/ui18-anchor-r7-full/results.json",
+    "resultSHA256": "ba8a2fae77c08be47e31229d70eb96fce35c80b262f2999d349410d6249357a2",
+    "runnerPath": "scripts/test-workspace-scope-accessibility-browser.py",
+    "runnerSHA256": "9ad6fc0553ab109eaa9a48e3b4368bdf382caa11f3960171bfad70a616cf4106",
+    "helperSHA256": "f0138540654e15ed1fdbda864e8268304d6a10822171a68728c50d1bdb8aff62",
+    "completeSuite": true,
+    "sourceUnchanged": true,
+    "result": "8/8 passed against the frozen r7 UI and real isolated helper with no page or console errors. This includes the retained nested-loader counterexample.",
+    "nestedLoaderCounterexample": "A source change triggered live capture/rebuild; after the real sessions.relations.get response was received it was held, then Playwright wheel input moved drawer scrollTop 347 to 707. On release the result remained scrollTop 707 and relation-summary relative position -388.953125. The exact first pages remained explicit-project and cursor-free/default, and session/project stale guards passed.",
+    "mechanismBoundary": "The source guard, event sequence and r7 overflow-anchor-only repair support an inference that Chromium native scroll anchoring caused the r6 jump. No scrollTop setter/event trace directly proves that conclusion or excludes every JavaScript restoration path.",
+    "nativeBoundary": "The local verification host is macOS/Safari 26.5.1 (WebKit 21624). WebKit announced CSS Scroll Anchoring/overflow-anchor support for Safari 27 beta, so this Chrome result neither establishes support nor passes the equivalent WKWebView behavior. Native verification remains required.",
+    "webkitAnnouncement": "https://webkit.org/blog/17967/news-from-wwdc26-webkit-in-safari-27-beta/"
+  },
+  "ciEvidencePath": "docs/parity/ci-46595a72-evidence-2026-09-14.json",
+  "nativeR7OrdinaryLive": {
+    "path": "output/playwright/native-ui18-r7-r3/results.json",
+    "sha256": "2a51cd719bb33a5bd32f4fd2fb899c10688f264fa65ceeff2d530b7f257d67dd",
+    "passed": [
+      "All Projects relation first/next page and parent-child return",
+      "actual empty Plan and change events",
+      "ordinary source append + five-second poll retains disclosures (transient CUA observation)",
+      "CmdK Search/Actions",
+      "zh-CN/en switching"
+    ],
+    "limits": "No held nested-loader native response. Only one post-refresh Agents screenshot was retained; there is no persisted before/after pair. No nonempty Plan pagination."
+  }
+}

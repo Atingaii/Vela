@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vela-engineering-ai"
+version = "0.1.0.dev1"
+description = "Explicit local Vela memory for Python OpenAI Responses"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = ["openai==3.13.0", "vela-engineering==0.1.0.dev1"]
+
+[project.urls]
+Repository = "https://github.com/Atingaii/Vela"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+vela_ai = ["py.typed"]

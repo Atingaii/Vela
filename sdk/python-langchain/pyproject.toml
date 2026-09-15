@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vela-engineering-langchain"
+version = "0.1.0.dev1"
+description = "Explicit local Vela memory for LangChain ChatModel and Runnable"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = ["langchain-core==1.6.3", "vela-engineering==0.1.0.dev1"]
+
+[project.optional-dependencies]
+openai = ["langchain-openai==1.6.2", "openai==3.13.0"]
+
+[project.urls]
+Repository = "https://github.com/Atingaii/Vela"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+vela_langchain = ["py.typed"]

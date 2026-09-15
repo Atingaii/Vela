@@ -1,0 +1,100 @@
+{
+  "format": "vela-checkpoint-document-review-v1",
+  "recordedAt": "2026-09-13",
+  "scope": "Public-document wording, evidence scope, and path-leak review; no product/UI/CI changes.",
+  "overall": {
+    "completeProductAcceptance": false,
+    "goldenScenario": "not complete; source-chain execution is aborted_unavailable",
+    "releaseStatus": "development checkpoint only; public download remains preview.2"
+  },
+  "verifiedAccurate": [
+    {
+      "file": "README.md",
+      "finding": "States development branch is unreleased, six gates and 20-step scenario are not passed."
+    },
+    {
+      "file": "docs/ACCEPTANCE.md",
+      "finding": "Retains No-Go / Not Scored and says partial/component evidence cannot replace a same-run Golden path."
+    },
+    {
+      "file": "docs/parity/core-development-evidence-2026-09-13.json",
+      "finding": "The 439 portable-method receipt is explicitly historical, not XCTest, and excludes later defects/fixes."
+    },
+    {
+      "file": "docs/parity/golden-source-chain-evidence-2026-09-13.json",
+      "finding": "Declares completeGoldenScenario=false and labExecution.status=aborted_unavailable; it must not be summarized as completed Golden acceptance."
+    },
+    {
+      "file": "docs/parity/desktop-relations-evidence-2026-09-13.json",
+      "finding": "UI17 is recorded as selected locale/size scope with completeSuite=false, not a full relation suite."
+    }
+  ],
+  "pathReview": {
+    "fixedHere": [
+      "Removed .task-tmp frozen-snapshot paths from desktop-relations evidence; retained SHA-256 identities."
+    ],
+    "intentionalLocalReferences": [
+      "Relative output/playwright and output/parity receipt locations are repository-local evidence pointers, not user-home paths or credentials."
+    ],
+    "followUpReview": [
+      "docs/parity/session-relations-evidence-2026-09-13.json still contains .task-tmp references and is outside this reviewer-owned document; redact local snapshot paths before publishing it."
+    ],
+    "credentialFinding": "No literal auth token, API key, password, or /Users absolute path was found in README.md, docs/ACCEPTANCE.md, or JSON parity summaries reviewed. Golden evidence only states credential cleanup metadata."
+  },
+  "checkpointCandidates": {
+    "nonUIOnly": [
+      "Sources/VelaCore/AskRouteService.swift",
+      "Sources/VelaCore/SessionRelationProjection.swift",
+      "Sources/VelaCore/SessionRelationService.swift",
+      "Sources/VelaCore/WorkflowHealth.swift",
+      "Sources/VelaCore/WorkflowRetry.swift",
+      "Sources/VelaCLI/main.swift",
+      "Sources/VelaCore/AutomationProcess.swift",
+      "Sources/VelaCore/AutomationService.swift",
+      "Sources/VelaCore/FoundationService.swift",
+      "Sources/VelaCore/LabService.swift",
+      "Sources/VelaCore/MemoryService.swift",
+      "Sources/VelaCore/RuntimeShutdown.swift",
+      "Sources/VelaCore/SemanticMemory.swift",
+      "Sources/VelaCore/SessionEngine.swift",
+      "Sources/VelaCore/SessionHistorySource.swift",
+      "Sources/VelaCore/Store.swift",
+      "Sources/VelaCore/WorkflowComposition.swift",
+      "Tests/VelaCoreTests/*",
+      "scripts/test-*-rpc.py",
+      "scripts/create-history-plan-fixture.py",
+      "scripts/create-session-relations-fixture.py",
+      "scripts/test-history-plan-browser.py",
+      "scripts/test-session-relations-browser.py",
+      "scripts/test-ui-server.py",
+      "docs/adr/0030-observed-codex-session-relations.md",
+      "docs/adr/0031-local-embedding-and-recent-matches.md",
+      "docs/adr/0032-persisted-safe-ask-routing.md",
+      "docs/adr/0033-bounded-read-step-retry.md",
+      "docs/adr/0034-structured-workflow-health-evidence.md",
+      "docs/adr/0035-bounded-rpc-child-shutdown.md",
+      "docs/implementation/*-contract.md",
+      "docs/parity/*-evidence-2026-09-13.json",
+      "docs/ACCEPTANCE.md",
+      "docs/architecture.md",
+      "docs/verification.md"
+    ],
+    "excludeFromThisNonUICheckpoint": [
+      "Sources/VelaApp/Resources/UI/app.js",
+      "Sources/VelaApp/Resources/UI/app.css",
+      "Sources/VelaApp/Resources/UI/i18n.js",
+      "Sources/VelaApp/main.swift",
+      "README visual assets",
+      "releases/, output/, .task-tmp/, .npm-cache/"
+    ]
+  },
+  "deliveryAndManualGates": {
+    "packageEntry": "scripts/package-macos.sh; builds release arm64, invokes package-resources.py and release-audit.py, creates releases/Vela-macOS-arm64.zip.",
+    "productionPackageInput": "Root must supply VELA_SIGN_IDENTITY; notarization additionally requires VELA_NOTARY_PROFILE. Without them the package is ad-hoc signed and is not a public release.",
+    "nativeQAEntry": "scripts/create-native-qa.py creates an isolated synthetic QA app but does not launch it; root must perform/record the actual AppKit/LaunchServices interaction, startup readiness, supported window usability, and OS notification/audibility checks.",
+    "goldenManualGate": "scripts/test-golden-live.py requires explicit --live and an authorized auth file; real provider execution, trust/adoption and the interrupted Golden/Lab protocol remain root-controlled, non-CI work."
+  },
+  "limits": [
+    "This review does not revalidate source code, package bytes, CI, a native app, external accounts, or the Golden scenario."
+  ]
+}

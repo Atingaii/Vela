@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Use Cases — Vela</title>
+  <meta name="description" content="Use Cases · Local-first engineering workspace for coding agents.">
+  <link rel="icon" href="/assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <link rel="canonical" href="https://velo.codes/en/usecases/">
+  <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/usecases/">
+  <link rel="alternate" hreflang="en" href="https://velo.codes/en/usecases/">
+  <link rel="alternate" hreflang="x-default" href="https://velo.codes/usecases/">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="/assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="/styles.css?v=7fe760bdbb331b9d">
+
+  <!-- Immediate theme application to prevent flash -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Site Header (62px height, x70-1180 content alignment) -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/en/" class="brand-link" aria-label="Vela Homepage">
+          <img src="/assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="Main Navigation"><a href="/en/product/" class="nav-link">Product</a><a href="/en/usecases/" class="nav-link">Use Cases</a><a href="/en/integrations/" class="nav-link">Integrations</a><a href="/en/comparisons/" class="nav-link">Comparisons</a></nav>
+      </div>
+
+      <div class="header-actions">
+        <a href="/en/docs.html" class="header-docs-link">Docs</a>
+
+        <!-- Theme Toggle Button (Square) -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="Switch to dark mode" title="Switch to dark mode">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- Language Switcher Button -->
+        <a href="/usecases/" class="header-lang-link" hreflang="zh-CN" lang="zh-CN" aria-label="切换至简体中文">简体中文</a>
+
+        <!-- GitHub Repository Button (Square) -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub Repository" title="GitHub Repository">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="Mobile menu"><a href="/en/integrations/" class="nav-link">Integrations</a><a href="/en/product/" class="nav-link">Product</a>
+      <a href="/en/usecases/" class="nav-link">Use Cases</a>
+      <a href="/en/comparisons/" class="nav-link">Comparisons</a>
+      <a href="/en/docs.html" class="nav-link">Docs</a>
+      <a href="/en/releases.html" class="nav-link">Releases</a>
+      <a href="/en/privacy.html" class="nav-link">Privacy</a>
+      <a href="/usecases/" class="nav-link lang-switch-link" hreflang="zh-CN" lang="zh-CN">简体中文</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub Repository ↗</a>
+    </div>
+  </header>
+
+  <main>
+<section class="catalogue-hero container"><div class="section-eyebrow">USE CASES</div><h1 class="catalogue-title">From a loose end<br>to a clear next step.</h1><p class="catalogue-lead">Eight everyday engineering tasks. Start with the question, see the inputs and leave with a result you can inspect.</p></section><section class="container usecase-catalogue"><div class="catalogue-pills" role="toolbar" aria-label="Filter use cases"><button class="catalogue-pill active" data-filter="all" aria-pressed="true">All tasks <span class="catalogue-pill-count">8</span></button><button class="catalogue-pill " data-filter="sessions" aria-pressed="false">Observe & configure <span class="catalogue-pill-count">2</span></button><button class="catalogue-pill " data-filter="memory" aria-pressed="false">Knowledge & memory <span class="catalogue-pill-count">2</span></button><button class="catalogue-pill " data-filter="workflows" aria-pressed="false">Run & review <span class="catalogue-pill-count">2</span></button><button class="catalogue-pill " data-filter="lab" aria-pressed="false">Verify & maintain <span class="catalogue-pill-count">2</span></button></div><div id="filter-status" class="filter-status" role="status" aria-live="polite">Showing 8 / 8 use cases</div><div class="usecases-table-wrapper" tabindex="0"><table class="usecases-table"><thead><tr><th scope="col">What you want to do</th><th scope="col">What it uses</th><th scope="col">What you leave with</th><th scope="col">When</th></tr></thead><tbody><tr data-category="sessions"><td><a class="usecase-task-link" href="/en/usecases/session-review/">Pick up yesterday’s change<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">Why did this code change?</p></td><td>Session logs, tool calls, plans</td><td>Change rationale with sources and a checkpoint</td><td><span class="case-cadence">Before resuming</span></td></tr><tr data-category="memory"><td><a class="usecase-task-link" href="/en/usecases/project-memory/">Remember the project’s rules<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">Stop repeating build and test constraints.</p></td><td>Session messages, reviewed project context</td><td>Project memory for a future session</td><td><span class="case-cadence">After a task</span></td></tr><tr data-category="workflows"><td><a class="usecase-task-link" href="/en/usecases/review-workflows/">Run recurring checks with confidence<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">Walk through the checks before release.</p></td><td>Workflow definition, Git state, scripts</td><td>A workflow with recorded execution and output</td><td><span class="case-cadence">Before commit or release</span></td></tr><tr data-category="lab"><td><a class="usecase-task-link" href="/en/usecases/compare-and-reuse/">Verify a configuration change<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">Did the new rule actually help?</p></td><td>Baseline/candidate settings, verifier</td><td>Traceable comparison, or explicit uncertainty</td><td><span class="case-cadence">When changing a rule</span></td></tr><tr data-category="sessions"><td><a class="usecase-task-link" href="/en/usecases/configuration-audit/">Untangle scattered configuration<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">Where do agents get their project rules?</p></td><td>Rules, skills, hooks, MCP files</td><td>Redacted asset inventory, history and diagnostics</td><td><span class="case-cadence">During project setup</span></td></tr><tr data-category="memory"><td><a class="usecase-task-link" href="/en/usecases/knowledge-search/">Find answers in project references<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">Which source explains this API constraint?</p></td><td>Library sources available to agents</td><td>An answer with source locations and follow-up</td><td><span class="case-cadence">When learning a project</span></td></tr><tr data-category="workflows"><td><a class="usecase-task-link" href="/en/usecases/workflow-health/">Review how automation performed<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">The run finished. Was the result useful?</p></td><td>Run output, health findings, feedback history</td><td>Separate execution state, assessment and change history</td><td><span class="case-cadence">After a workflow run</span></td></tr><tr data-category="lab"><td><a class="usecase-task-link" href="/en/usecases/usage-and-recovery/">Keep the local workspace manageable<span aria-hidden="true">↗</span></a><p class="usecase-task-desc">Understand usage and preserve your records.</p></td><td>Observed usage, local index and assets</td><td>Observed metrics and reviewable recovery records</td><td><span class="case-cadence">During maintenance</span></td></tr></tbody></table></div></section><aside class="availability-note container">This guide covers the current development source. The public download is preview.2; newer capabilities require a source build. See <a href="/en/releases.html">releases</a> for availability.</aside>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="/en/usecases/" class="footer-link">Use Cases</a>
+        <a href="/en/comparisons/" class="footer-link">Comparisons</a>
+        <a href="/en/docs.html" class="footer-link">Docs</a>
+        <a href="/en/releases.html" class="footer-link">Releases</a>
+        <a href="/en/privacy.html" class="footer-link">Privacy</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">Report Vulnerability</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/site.js?v=acf1c37e1928f8dc"></script>
+</body>
+</html>

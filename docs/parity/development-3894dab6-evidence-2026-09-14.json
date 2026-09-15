@@ -1,0 +1,90 @@
+{
+  "format": "vela-development-package-evidence-v1",
+  "date": "2026-09-14",
+  "commit": "3894dab6d9dcf7fd07b15ca6bc895402e248b11e",
+  "channel": "dev",
+  "packageDirectory": "releases/development-3894dab6",
+  "package": {
+    "sourceCommitFile": {
+      "path": "releases/development-3894dab6/SOURCE_COMMIT",
+      "sha256": "7691efeb5a4ddc3739b7adc0fa59207b8c4c7c13d1e8ab1c81069f43f96a2898"
+    },
+    "zip": {
+      "path": "releases/development-3894dab6/Vela-macOS-arm64.zip",
+      "sha256": "466d316fe40f96fe821f0a6297a5a628d59db8375bb82bd7e5dd43c228a90352",
+      "checksumFile": "releases/development-3894dab6/SHA256SUMS",
+      "checksumFileSHA256": "e95a22bcda1846b79818e27d8b8afdc814d5d3d3f7e21fd9b8e7be094926461a"
+    },
+    "executables": {
+      "vela": "19e4f40726b282e01f90a84c73823d15131a08702e9843fb06d42dba63607c97",
+      "VelaDesktop": "1339750fbb82c376b48bbb458c30d8739d36e643d908461e5207dd2980267a74",
+      "artifactManifest": "releases/development-3894dab6/package-artifacts-sha256.txt",
+      "artifactManifestSHA256": "4912a97bde4e7e47a154b94e5c9b74f98a9e3fc82fd12a47f4bb053f740b31d0"
+    },
+    "inputs": {
+      "manifest": "releases/development-3894dab6/inputs-sha256.txt",
+      "manifestSHA256": "e9d3b54f6b9d2c86f5c1315982ce6d3e69664dfc3fa23a1c3ff127fad9a76153"
+    }
+  },
+  "packageVerification": {
+    "strictCodeSign": {
+      "result": "passed",
+      "commandsRecorded": [
+        "codesign --verify --deep --strict --verbose=4 releases/Vela.app"
+      ],
+      "packageReceipt": {
+        "path": "releases/development-3894dab6/package-codesign-verify.txt",
+        "sha256": "c863efa6503a356faa21da9659d7d2574ba98a6bcc5075fd0f3bde05954994dc"
+      },
+      "deliveryReceipt": {
+        "path": "releases/development-3894dab6/delivery-codesign-verify.txt",
+        "sha256": "aaab7ce4ba9e8f89ec54d31348c9509ed1a41310982dd1e45627ae3f3fcc1c53"
+      }
+    },
+    "allowlistAudit": {
+      "result": "passed",
+      "packageReceipt": {
+        "path": "releases/development-3894dab6/package-release-audit.txt",
+        "sha256": "23e8127839912de7845d776df3df167faac37ada39012e1dcb4ff954a9dcbc9b"
+      },
+      "deliveryReceipt": {
+        "path": "releases/development-3894dab6/delivery-release-audit.txt",
+        "sha256": "23e8127839912de7845d776df3df167faac37ada39012e1dcb4ff954a9dcbc9b"
+      }
+    }
+  },
+  "backupCLIEvidence": [
+    {
+      "path": "output/parity/store-backup-release-cli-r1.json",
+      "sha256": "38f64a8bdcbf586fe22f98fd03745a53eaa8e243e8bdb0a66162724dc07dcb7c",
+      "status": "passed",
+      "checks": 19,
+      "helperSHA256": "19e4f40726b282e01f90a84c73823d15131a08702e9843fb06d42dba63607c97",
+      "sourceUnchanged": true,
+      "helperUnchanged": true,
+      "fixtureRemoved": true
+    },
+    {
+      "path": "output/parity/store-backup-release-no-recovery-r1.json",
+      "sha256": "78572a8bacfe78308c39a5b19083d688a45c8cfe15a92e9de0fb63e762c1a453",
+      "status": "passed",
+      "checks": 4,
+      "helperSHA256": "19e4f40726b282e01f90a84c73823d15131a08702e9843fb06d42dba63607c97",
+      "sourceUnchanged": true,
+      "helperUnchanged": true,
+      "fixtureRemoved": true
+    }
+  ],
+  "evidenceSource": {
+    "path": "releases/development-3894dab6/package-evidence.json",
+    "sha256": "f5cc640939b4971d2cef64b7493ff65d811b1edbb4d23011a4d6381722c7055e"
+  },
+  "releaseLimitations": {
+    "signing": "ad-hoc only",
+    "notarization": "not run",
+    "publication": "not run",
+    "formalRelease": false,
+    "nativeAcceptance": "Eight scoped CUA interactions were observed in an isolated wrapper; restored-Store native verification stopped at a reproduced /private/tmp backup path rejection. See native-3894dab6-evidence-2026-09-14.json.",
+    "scope": "This is development-package evidence. It does not establish notarization, publication, native acceptance, or full-product acceptance."
+  }
+}

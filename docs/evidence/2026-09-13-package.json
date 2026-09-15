@@ -1,0 +1,336 @@
+{
+  "format": "vela-final-package-audit-v1",
+  "verifiedAtUTC": "2026-09-12T17:46:22.064449+00:00",
+  "scope": "Read-only final local bundle and ZIP audit. No launch, installation, provider execution, notification authorization or delivery is asserted.",
+  "passedWithinDeclaredScope": true,
+  "bundle": "releases/Vela.app",
+  "metadata": {
+    "CFBundleIdentifier": "ai.vela.desktop.dev",
+    "CFBundleShortVersionString": "0.1.0",
+    "CFBundleVersion": "2",
+    "CFBundleExecutable": "VelaDesktop",
+    "LSMinimumSystemVersion": "13.0",
+    "VelaChannel": "dev"
+  },
+  "checks": [
+    {
+      "command": "python3 scripts/release-audit.py releases/Vela.app",
+      "exitCode": 0,
+      "passed": true,
+      "covers": [
+        "release allowlist",
+        "arm64",
+        "development capture marker exclusion",
+        "checkout-path exclusion from executables"
+      ]
+    },
+    {
+      "command": "codesign --verify --deep --strict --verbose=2 releases/Vela.app",
+      "exitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "codesign --verify --strict --verbose=2 releases/Vela.app/Contents/MacOS/vela",
+      "exitCode": 0,
+      "passed": true
+    }
+  ],
+  "explicitBundleFileAllowlist": [
+    "Contents/Info.plist",
+    "Contents/MacOS/VelaDesktop",
+    "Contents/MacOS/vela",
+    "Contents/Resources/UI/app-icon.svg",
+    "Contents/Resources/UI/app.css",
+    "Contents/Resources/UI/app.js",
+    "Contents/Resources/UI/index.html",
+    "Contents/Resources/Vela.icns",
+    "Contents/Resources/vela-approval.wav",
+    "Contents/Resources/vela-completed.wav",
+    "Contents/Resources/vela-error.wav",
+    "Contents/_CodeSignature/CodeResources"
+  ],
+  "actualBundleFileCount": 12,
+  "symlinks": 0,
+  "ui": [
+    {
+      "file": "Contents/Resources/UI/app-icon.svg",
+      "source": "Sources/VelaApp/Resources/UI/app-icon.svg",
+      "bytes": 2649,
+      "sha256": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "matchesSource": true
+    },
+    {
+      "file": "Contents/Resources/UI/app.css",
+      "source": "Sources/VelaApp/Resources/UI/app.css",
+      "bytes": 41714,
+      "sha256": "49a7594949b0ce55ad59f8eb5e2c8266623d1d21d343ee7ddb17bc9ba8441e69",
+      "matchesSource": true
+    },
+    {
+      "file": "Contents/Resources/UI/app.js",
+      "source": "Sources/VelaApp/Resources/UI/app.js",
+      "bytes": 372033,
+      "sha256": "01104e7fbeef5c24a08af20fe70bd1934dc82f1446f7e16e230b03688ee3af0b",
+      "matchesSource": true
+    },
+    {
+      "file": "Contents/Resources/UI/index.html",
+      "source": "Sources/VelaApp/Resources/UI/index.html",
+      "bytes": 14548,
+      "sha256": "dc3b50c7b0596c6cf4165701a7b2ea6535a48e7f2a0a4e620b41ec18e6106e27",
+      "matchesSource": true
+    }
+  ],
+  "sounds": [
+    {
+      "file": "Contents/Resources/vela-approval.wav",
+      "source": "Sources/VelaApp/Resources/Sounds/vela-approval.wav",
+      "bytes": 24740,
+      "sha256": "0c399c3e60bbb5adc4f80fceba4a5bd81c3dbd60c3df6dada46ff75cce9c2635",
+      "matchesSource": true,
+      "sampleRateHz": 44100,
+      "channels": 1,
+      "sampleWidthBits": 16,
+      "frames": 12348,
+      "durationSeconds": 0.28,
+      "peakAbsolutePCM": 9374,
+      "formatAndLevelValidationPassed": true
+    },
+    {
+      "file": "Contents/Resources/vela-completed.wav",
+      "source": "Sources/VelaApp/Resources/Sounds/vela-completed.wav",
+      "bytes": 28268,
+      "sha256": "240bdb6816d12423e16dee0eb7128f5cfb8eca38d4cfbc05135fcc55671ed00a",
+      "matchesSource": true,
+      "sampleRateHz": 44100,
+      "channels": 1,
+      "sampleWidthBits": 16,
+      "frames": 14112,
+      "durationSeconds": 0.32,
+      "peakAbsolutePCM": 9294,
+      "formatAndLevelValidationPassed": true
+    },
+    {
+      "file": "Contents/Resources/vela-error.wav",
+      "source": "Sources/VelaApp/Resources/Sounds/vela-error.wav",
+      "bytes": 31796,
+      "sha256": "e8942535396f882bf381d19afe0952f67e30e2620bca4df8005f0ee6903ea374",
+      "matchesSource": true,
+      "sampleRateHz": 44100,
+      "channels": 1,
+      "sampleWidthBits": 16,
+      "frames": 15876,
+      "durationSeconds": 0.36,
+      "peakAbsolutePCM": 7626,
+      "formatAndLevelValidationPassed": true
+    }
+  ],
+  "icon": {
+    "file": "Contents/Resources/Vela.icns",
+    "source": "Sources/VelaApp/Resources/Vela.icns",
+    "bytes": 359258,
+    "sha256": "deeb9b65a5a5e89f201ecbc9f868d668e4fc27766dd7919f9ffc9dd30a375ebd",
+    "matchesSource": true,
+    "icnsHeaderAndDeclaredLengthValid": true
+  },
+  "executables": [
+    {
+      "file": "Contents/MacOS/VelaDesktop",
+      "bytes": 1136864,
+      "sha256": "ce575510def91e8248ea63b4375efc28eea285100aa3a5ff2d69ad31321a690d",
+      "architectures": [
+        "arm64"
+      ],
+      "machO64LittleEndian": true
+    },
+    {
+      "file": "Contents/MacOS/vela",
+      "bytes": 1043120,
+      "sha256": "01c41f291273204c9afc4d5d2a547d6b5f2c43ead30673a3ca9955754929e35e",
+      "architectures": [
+        "arm64"
+      ],
+      "machO64LittleEndian": true
+    }
+  ],
+  "signatures": {
+    "application": {
+      "identifier": "ai.vela.desktop.dev",
+      "signature": "adhoc",
+      "adHoc": true,
+      "teamIdentifier": null,
+      "authorities": [],
+      "cdHash": "286ab75c70eaecd9b4a5cb1a03f760f434064bc4",
+      "hardenedRuntimeFlagPresent": false
+    },
+    "helper": {
+      "identifier": "vela-555549441eb0d53dbadd39ee84959c6e37fc81e8",
+      "signature": "adhoc",
+      "adHoc": true,
+      "teamIdentifier": null,
+      "authorities": [],
+      "cdHash": "d4bb205a1fa5006993e87dda2fa17b64fb9a3225",
+      "hardenedRuntimeFlagPresent": false
+    }
+  },
+  "notarization": {
+    "packageScriptSupportsOptIn": true,
+    "requiresVariables": [
+      "VELA_SIGN_IDENTITY",
+      "VELA_NOTARY_PROFILE"
+    ],
+    "variablesPresentInAuditProcess": {
+      "VELA_SIGN_IDENTITY": false,
+      "VELA_NOTARY_PROFILE": false
+    },
+    "auditEnvironmentIsNotPackagingHistory": true,
+    "actualDeveloperIDSignaturePresent": false,
+    "staplerValidationExitCode": 65,
+    "stapledTicketPresent": false,
+    "acceptedNotarizationEvidenceAvailable": false,
+    "status": "No successful notarization is established for this ad-hoc artifact; current ticket validation reports no stapled ticket."
+  },
+  "zip": {
+    "file": "releases/Vela-macOS-arm64.zip",
+    "bytes": 1370679,
+    "sha256": "314187788e9bb8a858469bafdcae0071312cbf349c9db89f44b15575ac5adf7e",
+    "matchesSHA256SUMS": true,
+    "crcIntegrityPassed": true,
+    "allowlistedPayloadFiles": [
+      "Vela.app/Contents/Info.plist",
+      "Vela.app/Contents/MacOS/VelaDesktop",
+      "Vela.app/Contents/MacOS/vela",
+      "Vela.app/Contents/Resources/UI/app-icon.svg",
+      "Vela.app/Contents/Resources/UI/app.css",
+      "Vela.app/Contents/Resources/UI/app.js",
+      "Vela.app/Contents/Resources/UI/index.html",
+      "Vela.app/Contents/Resources/Vela.icns",
+      "Vela.app/Contents/Resources/vela-approval.wav",
+      "Vela.app/Contents/Resources/vela-completed.wav",
+      "Vela.app/Contents/Resources/vela-error.wav",
+      "Vela.app/Contents/_CodeSignature/CodeResources"
+    ],
+    "everyPayloadMatchesAuditedBundle": true,
+    "appleDoubleMetadata": [
+      {
+        "file": "__MACOSX/Vela.app/Contents/_CodeSignature/._CodeResources",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/.__CodeSignature",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/MacOS/._VelaDesktop",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/MacOS/._vela",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/._MacOS",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/Resources/._vela-completed.wav",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/Resources/UI/._index.html",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/Resources/UI/._app.css",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/Resources/UI/._app-icon.svg",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/Resources/UI/._app.js",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/Resources/._UI",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/Resources/._vela-error.wav",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/Resources/._vela-approval.wav",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/Resources/._Vela.icns",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/._Resources",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/Contents/._Info.plist",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      },
+      {
+        "file": "__MACOSX/Vela.app/._Contents",
+        "bytes": 163,
+        "sha256": "8ce61f0d6c497d6f7aebdbfa64a2e2bd9b9a67025a1f544cf06d706f4fdfbd45",
+        "type": "AppleDouble metadata for allowlisted file or directory"
+      }
+    ],
+    "extendedAttributeNamesObserved": [
+      "com.apple.provenance"
+    ],
+    "metadataPrivateUserPathMarkerFound": false
+  },
+  "limits": [
+    "Ad-hoc signature integrity is not Developer ID signing, notarization or Gatekeeper acceptance.",
+    "This audit did not launch the product bundle through LaunchServices and did not test macOS 13 installation.",
+    "No OS notification delivery, native sound playback, model improvement or full product hard-gate pass is inferred.",
+    "Final hosted CI is tracked separately by its commit and run URL.",
+    "The archive contains 17 small AppleDouble metadata entries produced by ditto; they correspond only to allowlisted bundle paths. Metadata checks are not a general secret-scanning guarantee."
+  ],
+  "cleanup": {
+    "bundleOrArchiveModified": false,
+    "sharedFilesRemoved": false,
+    "temporaryStoreOrHelperCreated": false,
+    "pythonBytecodeWritingDisabled": true
+  }
+}

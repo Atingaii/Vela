@@ -1,0 +1,632 @@
+{
+  "format": "vela-exclusion-recall-evidence-v1",
+  "date": "2026-09-14",
+  "baseCommit": "b16e7b999e8e67e5f0570739d08e6c9530437a07",
+  "overallAcceptance": "No-Go",
+  "scope": "Exclusion-aware captured Memory retrieval and execution eligibility; no new UI or release claim.",
+  "implementation": {
+    "deliveryFiles": [
+      {
+        "path": "Sources/VelaCore/AgentLoopService.swift",
+        "baseSHA256": "2a81d6f8402cf9fa63dde522f5f7b9be17e937c8722678daf593af980a04224c",
+        "sha256": "209915704329795053b68ebb10c03ce1634fca87274fcdaf70d201ead820bc8c",
+        "status": "modified"
+      },
+      {
+        "path": "Sources/VelaCore/AskRouteService.swift",
+        "baseSHA256": "d79f6d975d9efa76a11d9f69163c3977036584e51d9893af46d38c9195c013ed",
+        "sha256": "396c7fb4043da211aa85cfe840e1abe090cefa57900c33d52cf3c75e8b1d5f9d",
+        "status": "modified"
+      },
+      {
+        "path": "Sources/VelaCore/AutomationService.swift",
+        "baseSHA256": "e8c13870870a1bd6cb76b460a88084051928f253b99a7e024e0b004d8e72a04f",
+        "sha256": "d7113fd33ddc31806db596c15e0f3c207fe22ffa43773e7df7b713e6a5580646",
+        "status": "modified"
+      },
+      {
+        "path": "Sources/VelaCore/FoundationService.swift",
+        "baseSHA256": "a68c222f5825238b2c09ca1b42ba8bb6ce78941d07a0c89d6af143125e80168c",
+        "sha256": "2b7857cc54f23a57f76ddb77fb6fc65e3af5d62375ea3e7dff9642311fab28d3",
+        "status": "modified"
+      },
+      {
+        "path": "Sources/VelaCore/IngestionExclusionService.swift",
+        "baseSHA256": "642768dbdd02211817f5e1ea281071044724eb674ef7df2e952564a38fdd1702",
+        "sha256": "ccac65adee2201572c63789db4bf574438bdcdb1b28e077b22eb4c792c40f68c",
+        "status": "modified"
+      },
+      {
+        "path": "Sources/VelaCore/KnowledgeQueryService.swift",
+        "baseSHA256": "ba7da7dd3ec6ce336fb04e951c47908ae46501493ad0ca2c7100203147ec07d1",
+        "sha256": "38a8a56d6f08a628f1a6ae5ee4b2580098cf390fb95da16d27e1c68ba399fbf5",
+        "status": "modified"
+      },
+      {
+        "path": "Sources/VelaCore/LabService.swift",
+        "baseSHA256": "864b4108e2c6e26292e60608e627ed9b94f1a8a7ca1e16011a80ea9729b4580c",
+        "sha256": "9d3c6abb5b5dced1d6244528e90712783d238f552d769fd30d17c74b8b4e254f",
+        "status": "modified"
+      },
+      {
+        "path": "Sources/VelaCore/MCPToolAccess.swift",
+        "baseSHA256": "6d871c06374b2a05be33abbc4079d335302c1dedaeaf5a86ae0f77d6b66ca3f6",
+        "sha256": "675391f5bf9db1071b80b292e5a38882fcc87573aab4ff766399ae3f020bcaf3",
+        "status": "modified"
+      },
+      {
+        "path": "Sources/VelaCore/MemoryService.swift",
+        "baseSHA256": "ce2b8293f1eb616f536a8a6d24a45229a9adc2f940f560d73d49943216d87523",
+        "sha256": "2181ab2df1bb40d5e3b0e4541e924e4063464311dc6d2299354e7c51f06c7d4a",
+        "status": "modified"
+      },
+      {
+        "path": "Sources/VelaCore/SemanticMemory.swift",
+        "baseSHA256": "b5fb6b6bdd6e21e2d4070e2cdc839aa84028612478418e9dd0c0943411bdf3bd",
+        "sha256": "1e244cad95ad8cce91f85c1bd079d5aa51440c92ed0108b251150f03deedcde8",
+        "status": "modified"
+      },
+      {
+        "path": "Sources/VelaCore/SessionEngine.swift",
+        "baseSHA256": "be46a1b434b1cb17390dfa8be3d5f95f5d35debf6b28a1b8e96c3499cb99b144",
+        "sha256": "994ee8e0e329f01388eb6f6f80076df44eec4dc6fb2e3110c1016ef32f578c27",
+        "status": "modified"
+      },
+      {
+        "path": "Sources/VelaCore/Store.swift",
+        "baseSHA256": "c2e23521a132d591aaea3a7ac56cf0a64929e707075d40c2d65b3975ddd43adb",
+        "sha256": "cc4fea8592237fe6a0857f9a9ec6d2c906abd4502649489d0fb4045657388a8c",
+        "status": "modified"
+      },
+      {
+        "path": "Tests/VelaCoreTests/AskRouteTests.swift",
+        "baseSHA256": "edd77c2ab5b8d807b56c45c7251d01f30d46269aebc64fae5cb4444176913edd",
+        "sha256": "66f9327b9739bd30e7944c515eea1616a8b56059f0074a01e1a321f729934176",
+        "status": "modified"
+      },
+      {
+        "path": "Tests/VelaCoreTests/IngestionRecallEligibilityTests.swift",
+        "baseSHA256": null,
+        "sha256": "0748ff18bedf978aaf8724be574d31f271fb4450d3c33405be0a57d1db593789",
+        "status": "added"
+      },
+      {
+        "path": "Tests/VelaCoreTests/KnowledgeQueryTests.swift",
+        "baseSHA256": "6524e83c4bd4623bb6b7db9d52aef3a246282cf0237fc06feb3a7bc811a117c9",
+        "sha256": "89cbe135b50b0341017b85678dd522784f6c513adea3a4b001bc9da3e5c5ef36",
+        "status": "modified"
+      },
+      {
+        "path": "Tests/VelaCoreTests/MCPToolsTests.swift",
+        "baseSHA256": "390a76280399256c595c34fc9ed02a88a3064b86b57b0372daec41dfeef91704",
+        "sha256": "0e7dd1164c44b74b84fb0789bae6ac1af811458b7fb2557a9b98a93466287e60",
+        "status": "modified"
+      },
+      {
+        "path": "Tests/VelaCoreTests/WorkflowContextTests.swift",
+        "baseSHA256": "e1246b53e35a12a60a79e0241a98c5531fbe7e3d640be16224033646d36cd8bb",
+        "sha256": "6289175997481ab49446ed88ef9706138454fec9b623215380c2f7ac1b0c9903",
+        "status": "modified"
+      },
+      {
+        "path": "docs/adr/0043-exclusion-aware-memory-recall.md",
+        "baseSHA256": null,
+        "sha256": "93b2b2084e2dad44f8a906883cf858516f3ac3a985ff76a8d6778234d1d26b13",
+        "status": "added"
+      },
+      {
+        "path": "docs/architecture.md",
+        "baseSHA256": "1f005e964bd60546303347066dbbea63dee97a79e802ad36df9dbb3c976a4ab8",
+        "sha256": "92c9b2564fa4b55b963c47770b17a3958da25aa1f69222fe72759edcdf557147",
+        "status": "modified"
+      },
+      {
+        "path": "docs/implementation/agent-lab-contract.md",
+        "baseSHA256": "20197f219b28d742422a8d5494ffc27b6a3a149bd62532e51a01c3e243556366",
+        "sha256": "cea9a0e570fa1aad6d8fa14ace93ddb5769d5185c459e214e92a441cb199d2f3",
+        "status": "modified"
+      },
+      {
+        "path": "docs/implementation/ingestion-exclusions-contract.md",
+        "baseSHA256": "ee6eafab25991d8436dea376f10a99308a88283eed3c86a6b7e4a83d9829aca8",
+        "sha256": "0cec463fb7ae61869fa6ce2cc826ae139b0491f134e6f781d015d9edd3b2a03a",
+        "status": "modified"
+      },
+      {
+        "path": "scripts/test-portable.py",
+        "baseSHA256": "792d9c7648c18d86966a80327d28872fea02c1816963ae56d7df74bd6e691fa7",
+        "sha256": "cbe3b43e42032b71ae2d72ecd8f8ec9dbfebf1fae976ddd015fc9a91c88422ae",
+        "status": "modified"
+      }
+    ],
+    "rootHelperSHA256": "ebbe463f8857ca24e1b5a0851a23148f19b74379261a18c714f52b3738a3d922",
+    "stageHelperSHA256": "12e8c934bb8b92bed349643c4dfcd038bf143f605d008a439962607fc0a8a9eb",
+    "nativeAndUIUnchanged": true,
+    "uiVersion": "UI20",
+    "integrationReceipt": {
+      "path": "output/parity/ingestion-recall-root-integration-r2.json",
+      "sha256": "470b85b2406addd16f2e8f978fbc2d9df06717b15221b86daffa4081d97c0d2d"
+    }
+  },
+  "portable": {
+    "path": ".task-tmp/ingestion-recall-r2/output-r2-full.json",
+    "sha256": "843e1932fec111c9ece440d23d47e6648f9252ce41d58a19ec4e605bc39dd406",
+    "snapshotSHA256": "f03917a348bbf16757d5c9199e9cfde792981b3de5e74fe730ca4644eea56f82",
+    "runner": "portable synchronous assertion compatibility layer; not XCTest",
+    "compiledInputCount": 123,
+    "rootCompiledInputsAllMatch": true,
+    "executed": 490,
+    "passed": 490,
+    "exitCode": 0,
+    "diagnosticsRetained": true
+  },
+  "rootBuild": {
+    "path": "output/parity/ingestion-recall-root-build-r2.log",
+    "sha256": "21be92e06f5d0cee386080df9e767f10c9f518b4619a1ae1119ffd62ff593661",
+    "command": "swift build --product vela",
+    "exitCode": 0
+  },
+  "rootLocal": {
+    "legacyUpgrade": {
+      "path": "output/parity/ingestion-recall-upgrade-root-r2.json",
+      "sha256": "133a2024ab627fb1aeb6472507f44dc4b83fc88fd409add886f8b19affba1076",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "legacy-real-capture-visible-before-exclusion",
+          "passed": true
+        },
+        {
+          "name": "source-rule-suppresses-legacy-capture-across-five-retrieval-routes",
+          "passed": true
+        },
+        {
+          "name": "legacy-source-binding-survives-helper-restart",
+          "passed": true
+        },
+        {
+          "name": "changed-source-root-fails-closed-for-legacy-capture-without-hiding-manual-assets",
+          "passed": true
+        },
+        {
+          "name": "whole-project-blocks-global-injection-without-affecting-other-project",
+          "passed": true
+        },
+        {
+          "name": "canonical-memory-management-and-file-bytes-preserved",
+          "passed": true
+        },
+        {
+          "name": "explicit-removal-restores-retrieval-and-original-logs-stay-unchanged",
+          "passed": true
+        }
+      ],
+      "fixtureRemoved": true,
+      "legacyHelperSHA256": "a7f600a37d928b757bc5fc6ddb673b8a78495c245a2d7a44cbbc596b3a84a82e",
+      "installedSemanticModel": {
+        "dimension": 512,
+        "id": "apple.naturallanguage.sentence.mean512.v1",
+        "language": "en",
+        "revision": 1
+      },
+      "sourcesUnchanged": true,
+      "helperStopped": true
+    },
+    "consumers": {
+      "path": "output/parity/ingestion-consumer-guards-root-r2.json",
+      "sha256": "c95376fa7a57af2b74b9b733aa83ab6db6e13008e6475e71d22e9e41e4d9867c",
+      "children": [
+        {
+          "path": "output/parity/ingestion-consumer-guards-root-r2-source.json",
+          "sha256": "592f5f249b64e4fc1f40d0bf5ee44bf1313c9c517b1a76dbd02d7ee539052ded",
+          "status": "passed",
+          "checks": [
+            {
+              "name": "fixture-captures-core-observed-memory",
+              "passed": true
+            },
+            {
+              "name": "control-approved-ask-runs-synthetic-agent",
+              "passed": true
+            },
+            {
+              "name": "control-approved-workflow-runs-synthetic-agent",
+              "passed": true
+            },
+            {
+              "name": "pre-rule-freezes-ask-route-and-workflow",
+              "passed": true
+            },
+            {
+              "name": "control-mcp-list-and-get-return-eligible-memory",
+              "passed": true
+            },
+            {
+              "name": "management-memory-list-retains-excluded-canonical-record",
+              "passed": true
+            },
+            {
+              "name": "mcp-list-hides-excluded-memory",
+              "passed": true
+            },
+            {
+              "name": "mcp-get-rejects-excluded-memory",
+              "passed": true
+            },
+            {
+              "name": "mcp-search-hides-excluded-memory",
+              "passed": true
+            },
+            {
+              "name": "ask-create-after-rule-omits-excluded-memory",
+              "passed": true
+            },
+            {
+              "name": "ask-route-after-rule-omits-excluded-memory",
+              "passed": true
+            },
+            {
+              "name": "frozen-ask-rejects-before-synthetic-agent",
+              "passed": true
+            },
+            {
+              "name": "frozen-route-rejects-before-synthetic-agent",
+              "passed": true
+            },
+            {
+              "name": "frozen-workflow-rejects-before-synthetic-agent",
+              "passed": true
+            }
+          ],
+          "fixtureRemoved": true,
+          "exitCode": 0,
+          "cleanupReported": true,
+          "partialCleanupPossible": false
+        },
+        {
+          "path": "output/parity/ingestion-consumer-guards-root-r2-whole.json",
+          "sha256": "9afb426176a44938f971d355adad5388b8704ec83a63e4e2bf1be1f83608c1ee",
+          "status": "passed",
+          "checks": [
+            {
+              "name": "fixture-captures-core-observed-memory",
+              "passed": true
+            },
+            {
+              "name": "control-approved-ask-runs-synthetic-agent",
+              "passed": true
+            },
+            {
+              "name": "control-approved-workflow-runs-synthetic-agent",
+              "passed": true
+            },
+            {
+              "name": "pre-rule-freezes-ask-route-and-workflow",
+              "passed": true
+            },
+            {
+              "name": "control-mcp-list-and-get-return-eligible-memory",
+              "passed": true
+            },
+            {
+              "name": "management-memory-list-retains-excluded-canonical-record",
+              "passed": true
+            },
+            {
+              "name": "mcp-list-hides-excluded-memory",
+              "passed": true
+            },
+            {
+              "name": "mcp-get-rejects-excluded-memory",
+              "passed": true
+            },
+            {
+              "name": "mcp-search-hides-excluded-memory",
+              "passed": true
+            },
+            {
+              "name": "ask-create-after-rule-omits-excluded-memory",
+              "passed": true
+            },
+            {
+              "name": "ask-route-after-rule-omits-excluded-memory",
+              "passed": true
+            },
+            {
+              "name": "frozen-ask-rejects-before-synthetic-agent",
+              "passed": true
+            },
+            {
+              "name": "frozen-route-rejects-before-synthetic-agent",
+              "passed": true
+            },
+            {
+              "name": "frozen-workflow-rejects-before-synthetic-agent",
+              "passed": true
+            }
+          ],
+          "fixtureRemoved": true,
+          "exitCode": 0,
+          "cleanupReported": true,
+          "partialCleanupPossible": false
+        }
+      ]
+    },
+    "agentLoop": {
+      "path": "output/parity/ingestion-loop-guard-root-r2.json",
+      "sha256": "eddacba383b96226916cbe0ad53b416b7a57987312991cb52a324f8898a18507",
+      "cases": [
+        {
+          "name": "source",
+          "status": "passed",
+          "checks": [
+            {
+              "name": "active-capture-is-managed-before-rule",
+              "passed": true
+            },
+            {
+              "name": "control-workflow-context-loop-executes",
+              "passed": true
+            },
+            {
+              "name": "workflow-context-memory-is-frozen-before-rule",
+              "passed": true
+            },
+            {
+              "name": "frozen-workflow-context-loop-gate-rejects-before-agent",
+              "passed": true
+            },
+            {
+              "name": "management-memory-remains-after-consumer-rule",
+              "passed": true
+            }
+          ],
+          "fixtureRemoved": true
+        },
+        {
+          "name": "whole",
+          "status": "passed",
+          "checks": [
+            {
+              "name": "active-capture-is-managed-before-rule",
+              "passed": true
+            },
+            {
+              "name": "control-workflow-context-loop-executes",
+              "passed": true
+            },
+            {
+              "name": "workflow-context-memory-is-frozen-before-rule",
+              "passed": true
+            },
+            {
+              "name": "frozen-workflow-context-loop-gate-rejects-before-agent",
+              "passed": true
+            },
+            {
+              "name": "management-memory-remains-after-consumer-rule",
+              "passed": true
+            }
+          ],
+          "fixtureRemoved": true
+        },
+        {
+          "name": "multiround-control",
+          "status": "passed",
+          "checks": [
+            {
+              "name": "second-provider-reached-deterministic-barrier",
+              "passed": true
+            },
+            {
+              "name": "recalled-memory-reaches-history-before-policy-change",
+              "passed": true
+            },
+            {
+              "name": "control-completes-or-revocation-stops-third-provider",
+              "passed": true
+            }
+          ],
+          "fixtureRemoved": true
+        },
+        {
+          "name": "multiround-source-revocation",
+          "status": "passed",
+          "checks": [
+            {
+              "name": "second-provider-reached-deterministic-barrier",
+              "passed": true
+            },
+            {
+              "name": "recalled-memory-reaches-history-before-policy-change",
+              "passed": true
+            },
+            {
+              "name": "control-completes-or-revocation-stops-third-provider",
+              "passed": true
+            }
+          ],
+          "fixtureRemoved": true
+        }
+      ],
+      "secondRoundRevocation": {
+        "tested": true,
+        "method": "The second synthetic provider blocks on an owned release file; a separate same-env helper writes the source rule before release."
+      }
+    },
+    "labExplicitMemory": {
+      "path": "output/parity/ingestion-recall-lab-root-r2.json",
+      "sha256": "f79e50287b7ae3b991dc0dd24e5d9291049a20af47d82e5d2eaf3b8d552f34f5",
+      "status": "passed",
+      "checks": [
+        {
+          "mutation": "private",
+          "passed": true,
+          "state": "failed",
+          "candidateStarted": false,
+          "baselineStartCount": 1,
+          "candidateStartCount": 0
+        },
+        {
+          "mutation": "archived",
+          "passed": true,
+          "state": "failed",
+          "candidateStarted": false,
+          "baselineStartCount": 1,
+          "candidateStartCount": 0
+        },
+        {
+          "mutation": "content",
+          "passed": true,
+          "state": "failed",
+          "candidateStarted": false,
+          "baselineStartCount": 1,
+          "candidateStartCount": 0
+        },
+        {
+          "mutation": "foreign",
+          "passed": true,
+          "state": "failed",
+          "candidateStarted": false,
+          "baselineStartCount": 1,
+          "candidateStartCount": 0
+        },
+        {
+          "mutation": "unchanged",
+          "passed": true,
+          "state": "executed",
+          "candidateStarted": true,
+          "baselineStartCount": 1,
+          "candidateStartCount": 1
+        },
+        {
+          "mutation": "exclusion_project",
+          "passed": true,
+          "state": "failed",
+          "candidateStarted": false,
+          "baselineStartCount": 1,
+          "candidateStartCount": 0
+        },
+        {
+          "mutation": "exclusion_source",
+          "passed": true,
+          "state": "failed",
+          "candidateStarted": false,
+          "baselineStartCount": 1,
+          "candidateStartCount": 0
+        },
+        {
+          "mutation": "exclusion_removed",
+          "passed": true,
+          "state": "executed",
+          "candidateStarted": true,
+          "baselineStartCount": 1,
+          "candidateStartCount": 1
+        }
+      ],
+      "fixtureRemoved": true
+    },
+    "renderer": {
+      "path": "output/playwright/ci55-newcore-acceptance-recall-r2/results.json",
+      "sha256": "8065dcbae509b6ca15f5e5a5746655d80a0b0ea42f83200a7497bbe83eee973d",
+      "status": "see-checks",
+      "checks": [
+        {
+          "check": "memory-lifecycle",
+          "passed": true
+        },
+        {
+          "check": "exact-source",
+          "passed": true
+        },
+        {
+          "check": "cross-project-source",
+          "passed": true
+        },
+        {
+          "check": "lab-frozen-approval",
+          "passed": true
+        },
+        {
+          "check": "reuse-apply-undo",
+          "passed": true
+        },
+        {
+          "check": "usage-missing",
+          "passed": true
+        }
+      ],
+      "fixtureRemoved": true,
+      "completeSuite": true,
+      "binarySHA256": "ebbe463f8857ca24e1b5a0851a23148f19b74379261a18c714f52b3738a3d922",
+      "nativeIntegrationTested": false,
+      "realProviderExecuted": false,
+      "integrity": {
+        "path": "output/playwright/ci55-newcore-acceptance-recall-r2/integrity.json",
+        "sha256": "8a80afb17f345a039fbae7baf94cafec6198ef60e518cd006a5a8e0d1d24308f"
+      }
+    }
+  },
+  "performance": {
+    "path": "output/parity/ingestion-recall-timing-r2.json",
+    "sha256": "b6fd6cc411b33f7988b4423a0f8fe9c1e2f1eec5336c20d6750c8a5bc7382a45",
+    "scope": "Helper-only sequential lexical RPC on synthetic managed assets; not whole-app RSS or UI latency.",
+    "buildConfiguration": "debug",
+    "memories": 2000,
+    "warmups": 1,
+    "measuredCallsPerProcess": 7,
+    "baseline": {
+      "medianMs": 776.8845420214348,
+      "p95Ms": 829.101916984655,
+      "sampledHelperPeakRSSKiB": 26032
+    },
+    "candidate": {
+      "medianMs": 547.8975000150967,
+      "p95Ms": 575.1061250048224,
+      "sampledHelperPeakRSSKiB": 24032
+    },
+    "medianRatio": 0.7052495839207725,
+    "allAppBudgetsAccepted": false
+  },
+  "historicalFailures": [
+    {
+      "path": "output/parity/ingestion-recall-baseline-b16-r1.json",
+      "sha256": "852a483eb435d0b0f500fc061e2730571dea4a431a9c6335ee06584e7f9b54c7",
+      "meaning": "Retained pre-fix baseline: exclusion did not suppress captured Memory recall."
+    },
+    {
+      "path": "output/parity/ingestion-recall-root-change-baseline-r1.json",
+      "sha256": "c9cb1a7d688c606fdba19662845291d1541726b23b320f863241b1b3fdfb9672",
+      "meaning": "r1 retained failure: changing configured roots allowed unresolved legacy source recall."
+    },
+    {
+      "path": "output/parity/ingestion-consumer-guards-r3.json",
+      "sha256": "057b48721bedfcc009e108fee56dc8baf523a59a9ecd257d5606bd1c21c9566b",
+      "meaning": "r1 retained consumer bypass failures; r3 is the harness revision, not product source."
+    },
+    {
+      "path": ".task-tmp/ingestion-recall-r1/output/parity/ingestion-recall-full-r1.json",
+      "sha256": "fd0812c8637322dc1ec554eff38a85b19dfe356102f73ae7bb8ae1ae112b0c4d",
+      "meaning": "Initial r1 portable run exited 1 without captured stdout/stderr; cause unknown. Same-source diagnostic rerun passed 485; this is not proof of a fixed failure."
+    },
+    {
+      "path": ".task-tmp/ingestion-recall-r1/output/parity/ingestion-recall-full-r1-diagnostic.json",
+      "sha256": "4d2cc35edbcfc79a18d5777d14b3f26652e8c5e64cde64cdb6bbbf4a89335fc5"
+    }
+  ],
+  "repositoryChecks": {
+    "repositoryAndStaticAssets": "passed",
+    "portableAssertionSemantics": "4 passed",
+    "translations": "2032 literal references; 2208 keys per language; no missing entries",
+    "releaseResourceTests": "7 passed",
+    "gitDiffCheck": "passed"
+  },
+  "boundaries": [
+    "The policy is frozen per read/freeze operation; no claim of linearizable revocation of a prompt already sent.",
+    "Synthetic local RPC agents verify control flow and process starts, not external model quality.",
+    "Management memory.list and canonical Memory/Markdown/log bytes remain available; explicit exclusion removal restores access.",
+    "Ordinary edits retain the approved frozen workflow argv; Lab candidate integrity remains stricter.",
+    "UI21 feedback race, UI22 Recall, exclusion controls, complete backup/recovery, OS notification, signing/notarization, full performance and Golden improvement gates remain open.",
+    "The retained development-b16e7b99 package does not contain this checkpoint. New hosted XCTest results are pending separately."
+  ]
+}

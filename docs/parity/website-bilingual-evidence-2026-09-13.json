@@ -1,0 +1,16 @@
+{
+  "project": "appgprj_6aa50bb274d881919145f49adc0f30eb",
+  "version": 5,
+  "sourceCommit": "ee969cf6b9f9c61697f6130165dbb406160bdebf",
+  "versionId": "appgprj_6aa50bb274d881919145f49adc0f30eb~appgver_3d8a7126210c8191a6307c9538f4aac2",
+  "deploymentId": "appgdep_6aa682a655c48191bbf158637765cbca",
+  "status": "succeeded",
+  "url": "https://vela-engineering.zzzsssaa.chatgpt.site",
+  "sourceHash": "b9d4fff85acb5bf87cf6978160a100ad9216c4976d6c52d954cb37dac64ff3ff",
+  "pages": 20,
+  "localQA": "output/playwright/website-bilingual-r1/run-2026-09-13T09-36-48-515Z/report.json",
+  "visualQA": "output/playwright/website-bilingual-r1-visual-top/run-2026-09-13T09-50-05-708Z/report.json",
+  "uiAuthor": "Antigravity CLI Gemini 3.8 Flash High",
+  "publicDownload": "v0.1.0-preview.2",
+  "handOff": "open_in_codex queued for existing Site tab"
+}

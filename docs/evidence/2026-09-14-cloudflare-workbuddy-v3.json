@@ -1,0 +1,90 @@
+{
+  "format": "vela-cloudflare-workbuddy-v3-evidence-v1",
+  "deployment": {
+    "project": "velo",
+    "deploymentURL": "https://cf33bf23.velo-5i0.pages.dev",
+    "customDomain": "https://velo.codes",
+    "automaticAnalytics": "disabled by the account user before live r2 verification"
+  },
+  "source": {
+    "aggregateSHA256": "0fda5484e2c1610989d605a63fcd3d20534316ca656ab2ebf07176d4b60f8b23",
+    "pages": 32,
+    "assetsInInventory": 18
+  },
+  "receipts": {
+    "initialLiveFailure": {
+      "path": "output/parity/cloudflare-workbuddy-v3-live.json",
+      "sha256": "bfbe972e1fe0c7dd9091c919fb4e5f43c5b4ba50ccc27f27590a2c549940f308",
+      "summary": {
+        "pageCount": 32,
+        "resourceCount": 11,
+        "navigationCount": 32,
+        "failedRecordCount": 32,
+        "sourceUnchanged": true,
+        "transport": "HTTP only; no browser executed",
+        "passed": false
+      },
+      "origin": "https://velo.codes",
+      "sourceAggregateSHA256": "0fda5484e2c1610989d605a63fcd3d20534316ca656ab2ebf07176d4b60f8b23"
+    },
+    "deploymentHTTPPass": {
+      "path": "output/parity/cloudflare-workbuddy-v3-deployment.json",
+      "sha256": "df1c9d2acc9d501dd64d4414f0b32054830dd023665d5d3989e3d2e53381c77a",
+      "summary": {
+        "pageCount": 32,
+        "resourceCount": 11,
+        "navigationCount": 32,
+        "failedRecordCount": 0,
+        "sourceUnchanged": true,
+        "transport": "HTTP only; no browser executed",
+        "passed": true
+      },
+      "origin": "https://cf33bf23.velo-5i0.pages.dev",
+      "sourceAggregateSHA256": "0fda5484e2c1610989d605a63fcd3d20534316ca656ab2ebf07176d4b60f8b23"
+    },
+    "customDomainHTTPPass": {
+      "path": "output/parity/cloudflare-workbuddy-v3-live-r2.json",
+      "sha256": "b38ea10575f70767a30bc32fa849c0b144c2a5bedbe053e76840b76e50b2d273",
+      "summary": {
+        "pageCount": 32,
+        "resourceCount": 11,
+        "navigationCount": 32,
+        "failedRecordCount": 0,
+        "sourceUnchanged": true,
+        "transport": "HTTP only; no browser executed",
+        "passed": true
+      },
+      "origin": "https://velo.codes",
+      "sourceAggregateSHA256": "0fda5484e2c1610989d605a63fcd3d20534316ca656ab2ebf07176d4b60f8b23"
+    }
+  },
+  "actualResult": {
+    "deployment": {
+      "pageCount": 32,
+      "resourceCount": 11,
+      "navigationCount": 32,
+      "failedRecordCount": 0,
+      "sourceUnchanged": true,
+      "transport": "HTTP only; no browser executed",
+      "passed": true
+    },
+    "customDomain": {
+      "pageCount": 32,
+      "resourceCount": 11,
+      "navigationCount": 32,
+      "failedRecordCount": 0,
+      "sourceUnchanged": true,
+      "transport": "HTTP only; no browser executed",
+      "passed": true
+    },
+    "transportBoundary": "HTTP only; no browser executed by these Cloudflare verification receipts."
+  },
+  "failureThenGreen": {
+    "initialReceipt": "The original custom-domain receipt remains preserved. Its 32 HTML records failed only bodyMatchesSource while resource/navigation checks were retained.",
+    "cause": "Cloudflare-managed automatic analytics altered served HTML; the user disabled that account setting.",
+    "r2": "After that change, custom-domain r2 matched source bytes for all 32 HTML pages and passed all 11 selected resources and 32 navigation targets."
+  },
+  "limits": [
+    "This validates the deployed static bytes, routes and selected resources; it does not validate desktop functionality, every marketing claim, or the published preview.2 download."
+  ]
+}

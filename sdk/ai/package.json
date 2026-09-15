@@ -1,0 +1,46 @@
+{
+  "name": "@vela-engineering/ai",
+  "version": "0.1.0-dev.1",
+  "type": "module",
+  "description": "Explicitly scoped Vela memory middleware for AI SDK v4 models",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Atingaii/Vela.git",
+    "directory": "sdk/ai"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build",
+    "test": "node --test test/*.mjs"
+  },
+  "peerDependencies": {
+    "ai": "7.0.99",
+    "@vela-engineering/sdk": "0.1.0-dev.1"
+  },
+  "devDependencies": {
+    "ai": "7.0.99",
+    "@ai-sdk/provider": "4.0.14",
+    "@ai-sdk/openai": "4.0.66",
+    "typescript": "5.9.3",
+    "@types/node": "22.20.2",
+    "@vela-engineering/sdk": "file:../typescript",
+    "zod": "4.6.4"
+  }
+}

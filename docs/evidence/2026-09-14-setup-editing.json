@@ -1,0 +1,139 @@
+{
+  "format": "vela-setup-editing-local-acceptance-v1",
+  "date": "2026-09-14",
+  "overallProductAcceptance": "No-Go",
+  "syntheticProjects": true,
+  "realProviderExecuted": false,
+  "nativeInteractionVerified": false,
+  "nativeLimitation": "Earlier macOS lock prevented interaction. Latest final-UI QA activation and app reads timed out in CUA; no native interaction passed. Owned QA launcher stopped; isolated fixture retained.",
+  "uiSHA256": {
+    "index.html": "380127605c6c147ee7b58bb54e0e9d770204b7d6a811f38f6103b7ae97356786",
+    "app.js": "f2e81d78f43eda35105e4f919db5804d60c76934b777d63199097925bb6ad846",
+    "i18n.js": "ad84691b013c75518bd4cd03e62189b9ef11fb1d04aa6a9b9a92b4c50bb33fb7",
+    "app.css": "c4e98fbacd99c0c90fcef842ad69ed81285b9ab5d20b1db9e9dbd01fd8927689",
+    "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+    "content.js": "74684dfd028bd89ed58b40f1a8ae9c0f201e6b393ad81eabc3a9b5909d67f600",
+    "reading.css": "88780a11b43a6eaa8b87e476abfc1ed1ed2c3d581739f1acde0e57d80e29d295",
+    "vendor/marked.js": "b147274a9ce27d17276587167e49483d719f6893eeca3a3667a59797661d3556",
+    "vendor/marked.LICENSE": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+    "vendor/purify.js": "f263b05369e050fa175d4ecb9c9358eb4253602d510297adfb31df48b2f1c4d5",
+    "vendor/purify.LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "vendor/prism-core.js": "6caad316dd991f24f8004e0b9c19c055cb5829ff65e973fbee406f96d81b8e7e",
+    "vendor/prism-clike.js": "c76ba4e240932bdc75546be30e550f5ba5e13815ff71511c76e9e27ac3072444",
+    "vendor/prism-javascript.js": "0345ea83e12b7b974e953c79a64dea35a40308309449db70b82020fb688ac321",
+    "vendor/prism-json.js": "956d86baa5ae7ec4106758f354ac2d140bdcd7fc103dece02f73ed12b8d663e4",
+    "vendor/prism-bash.js": "6260814110e5182f2956e3bd257429548d9dbf2a9b66a63719b26cf9fac966a7",
+    "vendor/prism-python.js": "ed4385685bcf2d4935c8dbbab4bde16603da1329e092d2bf36c3dadd67e9a85c",
+    "vendor/prism-swift.js": "69c8a062618949fbc7b69989ab7fb2b7bc111b28ea329e53713c7a2885614b20",
+    "vendor/prism-css.js": "8c9760dba7f26ea842016919544dd9b73a78a36d5b07a1e9842c333ed18ab6ae",
+    "vendor/prism-markup.js": "879fc9d256c352d980e053857fa707330853b8bfb67ce284ea661a24dec5756e",
+    "vendor/prism.LICENSE": "2b947f0901a7ffcf08a89957da9783c0e9c6e72cb6ce8e959f501ab5409e4d2b"
+  },
+  "debugHelperSHA256": "8d401f6524b6863cf4e2d115f56f1879a321594a7df55811df2e8899175e3c90",
+  "packagedHelperSHA256": "f6bfbccb46da0cae02447752b5b5d07057ccbfa8b6d05c8e1de8c937509ed059",
+  "records": {
+    "setupCore": {
+      "path": "output/parity/setup-edit-core-r4.json",
+      "sha256": "e52c4c8f8936e340c89e587aad85ee90545c00f9ff16cdc7fea60374c9593e90",
+      "passed": true,
+      "methods": 5,
+      "runner": "portable synchronous assertion compatibility layer, not XCTest",
+      "snapshotSHA256": "ce78d3a70fcc609ca6fad8a1460817c6243a5bdf072a19d5145bcffbdf59224e"
+    },
+    "sharedCore": {
+      "path": "output/parity/setup-edit-shared-core-r1.json",
+      "sha256": "f6722e77f08c0064353dbfce662b2c48527bc26418c48e3aa847e19b682fb044",
+      "passed": true,
+      "methods": 17,
+      "runner": "portable synchronous assertion compatibility layer, not XCTest",
+      "snapshotSHA256": "ce78d3a70fcc609ca6fad8a1460817c6243a5bdf072a19d5145bcffbdf59224e"
+    },
+    "debugRPC": {
+      "path": "output/parity/setup-edit-rpc-r4.json",
+      "sha256": "f68f33a3e2b031a6bb03228bc349991e25af7550cfcaaa433b58a2f08a8c5f92",
+      "passed": true,
+      "checks": 14
+    },
+    "packagedRPC": {
+      "path": "output/parity/setup-edit-package-rpc-r2.json",
+      "sha256": "c4fde035c3ce479fc2a1a8ba8c86e27ca49f0ad81d660a6e7e0542cc4414c2e6",
+      "passed": true,
+      "checks": 14
+    },
+    "setupBrowser": {
+      "path": "output/playwright/setup-edit-toast-lifecycle-r1/results.json",
+      "sha256": "168bae5b54ebd6903a851f8574a368e92a5bc75547e42a61c81cdb94bab02ea9",
+      "passed": true,
+      "checks": 13,
+      "helperSHA256": "f6bfbccb46da0cae02447752b5b5d07057ccbfa8b6d05c8e1de8c937509ed059",
+      "sourceUnchanged": true,
+      "cleanupConfirmed": true,
+      "fixtureRemoved": true
+    },
+    "readingBrowser": {
+      "path": "output/playwright/reading-release-r1/results.json",
+      "sha256": "a12009fee75e383187de9c2a3d4c9e0db1dda3f2f972625c49dee6ad1d5e3e33",
+      "passed": true,
+      "checks": 6,
+      "scopeNote": "Same content.js and packaged helper; app.js/reading.css precede the later modal toast correction. This is not a full regression of the final UI."
+    },
+    "package": {
+      "path": "output/parity/setup-edit-final-package-r5.json",
+      "sha256": "14dfc9c4799789754204015b84ca35629b2cd6f578b3f999cff8daf3d21144fb",
+      "passed": true
+    },
+    "workspaceBrowser": {
+      "path": "output/playwright/workspace-actions-toast-r2/results.json",
+      "sha256": "42542ac1b1443b8e9bb25a2930254ae8e7a24c59203672e95abfba2c6044e407",
+      "passed": true,
+      "checks": 9,
+      "sourceUnchanged": true,
+      "scopeNote": "Real packaged helper; original Cmd-K and toast expiry assertions preserved."
+    }
+  },
+  "package": {
+    "archiveSHA256": "f38c4d0198e978d9596c2c534bd09037e5ebf1a2a6f76acc55ff20ca4984ba87",
+    "archiveBytes": 3974107,
+    "channel": "dev",
+    "version": "0.1.0",
+    "codesignVerified": true,
+    "allowlistVerified": true,
+    "sourceUIEqualsPackagedUI": true,
+    "developerIDSigned": false,
+    "notarized": false
+  },
+  "contentBoundaryChecks": {
+    "methods": 8,
+    "command": "node scripts/test-content-blocks.mjs",
+    "scriptSHA256": "1973745b295e0a3a91bdc0ae795c0d0155118b7eae85df910b0e6f9266d2b215",
+    "passed": true,
+    "receipt": "output/parity/setup-edit-content-final.log",
+    "receiptSHA256": "eea3f55f8f27af17ad055c8f341d78a5078a4ba76ae9c44bfc7fdb7086d5dc19"
+  },
+  "limits": [
+    "Only catalogued project instruction/skill Markdown up to 64 KiB is editable.",
+    "Global/redacted/withheld/unsupported/linked files remain read-only.",
+    "Drafts are window memory only and do not survive app quit or reload.",
+    "Edit history exposes the latest 100 records, indicates more, and has no pagination.",
+    "Preview renders the local draft; Changes/Review and execution reread and validate the current source.",
+    "Missing or uncertain execution is never reported as success or automatically retried.",
+    "Browser checks use actual renderer and real isolated helper; they do not establish provider behaviour, native acceptance or full three-reference parity.",
+    "Window memory retains at most 8 changed drafts and 32 document-request states; a pending exact payload is guarded against immediate duplicate submission. Request records are not a persistent global deduplication service."
+  ],
+  "retainedEarlierEvidence": [
+    "Setup browser r1-r6 and final-r1 retain consumer setup/selector/empty-node failures.",
+    "final-r2 had 10 passing checks; its 900px check observed the drawer rather than an open editor.",
+    "final-r3 had 11 passing checks, but visual inspection found stale info toasts over the footer. Final-r4 verifies centre hit targets after the product fix.",
+    "Final-r4 predates the late prepare response fix and discard-listener cleanup.",
+    "Race-r3 passed 12 checks; race-r2 retained a consumer draft-isolation failure. Final-r5 uses the packaged helper and adds request-settlement listener cleanup verification.",
+    "CI 7180ac failed in Workspace Actions before the Setup browser command ran. Global modal dismissal conflicted with the Cmd-K toast contract; final UI limits old info dismissal to openSetupEditor. Both original 9-check Workspace Actions and 13-check Setup browser suites passed locally after this correction."
+  ],
+  "screenshot": {
+    "path": "docs/assets/vela-setup-editing.png",
+    "source": "output/playwright/setup-edit-toast-lifecycle-r1/browser/review-diff.png",
+    "sha256": "5f8ae9f2cd5eb70665fb9c5de1f96d4beb5ffa5877d6cda0646a610deb841144",
+    "native": false,
+    "pixelsModified": false
+  },
+  "nativeAttemptReceipt": "output/playwright/native-setup-edit-r4/activation-result.json"
+}

@@ -1,41 +1,80 @@
 # 功能状态与限制
 
-**版本：0.1.0-preview.2 · 开发者预览版。** 本文描述当前实现与验证边界，不代表[完整需求矩阵](requirements.md)已经完成，也不是稳定版本承诺。
+**当前开发分支：基于 0.1.0-preview.2 的未发布完整能力扩展。产品总验收仍为 No-Go。** 下载仍是 [preview.2](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2)，不包含下面新增的开发分支功能。源码：[Atingaii/Vela](https://github.com/Atingaii/Vela)；[公开官网](https://velo.codes)。
 
-源码仓库：[Atingaii/Vela](https://github.com/Atingaii/Vela)；预览下载：[版本发布页](https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2)；官网：[Vela](https://vela-engineering.zzzsssaa.chatgpt.site)。官网当前使用托管子域名。
+目标已扩展为覆盖 Blume、Walrus Memory/MemWal、px0 的全部已交付能力，见[228 项逐项台账](parity/README.md)。旧版最小范围不是删减目标的依据。实现、隔离测试、真实提供方、桌面接通、发布验收分别记录；测试总数不能抵消缺失功能。
 
-## 当前实现
+## 2026-09-15 推广前的来源与排除复核
 
-| 模块 | 当前可用内容 | 预览边界 |
+Lab 推广现在复用执行前的完整 Memory 资格检查，并核对冻结的来源与最终上下文。实验结束后发生的生命周期、隐私标记、来源位置或摄取排除变化，会阻止旧实验激活记忆。最终批次还检查摄取规则版本和同一 Memory 快照；另一 helper 在检查后提交变更时，整批拒绝，不部分激活。旧记录缺少来源回执时仍可查阅，但需重新评估后才能推广。见 [Lab 合同](implementation/agent-lab-contract.md)。
+
+本机修复前已复现错误推广；修复后 28 项 Core portable 回归通过，加强竞态断言后的 4 项推广方法也通过。测试使用合成评估记录与独立本地 Store，不运行外部模型，不是正向 Golden 实验证据。新开发包的配置编辑 RPC 14 项、Lab 来源保护 RPC 8 项，以及使用包内 helper 的配置编辑浏览器 13 项均通过；21 个正式 UI 资源逐字等于源码，签名与资源白名单检查通过。新原生编辑流程仍受锁屏阻挡。精确输入和历史测试问题见[验证记录](evidence/2026-09-15-lab-promotion.json)。
+
+## 2026-09-14 项目文档编辑与审批
+
+项目 Setup Markdown 的编辑路径已接通：当前原文阅读、精确块或全文编辑、完整差异、冻结审批、写入后重新读取及带文件版本保护的 Undo。编辑器明确显示项目与相对位置，普通成功提示不会遮挡弹窗操作；空文档、草稿恢复、审批晚响应、监听清理和双语均有实际交互检查。该入口只编辑已识别的项目 instruction/skill Markdown，不开放全局、脱敏或任意配置写入；修改记录目前展示最近 100 条。见[使用指南](implementation/setup-editing-guide.md)。
+
+本机验证为 5 项新增 Core portable 方法、17 项共享 Core 回归、14 项实际 RPC、13 项使用打包 helper 的最终 UI 浏览器检查；打包 helper 的 14 项 RPC 另行通过。阅读器 6 项回归使用同一内容渲染代码与打包 helper，早于最后的弹窗提示修正，不计作最终 UI 全量回归。开发包已核对资源、签名和 UI 一致性；新编辑流程的原生窗口实测先遇 macOS 锁屏，随后最终 QA 的 CUA 启动和读取又超时，再次读取系统状态明确显示锁屏，尚未完成。精确版本、历史测试缺口与范围见[验收证据](evidence/2026-09-14-setup-editing.json)，不借用之前原生 V3 的结果补记通过。对应 `6389df3` 的 [完整 CI 与实际上传收据](evidence/2026-09-15-setup-ci.json)已通过；后续 Core 修复单独验收。
+
+## 2026-09-14 产品界面 V3 打磨
+
+WorkBuddy 的 Deepseek-V4.1-Flash 提供初稿，Codex 完成审查、集成和后续修正。新版统一九页信息层级、工作流主次导航、作用域资产列表、单一记忆入口、设置分类和技术信息折叠；技能文件复用本地 Markdown/源码阅读器，完整复制保持原字节。隐藏额度面板的展开状态不再阻止日志用量刷新。
+
+V3 同源本机浏览器检查为工程 11/11、本地化 6/6、阅读 6/6、设计 15/15；原生另验证读码/复制、来源导航、实际审批写入/拒绝、工作流到审批与中英菜单同步。开发包完成两并发编译、签名及资源 allowlist 核对。详见[产品打磨记录与精确限制](implementation/desktop-product-refinement-2026-09-14.md)。这不替代真实提供方、远端账户、公证或完整产品验收。
+
+新增[三参考交付差距与验收出口](parity/three-reference-delivery-gap-2026-09-14.md)，以及离线 Golden 来源链校验器；自洽的手填回执不能使总验收通过。公开下载仍为 preview.2；官网展示已验证开发界面，配图不会改变其发行状态。
+
+## 2026-09-14 阅读界面重构
+
+本次由 Codex 直接实现，覆盖主区会话阅读、Memory 常用操作与工具菜单、完整审批 Markdown/源码预览和本地语法高亮。显式页面导航重置阅读位置，后台刷新保持位置；项目、记录与审批的 Core 边界保持。官网扩为 32 个中英文页面，包含 12 项产品能力、8 个使用场景和集成栏目。公开下载仍为 preview.2。
+
+本机真实 helper 浏览器回归及来源见[重构验收记录](implementation/reading-workspace-2026-09-14.md)。本轮已在原生 WKWebView 中验证会话阅读、Memory 菜单、审批预览/源码/复制反馈、实际批准文件写入、中文切换与重启持久化；[原生证据](evidence/2026-09-14-reading-native.json)记录范围和限制。这些有限路径不等于完整真机验收。原有 188/228 项总体需求台账和发布门槛仍未全部完成。
+
+## 当前源码
+
+| 模块 | 已实现行为 | 尚需完成或验证的边界 |
 | --- | --- | --- |
-| macOS 客户端 | AppKit + 系统 WKWebView，独立 `vela` helper；按任务分组的导航、独立工程记忆入口、全局搜索、审批 Inbox、菜单栏与设置入口 | 首发 Apple Silicon、macOS 13+。GUI SwiftPM 产品名为 `VelaDesktop`，安装包为 `Vela.app`；不承诺 Intel、Windows 或 Linux 兼容性 |
-| Session | Claude Code、Codex JSONL 摄取，支持的消息/工具事件和来源；FSEvents、偏移游标、半行与轮转处理 | 初始每个 provider 最多选择 60 个近期文件，按需读取 256 KB 尾窗及 32 KB 文件头；转录最多保留 1,000 条消息且文本总量最多 1 MB。没有完整历史回填、完整旧会话分页或原生 Session Transfer |
-| Cursor | JSON/JSONL 导出、部分已知 `composerData` SQLite 记录的只读导入 | 私有 schema 随版本变化；拆分 bubble 记录等未适配格式需要导出。支持导入不等于覆盖 Cursor 全部内部数据库 |
-| 运行状态 | 支持明确终止事件；根据最近日志活动推断 Running/Idle/Needs Approval，保留推断来源 | 没有独立进程存活证明。导出记录与历史最后活动不能作为实时运行状态；未知保持 Unknown |
-| Setup | 明确项目及已知全局配置扫描；指令、Rules、Skills、Hooks/MCP 配置清单；敏感字段脱敏 | 审计检查包括格式、重复内容与保守上下文大小，不是完整语义冲突、Skill 有效性或 MCP 漂移分析；不会自动修复用户配置 |
-| Memory / Recall | 九类 Memory、七类作用域、Candidate → Active → Superseded → Archived 生命周期；来源字段与手动编辑 Markdown；Active-only Recall | 使用确定性文本匹配与作用域筛选，未实现语义检索或模型判断。Token 为保守估算；Recall 上限 4,000，来源不明不会自动补造 |
-| Checkpoint | Goal、Completed、Pending、Tests、Next Actions 等用户记录，加上实际读取的 Git branch/commit/status；中立 Markdown 交接文件 | 用户填写的完成事项与测试描述不等于执行验证；导出不会启动 Agent，也不改写 provider 私有历史 |
-| Guidelines | 项目/全局 Guideline 保存、版本记录，以及 Workflow Run 中冻结的关联快照 | 当前模式是 `snapshot_only_not_injected`：尚未将 Guideline 注入 Agent 提示词，不能据此声称它影响了结果 |
-| Library | UTF-8 文本、HTML、可提取文字的 PDF、DOCX，以及显式 HTTP/HTTPS 文档 URL；保留来源 | 导入与提取有 2 MB 上限；PDF 不做 OCR，URL 不递归抓取。默认 private；用户资料目录中的 `private/`、`.private/` 强制作为私有资料，排除于 Agent 检索 |
-| Search / Ask | 本地证据检索；Ask 返回匹配对象，标明未调用外部模型 | Ask 是检索入口，不是基于模型的综合问答；没有外部知识补全 |
-| MCP | 默认只读；显式贡献模式可创建候选 Memory、Checkpoint、绑定实际会话的 Signal 和 Suggestion Draft | 请求必须明确指定已登记项目。不能通过 MCP 激活已有 Memory、Apply、执行 Workflow 或任意写项目；私有资料在服务端过滤 |
-| Workflow | Markdown 定义和版本、真实只读工具、Dry Run、冻结审批、运行记录、健康统计和重放入口 | 当前工具集有限，未知外部工具明确拒绝。项目脚本、文件写入和 Agent 命令需要审批；自然语言 Draft 是基于关键词与项目现有脚本的确定性生成，不是通用规划器 |
-| Improve | 从真实会话提取确定性纠错信号，去重聚类、生成有证据的建议；Diff 预览、hash 校验、Apply/Undo 与恢复记录 | 不是模型驱动的多阶段分析/规划管线。建议需要审阅；不会因为出现信号就宣称改进有效，也不保证覆盖需求矩阵的全部信号类型 |
-| 后台证据分析 | 默认关闭；开启后按持久化会话变更计数触发确定性分析，成功才记录处理水位，失败可重试 | 与 RPC helper 同生命周期；没有 OS 空闲检测；当前分析窗口最多 500 条会话，不保证完整历史回填；只生成建议，不自动 Apply |
-| 审批与写入 | 冻结动作参数、持久化 Inbox、跨进程原子状态抢占；受支持文件写入有路径与 hash 校验，Apply/Undo 记录前后状态 | 原子抢占避免同一待审批动作被两个进程同时启动，不代表任意外部命令都具备端到端 exactly-once 语义。崩溃后的外部副作用仍需结合记录核对 |
-| Scheduler | 已实现的 cron、启动、会话完成及 Git 事件使用持久化标识去重 | 只在应用或 RPC helper 运行时检查；没有独立系统 daemon，休眠/关机错过的时机不补跑。`usage_reset` 不可用，不制造重置事件 |
-| Usage | 从已索引日志汇总 provider/project/session token，处理支持的累计/重复事件 | 不是账户订阅额度。价格、配额、重置时间及分析精确成本不可用；历史未完整索引。按日统计归属会话开始日期，不是逐事件消耗的完整重建 |
-| Lab | baseline/candidate 在同一 Git 提交的独立 worktree 中执行配对命令，记录退出码、输出、耗时和变更，执行前审批 | 当前是 command-paired comparison，不是完整 Agent Benchmark。尚无可靠的自动任务成功、规则遵循、模型质量或 token 收益结论 |
-| 通知 | 审批、完成和错误分类开关；首次历史加载静默、重复事件去重、三个原创短提示音 | 默认关闭；使用 macOS 通知权限与声音策略。推断事件保留标签；应用/helper 停止期间不承诺通知投递 |
-| 官方网站 | 静态 HTML/CSS/JavaScript 产品介绍、开发预览说明和下载入口 | 网站展示不构成实现或测试证据；下载与签名状态以具体发布记录为准 |
+| 桌面与语言 | AppKit、单 WKWebView/helper；主工作区与伴随模式、原生收拢面板；分组会话、配置、记忆、工作流、审批；简体中文/English 与外观偏好持久化 | Apple Silicon、macOS 13+。2026-09-16 UI 按最新用户指定由 Antigravity Gemini 3.8 Flash High 实现；主模型本机验收。新原生窗口生命周期仍因锁屏未验，已验证入口与完整能力台账分开记录 |
+| 会话观察 | Claude/Codex 增量日志、部分 Cursor 导出/SQLite、Pi v1/v2/v3 分支记录与 OMP 元数据；有界流式读取、来源版本、身份/轮转检查 | 完整历史回填及所有私有 Cursor 格式仍未完成。日志推断不等于进程存活证明；Pi 最新持久化分支不冒充当前活跃分支 |
+| 显式历史回填 | Claude/Codex/Pi/OMP JSONL来源清单、固定epoch、分批读取与重启续传、稳定分页和完整原文分块；解析/原文/分支分别计量 | 历史回填桌面发现/分页/启停/续传/原文分块已通过 UI17 实测和 972 CI；Cursor、未知格式与完整大负载仍未验收，未解析原文不计为归一化功能 |
+| 会话计划 | Codex update_plan、Claude Todo/Task 的持久化调用与成功回执配对；只读任务状态、来源hash/位置、提议/失败/未知区分 | UI17 的全部项目 scope 与后台刷新展开/锚点缺陷保留为历史反例。UI18 r7 已在冻结 renderer→真实隔离 helper 的完整 8 项浏览器路径中复验 explicit project、展开首屏、默认首 cursor、无旧 cursor、stale guard 与 anchor；其真实 held `sessions.relations.get` + 用户 wheel 反例从 r6 的红结果变为 r7 保持阅读位置的通过结果。嵌套 held-response 加 wheel 的反例只在 Chrome 实测，机制是 Chromium 原生 scroll anchoring 的证据支持推断而非 setter trace 结论。另有匹配 r7 的 WKWebView 普通刷新、父子关系导航和双语 Search/Actions 实测；没有原生 held-response 覆盖，仅保存一张刷新后截图，不声称保存前后成对证据。完整历史投影/未文档化格式仍不足，计划完成不证明工程验证通过 |
+| Setup | 五harness公开位置目录、项目/全局配置扫描、脱敏版本历史/差异、来源关系、删除/重新出现痕迹与不完整扫描保护；项目 instruction/skill Markdown 的块/全文编辑、冻结审批与 Undo | 编辑闭环已通过真实 helper 浏览器验收；2026-09-15 一条隔离原生标题块编辑/审批/写入/精确 Undo 路径通过，完整原生矩阵仍未完成；仅最近 100 条编辑历史，无旧记录翻页。全局/脱敏内容不可编辑，TOML/YAML无安全解析器时只给元数据/hash；实际加载配置仍未知，不执行被扫描的 Hook/MCP |
+| Memory | 九类内容、七类作用域、Candidate/Active/Superseded/Archived、来源消息、Markdown 人工编辑；同项目已索引 session 单消息可经 Core identity/hash 重验捕获为 candidate observation；Active-only Recall | 捕获只重读已索引记录、不打开 provider 文件；新建需 review，不自动激活，后续人工编辑保留来源并标为 user-derived。完整提取、合并、遗忘、团队策略与所有插件入口仍按台账验收 |
+| 语义 Recall | 系统已安装 NaturalLanguage 模型、本地分页索引、lexical/semantic/hybrid、版本/维度/sourceHash 校验、明确语言与不可用状态 | 默认仍可离线词面检索，不自动下载。真实合成中英文语义召回与界面取消/索引流程已测，不能据此宣称真实长期检索质量达标；Library向量后端仍需实现 |
+| Library与Ask | 资料版本、审阅后编辑/归档/恢复/导出/重抓；FTS5段落/原文位置与本地重排；独立审批问答与重新核验的续问 | 真实Codex一次来源问答已通过，FTS路径有独立Core/CLI验证。缺标记/错误privacy/私有来源与消失资产反例已修；引用存在不证明语义正确。YouTube、vault与完整批量来源管线仍需接通 |
+| 归档与 SDK | 有界 JSON 导出/校验/候选导入、跨项目身份与幂等；可安装 TypeScript/Python 本地 SDK，含语义接口 | 归档为明文，排除 private/global。SDK 安装产物已隔离验收；本地归档不等于加密跨设备同步 |
+| 可选 Walrus 后端 | 独立TypeScript包、固定官方SDK、显式profile/隔离worker、owner交易准备/签名核验、端侧manifest与原文恢复/候选构造 | 真实安装包、公开兼容性与testnet只读交易模拟已通过；官方faucet限流，测试地址无gas。真实加密写入/恢复与owner/delegate链上提交仍待验证；模拟不是链上成功，不默认给桌面增加Node |
+| OpenClaw集成 | 可选独立插件、宿主agent/workspace映射、namespace召回、候选捕获、注入框与持久操作日志 | 真实隔离宿主加载/CLI/hook与完整会话通过；模型响应使用本地合成provider。两条新记忆均为候选，不等于真实模型采纳或远端加密写入。自动捕获默认关闭，远端提取另需明确明文接收与预算 |
+| 模型记忆中间件 | 独立可选TypeScript AI SDK v4、Python Responses与LangChain ChatOpenAI包；精确scope召回、受限注入、完整终态才捕获候选、取消/不确定回执 | AI SDK安装17项及基础TS12项通过；Python Responses修后安装30项、基础SDK12项与旧wheel兼容1项通过；独立四入口复核通过。LangChain v2安装36项、基础SDK13项和旧wheel1项通过，独立7方法与12矩阵格复核通过。均为真实SDK与loopbackHTTP/SSE，不代表真实模型质量；其他LangChain providers与remote analyze仍待完成 |
+| 本地 MCP | 强类型 stdio、四协议版本协商、15只读/7显式贡献工具、项目与fresh-source隔离、可见正文分页及候选批量写入 | 四版本22工具实际消费者及 framing 修正已通过；46595a72 整次 CI 通过，包含454项真实 XCTest、MCP 及安装后集成。远端HTTP/OAuth及完整Agent客户端接入另验 |
+| Checkpoint / Reuse | 用户工程记录及真实 Git 快照；中立交接；项目 Codex SessionStart Hook 的预览、Apply/Undo 与提供上下文收据 | 原生 Session Transfer、更多官方 lifecycle hooks 和完整真实下一会话闭环仍需验证。收据证明已提供，不证明模型遵守 |
+| Workflow Context | 已选择 Guideline、Active Memory、只读 Git/Library/stdin/literal 输入，冻结来源/hash；显式 `{{vela.prompt}}` 参数实际交给 Agent | 旧 raw argv 不被静默改写。记录 prompt 消费路径不等于证明模型采纳约束 |
+| 自然语言规划 | 明确选择 Codex 程序/模型/effort，冻结请求，经审批生成问题或默认停用草案，再显式保存 | 真实提供方已产出有效草案；规划工具目录仍需拓展，与自主多轮工具执行是不同能力 |
+| 执行与组合 | 工具步骤、Markdown版本、Dry Run、逐工具审批；冻结pipeline/子工作流、条件透传、子输入、根产物文件/Inbox；审阅后克隆/启停/归档/恢复 | 四项独立恢复/并发反例已修后通过，历史证据保留。完整双版本Replay与更多工具仍按台账推进 |
+| Health 候选改进 | 从完整 timeout 观察提出显式时限候选；受限工具、版本/来源 hash、needs_review 确认、原子生成新 ID 的停用工作流；accepting 显式恢复 | 46595a72 hosted CI 的454项真实 XCTest、真实RPC和安装后SDK已过；UI20 已接通预览、创建、拒绝、确认接受和中断恢复，并通过4项真实 helper 浏览器旅程；匹配UI20与helper的7项原生流程亦通过。只生成待审候选，不自动运行/修改原工作流，不证明提高成功率；精确跨进程检查至提交窗口未独立注入 |
+| 历史输入Replay | 显式同意保留fixture、两保存模板版本的独立审批/最多两次模型调用、输出差异、取消、到期与分页清理；A/B使用同一已核hash原生入口副本 | 24项定点、两独立CLI fixture和普通/饱和RPC控制通过；0真实模型调用，语义效果保持未知。当前只支持单contextual agent.run；组合回放、解释器包装兼容与桌面入口仍未关闭 |
+| 模型工具循环 | 有界多轮结构化决策、真实只读工具结果回传、外部动作独立排队审批、响应式查询/取消 | 真实Codex两轮+一次Git读取通过；同RPC普通/饱和队列取消通过。工具覆盖、全部账户、严格成本预算等仍未完成，初始循环审批不授权外部写 |
+| 外部工具 | 可选 Composio v3.1：Keychain 凭据、分页发现、固定版本 schema/账户、审批后执行、连接/撤销等动作、`connector.call` 步骤 | 无凭据真实 HTTPS 拒绝路径已测；尚无真实测试账户正向执行证据。结果不确定不重试；失败回包不证明无部分副作用，已知凭据回显在入库前拒绝 |
+| Improve | 保留确定性检测；新增三阶段模型提取/聚类/规划，最多三次审批内调用、原消息证据、五类候选载体、带 hash 的审阅与 Apply/Undo | 真实提供方三阶段协议与候选链通过，候选未自动应用。尚不能证明真实项目纠错率改善或所有治理诊断覆盖 |
+| 调度与后台服务 | 用户显式管理 launchd 用户服务；跨进程 lease、时区/DST、skip/latest/all 有界补跑、去重、持久化完成事件游标、不重叠、需核对状态 | 真实 launchd 安装/启动/崩溃拉起/停止/移除已在隔离环境通过。`usage_reset` 尚未接通；不声称任意外部副作用 exactly-once |
+| Watch触发 | 本地只读工具轮询、FSEvents文件观察、首轮基线、按key净变化/阈值积累、重启去重；文件字节SHA256与空闲不重读 | 43项定点与两次真实daemon路径通过；事件丢失/重启无法恢复中间变化时明确标记。私有撤销覆盖待发变更before/after；外部只读connector与最终原生界面另验 |
+| Usage | 已索引日志 token 与实际 Codex 账户额度分开；通过只读 app-server 请求观测多 bucket/window、真实零、缺失与 stale | 真实 Codex 额度读取通过；Claude 账户额度、定价、精确成本和所有 reset trigger 仍未验收，不从日志 token 推算账户余额 |
+| Lab | 同提交命令或 Codex 对照、冻结任务/模型、独立干净 verifier、证据与 Memory 晋升门槛 | 显式 Memory 与真实 Recall ON/OFF 现在分别冻结，执行前复核两类来源；strict OFF 禁止显式混入。Core/隔离 RPC 已测，桌面控件仍在接通。早期任务同分为 Inconclusive；Golden r2 六次真实运行均完成且 verifier 通过，但候选未胜出并超过冻结 token 成本限制，结论 Reject、晋升拒绝。纵向纠错改善仍未证明，历史失败与更正保留 |
+| 通知与官网 | 可选原生分类通知及三个短提示音；静态公开官网及独立比较/场景/文档/发行页面 | 当前 ad-hoc 应用被 macOS 拒绝通知授权，系统横幅及点击回流未验收。官网展示不构成功能证据 |
 
-## 本地验证状态
+## 验证记录如何阅读
 
-本轮已有 **54/54 个真实核心测试方法通过** portable runner，覆盖 SQLite、文件系统、增量日志、FSEvents、项目与私有数据边界、文档提取、Git、审批竞争、Workflow、Apply/Undo、配对命令执行及通知分类、静默基线、去重、偏好校验。Portable runner 编译真实核心和原同步测试方法，只提供小型断言兼容层，**不是 XCTest**。
+本轮新增切片的隔离 Core、编译后 CLI、安装后的 SDK 和真实提供方结果见[持续验证记录](verification.md#full-capability-expansion--13-september-2026)及三个产品台账。不同验证使用不同明确 helper 快照；并行开发中的局部通过不是最终 checkout 全量通过。当前未给新增代码签署完整产品或新发布包验收。
 
-本机为 Command Line Tools 环境，`swift build` 可用；缺少 XCTest 模块，因此不能将本机验证写成“`swift test` 已通过”。完整 Xcode 环境使用 `swift test`，仓库 macOS CI 也配置为该路径。
+先前提交 `ea8fbd257f813c604a93e070d5f98a6337829d81` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34715619455)为历史基线：99 项 XCTest、24 组 renderer 检查。先前 1,453,375 bytes 开发包也只是该阶段产物，不能作为新增能力的包体或界面验证结果。更早的原生、Lab、私有检索、通知拒绝与失败复现保留于 verification 文档，不以新测试覆盖删除历史问题。
 
-JSONL RPC/MCP 黑盒检查已通过，使用编译后的 CLI 和一次性数据目录，验证持久化设置、私有检索、候选贡献与 Dry Run 等边界。相关复验入口：
+最新已验证检查点 `46595a72` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34770795639)已全部通过：454项真实 XCTest（0失败）、session-memory-capture 与 Health proposal 能力RPC、MCP/renderer 流程（含 UI18 r7 完整8项 scope/live/ARIA 回归）、安装后 TypeScript/Python SDK 与 AI SDK/Python Responses/LangChain/OpenClaw 消费者，以及 macOS ad-hoc 打包和 release allowlist 审计。准确作业、步骤和范围见 [CI evidence](parity/ci-46595a72-evidence-2026-09-14.json)。这不验证 UI19/20、原生交互或真实模型改善；旧检查点失败和修后证据仍保留于[验证记录](verification.md#hosted-checkpoint-correction)。这是开发分支检查点，不改变公开下载版本与产品总验收状态。
+
+UI18 r6 的嵌套 loader 用户 wheel 红例已保留，并由 r7 的完整 8 项冻结浏览器回归在同一真实 held-response 路径中复验通过：scrollTop 707 / relative -388.953125 在释放后保持不变。r7 只机械替换 `app.js`，其余五资源不变；scope、默认首 cursor、旧 cursor、stale guard 与 ARIA 断言均未弱化。legacy renderer 12 项仍只对应 r6；r5 History/Plan 10 项、Relations 5 项及 r4 Actions 9 项仍是不同冻结版本的阶段回归，不能充当 r7 全套验收。r7 的 Chrome held-response 结果不等于 WKWebView：本机原生已补普通刷新与关系导航，不覆盖注入的延迟响应；46595a72 hosted CI 已通过同一完整8项浏览器回归。精确哈希、AGY provenance、测试修正和原生边界见 [UI18 renderer evidence](parity/ui18-renderer-evidence-2026-09-14.json)。该段只记录 UI18；后续 Capture/Health 接通见下面 UI19/20 记录，不改变 Golden 或产品总验收状态。
+
+冻结第9版界面另通过完整6项Library/Watch、11项工程和4项Ask浏览器检查；原生窗口已验证文件Watch创建、编辑和真实预览。原生动态字段的完整可访问性、其余新增入口、最终发布签名及资源预算继续分别验收。正在进行的MCP扩展与LangChain不在该提交中。
+
+本机为 Command Line Tools 环境，`swift build` 可用但缺 XCTest；`scripts/test-portable.py` 编译真实 Core 与原同步测试方法，使用小型断言兼容层，**不是 XCTest**。完整 Xcode/CI 使用 `swift test`。
 
 ```sh
 swift build
@@ -44,18 +83,78 @@ python3 scripts/test-rpc.py
 python3 scripts/check-repository.py
 ```
 
-这些结果验证的是相应 fixture 和测试边界，不代表任意 provider 版本、任意项目或全部需求已经覆盖。性能目标与实际测量分开记录；小规模本地样本不能外推为大历史、并发任务或长期稳定性保证。
+安装包、OS 控件、真实外部账户、长时间稳定性与性能分别验收。有限测试不能证明绝对零缺陷，也不能从 Swift 或包体小推导延迟/RSS/CPU全部达标。
 
-## 发布与数据边界
+## 数据与发布边界
 
-- 本预览开发包使用 **ad-hoc 签名**；没有 Developer ID 签名，**尚未 Apple notarized**。未实现经过完整验证的签名自动更新通道。
-- `dev`、`canary`、`stable` 通道用于隔离应用身份和数据目录；选择 `stable` 字符串不会自动获得稳定性、签名或公证。
-- 索引与记录存于 SQLite WAL；长期资产位于所选 Vela store 的 `assets/memory`、`assets/workflow`、`assets/guideline`、`assets/library`、`assets/checkpoint`，采用可读 Markdown。
-- 本地优先不意味着完全无网络：明确导入 URL 会请求该文档；用户批准执行的远程 Coding Agent 可能向其 provider 发送指定上下文。Vela 不自动将会话历史提交给模型。
-- 预览格式尚未声明长期兼容；重要资产需自行备份。测试、内部材料和一次性缓存不属于安装包交付内容。
-
-完整历史回填、完整 Agent Eval、Guideline 实际注入、原生 Session Transfer、真实配额接入、成熟后台调度、外部 SaaS 工具、加密同步与团队能力仍是后续工作。请使用[需求矩阵](requirements.md)讨论范围，避免将本预览版视为 P0–P2 或全部路线图已经完成。
+- 当前公开预览与本地开发包使用 ad-hoc 签名，没有 Developer ID 签名、公证或已验证的签名更新通道。通道字符串不会改变这些事实。
+- 默认数据在所选 store 的 SQLite WAL 与 `assets/{memory,workflow,guideline,library,checkpoint}` Markdown 中；本地使用不要求云账户。
+- 可选连接器凭据进入 macOS Keychain，不进入 SQLite、归档和日志。明确联网的 URL 导入、模型执行、Composio 或 Walrus 操作各有独立目的和用户控制；不会自动将全部会话上传。
+- Walrus 的客户端加密不隐藏发往嵌入服务的明文；官方远端恢复可能要求 relayer 解密/重建索引，必须单独选择，不能将其描述为全端侧隐私。
+- 预览格式的长期兼容、迁移、备份与更新还需完整验收；保留用户资产与原始来源，测试及一次性资料不进入应用包。
 
 ## Notification acceptance boundary
 
-The preview implements optional native notification policy and routing, with three working Settings sound previews. On the build host, macOS refused notification authorization for the ad-hoc application; OS banner delivery and click-through remain unverified. Notification preferences stay off when authorization fails. See [verification](verification.md#explicit-environment-limitation).
+The ad-hoc application was denied notification authorization on the validation host. Sound previews work, but OS banner delivery and click-through remain unverified. This is a release gate, not a feature that can be marked complete by a renderer test.
+
+UI19 记忆采集已通过指定 Antigravity CLI 实现并机械合入源码：预览原始消息后显式存为候选，编辑正文保留不可伪造的来源，项目切换清理旧弹窗。同一整合快照的5项真实 helper 浏览器采集与8项工作区回归通过；[证据](parity/ui19-session-capture-evidence-2026-09-14.json)。原生已通过取消、确认、幂等、来源编辑及项目切换；当时的双语提示布局缺陷保留，修复进入 UI20。
+
+UI20 健康提案已由同一指定模型实现并合入开发源码：完整4项 Health 浏览器旅程、5项会话采集和8项 scope/ARIA 回归在同一冻结 UI 与真实隔离 helper 上通过。包括无效超时输入拒绝、确认前不生成工作流、接受后只新增默认停用候选、显式恢复及晚回包项目隔离；[证据](parity/ui20-health-proposal-evidence-2026-09-14.json)。匹配冻结来源的7项原生流程已通过（预览、拒绝、接受门槛、恢复、普通刷新与双语采集布局），发布包尚未更新。
+
+运行反馈、Lab Recall 和增长日志完整性修复已机械合入开发源码，整合前冻结 Core 的463项 portable 方法与真实隔离 RPC 均通过；本机 root 构建通过。增长日志会验证已索引前缀完整 SHA，检测旧消息改写加追加；每64 KiB 释放临时读取对象。在同一100 MiB合成日志、五次追加的长驻 helper 对照中，RSS 从修前最终383344 KiB 降至修后约18176 KiB，完整扫描仍需约125–145 ms，不据此宣称全应用性能达标。[Core证据](parity/feedback-lab-session-core-evidence-2026-09-14.json)。
+
+r4 renderer `app.js` `05e206cb…` 与同一冻结 helper 的串行浏览器验收已得到 Desktop 6/6、Run Feedback 5/5 及 held prepare gate 通过；[实现约定与逐项证据](implementation/desktop-comfort-feedback-recall.md)。Feedback 详情卡片不再把 `runs.get/list` 原始 run 当作人工反馈投影，而是使用只读 `runs.feedback.prepare` 加 project/run/drawer/card epoch guard。Core 68/68 是 portable 回归，非 XCTest。原生 r3 已验证 history footer、Feedback good r1→bad r2 而 run 保持 completed、Lab ON 字段和 English 草稿保留；r4 重启确认 Harbor completed drawer 读取 r2 负面 reason，并以 AX/截图确认 header 竖排修复。drawer 生命周期/错误态/header bbox 尚未覆盖，background-run 稳定七列仍挤压，最终原生、checkout/CI、发布包及188项规格/228项参考能力整体仍分别 **NoGo**。
+
+原生资源补测为2分钟、5个合成会话及一次增量刷新：可归属的主进程和helper RSS中位95.344 MiB、峰104.203 MiB；稳定空闲采样CPU峰0.4%。WebContent无法可靠归属，整应用内存目标仍未成立为已验收结论；启动/交互p95与长稳仍未测。[资源证据](parity/native-resource-evidence-2026-09-14.json)。
+
+摄取排除与数据库迁移已合入开发源码：项目/来源规则、投影撤回和规则代际原子提交，五种 provider 的新写入复核代际；History 的旧 ID 在规则有效时不能绕过访问限制。SQLite 0→1 升级可回滚，较新 schema 会拒绝。匹配 root 的冻结 Core 共482项 portable 方法通过，真实隔离 RPC、重启和旧历史导入回归通过；[证据](parity/ingestion-migration-evidence-2026-09-14.json)。这不等于 OBS-09/OBS-13/SEC-12 整体验收：桌面排除入口、完整备份恢复与索引修复仍未闭合；已存在 Memory 的召回抑制在下述新检查点单独验收。
+
+上一个 checkpoint 的 CI 在 Lab 浏览器测试桥处失败：新 Recall fixture 限制误拦了旧 pending-only 实验。已修复兼容分支，并验证错误 agent、跨项目提案、修改 verifier argv 和执行批准仍被拒绝；新 checkpoint CI 单独追踪。此前 UI21 late prepare、history footer close 和 `outputHash` 默认展示的问题保留为历史证据；本轮 r3/r4 已分别复验其相关路径。当前仍待修复和复验的是 background-run 稳定七列挤压，以及尚未覆盖的 drawer 生命周期、错误态和 header bbox，不能据浏览器通过把交互验收标为完成。
+
+`b16e7b99` 的新 CI 已通过两个任务，包括482项真实 XCTest、已安装SDK/OpenClaw、浏览器旅程和macOS打包审计；[CI证据](parity/ci-b16e7b99-evidence-2026-09-14.json)。本机独立开发包内容约8.54 MiB，并通过5项原生QA包装器检查；[原生证据](parity/native-b16-package-evidence-2026-09-14.json)。这是不同身份的隔离测试，不能替代正式安装、公证或系统通知验收。
+
+召回排除修复已整合到开发源码，覆盖旧版采集 Memory 的五种检索路线、MCP、Ask/Route、工作流执行前、Agent Loop 每轮与 Lab 候选执行前。已冻结工作流仍使用原批准 argv；普通正文编辑不会替换该 argv。用户管理视图和原始 Markdown/日志保留，显式移除规则后可恢复召回。匹配 root 的123个 Core/测试输入已通过490项 portable 方法；root 实际构建后，旧 b16→新 helper 升级7组、consumer28项、loop16项、Lab8项和完整6项 renderer 均通过。[精确证据与历史失败](parity/exclusion-recall-evidence-2026-09-14.json)。这关闭的是上述召回/执行检查缺口；桌面排除入口、完整备份与总体验收仍未闭合。UI仍为UI20，既有b16开发包不包含本修复，新checkpoint CI另行记录。
+
+同一2000条合成Memory、真实来源规则与7次测量的debug helper对照中，lexical Recall中位耗时从776.885 ms降为547.898 ms；每次查询复用一次规则读取。该结果只代表此次helper调用，不等同于10万条Search、原生交互延迟或整应用内存预算。
+
+`b0e27282` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34781547477)已通过两个作业，实际执行490项XCTest、零失败，并通过安装后SDK、RPC、renderer及macOS打包审计；[CI证据](parity/ci-b0e27282-evidence-2026-09-14.json)。本机另构建了该检查点的开发包（ZIP 3,696,119 bytes），五项原生QA检查通过，包括启动/增量刷新、双语与菜单同步、来源预览取消、退出重启语言保留、退出清理；[原生证据](parity/native-b0-package-evidence-2026-09-14.json)。这份包包含召回修复，但仍为独立身份QA包装器验证与ad-hoc开发发行，不等于正式安装、公证、系统通知或全产品验收。
+
+同一b0本地开发包内的release helper也已实际复跑旧版升级7组、consumer28项、loop16项与Lab8项，59项全部通过，helper/源码哈希前后一致，隔离进程与fixture清理完成；对应收据见上述原生与交付证据文件。该复测覆盖发行配置下的真实本地执行路径，不代表真实外部模型或系统通知。
+
+
+完整本地 Store 备份与恢复已接入开发版 CLI：保存 private/public 资产、History 原文与来源收据、偏好、版本和 managed output；恢复到新目录并重绑资产路径，撤销旧审批/运行资格，禁用自动工作流。文件以64 KiB流式复制，数据库/资产容量、文件数和时间有明确上限。它不会初始化会自动恢复文件的 Router；修前“备份触发中断事务回滚并漏掉 output”的真实反例已保留，修后通过。[使用说明](implementation/local-store-backup-contract.md)与[证据](parity/local-store-backup-evidence-2026-09-14.json)。
+
+匹配本机源码的498项 portable Core 方法通过；root真实构建后，完整CLI19项、无恢复副作用4项、恶意格式4项以及watch/锁/并发目标三组运行态验收均通过。恢复后Library显式重建索引再搜索、private Recall/MCP隔离和默认home不被打开均有实际证据。此结果关闭完整本地备份的该组缺口，不关闭桌面数据管理、secret-free interchange/merge、远端加密恢复、通用repair/同步或六项Hard Gate；产品总验收仍为No-Go，新检查点CI及发行包另记。
+
+`3894dab6` 的[完整 CI](parity/ci-3894dab6-evidence-2026-09-14.json)已通过498项真实 XCTest、四套备份检查及 SDK/renderer/打包检查。[本地开发包](parity/development-3894dab6-evidence-2026-09-14.json)另通过随包 helper 的19项备份与4项无恢复副作用检查；仍为未公证的 ad-hoc 开发包，未替换公开下载。随后[本机原生复验](parity/native-3894dab6-evidence-2026-09-14.json)观察到八项项目、会话、候选记忆与双语交互通过，但恢复闭环发现正常 `/private/tmp` 目标被路径守卫误拒。该失败和 Foundation 探针均保留，不能由此前绿色测试推断恢复后的原生界面已通过。
+
+新审批有效期与 canonical 备份路径修复已整合：九个公开创建入口统一使用默认七天的可配置有效期；实际批准在取得数据库写锁后核对截止时间，并原子更新 approval、run、step 与业务记录；组合中的可选子任务到期也会停止父流程。旧版无期限请求保持兼容，新增 get/list 支持按状态与 oldest-first 分页。修复了 Foundation 对 `/private/tmp` 父路径标准化导致正常备份/恢复被拒的问题，用户 symlink 祖先仍拒绝。
+
+冻结后的最终 root 全量 portable 回归511/511通过（非本机XCTest），新编译 helper 的15项实际审批CLI通过；包含公开九入口、锁等待跨截止、旧helper兼容及无副作用断言。首轮全量曾因遗漏合入AskRoute factory而510/511，红例保留，补齐原实现后保持断言复跑转绿。此前整合helper的19项备份、4项不触发恢复、4项恶意格式及3组watch/lease/concurrency检查分别留证。准确来源与范围见[审批与备份整合证据](parity/approval-expiry-backup-canonical-evidence-2026-09-14.json)。
+
+本机原生 UI20 实际点击过期工作流审批，返回明确失败且未执行目标写入；退出后只读核验 approval/run/step 均 expired，重启后该卡片消失。即时刷新仍失败：错误后旧卡片和数量仍缓存为 pending，切换页面也未更新；该项仍需指定 Antigravity 模型实现修复。新包、最终提交CI、其他原生入口与整体产品验收继续单独记录，不能把511项通过视为228项功能与全部发布门槛通过。
+
+`14f188c` 的 [CI](https://github.com/Atingaii/Vela/actions/runs/34788378857)已全部通过，包含511项真实XCTest、15项旧helper升级/审批有效期检查、renderer、已安装SDK/OpenClaw与macOS打包审计；[CI证据](parity/ci-14f188c-evidence-2026-09-14.json)。本机另使用独立64MiB磁盘镜像验证了真实SQLITE_FULL：备份明确失败且未留下bundle，持久Store（包括WAL）、资产与项目内容未变，镜像已卸载并清理；[ENOSPC证据](parity/backup-enospc-evidence-2026-09-14.json)。这是一个实际磁盘满断点，不等于HG-5的恢复、权限、全部崩溃和并发矩阵通过。
+
+
+2026-09-14 官网已从提交 `93c2848` 显式部署到用户 Cloudflare Pages 项目 `velo`，正式域名 [velo.codes](https://velo.codes) 已活动并启用 SSL。20页面、8资源、20站内导航的正式域名 HTTP 检查全通过，另在浏览器实测双语保留栏目、主题、场景筛选、详情及文档深链接；[部署证据](parity/cloudflare-production-evidence-2026-09-14.json)。首轮证书配置失败与域名激活中的单资源522保留，最终复验通过。该部署不替换 preview.2 下载，也不代表客户端或全部营销文案验收。
+
+当前 WorkBuddy V3 静态官网的部署 URL `https://cf33bf23.velo-5i0.pages.dev` 与正式域名 [velo.codes](https://velo.codes) 均通过 HTTP-only 字节复核：32 页、11 个选定资源、32 个站内导航全部匹配同一源码 aggregate `0fda5484…8b23`。正式域名的首份 V3 收据保留：Cloudflare 托管自动 analytics 注入使 32 个 HTML `bodyMatchesSource` 失败；用户关闭该设置后 r2 全部转绿。[精确证据](evidence/2026-09-14-cloudflare-workbuddy-v3.json)不包含浏览器交互，也不改变 preview.2、客户端验收或产品总 **No-Go**。
+
+用户新增全功能规格的[188项初步源码筛查](parity/final-spec-2026-09-14.md)记录132项部分实现、26项缺失、21项后端有证据、6项外部未验及3项范围/翻译，不能视为逐功能通过。[客户端易用性评审](implementation/desktop-usability-review-2026-09-14.md)已从产品与使用者角度明确相对路径、按需技术详情、16px正文/14px常规控件及中性宽松布局。UI作者仍受指定Antigravity模型约束；本轮探测未取得模型回复，未实施这次界面重构。旧三组独立QA进程和其合成fixture已清理，释放36,024,320 allocated bytes；另清理本轮Cloudflare/npx工具缓存401,854,464 allocated bytes，合计约418MiB；测试证据、交付包和待实施材料保留。产品总验收仍为No-Go。
+
+## Blume 本机功能与交互复核（2026-09-15）
+
+按用户要求先核对参考产品，再进行整体 UI 重构。[本轮审查](parity/blume-native-audit-2026-09-15.md)逐项覆盖既有 B01–B52，记录官方 Blume 1.0.74 的24条原生观察及当前 Vela 对应源码/界面。参考 Pin 已确认是可收拢悬浮条，Analytics 已有可访问页面，缩放/密度/周报/路径排除设置已见；登录后、非空建议/计划/子代理/worktree 与真实多 provider 成功路径继续保留未验，不再用旧 Soon/灰度标签覆盖本机可见事实。
+
+Vela 本轮仅新增一条合成项目的原生 Markdown 标题块编辑→审阅→冻结审批→精确写入→Undo 字节恢复证据；0次provider调用，未改真实项目。现有排除 Core 服务尚缺桌面入口，额度适配仍仅 Codex；窄窗、活动/历史分流、文档上下文与设置组织仍需重构。[机器证据](evidence/2026-09-15-blume-native-comparison.json)保存版本、hash、截图与范围。WorkBuddy Deepseek-V4.1-Flash 尝试恢复超时，未产生本轮设计代码；普通置顶提案已撤回，本轮没有合入 UI 改动，也没有更新发布包。**功能/UI 等价及全产品总验收仍未通过。**
+
+## Blume 应用框架与核心页重构（2026-09-16）
+
+已先在官方 Blume 1.0.74 上复核窄窗、活动/历史入口、Session 标签、项目配置、文档阅读、主题与 Pin/Expand/Unpin，再由 **Antigravity CLI Gemini 3.8 Flash High** 编写本轮 UI，GPT Terra 实现基础接线，主模型负责审查和本机测试。没有复制参考私有源码或品牌资源。
+
+当前源码已实现四个主要工作入口及 Vela 扩展导航、会话 Activity/Plan/Sub-agents 分页、Setup 项目与目录分组和 Content/Related/Details、文档上下文内的编辑审批/Undo，以及持久化主题、密度和缩放。主工作区和伴随模式共享一个 WKWebView/helper，收拢使用原生 NSPanel；见 [架构](architecture.md)、[窗口 ADR](adr/0049-native-companion-window.md)、[外观 ADR](adr/0050-desktop-appearance-preferences.md)。外观和通用设置共用保存队列，未提交草稿跨页面保留；旧 dashboard 不覆盖较新偏好。
+
+本轮冻结 renderer 的浏览器回归已通过外观 9 项、应用框架 7 项、配置编辑与撤销 13 项、设计 16 项，使用真实 helper 与合成项目。这些测试不包含原生窗口操作或真实账户。逐页截图复审后另补额度卡片排版及状态验证，最终收据见[本轮记录](implementation/blume-native-followup-2026-09-16.md)。
+
+**Blume 功能/UI 等价仍未验收。** Mac 锁屏阻止新原生窗口生命周期验证；Claude/Cursor 额度适配、桌面摄取排除、非空 Improve/计划/子代理/worktree 与真实多 provider 成功路径仍按 B01–B52 保留未完成或未验证。当前开发包不改变公开 preview.2 下载，不作稳定发布或完整产品交付声明。

@@ -1,0 +1,104 @@
+{
+  "format": "vela-core-integration-evidence-v1",
+  "date": "2026-09-13",
+  "sourceSnapshot": {
+    "portableSnapshotSHA256": "bb6f4b3f30010d8b4d2a32f97952355caef0bc78bc0194b7802e57fff5a3d62a",
+    "portableRunnerSHA256": "792d9c7648c18d86966a80327d28872fea02c1816963ae56d7df74bd6e691fa7",
+    "matchesWorkingTreeAtEnd": true
+  },
+  "host": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "machine": "arm64"
+  },
+  "helper": {
+    "path": "withheld local frozen build",
+    "sha256": "6f9c4abccfbc6ad5a409694148a181202faa311945a75854b7b8f655e1a10cd5"
+  },
+  "ui17SelectedSources": {
+    "Sources/VelaApp/main.swift": "8a8805986049110b04de5e713a35e41a5f082ea5e6a963d7bcff72ca783c8561",
+    "Sources/VelaApp/Resources/UI/app.js": "d4adec2078d08eaac41100b9d70b9dbccb9c496574d65714e28182f5b8a6a11f",
+    "Sources/VelaApp/Resources/UI/app.css": "70cb9e547a0104eb81be98b2c53977722594797fb46b21faeea31cbb87691c6d",
+    "Sources/VelaApp/Resources/UI/i18n.js": "265b6af7067b45bd1207bff56a134b9d1d267774cb99e1f616188db1a500947a"
+  },
+  "ownedSources": {
+    "Sources/VelaCLI/main.swift": "a846558f3a1b257df0c3857dc38ad4464b43f6656adba652b75572cee8d4cc40",
+    "Sources/VelaCore/LabService.swift": "17fddc1b99008a580dd41fdeb346b8968e85eb8daf48883193e9d82b635fa429",
+    "Sources/VelaCore/RuntimeShutdown.swift": "dc2c7c7fec6d8f7fe2cfe4fada55b0f1532000134241f00f862fb3cb7dd79224",
+    "Sources/VelaCore/AutomationProcess.swift": "8c643759e0ef632cd11ce04776ec894d17f7d17a4842e993125074ec35fe91bd",
+    "Sources/VelaCore/AskRouteService.swift": "d79f6d975d9efa76a11d9f69163c3977036584e51d9893af46d38c9195c013ed",
+    "Tests/VelaCoreTests/AskRouteTests.swift": "edd77c2ab5b8d807b56c45c7251d01f30d46269aebc64fae5cb4444176913edd",
+    "scripts/test-rpc-lab-shutdown.py": "8513ee5631bd68346ddb898ca0b4bfff2f7f0af5339969a41023cba0555f6eea",
+    "scripts/test-ask-route-rpc.py": "823effc624509707d8f8776728d0f05276e37af65a3d26016d07ab3d4ed4e7da",
+    "docs/adr/0035-bounded-rpc-child-shutdown.md": "b648494bc3a91b4f138c0a4dbb9d01b8403db414945cf079dad6665c5e96c84b",
+    "docs/implementation/agent-lab-contract.md": "a87fbcc48d0d9bb8dced6bb30e62a9db4f3d98fb3860727f01b1bda038e9173a",
+    "docs/adr/0032-persisted-safe-ask-routing.md": "f00259ee5b6507fc485a13c2d7e44787a1c0dbe107e35e36baa3b123d09e446a",
+    "docs/implementation/ask-routing-contract.md": "1fb168945e980c489dbd47bad7a34980a0c2e476a87d7dc145dc473eb19276ba"
+  },
+  "commands": [
+    {
+      "command": "swift build --product vela",
+      "exitCode": 0
+    },
+    {
+      "command": "python3 scripts/test-portable.py --receipt output/parity/final-rpc-ask-ui17-portable-final.json",
+      "exitCode": 0,
+      "kind": "portable fallback, not XCTest",
+      "methods": 443,
+      "receipt": "output/parity/final-rpc-ask-ui17-portable-final.json",
+      "receiptSHA256": "6d61b5086c53c757e3666c632812cac3125bf00d93a53aa73f6d9d6b279b483c"
+    },
+    {
+      "command": "python3 scripts/test-rpc-lab-shutdown.py --binary <absolute helper> --output output/parity/final-rpc-lab-shutdown.json",
+      "exitCode": 0,
+      "modes": 4,
+      "receipt": "output/parity/final-rpc-lab-shutdown.json"
+    },
+    {
+      "command": "python3 scripts/test-ask-route-rpc.py --binary <absolute helper>",
+      "exitCode": 0,
+      "checks": 4,
+      "providerCalls": 1,
+      "syntheticFixture": true
+    },
+    {
+      "command": "python3 scripts/test-workflow-health-rpc.py",
+      "exitCode": 0
+    },
+    {
+      "command": "python3 scripts/test-workflow-retry-rpc.py",
+      "exitCode": 0
+    },
+    {
+      "command": "python3 scripts/test-mcp-stdio.py --binary <absolute helper> --output output/parity/final-rpc-ask-ui17-mcp.json",
+      "exitCode": 0,
+      "protocolVersions": 4,
+      "receipt": "output/parity/final-rpc-ask-ui17-mcp.json",
+      "receiptSHA256": "4ba5e1ad165237d414ed316213327bd480646b95b6eccf7872d45c24564da2fe"
+    },
+    {
+      "command": "python3 scripts/test-session-history-rpc.py --binary <absolute helper> --output output/parity/final-rpc-ask-ui17-history.json",
+      "exitCode": 0,
+      "records": 1202,
+      "batches": 20,
+      "receipt": "output/parity/final-rpc-ask-ui17-history.json",
+      "receiptSHA256": "27ff45146c8a471ab829bfc9c125a0f57b5df0670c671aef888aa98ceaff0961"
+    },
+    {
+      "command": "python3 scripts/test-memory-archives.py --binary <absolute helper>",
+      "exitCode": 0,
+      "checks": 4
+    },
+    {
+      "command": "python3 scripts/check-repository.py",
+      "exitCode": 0
+    }
+  ],
+  "boundaries": [
+    "Portable runner compiles and runs synchronous Core test bodies without XCTest; macOS hosted CI remains the XCTest authority.",
+    "Shutdown regression uses synthetic long-running local children and zero provider runs; it does not claim graceful SIGTERM completion because observed child termination may require SIGKILL after the bounded grace period.",
+    "EOF drains accepted JSONL work; SIGINT/SIGTERM stop admission and request bounded shutdown. Only exact Lab-owned worktrees may use the shutdown-exempt cleanup child path.",
+    "No real six-turn Lab evaluation was rerun; its prior aborted supplement remains historical evidence."
+  ],
+  "historicalEvidencePreserved": true,
+  "completeProductAcceptance": false
+}

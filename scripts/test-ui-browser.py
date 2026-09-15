@@ -15,14 +15,17 @@ Failing screenshots are test evidence, not product artwork.
 Route events and bounded read faults are injected; business data is always real CLI output.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
+from release_resources import DEVELOPMENT_UI_RESOURCES, UI_RESOURCES
 import select
 import shutil
 import signal
 import subprocess
 import time
+import traceback
 import urllib.request
 import uuid
 
@@ -42,11 +45,12 @@ const readline = require('node:readline');
       else if(command==='fill')await page.locator(args[0]).fill(args[1]);
       else if(command==='select')await page.locator(args[0]).selectOption(args[1]);
       else if(command==='press')await page.keyboard.press(args[0]);
+      else if(command==='viewport')await page.setViewportSize({width:Number(args[0]),height:Number(args[1])});
       else if(command==='wait')await page.locator(args[0]).waitFor();
       else if(command==='snapshot')output=await page.locator(args.includes('-s')?args[args.indexOf('-s')+1]:'body').ariaSnapshot();
       else if(command==='eval')output=JSON.stringify(await page.evaluate(args[0]));
       else if(command==='get'&&args[0]==='url')output=page.url();
-      else if(command==='screenshot')await page.screenshot({path:args[0]});
+      else if(command==='screenshot')await page.screenshot({path:args[0],animations:'disabled'});
       else if(command==='close'){await browser.close();console.log(JSON.stringify({output}));break;}
       else throw Error('Unsupported test driver command: '+command);
       console.log(JSON.stringify({output}));
@@ -60,6 +64,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('manifest', type=Path)
     parser.add_argument('--binary', type=Path, default=ROOT / '.build/debug/vela')
+    parser.add_argument('--ui-directory', type=Path, help='Optional frozen <fixture>/ui-snapshot copy; recorded in source hashes.')
     parser.add_argument('--agent-browser', default='agent-browser')
     parser.add_argument('--browser-executable', type=Path, help='Optional explicit Chrome executable for isolated local QA.')
     parser.add_argument('--driver', choices=['agent-browser', 'playwright'], default='playwright', help='Playwright is recommended; no driver is installed automatically.')
@@ -77,7 +82,7 @@ def main():
     if args.browser_executable and not args.browser_executable.is_file():
         parser.error('The specified Chrome executable does not exist.')
     server = subprocess.Popen(['python3', str(ROOT / 'scripts/test-ui-server.py'), str(args.manifest),
-                               '--binary', str(args.binary)], stdout=subprocess.PIPE, text=True)
+                               '--binary', str(args.binary), *(['--ui-directory', str(args.ui_directory)] if args.ui_directory else [])], stdout=subprocess.PIPE, text=True)
     session = 'vela-ui-test-' + uuid.uuid4().hex[:8]
     results = []
     selected_checks = set(args.checks.split(',')) if args.checks else None
@@ -134,6 +139,13 @@ def main():
         browser('click', selector)
         browser('snapshot', '-i')
 
+    def open_action_menu(trigger):
+        menu = 'details.action-menu:has(' + trigger + ')'
+        wait_for('!!document.querySelector(' + json.dumps(menu) + ')', 'Action menu is absent for ' + trigger)
+        if not value('document.querySelector(' + json.dumps(menu) + ').open'):
+            click(menu + ' > summary')
+            wait_for('document.querySelector(' + json.dumps(menu) + ').open===true', 'Action menu did not open for ' + trigger)
+
     def page(name):
         browser('press', 'Escape')
         browser('press', 'Escape')
@@ -154,7 +166,7 @@ def main():
             action()
             results.append({'check': name, 'passed': True, 'driver': args.driver})
         except Exception as error:
-            results.append({'check': name, 'passed': False, 'error': str(error), 'driver': args.driver})
+            results.append({'check': name, 'passed': False, 'error': str(error), 'traceback': traceback.format_exc(limit=3), 'driver': args.driver})
             try:
                 results[-1]['url'] = browser('get', 'url')
                 browser('screenshot', str(base / ('failure-' + name + '.png')))
@@ -171,6 +183,14 @@ def main():
         ready = json.loads(server.stdout.readline())
         url, base = ready['url'], Path(ready['fixture'])
         report = base / ('browser-results-diagnostic.json' if selected_checks else 'browser-results.json')
+        metadata_path = base / ('browser-metadata-diagnostic.json' if selected_checks else 'browser-metadata.json')
+        def source_hashes():
+            files = {name: (args.ui_directory or ROOT / 'Sources/VelaApp/Resources/UI') / name for name in UI_RESOURCES + DEVELOPMENT_UI_RESOURCES}
+            files['helper'] = args.binary
+            return {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in files.items()}
+        source_before = source_hashes()
+        metadata = {'sourceBefore': source_before, 'completeSuite': False, 'sourceUnchanged': None}
+        metadata_path.write_text(json.dumps(metadata, indent=2) + '\n')
         fixture = json.loads(args.manifest.read_text())
         project = Path(fixture['project'])
         browser('open', url)
@@ -187,9 +207,9 @@ def main():
             assert clear, 'No visible clear-filter action.'
             click('#' + clear)
             assert value('document.querySelector("#session-search-input").value') == '', 'Clear filters did not reset search.'
-            snapshot = browser('snapshot', '-s', '#sessions-table')
-            assert 'row ' in snapshot and 'Validate request limits' in snapshot, 'Session rows are absent from the accessibility tree.'
-            session_button = '#sessions-table-body tr:first-child button'
+            snapshot = browser('snapshot', '-s', '#sessions-grouped-lists')
+            assert 'listitem' in snapshot and 'Validate request limits' in snapshot, 'Session groups are absent from the accessibility tree.'
+            session_button = '#sessions-grouped-lists .session-group:first-child .session-card:first-child .session-title-btn'
             browser('focus', session_button)
             browser('press', 'Enter')
             wait_for('!document.querySelector("#detail-drawer").classList.contains("hidden")', 'Session row button did not open its detail with Enter.')
@@ -215,7 +235,9 @@ def main():
             click('#btn-save-mem')
             wait_for('document.querySelector("#modal-container").classList.contains("hidden")', 'Memory form did not save.')
             item = next(m for m in read('memory.list') if m['title'] == 'Renderer acceptance constraint')
+            open_action_menu('.btn-mem-activate[data-id="' + item['id'] + '"]')
             click('.btn-mem-activate[data-id="' + item['id'] + '"]')
+            open_action_menu('#btn-recall-tester')
             click('#btn-recall-tester')
             browser('fill', '#recall-query', 'Renderer acceptance constraint')
             browser('select', '#recall-project', str(project))
@@ -232,14 +254,66 @@ def main():
             click('#btn-save-wf')
             wait_for('document.querySelector("#modal-container").classList.contains("hidden")', 'Workflow form did not save.')
             item = next(w for w in read('workflows.list') if w['title'] == 'Renderer approved note')
+            # Per-workflow mutating actions now live in the row's real
+            # disclosure menu.  Open it through the product control before
+            # exercising Dry Run; do not force-click a hidden action.
+            open_action_menu('.btn-wf-dryrun[data-id="' + item['id'] + '"]')
             click('.btn-wf-dryrun[data-id="' + item['id'] + '"]')
             assert not (project / 'docs/ui-browser-check.md').exists(), 'Dry Run wrote a file.'
+            # The real handler refreshes the dashboard and opens the dry-run
+            # record asynchronously.  Wait for that committed UI transition,
+            # then close its drawer before selecting the row's separate Run
+            # action.  Otherwise a late dashboard redraw can detach the menu
+            # while Playwright is opening it.
+            wait_for('!document.querySelector("#detail-drawer")?.classList.contains("hidden")', 'Dry Run did not complete and open its run detail.')
+            browser('press', 'Escape')
+            wait_for('document.querySelector("#detail-drawer")?.classList.contains("hidden")', 'Dry Run detail drawer did not close before Run selection.')
             page('workflows')
+            open_action_menu('.btn-wf-run[data-id="' + item['id'] + '"]')
             click('.btn-wf-run[data-id="' + item['id'] + '"]')
+            # The product handler awaits workflows.run before it refreshes the
+            # dashboard. A Playwright click only waits for the DOM event, so
+            # wait for the exact frozen side effect instead of sampling Inbox
+            # before the bridge call has committed it.
+            expected_path = str((project / 'docs/ui-browser-check.md').resolve())
+            expected_content = 'Written after explicit renderer approval.\n'
+            deadline = time.monotonic() + 8
+            approval = None
+            while time.monotonic() < deadline:
+                for candidate in read('inbox.list'):
+                    arguments = candidate.get('arguments') or {}
+                    if (candidate.get('tool') == 'file.write'
+                            and candidate.get('project') == str(project)
+                            and arguments.get('path') == expected_path
+                            and arguments.get('content') == expected_content):
+                        candidate_run = read('runs.get', {'id': candidate['runId']})
+                        steps = candidate_run.get('steps') or []
+                        if (candidate_run.get('workflowId') == item['id']
+                                and candidate_run.get('state') == 'pending_approval'
+                                and any(step.get('approvalId') == candidate['id']
+                                        and step.get('tool') == 'file.write'
+                                        and step.get('state') == 'pending_approval'
+                                        for step in steps)):
+                            approval = candidate
+                            break
+                if approval:
+                    break
+                time.sleep(0.1)
+            assert approval is not None, 'Workflow run did not persist its exact pending file.write approval within 8 seconds.'
             page('inbox')
-            approval = next(a for a in read('inbox.list') if a['arguments'].get('path', '').endswith('ui-browser-check.md'))
+            wait_for('!!document.querySelector(' + json.dumps('.btn-approve-appr[data-id="' + approval['id'] + '"]') + ')?.getClientRects().length',
+                     'Persisted approval is absent from the Inbox UI.')
             assert not (project / 'docs/ui-browser-check.md').exists(), 'File was written before approval.'
             click('.btn-approve-appr[data-id="' + approval['id'] + '"]')
+            # A browser click returns before its async approval request completes.
+            # Wait for this exact persisted run, then verify its file bytes independently.
+            deadline = time.monotonic() + 8
+            while True:
+                approved_run = read('runs.get', {'id': approval['runId']})
+                if approved_run.get('state') in ('completed', 'failed') or time.monotonic() >= deadline:
+                    break
+                time.sleep(0.1)
+            assert approved_run.get('state') == 'completed', 'Approved workflow did not complete: ' + str(approved_run.get('state'))
             assert (project / 'docs/ui-browser-check.md').read_text() == 'Written after explicit renderer approval.\n'
             if fixture.get('commandApproval'):
                 command = next(a for a in read('inbox.list') if a['id'] == fixture['commandApproval'])
@@ -415,6 +489,13 @@ def main():
             for name, action in [('routing', routing), ('routing-failure', routing_failure), ('routing-unknown', routing_unknown), ('routing-aggregate', routing_aggregate)]:
                 check(name, action)
         report.write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n')
+        source_after = source_hashes()
+        unchanged = source_before == source_after
+        metadata.update(sourceAfter=source_after, sourceUnchanged=unchanged,
+                        completeSuite=not selected_checks and len(results) == 12 and unchanged and all(result['passed'] for result in results))
+        metadata_path.write_text(json.dumps(metadata, indent=2) + '\n')
+        if not unchanged:
+            raise RuntimeError('UI or helper changed during the run; this is not a single-version acceptance result.')
         if not results:
             raise RuntimeError('No checks ran. Routing checks require --with-routing-project when creating the fixture.')
         if not all(result['passed'] for result in results):

@@ -1,0 +1,117 @@
+{
+  "format": "vela-owned-native-idle-observation-v1",
+  "durationSeconds": 20,
+  "intervalSeconds": 5,
+  "appUIHash": "20c332d2f093d203de0c09126714ffa5ce6e48f2ef9f2c6561cd3a1671ad87be",
+  "synthetic": true,
+  "samples": [
+    {
+      "time": "2026-09-14T13:45:19.043360+00:00",
+      "processes": [
+        {
+          "pid": 35107,
+          "ppid": 1,
+          "cpuPercent": 0.1,
+          "rssKiB": 98624,
+          "state": "S",
+          "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/Vela QA workbuddy-r3.app/Contents/MacOS/VelaHost"
+        },
+        {
+          "pid": 35114,
+          "ppid": 35107,
+          "cpuPercent": 0.0,
+          "rssKiB": 16736,
+          "state": "S",
+          "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/Vela QA workbuddy-r3.app/Contents/MacOS/vela rpc --home /Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/store"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-14T13:45:24.094287+00:00",
+      "processes": [
+        {
+          "pid": 35107,
+          "ppid": 1,
+          "cpuPercent": 0.1,
+          "rssKiB": 99072,
+          "state": "S",
+          "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/Vela QA workbuddy-r3.app/Contents/MacOS/VelaHost"
+        },
+        {
+          "pid": 35114,
+          "ppid": 35107,
+          "cpuPercent": 0.0,
+          "rssKiB": 16608,
+          "state": "S",
+          "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/Vela QA workbuddy-r3.app/Contents/MacOS/vela rpc --home /Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/store"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-14T13:45:29.149524+00:00",
+      "processes": [
+        {
+          "pid": 35107,
+          "ppid": 1,
+          "cpuPercent": 0.0,
+          "rssKiB": 99440,
+          "state": "S",
+          "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/Vela QA workbuddy-r3.app/Contents/MacOS/VelaHost"
+        },
+        {
+          "pid": 35114,
+          "ppid": 35107,
+          "cpuPercent": 0.0,
+          "rssKiB": 16736,
+          "state": "S",
+          "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/Vela QA workbuddy-r3.app/Contents/MacOS/vela rpc --home /Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/store"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-14T13:45:34.207370+00:00",
+      "processes": [
+        {
+          "pid": 35107,
+          "ppid": 1,
+          "cpuPercent": 0.0,
+          "rssKiB": 94112,
+          "state": "S",
+          "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/Vela QA workbuddy-r3.app/Contents/MacOS/VelaHost"
+        },
+        {
+          "pid": 35114,
+          "ppid": 35107,
+          "cpuPercent": 0.0,
+          "rssKiB": 16544,
+          "state": "S",
+          "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/Vela QA workbuddy-r3.app/Contents/MacOS/vela rpc --home /Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/store"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-14T13:45:39.262449+00:00",
+      "processes": [
+        {
+          "pid": 35107,
+          "ppid": 1,
+          "cpuPercent": 0.1,
+          "rssKiB": 95104,
+          "state": "S",
+          "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/Vela QA workbuddy-r3.app/Contents/MacOS/VelaHost"
+        },
+        {
+          "pid": 35114,
+          "ppid": 35107,
+          "cpuPercent": 4.2,
+          "rssKiB": 16592,
+          "state": "S",
+          "command": "/Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/Vela QA workbuddy-r3.app/Contents/MacOS/vela rpc --home /Users/florian/Desktop/Tencent/Github/Vela/.task-tmp/workbuddy-native-r2/store"
+        }
+      ]
+    }
+  ],
+  "scope": "Only executables directly rooted in Vela QA workbuddy-r3.app; WebKit XPC attribution unavailable without root privileges; not total application memory.",
+  "meanAttributedCPUPercent": 0.8999999999999999,
+  "maximumAttributedRSSMiB": 113.453125
+}

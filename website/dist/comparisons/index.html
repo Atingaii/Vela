@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vela 与开发工具：定位与能力对比 — Vela</title>
+  <meta name="description" content="对比 Vela 与代码编辑环境（Cursor / GitHub Copilot）、工作流自动化平台（n8n）及知识库工具（Obsidian）的核心任务、日志观察、上下文记忆与安全审批机制。">
+  <link rel="icon" href="../assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <link rel="canonical" href="https://velo.codes/comparisons/">
+  <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/comparisons/">
+  <link rel="alternate" hreflang="en" href="https://velo.codes/en/comparisons/">
+  <link rel="alternate" hreflang="x-default" href="https://velo.codes/comparisons/">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="../assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="../styles.css?v=7fe760bdbb331b9d">
+
+  <!-- Immediate theme application to prevent flash -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Site Header (62px height, x70-1180 alignment) -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/" class="brand-link" aria-label="Vela 首页">
+          <img src="../assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="主导航"><a href="/product/" class="nav-link">产品功能</a><a href="/usecases/" class="nav-link">使用场景</a><a href="/integrations/" class="nav-link">工具集成</a><a href="/comparisons/" class="nav-link">产品对比</a></nav>
+      </div>
+
+      <div class="header-actions">
+        <a href="/docs.html" class="header-docs-link">文档</a>
+
+        <!-- Theme Toggle Button -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- Language Switcher -->
+        <a href="/en/comparisons/" class="header-lang-link" hreflang="en" lang="en" aria-label="Switch to English">English</a>
+
+        <!-- GitHub Repository Button -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="展开导航菜单" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单"><a href="/integrations/" class="nav-link">工具集成</a><a href="/product/" class="nav-link">产品功能</a>
+      <a href="/usecases/" class="nav-link">使用场景</a>
+      <a href="/comparisons/" class="nav-link active" aria-current="page">产品对比</a>
+      <a href="/docs.html" class="nav-link">文档</a>
+      <a href="/releases.html" class="nav-link">发行记录</a>
+      <a href="/privacy.html" class="nav-link">数据隐私</a>
+      <a href="/en/comparisons/" class="nav-link lang-switch-link" hreflang="en" lang="en">English</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Comparisons Hero Section -->
+    <section class="comparisons-hero">
+      <div class="container">
+        <div class="comparisons-eyebrow">— COMPARISONS</div>
+        <h1 class="comparisons-h1">Vela 与开发工具</h1>
+        <p class="comparisons-lead">
+          Vela 作为 Coding Agent 的本地工程留存层，记录会话证据与已观察到的 Token 用量，并在会话间沉淀可审阅的上下文与自动化规范。它与日常代码编辑器、工作流平台和知识库分工协作，互补共存。
+        </p>
+
+        <!-- Unobtrusive Baseline Note -->
+        <div class="comparisons-notice">
+          <strong>版本说明与对比基线：</strong>Vela 列描述仓库 main 分支的当前开发文档（参见 <a href="https://github.com/Atingaii/Vela/blob/main/docs/status.md" target="_blank" rel="noopener noreferrer">实现状态</a> 与 <a href="https://github.com/Atingaii/Vela/blob/main/docs/verification.md" target="_blank" rel="noopener noreferrer">验证文档</a>），最新公开发布安装包为 <strong>v0.1.0-preview.2</strong>。第三方产品能力均依据其公开官方文档（2026-09-13 核验）简要转述，不宣称对其进行了完整第三方实测。
+        </div>
+
+        <!-- Horizontal Scroll Hint for mobile -->
+        <div class="table-scroll-hint" aria-hidden="true">
+          <span>← 左右滑动查看完整对比项目 →</span>
+        </div>
+
+        <!-- Compact Comparison Table -->
+        <div class="comparison-table-wrapper" tabindex="0" role="region" aria-label="产品类别对比矩阵表格">
+          <table class="comparison-table">
+            <colgroup>
+              <col class="col-factor">
+              <col class="col-product">
+              <col class="col-product">
+              <col class="col-product">
+              <col class="col-product">
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col" class="col-factor">比较维度</th>
+                <th scope="col" class="col-highlight">Vela（开发分支）</th>
+                <th scope="col">编码环境<br><span style="font-weight:400;text-transform:none;">(Cursor / GitHub Copilot)</span></th>
+                <th scope="col">工作流自动化<br><span style="font-weight:400;text-transform:none;">(n8n)</span></th>
+                <th scope="col">知识与笔记<br><span style="font-weight:400;text-transform:none;">(Obsidian)</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Row 1: 主要任务 -->
+              <tr>
+                <th scope="row">
+                  <span class="factor-link">主要任务</span>
+                  <span class="factor-sub">核心定位与工程边界</span>
+                </th>
+                <td class="col-highlight">
+                  <div class="cell-desc">本地工程留存层：跨 Agent 会话审计、项目约束提议与安全工作流。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">交互式代码编辑：行内自动补全、上下文问答、多文件修改与自主 Agent 任务。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">跨系统流程自动化：可视化编排多服务 API、数据同步、定时触发与 AI 链。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">个人与团队知识管理：本地 Markdown 笔记库、双向链接图谱与文档沉淀。</div>
+                </td>
+              </tr>
+
+              <!-- Row 2: 历史会话与执行记录 -->
+              <tr>
+                <th scope="row">
+                  <span class="factor-link">历史会话与执行记录</span>
+                  <span class="factor-sub">执行过程与日志观察</span>
+                </th>
+                <td class="col-highlight">
+                  <div class="cell-desc">本地有界读取 Claude Code / Codex / Cursor 日志；记录已观察到的 Token 用量并推断会话状态（无系统守护探针）。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">记录编辑器内 Chat 历史与 Agent 运行轨迹；Copilot cloud agent 自动记录调研、计划、测试与 PR 活动。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">记录完整执行历史，保存各节点输入输出 Payload、执行状态与错误重试日志。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">记录普通笔记与文档历史；无内置编程 Agent 日志解析机制。</div>
+                </td>
+              </tr>
+
+              <!-- Row 3: 持久上下文与记忆 -->
+              <tr>
+                <th scope="row">
+                  <span class="factor-link">持久上下文与记忆</span>
+                  <span class="factor-sub">规则持有与召回控制</span>
+                </th>
+                <td class="col-highlight">
+                  <div class="cell-desc">项目与全局 Scope，显式预算召回；候选提议经人工激活；私有库默认排除在模型检索外。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">代码库向量索引；支持 <code>.cursor/rules</code>（及 <code>AGENTS.md</code>）项目规则与 Copilot 指令；部分 Copilot Memory 公测中。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">数据库与流程变量持久化；支持 LangChain Memory 节点与外部向量数据库接入。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">本地纯文本 Markdown 文件；支持 Frontmatter 元数据、全局搜索与双向反向链接。</div>
+                </td>
+              </tr>
+
+              <!-- Row 4: 审批与恢复 -->
+              <tr>
+                <th scope="row">
+                  <span class="factor-link">审批与恢复</span>
+                  <span class="factor-sub">执行安全与变更撤销</span>
+                </th>
+                <td class="col-highlight">
+                  <div class="cell-desc">对受支持的破坏性变更命令执行前审批；有界预览；仅 SafeApply 支持变更哈希保护的 Undo。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">交互式代码 Diff 逐行审阅与接受/拒绝；终端命令执行前确认；依赖 Git 进行版本回退。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">支持可配置的人工审核（如 Gmail 等特定工具节点暂停请求 approval）；单步测试与执行记录。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">仅操作本地笔记文件；内置核心 File Recovery 插件保存定期本地历史快照。</div>
+                </td>
+              </tr>
+
+              <!-- Row 5: 验证方式 -->
+              <tr>
+                <th scope="row">
+                  <span class="factor-link">验证方式</span>
+                  <span class="factor-sub">质量检验与对照实验</span>
+                </th>
+                <td class="col-highlight">
+                  <div class="cell-desc">开发分支支持 Agent Lab 独立 baseline / candidate worktree 对照与 Verifier 判定；已发布 preview.2 无此能力。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">支持 Agent 驱动的代码测试与审阅（如 Copilot cloud agent 自动运行测试套件）；支持本地测试面板。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">节点数据固定（Data Pinning）与单步执行测试；端到端 Webhook 模拟触发验证。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">纯文本知识管理；无代码执行或测试套件验证机制。</div>
+                </td>
+              </tr>
+
+              <!-- Row 6: 运行与部署 -->
+              <tr>
+                <th scope="row">
+                  <span class="factor-link">运行与部署</span>
+                  <span class="factor-sub">运行环境与架构边界</span>
+                </th>
+                <td class="col-highlight">
+                  <div class="cell-desc">macOS 本地桌面 (Apple Silicon) + CLI/MCP，纯本地 SQLite 存储，无第三方账号与云端依赖。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">桌面 IDE 或编辑器扩展客户端，依赖模型供应商云端 API 与平台账号。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">Node.js 自托管（Docker/npm）或官方云服务；浏览器 Web 界面与多用户权限。</div>
+                </td>
+                <td>
+                  <div class="cell-desc">跨平台本地客户端（桌面/移动端），本地存储，可选端到端加密的官方 Sync。</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Data Boundaries & Methodology Callout -->
+        <div class="callout-limits" style="margin-top: 16px;">
+          <div class="callout-limits-title">数据边界与核验口径说明</div>
+          <div class="callout-limits-content">
+            <p style="margin-bottom: 8px;">
+              避免把“本地优先”误读为所有操作完全离线：Vela 自身完全运行在本地，不包含任何遥测上报或远端云服务。但当用户显式导入外部 HTTP/HTTPS 文档，或批准经配置的 Coding Agent 执行包含远程 API 请求的命令时，相关网络通信由对应外部进程产生。
+            </p>
+            <p>
+              本页所有对比基线均基于 2026-09-13 公开的第一方官方文档核验。Vela 相关描述对应仓库 main 分支的当前开发文档（参见 <a href="https://github.com/Atingaii/Vela/blob/main/docs/status.md" target="_blank" rel="noopener noreferrer">实现状态</a> 与 <a href="https://github.com/Atingaii/Vela/blob/main/docs/verification.md" target="_blank" rel="noopener noreferrer">验证文档</a>），官方正式发布安装包仍为 <strong>v0.1.0-preview.2</strong>。
+            </p>
+          </div>
+        </div>
+
+        <!-- 3 Short Comparison Explanations -->
+        <section class="factor-details-section" id="comparison-explanations">
+          <div class="factor-details-header">
+            <h2 class="factor-details-title">关键领域的分工与互补</h2>
+            <p class="factor-details-lead">
+              软件工程并非单一维度的竞争。Vela 与主流开发工具在不同工作环节协同配合：
+            </p>
+          </div>
+
+          <!-- Section 1: Coding Environments -->
+          <div class="factor-detail-card" style="padding: 24px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <span class="factor-num" style="font-size: 14px;">01</span>
+              <h3 style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 0;">
+                代码编辑环境（Cursor / GitHub Copilot）：工程留存层 vs 交互式编码工作区
+              </h3>
+            </div>
+            <p style="font-size: 14.5px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 12px;">
+              Cursor 与 GitHub Copilot 专注于交互式编码体验，深度整合行内补全、代码索引与 Agent 驱动的代码修改与自动化测试。Vela 不做代码编辑器，也不替代 IDE。它运行于编辑器外部，负责跨 Agent 解析会话日志、记录真实消耗，并在会话间沉淀带证据凭据的项目记忆与规范。
+            </p>
+            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-faint);">
+              依据官方资料（2026-09-13 核验）：<a href="https://cursor.com/docs" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">Cursor Docs ↗</a> · <a href="https://prod.cursor.com/help/customization/rules" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">Cursor Rules ↗</a> · <a href="https://docs.github.com/en/copilot/concepts/agents/cloud-agent/about-cloud-agent" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">Copilot Cloud Agent ↗</a>
+            </div>
+          </div>
+
+          <!-- Section 2: Workflow Automation -->
+          <div class="factor-detail-card" style="padding: 24px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <span class="factor-num" style="font-size: 14px;">02</span>
+              <h3 style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 0;">
+                工作流自动化工具（n8n）：受控工程变更 vs 通用服务连接器
+              </h3>
+            </div>
+            <p style="font-size: 14.5px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 12px;">
+              n8n 擅长通过丰富节点连接分布式 SaaS API、数据库与 AI 流程，支持可配置的人工审核流。Vela 则完全聚焦于本地软件工作区：工作流支持只读 Dry Run 预演、支持的破坏性变更命令前强制审批，以及经由 SafeApply 写入的文件哈希撤销保护，避免本地代码库被意外污染。
+            </p>
+            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-faint);">
+              依据官方资料（2026-09-13 核验）：<a href="https://docs.n8n.io/" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">n8n Docs ↗</a> · <a href="https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.gmail/message-operations/" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">n8n Human Review ↗</a>
+            </div>
+          </div>
+
+          <!-- Section 3: Knowledge & Context -->
+          <div class="factor-detail-card" style="padding: 24px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <span class="factor-num" style="font-size: 14px;">03</span>
+              <h3 style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 0;">
+                知识与笔记工具（Obsidian）：结构化工程记忆 vs 通用 Markdown 笔记
+              </h3>
+            </div>
+            <p style="font-size: 14.5px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 12px;">
+              Obsidian 依托本地 Markdown 库、双链图谱与文件快照，提供灵活的个人与团队知识管理。Vela 同样采用本地纯文本，但其记忆严格归属于工程 Scope 并与 Agent 会话证据及 Git 提交直接绑定。Vela 实行有预算限制的上下文召回，并将私有笔记与模型提示词彻底隔离。
+            </p>
+            <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-faint);">
+              依据官方资料（2026-09-13 核验）：<a href="https://help.obsidian.md/" target="_blank" rel="noopener noreferrer" style="color: var(--accent-amber); text-decoration: underline;">Obsidian Help ↗</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Final Download CTA -->
+        <section class="download-close-section" style="padding: 48px 0 64px 0;">
+          <div class="download-close-card" style="text-align: center;">
+            <div class="section-eyebrow" style="justify-content: center;">DEVELOPER PREVIEW</div>
+            <h2 class="section-h2">
+              在本地运行 Vela。<br>
+              接续下一次工程会话。
+            </h2>
+            <p class="section-lead">
+              适用于 Apple Silicon (macOS 13+) 的开发者预览构建。无需在线注册，下载即用，会话与工程记忆始终保存在本地。
+            </p>
+
+            <div class="download-close-actions">
+              <a href="https://github.com/Atingaii/Vela/releases/tag/v0.1.0-preview.2" class="btn btn-primary-amber" target="_blank" rel="noopener noreferrer">
+                下载 macOS 预览版 →
+              </a>
+              <a href="/docs.html" class="btn btn-secondary-outline">
+                阅读技术文档
+              </a>
+              <a href="https://github.com/Atingaii/Vela" class="btn-tertiary-link" target="_blank" rel="noopener noreferrer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+                <span>Star on GitHub</span>
+              </a>
+            </div>
+
+            <p class="download-caveat">
+              安全提示：当前构建为 ad-hoc 签名，尚无 Developer ID 签名和 Apple 公证。首次打开若遇系统安全提示，请前往 macOS「系统设置 ➔ 隐私与安全性」点击“仍要打开”。支持通过官方代码仓库本地源码编译安装。
+            </p>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="/usecases/" class="footer-link">使用场景</a>
+        <a href="/comparisons/" class="footer-link">产品对比</a>
+        <a href="/docs.html" class="footer-link">技术文档</a>
+        <a href="/releases.html" class="footer-link">发行记录</a>
+        <a href="/privacy.html" class="footer-link">数据隐私</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">安全漏洞反馈</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../site.js?v=acf1c37e1928f8dc"></script>
+</body>
+</html>

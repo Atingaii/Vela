@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-14",
+  "kind": "backup-canonical-native-recovery-evidence",
+  "scope": "A compatibility composition only: debug helper created the bundle; the unmodified 3894 native package helper/UI then read the restored fixture. It is not evidence for a final newly released package.",
+  "artifacts": {
+    "debugWriterHelper": {
+      "sha256": "9bb67ed34f19e6cbb412056b8499f61f300e7d7cd60c317fbb5a55b37c5edfe5",
+      "origin": "backup-canonical-r1"
+    },
+    "native3894Reader": {
+      "sha256": "19e4f40726b282e01f90a84c73823d15131a08702e9843fb06d42dba63607c97",
+      "origin": "3894 QA package"
+    },
+    "nativeUI": "UI20 as packaged in the 3894 QA fixture",
+    "copyManifest": {
+      "path": "output/playwright/native-backup-3894-r2/r3-copy-manifest.json",
+      "sha256": "b63f9fbb4b7ddf98f21b575938ba4772595ef08a32852bccbb11f7eff2d2c846"
+    }
+  },
+  "history": {
+    "r2KnownRed": {
+      "path": "output/playwright/native-backup-3894-r2/backup-native-recovery-preparation.json",
+      "meaning": "pre-canonical-path-fix failure is retained, not overwritten"
+    },
+    "r3PreflightReds": [
+      {
+        "path": "output/playwright/native-backup-3894-r2/backup-native-recovery-preparation-r3.json",
+        "meaning": "unsupported approvals.get on the older reader; no create/rename/restore"
+      },
+      {
+        "path": "output/playwright/native-backup-3894-r2/backup-native-recovery-preparation-r3-retry1.json",
+        "meaning": "harness assumed memory.list object although this reader returns an array; no create/rename/restore"
+      }
+    ],
+    "r3ActualRestore": {
+      "path": "output/playwright/native-backup-3894-r2/backup-native-recovery-preparation-r3-retry2.json",
+      "sha256": "f5bef7cc2b0dc06078377b0c30b869349688327135330dd90eb10d6a329e0042",
+      "result": "debug helper create succeeded, original store was preserved under a new name, static restore recreated the original target; this record contains earlier read-only RPC observations and is therefore not a CLI-plus-SQLite-only validation."
+    }
+  },
+  "markerCorrection": {
+    "incorrectMarker": "outer fixture.json was initially recorded by the harness; it is not the launcher isolation marker",
+    "actualMarker": "store/.vela-ui-fixture.json",
+    "evidence": {
+      "path": "output/playwright/native-backup-3894-r2/backup-native-recovery-preparation-r3-retry2-launcher-marker-audit.json",
+      "sha256": "1398c0b3888e1fe0b5c38b196a8e52c229e3c21022c3f6c120263ae97313f1d9"
+    },
+    "action": "The absent restored marker was copied byte-for-byte from the preserved old store only as a QA fixture seam; no business object was edited."
+  },
+  "afterNativeExit": {
+    "path": "output/playwright/native-backup-3894-r2/after-restored-native-exit.json",
+    "sha256": "cfd64031ffcff8fca3627fa978093a32bfaceaa6a2bd72b35707a3b51e81b33d",
+    "method": "SQLite URI mode=ro and ps only; no RPC or UI",
+    "assertions": {
+      "threeApprovalsRestoredNeedsReview": true,
+      "fourMemoryContentAndSourceSame": true,
+      "localeZh": true,
+      "noFixtureProcess": true,
+      "sourceBytesUnchanged": true,
+      "projectBytesUnchanged": true
+    },
+    "result": "passed"
+  },
+  "nativeObservation": "Root separately ran launcher --verify-isolation with exit 0, then CUA observed the restored zh UI, five sessions, four memories, preserved observed-assistant source, and no executable inbox approval; it was quit before the SQLite/ps audit.",
+  "copiedR3Artifacts": [
+    {
+      "name": "after-restored-native-exit.json",
+      "sha256": "cfd64031ffcff8fca3627fa978093a32bfaceaa6a2bd72b35707a3b51e81b33d",
+      "bytes": 14162,
+      "action": "copied"
+    },
+    {
+      "name": "backup-native-recovery-preparation-r3-retry1.json",
+      "sha256": "84190697d86158fc3145c51d984bdec184935f1b67ba08fd8f325d6533678b1b",
+      "bytes": 1561,
+      "action": "copied"
+    },
+    {
+      "name": "backup-native-recovery-preparation-r3-retry1.raw.json",
+      "sha256": "6256b9f2d66dc09413eaafa88e46beb3782d3b878dc29ed30a89c3548427b01f",
+      "bytes": 53794,
+      "action": "copied"
+    },
+    {
+      "name": "backup-native-recovery-preparation-r3-retry1.run.log",
+      "sha256": "7343c79054fabe41edf4d3061401af69c4cce1a93d6af844af1e288678ad6998",
+      "bytes": 48093,
+      "action": "copied"
+    },
+    {
+      "name": "backup-native-recovery-preparation-r3-retry2-launcher-marker-audit.json",
+      "sha256": "1398c0b3888e1fe0b5c38b196a8e52c229e3c21022c3f6c120263ae97313f1d9",
+      "bytes": 2006,
+      "action": "copied"
+    },
+    {
+      "name": "backup-native-recovery-preparation-r3-retry2-sqlite-audit.json",
+      "sha256": "4f7800c78bf3b16fc9d96b74d069ff581f79ab242e6dd4d42c03753e01d266a2",
+      "bytes": 11386,
+      "action": "copied"
+    },
+    {
+      "name": "backup-native-recovery-preparation-r3-retry2.json",
+      "sha256": "f5bef7cc2b0dc06078377b0c30b869349688327135330dd90eb10d6a329e0042",
+      "bytes": 4340,
+      "action": "copied"
+    },
+    {
+      "name": "backup-native-recovery-preparation-r3-retry2.raw.json",
+      "sha256": "728070cfe13078dc28c69b80007a3628ceef762366d4a0cc363ec1cb645f4773",
+      "bytes": 110179,
+      "action": "copied"
+    },
+    {
+      "name": "backup-native-recovery-preparation-r3-retry2.run.log",
+      "sha256": "8e834dcb9d7d363396e6f53564270689f714e88b96df00e84f38bf52cd4dfdaa",
+      "bytes": 98306,
+      "action": "copied"
+    },
+    {
+      "name": "backup-native-recovery-preparation-r3.json",
+      "sha256": "373fb909dab7251006fd0a6c556695c3ae47cf3ab45467b22952b3589443d75c",
+      "bytes": 9271,
+      "action": "copied"
+    },
+    {
+      "name": "backup-native-recovery-preparation-r3.raw.json",
+      "sha256": "21ad4d82ff0a7579d9c410ff851676d3e5ca6238517578540ea97ccb4df0fabc",
+      "bytes": 6367,
+      "action": "copied"
+    },
+    {
+      "name": "backup-native-recovery-preparation-r3.run.log",
+      "sha256": "373fb909dab7251006fd0a6c556695c3ae47cf3ab45467b22952b3589443d75c",
+      "bytes": 9271,
+      "action": "copied"
+    }
+  ],
+  "limits": [
+    "No final new release package was produced or certified by this composition.",
+    "The fixture remains under /private/tmp for final-package regression and was not cleaned.",
+    "The preflight red receipts remain part of the evidence history."
+  ]
+}

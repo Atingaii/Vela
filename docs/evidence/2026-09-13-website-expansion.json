@@ -1,0 +1,95 @@
+{
+  "format": "vela-website-expansion-v1",
+  "date": "2026-09-13",
+  "scope": "Website navigation and page expansion only; overall product acceptance unchanged",
+  "publication": {
+    "url": "https://vela-engineering.zzzsssaa.chatgpt.site/",
+    "audience": "public",
+    "version": 4,
+    "sourceCommit": "102d94a1457c29c35eeb9c1415eb8f9d75450b6e",
+    "versionId": "appgprj_6aa50bb274d881919145f49adc0f30eb~appgver_8e4b068002c08191bb06d9667ced74cf",
+    "deploymentId": "appgdep_6aa5a1ea5bcc8191beff02de636e673c",
+    "status": "succeeded",
+    "productionChecks": "10 routes loaded; final privacy-only change verified at /privacy",
+    "staticFiles": 21
+  },
+  "routeChecks": {
+    "count": 40,
+    "widths": [
+      320,
+      390,
+      768,
+      1280
+    ],
+    "routes": [
+      "/",
+      "/comparisons/",
+      "/docs.html",
+      "/privacy.html",
+      "/releases.html",
+      "/usecases/",
+      "/usecases/compare-and-reuse/",
+      "/usecases/project-memory/",
+      "/usecases/review-workflows/",
+      "/usecases/session-review/"
+    ],
+    "oneH1": true,
+    "pageOverflow": false,
+    "brokenLoadedEagerImages": false
+  },
+  "interactionChecks": [
+    "filter-sessions",
+    "filter-memory",
+    "filter-workflows",
+    "filter-lab",
+    "filter-all",
+    "factor-link",
+    "factor-direct-refresh",
+    "expand-all-keyboard",
+    "collapse-all",
+    "theme-after-refresh",
+    "theme-between-pages",
+    "mobile-menu-open",
+    "mobile-menu-escape",
+    "filter-live-count",
+    "detail-click",
+    "detail-click",
+    "detail-click",
+    "detail-click",
+    "final-catalogue-mobile"
+  ],
+  "staticSHA256": {
+    "assets/fonts/Inter-OFL.txt": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a",
+    "assets/fonts/README.md": "0c287da9cef6ae1264c426ef922ade4f835027685947988d0e95150bc464b631",
+    "assets/fonts/Space-Grotesk-OFL.txt": "c6dec685825f73b18c20926fddc65e8315642e12986f15db0699170940a09efc",
+    "assets/fonts/inter-latin.woff2": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3",
+    "assets/fonts/space-grotesk-latin.woff2": "8e085aa438094f11487a836652edd5c054fa6a96f63fc7c282105ee3a4b08c07",
+    "assets/mark.svg": "f3b3e9d694b4505013dc45b687bea5aa882d2a67b07ffd787815234317943b78",
+    "assets/vela-approval.png": "d93bdf38093ec06b09eb09bbc68b1dac51fbf8e9988dee0213647a4f217440e2",
+    "assets/vela-sessions.png": "7c482b1edee5f47add1d0da2b71d2c34c0c5f4a23e3e636876651c15d202f749",
+    "assets/vela-workspace.png": "d03eb222b21bb6ecd33ab3c66b964412442e78581a8dac65169d0dd2f74c4661",
+    "comparisons/index.html": "1f8be23a96e1c1116beaae73b559dcba8d46b3466f971cbd62f60c823b99d1cd",
+    "docs.html": "53722e9072687f8e3f7139b77ed1851f8c9c4417de25dc337a4f3a2875d1a72a",
+    "index.html": "0fef2b06dd3f35c48bd93e4c4215017309af088da010919e145850687f874674",
+    "privacy.html": "aaef9b31484e1598645b8cfe5cb92e647a54380da4dcdf237d3f3082efee7eae",
+    "releases.html": "895e42404bd450c46abe1b25fa35ea8aea4d150d3679896d0b552cd225e9d4e1",
+    "site.js": "05da65a3e3be12983915599d1767715ef66bacd428c6b93623bbb7d71ed19434",
+    "styles.css": "41fd1d4da2257e28da9dfac39241135e7fd395a3e2b9ddccdba364280068ac92",
+    "usecases/compare-and-reuse/index.html": "60e76aed6adbaa42e5a1a3ee7043ab644860c88e27ed994abdff639e0784cf0d",
+    "usecases/index.html": "f094bababcfcf732846c0ab1e61ce685f1aa21f70da9b544d565ed236fac549a",
+    "usecases/project-memory/index.html": "d5ce42f14af4b979f11e4f1a804e419c156a47b177212a14bec787c38c2c15a3",
+    "usecases/review-workflows/index.html": "ae5f612fa8221ee9c13d4cdd2d8e0efe3b3223a4392479e9b85dccf5973e227e",
+    "usecases/session-review/index.html": "836701085258e859458a4437822f3b998afe02ad7bf3318592ca02db0927909c"
+  },
+  "rawReportSHA256": {
+    "route-checks.json": "3687345e0d5549b33fdc1c4928d4b600309bf3794c278b4629a39bf77ed2c861",
+    "interaction-checks.json": "764d73db386eaf54e4a25aadf99029789a1f0103cc64f7f2c69c4b1d04787f7f",
+    "deployed-routes.json": "a82c6c12d892ea2fb897c7d9e5c77d6671f17da2870eea49574d234e735c3dbd",
+    "publication.json": "9e1579bb93206c21558fbfc9baa1f4133fe1c445c4aadb2a446735f88470348a"
+  },
+  "limitations": [
+    "The full 20-step product Golden Scenario was not rerun and remains No-Go.",
+    "Website deployment does not publish a new macOS preview release.",
+    "The final privacy-only copy change was rechecked at 390 and 1280 pixels and on the live /privacy page."
+  ]
+}

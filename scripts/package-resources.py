@@ -1,29 +1,32 @@
 """Package only explicitly allowed UI resources and release metadata."""
 import pathlib, plistlib, shutil, sys
-from release_resources import NOTIFICATION_SOUNDS, validate_notification_sound
+from release_resources import (NOTIFICATION_SOUNDS, UI_RESOURCES,
+                               validate_notification_sound, validate_regular_resource,
+                               validate_ui_resources, copy_ui_resources)
 
 bundle = pathlib.Path(sys.argv[1]).resolve()
 channel = sys.argv[2]
 source = pathlib.Path(__file__).resolve().parents[1] / 'Sources/VelaApp/Resources/UI'
 target = bundle / 'Contents/Resources/UI'
+# Validate before replacing an existing resource directory. Only the named
+# development demo may coexist with the required release UI sources.
+validate_ui_resources(source, allow_development=True)
+validate_regular_resource(source.parent / 'Vela.icns')
+sounds = source.parent / 'Sounds'
+if sounds.is_symlink() or not sounds.is_dir():
+    raise ValueError('Notification sounds must be an ordinary source directory.')
+for name in NOTIFICATION_SOUNDS:
+    validate_notification_sound(sounds / name)
 if target.exists():
     shutil.rmtree(target)
-target.mkdir(parents=True)
-allowed = {'.html', '.css', '.js', '.svg', '.png', '.ico', '.woff2'}
-for path in source.rglob('*'):
-    if not path.is_file():
-        continue
-    if path.is_symlink() or path.suffix not in allowed or 'demo' in path.stem.lower():
-        continue
-    dest = target / path.relative_to(source)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(path, dest)
-shutil.copy2(source.parent / 'Vela.icns', bundle / 'Contents/Resources/Vela.icns')
+copy_ui_resources(source, target, source_allow_development=True)
+shutil.copy2(source.parent / 'Vela.icns', bundle / 'Contents/Resources/Vela.icns', follow_symlinks=False)
+validate_regular_resource(bundle / 'Contents/Resources/Vela.icns')
 for name in NOTIFICATION_SOUNDS:
-    sound = source.parent / 'Sounds' / name
-    validate_notification_sound(sound)
+    sound = sounds / name
     # UNNotificationSound(named:) resolves named files in the main app bundle.
-    shutil.copy2(sound, bundle / 'Contents/Resources' / name)
+    shutil.copy2(sound, bundle / 'Contents/Resources' / name, follow_symlinks=False)
+    validate_notification_sound(bundle / 'Contents/Resources' / name)
 info = {
     'CFBundleName': 'Vela', 'CFBundleDisplayName': 'Vela',
     'CFBundleIdentifier': 'ai.vela.desktop' + ('' if channel == 'stable' else '.' + channel),

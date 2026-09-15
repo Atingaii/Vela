@@ -1,0 +1,38 @@
+{
+  "format": "vela-native-website-visuals-v1",
+  "synthetic": true,
+  "imagesEdited": false,
+  "screenshots": [
+    {
+      "source": "output/playwright/native-desktop-brand-r4/vela-agents-39A1E6E6-9A5A-4A59-930C-E751AD406A0D.png",
+      "destination": "website/dist/assets/vela-reading.png",
+      "sha256": "090fff4e36516cc6b88b734d3e9ae9d71af1807845b6492e391cf39adcb65e4b",
+      "appJsSHA256": "209133271592358c39795ee7456745267db75dc93b03a5c3caebb76d4113c053"
+    },
+    {
+      "source": "output/playwright/native-desktop-brand-r4/vela-memory-B166AFE8-D390-41BE-8AD8-F1F5F0526769.png",
+      "destination": "website/dist/assets/vela-memory-current.png",
+      "sha256": "d3436e0f840378ef0c982cc153d754816841f6130ab5ea8b52985c5270cfc452",
+      "appJsSHA256": "209133271592358c39795ee7456745267db75dc93b03a5c3caebb76d4113c053"
+    },
+    {
+      "source": "output/playwright/native-desktop-brand-r4/vela-workflows-116D4A62-87C7-4E3D-9B7B-85B7201B1CBF.png",
+      "destination": "website/dist/assets/vela-workflows-current.png",
+      "sha256": "a076e28d7146aa32ec218617b2c9dc143ec70cecf63f31413213711a4a96437c",
+      "appJsSHA256": "209133271592358c39795ee7456745267db75dc93b03a5c3caebb76d4113c053"
+    },
+    {
+      "source": "output/playwright/native-desktop-brand-r4/vela-setup-3307AD11-E9A2-45BA-8D17-0590BC47DC37.png",
+      "destination": "website/dist/assets/vela-setup-current.png",
+      "sha256": "df91e0061a03f70999cfbe8e5b234d1583b1e7e9d3c98dc6b54eb914352517f2",
+      "appJsSHA256": "209133271592358c39795ee7456745267db75dc93b03a5c3caebb76d4113c053"
+    },
+    {
+      "source": "output/playwright/native-desktop-brand-r3/vela-inbox-2BDAFCC1-1071-4EB4-9F01-922EF8B68F28.png",
+      "destination": "website/dist/assets/vela-approval-current.png",
+      "sha256": "4c41fd6ea35bb27d723c7d5c8327d7f9b695a105048684767c176f665dfe9029",
+      "appJsSHA256": "8ab28beac10eb45639500518060bd16411d221bdb0b56b684ea46bba8c5cc1cc"
+    }
+  ],
+  "note": "Real WKWebView captures. Approval screenshot is from preceding UI freeze; later app change only protects menus during background refresh. None are screenshots of the published preview.2 release."
+}

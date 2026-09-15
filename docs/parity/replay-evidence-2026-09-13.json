@@ -1,0 +1,92 @@
+{
+  "format": "vela-bounded-replay-evidence-v1",
+  "recordedAt": "2026-09-13T07:27:26.723488+00:00",
+  "scope": "PX0-097/098/099 single contextual agent.run historical template comparison; composition and interpreted-wrapper compatibility remain open",
+  "coreTests": {
+    "count": 24,
+    "runner": "portable fallback, not XCTest",
+    "passed": true,
+    "receipt": "output/parity/replay-verified-focused.json",
+    "sourceSnapshotSHA256": "5817144514a9237d174bf13efbeff91ab5766763bae3f3886642bcf6373b3aa1",
+    "matchesWorkingTreeAtEnd": true
+  },
+  "cliConsumers": {
+    "receipt": "output/parity/replay-consumer-verified.json",
+    "helperSHA256": "17752e0248c7af9ef3fc7b5e376aed5193ad5422e686b61c2779df5dc63a7a05",
+    "fixtures": [
+      {
+        "shape": "stdin",
+        "inputSHA256": "fca615d4f950fadfd4ea1533a12aa4d3a7fd3ebcf5971282a2ed5b3232a4a8bd",
+        "fixtureSHA256": "924f2a5e74b3505282e76a2117af008293918344d3de21fd963bb72b73db4903",
+        "requestSHA256": "9b866a76f5a588a00101f82c05bc758fe6c39ade5cf244deff72682b791c1c01",
+        "outputSHA256": [
+          "c060b1b3ac1684a45353d1f3a83c6a9e241dc6b87c41e3c7869a7ce246ae8956",
+          "8387ccd72e09059a8a3205c670296906c656863afa4d25ef6290e1934d35aec3"
+        ],
+        "syntheticModelCalls": 2,
+        "toolCalls": 0,
+        "semanticEffect": "unknown"
+      },
+      {
+        "shape": "captured_git_status",
+        "inputSHA256": "c01609cde2ef8d98f23002131a089728db1bafdf63b179b966df6f96fe2458f1",
+        "fixtureSHA256": "bf3585d155e4a2887066efa60df5a9725ede6ee935894d930e7916585dc117cc",
+        "requestSHA256": "3b605e4497a1e6c5e60c1408469059d217635185e525b87a0011be693b1ee1da",
+        "outputSHA256": [
+          "c060b1b3ac1684a45353d1f3a83c6a9e241dc6b87c41e3c7869a7ce246ae8956",
+          "8387ccd72e09059a8a3205c670296906c656863afa4d25ef6290e1934d35aec3"
+        ],
+        "syntheticModelCalls": 2,
+        "toolCalls": 0,
+        "semanticEffect": "unknown"
+      }
+    ],
+    "syntheticCalls": 4,
+    "realProviderCalls": 0
+  },
+  "nativeEntrypointVersion": {
+    "receipt": "output/parity/replay-native-codex-version.json",
+    "version": "codex-cli 0.154.0",
+    "modelCalls": 0,
+    "accountCalls": 0,
+    "proves": "private native copy starts for version inspection only; not a real replay inference"
+  },
+  "independentReview": {
+    "findings": [
+      "project-level 10000-row window concealed payload cleanup",
+      "hash before path-based spawn did not bind entrypoint bytes"
+    ],
+    "resolution": [
+      "fixture-filtered narrow SQL, 128-payload batches and explicit prune cursors",
+      "single SHA256-verified 0700-directory/0500 native entrypoint copy for A/B; wrappers rejected"
+    ],
+    "reviewer": "plan_schema_review",
+    "reReview": "both original findings resolved; no new confirmed static defect; reviewer did not rerun tests"
+  },
+  "limitations": [
+    "no semantic improvement claim",
+    "no composition replay claim",
+    "native entrypoint only; dynamic dependency closure is not frozen",
+    "already sent model input cannot be recalled",
+    "logical payload deletion does not erase original runs or SQLite WAL",
+    "UI not implemented in this slice; no full-product parity claim"
+  ],
+  "cleanup": {
+    "temporaryFixturesStoresCompilerSourcesExecutables": true,
+    "preserved": [
+      "output/parity evidence",
+      ".build reusable project dependency/build state"
+    ]
+  },
+  "ownedSHA256": {
+    "Sources/VelaCore/ReplayFixture.swift": "1c51348f90cd822a9d7adfb850e5154180c28c6b8a4b1e309023cc16b5ffb135",
+    "Sources/VelaCore/WorkflowReplay.swift": "4fd6b613c0dcee35239d23e2e1ed71c9eed30200fa5b5f5ddf5dc501b521c93c",
+    "Sources/VelaCore/ReplayExecutableSnapshot.swift": "9cd069ecf06a8451a6a9ac12133962b2927c36233732c0079c4f3b9894f6505c",
+    "Tests/VelaCoreTests/WorkflowReplayTests.swift": "c6c0e900a7efc01bf237e3366d98d3a8af71e640fdcde538114cf2d7ae3cdd08",
+    "docs/adr/0028-historical-workflow-replay.md": "da10c7eb1f3319e45bda10a0e30fa4115f7855f357ca1b52c7cc2ebacee35056",
+    "docs/implementation/workflow-replay-contract.md": "7e1f38f76f8861ee551dc91c8c91b691cc19a5417007a8bf3b10b3c8bf305a53",
+    "scripts/native_provider_fixture.py": "90eca4455568a7b627d5cbc4cc91edaeafb4702d582274313d088422307011ac",
+    "scripts/test-workflow-replay-rpc.py": "35b3d01c68dee11cc4b27e331157639da035b656c5bdf1ef5872d8cb632f638f",
+    "scripts/verify-replay-native-version.py": "6e184de67037521e3c25ba52a6424f25af8cd982ac312895bd0b2210cbbb1daf"
+  }
+}

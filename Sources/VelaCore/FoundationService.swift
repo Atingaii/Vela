@@ -6,10 +6,24 @@ public final class FoundationService {
     private let memory: MemoryService
     private let lock = NSRecursiveLock()
     private let globalHome: URL
+    private let quotas: ProviderQuotaService
+    private let setup: SetupInventoryService
+    private let history: SessionHistoryService
+    private let ingestionExclusions: IngestionExclusionService
 
     public init(store: VelaStore, sourceRoots: [String:[URL]]? = nil, globalHome: URL? = nil) {
         self.globalHome = globalHome ?? FileManager.default.homeDirectoryForCurrentUser
         self.store = store; sessions = SessionEngine(store:store,sourceRoots:sourceRoots); memory = MemoryService(store:store)
+        quotas = ProviderQuotaService(store:store)
+        setup = SetupInventoryService(store:store,home:self.globalHome)
+        history = SessionHistoryService(store: store, roots: sessions.sourceRoots)
+        ingestionExclusions = IngestionExclusionService(store:store)
+        ingestionExclusions.knownSource = { [weak sessions, weak history] project, provider, glob in
+            (history?.hasKnownSource(project:project,provider:provider,glob:glob) ?? false) ||
+            (sessions?.hasKnownSource(project:project,provider:provider,glob:glob) ?? false)
+        }
+        store.ingestionSourceRelativePath = { [weak sessions] path, provider in sessions?.relativeSourcePath(URL(fileURLWithPath:path),provider:provider) }
+        ingestionExclusions.relativeSourcePath = store.ingestionSourceRelativePath
     }
     public var onChange: (() -> Void)? { get { sessions.onChange } set { sessions.onChange = newValue } }
     public func startWatching() {
@@ -21,8 +35,16 @@ public final class FoundationService {
     }
     public func stopWatching() { sessions.stopWatching() }
     public func handle(_ method: String, _ params: JSON) throws -> Any? {
+        if let result = try quotas.handle(method,params) { return result }
+        if let result = try history.handle(method,params) { return result }
+        if let result = try ingestionExclusions.handle(method,params) {
+            return result
+        }
         lock.lock(); defer { lock.unlock() }
         if let result = try memory.handle(method,params) { return result }
+        if let result = try setup.handle(method,params) { return result }
+        if let result = try SessionPlanService.handle(method,params,store:store) { return result }
+        if let result = try SessionRelationService.handle(method,params,store:store) { return result }
         switch method {
         case "dashboard.get":
             var dashboard: JSON = [:]
@@ -59,14 +81,12 @@ public final class FoundationService {
             return try store.sessionSummaries(project:checkedProject(params),query:query).map(sessionSummary)
         case "sessions.get":
             guard var session = try store.get("session",try requireString(params,"id")) else { throw VelaError("Session not found") }
+            let plan = try store.get("session_plan",string(session,"id")) ?? [:]
+            if plan.isEmpty || string(plan,"project") == string(session,"project") {
+                session["plan"] = SessionPlanProjection.visible(plan, provider:string(session,"provider"),historyTruncated:session["historyTruncated"] as? Bool == true)
+            }
             session.removeValue(forKey:"usageByMessage"); return inferredSession(session)
         case "usage.get": return try usage(params)
-        case "setup.list": return try setupList(params)
-        case "setup.scan": return try scanSetup(params)
-        case "setup.audit":
-            _ = try scanSetup(params)
-            let items = try setupList(params)
-            return ["artifacts":items,"diagnostics":items.flatMap { $0["diagnostics"] as? [JSON] ?? [] },"auditedAt":isoNow(),"method":"deterministic content, syntax, duplication and context-size checks"] as JSON
         default: return nil
         }
     }
@@ -89,104 +109,52 @@ public final class FoundationService {
     private func agentList() -> [JSON] {
         let home = globalHome
         let paths = (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator:":").map(String.init) + ["/opt/homebrew/bin","/usr/local/bin",home.appendingPathComponent(".local/bin").path]
-        return ["claude","codex","cursor"].map { provider in
+        return ["claude","codex","cursor","pi","omp"].map { provider in
             let executable = paths.map { URL(fileURLWithPath:$0).appendingPathComponent(provider).path }.first { FileManager.default.isExecutableFile(atPath:$0) }
             let sources = sessions.sourceRoots[provider] ?? []
-            return ["id":provider,"provider":provider,"title":provider == "claude" ? "Claude Code" : provider.capitalized,"installed":executable != nil || sources.contains { FileManager.default.fileExists(atPath:$0.path) },"executable":executable as Any? ?? NSNull(),"sourceDirectories":sources.map(\.path),"quotaAvailable":false,"liveStatusAvailable":false,"capabilities":provider == "cursor" ? ["JSON/JSONL exports","known read-only SQLite composer records"] : ["bounded JSONL history","incremental log ingestion","observed token usage"]] as JSON
+            let title = provider == "claude" ? "Claude Code" : provider == "omp" ? "OMP" : provider.capitalized
+            let capabilities = provider == "cursor" ? ["JSON/JSONL exports","known read-only SQLite composer records"] : (provider == "pi" || provider == "omp") ? ["versioned JSONL history","persisted branch ancestry","source-linked tool events","observed token usage"] : ["bounded JSONL history","incremental log ingestion","observed token usage"]
+            return ["id":provider,"provider":provider,"title":title,"installed":executable != nil || sources.contains { FileManager.default.fileExists(atPath:$0.path) },"executable":executable as Any? ?? NSNull(),"sourceDirectories":sources.map(\.path),"quotaAvailable":false,"quotaReadSupported":provider == "codex","liveStatusAvailable":false,"capabilities":capabilities] as JSON
         }
     }
     private func usage(_ params: JSON) throws -> JSON {
         let all = try store.sessionSummaries(project:checkedProject(params),limit:10000)
-        var providers: [String:JSON] = [:]; var daily: [String:Int] = [:]
-        for item in all {
-            let provider = string(item,"provider","unknown"); var bucket = providers[provider] ?? ["provider":provider,"inputTokens":0,"outputTokens":0,"totalTokens":0,"sessionCount":0,"quotaAvailable":false]
-            let input = intValue(item,"tokenInput"), output = intValue(item,"tokenOutput")
-            bucket["inputTokens"] = intValue(bucket,"inputTokens") + input; bucket["outputTokens"] = intValue(bucket,"outputTokens") + output
-            bucket["totalTokens"] = intValue(bucket,"totalTokens") + input + output; bucket["sessionCount"] = intValue(bucket,"sessionCount") + 1
-            providers[provider] = bucket
-            let date = String(string(item,"startedAt",string(item,"createdAt")).prefix(10)); daily[date,default:0] += input + output
-        }
-        return ["providers":providers.keys.sorted().compactMap { providers[$0] },"daily":daily.keys.sorted().map { ["date":$0,"tokens":daily[$0]!] as JSON },"totalTokens":providers.values.reduce(0) { $0 + intValue($1,"totalTokens") },"sessionCount":all.count,"coverage":"observed indexed logs only; daily totals attributed to session start date","quotaAvailable":false,"costAvailable":false,"historyFullyIndexed":false]
-    }
-    private func setupList(_ params: JSON) throws -> [JSON] {
-        try store.list("artifact",project:checkedProject(params),limit:10000).filter { string($0,"origin") == "setup" }
-    }
-    private func scanSetup(_ params: JSON) throws -> JSON {
-        let explicitProject = try checkedProject(params)
-        let projects: [String]
-        if let explicitProject { projects = [explicitProject] }
-        else { projects = try store.list("project").map { string($0,"path") }.filter { !$0.isEmpty } }
-        let home = globalHome
-        var candidates: [(URL,String,String,String)] = [
-            (home.appendingPathComponent(".claude/CLAUDE.md"),"global","claude","instruction"),
-            (home.appendingPathComponent(".claude/settings.json"),"global","claude","configuration"),
-            (home.appendingPathComponent(".claude.json"),"global","claude","configuration"),
-            (home.appendingPathComponent(".codex/AGENTS.md"),"global","codex","instruction"),
-            (home.appendingPathComponent(".codex/config.toml"),"global","codex","configuration"),
-            (home.appendingPathComponent(".cursor/mcp.json"),"global","cursor","mcp")
-        ]
-        for project in projects {
-            let root = URL(fileURLWithPath:project)
-            for (path,provider,type) in [("AGENTS.md","shared","instruction"),("CLAUDE.md","claude","instruction"),(".claude/settings.json","claude","configuration"),(".claude/settings.local.json","claude","configuration"),(".mcp.json","shared","mcp"),(".cursor/mcp.json","cursor","mcp"),(".codex/config.toml","codex","configuration")] { candidates.append((root.appendingPathComponent(path),project,provider,type)) }
-            for (relative,provider,type) in [(".claude/skills","claude","skill"),(".agents/skills","shared","skill"),(".cursor/rules","cursor","rule"),(".claude/commands","claude","command")] {
-                let directory = root.appendingPathComponent(relative)
-                guard canonicalProject(directory.path).hasPrefix(project + "/"), let iterator = FileManager.default.enumerator(at:directory,includingPropertiesForKeys:[.isRegularFileKey,.isSymbolicLinkKey],options:[.skipsHiddenFiles]) else { continue }
-                var count = 0
-                for case let file as URL in iterator {
-                    count += 1; if count > 1000 { break }
-                    let metadata = try? file.resourceValues(forKeys:[.isRegularFileKey,.isSymbolicLinkKey])
-                    guard metadata?.isRegularFile == true,metadata?.isSymbolicLink != true, ["md","mdc"].contains(file.pathExtension.lowercased()) else { continue }
-                    candidates.append((file,project,provider,type))
-                }
+        func aggregate(_ items: [JSON]) -> JSON {
+            var inputs: [Int] = [], outputs: [Int] = [], observedInputs: [Int] = [], observedOutputs: [Int] = []
+            var observedSessions = 0, completeSessions = 0
+            for item in items {
+                let input = usageTokenCount(item["tokenInput"]), output = usageTokenCount(item["tokenOutput"])
+                let observedInput = usageTokenCount(item["observedTokenInput"] ?? item["tokenInput"])
+                let observedOutput = usageTokenCount(item["observedTokenOutput"] ?? item["tokenOutput"])
+                if let input { inputs.append(input) }; if let output { outputs.append(output) }
+                if let observedInput { observedInputs.append(observedInput) }; if let observedOutput { observedOutputs.append(observedOutput) }
+                if observedInput != nil || observedOutput != nil { observedSessions += 1 }
+                if let input, let output, usageTokenSum([input,output]) != nil, item["usageAvailable"] as? Bool != false { completeSessions += 1 }
             }
+            let observedInput = usageTokenSum(observedInputs), observedOutput = usageTokenSum(observedOutputs)
+            let observedTotal = usageTokenSum(observedInputs + observedOutputs)
+            let input = inputs.count == items.count ? usageTokenSum(inputs) : nil
+            let output = outputs.count == items.count ? usageTokenSum(outputs) : nil
+            let total = completeSessions == items.count ? usageTokenSum(inputs + outputs) : nil
+            let overflow = items.contains { string($0,"usageStatus") == "overflow" } ||
+                (!observedInputs.isEmpty && observedInput == nil) || (!observedOutputs.isEmpty && observedOutput == nil) ||
+                ((!observedInputs.isEmpty || !observedOutputs.isEmpty) && observedTotal == nil)
+            let available = total != nil && !overflow
+            return ["inputTokens":input as Any? ?? NSNull(),"outputTokens":output as Any? ?? NSNull(),"totalTokens":(available ? total : nil) as Any? ?? NSNull(),
+                    "observedInputTokens":observedInput as Any? ?? NSNull(),"observedOutputTokens":observedOutput as Any? ?? NSNull(),
+                    "observedTotalTokens":(overflow ? nil : observedTotal) as Any? ?? NSNull(),
+                    "usageAvailable":available,"coverage":overflow ? "overflow" : available ? "complete" : observedSessions > 0 ? "partial" : "unavailable",
+                    "sessionCount":items.count,"observedSessionCount":observedSessions,"missingUsageSessionCount":items.count - completeSessions,"quotaAvailable":false]
         }
-        var items: [JSON] = []; var duplicateHashes: [String:String] = [:]; var seenPaths: Set<String> = []
-        for (url,scope,provider,type) in candidates where FileManager.default.fileExists(atPath:url.path) {
-            guard seenPaths.insert(url.path).inserted else { continue }
-            var item: JSON = ["id":stableHash("setup:" + url.path),"origin":"setup","title":url.lastPathComponent,"type":type,"scope":scope == "global" ? "global" : "project","provider":provider,"path":url.path,"project":scope == "global" ? "" : scope,"state":"active"]
-            var diagnostics: [JSON] = []
-            do {
-                let meta = try url.resourceValues(forKeys:[.fileSizeKey,.isRegularFileKey,.isSymbolicLinkKey])
-                guard meta.isRegularFile == true,meta.isSymbolicLink != true, (meta.fileSize ?? Int.max) <= 1024 * 1024 else { throw VelaError("Skipped nonregular, symlinked or larger than 1 MB setup file") }
-                if scope != "global", !canonicalProject(url.path).hasPrefix(scope + "/") { throw VelaError("Setup file resolves outside the selected project") }
-                guard let content = String(data:try Data(contentsOf:url),encoding:.utf8) else { throw VelaError("Setup file is not UTF-8") }
-                let sanitized: String
-                if url.pathExtension == "json" {
-                    do { let value = try JSONSerialization.jsonObject(with:Data(content.utf8)); sanitized = try jsonString(["configuration":redactJSON(value)]) }
-                    catch { sanitized = redactText(content); diagnostics.append(["severity":"error","code":"invalid-json","path":url.path,"message":"Configuration is not valid JSON: \(error.localizedDescription)"]) }
-                } else { sanitized = redactText(content) }
-                let hash = stableHash(content); let tokens = tokenEstimate(sanitized)
-                item["content"] = sanitized; item["hash"] = hash; item["tokens"] = tokens; item["redacted"] = sanitized != content
-                if let other = duplicateHashes[hash], !content.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty { diagnostics.append(["severity":"info","code":"duplicate-content","path":url.path,"relatedPath":other,"message":"Identical content is present in another scanned file; verify whether both are loaded by your agent."]) }
-                duplicateHashes[hash] = url.path
-                if tokens > 6000 { diagnostics.append(["severity":"warning","code":"large-context","path":url.path,"message":"Conservative context estimate exceeds 6,000 tokens; review always-loaded instructions."]) }
-                if type == "configuration", sanitized.contains("hooks") { item["containsHooks"] = true }
-                if sanitized.contains("mcpServers") || sanitized.contains("mcp_servers") { item["containsMCP"] = true }
-            } catch { item["content"] = ""; diagnostics.append(["severity":"warning","code":"unreadable-source","path":url.path,"message":error.localizedDescription]) }
-            item["diagnostics"] = diagnostics; items.append(try store.put("artifact",item))
+        let providers = Dictionary(grouping:all,by:{ string($0,"provider","unknown") })
+        let days = Dictionary(grouping:all,by:{ String(string($0,"startedAt",string($0,"createdAt")).prefix(10)) })
+        var result = aggregate(all)
+        result["providers"] = providers.keys.sorted().map { key -> JSON in var bucket = aggregate(providers[key]!); bucket["provider"] = key; return bucket }
+        result["daily"] = days.keys.sorted().map { key -> JSON in
+            var day = aggregate(days[key]!); day["date"] = key; day["tokens"] = day["totalTokens"]; day["observedTokens"] = day["observedTotalTokens"]; return day
         }
-        // Only remove stale indexed setup metadata from exactly the scopes scanned; never touch source files.
-        let scannedScopes = Set(projects + [""])
-        for item in try store.list("artifact",limit:10000) where string(item,"origin") == "setup" && scannedScopes.contains(string(item,"project")) && !seenPaths.contains(string(item,"path")) { try store.remove("artifact",string(item,"id")) }
-        return ["artifacts":items,"diagnostics":items.flatMap { $0["diagnostics"] as? [JSON] ?? [] },"scannedProjects":projects,"globalScope":"known agent configuration files only","sourceFilesModified":false,"scannedAt":isoNow()]
-    }
-    private func redactJSON(_ value: Any, key: String = "", insideEnvironment: Bool = false) -> Any {
-        let sensitive = key.range(of:"(?i)(api.?key|token|secret|password|authorization|credential|cookie)",options:.regularExpression) != nil
-        if sensitive { return "[REDACTED]" }
-        if let dictionary = value as? JSON { return dictionary.reduce(into: JSON()) { output, entry in output[entry.key] = redactJSON(entry.value,key:entry.key,insideEnvironment:insideEnvironment || key.lowercased() == "env" || key.lowercased() == "headers") } }
-        if let array = value as? [Any] { return array.map { redactJSON($0,key:key,insideEnvironment:insideEnvironment) } }
-        if insideEnvironment { return "[REDACTED]" }
-        if let text = value as? String { return redactText(text) }
-        return value
-    }
-    private func redactText(_ text: String) -> String {
-        var result = text
-        for (pattern,replacement) in [
-            ("(?i)(bearer\\s+)[A-Za-z0-9._~+/=-]+","$1[REDACTED]"),
-            ("(?i)((?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret|authorization)\\s*[=:]\\s*)[^\\n,}]+","$1[REDACTED]"),
-            ("(?i)(--(?:api-key|token|password|secret)(?:=|\\s+))\\S+","$1[REDACTED]"),
-            ("\\b(?:sk-[A-Za-z0-9_-]{12,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\\b","[REDACTED]")
-        ] { result = result.replacingOccurrences(of:pattern,with:replacement,options:.regularExpression) }
+        result["coverageDescription"] = "observed indexed logs only; completeness applies to selected indexed sessions, not full provider history; daily totals attributed to session start date"
+        result["costAvailable"] = false; result["historyFullyIndexed"] = false
         return result
     }
 }

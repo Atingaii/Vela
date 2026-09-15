@@ -1,0 +1,215 @@
+{
+  "format": "vela-golden-source-chain-r2-public-evidence-v1",
+  "recordedAt": "2026-09-13",
+  "completeGoldenScenario": false,
+  "completeProductAcceptance": false,
+  "scope": "Controlled local project and controlled correction stimuli; raw provider records remain local and are represented here only by hashes.",
+  "helperSHA256": "f05dc75ad935b59828f46f296f1a5aa5e58439c44db03188dd842a71c3c0d86e",
+  "requestedModel": "gpt-5.6-terra",
+  "requestedReasoningEffort": "high",
+  "providerResolvedModelVersion": null,
+  "r1HistoricalFailureRetained": {
+    "publicEvidence": "docs/parity/golden-source-chain-evidence-2026-09-13.json",
+    "supersededByR2": false
+  },
+  "sourceChain": {
+    "providerTurns": 4,
+    "distinctProviderSessions": 2,
+    "allProviderExitCodesZero": true,
+    "watcherManualRefresh": false,
+    "manualCandidateWrites": false,
+    "postVerificationStatus": "passed",
+    "exactRawProviderMessageMappings": 4,
+    "automaticCandidateMemories": 3,
+    "verificationClusters": 1,
+    "evidenceLinkedSuggestions": 1,
+    "rawSourceSHA256": [
+      "804e40c28c2ec229eb347599233fbc9a3d0efa63505531dcbe1d2f224679f331",
+      "8d7ed0559e13ae811fe7b089b8d753533e9cd7960d51ed8ecb1aa60009d9fa13"
+    ]
+  },
+  "labFreeze": {
+    "approvalSubmitted": true,
+    "approvalIdHash": "ca7413d5add959f4b6e549cf57b2a0b28d1b141cb6d91c4678978314079a8453",
+    "evaluationIdHash": "931461e1a29a594246dec8a7ea922c52ed3507f5d2fbffee6b9da6a59cd47976",
+    "sourceRelationship": "evaluates_linked_memory",
+    "candidateMemoryCount": 3,
+    "baselineMemoryCount": 0,
+    "repetitionsPerVariant": 3,
+    "requiredResults": 6,
+    "timeoutSeconds": 240,
+    "taskSHA256": "19c780495e86b74109d8ef1a14343486255fa37d37b0515de8a607d2d1eb16bb",
+    "protectedVerifierSHA256": [
+      {
+        "path": "verify.py",
+        "sha256": "6fb2fd6fe12904a718ccb5843d80fb8ff992d6f059efac63d416dc5690450f8a"
+      },
+      {
+        "path": "README.md",
+        "sha256": "094e5f2d0a79772bbfde804e2764b0a55dc39bac9e197a6c4e102e8dd42e1f05"
+      }
+    ],
+    "allowedOutputPaths": [
+      "bounds.py"
+    ]
+  },
+  "labExecution": {
+    "status": "completed_no_auto_promotion",
+    "providerRuns": 6,
+    "allRunsExitZero": true,
+    "allRunsProtocolComplete": true,
+    "allIndependentVerifiersExitZero": true,
+    "anyTimeout": false,
+    "projectSnapshotUnchanged": true,
+    "gitStatusUnchanged": true,
+    "temporaryCredentialLinkRemoved": true,
+    "credentialCopied": false,
+    "remainingOwnedWorktrees": 0,
+    "resultRows": [
+      {
+        "index": 1,
+        "variant": "baseline",
+        "repetition": 1,
+        "providerReportedInputTokens": 76768,
+        "providerReportedOutputTokens": 1366,
+        "providerReportedTotalTokens": 78134,
+        "exitCode": 0,
+        "timedOut": false,
+        "providerProtocolComplete": true,
+        "testExecutionObserved": true,
+        "independentVerifierExitCode": 0,
+        "rawResultSHA256": "472576bd84d2ea7df11907e9b30461d774e5c02c68352618b3e6033479b17944"
+      },
+      {
+        "index": 2,
+        "variant": "candidate",
+        "repetition": 1,
+        "providerReportedInputTokens": 106961,
+        "providerReportedOutputTokens": 1593,
+        "providerReportedTotalTokens": 108554,
+        "exitCode": 0,
+        "timedOut": false,
+        "providerProtocolComplete": true,
+        "testExecutionObserved": true,
+        "independentVerifierExitCode": 0,
+        "rawResultSHA256": "3919d30bcae6307ffc2fa7b15f73937166f111119dd026bd0ca877ea03fb5d23"
+      },
+      {
+        "index": 3,
+        "variant": "candidate",
+        "repetition": 2,
+        "providerReportedInputTokens": 93247,
+        "providerReportedOutputTokens": 1577,
+        "providerReportedTotalTokens": 94824,
+        "exitCode": 0,
+        "timedOut": false,
+        "providerProtocolComplete": true,
+        "testExecutionObserved": null,
+        "independentVerifierExitCode": 0,
+        "rawResultSHA256": "fa5ef1b78a80d620437ecd05919afc2f905b7f8c5f9f42a5eece8c4a250331fe"
+      },
+      {
+        "index": 4,
+        "variant": "baseline",
+        "repetition": 2,
+        "providerReportedInputTokens": 76038,
+        "providerReportedOutputTokens": 1483,
+        "providerReportedTotalTokens": 77521,
+        "exitCode": 0,
+        "timedOut": false,
+        "providerProtocolComplete": true,
+        "testExecutionObserved": true,
+        "independentVerifierExitCode": 0,
+        "rawResultSHA256": "5e0f87678aa8f1d875a9d98fe288c412ab42fac0182bb0a4afcd1efeee59acf3"
+      },
+      {
+        "index": 5,
+        "variant": "baseline",
+        "repetition": 3,
+        "providerReportedInputTokens": 75204,
+        "providerReportedOutputTokens": 1507,
+        "providerReportedTotalTokens": 76711,
+        "exitCode": 0,
+        "timedOut": false,
+        "providerProtocolComplete": true,
+        "testExecutionObserved": true,
+        "independentVerifierExitCode": 0,
+        "rawResultSHA256": "6b6f0181006e6bc605c755794aba6b24a508b442e70556fe8b1f292ad197cdb6"
+      },
+      {
+        "index": 6,
+        "variant": "candidate",
+        "repetition": 3,
+        "providerReportedInputTokens": 91356,
+        "providerReportedOutputTokens": 1155,
+        "providerReportedTotalTokens": 92511,
+        "exitCode": 0,
+        "timedOut": false,
+        "providerProtocolComplete": true,
+        "testExecutionObserved": true,
+        "independentVerifierExitCode": 0,
+        "rawResultSHA256": "c997a8c088f2e7f1429f3309741a393ae63c39a6f6750d2efafc456169659c97"
+      }
+    ]
+  },
+  "comparison": {
+    "decision": "reject",
+    "reasons": [
+      "Unclassified test execution is unavailable, not zero.",
+      "Candidate token usage exceeds the frozen 20% / 100-token tolerance."
+    ],
+    "baseline": {
+      "runs": 3,
+      "successfulRuns": 3,
+      "providerReportedTokenTotal": 232366,
+      "providerReportedTokenAverage": 77455.33333333333,
+      "testExecutionObservationCoverage": 3,
+      "testExecutingRuns": 3
+    },
+    "candidate": {
+      "runs": 3,
+      "successfulRuns": 3,
+      "providerReportedTokenTotal": 295889,
+      "providerReportedTokenAverage": 98629.66666666667,
+      "testExecutionObservationCoverage": 2,
+      "testExecutingRuns": null
+    },
+    "candidateToBaselineTokenAverageRatio": 1.2733747622285534,
+    "tokenAccounting": "Provider-reported input_tokens plus output_tokens; cached and reasoning fields remain retained in local raw evidence. No price or currency inference is made.",
+    "promotionAttempted": true,
+    "promotionRejectedForNonReadyDecision": true
+  },
+  "laterHarnessCorrection": {
+    "script": "scripts/test-golden-live.py",
+    "scriptSHA256": "75d6dcd6243bbbf04fa5448363747899a47e775bdb3ccd8bc7be79a0bf467a12",
+    "evidence": "output/parity/golden-source-wire-newline-regression-2026-09-13.json",
+    "behavior": "Post-r2 correction validates exact newline-preserving raw user content and ID mapping; it is zero-provider and does not change the retained r2 live failure receipt.",
+    "r2LiveReceiptUnchanged": true
+  },
+  "conclusions": [
+    "The reject is a functioning guard: it prevented promotion after token regression and incomplete candidate test-execution observation.",
+    "This controlled result establishes neither a beneficial candidate nor reduced future correction friction.",
+    "GS20 and all future-effect claims remain not completed."
+  ],
+  "localEvidenceSHA256": {
+    "output/parity/golden-live-r2/receipt.json": "0be90f7ec5cc9cb1fb7b4c118f2a5023f66b4f42703920170c2313ddd2933e17",
+    "output/parity/golden-live-r2/01-task.stdout.jsonl": "db0a1d991a2daf6f66c66424e05d4d787c507bb8f84b0f81ac9f43d63dfaa721",
+    "output/parity/golden-live-r2/02-first-constraint.stdout.jsonl": "5aeb526d7c05738a5b9919d8541745e80d2e3e11522528db656df8933f3cd96c",
+    "output/parity/golden-live-r2/03-new-session-correction.stdout.jsonl": "03dd7d092c679b0032ea30cdf53f1dafdae36bb0652add2e52ddcfdc9b37f58d",
+    "output/parity/golden-live-r2/04-second-constraint.stdout.jsonl": "6e4ea70d8bde18b8df0d3f50fb62581b386919ea816d0d05acba163bf24a595b",
+    "output/parity/golden-live-r2-postverify-fixed/receipt.json": "80a4556077352c7b6ac5fa0dd080be52b52764f1a21481bceba21793ce0ac229",
+    "output/parity/golden-live-r2-lab-freeze/receipt.json": "5aa0c83fe751e1a7c44977c3fa604e0cbe7508be23aeb242773ca8701ac1af8a",
+    "output/parity/golden-live-r2-lab-freeze/frozen-request.json": "fb96dead0385972b2f4cfd4a38ffc189927ce4ae83d971974e4b2742f11360fb",
+    "output/parity/golden-live-r2-lab-execution/receipt.json": "e0d1b1d97cc812293d7bc4c18304b35270cd5fe1b9aa4f765117e3c3c76452b1",
+    "output/parity/golden-live-r2-lab-execution/evaluation.json": "dab9ffd270832148691f730151a4b9d16c2f8dbead672c8df7555ddfac3543b5",
+    "output/parity/golden-live-r2-lab-execution/approval-result.json": "be2a06008f75098878c8d4051cf68af7b6676c25d43548c7a943df6db2fdf157",
+    "output/parity/golden-live-r2-lab-execution/project-before.json": "9374bbc18bc2ef4b9eb5e0f9ed0f6ddf89a2c253daff1bd14004cc63b47fbfe4",
+    "output/parity/golden-live-r2-lab-execution/project-after.json": "9374bbc18bc2ef4b9eb5e0f9ed0f6ddf89a2c253daff1bd14004cc63b47fbfe4",
+    "output/parity/golden-live-r2-lab-execution/agent-result-1.jsonl": "472576bd84d2ea7df11907e9b30461d774e5c02c68352618b3e6033479b17944",
+    "output/parity/golden-live-r2-lab-execution/agent-result-2.jsonl": "3919d30bcae6307ffc2fa7b15f73937166f111119dd026bd0ca877ea03fb5d23",
+    "output/parity/golden-live-r2-lab-execution/agent-result-3.jsonl": "fa5ef1b78a80d620437ecd05919afc2f905b7f8c5f9f42a5eece8c4a250331fe",
+    "output/parity/golden-live-r2-lab-execution/agent-result-4.jsonl": "5e0f87678aa8f1d875a9d98fe288c412ab42fac0182bb0a4afcd1efeee59acf3",
+    "output/parity/golden-live-r2-lab-execution/agent-result-5.jsonl": "6b6f0181006e6bc605c755794aba6b24a508b442e70556fe8b1f292ad197cdb6",
+    "output/parity/golden-live-r2-lab-execution/agent-result-6.jsonl": "c997a8c088f2e7f1429f3309741a393ae63c39a6f6750d2efafc456169659c97"
+  }
+}

@@ -1,0 +1,202 @@
+{
+  "format": "vela-local-store-backup-acceptance-v1",
+  "date": "2026-09-14",
+  "baseCommit": "5fe2cf1fab5ff956be156b912f2be8eb80793ab0",
+  "scope": "CLI local full-store backup/restore; not full product, UI, remote or release acceptance",
+  "decision": "docs/adr/0044-complete-local-store-backup-and-recovery.md",
+  "rootHelperSHA256": "250eb1b411a52e0afa5ae1f620286eeaa5139cb7c7d774273fcf1e693f91e346",
+  "rootBuildLog": {
+    "path": "output/parity/store-backup-root-build-r1.log",
+    "sha256": "4e6381e19db6db62e522277e87d9402dea0a96f98075666c61aacc72f02a4a56"
+  },
+  "buildInputs": {
+    "Sources/CSQLite/module.modulemap": "bbfe59a972a3e8e09e347c04bc22c0eacd2544881af8a4b6068bfc30b38466e8",
+    "Sources/CSQLite/shim.h": "b052d8e561e942f97b503033ecd2eaa2b35213bdbf374983efe9e68eabdfc024",
+    "Sources/VelaApp/Localization.swift": "4535648393e9468ea3400ae537bd5a84328e15a40308ad626cc1b062542a2136",
+    "Sources/VelaApp/Resources/Design/README.md": "4afb0cbe804c800b376875a46c1cde8c92a641cc51c15488a58014249a542bf7",
+    "Sources/VelaApp/Resources/Design/app-icon.png": "c94f3a4a2b7910ce92ccba770ec974024c24426abbdefc14196992a52227eb18",
+    "Sources/VelaApp/Resources/Design/app-icon.svg": "a57fb6851b42c95534c81d8d7740d30d71f7f5f6d0ff380b26a4c70d456a72aa",
+    "Sources/VelaApp/Resources/Design/generate-sounds.py": "3170f42837ca50ddde09c511b9929b86b3aeb49cf67311f48a833a4386f6246d",
+    "Sources/VelaApp/Resources/Design/mark.svg": "f3b3e9d694b4505013dc45b687bea5aa882d2a67b07ffd787815234317943b78",
+    "Sources/VelaApp/Resources/Sounds/vela-approval.wav": "0c399c3e60bbb5adc4f80fceba4a5bd81c3dbd60c3df6dada46ff75cce9c2635",
+    "Sources/VelaApp/Resources/Sounds/vela-completed.wav": "240bdb6816d12423e16dee0eb7128f5cfb8eca38d4cfbc05135fcc55671ed00a",
+    "Sources/VelaApp/Resources/Sounds/vela-error.wav": "e8942535396f882bf381d19afe0952f67e30e2620bca4df8005f0ee6903ea374",
+    "Sources/VelaApp/Resources/UI/app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+    "Sources/VelaApp/Resources/UI/app.css": "0544e72261d603878892064dac115430e3bbda4b71affa4b3270f0ffc6c9e939",
+    "Sources/VelaApp/Resources/UI/app.js": "c5e25f5ec26bafeb17d3f079d67f76d81070a7e90a2c96f80ebf2f1b9ec46a70",
+    "Sources/VelaApp/Resources/UI/demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058",
+    "Sources/VelaApp/Resources/UI/i18n.js": "baac643281aa12f5ee4f4399003acba839adaddb39296abe93eb51ac4d5e34f3",
+    "Sources/VelaApp/Resources/UI/index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+    "Sources/VelaApp/Resources/Vela.icns": "deeb9b65a5a5e89f201ecbc9f868d668e4fc27766dd7919f9ffc9dd30a375ebd",
+    "Sources/VelaApp/main.swift": "a5b22603d9261c7b32c1fdcea9206b0419e8dcfca82dc1513c4d731c2f3a1b6b",
+    "Sources/VelaCLI/BoundedInput.swift": "bf6e4fdd7dde09d9d1da0f10fb04bb9dbeb7e07559cc610e59fc46e7a98e00ba",
+    "Sources/VelaCLI/main.swift": "1d517e8b1595abc1bdbcb41dd23ac9ca6dde175f583384d10e85de8fd1e32161",
+    "Sources/VelaCore/AgentEvaluation.swift": "a49f6c6ab1b49a0c1a08f1adfde8960b4f2cc18a78011d0fea44a6b04d976124",
+    "Sources/VelaCore/AgentLoopService.swift": "209915704329795053b68ebb10c03ce1634fca87274fcdaf70d201ead820bc8c",
+    "Sources/VelaCore/AskRouteService.swift": "396c7fb4043da211aa85cfe840e1abe090cefa57900c33d52cf3c75e8b1d5f9d",
+    "Sources/VelaCore/AutomationProcess.swift": "99434351bd73da86f8dc7b949df0bc6c10dc370a23f231ee8288ad799a1bc6e7",
+    "Sources/VelaCore/AutomationService.swift": "d7113fd33ddc31806db596c15e0f3c207fe22ffa43773e7df7b713e6a5580646",
+    "Sources/VelaCore/ConnectorService.swift": "469c4c045472e8dee36a0d621da8629ad2898f587170f10a06d4279d3cbdaeea",
+    "Sources/VelaCore/ConnectorTransport.swift": "bacdaad57a574cd4d91ea48f15ae993d96e3dcc2ddd862318a836438f2238faf",
+    "Sources/VelaCore/ContextService.swift": "c1f2b7f964858b43454d0ef585341c4ede99d274f075e61fd2852e341dee09d7",
+    "Sources/VelaCore/DaemonService.swift": "e98c160792828d8167ac5afcd5233d9960f19e42a453badc87ab0f095e7d249d",
+    "Sources/VelaCore/FoundationIO.swift": "08ac6fab1b37bd815b0ebb8ebfb16d009ea378c5b42cd08cad49556c7e5e1430",
+    "Sources/VelaCore/FoundationService.swift": "2b7857cc54f23a57f76ddb77fb6fc65e3af5d62375ea3e7dff9642311fab28d3",
+    "Sources/VelaCore/ImproveService.swift": "69f4f82164beb564359209eac2c81fb98de69ee1ee5c4004cfacc0900bfb046f",
+    "Sources/VelaCore/IngestionExclusionService.swift": "ccac65adee2201572c63789db4bf574438bdcdb1b28e077b22eb4c792c40f68c",
+    "Sources/VelaCore/KnowledgeQueryService.swift": "38a8a56d6f08a628f1a6ae5ee4b2580098cf390fb95da16d27e1c68ba399fbf5",
+    "Sources/VelaCore/LabService.swift": "9d3c6abb5b5dced1d6244528e90712783d238f552d769fd30d17c74b8b4e254f",
+    "Sources/VelaCore/LibraryIndex.swift": "d881f0d5281d547804751f1158b0f16a085ce785a541adccf73bd0c9eafc8dba",
+    "Sources/VelaCore/LibraryService.swift": "4910ab376d26873e8126754f5a45fce1cb192015d03ffc6af61967cfd7acb18f",
+    "Sources/VelaCore/MCPToolAccess.swift": "675391f5bf9db1071b80b292e5a38882fcc87573aab4ff766399ae3f020bcaf3",
+    "Sources/VelaCore/MCPTools.swift": "8de739428f077a8723b8769c069a568a5c795b94951a3672428763224f03afbe",
+    "Sources/VelaCore/MemoryArchiveService.swift": "ed0cc297e5aa82d30cecc2240b83fe0843e648913c34d0d01020a89e4c7f2da6",
+    "Sources/VelaCore/MemoryIntegrationService.swift": "f73d9bf7d1ae0602e1f65532c1e7aeaa843cbe159b31ef2e338251f33237174b",
+    "Sources/VelaCore/MemoryService.swift": "2181ab2df1bb40d5e3b0e4541e924e4063464311dc6d2299354e7c51f06c7d4a",
+    "Sources/VelaCore/ModelImprovement.swift": "f9ce47a34f2f7c2ee56471ce5743360c76098e8a977d5bfab701ff4f3141044d",
+    "Sources/VelaCore/NotificationPolicy.swift": "6774c1e3af7467b4b831d38ab485e66623b93e4ce8b83e775ffedcbabcdcf192",
+    "Sources/VelaCore/PiSessionReader.swift": "802917bf973ded9272797b35e3306330abff618b0f933c66662d248b7fc0c7c2",
+    "Sources/VelaCore/Preferences.swift": "095a81498a6431b456403e9c2c1a861c8428f7da75adc621220d12b57d18edee",
+    "Sources/VelaCore/ProviderQuotaService.swift": "de990dd6ee747454b0d34e2ff7c1077f63d39f512b85f2002c08af2c05169643",
+    "Sources/VelaCore/ReplayExecutableSnapshot.swift": "9cd069ecf06a8451a6a9ac12133962b2927c36233732c0079c4f3b9894f6505c",
+    "Sources/VelaCore/ReplayFixture.swift": "1c51348f90cd822a9d7adfb850e5154180c28c6b8a4b1e309023cc16b5ffb135",
+    "Sources/VelaCore/RestrictedCodexProposal.swift": "9efd53cb027a84e0a78955ad3f94555839cfc7ce1c0c2d526e66b1b3237391b4",
+    "Sources/VelaCore/ReuseService.swift": "bbd10112b49b163f7107a79317ae8bae76e8c38f47b4bc5d915fe2af5ae8ca24",
+    "Sources/VelaCore/RunFeedback.swift": "9aa9af34804715ca9a2ef8877228369af05cfa1065be3ffef492398132d22d88",
+    "Sources/VelaCore/RuntimeLease.swift": "bd74ad464b7403680df5bf5741ba5c4ebab949f7ce56f104eb1c93a5036460da",
+    "Sources/VelaCore/RuntimeShutdown.swift": "dc2c7c7fec6d8f7fe2cfe4fada55b0f1532000134241f00f862fb3cb7dd79224",
+    "Sources/VelaCore/SafeApply.swift": "c430163f8538d5ee9f9eaa527f014251d081d51c0286194631ce3246f5285d3c",
+    "Sources/VelaCore/ScheduleControl.swift": "d2367b5bb90843bfe162f4995479e7f70f43128a010e23bc73bd508af44c614d",
+    "Sources/VelaCore/SchedulePolicy.swift": "a5db1f04411d5a30970697300e1e787362ec29ea4aa4ade7d8e069bf592d846b",
+    "Sources/VelaCore/SchedulerService.swift": "5c2cc81231e16ecf2baedc0d88697ef850a9c26dfa513e4aacbf6a1e756233d1",
+    "Sources/VelaCore/SemanticMemory.swift": "1e244cad95ad8cce91f85c1bd079d5aa51440c92ed0108b251150f03deedcde8",
+    "Sources/VelaCore/SessionEngine.swift": "994ee8e0e329f01388eb6f6f80076df44eec4dc6fb2e3110c1016ef32f578c27",
+    "Sources/VelaCore/SessionHistoryDecoder.swift": "427765e423d9c9b2e3729ef06077e127fd6e0dfb819eb26d284173cee9e5612c",
+    "Sources/VelaCore/SessionHistoryService.swift": "ecc45506f482600aa4a68cbb2cfd799b2c67dbb6e15c99e828cc51f10f05be32",
+    "Sources/VelaCore/SessionHistorySource.swift": "394f28ca5bb8d5453274d13d18ec551eb2be2c4fbcad634be38fc495480e976d",
+    "Sources/VelaCore/SessionHistoryStore.swift": "d51087c30c4f7611aed6c115198aaada824f9dd3ba4849cd9dc196270aa01d2a",
+    "Sources/VelaCore/SessionPlanProjection.swift": "7c614ae19ea4aa3aabe12768bfc26a0caec9e0dd30b356e9c6d943b27f2859ae",
+    "Sources/VelaCore/SessionPlanService.swift": "c51bc02242d9827d3b972b07f956e87cefc714e49e2de73512061ea3b74d506a",
+    "Sources/VelaCore/SessionRelationProjection.swift": "2d17481aabc7ea05fdb36d5201a8dc18698d06b076838461efe5b354c7c92aaf",
+    "Sources/VelaCore/SessionRelationService.swift": "ae4211591d3c27e0d315d9201b4b47338498af40bcd296dded458f629e47e7bb",
+    "Sources/VelaCore/SetupCatalog.swift": "c6ea6120022739ede56e5083c84b070fc2947f740f0f89be08e91b5e72cbb358",
+    "Sources/VelaCore/SetupInventoryService.swift": "64c6e2ef0ae632ad6e117efdf2849d56e66fba7a7ab3846a69f2e9989a956b53",
+    "Sources/VelaCore/Store.swift": "38edf3290fde8189460c55adbce5c82b5a138ad629fa2456d1996077e9d3b605",
+    "Sources/VelaCore/StoreBackupFiles.swift": "e7500e6b23333fb6ed4b4bc7673db44a4e286e492fac33d1c6125b7ec013c6bd",
+    "Sources/VelaCore/StoreBackupService.swift": "3c4037f3b6c3996bd4563a638e322c9d3558a42e3255dac398aa49743da2b3d2",
+    "Sources/VelaCore/WorkflowComposition.swift": "99a07480543c7e9932f8a8cb2cac639d76cd18bc42ad60a10c48604ec1aadb99",
+    "Sources/VelaCore/WorkflowContext.swift": "e159d81cd8058823ceda0e52a9eb1714a827afcf3bb2f568aa21de76910eb23b",
+    "Sources/VelaCore/WorkflowFileWatch.swift": "9e36ce8ab2e5f4c1c5fb3722ab9cab9dca4e4fa44e56bf4679592ffde2466934",
+    "Sources/VelaCore/WorkflowHealth.swift": "f855250f3e723ba5001ad9686db8e977f58ae53e3e95b3c96643bb8ac6d4b9ab",
+    "Sources/VelaCore/WorkflowHealthProposal.swift": "e4270b0dc4a22df7abe703dc9bde77e0240579a34cb03434ac6622446b16f4fb",
+    "Sources/VelaCore/WorkflowManagement.swift": "b405936fdfddc73be6422c65dff3185471f2598a8c167836286dbecdf59d4266",
+    "Sources/VelaCore/WorkflowPlanning.swift": "edcb985343fe8d8dd2ee1a7869cfa1d3d94a1e19a1c9447e85e3d3e9a85a69fe",
+    "Sources/VelaCore/WorkflowReplay.swift": "4fd6b613c0dcee35239d23e2e1ed71c9eed30200fa5b5f5ddf5dc501b521c93c",
+    "Sources/VelaCore/WorkflowRetry.swift": "eaed1456d9ccb626e6c2ad693d904ecda8fec4d04e8b87b3ec5a029e7e277933",
+    "Sources/VelaCore/WorkflowWatch.swift": "68a42051a0fbbee9ba4c0b44caf41572bc8aa7a7628dcd63708d0cbdc21ac184",
+    "Package.swift": "000a688dc6cda6291c04966a17b92d57029d0b237d04f595e5a8fde317c6077e"
+  },
+  "portable": {
+    "passed": true,
+    "methodCount": 498,
+    "snapshotSHA256": "e155bab8c612b8a6d9c6d2aa073933a780ffea8122029c0585c26ee545098151",
+    "inputCount": 127,
+    "inputsMatchRoot": true,
+    "receiptPath": ".task-tmp/store-backup-r1/.task-tmp/store-backup-full-r1.json",
+    "receiptSHA256": "4895dcbe53925e4f5e9d2ae6a13080ef6f7933e1802fb943b7ff3ee1669b2115",
+    "runner": "portable synchronous assertion compatibility layer, not hosted XCTest"
+  },
+  "rootAcceptance": [
+    {
+      "path": "output/parity/store-backup-cli-root-r1.json",
+      "sha256": "1603ed2f3848cca547e7c15573196d9bf4b769687fbde3f4ec8ca142f1f7abaa",
+      "passed": true,
+      "checks": 19,
+      "fixtureRemoved": true
+    },
+    {
+      "path": "output/parity/store-backup-no-recovery-root-r1.json",
+      "sha256": "89c9038fba6fa8d841ddf82cffac24b9d85186abb836428390042bca185b7205",
+      "passed": true,
+      "checks": 4,
+      "fixtureRemoved": true
+    },
+    {
+      "path": "output/parity/store-backup-format-root-r1.json",
+      "sha256": "e83890df04b0f6085e906eb902dd23cb367850b9f439d8a6087d885abb5e8acb",
+      "passed": true,
+      "checks": 4,
+      "fixtureRemoved": true
+    },
+    {
+      "path": "output/parity/store-backup-runtime-root-r1.json",
+      "sha256": "63b198e385a0a6629ade5d4681a8743fda94cef07995ef42a7ebba6e66936d86",
+      "passed": true,
+      "checks": 3,
+      "fixtureRemoved": true
+    }
+  ],
+  "stageIngestion": {
+    "path": ".task-tmp/store-backup-r1/.task-tmp/store-backup-ingestion-rpc-r1.json",
+    "sha256": "651498519638cafeb2b7233dfb4b779741129d4ec2660b268417815a5a9c3063",
+    "passed": true,
+    "checks": 5,
+    "fixtureRemoved": true
+  },
+  "productRegression": {
+    "baseline": {
+      "path": "output/parity/backup-no-recovery-baseline-r3.json",
+      "sha256": "c8ece91b373a72689c337141c536664ed4a748b951a2e1202bd120b1be87df5f",
+      "passed": false,
+      "checks": 4,
+      "fixtureRemoved": true
+    },
+    "fixed": {
+      "path": "output/parity/backup-no-recovery-stage-r1.json",
+      "sha256": "6e124fa223f9adff4ea634051ab3d21a2c1860941d5d82315fbaeeb224e45465",
+      "passed": true,
+      "checks": 4,
+      "fixtureRemoved": true
+    },
+    "problem": "backup create initialized Router and recovered an interrupted SafeApply journal, changing managed output before backup",
+    "fix": "dispatch both backup commands before Router; create opens only the selected VelaStore"
+  },
+  "historicalFailures": [
+    {
+      "path": ".task-tmp/store-backup-r1/.task-tmp/store-backup-focused-r8.json",
+      "kind": "staging assetPath used instead of final root; corrected before final tests"
+    },
+    {
+      "path": ".task-tmp/store-backup-r1/.task-tmp/store-backup-focused-r11.json",
+      "kind": "TCC refusal when traversing Desktop with O_RDONLY"
+    },
+    {
+      "path": ".task-tmp/store-backup-r1/.task-tmp/store-backup-focused-r12.json",
+      "kind": "O_EVTONLY also refused; not a successful fix"
+    },
+    {
+      "path": ".task-tmp/store-backup-r1/.task-tmp/store-backup-focused-r15.json",
+      "kind": "portable assertion compatibility compile error; replaced by equivalent supported assertion"
+    },
+    {
+      "path": "output/parity/store-backup-cli-stage-r1.json",
+      "kind": "harness called unavailable memory.recall instead of public recall"
+    },
+    {
+      "path": "output/parity/store-backup-cli-stage-r3.json",
+      "kind": "harness expected stale-reject rather than pending Library index state"
+    },
+    {
+      "path": "output/parity/store-backup-runtime-stage-r1.json",
+      "kind": "harness Python unbound local state"
+    }
+  ],
+  "boundaries": [
+    "Source logs, project trees and Keychain/provider identities are not copied. User-saved secrets in private data can be included; bundle is unencrypted.",
+    "Capacity: database 2 GiB; assets/output combined 2 GiB and 50000 files, each <=64 MiB; manifest <=8 MiB. File I/O deadline 60s; SQLite copy deadline 30s.",
+    "Five canonical asset kinds, managed output, History/raw provenance, private consumer isolation, Library reindex and default-home no-open were verified through the actual CLI/RPC.",
+    "Runtime checks verify public watch re-enable discards old pending, new changes still need approval, active leases reject, and competing restores do not overwrite.",
+    "No new UI/native implementation. Existing UI20 is unchanged. Hosted CI for this change and packaged delivery are recorded separately.",
+    "Whole product remains No-Go; 228-reference coverage, UI quota, real remote integrations, Golden improvement and Apple distribution remain incomplete."
+  ]
+}

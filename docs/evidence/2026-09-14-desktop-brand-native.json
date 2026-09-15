@@ -1,0 +1,92 @@
+{
+  "format": "vela-native-brand-acceptance-v1",
+  "date": "2026-09-14",
+  "synthetic": true,
+  "launcher": "output/playwright/native-desktop-brand-r4/launcher-desktop-brand-r4.json",
+  "uiSourceSHA256": {
+    "Contents/Resources/UI/index.html": "7a3e3ee4b125dbdfba75c5ed1dab2beffc4514896c069e76cfcc4f3cc684e203",
+    "Contents/Resources/UI/app.css": "c4e98fbacd99c0c90fcef842ad69ed81285b9ab5d20b1db9e9dbd01fd8927689",
+    "Contents/Resources/UI/reading.css": "647ae9e299118da73914aa7f6742e87e9c55edbc40f7acffd4e9c86ec2c65a30",
+    "Contents/Resources/UI/content.js": "55770e9218a5702e131b7f307d89ee18cc7c1e2af0b1694950bcd18fbfcc28fd",
+    "Contents/Resources/UI/app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+    "Contents/Resources/UI/i18n.js": "1c652889f91e4a394ca6ccc65c8d987dbb0a366b976fc8745a9895e580420f61",
+    "Contents/Resources/UI/app.js": "209133271592358c39795ee7456745267db75dc93b03a5c3caebb76d4113c053",
+    "Contents/Resources/UI/vendor/prism-swift.js": "69c8a062618949fbc7b69989ab7fb2b7bc111b28ea329e53713c7a2885614b20",
+    "Contents/Resources/UI/vendor/prism.LICENSE": "2b947f0901a7ffcf08a89957da9783c0e9c6e72cb6ce8e959f501ab5409e4d2b",
+    "Contents/Resources/UI/vendor/prism-clike.js": "c76ba4e240932bdc75546be30e550f5ba5e13815ff71511c76e9e27ac3072444",
+    "Contents/Resources/UI/vendor/prism-json.js": "956d86baa5ae7ec4106758f354ac2d140bdcd7fc103dece02f73ed12b8d663e4",
+    "Contents/Resources/UI/vendor/marked.LICENSE": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+    "Contents/Resources/UI/vendor/purify.js": "f263b05369e050fa175d4ecb9c9358eb4253602d510297adfb31df48b2f1c4d5",
+    "Contents/Resources/UI/vendor/prism-python.js": "ed4385685bcf2d4935c8dbbab4bde16603da1329e092d2bf36c3dadd67e9a85c",
+    "Contents/Resources/UI/vendor/purify.LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "Contents/Resources/UI/vendor/marked.js": "b147274a9ce27d17276587167e49483d719f6893eeca3a3667a59797661d3556",
+    "Contents/Resources/UI/vendor/prism-bash.js": "6260814110e5182f2956e3bd257429548d9dbf2a9b66a63719b26cf9fac966a7",
+    "Contents/Resources/UI/vendor/prism-markup.js": "879fc9d256c352d980e053857fa707330853b8bfb67ce284ea661a24dec5756e",
+    "Contents/Resources/UI/vendor/prism-javascript.js": "0345ea83e12b7b974e953c79a64dea35a40308309449db70b82020fb688ac321",
+    "Contents/Resources/UI/vendor/prism-core.js": "6caad316dd991f24f8004e0b9c19c055cb5829ff65e973fbee406f96d81b8e7e",
+    "Contents/Resources/UI/vendor/prism-css.js": "8c9760dba7f26ea842016919544dd9b73a78a36d5b07a1e9842c333ed18ab6ae"
+  },
+  "allBundleFilesUnchanged": true,
+  "observations": [
+    {
+      "name": "session-command-reading",
+      "passed": true,
+      "evidence": "Real native session detail shows one Recorded command header, highlighted original command, separate original-record disclosure and no-result notice. Copy feedback changed to Copied."
+    },
+    {
+      "name": "workflow-types-and-menu",
+      "passed": true,
+      "evidence": "Native four-row collection uses document, branch and terminal types; one-step entries read 1 step. Bottom-row menu exposes Run, Dry Run and Edit. Menu remained open across idle reads; Escape closed it. Changed-snapshot polling assertion is in browser engineering evidence, not this native check."
+    },
+    {
+      "name": "memory-and-setup",
+      "passed": true,
+      "evidence": "Captured native Memory and Setup pages. Setup shows relative asset paths; row titles and menus stay separate."
+    },
+    {
+      "name": "language-persistence",
+      "passed": true,
+      "evidence": "A new isolated native wrapper for the final UI started in English from the same existing fixture preference. Prior wrapper had switched Chinese to English and synchronized both renderer and native menu labels."
+    },
+    {
+      "name": "quota-empty-state",
+      "passed": true,
+      "evidence": "Clicked Account limits. Native view showed Never Read, connection explanation, CLI path input and Refresh Quota; no allowance percentage was invented. No real provider was invoked."
+    }
+  ],
+  "priorNativeWrite": {
+    "appJsSHA256": "8ab28beac10eb45639500518060bd16411d221bdb0b56b684ea46bba8c5cc1cc",
+    "runId": "476b9da9-3712-43a1-8e42-8efe8a1897d7",
+    "completedAt": "2026-09-14T06:08:56Z",
+    "state": "completed",
+    "exitCode": 0,
+    "file": "Harbor/docs/verification.md",
+    "bytes": 50,
+    "sha256": "cc762b8a250dabf67e6d5981bc4cf59ce9b07ba4881b2fd7ffb3b46da8b27ed1",
+    "evidence": "Prior r3 native Approve & Run click; independently reread real helper run and file after final-wrapper launch."
+  },
+  "screenshots": [
+    {
+      "path": "output/playwright/native-desktop-brand-r4/vela-agents-39A1E6E6-9A5A-4A59-930C-E751AD406A0D.png",
+      "sha256": "090fff4e36516cc6b88b734d3e9ae9d71af1807845b6492e391cf39adcb65e4b"
+    },
+    {
+      "path": "output/playwright/native-desktop-brand-r4/vela-memory-B166AFE8-D390-41BE-8AD8-F1F5F0526769.png",
+      "sha256": "d3436e0f840378ef0c982cc153d754816841f6130ab5ea8b52985c5270cfc452"
+    },
+    {
+      "path": "output/playwright/native-desktop-brand-r4/vela-setup-3307AD11-E9A2-45BA-8D17-0590BC47DC37.png",
+      "sha256": "df91e0061a03f70999cfbe8e5b234d1583b1e7e9d3c98dc6b54eb914352517f2"
+    },
+    {
+      "path": "output/playwright/native-desktop-brand-r4/vela-workflows-116D4A62-87C7-4E3D-9B7B-85B7201B1CBF.png",
+      "sha256": "a076e28d7146aa32ec218617b2c9dc143ec70cecf63f31413213711a4a96437c"
+    }
+  ],
+  "limitations": [
+    "Focused native journeys, not the complete 188/228 product acceptance.",
+    "Isolated debug host/helper with a compiled test launcher, not a claim of notarized distribution.",
+    "Quota data-state matrix is separately tested with a synthetic protocol provider. No real account quota or notification delivery checked here.",
+    "System resource totals cannot be inferred from only the host and helper."
+  ]
+}

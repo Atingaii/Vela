@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>梳理分散的配置 — Vela</title>
+  <meta name="description" content="梳理分散的配置 · 面向 Coding Agent 的本地工程工作区。">
+  <link rel="icon" href="/assets/mark.svg?v=f3b3e9d694b45050" type="image/svg+xml">
+  <link rel="canonical" href="https://velo.codes/usecases/configuration-audit/">
+  <link rel="alternate" hreflang="zh-CN" href="https://velo.codes/usecases/configuration-audit/">
+  <link rel="alternate" hreflang="en" href="https://velo.codes/en/usecases/configuration-audit/">
+  <link rel="alternate" hreflang="x-default" href="https://velo.codes/usecases/configuration-audit/">
+
+  <!-- Preload core self-hosted fonts -->
+  <link rel="preload" href="/assets/fonts/space-grotesk-latin.woff2?v=8e085aa438094f11" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2?v=693b77d4f32ee9b8" as="font" type="font/woff2" crossorigin>
+
+  <link rel="stylesheet" href="/styles.css?v=7fe760bdbb331b9d">
+
+  <!-- Immediate theme application to prevent flash -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('vela-theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Site Header (62px height, x70-1180 content alignment) -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/" class="brand-link" aria-label="Vela 首页">
+          <img src="/assets/mark.svg?v=f3b3e9d694b45050" alt="" width="22" height="22" class="brand-mark-img">
+          <span>Vela</span>
+        </a>
+        <nav class="site-nav" aria-label="主导航"><a href="/product/" class="nav-link">产品功能</a><a href="/usecases/" class="nav-link">使用场景</a><a href="/integrations/" class="nav-link">工具集成</a><a href="/comparisons/" class="nav-link">产品对比</a></nav>
+      </div>
+
+      <div class="header-actions">
+        <a href="/docs.html" class="header-docs-link">文档</a>
+
+        <!-- Theme Toggle Button (Square) -->
+        <button type="button" class="btn-icon-square theme-toggle-btn" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- Language Switcher Button -->
+        <a href="/en/usecases/configuration-audit/" class="header-lang-link" hreflang="en" lang="en" aria-label="Switch to English">English</a>
+
+        <!-- GitHub Repository Button (Square) -->
+        <a href="https://github.com/Atingaii/Vela" class="btn-icon-square" target="_blank" rel="noopener noreferrer" aria-label="GitHub 代码仓库" title="GitHub 代码仓库">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button type="button" class="mobile-menu-toggle" aria-label="展开导航菜单" aria-expanded="false" aria-controls="mobile-nav-panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-label="移动端菜单"><a href="/integrations/" class="nav-link">工具集成</a><a href="/product/" class="nav-link">产品功能</a>
+      <a href="/usecases/" class="nav-link">使用场景</a>
+      <a href="/comparisons/" class="nav-link">产品对比</a>
+      <a href="/docs.html" class="nav-link">文档</a>
+      <a href="/releases.html" class="nav-link">发行记录</a>
+      <a href="/privacy.html" class="nav-link">数据隐私</a>
+      <a href="/en/usecases/configuration-audit/" class="nav-link lang-switch-link" hreflang="en" lang="en">English</a>
+      <a href="https://github.com/Atingaii/Vela" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a>
+    </div>
+  </header>
+
+  <main>
+<section class="catalogue-hero container"><div class="section-eyebrow">USE CASE / 配置与资产</div><h1 class="catalogue-title">梳理分散的配置</h1><p class="catalogue-lead">各个 Agent 从哪里读取项目规约？</p></section><div class="container case-detail"><div class="case-readout"><div><span class="section-eyebrow">输入</span><p>Rules、Skills、Hooks、MCP 文件</p></div><div><span class="section-eyebrow">结果</span><p>脱敏资产目录、历史与配置诊断</p></div></div><ol class="case-steps"><li><span>01</span><div><h2>选择项目</h2><p>选择已登记项目，扫描受支持的 Rules、Skills、Hooks 和 MCP 配置位置。</p></div></li><li><span>02</span><div><h2>扫描配置</h2><p>列表显示可读名称和相对位置，打开条目阅读脱敏预览；扫描本身不执行配置。</p></div></li><li><span>03</span><div><h2>审阅差异与来源</h2><p>检查来源、版本历史和差异，再决定是否需要后续改动。</p></div></li></ol><figure class="product-visual"><img src="/assets/vela-setup-current.png?v=492d2dbdfc254a93" alt="配置资产的相对位置与脱敏预览" width="1250" height="800" loading="lazy" decoding="async"><figcaption>实际 macOS 开发版界面 · 隔离非持久合成 fixture · 非 preview.2 下载内容</figcaption></figure><a class="text-link" href="/product/#setup">查看相关产品功能 →</a><br><a class="text-link" href="/usecases/">← 全部使用场景</a></div><aside class="availability-note container">本指南介绍当前开发分支能力。公开下载仍为 preview.2，较新的能力需要从源码构建；具体版本请查看<a href="/releases.html">发行记录</a>。</aside>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand-line">
+        <strong>Vela</strong>
+        <span>— The engineering layer for coding agents.</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="/usecases/" class="footer-link">使用场景</a>
+        <a href="/comparisons/" class="footer-link">产品对比</a>
+        <a href="/docs.html" class="footer-link">技术文档</a>
+        <a href="/releases.html" class="footer-link">发行记录</a>
+        <a href="/privacy.html" class="footer-link">数据隐私</a>
+        <a href="https://github.com/Atingaii/Vela" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/Atingaii/Vela/security/advisories/new" class="footer-link" target="_blank" rel="noopener noreferrer">安全漏洞反馈</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/site.js?v=acf1c37e1928f8dc"></script>
+</body>
+</html>

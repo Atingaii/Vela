@@ -1,0 +1,100 @@
+{
+  "format": "vela-native-focused-acceptance-v1",
+  "date": "2026-09-14",
+  "phase": "desktop-design-r1",
+  "synthetic": true,
+  "native": true,
+  "uiFiles": {
+    "Contents/Resources/UI/index.html": "68bc9b48020fd2660315389c0a4d1c29865075b5d028ba1e509e00206ec30836",
+    "Contents/Resources/UI/app.css": "c4e98fbacd99c0c90fcef842ad69ed81285b9ab5d20b1db9e9dbd01fd8927689",
+    "Contents/Resources/UI/reading.css": "746c3ae598f84e6383a9bfc64328c57288b3f2c0027b7d18a41c4608aa999bc0",
+    "Contents/Resources/UI/content.js": "8c242f3e6b8bd2ca06ea556d98f751f66bbd869de2183d816bd2bb7f77274d79",
+    "Contents/Resources/UI/app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+    "Contents/Resources/UI/i18n.js": "6d2180c9b5c40ba105cb869b79d2ea0d5e0b5601d360c014c2cf86ab5fe7d703",
+    "Contents/Resources/UI/app.js": "caa979d0e32e5357f4e565ad7ad76f4c0b71eff134e1ff96db9be3053cc43e79",
+    "Contents/Resources/UI/vendor/prism-swift.js": "69c8a062618949fbc7b69989ab7fb2b7bc111b28ea329e53713c7a2885614b20",
+    "Contents/Resources/UI/vendor/prism.LICENSE": "2b947f0901a7ffcf08a89957da9783c0e9c6e72cb6ce8e959f501ab5409e4d2b",
+    "Contents/Resources/UI/vendor/prism-clike.js": "c76ba4e240932bdc75546be30e550f5ba5e13815ff71511c76e9e27ac3072444",
+    "Contents/Resources/UI/vendor/prism-json.js": "956d86baa5ae7ec4106758f354ac2d140bdcd7fc103dece02f73ed12b8d663e4",
+    "Contents/Resources/UI/vendor/marked.LICENSE": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+    "Contents/Resources/UI/vendor/purify.js": "f263b05369e050fa175d4ecb9c9358eb4253602d510297adfb31df48b2f1c4d5",
+    "Contents/Resources/UI/vendor/prism-python.js": "ed4385685bcf2d4935c8dbbab4bde16603da1329e092d2bf36c3dadd67e9a85c",
+    "Contents/Resources/UI/vendor/purify.LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "Contents/Resources/UI/vendor/marked.js": "b147274a9ce27d17276587167e49483d719f6893eeca3a3667a59797661d3556",
+    "Contents/Resources/UI/vendor/prism-bash.js": "6260814110e5182f2956e3bd257429548d9dbf2a9b66a63719b26cf9fac966a7",
+    "Contents/Resources/UI/vendor/prism-markup.js": "879fc9d256c352d980e053857fa707330853b8bfb67ce284ea661a24dec5756e",
+    "Contents/Resources/UI/vendor/prism-javascript.js": "0345ea83e12b7b974e953c79a64dea35a40308309449db70b82020fb688ac321",
+    "Contents/Resources/UI/vendor/prism-core.js": "6caad316dd991f24f8004e0b9c19c055cb5829ff65e973fbee406f96d81b8e7e",
+    "Contents/Resources/UI/vendor/prism-css.js": "8c9760dba7f26ea842016919544dd9b73a78a36d5b07a1e9842c333ed18ab6ae"
+  },
+  "hostSHA256": "c6f573bb4d1d1cc0524238f6ca61835484b355f6ed682d8a0089d0b39342b343",
+  "helperSHA256": "5a8c18a04c83f654fc3ea7897f1ed2045125db0fe105ea0d7f2e2d399bcab042",
+  "fixtureDirectory": ".task-tmp/desktop-design-r1",
+  "observations": [
+    {
+      "name": "native-workflow-collection",
+      "passed": true,
+      "evidence": "Native AX listed four title buttons and per-row disclosure menus; actual viewport screenshot saved."
+    },
+    {
+      "name": "bottom-row-menu",
+      "passed": true,
+      "evidence": "Last workflow disclosure opened Run / Dry Run / Edit entirely within the native 1250x800 viewport."
+    },
+    {
+      "name": "approval-preview-and-exact-source",
+      "passed": true,
+      "evidence": "Native Preview showed Verification heading; Source showed exact Markdown and both newlines."
+    },
+    {
+      "name": "real-native-approval-write",
+      "passed": true,
+      "evidence": "Clicked Approve & Run for Write the reviewed note. Pending count changed 3 to 2; fixture file exactly 50 bytes.",
+      "writtenPath": "Harbor/docs/verification.md",
+      "sha256": "cc762b8a250dabf67e6d5981bc4cf59ce9b07ba4881b2fd7ffb3b46da8b27ed1"
+    },
+    {
+      "name": "settings-categories",
+      "passed": true,
+      "evidence": "General showed language/background controls; Notifications showed notification preferences and sound preview separately."
+    },
+    {
+      "name": "english-native-menus",
+      "passed": true,
+      "evidence": "Choosing English changed visible renderer text and native Edit/View/Window/Development menus."
+    },
+    {
+      "name": "sound-preview",
+      "passed": true,
+      "evidence": "Native preview action returned Played Approval notification sound preview; notification checkbox stayed off. Subjective sound quality and OS notification delivery not asserted."
+    },
+    {
+      "name": "native-session-reading",
+      "passed": true,
+      "evidence": "Session detail occupied full main workspace; tool JSON code rendered with syntax colors; sidebar remained available."
+    },
+    {
+      "name": "quit-and-relaunch-persistence",
+      "passed": true,
+      "evidence": "Cmd+Q exited app. Reopening same isolated launcher preserved English and pending count 2."
+    }
+  ],
+  "knownIssues": [
+    {
+      "name": "settings-aria-live-language",
+      "status": "to-fix",
+      "evidence": "Immediately after changing language, generated Settings category section aria labels retained Chinese until reload."
+    }
+  ],
+  "limitations": [
+    "Focused native observations, not full product acceptance.",
+    "Bundle uses the real debug host/helper and a compiled isolated launcher, not the distributable release.",
+    "Source may change after this snapshot; later evidence must identify its exact version."
+  ],
+  "screenshots": [
+    "output/playwright/native-desktop-design-r1/vela-workflows-54954890-5220-4042-BCDE-9738C267E4F2.png",
+    "output/playwright/native-desktop-design-r1/vela-agents-C36BB944-8E1E-408B-A22D-14232C74BC5B.png",
+    "output/playwright/native-desktop-design-r1/vela-inbox-D57CDD32-79D5-4120-9AE2-C7F0A96AA105.png",
+    "output/playwright/native-desktop-design-r1/vela-settings-92780BC8-3245-4D8E-83F4-B2FAFD17E7B5.png"
+  ]
+}

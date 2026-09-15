@@ -120,6 +120,80 @@ final class FoundationTests: XCTestCase {
         let sourceSize = (try file.resourceValues(forKeys:[.fileSizeKey])).fileSize
         let cursor = try XCTUnwrap(store.get("ingestion",stableHash(file.path))); XCTAssertEqual(intValue(cursor,"offset"),sourceSize)
     }
+    func testGrowingRewriteBeforeIndexedOffsetRotatesAndLegacyCursorFailsClosed() throws {
+        _ = try object("projects.add",["path":project.path])
+        let file = logs.appendingPathComponent("claude/growing-rewrite.jsonl")
+        func user(_ content: String) -> JSON {
+            ["type":"user","uuid":"rewrite-user","sessionId":"rewrite-source","cwd":project.path,"timestamp":"2026-09-14T00:00:00Z","message":["role":"user","content":content]]
+        }
+        func assistant(_ id: String, _ content: String) -> JSON {
+            ["type":"assistant","uuid":id,"timestamp":"2026-09-14T00:00:01Z","message":["id":id,"role":"assistant","content":[["type":"text","text":content]]]]
+        }
+        func sessionMessages(_ item: JSON) -> [JSON] { item["messages"] as? [JSON] ?? [] }
+        let old = String(repeating:"O",count:40), rewritten = String(repeating:"R",count:40), legacyRewrite = String(repeating:"L",count:40)
+        try write(file,jsonl([user(old),assistant("initial","initial response")]))
+        _ = try rpc("sessions.refresh")
+        var item = try XCTUnwrap(rows("sessions.list",["project":project.path]).first)
+        let id = string(item,"id"), initialCursor = try XCTUnwrap(store.get("ingestion",stableHash(file.path)))
+        XCTAssertEqual(string(initialCursor,"indexedPrefixSHA256").count,64)
+
+        // The old user line changes at the same byte width, then a later row
+        // grows the file.  This must not be mistaken for a pure append.
+        try write(file,jsonl([user(rewritten),assistant("initial","initial response"),assistant("later","appended response")]))
+        _ = try rpc("sessions.refresh")
+        item = try object("sessions.get",["id":id])
+        XCTAssertTrue(sessionMessages(item).contains { string($0,"id") == "rewrite-user" && string($0,"content") == rewritten })
+        XCTAssertTrue(sessionMessages(item).contains { string($0,"id") == "later" && string($0,"content") == "appended response" })
+        let rebuiltCursor = try XCTUnwrap(store.get("ingestion",stableHash(file.path)))
+        XCTAssertEqual(intValue(rebuiltCursor,"offset"),try Data(contentsOf:file).count)
+        XCTAssertEqual(string(rebuiltCursor,"indexedPrefixSHA256").count,64)
+
+        // A normal append still keeps the accepted prefix and reads only the
+        // new complete record.
+        try append(file,jsonl([assistant("normal","normal append")]))
+        _ = try rpc("sessions.refresh")
+        item = try object("sessions.get",["id":id])
+        XCTAssertTrue(sessionMessages(item).contains { string($0,"id") == "normal" && string($0,"content") == "normal append" })
+
+        // Migration safety: a pre-digest cursor cannot verify a growing
+        // prefix, so it rebuilds once rather than preserving stale content.
+        var legacy = try XCTUnwrap(store.get("ingestion",stableHash(file.path))); legacy.removeValue(forKey:"indexedPrefixSHA256"); _ = try store.put("ingestion",legacy)
+        try write(file,jsonl([user(legacyRewrite),assistant("initial","initial response"),assistant("later","appended response"),assistant("normal","normal append"),assistant("migration","migration append")]))
+        _ = try rpc("sessions.refresh")
+        item = try object("sessions.get",["id":id])
+        XCTAssertTrue(sessionMessages(item).contains { string($0,"id") == "rewrite-user" && string($0,"content") == legacyRewrite })
+        XCTAssertTrue(sessionMessages(item).contains { string($0,"id") == "migration" })
+        XCTAssertEqual(string(try XCTUnwrap(store.get("ingestion",stableHash(file.path))),"indexedPrefixSHA256").count,64)
+
+        // An incomplete append leaves the completed-prefix digest in place;
+        // completing that same line later is still ingested exactly once.
+        let partial = try jsonString(assistant("partial","completed after partial tail"))
+        try append(file,String(partial.prefix(37))); _ = try rpc("sessions.refresh")
+        item = try object("sessions.get",["id":id]); XCTAssertFalse(sessionMessages(item).contains { string($0,"id") == "partial" })
+        try append(file,String(partial.dropFirst(37)) + "\n"); _ = try rpc("sessions.refresh")
+        item = try object("sessions.get",["id":id]); XCTAssertEqual(sessionMessages(item).filter { string($0,"id") == "partial" }.count,1)
+    }
+    func testCodexGrowingRewriteBeforeIndexedOffsetRebuildsMessages() throws {
+        _ = try object("projects.add",["path":project.path])
+        let file = logs.appendingPathComponent("codex/growing-rewrite.jsonl")
+        func message(_ id: String, _ role: String, _ content: String) -> JSON {
+            ["type":"response_item","timestamp":"2026-09-14T00:00:01Z","payload":["id":id,"type":"message","role":role,"content":[["type":role == "user" ? "input_text" : "output_text","text":content]]]]
+        }
+        let old = String(repeating:"C",count:32), rewritten = String(repeating:"N",count:32)
+        func source(_ user: String, _ includeLater: Bool) -> [JSON] {
+            var rows:[JSON] = [["type":"session_meta","timestamp":"2026-09-14T00:00:00Z","payload":["id":"codex-growing-source","cwd":project.path,"git":["branch":"main"]]],message("codex-growing-user","user",user)]
+            if includeLater { rows.append(message("codex-growing-later","assistant","later Codex append")) }
+            return rows
+        }
+        func sessionMessages(_ item: JSON) -> [JSON] { item["messages"] as? [JSON] ?? [] }
+        try write(file,jsonl(source(old,false))); _ = try rpc("sessions.refresh")
+        let before = try XCTUnwrap(rows("sessions.list",["project":project.path]).first { string($0,"provider") == "codex" })
+        try write(file,jsonl(source(rewritten,true))); _ = try rpc("sessions.refresh")
+        let after = try object("sessions.get",["id":string(before,"id")])
+        XCTAssertTrue(sessionMessages(after).contains { string($0,"id") == "codex-growing-user" && string($0,"content") == rewritten })
+        XCTAssertTrue(sessionMessages(after).contains { string($0,"id") == "codex-growing-later" })
+        XCTAssertEqual(string(try XCTUnwrap(store.get("ingestion",stableHash(file.path))),"indexedPrefixSHA256").count,64)
+    }
     func testCodexBoundedTailRetainsHeaderAndCumulativeUsage() throws {
         let file = logs.appendingPathComponent("codex/2026/09/12/rollout.jsonl")
         var records:[JSON] = [["type":"session_meta","timestamp":isoNow(),"payload":["id":"real-codex-id","cwd":project.path,"git":["branch":"main"]]]]

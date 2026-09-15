@@ -10,6 +10,33 @@ public final class SafeApplyService {
     private var transactionDepth = 0
     public init(store: VelaStore) { self.store = store }
 
+    /// Internal bounded read for proposal/evaluation snapshots. Uses the same path and file
+    /// identity checks as writes, without creating directories or requiring a known base hash.
+    func readSnapshot(project: String, path: String) throws -> JSON {
+        lock.lock(); defer { lock.unlock() }
+        let target = try SafeTarget(project:project,operation:["path":path,"baseHash":"absent","content":""],createParents:false,verifyBase:false)
+        defer { target.close() }
+        let content = try target.current()
+        return ["path":target.path,"exists":content != nil,"hash":content.map(stableHash) ?? "absent","content":content as Any? ?? NSNull()]
+    }
+
+    /// Product-managed output is confined to this store and serialized across
+    /// processes from the initial hash read through the journaled replacement.
+    func writeManagedOutput(path: String, content: String, expectedBaseHash: String? = nil, beforeWrite: ((JSON) throws -> Void)? = nil) throws -> JSON {
+        guard path.hasPrefix("output/"), !path.split(separator:"/").contains(".."), content.utf8.count <= 1_048_576 else { throw VelaError("Invalid managed output") }
+        lock.lock(); defer { lock.unlock() }
+        _ = try acquireTransactionLock(); defer { releaseTransactionLock() }
+        let before = try readSnapshot(project:store.root.path,path:path)
+        if let expectedBaseHash, string(before,"hash") != expectedBaseHash && string(before,"hash") != stableHash(content) {
+            throw VelaError("Managed output changed after delivery was prepared; the newer artifact was preserved")
+        }
+        // Persist the authorized base while holding the same cross-process
+        // lock used by apply. Recovery cannot authorize today's different file.
+        try beforeWrite?(before)
+        if string(before,"hash") == stableHash(content) { return ["state":"unchanged","contentHash":stableHash(content)] }
+        return try apply(project:store.root.path,operations:[["path":path,"content":content,"baseHash":string(before,"hash")]])
+    }
+
     public func preview(project: String, operations: [JSON]) throws -> [JSON] {
         lock.lock(); defer { lock.unlock() }
         return try prepare(project: project, operations: operations, createParents: false).map { target in
@@ -18,12 +45,36 @@ public final class SafeApplyService {
         }
     }
 
+    /// Internal counterpart for Setup. Its descriptor identity is checked as
+    /// the preview target is opened, rather than trusting an earlier renderer
+    /// read of equal bytes at the same path.
+    func previewSetupEdit(project: String, operation: JSON, sourceIdentity: JSON) throws -> [JSON] {
+        lock.lock(); defer { lock.unlock() }
+        let targets = try prepare(project:project,operations:[operation],createParents:false,expectedSourceIdentity:sourceIdentity)
+        return targets.map { target in defer { target.close() }; return target.record }
+    }
+
     @discardableResult public func apply(project: String, operations: [JSON]) throws -> JSON {
+        try apply(project:project,operations:operations,setupEditProvenance:nil,expectedSourceIdentity:nil)
+    }
+
+    /// Internal typed entry point for one setup artifact. It intentionally has
+    /// no generic metadata argument and is not exposed through RPC or MCP.
+    @discardableResult func applySetupEdit(project: String, operation: JSON, editID: String, artifactID: String, sourceIdentity: JSON) throws -> JSON {
+        guard editID.range(of:"^[A-Za-z0-9_.-]{1,150}$",options:.regularExpression) != nil,
+              artifactID.range(of:"^[A-Za-z0-9_.-]{1,150}$",options:.regularExpression) != nil else {
+            throw VelaError("Invalid setup edit provenance")
+        }
+        return try apply(project:project,operations:[operation],setupEditProvenance:["origin":"setup_edit","setupEditId":editID,"setupArtifactId":artifactID],expectedSourceIdentity:sourceIdentity)
+    }
+
+    private func apply(project: String, operations: [JSON], setupEditProvenance: JSON?, expectedSourceIdentity: JSON?) throws -> JSON {
         lock.lock(); defer { lock.unlock() }
         _ = try acquireTransactionLock(); defer { releaseTransactionLock() }
-        let targets = try prepare(project: project, operations: operations, createParents: true)
+        let targets = try prepare(project: project, operations: operations, createParents: true, expectedSourceIdentity:expectedSourceIdentity)
         defer { targets.forEach { $0.close() } }
         var journal: JSON = ["title": "Configuration transaction", "project": project, "state": "prepared", "operations": targets.map(\.record)]
+        if let setupEditProvenance { journal.merge(setupEditProvenance) { _, new in new } }
         journal = try store.put("apply_journal", journal)
         do {
             for target in targets { try target.stage() }
@@ -113,13 +164,14 @@ public final class SafeApplyService {
         if transactionDepth == 0, transactionFD >= 0 { _ = flock(transactionFD,LOCK_UN); Darwin.close(transactionFD); transactionFD = -1 }
     }
 
-    private func prepare(project: String, operations: [JSON], createParents: Bool) throws -> [SafeTarget] {
+    private func prepare(project: String, operations: [JSON], createParents: Bool, expectedSourceIdentity: JSON? = nil) throws -> [SafeTarget] {
         guard !operations.isEmpty, operations.count <= 32 else { throw VelaError("Apply requires 1–32 operations") }
+        guard expectedSourceIdentity == nil || operations.count == 1 else { throw VelaError("A setup edit must have one target") }
         var result: [SafeTarget] = []
         var seen = Set<String>()
         do {
             for operation in operations {
-                let target = try SafeTarget(project: project, operation: operation, createParents: createParents)
+                let target = try SafeTarget(project: project, operation: operation, createParents: createParents, expectedSourceIdentity:expectedSourceIdentity)
                 guard seen.insert(target.path).inserted else { target.close(); throw VelaError("Duplicate operation path") }
                 result.append(target)
             }
@@ -134,6 +186,7 @@ private final class SafeTarget {
     let content: String
     let delete: Bool
     let baseHash: String
+    private let expectedSourceIdentity: JSON?
     private let rootPath: String
     private var descriptors: [Int32] = []
     private var anchors: [(Int32, String, Int32)] = []
@@ -149,7 +202,7 @@ private final class SafeTarget {
         ["path": path, "before": before as Any? ?? NSNull(), "beforeHash": before.map(stableHash) ?? "absent", "content": content, "afterHash": delete ? "absent" : stableHash(content), "delete": delete, "stageName":stagingName]
     }
 
-    init(project: String, operation: JSON, createParents: Bool, verifyBase: Bool = true) throws {
+    init(project: String, operation: JSON, createParents: Bool, verifyBase: Bool = true, expectedSourceIdentity: JSON? = nil) throws {
         let raw = try requireString(operation,"path")
         guard project.hasPrefix("/"), !raw.contains("\0"), raw.utf8.count < 4096 else { throw VelaError("Invalid apply path") }
         rootPath = canonicalProject(project)
@@ -164,6 +217,7 @@ private final class SafeTarget {
         guard content.utf8.count <= 2_097_152 else { throw VelaError("File content exceeds 2 MiB") }
         baseHash = try requireString(operation,"baseHash")
         guard baseHash == "absent" || baseHash.range(of:"^[a-f0-9]{64}$",options:.regularExpression) != nil else { throw VelaError("Invalid or missing base hash") }
+        self.expectedSourceIdentity = expectedSourceIdentity
         var old: String?
         do {
             let rootFD = Darwin.open(rootPath, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -186,17 +240,20 @@ private final class SafeTarget {
             if verifyBase, (old.map(stableHash) ?? "absent") != baseHash { throw VelaError("Base hash mismatch; review the current file before applying") }
             var info = stat()
             if parent >= 0, fstatat(parent, filename, &info, AT_SYMLINK_NOFOLLOW) == 0 { mode = info.st_mode & 0o777 }
+            before = old
+            try verifyAnchors()
+            try verifySourceIdentity()
         } catch {
             for (fd,name) in createdParents.reversed() { _ = unlinkat(fd,name,AT_REMOVEDIR) }; createdParents = []
             for fd in descriptors { Darwin.close(fd) }; descriptors = []
             throw error
         }
-        before = old
     }
 
     func current() throws -> String? { try verifyAnchors(); return parent < 0 ? nil : try Self.read(parent: parent, name: filename) }
     func verifyOriginal() throws {
         guard (try current()).map(stableHash) ?? "absent" == baseHash else { throw VelaError("Target changed during apply") }
+        try verifySourceIdentity()
     }
     private func verifyAnchors() throws {
         guard let root = descriptors.first else { throw VelaError("Closed apply target") }
@@ -206,24 +263,25 @@ private final class SafeTarget {
             guard fstat(child,&opened) == 0, fstatat(parent,name,&linked,AT_SYMLINK_NOFOLLOW) == 0, (linked.st_mode & S_IFMT) == S_IFDIR, opened.st_ino == linked.st_ino, opened.st_dev == linked.st_dev else { throw VelaError("Target path changed during apply") }
         }
     }
-    private static func read(parent: Int32, name: String) throws -> String? {
-        let fd = openat(parent,name,O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
-        if fd < 0 { if errno == ENOENT { return nil }; throw VelaError("Refusing unsafe or unreadable target") }
-        defer { Darwin.close(fd) }
-        var opened = stat(); var linked = stat()
-        guard fstat(fd,&opened) == 0, fstatat(parent,name,&linked,AT_SYMLINK_NOFOLLOW) == 0, (opened.st_mode & S_IFMT) == S_IFREG, opened.st_nlink == 1, opened.st_dev == linked.st_dev, opened.st_ino == linked.st_ino, opened.st_size <= 2_097_152 else { throw VelaError("Target is not a safe bounded regular file") }
-        var data = Data(); var buffer = [UInt8](repeating:0,count:8192)
-        while true {
-            let size = Darwin.read(fd,&buffer,buffer.count)
-            if size == 0 { break }; if size < 0 { throw VelaError("Could not read target") }
-            data.append(contentsOf: buffer.prefix(size))
-            if data.count > 2_097_152 { throw VelaError("Target grew beyond file limit") }
+    private func verifySourceIdentity() throws {
+        guard let expectedSourceIdentity else { return }
+        guard let rootFD = descriptors.first, parent >= 0 else { throw VelaError("Setup edit source is unavailable") }
+        var root = stat(), file = stat()
+        guard fstat(rootFD,&root) == 0, fstatat(parent,filename,&file,AT_SYMLINK_NOFOLLOW) == 0,
+              file.st_mode & S_IFMT == S_IFREG, file.st_nlink == 1 else { throw VelaError("Setup edit source identity changed") }
+        var ancestors: [(String,stat)] = []
+        for (_,name,child) in anchors {
+            var info = stat(); guard fstat(child,&info) == 0 else { throw VelaError("Setup edit ancestor identity changed") }
+            ancestors.append((name,info))
         }
-        guard let text = String(data:data,encoding:.utf8) else { throw VelaError("Only UTF-8 text targets are supported") }
-        return text
+        guard try SetupSourceIdentity.matches(expectedSourceIdentity,file:file,root:root,ancestors:ancestors) else { throw VelaError("Setup edit source identity changed") }
+    }
+    private static func read(parent: Int32, name: String) throws -> String? {
+        try FoundationFile.readUTF8(parent:parent,name:name)
     }
     func stage() throws {
         try verifyAnchors()
+        try verifySourceIdentity()
         if delete { return }
         staged = try writeStage(content,name:stagingName)
     }

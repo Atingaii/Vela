@@ -1,0 +1,150 @@
+{
+  "scope": "Frozen History/Plan UI13 renderer-to-local-helper acceptance, plus separate UI11 native interaction evidence",
+  "fullProductAcceptance": false,
+  "uiAuthor": {
+    "tool": "Antigravity CLI 1.2.2",
+    "model": "gemini-3.8-flash-high",
+    "effort": "high",
+    "conversation": "8a534f2b-d8db-4ed9-b13d-79499d17199c"
+  },
+  "browser": {
+    "receipt": "output/playwright/history-plan-r13-full/results.json",
+    "receiptSHA256": "43ce4ab1430ef160aad6bc47e596ba2d1cdee2d1c8472a8886860962700be9b5",
+    "checks": [
+      {
+        "check": "discovery-pagination",
+        "passed": true,
+        "inventoryId": "972d8255-dc2e-4c22-9a59-0e9d0979a095",
+        "discoveryCalls": 6,
+        "sources": 81,
+        "sourcePageContinuations": 1,
+        "pageErrors": []
+      },
+      {
+        "check": "source-start",
+        "passed": true,
+        "epochId": "42c675f8b3e656e326e925d8642f65b7028880f49234f01f82f39406d3209ab0",
+        "createdThroughUI": true,
+        "pageErrors": []
+      },
+      {
+        "check": "pause-resume-persistence",
+        "passed": true,
+        "epochId": "42c675f8b3e656e326e925d8642f65b7028880f49234f01f82f39406d3209ab0",
+        "offset": 1900544,
+        "records": 688,
+        "harnessSeededEpoch": true,
+        "pageErrors": []
+      },
+      {
+        "check": "cancel-resume",
+        "passed": true,
+        "cancelledRecordsPreserved": true,
+        "harnessSeededEpoch": true,
+        "pageErrors": []
+      },
+      {
+        "check": "event-pages-unicode-raw",
+        "passed": true,
+        "sourceOrderVerified": 100,
+        "rawParts": 5,
+        "rawSHA256": "5561a438836ab0acf28b6a33249db87ac1c301b105db243a7aa66f42f1c9f5a5",
+        "harnessImportedEpoch": true,
+        "heldRealPageAcrossHostRefresh": true,
+        "pageErrors": []
+      },
+      {
+        "check": "plan-states",
+        "passed": true,
+        "states": [
+          "confirmed-with-pending-update",
+          "unavailable",
+          "confirmed-empty"
+        ],
+        "workVerified": false,
+        "pageErrors": []
+      },
+      {
+        "check": "plan-event-pagination",
+        "passed": true,
+        "firstPage": 50,
+        "secondPage": 50,
+        "eventsTruncated": true,
+        "pageErrors": []
+      },
+      {
+        "check": "project-isolation",
+        "passed": true,
+        "projectSwitched": true,
+        "previousProjectRowsCleared": true,
+        "pageErrors": []
+      },
+      {
+        "check": "delayed-plan-routing",
+        "passed": true,
+        "lateActualResponseIgnored": true,
+        "newSessionPreserved": true,
+        "pageErrors": []
+      },
+      {
+        "check": "branch-pagination",
+        "passed": true,
+        "ancestorEntries": 75,
+        "pages": 2,
+        "harnessImportedEpoch": true,
+        "pageErrors": []
+      }
+    ],
+    "completeSuite": true,
+    "sourceUnchanged": true,
+    "uiHashes": {
+      "app.js": "64f24065a1fab0cf5e9be5315f12e1d8e7cb221ee9380617e1799a049b380ffe",
+      "i18n.js": "bacedc07ce0244b6c7b3f76314c080dc58813e50222312b4ebdfa508676437ad",
+      "app.css": "c36ffc41928b423080919c377b92253f95e452a8dd402a1d1b883ac34b28644c",
+      "index.html": "9fe2ee555b72e4509787def3f63be71f1d3dd1ce9ce9d3c8cb9d821bbc413458",
+      "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+      "demo.js": "c93c5c5285342664c6abd1565962f74ad6472205c7533dd993c35abab09d7058"
+    },
+    "helperSHA256": "e8eae49ef294c5607c1372e8e4b528e55ab932637059b2eba0c58fba12dd9041",
+    "synthetic": true,
+    "realProviderExecuted": false,
+    "workflowExecuted": false,
+    "daemonLifecycleExecuted": false,
+    "schedulerEnabled": false
+  },
+  "native": {
+    "receipt": "output/playwright/native-history-r11/native-interaction-receipt.json",
+    "receiptSHA256": "e019522426f9e782aef01c24d004534c6bba47a9ed5d7704c1f346e0a5838a1f",
+    "uiSnapshot": "UI11, independent from later UI13 browser fixes",
+    "helperSHA256": "cbfdf4c1efe788c573bd7aa6239bd33f75787b5cbd419dcad544089ae3dc514e",
+    "nativeHostSHA256": "b0b9a301214a3dc9052217640f04cda514d882274a8ba18e60f2911e89aa42ab",
+    "launchServicesRestartVerified": true,
+    "checks": [
+      "Chinese to English UI and menu switching",
+      "English locale persisted after guarded LaunchServices restart",
+      "English to Chinese switch restored labels",
+      "three native NSSound preview calls returned playing=true"
+    ],
+    "limits": [
+      "NSSound return value does not prove hardware audibility",
+      "OS notification banner delivery is unverified",
+      "Native UI11 is not the later UI13 renderer source"
+    ]
+  },
+  "resolvedProductFailures": [
+    {
+      "round": "UI11",
+      "failures": [
+        "source list silently missed a newly discovered entry",
+        "background refresh invalidated an actual history page response"
+      ]
+    },
+    {
+      "round": "UI12",
+      "failures": [
+        "Continue Discovery disabled stale DOM after render"
+      ]
+    }
+  ],
+  "visualObservation": "Repeated success toasts may briefly overlap lower-right actions; no horizontal clipping observed at tested desktop viewport."
+}

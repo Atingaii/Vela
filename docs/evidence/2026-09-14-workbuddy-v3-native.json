@@ -1,0 +1,114 @@
+{
+  "format": "vela-workbuddy-v3-native-interactions-v1",
+  "date": "2026-09-14",
+  "surface": "AppKit + WKWebView in macOS native QA wrapper",
+  "syntheticFixture": true,
+  "userProjectsModified": false,
+  "uiSourceHashes": {
+    "index.html": "380127605c6c147ee7b58bb54e0e9d770204b7d6a811f38f6103b7ae97356786",
+    "app.css": "c4e98fbacd99c0c90fcef842ad69ed81285b9ab5d20b1db9e9dbd01fd8927689",
+    "reading.css": "b1b4bb1fee56e3fa30c56e6559f7f8f253599198b0c0a2c6656b882ee4d8942a",
+    "content.js": "735938e0bdef0e1714ce48881c76e70e5fecf2a00fa631d062e19130089af3c6",
+    "app-icon.svg": "a0944f48ce0eedc01ebf9102cfe83ae18aa144360df4fc8ab47f08844387df93",
+    "i18n.js": "8c251d97fde352b54633f9911335b78e3364103c8ce515ac5fefb313f39b2130",
+    "app.js": "20c332d2f093d203de0c09126714ffa5ce6e48f2ef9f2c6561cd3a1671ad87be",
+    "vendor/prism-swift.js": "69c8a062618949fbc7b69989ab7fb2b7bc111b28ea329e53713c7a2885614b20",
+    "vendor/prism.LICENSE": "2b947f0901a7ffcf08a89957da9783c0e9c6e72cb6ce8e959f501ab5409e4d2b",
+    "vendor/prism-clike.js": "c76ba4e240932bdc75546be30e550f5ba5e13815ff71511c76e9e27ac3072444",
+    "vendor/prism-json.js": "956d86baa5ae7ec4106758f354ac2d140bdcd7fc103dece02f73ed12b8d663e4",
+    "vendor/marked.LICENSE": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+    "vendor/purify.js": "f263b05369e050fa175d4ecb9c9358eb4253602d510297adfb31df48b2f1c4d5",
+    "vendor/prism-python.js": "ed4385685bcf2d4935c8dbbab4bde16603da1329e092d2bf36c3dadd67e9a85c",
+    "vendor/purify.LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "vendor/marked.js": "b147274a9ce27d17276587167e49483d719f6893eeca3a3667a59797661d3556",
+    "vendor/prism-bash.js": "6260814110e5182f2956e3bd257429548d9dbf2a9b66a63719b26cf9fac966a7",
+    "vendor/prism-markup.js": "879fc9d256c352d980e053857fa707330853b8bfb67ce284ea661a24dec5756e",
+    "vendor/prism-javascript.js": "0345ea83e12b7b974e953c79a64dea35a40308309449db70b82020fb688ac321",
+    "vendor/prism-core.js": "6caad316dd991f24f8004e0b9c19c055cb5829ff65e973fbee406f96d81b8e7e",
+    "vendor/prism-css.js": "8c9760dba7f26ea842016919544dd9b73a78a36d5b07a1e9842c333ed18ab6ae"
+  },
+  "hostSHA256": "c6f573bb4d1d1cc0524238f6ca61835484b355f6ed682d8a0089d0b39342b343",
+  "helperSHA256": "5a8c18a04c83f654fc3ea7897f1ed2045125db0fe105ea0d7f2e2d399bcab042",
+  "checks": [
+    {
+      "name": "skill-read-preview-source-properties",
+      "result": "passed",
+      "observed": "Body is rendered, front matter is collapsed; Source contains complete original text."
+    },
+    {
+      "name": "skill-source-copy",
+      "result": "passed",
+      "receipt": "output/playwright/native-workbuddy-r3/skill-copy.json"
+    },
+    {
+      "name": "memory-origin-opens-project-session",
+      "result": "passed",
+      "observed": "Memory source opened actual Harbor session and changed project scope to Harbor."
+    },
+    {
+      "name": "tool-command-copy",
+      "result": "passed",
+      "receipt": "output/playwright/native-workbuddy-r3/command-copy.json"
+    },
+    {
+      "name": "approval-writes-previewed-file",
+      "result": "passed",
+      "receipt": "output/playwright/native-workbuddy-r3/approval-write.json"
+    },
+    {
+      "name": "reject-isolated-shell-request",
+      "result": "passed",
+      "observed": "Rejected shell.test request; run history displays Rejected."
+    },
+    {
+      "name": "workflow-menu-run-approval",
+      "result": "passed",
+      "observed": "Row menu Run opened actual Pending Approval run and generated a new approval."
+    },
+    {
+      "name": "nested-menu-modal-escape",
+      "result": "passed",
+      "observed": "First Escape closed menu, second closed definition modal."
+    },
+    {
+      "name": "native-language-switch",
+      "result": "passed",
+      "observed": "Changed Simplified Chinese to English; navigation and native Edit/View/Window/Development menus updated."
+    }
+  ],
+  "limitations": [
+    "Real Swift helper with synthetic isolated records; not evidence of external provider or remote account success.",
+    "Run-history row title was not separately verified with a native accessibility click; browser interaction tests cover that path.",
+    "UI checks do not close the 188-spec or 228-reference feature parity gates."
+  ],
+  "evidenceFiles": {
+    "vela-inbox-2E8FF21F-2A16-485C-8AFF-4DE0C32F2CAF.json": "26a9a5fb361075ac44155cebcd29e1ac589da46a7765e4fe9a1e0d4e60dead80",
+    "vela-settings-7AEB3754-1FD1-4ED7-B1FC-2117612B64D3.png": "4846a4348244380ae67ea7ca7fa9eb203ec7f4d4772da04a70ba5b55bb573628",
+    "vela-memory-BC22C629-8DDA-4E41-890A-0DB3CB441A48.png": "3573eed846f02ee990b0abe26c0767216a0fb600882016582eaf0678bcde98f8",
+    "vela-workflows-3A7360B7-0CA3-4968-8E00-47F40F082B47.json": "1348607d0b6ee557569561ba09ad7b2d670aa8d74d80a30672aa439deb1056c7",
+    "vela-settings-7AEB3754-1FD1-4ED7-B1FC-2117612B64D3.json": "935f05e7f7cce09643e4c1cee6970bfeedc178701a912a782deca67861e07daf",
+    "launcher-workbuddy-r3.json": "1575f639bd9cdb15989ad193bbed45d7b65909dab863b659220ef719123ad4bd",
+    "vela-workflows-3A7360B7-0CA3-4968-8E00-47F40F082B47.png": "f4c848f20025d49fea8bc812527e92094ae29d2f30068d1e90fb0c687f73e1ae",
+    "vela-agents-A75EE0A9-1E86-404A-A0E4-CF1A2313BDD1.json": "3708dbed976dcc3c712181f80ad440727c2dc929b375b01a08337eff2c082a72",
+    "vela-inbox-681535C1-BE5A-46E1-ADC0-9825D9381D45.png": "6f93858163a4a311ef0ce8b82b48eb035dc2995477c1cc72fc2c08e7db289f22",
+    "vela-setup-BE3A450F-DD93-464C-851A-8E0D21669478.png": "11cbe61bd3af19e1989dd6feabd49a3fef3a65017250108e0075bc3fe48adc30",
+    "approval-write.json": "354736e337bf3b9b52f47f1c0d42984ea2b8b8268fe69d3b55e1955cfe07a914",
+    "vela-inbox-2E8FF21F-2A16-485C-8AFF-4DE0C32F2CAF.png": "8e170f11c5b264e2c2cf5864ddd640d799fcbe2e1882530d11f91765ba249c24",
+    "skill-copy.json": "65da624dcc2955170448546a88882c03c21db2c3d5a2e7a560a6b1717636860c",
+    "vela-agents-0DBCCCEF-53AC-4ADF-A917-9F139A82439A.png": "1493458eb64f64c1dd9db4fd39c85df15d3b3dfdd74fa0ed56b49b245f90e2d3",
+    "command-copy.json": "ab09049ccace6e2fb44f7a2b7c6da885f4b343e0960c8ac7b5daf022601e934b",
+    "vela-agents-0DBCCCEF-53AC-4ADF-A917-9F139A82439A.json": "3708dbed976dcc3c712181f80ad440727c2dc929b375b01a08337eff2c082a72",
+    "vela-setup-BE3A450F-DD93-464C-851A-8E0D21669478.json": "6f3cf2bdc22eddfd1f17e9aa07784ad1890254dd75317256d5e5f5196b173d38",
+    "vela-agents-A75EE0A9-1E86-404A-A0E4-CF1A2313BDD1.png": "5ffce69b44818393b26ebe9bb2fdb72436cc8051148bfa1c8a308e7d7ae7d59e",
+    "vela-memory-E41917D1-1FDC-4BD3-86A1-4A3A97C0A7AD.json": "2cd173a938739084b4e4972e5cebc77262135110092b91bfd20d69b747a2f847",
+    "vela-workflows-ED926194-06A0-4597-ABFB-5569D561F732.json": "c5bb10a10cf7b6298c192db196281798ade6bafc1cf69d0bc96d74aeb43f796b",
+    "vela-memory-BC22C629-8DDA-4E41-890A-0DB3CB441A48.json": "2cd173a938739084b4e4972e5cebc77262135110092b91bfd20d69b747a2f847",
+    "vela-memory-E41917D1-1FDC-4BD3-86A1-4A3A97C0A7AD.png": "5dd9bd28a6f5d13def5006aa339937a39c69734bacd46308129ff4bacd19a745",
+    "vela-setup-23F085DB-A02F-4979-917F-8E87E80A41DA.png": "92f4a2428a8891405ad70a5ecb49b8dad5a180e69e0e6231b54d78ecd151d3ce",
+    "vela-inbox-681535C1-BE5A-46E1-ADC0-9825D9381D45.json": "26a9a5fb361075ac44155cebcd29e1ac589da46a7765e4fe9a1e0d4e60dead80",
+    "vela-setup-F69DE886-6103-4355-B314-024BB5DCE0D6.png": "492d2dbdfc254a9330416ed25346f7ee811b66f93e1b760a6b0a3189a8dc02b9",
+    "vela-setup-F69DE886-6103-4355-B314-024BB5DCE0D6.json": "d2199710a4b085cdf33fb965dbd64072264ab0d1e1065e95a050ca2ce2778f6b",
+    "vela-setup-23F085DB-A02F-4979-917F-8E87E80A41DA.json": "e295ec08cb85bae0a849a6e2f86d41bc7865fa8856a7e9d79a36cc7d68bd913c",
+    "vela-workflows-ED926194-06A0-4597-ABFB-5569D561F732.png": "1d10847471b867e61ac5dacaefd5340cde41d4f152a943f914cb1734db5c98d0"
+  }
+}

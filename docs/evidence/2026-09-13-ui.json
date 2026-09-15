@@ -1,0 +1,159 @@
+{
+  "format": "vela-ui-verification-v1",
+  "sourceCommit": "91d34e207eb7178a662c96a00267099025e52310",
+  "synthetic": true,
+  "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+  "uiSHA256": {
+    "app.js": "01104e7fbeef5c24a08af20fe70bd1934dc82f1446f7e16e230b03688ee3af0b",
+    "app.css": "49a7594949b0ce55ad59f8eb5e2c8266623d1d21d343ee7ddb17bc9ba8441e69",
+    "index.html": "dc3b50c7b0596c6cf4165701a7b2ea6535a48e7f2a0a4e620b41ec18e6106e27"
+  },
+  "helperSHA256": "bbeb97c8da8d28af25d04c532cb461d53c4c8604d0854701d6c9286e14d24483",
+  "browser": {
+    "playwright": "1.62.1",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+    "regression": [
+      {
+        "check": "filtering",
+        "passed": true
+      },
+      {
+        "check": "setup",
+        "passed": true
+      },
+      {
+        "check": "memory",
+        "passed": true
+      },
+      {
+        "check": "workflow",
+        "passed": true
+      },
+      {
+        "check": "draft",
+        "passed": true
+      },
+      {
+        "check": "keyboard",
+        "passed": true
+      },
+      {
+        "check": "rapid-navigation",
+        "passed": true
+      },
+      {
+        "check": "live-detail",
+        "passed": true
+      },
+      {
+        "check": "routing",
+        "passed": true
+      },
+      {
+        "check": "routing-failure",
+        "passed": true
+      },
+      {
+        "check": "routing-unknown",
+        "passed": true
+      },
+      {
+        "check": "routing-aggregate",
+        "passed": true
+      }
+    ],
+    "acceptance": [
+      {
+        "check": "memory-lifecycle",
+        "passed": true
+      },
+      {
+        "check": "exact-source",
+        "passed": true
+      },
+      {
+        "check": "cross-project-source",
+        "passed": true
+      },
+      {
+        "check": "lab-frozen-approval",
+        "passed": true
+      },
+      {
+        "check": "reuse-apply-undo",
+        "passed": true
+      },
+      {
+        "check": "usage-missing",
+        "passed": true
+      }
+    ],
+    "all18Passed": true,
+    "sourceUnchangedDuringBothSuites": true,
+    "acceptanceStartedAt": "2026-09-12T17:37:16.965973Z",
+    "initialRegression": {
+      "passed": 10,
+      "total": 12,
+      "failures": [
+        "Selector required adjustment for grouped session cards",
+        "Modal autofocus could move fast input into the title field"
+      ]
+    },
+    "reuseFailuresFixed": [
+      "Repeated already-installed preview rejected an empty operations list",
+      "Reopening applied preview incorrectly checked the original pre-apply hash"
+    ]
+  },
+  "native": {
+    "frameworks": [
+      "AppKit",
+      "WKWebView"
+    ],
+    "launch": "LaunchServices with a test-only bundle identity and pinned synthetic environment",
+    "viewports": [
+      {
+        "width": 1250,
+        "height": 800,
+        "layout": "split inspector"
+      },
+      {
+        "width": 900,
+        "height": 623,
+        "layout": "overlay drawer",
+        "escapeClosesDrawer": true
+      }
+    ],
+    "reuse": {
+      "synthetic": true,
+      "previewCreatesFile": false,
+      "suggestionId": "4d7ef0c8-16f9-44fc-9869-37754b5f7716",
+      "stateBeforeApply": "draft",
+      "operationCount": 1,
+      "standardLaunch": true,
+      "fixtureOutsideProtectedDesktop": true,
+      "stateAfterApply": "applied",
+      "exactFrozenBytesWritten": true,
+      "appliedSHA256": "63ae3a6ae05acd98ee75bef95a07a351580c4d0604548c464d44d9a35aa5e8d6",
+      "appliedPreviewSource": "applied_journal",
+      "providerHookExecuted": false,
+      "stateAfterUndo": "undone",
+      "originalFileAbsenceRestored": true,
+      "nativeAppliedRecordReopened": true
+    },
+    "workspaceScreenshot": {
+      "path": "docs/assets/vela-workspace.png",
+      "sha256": "d03eb222b21bb6ecd33ab3c66b964412442e78581a8dac65169d0dd2f74c4661",
+      "bytes": 192590,
+      "visuallyEdited": false
+    },
+    "launchObservation": "A development wrapper blocked opening its synthetic marker under Desktop. Standard launch and native interaction succeeded using an OS temporary-directory fixture. No production host code or OS permission was changed."
+  },
+  "limits": {
+    "realProviderExecutedInUISuites": false,
+    "providerHookTrustedOrExecuted": false,
+    "agentAdoptionMeasured": false,
+    "osNotificationDeliveryVerified": false,
+    "fullGoldenScenarioPassed": false,
+    "supportedMacOSMatrixComplete": false
+  }
+}
