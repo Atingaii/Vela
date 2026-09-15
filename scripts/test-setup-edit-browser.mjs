@@ -20,7 +20,7 @@ if (!fixture.synthetic || !project.startsWith(fixtureRoot + sep) || !target.star
 const uiRoot = uiDirectory || 'Sources/VelaApp/Resources/UI';
 if (uiDirectory && (!uiDirectory.startsWith('.task-tmp/') || uiDirectory.includes('..'))) throw Error('UI must be an owned frozen .task-tmp directory.');
 await mkdir(output, {recursive: false});
-const files = ['app.js','app.css','content.js','reading.css','i18n.js','index.html'];
+const files = ['app.js','appearance.js','app.css','content.js','reading.css','i18n.js','index.html'];
 const EXPECTED_CHECKS = 13;
 const hashes = async () => Object.fromEntries(await Promise.all(files.map(async name => [name, createHash('sha256').update(await readFile(resolve(uiRoot, name))).digest('hex')])));
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -91,11 +91,19 @@ try {
     await page.waitForFunction(expected => document.getElementById('setting-locale')?.value === expected, locale);
   };
   const currentReader = drawer => drawer.locator('[data-setup-document] .reading-file').first();
-  const pendingSetupApproval = async () => {
+  const pendingSetupApproval = async (scope = page) => {
     const prepared = (await calls()).filter(row => row.method === 'setup.edit.prepare' && row.ok).at(-1);
     const id = prepared?.result?.approval?.id;
     assert.ok(typeof id === 'string' && id.length > 0, 'setup.edit.prepare must return the rendered pending approval ID.');
-    return page.locator(`[data-testid="approval-card"][data-tool="setup.file.edit"][data-approval-id="${id}"]`);
+    return scope.locator(`[data-testid="approval-card"][data-tool="setup.file.edit"][data-approval-id="${id}"]`);
+  };
+  const openDocumentApproval = async () => {
+    await page.locator('.nav-link[data-page="setup"].active').waitFor({state: 'visible'});
+    const review = page.locator('#setup-approval-review');
+    await review.waitFor({state: 'visible'});
+    const approval = await pendingSetupApproval(review);
+    await approval.waitFor({state: 'visible'});
+    return approval;
   };
   const showReaderSource = async drawer => {
     const reader = currentReader(drawer);
@@ -115,9 +123,19 @@ try {
     assert.equal(matches.length, 1, 'Fixture project must expose exactly one review/SKILL.md row with its exact owned source path.');
     return page.locator(`article.workspace-row.asset-row[data-asset-id="${matches[0]}"]`);
   };
-  const openSkill = async () => {
+  const closeDocumentLayers = async () => {
+    // Contextual approval review intentionally stays above the source drawer,
+    // including after a failed frozen write. Dismiss the actual top layer
+    // before navigating, rather than trying to click through its backdrop.
+    if (await page.locator('#modal-container').isVisible()) {
+      await page.locator('#btn-close-modal').click();
+      await page.locator('#modal-container').waitFor({state: 'hidden'});
+    }
     const close = page.locator('#btn-close-drawer');
     if (await close.isVisible()) { await close.click(); await page.locator('#detail-drawer').waitFor({state: 'hidden'}); }
+  };
+  const openSkill = async () => {
+    await closeDocumentLayers();
     await page.locator('.nav-link[data-page="setup"]').click();
     await page.locator('[data-setuptab="skills"]').click();
     const row = await locateSkillRow();
@@ -127,8 +145,7 @@ try {
     return page.locator('#detail-drawer:not(.hidden)');
   };
   const scanSetup = async () => {
-    const close = page.locator('#btn-close-drawer');
-    if (await close.isVisible()) { await close.click(); await page.locator('#detail-drawer').waitFor({state: 'hidden'}); }
+    await closeDocumentLayers();
     await page.locator('.nav-link[data-page="setup"]').click();
     const before = (await calls()).filter(row => row.method === 'setup.scan' && row.ok).length;
     await page.locator('#btn-scan-setup').click();
@@ -179,19 +196,18 @@ try {
   assert.deepEqual(reviewCalls[0].params.content, expected);
   assert.equal(await diff.locator('.reading-change-removed code').textContent(), originalBlock);
   assert.equal(await diff.locator('.reading-change-added code').textContent(), replacement);
-  await page.screenshot({path: output + '/review-diff.png'});
+  await page.screenshot({animations: 'disabled', path: output + '/review-diff.png'});
   result.checks.push({name: 'preview-is-helper-backed-complete-diff', passed: true});
 
   assert.equal((await calls()).filter(row => row.method === 'setup.edit.prepare').length, 0);
   await page.locator('#btn-setup-request').click();
-  await page.locator('.nav-link[data-page="inbox"].active').waitFor();
   assert.equal(await readFile(target, 'utf8'), initial);
+  await page.waitForFunction(() => window.__setupEditCalls.some(row => row.method === 'setup.edit.prepare' && row.ok));
   const prepareCalls = (await calls()).filter(row => row.method === 'setup.edit.prepare');
   assert.equal(prepareCalls.length, 1);
   assert.deepEqual(prepareCalls[0].params.content, expected);
-  const approval = await pendingSetupApproval();
-  await approval.waitFor({state: 'visible'});
-  result.checks.push({name: 'prepare-keeps-source-unchanged-and-creates-rendered-approval', passed: true});
+  const approval = await openDocumentApproval();
+  result.checks.push({name: 'prepare-keeps-source-unchanged-and-creates-document-context-approval', passed: true});
 
   const dashboardBeforeApproval = (await calls()).filter(row => row.method === 'dashboard.get').length;
   await approval.locator('[data-testid="approval-approve"]').click();
@@ -203,7 +219,7 @@ try {
   const appliedDrawer = await openSkill();
   const appliedReader = await showReaderSource(appliedDrawer);
   assert.equal(await appliedReader.locator('.reading-file-source code').textContent(), expected);
-  result.checks.push({name: 'inbox-approval-applies-exact-reviewed-source', passed: true});
+  result.checks.push({name: 'document-context-approval-applies-exact-reviewed-source', passed: true});
 
   const afterEdit = await openSkill();
   await page.locator('#detail-drawer:not(.hidden) .setup-edit-history-row .btn-setup-undo').waitFor({state: 'visible'});
@@ -259,9 +275,7 @@ try {
   await page.locator('[data-edit-view="diff"]').click();
   await page.locator('#setup-editor-diff [data-review-complete="true"]').waitFor({state: 'visible'});
   await page.locator('#btn-setup-request').click();
-  await page.locator('.nav-link[data-page="inbox"].active').waitFor();
-  const staleApproval = await pendingSetupApproval();
-  await staleApproval.waitFor({state: 'visible'});
+  const staleApproval = await openDocumentApproval();
   const externalAfterPrepare = 'External edit after a reviewed approval.\n';
   await writeFile(target, externalAfterPrepare, 'utf8');
   const decisionsBeforeStale = (await calls()).filter(row => row.method === 'approvals.decide').length;
@@ -272,8 +286,8 @@ try {
   assert.equal(staleDecision.result?.state, 'failed');
   assert.equal(await readFile(target, 'utf8'), externalAfterPrepare);
   assert.equal(await page.locator('[data-testid="toast"][data-toast-key^="info:inbox.approvedToast:"]').count(), 0);
-  await page.screenshot({path: output + '/stale-approval-failed.png'});
-  result.checks.push({name: 'external-change-after-prepare-fails-inbox-without-overwrite-or-success-toast', passed: true, externalHash: sha(externalAfterPrepare)});
+  await page.screenshot({animations: 'disabled', path: output + '/stale-approval-failed.png'});
+  result.checks.push({name: 'external-change-after-prepare-fails-document-context-review-without-overwrite-or-success-toast', passed: true, externalHash: sha(externalAfterPrepare)});
 
   // Deliver a real helper prepare response late, after the user closes and
   // reopens. The browser gate delays delivery only; it never fabricates a
@@ -303,11 +317,11 @@ try {
   await page.locator('[data-edit-view="diff"]').click();
   await page.locator('#setup-editor-diff [data-review-complete="true"]').waitFor({state: 'visible'});
   await page.locator('#btn-setup-request').click();
-  await page.locator('.nav-link[data-page="inbox"].active').waitFor({state: 'visible'});
+  await page.locator('#setup-approval-review').waitFor({state: 'visible'});
   const latePrepareCalls = (await calls()).filter(row => row.method === 'setup.edit.prepare' && row.ok);
   assert.ok(latePrepareCalls.filter(row => row.params.content === firstLateContent).length === 1, 'the held exact draft must create only one real approval.');
   assert.ok(latePrepareCalls.filter(row => row.params.content === secondLateContent).length === 1, 'the later changed draft must create one separate real approval.');
-  const latestApproval = await pendingSetupApproval();
+  const latestApproval = await openDocumentApproval();
   const decisionsBeforeReject = (await calls()).filter(row => row.method === 'approvals.decide' && row.ok).length;
   await latestApproval.locator('[data-testid="approval-reject"]').click();
   await page.waitForFunction(count => window.__setupEditCalls.filter(row => row.method === 'approvals.decide' && row.ok).length > count, decisionsBeforeReject);
@@ -332,9 +346,7 @@ try {
   await emptyDiff.waitFor({state: 'visible'});
   assert.equal(await emptyDiff.locator('.reading-change-added code').textContent(), emptyReplacement);
   await page.locator('#btn-setup-request').click();
-  await page.locator('.nav-link[data-page="inbox"].active').waitFor();
-  const emptyApproval = await pendingSetupApproval();
-  await emptyApproval.waitFor({state: 'visible'});
+  const emptyApproval = await openDocumentApproval();
   await emptyApproval.locator('.setup-approval-change [data-review-complete="true"]').waitFor({state: 'visible'});
   await emptyApproval.locator('.setup-approval-change details summary').click();
   assert.equal(await emptyApproval.locator('.setup-approval-change .reading-file-source code').textContent(), emptyReplacement);
@@ -382,7 +394,7 @@ try {
     assert.ok(button.rect.left >= 0 && button.rect.right <= geometry.width && button.rect.top >= 0 && button.rect.bottom <= geometry.height, `${button.id} must remain reachable in the 900px viewport.`);
     assert.ok(button.centerHitsButton, `${button.id} center must hit its button or a child, not an overlay.`);
   }
-  await page.screenshot({path: output + '/setup-editor-900px-write.png'});
+  await page.screenshot({animations: 'disabled', path: output + '/setup-editor-900px-write.png'});
   result.checks.push({name: 'open-setup-editor-has-no-900px-horizontal-overflow-and-reachable-footer', passed: true, geometry});
   await clearArea.fill('');
   await page.locator('[data-edit-view="diff"]').click();
@@ -390,11 +402,9 @@ try {
   await clearDiff.waitFor({state: 'visible'});
   assert.equal(await clearDiff.locator('.reading-change-removed code').textContent(), emptyReplacement);
   assert.equal(await clearDiff.locator('.reading-change-added').count(), 0);
-  await page.screenshot({path: output + '/setup-editor-900px-diff.png'});
+  await page.screenshot({animations: 'disabled', path: output + '/setup-editor-900px-diff.png'});
   await page.locator('#btn-setup-request').click();
-  await page.locator('.nav-link[data-page="inbox"].active').waitFor({state: 'visible'});
-  const clearApproval = await pendingSetupApproval();
-  await clearApproval.waitFor({state: 'visible'});
+  const clearApproval = await openDocumentApproval();
   const decisionsBeforeClear = (await calls()).filter(row => row.method === 'approvals.decide' && row.ok).length;
   await clearApproval.locator('[data-testid="approval-approve"]').click();
   await page.waitForFunction(count => window.__setupEditCalls.filter(row => row.method === 'approvals.decide' && row.ok).length > count, decisionsBeforeClear);

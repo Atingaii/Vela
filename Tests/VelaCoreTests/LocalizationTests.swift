@@ -64,6 +64,67 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(try jsonString(XCTUnwrap(store.get("settings", "preferences"))), original)
     }
 
+    func testAppearancePreferencesPersistAndRejectInvalidValues() throws {
+        let initial = try VelaPreferences.read(from: store)
+        XCTAssertEqual(initial["theme"] as? String, "system")
+        XCTAssertEqual(initial["density"] as? String, "standard")
+        XCTAssertEqual((initial["zoomPercent"] as? NSNumber)?.intValue, 100)
+
+        let saved = try VelaPreferences.save(["theme": "dark", "density": "compact", "zoomPercent": 125], in: store)
+        XCTAssertEqual(saved["theme"] as? String, "dark")
+        XCTAssertEqual(saved["density"] as? String, "compact")
+        XCTAssertEqual((saved["zoomPercent"] as? NSNumber)?.intValue, 125)
+        let reopened = try VelaStore(root: store.root)
+        let persisted = try VelaPreferences.read(from: reopened)
+        XCTAssertEqual(persisted["theme"] as? String, "dark")
+        XCTAssertEqual(persisted["density"] as? String, "compact")
+        XCTAssertEqual((persisted["zoomPercent"] as? NSNumber)?.intValue, 125)
+
+        let normalized = try VelaPreferences.save(["zoomPercent": 100.0], in: store)
+        XCTAssertEqual((normalized["zoomPercent"] as? NSNumber)?.intValue, 100)
+        XCTAssertEqual((try XCTUnwrap(store.get("settings", "preferences"))["zoomPercent"] as? NSNumber)?.intValue, 100)
+
+        let original = try jsonString(XCTUnwrap(store.get("settings", "preferences")))
+        for invalid: JSON in [
+            ["theme": "auto"], ["theme": true], ["density": "dense"], ["density": 1],
+            ["zoomPercent": true], ["zoomPercent": 100.5], ["zoomPercent": Double.nan], ["zoomPercent": 89], ["zoomPercent": 151]
+        ] {
+            XCTAssertThrowsError(try VelaPreferences.save(invalid, in: store))
+            XCTAssertEqual(try jsonString(XCTUnwrap(store.get("settings", "preferences"))), original)
+        }
+    }
+
+    func testAppearancePreferenceReadRepairsLegacyAndInvalidStoredValues() throws {
+        _ = try store.put("settings", [
+            "id": "preferences", "theme": "unsupported", "density": true,
+            "zoomPercent": 100.5, "notifyErrors": false
+        ])
+        let repaired = try VelaPreferences.read(from: store)
+        XCTAssertEqual(repaired["theme"] as? String, "system")
+        XCTAssertEqual(repaired["density"] as? String, "standard")
+        XCTAssertEqual((repaired["zoomPercent"] as? NSNumber)?.intValue, 100)
+        XCTAssertEqual(repaired["notifyErrors"] as? Bool, false)
+    }
+
+    func testPreferenceSaveRejectsStaleTwoStoreSnapshotAndPreservesUnknownFields() throws {
+        _ = try store.put("settings", [
+            "id": "preferences", "theme": "light", "vendorRetainedSetting": "keep-me"
+        ])
+        let competingStore = try VelaStore(root: store.root)
+
+        XCTAssertThrowsError(try VelaPreferences.save(["density": "compact"], in: store, afterReadBeforePersistForTesting: {
+            _ = try VelaPreferences.save(["zoomPercent": 125], in: competingStore)
+        })) { error in
+            XCTAssertTrue(error.localizedDescription.contains("source changed"))
+        }
+
+        let raw = try XCTUnwrap(store.get("settings", "preferences"))
+        XCTAssertEqual(raw["vendorRetainedSetting"] as? String, "keep-me")
+        XCTAssertEqual(raw["theme"] as? String, "light")
+        XCTAssertEqual(raw["density"] as? String, "standard")
+        XCTAssertEqual((raw["zoomPercent"] as? NSNumber)?.intValue, 125)
+    }
+
     func testGlobalAndProjectDashboardsExposeSameGlobalLocale() throws {
         let project = temporary.appendingPathComponent("project")
         try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)

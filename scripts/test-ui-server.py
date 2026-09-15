@@ -12,8 +12,10 @@ import json
 import os
 from pathlib import Path
 import queue
+import re
 import secrets
 import signal
+import stat
 import subprocess
 import threading
 import time
@@ -61,11 +63,32 @@ setInterval(async()=>{try{const j=await(await fetch('__events')).json();if(revis
 """
 
 
-def fixture_paths(path):
-    manifest = path.resolve(strict=True)
+def fixture_paths(path, native_temporary_root=None):
+    supplied = path.absolute()
+    if supplied.is_symlink():
+        raise ValueError('Fixture manifest must not be a symbolic link.')
+    manifest = supplied.resolve(strict=True)
     base = manifest.parent
-    if not base.is_relative_to((ROOT / '.task-tmp').resolve()) or manifest.name != 'fixture.json':
-        raise ValueError('Use a new create-ui-fixture.py fixture below repository .task-tmp.')
+    if native_temporary_root is None:
+        if not base.is_relative_to((ROOT / '.task-tmp').resolve()) or manifest.name != 'fixture.json':
+            raise ValueError('Use a new create-ui-fixture.py fixture below repository .task-tmp.')
+    else:
+        supplied_root = Path(native_temporary_root).absolute()
+        if supplied_root.is_symlink():
+            raise ValueError('Native temporary root must not be a symbolic link.')
+        native_root = supplied_root.resolve(strict=True)
+        root_stat = native_root.stat()
+        if (supplied_root.parent != Path('/private/tmp')
+                or native_root != supplied_root
+                or native_root.parent != Path('/private/tmp')
+                or not re.fullmatch(r'vela-native-qa-[a-z0-9]{8,64}', native_root.name)
+                or native_root.is_symlink()
+                or not native_root.is_dir()
+                or root_stat.st_uid != os.getuid()
+                or stat.S_IMODE(root_stat.st_mode) != 0o700):
+            raise ValueError('Native temporary root must be a current-user 0700 /private/tmp/vela-native-qa-<random> directory.')
+        if supplied.parent != base or base.parent != native_root or base.is_symlink() or manifest.name != 'fixture.json':
+            raise ValueError('Native QA fixture must be a direct ordinary child of its native temporary root.')
     data = json.loads(manifest.read_text())
     if data.get('format') != 'vela-ui-fixture-v1' or data.get('synthetic') is not True:
         raise ValueError('Not a synthetic Vela UI fixture.')
@@ -79,7 +102,10 @@ def fixture_paths(path):
     if any(Path(p).is_symlink() or Path(p).resolve(strict=True) != Path(p) for p in projects):
         raise ValueError('Fixture project aliases are refused.')
     data['projects'] = projects
-    marker = json.loads((Path(data['home']) / '.vela-ui-fixture.json').read_text())
+    marker_path = Path(data['home']) / '.vela-ui-fixture.json'
+    if marker_path.is_symlink():
+        raise ValueError('Fixture ownership marker must not be a symbolic link.')
+    marker = json.loads(marker_path.read_text())
     if marker != {'format': 'vela-ui-fixture-v1', 'synthetic': True, 'manifest': str(manifest)}:
         raise ValueError('Missing fixture ownership marker.')
     return data, base

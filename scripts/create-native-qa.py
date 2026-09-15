@@ -29,17 +29,28 @@ def main():
     parser.add_argument('--binary', type=Path, required=True)
     parser.add_argument('--ui-directory', type=Path, required=True)
     parser.add_argument('--capture-directory', type=Path, required=True)
+    parser.add_argument('--native-temporary-root', type=Path,
+                        help='Existing 0700 /private/tmp/vela-native-qa-<random> root for a native-only fixture.')
     parser.add_argument('--name', required=True, help='Unique short lowercase identifier, such as history-r11.')
     args = parser.parse_args()
     if not re.fullmatch('[a-z][a-z0-9-]{0,40}', args.name):
         parser.error('Use a short lowercase QA identifier.')
     spec = importlib.util.spec_from_file_location('vela_fixture_bridge', ROOT / 'scripts/test-ui-server.py')
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
-    fixture, base = module.fixture_paths(args.fixture)
+    native_root = args.native_temporary_root.absolute() if args.native_temporary_root else None
+    fixture, base = module.fixture_paths(args.fixture, native_temporary_root=native_root)
     capture = args.capture_directory.absolute()
-    if capture.is_symlink() or not capture.resolve().is_relative_to((ROOT / 'output/playwright').resolve()):
+    if native_root:
+        expected_capture = native_root / 'captures'
+        if capture != expected_capture or capture.is_symlink():
+            parser.error('Native QA capture evidence must be exactly <native-temporary-root>/captures.')
+    elif capture.is_symlink() or not capture.resolve().is_relative_to((ROOT / 'output/playwright').resolve()):
         parser.error('Capture evidence must be under output/playwright.')
     capture.mkdir(parents=True, exist_ok=True)
+    capture_stat = capture.stat()
+    if (capture.is_symlink() or capture_stat.st_uid != os.getuid() or not capture.is_dir()
+            or (native_root and capture.resolve(strict=True) != native_root / 'captures')):
+        parser.error('Capture evidence directory must be an ordinary current-user directory.')
     bundle = base / ('Vela QA ' + args.name + '.app')
     if bundle.exists() or bundle.is_symlink():
         parser.error('The named QA bundle already exists.')
@@ -120,6 +131,7 @@ int main(int argc, char **argv) {
                    inheritedEnvironmentRequired=False, homeOverride=False,
                    fixtureHome=fixture['home'], fixtureSessionRoot=fixture['sessionRoot'],
                    fixtureCaptureDirectory=str(capture), discoveryDisabled=True,
+                   nativeTemporaryRoot=str(native_root) if native_root else None,
                    requestedWebsiteDataStore='nonPersistent',
                    missingMarkerRejected=True, verification=verified.stdout.strip(),
                    uiLaunched=False, actualLaunchServicesRestartVerified=False)

@@ -34,7 +34,7 @@ V3 同源本机浏览器检查为工程 11/11、本地化 6/6、阅读 6/6、设
 
 | 模块 | 已实现行为 | 尚需完成或验证的边界 |
 | --- | --- | --- |
-| 桌面与语言 | AppKit、系统 WKWebView、独立 Swift helper；分组会话、记忆、工作流、审批与设置；简体中文/English 持久化切换 | 当前交付平台 Apple Silicon、macOS 13+。最新 UI 由用户授权 Codex 直接重构；已验证入口与仍未验收的台账能力分开记录 |
+| 桌面与语言 | AppKit、单 WKWebView/helper；主工作区与伴随模式、原生收拢面板；分组会话、配置、记忆、工作流、审批；简体中文/English 与外观偏好持久化 | Apple Silicon、macOS 13+。2026-09-16 UI 按最新用户指定由 Antigravity Gemini 3.8 Flash High 实现；主模型本机验收。新原生窗口生命周期仍因锁屏未验，已验证入口与完整能力台账分开记录 |
 | 会话观察 | Claude/Codex 增量日志、部分 Cursor 导出/SQLite、Pi v1/v2/v3 分支记录与 OMP 元数据；有界流式读取、来源版本、身份/轮转检查 | 完整历史回填及所有私有 Cursor 格式仍未完成。日志推断不等于进程存活证明；Pi 最新持久化分支不冒充当前活跃分支 |
 | 显式历史回填 | Claude/Codex/Pi/OMP JSONL来源清单、固定epoch、分批读取与重启续传、稳定分页和完整原文分块；解析/原文/分支分别计量 | 历史回填桌面发现/分页/启停/续传/原文分块已通过 UI17 实测和 972 CI；Cursor、未知格式与完整大负载仍未验收，未解析原文不计为归一化功能 |
 | 会话计划 | Codex update_plan、Claude Todo/Task 的持久化调用与成功回执配对；只读任务状态、来源hash/位置、提议/失败/未知区分 | UI17 的全部项目 scope 与后台刷新展开/锚点缺陷保留为历史反例。UI18 r7 已在冻结 renderer→真实隔离 helper 的完整 8 项浏览器路径中复验 explicit project、展开首屏、默认首 cursor、无旧 cursor、stale guard 与 anchor；其真实 held `sessions.relations.get` + 用户 wheel 反例从 r6 的红结果变为 r7 保持阅读位置的通过结果。嵌套 held-response 加 wheel 的反例只在 Chrome 实测，机制是 Chromium 原生 scroll anchoring 的证据支持推断而非 setter trace 结论。另有匹配 r7 的 WKWebView 普通刷新、父子关系导航和双语 Search/Actions 实测；没有原生 held-response 覆盖，仅保存一张刷新后截图，不声称保存前后成对证据。完整历史投影/未文档化格式仍不足，计划完成不证明工程验证通过 |
@@ -148,3 +148,13 @@ r4 renderer `app.js` `05e206cb…` 与同一冻结 helper 的串行浏览器验�
 按用户要求先核对参考产品，再进行整体 UI 重构。[本轮审查](parity/blume-native-audit-2026-09-15.md)逐项覆盖既有 B01–B52，记录官方 Blume 1.0.74 的24条原生观察及当前 Vela 对应源码/界面。参考 Pin 已确认是可收拢悬浮条，Analytics 已有可访问页面，缩放/密度/周报/路径排除设置已见；登录后、非空建议/计划/子代理/worktree 与真实多 provider 成功路径继续保留未验，不再用旧 Soon/灰度标签覆盖本机可见事实。
 
 Vela 本轮仅新增一条合成项目的原生 Markdown 标题块编辑→审阅→冻结审批→精确写入→Undo 字节恢复证据；0次provider调用，未改真实项目。现有排除 Core 服务尚缺桌面入口，额度适配仍仅 Codex；窄窗、活动/历史分流、文档上下文与设置组织仍需重构。[机器证据](evidence/2026-09-15-blume-native-comparison.json)保存版本、hash、截图与范围。WorkBuddy Deepseek-V4.1-Flash 尝试恢复超时，未产生本轮设计代码；普通置顶提案已撤回，本轮没有合入 UI 改动，也没有更新发布包。**功能/UI 等价及全产品总验收仍未通过。**
+
+## Blume 应用框架与核心页重构（2026-09-16）
+
+已先在官方 Blume 1.0.74 上复核窄窗、活动/历史入口、Session 标签、项目配置、文档阅读、主题与 Pin/Expand/Unpin，再由 **Antigravity CLI Gemini 3.8 Flash High** 编写本轮 UI，GPT Terra 实现基础接线，主模型负责审查和本机测试。没有复制参考私有源码或品牌资源。
+
+当前源码已实现四个主要工作入口及 Vela 扩展导航、会话 Activity/Plan/Sub-agents 分页、Setup 项目与目录分组和 Content/Related/Details、文档上下文内的编辑审批/Undo，以及持久化主题、密度和缩放。主工作区和伴随模式共享一个 WKWebView/helper，收拢使用原生 NSPanel；见 [架构](architecture.md)、[窗口 ADR](adr/0049-native-companion-window.md)、[外观 ADR](adr/0050-desktop-appearance-preferences.md)。外观和通用设置共用保存队列，未提交草稿跨页面保留；旧 dashboard 不覆盖较新偏好。
+
+本轮冻结 renderer 的浏览器回归已通过外观 9 项、应用框架 7 项、配置编辑与撤销 13 项、设计 16 项，使用真实 helper 与合成项目。这些测试不包含原生窗口操作或真实账户。逐页截图复审后另补额度卡片排版及状态验证，最终收据见[本轮记录](implementation/blume-native-followup-2026-09-16.md)。
+
+**Blume 功能/UI 等价仍未验收。** Mac 锁屏阻止新原生窗口生命周期验证；Claude/Cursor 额度适配、桌面摄取排除、非空 Improve/计划/子代理/worktree 与真实多 provider 成功路径仍按 B01–B52 保留未完成或未验证。当前开发包不改变公开 preview.2 下载，不作稳定发布或完整产品交付声明。

@@ -128,7 +128,7 @@ def main() -> int:
             stderr = server.stderr.read().strip()
             (out / (case + '-bridge.stderr')).write_text(stderr + '\n')
             raise RuntimeError('test bridge exited before ready: ' + stderr)
-          address=json.loads(ready_line)['url']; browser('open',address); browser('click','.nav-link[data-page="usage"]'); browser('click','[data-usagetab="quota"]'); browser('wait','#btn-refresh-codex-quota')
+          address=json.loads(ready_line)['url']; browser('viewport',1250,800); browser('open',address); browser('click','.nav-link[data-page="usage"]'); browser('click','[data-usagetab="quota"]'); browser('wait','#btn-refresh-codex-quota')
           observed=value("(()=>{const rows=[...document.querySelectorAll('.quota-window-row')],meters=[...document.querySelectorAll('.quota-bar-track[role=\"meter\"]')];return {rows:rows.length,meters:meters.map(x=>x.getAttribute('aria-valuenow')),remaining:rows.map(x=>x.querySelector('.quota-remaining strong')?.textContent?.trim()||''),empty:!!document.querySelector('.quota-empty'),history:!!document.querySelector('.quota-history-note'),resetPassed:!!document.querySelector('.quota-reset-note'),error:!!document.querySelector('.quota-error'),connectionOpen:document.querySelector('.quota-connection')?.open===true,refresh:!!document.querySelector('#btn-refresh-codex-quota'),input:!!document.querySelector('#codex-cli-path-input')};})()")
           if not observed['refresh'] or not observed['input']: raise AssertionError('quota refresh controls missing')
           if case=='neverread' and not(observed['empty'] and observed['connectionOpen'] and not observed['meters']): raise AssertionError('never-read must be unavailable and connection-expanded, never a zero meter')
@@ -138,7 +138,18 @@ def main() -> int:
           if case=='reset-missing' and observed['meters']!=['50']: raise AssertionError('missing reset must preserve observed 50 remaining rather than erase it')
           if case=='expired' and (observed['meters']!=['75'] or not observed['resetPassed']): raise AssertionError('expired window must show its reset-passed evidence, not be presented as current quota')
           if case=='stale-error' and not(observed['meters']==['70'] and observed['history'] and observed['error']): raise AssertionError('failed refresh must retain prior real snapshot and label it historical/error')
-          row['observed']=observed; browser('screenshot',str(out/(case+'.png'))); row['passed']=True
+          row['observed']=observed; browser('screenshot',str(out/(case+'.png')))
+          row['responsive']=[]
+          for mode in ('light-100','dark-150'):
+            browser('viewport',440,760)
+            theme,zoom=mode.split('-')
+            browser('eval',f"(async()=>{{const confirmed=await window.vela.call('settings.save',{{theme:'{theme}',zoomPercent:{zoom}}});window.VelaAppearance.apply(confirmed);return true;}})()")
+            layout=value("(()=>{const card=document.querySelector('#usage-codex-quota-card'),input=card.querySelector('#codex-cli-path-input'),label=card.querySelector('label[for=\"codex-cli-path-input\"]'),r=card.getBoundingClientRect(),i=input.getBoundingClientRect(),l=label.getBoundingClientRect();return {viewport:innerWidth,documentWidth:document.documentElement.scrollWidth,card:{x:r.x,right:r.right,width:r.width},connectionOpen:card.querySelector('.quota-connection').open,input:{x:i.x,right:i.right,top:i.top,width:i.width},labelBottom:l.bottom,theme:document.documentElement.dataset.theme,zoom:document.documentElement.dataset.zoom};})()")
+            if layout['documentWidth']>layout['viewport'] or layout['card']['x']<0 or layout['card']['right']>440: raise AssertionError('quota card overflows companion viewport: '+json.dumps(layout))
+            if layout['connectionOpen'] and (layout['input']['top']<layout['labelBottom'] or layout['input']['right']>layout['card']['right'] or layout['input']['width']<200): raise AssertionError('connection input must stay below its label and fit the card: '+json.dumps(layout))
+            row['responsive'].append({'mode':mode,**layout})
+            browser('screenshot',str(out/(case+'-'+mode+'-440.png')))
+          row['passed']=True
         except Exception as err:
           row['error']=traceback.format_exc(); failure=err
         finally:

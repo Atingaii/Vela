@@ -10,7 +10,7 @@ NOTIFICATION_SOUNDS = (
 # Release resources are relative POSIX paths. New vendor assets belong here before
 # fixtures, the package copier, or the release audit can serve/copy them.
 UI_RESOURCES = (
-    'index.html', 'app.js', 'i18n.js', 'app.css', 'app-icon.svg', 'content.js', 'reading.css',
+    'index.html', 'app.js', 'appearance.js', 'i18n.js', 'app.css', 'app-icon.svg', 'content.js', 'reading.css',
     'vendor/marked.js', 'vendor/marked.LICENSE',
     'vendor/purify.js', 'vendor/purify.LICENSE',
     'vendor/prism-core.js', 'vendor/prism-clike.js', 'vendor/prism-javascript.js',

@@ -20,7 +20,9 @@
     selectedRunId: null,
     selectedSuggestionId: null,
     selectedEvalId: null,
-    setupActiveTab: 'rules',
+    setupActiveTab: 'overview',
+    sessionDetailTab: 'activity',
+    sessionDetailTabOwner: null,
     workflowsActiveTab: 'list',
     workflowsIncludeArchived: false,
     agentsActiveTab: 'sessions',
@@ -41,6 +43,10 @@
     memoryFilter: 'all',
     // Settings draft, snapshot cache, and live session tracking
     settingsDraft: null,
+    settingsSaveEpoch: 0,
+    preferencesEpoch: 0,
+    preferencesSavePending: 0,
+    settingsSaveQueue: Promise.resolve(),
     lastRenderedSnapshotJson: null,
     hasPendingSnapshot: false,
     loadedSessionDetail: null
@@ -61,6 +67,75 @@
   const t = (key, params) => (window.VelaI18n ? window.VelaI18n.t(key, params) : key);
   const tHtml = (key, params, tag) => (window.VelaI18n ? window.VelaI18n.tHtml(key, params, tag) : escapeHtml(key));
 
+  function applyAppearance(settings) {
+    if (window.VelaAppearance && typeof window.VelaAppearance.apply === 'function') {
+      window.VelaAppearance.apply(settings || state.rawSettings || {});
+    }
+  }
+
+  function confirmedSettings(result) {
+    if (!result || typeof result !== 'object' || Array.isArray(result)) return {};
+    return result.settings && typeof result.settings === 'object' && !Array.isArray(result.settings) ? result.settings : result;
+  }
+
+  function confirmedAppearanceSettings(result) {
+    const settings = confirmedSettings(result);
+    const valid = ['system', 'light', 'dark'].includes(settings.theme)
+      && ['standard', 'compact'].includes(settings.density)
+      && Number.isInteger(settings.zoomPercent)
+      && settings.zoomPercent >= 90 && settings.zoomPercent <= 150;
+    if (!valid) throw new Error(t('settings.saveFailed'));
+    return settings;
+  }
+
+  function applyReadPreferences(settings, requestEpoch) {
+    if (!settings || requestEpoch !== state.preferencesEpoch || state.preferencesSavePending > 0) return false;
+    state.rawSettings = settings;
+    applyAppearance(settings);
+    return true;
+  }
+
+  function commitConfirmedPreferences(settings, { apply = true } = {}) {
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error(t('settings.saveFailed'));
+    state.preferencesEpoch += 1;
+    state.rawSettings = settings;
+    if (apply) applyAppearance(settings);
+    return settings;
+  }
+
+  function enqueueConfirmedSettingsSave(payload, validate = confirmedSettings) {
+    state.preferencesSavePending += 1;
+    const operation = state.settingsSaveQueue.then(async () => {
+      const confirmed = validate(await callBridge('settings.save', payload));
+      if (!confirmed || typeof confirmed !== 'object' || Array.isArray(confirmed) || Object.keys(confirmed).length === 0) {
+        throw new Error(t('settings.saveFailed'));
+      }
+      // Every caller commits only the helper's complete confirmed record. The
+      // shared queue makes this the linearization point for appearance, locale,
+      // and general settings patches.
+      return commitConfirmedPreferences(confirmed, { apply: false });
+    });
+    const settled = operation.finally(() => {
+      state.preferencesSavePending -= 1;
+      if (state.preferencesSavePending === 0) applyAppearance(state.rawSettings);
+    });
+    // A rejected patch must not break later user choices in the shared queue.
+    state.settingsSaveQueue = settled.catch(() => {});
+    return settled;
+  }
+
+  async function saveAppearanceSettings(patch) {
+    const allowedThemes = new Set(['system', 'light', 'dark']);
+    const allowedDensities = new Set(['standard', 'compact']);
+    const payload = {};
+    if (allowedThemes.has(patch?.theme)) payload.theme = patch.theme;
+    if (allowedDensities.has(patch?.density)) payload.density = patch.density;
+    if (Number.isInteger(patch?.zoomPercent) && patch.zoomPercent >= 90 && patch.zoomPercent <= 150) payload.zoomPercent = patch.zoomPercent;
+    if (Object.keys(payload).length === 0) throw new Error(t('settings.saveFailed'));
+
+    return enqueueConfirmedSettingsSave(payload, confirmedAppearanceSettings);
+  }
+
   // Explicit action hierarchy; caller-owned handlers remain on the real buttons.
   function actionMenu(content, labelKey = 'reading.more', iconOnly = true, id = '') {
     return `<details class="action-menu"><summary ${id ? `id="${id}"` : ''} class="btn btn-ghost ${iconOnly ? 'icon-action' : ''}" data-i18n-aria-label="${labelKey}" data-i18n-title="${labelKey}" aria-label="${escapeHtml(t(labelKey))}" title="${escapeHtml(t(labelKey))}">${iconOnly ? '<span aria-hidden="true">···</span>' : `<span data-i18n="${labelKey}">${escapeHtml(t(labelKey))}</span>`}</summary><div class="action-menu-items">${content}</div></details>`;
@@ -71,6 +146,7 @@
   }
 
   function updateVisibleScope() {
+    refreshCompactProjectPicker();
     const control = document.getElementById('btn-collapsed-project');
     const label = control?.querySelector('.collapsed-project-name');
     if (!label) return;
@@ -79,6 +155,86 @@
     if (state.currentProject) label.removeAttribute('data-i18n');
     else label.setAttribute('data-i18n', 'shell.allProjects');
     control.title = state.currentProject || t('shell.allProjects');
+  }
+
+  function bindLocalTabs(root, attribute, active, onSelect) {
+    const buttons = Array.from(root.querySelectorAll('[' + attribute + ']'));
+    function select(value, focus = false) {
+      buttons.forEach(button => {
+        const chosen = button.getAttribute(attribute) === value;
+        button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', String(chosen));
+        button.tabIndex = chosen ? 0 : -1; button.classList.toggle('active', chosen);
+        if (chosen && focus) button.focus();
+      });
+      onSelect(value);
+    }
+    buttons.forEach((button, index) => {
+      button.addEventListener('click', () => select(button.getAttribute(attribute)));
+      button.addEventListener('keydown', event => {
+        let next;
+        if (event.key === 'ArrowRight') next = (index + 1) % buttons.length;
+        else if (event.key === 'ArrowLeft') next = (index + buttons.length - 1) % buttons.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = buttons.length - 1;
+        else return;
+        event.preventDefault(); select(buttons[next].getAttribute(attribute), true);
+      });
+    });
+    select(active);
+  }
+
+  function isAttentionSession(session) {
+    return ['running','needs approval','needs_approval','error','failed'].includes(String(session.state || '').trim().toLowerCase());
+  }
+
+  function sessionDateLabel(value) {
+    const date = new Date(value || '');
+    if (!Number.isFinite(date.getTime())) return t('shellCore.unknownDate');
+    const now = new Date(), yesterday = new Date(); yesterday.setDate(now.getDate() - 1);
+    if (date.toDateString() === now.toDateString()) return t('shellCore.today');
+    if (date.toDateString() === yesterday.toDateString()) return t('shellCore.yesterday');
+    return date.toLocaleDateString(window.VelaI18n.getLocale() === 'en' ? 'en-US' : 'zh-CN', {year:'numeric',month:'short',day:'numeric'});
+  }
+
+  function refreshCompactProjectPicker() {
+    const source = document.getElementById('project-selector'), target = document.getElementById('compact-project-selector');
+    if (source && target) {
+      if (target.innerHTML !== source.innerHTML) target.innerHTML = source.innerHTML;
+      target.value = state.currentProject;
+    }
+  }
+
+  function installCompanionControls() {
+    const picker = document.getElementById('compact-project-selector');
+    picker?.addEventListener('change', () => {
+      const source = document.getElementById('project-selector');
+      source.value = picker.value; source.dispatchEvent(new Event('change', {bubbles:true}));
+    });
+    document.getElementById('btn-compact-search')?.addEventListener('click', openSearchModal);
+    const controls = document.getElementById('native-window-controls');
+    if (!window.webkit?.messageHandlers?.vela || !controls) return;
+    controls.hidden = false;
+    let snapshot = {}, pending = false;
+    const update = value => {
+      snapshot = value || snapshot;
+      controls.querySelectorAll('button').forEach(button => { button.disabled = pending || Boolean(snapshot.fullScreen); });
+      const compact = document.getElementById('btn-window-companion');
+      const key = snapshot.layout === 'companion' ? 'shellCore.workspace' : 'shellCore.companion';
+      compact.dataset.i18n = key; compact.textContent = t(key);
+      document.getElementById('btn-window-unpin').hidden = !snapshot.pinned;
+    };
+    controls.addEventListener('click', async event => {
+      const button = event.target.closest('[data-window-action]');
+      if (!button || button.disabled || pending) return;
+      let action = button.dataset.windowAction;
+      if (action === 'layout') action = snapshot.layout === 'companion' ? 'workspace' : 'companion';
+      pending = true; update();
+      try { snapshot = await callBridge('system.window.set', {action}); }
+      catch (error) { showToast({key:'shellCore.windowError',params:{error:error.message}},'error'); }
+      finally { pending = false; update(); }
+    });
+    window.addEventListener('vela:windowChanged', event => update(event.detail));
+    callBridge('system.window.get', {}).then(update).catch(() => { controls.hidden = true; });
   }
 
   function syncViewButtons(container, attribute, active) {
@@ -447,9 +603,9 @@
     if (window.vela && typeof window.vela.call === 'function') {
       state.isBridgeAvailable = true;
       try {
+        const settingsEpoch = state.preferencesEpoch;
         const initSettings = await callBridge('settings.get');
-        if (initSettings) {
-          state.rawSettings = initSettings;
+        if (initSettings && applyReadPreferences(initSettings, settingsEpoch)) {
           if (initSettings.locale === 'en' || initSettings.locale === 'zh-CN') {
             if (window.VelaI18n && window.VelaI18n.getLocale() !== initSettings.locale) {
               window.VelaI18n.setLocale(initSettings.locale);
@@ -464,6 +620,7 @@
       if (banner) banner.classList.remove('hidden');
       await loadDemoScript();
     }
+    applyAppearance(state.rawSettings);
 
     // First load dashboard data and perform initial render
     await refreshDashboard(true, true);
@@ -620,6 +777,7 @@
       while (true) {
         const thisEpoch = ++refreshEpoch;
         const requestedProject = state.currentProject;
+        const preferencesEpoch = state.preferencesEpoch;
         const shouldForce = forceRedraw || queuedForceRedraw;
         const shouldShowErr = showErrorBanner || queuedShowErrorBanner;
         queuedForceRedraw = false;
@@ -638,8 +796,7 @@
               state.registeredProjects = result.projects;
               updateProjectSelector();
             }
-            if (result.settings) {
-              state.rawSettings = result.settings;
+            if (result.settings && applyReadPreferences(result.settings, preferencesEpoch)) {
               if (result.settings.locale === 'en' || result.settings.locale === 'zh-CN') {
                 if (window.VelaI18n && window.VelaI18n.getLocale() !== result.settings.locale) {
                   window.VelaI18n.setLocale(result.settings.locale);
@@ -1044,7 +1201,8 @@
   }
 
   function setupEventListeners() {
-    document.querySelectorAll('.nav-link').forEach(link => {
+    installCompanionControls();
+    document.querySelectorAll('.nav-link, .companion-link').forEach(link => {
       link.addEventListener('click', () => {
         const page = link.getAttribute('data-page');
         if (page) navigateTo(page);
@@ -1124,7 +1282,7 @@
         if (window.VelaI18n) {
           window.VelaI18n.setLocale(incoming);
         }
-        state.rawSettings = Object.assign({}, state.rawSettings, { locale: incoming });
+        commitConfirmedPreferences(Object.assign({}, state.rawSettings, { locale: incoming }), { apply: state.preferencesSavePending === 0 });
         const localeSel = document.getElementById('setting-locale');
         if (localeSel && localeSel.value !== incoming) {
           localeSel.value = incoming;
@@ -1140,7 +1298,7 @@
   }
 
   function syncNavLinks() {
-    document.querySelectorAll('.nav-link').forEach(link => {
+    document.querySelectorAll('.nav-link, .companion-link').forEach(link => {
       const isCurrent = link.getAttribute('data-page') === state.currentPage;
       link.classList.toggle('active', isCurrent);
       if (isCurrent) {
@@ -1160,7 +1318,6 @@
     renderGeneration++;
     closeDrawer();
     state.currentPage = page;
-    state.settingsDraft = null;
     syncNavLinks();
     renderCurrentPage();
     // Explicit navigation starts at the page heading. Background refresh retains position.
@@ -1240,10 +1397,10 @@
     }).length;
 
     container.innerHTML = `
-      <div class="page-header">
+      <div class="page-header page-header-condensed">
         <div class="page-title-group">
           <h1 data-i18n="sessions.title">${escapeHtml(t('sessions.title'))}</h1>
-          <p data-i18n="sessions.subtitle" data-i18n-params="${escapeHtml(JSON.stringify({ total: filteredSessions.length, running: runningCount }))}">${escapeHtml(t('sessions.subtitle', { total: filteredSessions.length, running: runningCount }))}</p>
+          <p class="sessions-header-subtitle" data-i18n="sessions.subtitle" data-i18n-params="${escapeHtml(JSON.stringify({ total: filteredSessions.length, running: runningCount }))}">${escapeHtml(t('sessions.subtitle', { total: filteredSessions.length, running: runningCount }))}</p>
         </div>
         <div class="page-actions">
           <button id="btn-add-project-agents" class="btn btn-primary btn-sm" data-i18n="sessions.btnAddProject">${escapeHtml(t('sessions.btnAddProject'))}</button>
@@ -1251,10 +1408,12 @@
         </div>
       </div>
 
-      <div class="tabs-nav" style="margin-bottom: 12px;">
-        <button class="tab-btn ${state.agentsActiveTab === 'sessions' ? 'active' : ''}" data-agentstab="sessions" data-i18n="sessions.title">${escapeHtml(t('sessions.title'))}</button>
-        <button class="tab-btn ${state.agentsActiveTab === 'loops' ? 'active' : ''}" data-agentstab="loops" data-i18n="loops.tabTitle">${escapeHtml(t('loops.tabTitle'))}</button>
-        <button class="tab-btn ${state.agentsActiveTab === 'history' ? 'active' : ''}" data-agentstab="history" data-i18n="history.tabTitle">${escapeHtml(t('history.tabTitle'))}</button>
+      <div class="session-view-bar">
+        <div class="tabs-nav collection-tabs" role="group" data-i18n-aria-label="shellCore.sessionViews" aria-label="${escapeHtml(t('shellCore.sessionViews'))}">
+          <button class="tab-btn" data-agentstab="sessions" data-i18n="shellCore.activity">${escapeHtml(t('shellCore.activity'))}</button>
+          <button class="tab-btn" data-agentstab="recent" data-i18n="shellCore.history">${escapeHtml(t('shellCore.history'))}</button>
+          ${actionMenu(`<button class="btn" data-agentstab="history" data-i18n="history.tabTitle">${escapeHtml(t('history.tabTitle'))}</button><button class="btn" data-agentstab="loops" data-i18n="loops.tabTitle">${escapeHtml(t('loops.tabTitle'))}</button>`, 'shellCore.sessionTools')}
+        </div>
       </div>
 
       <div id="agents-tab-content"></div>
@@ -1314,7 +1473,7 @@
     target.innerHTML = `
       <div class="toolbar-bar">
         <div class="toolbar-filters">
-          <input type="search" id="session-search-input" class="filter-input" data-i18n-placeholder="sessions.searchPlaceholder" placeholder="${escapeHtml(t('sessions.searchPlaceholder'))}" data-i18n-title="sessions.searchTitle" title="${escapeHtml(t('sessions.searchTitle'))}" style="width: 240px;" value="${escapeHtml(state.sessionFilterQuery)}">
+          <input type="search" id="session-search-input" class="filter-input" data-i18n-placeholder="sessions.searchPlaceholder" placeholder="${escapeHtml(t('sessions.searchPlaceholder'))}" data-i18n-title="sessions.searchTitle" title="${escapeHtml(t('sessions.searchTitle'))}" value="${escapeHtml(state.sessionFilterQuery)}">
           <select id="session-provider-filter" class="filter-select">
             <option value="" data-i18n="sessions.filterAllProviders">${escapeHtml(t('sessions.filterAllProviders'))}</option>
             <option value="claude" ${(state.sessionProviderFilter || '').toLowerCase() === 'claude' ? 'selected' : ''}>Claude Code</option>
@@ -1338,16 +1497,19 @@
         </div>
       </div>
 
-      <div class="session-source-note" role="note">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-        <span data-i18n="sessions.sourceNote">${escapeHtml(t('sessions.sourceNote'))}</span>
-      </div>
-
       <div id="sessions-container" class="sessions-container" role="region" data-i18n-aria-label="sessions.containerAria" aria-label="${escapeHtml(t('sessions.containerAria'))}">
         <div id="sessions-grouped-lists"></div>
       </div>
 
       <div id="sessions-empty-state" class="empty-state hidden"></div>
+
+      <details class="session-observation-disclosure" role="note">
+        <summary>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          <span data-i18n="sessions.sourceNoteSummary">${escapeHtml(t('sessions.sourceNoteSummary'))}</span>
+        </summary>
+        <p class="session-observation-body" data-i18n="sessions.sourceNote">${escapeHtml(t('sessions.sourceNote'))}</p>
+      </details>
     `;
 
     applySessionFilters(filteredSessions);
@@ -2912,6 +3074,7 @@
     }
 
     const res = filteredSessions.filter(s => {
+      if (state.agentsActiveTab === 'recent' ? isAttentionSession(s) : !isAttentionSession(s)) return false;
       const sProv = (s.provider || '').trim().toLowerCase();
       if (prov && sProv !== prov) return false;
       const sState = (s.state || '').trim().toLowerCase();
@@ -2967,6 +3130,13 @@
               showToast({ key: 'sessions.refreshFailedToast', params: { error: err.message } }, 'error');
             }
           });
+        } else if (!isFilterActive) {
+          const key = state.agentsActiveTab === 'recent' ? 'shellCore.noHistory' : 'shellCore.noActivity';
+          emptyState.innerHTML = `<div class="empty-state-title" data-i18n="${key}">${escapeHtml(t(key))}</div><div class="empty-state-desc" data-i18n="shellCore.activityEmptyHint">${escapeHtml(t('shellCore.activityEmptyHint'))}</div><button type="button" class="btn btn-secondary" id="btn-session-other-view" data-i18n="${state.agentsActiveTab === 'recent' ? 'shellCore.activity' : 'shellCore.history'}">${escapeHtml(t(state.agentsActiveTab === 'recent' ? 'shellCore.activity' : 'shellCore.history'))}</button>`;
+          document.getElementById('btn-session-other-view').addEventListener('click', () => {
+            state.agentsActiveTab = state.agentsActiveTab === 'recent' ? 'sessions' : 'recent';
+            renderAgentsView(document.getElementById('page-container'));
+          });
         } else {
           // State 3: Filter query returned 0 matches
           emptyState.innerHTML = `
@@ -3002,7 +3172,7 @@
     if (noteEl) noteEl.classList.remove('hidden');
     if (emptyState) emptyState.classList.add('hidden');
 
-    const groups = [
+    let groups = [
       {
         key: 'attention',
         labelKey: 'sessions.groupAttention',
@@ -3031,6 +3201,10 @@
       }
     ];
 
+    if (state.agentsActiveTab === 'recent') {
+      const days = [...new Set(sessionsList.slice().sort((a,b) => (Date.parse(b.updatedAt || b.lastActivity) || 0) - (Date.parse(a.updatedAt || a.lastActivity) || 0)).map(item => sessionDateLabel(item.updatedAt || item.lastActivity)))];
+      groups = days.map((day, index) => ({key:'date-' + index, label:day, filter:item => sessionDateLabel(item.updatedAt || item.lastActivity) === day}));
+    }
     const groupHtml = groups.map(group => {
       const items = sessionsList.filter(group.filter);
       if (items.length === 0) return '';
@@ -3082,8 +3256,8 @@
 
         return `
           <li class="session-card clickable-row ${state.selectedSessionId === s.id ? 'selected' : ''}" role="listitem" data-id="${escapeHtml(s.id)}" tabindex="0"${statusTitleKey ? ` title="${escapeHtml(cellTooltip)}" data-i18n-title="${statusTitleKey}"` : ''} aria-label="${escapeHtml(viewAria)}" data-i18n-aria-label="${ariaKey}" data-i18n-params="${escapeHtml(JSON.stringify(rowParams))}">
+            <div class="session-provider-mark" data-provider="${escapeHtml(providerName)}" aria-hidden="true">${VelaContent.icon(providerName === 'codex' ? 'terminal' : providerName === 'claude' ? 'conversation' : 'workflow')}</div>
             <div class="session-card-main">
-
               <div class="session-card-header">
                 <button type="button" class="session-title-btn" data-id="${escapeHtml(s.id)}" title="${escapeHtml(displayTitle)}" aria-label="${escapeHtml(viewAria)}"${rawTitle ? '' : ' data-i18n="sessions.unnamedSession" data-i18n-title="sessions.unnamedSession"'} data-i18n-aria-label="${ariaKey}" data-i18n-params="${escapeHtml(JSON.stringify(ariaParams))}">
                   ${escapeHtml(displayTitle)}
@@ -3120,9 +3294,9 @@
       }).join('');
 
       return `
-        <section class="session-group session-group-${group.key}" data-i18n-aria-label="${group.labelKey}" aria-label="${escapeHtml(t(group.labelKey))}">
+        <section class="session-group session-group-${group.key}" aria-label="${escapeHtml(group.label || t(group.labelKey))}">
           <div class="session-group-header">
-            <div class="session-group-title">— <span data-i18n="${group.labelKey}">${escapeHtml(t(group.labelKey))}</span></div>
+            <div class="session-group-title"><span ${group.labelKey ? `data-i18n="${group.labelKey}"` : ''}>${escapeHtml(group.label || t(group.labelKey))}</span></div>
             <span class="session-group-count">${items.length}</span>
           </div>
           <ul class="session-card-list" role="list">
@@ -3802,6 +3976,15 @@
     }
   }
 
+  function hasValidCodexThreadIdentity(relations) {
+    const sourceThreadId = relations?.source?.sourceThreadId;
+    const relationThreadId = relations?.relation?.sourceThreadId;
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return typeof sourceThreadId === 'string' && typeof relationThreadId === 'string'
+      && uuid.test(sourceThreadId) && uuid.test(relationThreadId)
+      && sourceThreadId.toLowerCase() === relationThreadId.toLowerCase();
+  }
+
   async function loadRelationEvents(session, container, afterSequence = 0) {
     const thisGen = sessionRelationSequence;
     const thisSeq = sessionDetailSequence;
@@ -3811,6 +3994,11 @@
 
     const reqProj = (session && typeof session.project === 'string' && session.project.trim() !== '') ? session.project : '';
     if (!reqProj) {
+      container.innerHTML = `<div class="text-secondary" style="font-size: 12px; padding: 6px 0;" data-i18n="sessions.relations.unavailable">${escapeHtml(t('sessions.relations.unavailable'))}</div>`;
+      return;
+    }
+
+    if (!hasValidCodexThreadIdentity(session._relationsData)) {
       container.innerHTML = `<div class="text-secondary" style="font-size: 12px; padding: 6px 0;" data-i18n="sessions.relations.unavailable">${escapeHtml(t('sessions.relations.unavailable'))}</div>`;
       return;
     }
@@ -4041,6 +4229,15 @@
     const chState = session._relationsChildren;
     if (!chState) return;
 
+    if (chState.isUnavailable) {
+      childrenContainer.innerHTML = `
+        <div class="text-secondary" style="font-size: 11px; padding: 6px 0;" data-i18n="sessions.relations.unavailable">
+          ${escapeHtml(t('sessions.relations.unavailable'))}
+        </div>
+      `;
+      return;
+    }
+
     if (chState.isNotIndexed) {
       childrenContainer.innerHTML = `
         <div class="text-secondary" style="font-size: 11px; padding: 6px 0;" data-i18n="sessions.relations.childrenNotIndexed">
@@ -4166,6 +4363,10 @@
 
     const chState = session._relationsChildren;
     if (!chState || !chState.nextCursor) return;
+    if (!hasValidCodexThreadIdentity(session._relationsData)) {
+      childrenContainer.innerHTML = `<div class="text-secondary" style="font-size: 11px; padding: 6px 0;" data-i18n="sessions.relations.unavailable">${escapeHtml(t('sessions.relations.unavailable'))}</div>`;
+      return;
+    }
     if (session._relationsChildrenLoading) return;
     session._relationsChildrenLoading = true;
 
@@ -4326,7 +4527,8 @@
       let childrenRes = null;
       let childrenFetchError = null;
       const isUnindexed = getRes.relation && getRes.relation.status === 'not_indexed';
-      if (!isUnindexed) {
+      const hasRelationIdentity = hasValidCodexThreadIdentity(getRes);
+      if (!isUnindexed && hasRelationIdentity) {
         try {
           childrenRes = await callBridge('sessions.relations.children', { project: reqProj, id: thisSessionId, limit: 20 });
         } catch (cErr) {
@@ -4385,6 +4587,8 @@
           </div>
           <div style="display: flex; gap: 6px; align-items: center;">
             ${getRes.relation?.relationshipKind ? `<span class="status-badge status-neutral" title="${escapeHtml(getRes.relation.relationshipKind)}">${escapeHtml(formatRelationKind(getRes.relation.relationshipKind))}</span>` : ''}
+            ${!hasRelationIdentity ? `<span class="status-badge status-neutral" title="${escapeHtml(getRes.relation?.headerState || '')}">${escapeHtml(formatParentStatus('conflicting_or_invalid_metadata'))}</span>` : ''}
+            ${getRes.relation?.coverageLimited ? `<span class="status-badge status-neutral" data-i18n="sessions.relations.coverageLimited">${escapeHtml(t('sessions.relations.coverageLimited'))}</span>` : ''}
             <span class="status-badge status-neutral" data-i18n="sessions.relations.livenessUnknown">${escapeHtml(t('sessions.relations.livenessUnknown'))}</span>
           </div>
         </div>
@@ -4457,7 +4661,7 @@
         <details id="session-relation-events-container" ${shouldOpenRelEvents ? 'open' : ''} style="margin-top: 12px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
           <summary id="session-relation-events-summary" style="cursor: pointer; font-weight: 600; font-size: 12px; user-select: none;" data-i18n="sessions.relations.eventsTitle">${escapeHtml(t('sessions.relations.eventsTitle'))}</summary>
           <div id="session-relation-events-body" style="margin-top: 8px;">
-            <button id="btn-load-relation-events" class="btn btn-secondary btn-sm" style="width: 100%;" data-i18n="sessions.relations.btnLoadEvents">${escapeHtml(t('sessions.relations.btnLoadEvents'))}</button>
+            ${hasRelationIdentity ? `<button id="btn-load-relation-events" class="btn btn-secondary btn-sm" style="width: 100%;" data-i18n="sessions.relations.btnLoadEvents">${escapeHtml(t('sessions.relations.btnLoadEvents'))}</button>` : `<div class="text-secondary" style="font-size: 12px; padding: 6px 0;" data-i18n="sessions.relations.unavailable">${escapeHtml(t('sessions.relations.unavailable'))}</div>`}
           </div>
         </details>
       `;
@@ -4492,6 +4696,17 @@
             omitted: 0,
             childErrorsTotal: 0,
             coverage: ''
+          };
+        } else if (!hasRelationIdentity) {
+          session._relationsChildren = {
+            isUnavailable: true,
+            items: [],
+            nextCursor: null,
+            relationEpoch: String(getRes.relation?.relationEpoch || ''),
+            scanned: 0,
+            omitted: 0,
+            childErrorsTotal: 0,
+            coverage: getRes.relation?.coverageLimited ? 'limited' : ''
           };
         } else if (childrenRes) {
           session._relationsChildren = {
@@ -4532,17 +4747,17 @@
           if (isSameSessionDrawerScope(session)) {
             currentSessionDisclosures.relationEventsOpen = eventsContainer.open;
           }
-          if (eventsContainer.open && !eventsContainer.dataset.loaded) {
+          if (hasRelationIdentity && eventsContainer.open && !eventsContainer.dataset.loaded) {
             eventsContainer.dataset.loaded = 'true';
             loadRelationEvents(session, eventsBody, 0);
           }
         });
-        if (shouldOpenRelEvents) {
+        if (hasRelationIdentity && shouldOpenRelEvents) {
           eventsContainer.dataset.loaded = 'true';
           loadRelationEvents(session, eventsBody, 0);
         }
       }
-      if (loadEventsBtn && eventsBody) {
+      if (hasRelationIdentity && loadEventsBtn && eventsBody) {
         loadEventsBtn.addEventListener('click', async (e) => {
           e.preventDefault();
           if (eventsContainer) {
@@ -4867,6 +5082,10 @@
   }
 
   function renderSessionDetailContent(session, drawerBody) {
+    const detailOwner = JSON.stringify([session.id, session.project || '']);
+    if (state.sessionDetailTabOwner !== detailOwner) {
+      state.sessionDetailTabOwner = detailOwner; state.sessionDetailTab = 'activity';
+    }
     if (isSameSessionDrawerScope(session)) {
       const existingRel = drawerBody.querySelector('#session-relations-section');
       if (existingRel) currentSessionDisclosures.relationsOpen = existingRel.open;
@@ -4926,6 +5145,10 @@
     }
 
     drawerBody.innerHTML = `
+      <div class="detail-tabs" role="tablist" data-i18n-aria-label="shellCore.sessionViews" aria-label="${escapeHtml(t('shellCore.sessionViews'))}">
+        ${['activity','plan','agents'].map(tab => `<button type="button" id="session-tab-${tab}" class="tab-btn" data-session-detail-tab="${tab}" aria-controls="session-panel-${tab}" data-i18n="shellCore.${tab}">${escapeHtml(t('shellCore.' + tab))}</button>`).join('')}
+      </div>
+      <section id="session-panel-activity" role="tabpanel" aria-labelledby="session-tab-activity">
       <div class="session-status-banner card" style="padding: 10px 14px; margin-bottom: 16px; background: var(--bg-subtle);">
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
@@ -4993,6 +5216,8 @@
         </div>
       </div>
 
+      </section>
+      <section id="session-panel-plan" role="tabpanel" aria-labelledby="session-tab-plan" hidden>
       <!-- Observed Task Plan Section -->
       <div id="session-plan-section" class="card session-plan-card" style="padding: 12px 14px; margin-bottom: 16px; background: var(--bg-subtle);">
         <div class="session-plan-header">
@@ -5009,6 +5234,8 @@
         </div>
       </div>
 
+      </section>
+      <section id="session-panel-agents" role="tabpanel" aria-labelledby="session-tab-agents" hidden>
       <!-- Observed Codex Session Relations Section -->
       <details id="session-relations-section" class="card session-relations-card" ${currentSessionDisclosures.relationsOpen ? 'open' : ''} style="padding: 12px 14px; margin-bottom: 16px; background: var(--bg-subtle);">
         <summary id="session-relations-summary" style="cursor: pointer; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; user-select: none;">
@@ -5026,7 +5253,8 @@
         </div>
       </details>
 
-      <details class="card" style="padding: 12px 14px;" ${messages.length === 0 ? 'open' : ''}>
+      </section>
+      <details class="card session-technical-info" style="padding: 12px 14px;">
         <summary style="cursor: pointer; font-size: 13px; font-weight: 600; user-select: none;" data-i18n="sessions.techMetadataSummary">
           ${escapeHtml(t('sessions.techMetadataSummary'))}
         </summary>
@@ -5120,6 +5348,14 @@
         }
       });
     }
+    bindLocalTabs(drawerBody, 'data-session-detail-tab', state.sessionDetailTab, tab => {
+      state.sessionDetailTab = tab;
+      ['activity','plan','agents'].forEach(name => {
+        drawerBody.querySelector('#session-panel-' + name).hidden = name !== tab;
+      });
+      if (tab === 'agents' && relationsSection) relationsSection.open = true;
+    });
+
   }
 
   let sessionDetailSequence = 0;
@@ -5244,7 +5480,8 @@
           const drawerBody = document.getElementById('drawer-content');
           const planSec = drawerBody ? drawerBody.querySelector('#session-plan-section') : null;
           if (planSec) {
-            planSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            drawerBody.querySelector('[data-session-detail-tab="plan"]')?.click();
+            planSec.scrollIntoView({ behavior: 'auto', block: 'start' });
             loadSessionPlan(session, planSec, true);
           }
         });
@@ -5381,7 +5618,6 @@
       if (state.currentPage !== 'agents') {
         // Direct page switch aligned with thisEpoch (avoiding epoch self-invalidation)
         state.currentPage = 'agents';
-        state.settingsDraft = null;
         renderGeneration++;
         syncNavLinks();
         renderCurrentPage();
@@ -10733,7 +10969,8 @@
         </div>
       </div>
 
-      <div class="tabs-nav">
+      <div class="tabs-nav setup-navigation">
+        <button class="tab-btn" data-setuptab="overview" data-i18n="shellCore.overview">${escapeHtml(t('shellCore.overview'))}</button>
         <button class="tab-btn ${state.setupActiveTab === 'rules' ? 'active' : ''}" data-setuptab="rules" data-i18n="setupL.tabs.rules">${escapeHtml(t('setupL.tabs.rules'))}</button>
         <button class="tab-btn ${state.setupActiveTab === 'skills' ? 'active' : ''}" data-setuptab="skills" data-i18n="setupL.tabs.skills">${escapeHtml(t('setupL.tabs.skills'))}</button>
         <button class="tab-btn ${state.setupActiveTab === 'hooks' ? 'active' : ''}" data-setuptab="hooks" data-i18n="setupL.tabs.hooks">${escapeHtml(t('setupL.tabs.hooks'))}</button>
@@ -10792,7 +11029,9 @@
     if (!target) return;
 
     if (state.setupActiveTab === 'memory') state.setupActiveTab = 'rules';
-    if (state.setupActiveTab === 'guidelines') {
+    if (state.setupActiveTab === 'overview') {
+      renderSetupOverview(target);
+    } else if (state.setupActiveTab === 'guidelines') {
       renderGuidelinesSection(target);
     } else if (state.setupActiveTab === 'library') {
       renderLibrarySection(target);
@@ -10801,6 +11040,45 @@
     } else {
       renderArtifactsSection(target, state.setupActiveTab);
     }
+  }
+
+  function renderSetupOverview(target) {
+    const artifacts = state.dashboard?.artifacts || [];
+    const projects = state.dashboard?.projects || [];
+    target.innerHTML = `
+      ${!state.currentProject ? `<div class="setup-project-grid">${projects.map(project => {
+        const path = project.path || project.id;
+        const count = artifacts.filter(item => item.project === path && setupScopeGroup(item.scope).key === 'project').length;
+        return `<button type="button" class="setup-project-card" data-setup-project="${escapeHtml(path)}">${VelaContent.icon('project')}<span><strong>${escapeHtml(setupProjectLabel(path))}</strong><small data-i18n="shellCore.projectCount" data-i18n-params="${escapeHtml(JSON.stringify({ count }))}">${escapeHtml(t('shellCore.projectCount', { count }))}</small></span>${VelaContent.icon('chevronRight')}</button>`;
+      }).join('')}</div>` : ''}
+      <div class="setup-overview-toolbar"><h2 data-i18n="shellCore.configuration">${escapeHtml(t('shellCore.configuration'))}</h2><select id="setup-type-filter" class="filter-select" data-i18n-aria-label="setup.colType" aria-label="${escapeHtml(t('setup.colType'))}">${['all','rules','skills','hooks','mcp','configurations'].map(type => `<option value="${type}">${escapeHtml(type === 'all' ? t('shellCore.allTypes') : type === 'configurations' ? t('shellCore.configuration') : t('setupL.tabs.' + type))}</option>`).join('')}</select></div><div id="setup-inventory"></div>`;
+    target.querySelectorAll('[data-setup-project]').forEach(button => button.addEventListener('click', () => {
+      const selector = document.getElementById('project-selector');
+      selector.value = button.dataset.setupProject;
+      selector.dispatchEvent(new Event('change', { bubbles: true }));
+    }));
+    const picker = target.querySelector('#setup-type-filter');
+    function renderInventory() {
+      const filtered = artifacts.filter(a => {
+        const type = String(a.type || '').toLowerCase();
+        return picker.value === 'all' || (picker.value === 'rules' && ['instruction','rule'].includes(type)) || (picker.value === 'skills' && ['skill','command'].includes(type)) || (picker.value === 'hooks' && (type === 'hook' || a.containsHooks)) || (picker.value === 'mcp' && (type === 'mcp' || a.containsMCP)) || (picker.value === 'configurations' && type === 'configuration');
+      });
+      const groups = new Map();
+      filtered.forEach(art => {
+        const scope = setupScopeGroup(art.scope);
+        const project = scope.key === 'project' ? art.project || state.currentProject : '';
+        const location = formatAssetLocation(art.path, art.scope, project);
+        const folder = location.relativePath.split('/').slice(0, -1).join('/') || '.';
+        const key = JSON.stringify([scope.key, project, folder]);
+        if (!groups.has(key)) groups.set(key, { scope, project, folder, items: [] });
+        groups.get(key).items.push(art);
+      });
+      const inventory = target.querySelector('#setup-inventory');
+      inventory.innerHTML = filtered.length ? [...groups.values()].sort((a,b) => `${a.project}/${a.folder}`.localeCompare(`${b.project}/${b.folder}`)).map(group => `<section class="setup-directory"><h3><span>${escapeHtml(group.project ? setupProjectLabel(group.project) : group.scope.labelText || t(group.scope.labelKey))}</span><span class="setup-directory-path" title="${escapeHtml(group.folder)}">${escapeHtml(group.folder)}</span><span class="setup-group-count">${group.items.length}</span></h3><div class="workspace-list asset-list">${group.items.map(art => renderAssetRow(art, art.type)).join('')}</div></section>`).join('') : `<div class="empty-state"><div class="empty-state-title" data-i18n="shellCore.noProjectAssets">${escapeHtml(t('shellCore.noProjectAssets'))}</div><p data-i18n="setupL.artifacts.emptyDesc">${escapeHtml(t('setupL.artifacts.emptyDesc'))}</p></div>`;
+      bindSetupRowActions(inventory, filtered);
+    }
+    picker.addEventListener('change', renderInventory);
+    renderInventory();
   }
 
   function getSetupContentStatusBadge(status) {
@@ -10816,7 +11094,7 @@
   }
 
   function openArtifactDrawer(art) {
-    const loc = formatAssetLocation(art.path, art.scope, state.currentProject);
+    const loc = formatAssetLocation(art.path, art.scope, art.project || state.currentProject);
     const projectLabel = setupProjectLabel(art.project);
     openDrawer(setupAssetDisplayName(art) || { key: 'setupL.artifacts.drawerTitle' }, art.scope !== 'global' && projectLabel ? `${projectLabel} · ${loc.relativePath}` : loc.displayText);
     const drawerContent = document.getElementById('drawer-content');
@@ -10832,7 +11110,6 @@
         <div data-setup-document>${art.content ? VelaContent.file(art.content, art.path || setupAssetDisplayName(art)) : `<p class="text-secondary">${tHtml('setupL.drawer.noContent')}</p>`}</div>
         <div style="display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap;">
           <button class="btn btn-secondary btn-sm btn-drawer-setup-history" data-id="${escapeHtml(art.id)}" data-i18n="setup.historyBtn">${escapeHtml(t('setup.historyBtn'))}</button>
-          <button class="btn btn-secondary btn-sm btn-drawer-setup-relations" data-id="${escapeHtml(art.id)}" data-i18n="setup.relationsBtn">${escapeHtml(t('setup.relationsBtn'))}</button>
         </div>
       </section>
 
@@ -10867,6 +11144,49 @@
       </details>
     `;
 
+    const content = drawerContent.querySelector(':scope > section');
+    const technical = drawerContent.querySelector(':scope > details');
+    const drawerInstance = currentDrawerInstance;
+    const drawerProject = state.currentProject;
+    content.querySelector('h3').remove();
+    drawerContent.insertAdjacentHTML('afterbegin', `<div class="detail-tabs" role="tablist" aria-label="${escapeHtml(t('shellCore.configuration'))}">${['content','related','details'].map(tab => `<button type="button" class="tab-btn" id="artifact-tab-${tab}" data-artifact-tab="${tab}" aria-controls="artifact-panel-${tab}">${escapeHtml(t('shellCore.' + tab))}</button>`).join('')}</div>${['content','related','details'].map(tab => `<section id="artifact-panel-${tab}" role="tabpanel" aria-labelledby="artifact-tab-${tab}" data-artifact-panel="${tab}" hidden></section>`).join('')}`);
+    drawerContent.querySelector('[data-artifact-panel="content"]').append(content);
+    const related = drawerContent.querySelector('[data-artifact-panel="related"]');
+    related.innerHTML = `<h3 class="section-heading">${escapeHtml(t('setup.relationsBtn'))}</h3>`;
+    let relationsLoaded = false;
+    let relationsLoading = false;
+    const isCurrentDrawer = () => currentDrawerInstance === drawerInstance
+      && state.currentProject === drawerProject
+      && document.getElementById('drawer-content') === drawerContent
+      && !document.getElementById('detail-drawer').classList.contains('hidden');
+    const loadRelations = async () => {
+      if (relationsLoaded || relationsLoading) return;
+      const identity = setupRelationsIdentity(art, drawerProject);
+      if (!identity) {
+        related.insertAdjacentHTML('beforeend', `<p class="alert-banner alert-warning" role="status">${escapeHtml(t('setupEdit.unavailable'))}</p>`);
+        return;
+      }
+      relationsLoading = true;
+      related.insertAdjacentHTML('beforeend', `<p class="text-secondary" data-setup-relations-loading role="status">${escapeHtml(t('common.loading'))}</p>`);
+      try {
+        const relData = await callBridge('setup.relations', identity);
+        if (!isCurrentDrawer()) return;
+        renderSetupRelations(related, relData);
+        relationsLoaded = true;
+      } catch (error) {
+        if (isCurrentDrawer()) related.innerHTML = `<h3 class="section-heading">${escapeHtml(t('setup.relationsBtn'))}</h3><p class="alert-banner alert-warning" role="status">${escapeHtml(error.message)}</p>`;
+      } finally {
+        if (isCurrentDrawer()) relationsLoading = false;
+      }
+    };
+    const detailsPanel = drawerContent.querySelector('[data-artifact-panel="details"]');
+    [...technical.children].filter(child => child.tagName !== 'SUMMARY').forEach(child => detailsPanel.append(child));
+    technical.remove();
+    bindLocalTabs(drawerContent, 'data-artifact-tab', 'content', tab => {
+      drawerContent.querySelectorAll('[data-artifact-panel]').forEach(panel => { panel.hidden = panel.dataset.artifactPanel !== tab; });
+      if (tab === 'related') void loadRelations();
+    });
+
     drawerContent.querySelector('.btn-drawer-copy-path')?.addEventListener('click', async (e) => {
       const text = e.currentTarget.getAttribute('data-clipboard');
       if (text) {
@@ -10888,9 +11208,6 @@
 
     drawerContent.querySelector('.btn-drawer-setup-history')?.addEventListener('click', () => {
       openSetupHistoryAndDiffModal(art);
-    });
-    drawerContent.querySelector('.btn-drawer-setup-relations')?.addEventListener('click', () => {
-      openSetupRelationsModal(art);
     });
     drawerContent.querySelector('.btn-drawer-reveal-path')?.addEventListener('click', async (e) => {
       const path = e.currentTarget.getAttribute('data-path');
@@ -10971,7 +11288,8 @@
       }
       const changes = Array.isArray(snapshot.changes) ? snapshot.changes : [];
       if (changes.length) {
-        body.insertAdjacentHTML('beforeend', `<section class="setup-edit-history"><h3 class="section-heading" data-i18n="setupEdit.changes">${escapeHtml(t('setupEdit.changes'))}</h3>${changes.map(change => `<div class="setup-edit-history-row"><div><span data-i18n="${setupEditChangeLabel(change.state)}">${escapeHtml(t(setupEditChangeLabel(change.state)))}</span><time>${escapeHtml(formatTime(change.createdAt))}</time></div>${change.canUndo ? `<button type="button" class="btn btn-secondary btn-sm btn-setup-undo" data-journal="${escapeHtml(change.journalId)}" data-i18n="setupEdit.undo">${escapeHtml(t('setupEdit.undo'))}</button>` : ''}</div>`).join('')}</section>`);
+        (body.querySelector('[data-artifact-panel="content"]') || body).insertAdjacentHTML('beforeend', `<section class="setup-edit-history"><h3 class="section-heading" data-i18n="setupEdit.changes">${escapeHtml(t('setupEdit.changes'))}</h3>${changes.map(change => `<div class="setup-edit-history-row"><div><span data-i18n="${setupEditChangeLabel(change.state)}">${escapeHtml(t(setupEditChangeLabel(change.state)))}</span><time>${escapeHtml(formatTime(change.createdAt))}</time></div>${change.state === 'pending_approval' && typeof change.approvalId === 'string' ? `<button type="button" class="btn btn-secondary btn-sm btn-setup-review-pending" data-approval="${escapeHtml(change.approvalId)}">${escapeHtml(t('shellCore.reviewHere'))}</button>` : ''}${change.canUndo ? `<button type="button" class="btn btn-secondary btn-sm btn-setup-undo" data-journal="${escapeHtml(change.journalId)}" data-i18n="setupEdit.undo">${escapeHtml(t('setupEdit.undo'))}</button>` : ''}</div>`).join('')}</section>`);
+        body.querySelectorAll('.btn-setup-review-pending').forEach(button => button.addEventListener('click', () => openSetupApproval(art, button.dataset.approval)));
         body.querySelectorAll('.btn-setup-undo').forEach(button => button.addEventListener('click', () => openSetupUndo(art, button.dataset.journal)));
         if (snapshot.changesHasMore) body.querySelector('.setup-edit-history').insertAdjacentHTML('beforeend', `<p class="setup-edit-note" data-i18n="setupEdit.historyLimit">${escapeHtml(t('setupEdit.historyLimit'))}</p>`);
       }
@@ -10986,10 +11304,14 @@
     const project = art.project || state.currentProject;
     const key = setupEditKey(art);
     let existing = setupEditDrafts.get(key);
+    // The requested block is untrusted UI data until it is checked against the
+    // authoritative snapshot below. Keep the loading editor neutral, then mark
+    // the validated editing scope after that check completes.
+    let selection = null;
     // A prior success notice can cover this editor's footer. This is scoped to
     // starting an edit; lightweight dialogs such as Cmd-K retain their notices.
     document.querySelectorAll('#toast-container .toast-info').forEach(toast => toast._dismiss?.(true));
-    openModal({ key: 'setupEdit.title', params: { name: setupAssetDisplayName(art) } }, `<div class="setup-editor"><p data-i18n="common.loading">${escapeHtml(t('common.loading'))}</p></div>`);
+    openModal({ key: 'setupEdit.title', params: { name: setupAssetDisplayName(art) } }, `<div class="setup-editor" data-block-kind="document"><p data-i18n="common.loading">${escapeHtml(t('common.loading'))}</p></div>`);
     const instance = currentModalInstance;
     const current = () => currentModalInstance === instance && !document.getElementById('modal-container').classList.contains('hidden');
     let snapshot;
@@ -11022,7 +11344,7 @@
     const draft = existing && carriedRequest ? { ...existing, requestUnknown: false } : (existing || { content: snapshot.content, baseHash: snapshot.baseHash, sourceIdentity: snapshot.sourceIdentity, requestUnknown: false });
     if (existing && carriedRequest) setupEditDrafts.set(key, draft);
     let stale = draft.baseHash !== snapshot.baseHash || setupSourceIdentityKey(draft.sourceIdentity) !== setupSourceIdentityKey(snapshot.sourceIdentity);
-    let selection = !existing && requestedBlock && snapshot.content.slice(requestedBlock.start, requestedBlock.end) === requestedBlock.source ? { ...requestedBlock } : null;
+    selection = !existing && requestedBlock && snapshot.content.slice(requestedBlock.start, requestedBlock.end) === requestedBlock.source ? { ...requestedBlock } : null;
     let mode = 'write', busy = false, generation = 0, reviewedContent = null;
     // Keep at most eight changed drafts. Never silently evict an existing edit.
     if (!existing && setupEditDrafts.size >= 8) {
@@ -11038,7 +11360,7 @@
     };
     window.addEventListener('vela:setup-edit-request-settled', onRequestSettled);
     activeSetupEdit = { instance, key, saveDraft, cleanup: () => window.removeEventListener('vela:setup-edit-request-settled', onRequestSettled) };
-    document.getElementById('modal-body').innerHTML = `<div class="setup-editor">
+    document.getElementById('modal-body').innerHTML = `<div class="setup-editor" data-block-kind="${escapeHtml(selection?.kind || 'document')}">
       <p class="setup-edit-target" data-testid="setup-edit-target"><strong>${escapeHtml(setupProjectLabel(project))}</strong><span title="${escapeHtml(snapshot.relativePath)}">${escapeHtml(snapshot.relativePath)}</span></p>
       <p class="setup-edit-note" data-i18n="setupEdit.intro">${escapeHtml(t('setupEdit.intro'))}</p>
       ${stale ? `<div class="alert-banner alert-warning" role="alert"><span data-i18n="setupEdit.stale">${escapeHtml(t('setupEdit.stale'))}</span><button type="button" id="btn-setup-rebase" class="btn btn-secondary btn-sm" data-i18n="setupEdit.reload">${escapeHtml(t('setupEdit.reload'))}</button></div>` : ''}
@@ -11175,10 +11497,11 @@
         window.dispatchEvent(new CustomEvent('vela:setup-edit-request-settled', { detail: { key, requestId: request.id, state: 'submitted' } }));
         if (!current()) { await refreshDashboard(true, true); return; }
         const route = activeRouteEpoch, page = state.currentPage, scope = state.currentProject;
-        activeSetupEdit.cleanup?.(); activeSetupEdit = null; closeModal(); closeDrawer();
+        const drawerInstance = currentDrawerInstance;
+        activeSetupEdit.cleanup?.(); activeSetupEdit = null; closeModal();
         showToast({ key: 'setupEdit.requested' });
         await refreshDashboard(true, true);
-        if (activeRouteEpoch === route && state.currentPage === page && state.currentProject === scope) navigateTo('inbox');
+        if (activeRouteEpoch === route && state.currentPage === page && state.currentProject === scope && currentDrawerInstance === drawerInstance) openSetupApproval(art, result.approval.id, result.approval);
       } catch (error) {
         // A broken bridge can lose the response after prepare committed. Keep
         // the exact frozen request separate from later reopened draft content.
@@ -11191,19 +11514,39 @@
     updateScope(); updateActions(); area.focus();
   }
 
+  function openSetupApproval(art, approvalId, preparedApproval = null) {
+    const approval = preparedApproval || (state.dashboard?.approvals || []).find(item => item.id === approvalId);
+    if (!approval || approval.project !== (art.project || state.currentProject) || approval.tool !== 'setup.file.edit') {
+      showToast({ key: 'shellCore.reviewUnavailable' }, 'warning'); return;
+    }
+    const drawerInstance = currentDrawerInstance, route = activeRouteEpoch;
+    openModal({ key: 'shellCore.reviewHere' }, '<div id="setup-approval-review"></div>');
+    const modalInstance = currentModalInstance;
+    renderInboxView(document.getElementById('setup-approval-review'), {
+      approval,
+      afterDecision: result => {
+        if (!['executed','rejected'].includes(result?.state) || result?.result?.outcomeUnknown) return;
+        if (currentModalInstance !== modalInstance || currentDrawerInstance !== drawerInstance || activeRouteEpoch !== route) return;
+        closeModal();
+        openArtifactDrawer(art);
+      }
+    });
+  }
+
   function openSetupUndo(art, journalId) {
     const project = art.project || state.currentProject;
     openModal({ key: 'setupEdit.undoTitle' }, `<div class="setup-undo"><p data-i18n="setupEdit.undoPrompt" data-i18n-params="${escapeHtml(JSON.stringify({ name: setupAssetDisplayName(art) }))}">${escapeHtml(t('setupEdit.undoPrompt', { name: setupAssetDisplayName(art) }))}</p><p class="setup-edit-note" data-i18n="setupEdit.undoNote">${escapeHtml(t('setupEdit.undoNote'))}</p><p id="setup-undo-error" class="alert-banner alert-warning" role="alert" hidden></p></div>`, `<button class="btn btn-secondary" data-close-modal data-i18n="common.cancel">${escapeHtml(t('common.cancel'))}</button><button class="btn btn-primary" id="btn-setup-confirm-undo" data-i18n="setupEdit.undo">${escapeHtml(t('setupEdit.undo'))}</button>`);
-    const instance = currentModalInstance;
+    const instance = currentModalInstance, drawerInstance = currentDrawerInstance, route = activeRouteEpoch;
     document.getElementById('btn-setup-confirm-undo').addEventListener('click', async event => {
       const button = event.currentTarget; button.disabled = true;
       try {
         const result = await callBridge('setup.edit.undo', { project, artifactId: art.id, journalId });
         if (currentModalInstance !== instance) return;
         if (result?.outcomeUnknown || result?.state !== 'undone') throw new Error(t('setupEdit.undoUncertain'));
-        closeModal(); closeDrawer();
+        closeModal();
         showToast({ key: 'setupEdit.undone' });
         await refreshDashboard(true, true);
+        if (currentDrawerInstance === drawerInstance && activeRouteEpoch === route) openArtifactDrawer(art);
       } catch (error) {
         if (currentModalInstance !== instance) return;
         const box = document.getElementById('setup-undo-error'); box.textContent = error.message; box.hidden = false;
@@ -11516,7 +11859,7 @@
   // A list row leads with a readable name and a project-relative location. Diagnostics only
   // take a slot when they exist; health is never asserted by a badge on a healthy entry.
   function renderAssetRow(a, typeLabel) {
-    const loc = formatAssetLocation(a.path, a.scope, state.currentProject);
+    const loc = formatAssetLocation(a.path, a.scope, a.project || state.currentProject);
     const name = setupAssetDisplayName(a);
     const iconKind = setupAssetIconKind(a);
     const diag = Array.isArray(a.diagnostics) ? a.diagnostics : [];
@@ -11531,7 +11874,7 @@
       <div class="workspace-row-icon" data-kind="${escapeHtml(iconKind)}" aria-hidden="true">${VelaContent.icon(iconKind)}</div>
       <div class="workspace-row-content">
         <button class="row-title setup-row-name btn-preview-artifact btn-setup-view" data-id="${escapeHtml(a.id)}" title="${escapeHtml(name)}">${escapeHtml(name)}</button>
-        <div class="asset-location setup-row-scope" data-testid="asset-location" title="${escapeHtml(a.path || '')}">${escapeHtml(loc.displayText)}</div>
+        <div class="asset-location setup-row-scope" data-testid="asset-location" title="${escapeHtml(a.path || '')}">${escapeHtml(a.project && !state.currentProject ? setupProjectLabel(a.project) + ' · ' + loc.relativePath : loc.displayText)}</div>
         ${metaCells ? `<div class="row-meta">${metaCells}</div>` : ''}
       </div>
       ${actionMenu(`
@@ -11893,34 +12236,20 @@
     });
   }
 
-  async function openSetupRelationsModal(art) {
-    const isGlobal = art.scope === 'global';
-    const identity = isGlobal ? { id: art.id, scope: 'global' } : { id: art.id, project: art.project || state.currentProject };
+  function setupRelationsIdentity(art, project) {
+    if (!art || typeof art.id !== 'string' || !art.id) return null;
+    if (art.scope === 'global') return { id: art.id, scope: 'global' };
+    // A project-scoped artifact must always be queried against the project it
+    // was observed in. Falling back after a project switch turns a stale row
+    // into a cross-project helper request, which the helper correctly rejects.
+    if (typeof project !== 'string' || !project || art.project !== project) return null;
+    return { id: art.id, project };
+  }
 
-    openModal({ key: 'setup.relationsTitle' }, `
-      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
-    `, `<button class="btn btn-secondary" id="btn-close-setup-rel" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
-
-    const thisModalInstance = currentModalInstance;
-    document.getElementById('btn-close-setup-rel')?.addEventListener('click', closeModal);
-
-    let relData = null;
-    try {
-      relData = await callBridge('setup.relations', identity);
-    } catch (e) {
-      if (currentModalInstance !== thisModalInstance) return;
-      const b = document.getElementById('modal-body');
-      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
-      return;
-    }
-    if (currentModalInstance !== thisModalInstance) return;
-
-    const b = document.getElementById('modal-body');
-    if (!b) return;
-
-    const relations = Array.isArray(relData.relations) ? relData.relations : [];
-
-    b.innerHTML = `
+  function renderSetupRelations(target, relData) {
+    const relations = Array.isArray(relData?.relations) ? relData.relations : [];
+    target.innerHTML = `
+      <h3 class="section-heading">${escapeHtml(t('setup.relationsBtn'))}</h3>
       <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="setup.relationsDesc">${escapeHtml(t('setup.relationsDesc'))}</p>
 
       <div class="alert-banner alert-neutral" style="margin-bottom: 12px; font-size: 11px;">
@@ -11958,6 +12287,40 @@
         </div>
       `}
     `;
+  }
+
+  async function openSetupRelationsModal(art) {
+    const modalProject = state.currentProject;
+    const identity = setupRelationsIdentity(art, modalProject);
+
+    openModal({ key: 'setup.relationsTitle' }, `
+      <div class="text-secondary" style="font-size: 12px; padding: 24px; text-align: center;">${escapeHtml(t('common.loading'))}</div>
+    `, `<button class="btn btn-secondary" id="btn-close-setup-rel" data-i18n="common.close">${escapeHtml(t('common.close'))}</button>`);
+
+    const thisModalInstance = currentModalInstance;
+    document.getElementById('btn-close-setup-rel')?.addEventListener('click', closeModal);
+
+    if (!identity) {
+      const body = document.getElementById('modal-body');
+      if (body) body.innerHTML = `<div class="alert-banner alert-warning" role="status">${escapeHtml(t('setupEdit.unavailable'))}</div>`;
+      return;
+    }
+
+    let relData = null;
+    try {
+      relData = await callBridge('setup.relations', identity);
+    } catch (e) {
+      if (currentModalInstance !== thisModalInstance || state.currentProject !== modalProject) return;
+      const b = document.getElementById('modal-body');
+      if (b) b.innerHTML = `<div class="alert-banner alert-warning">${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (currentModalInstance !== thisModalInstance || state.currentProject !== modalProject) return;
+
+    const b = document.getElementById('modal-body');
+    if (!b) return;
+
+    renderSetupRelations(b, relData);
   }
 
   // --- Real Guidelines Management (guidelines.list, guidelines.save) ---
@@ -16014,15 +16377,15 @@
     [...container.children].filter(el => !el.classList.contains('page-header') && el !== quotaPanel).forEach(el => logPanel.append(el));
     const usageNav = document.createElement('div');
     usageNav.className = 'tabs-nav';
-    usageNav.innerHTML = `${[['logs','workspace.usage.logs'],['quota','workspace.usage.quota']].map(([id,key]) => `<button type="button" class="tab-btn" data-usagetab="${id}" data-i18n="${key}">${escapeHtml(t(key))}</button>`).join('')}`;
-    container.append(usageNav, logPanel, quotaPanel);
+    usageNav.innerHTML = `${[['quota','workspace.usage.quota'],['logs','workspace.usage.logs']].map(([id,key]) => `<button type="button" class="tab-btn" data-usagetab="${id}" data-i18n="${key}">${escapeHtml(t(key))}</button>`).join('')}`;
+    container.append(usageNav, quotaPanel, logPanel);
     const selectUsageTab = id => {
       state.usageTab = id;
       logPanel.hidden = id !== 'logs'; quotaPanel.hidden = id !== 'quota';
       usageNav.querySelectorAll('button').forEach(button => { const selected = button.dataset.usagetab === id; button.classList.toggle('active', selected); button.setAttribute('aria-pressed', String(selected)); });
     };
     usageNav.querySelectorAll('button').forEach(button => button.addEventListener('click', () => selectUsageTab(button.dataset.usagetab)));
-    selectUsageTab(state.usageTab || 'logs');
+    selectUsageTab(state.usageTab || 'quota');
 
     renderCodexQuotaSection(document.getElementById('usage-codex-quota-card'));
 
@@ -19670,12 +20033,12 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
   // -------------------------------------------------------------------------
   // 7. INBOX VIEW (Only pending approvals with frozen arguments)
   // -------------------------------------------------------------------------
-  function renderInboxView(container) {
+  function renderInboxView(container, options = {}) {
     state.renderGeneration = (state.renderGeneration || 0) + 1;
     const currentGeneration = state.renderGeneration;
     const currentProject = state.currentProject;
     const currentPage = state.currentPage;
-    const approvals = (state.dashboard && state.dashboard.approvals) || [];
+    const approvals = options.approval ? [options.approval] : (state.dashboard && state.dashboard.approvals) || [];
     const pendingApprovals = approvals.filter(a => {
       const st = (a.state || '').toLowerCase();
       return st === 'pending' || st === 'pending approval' || st === '';
@@ -19968,6 +20331,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
       `}
     `;
 
+    if (options.approval) container.querySelector('.page-header')?.remove();
     container.querySelectorAll('.btn-approve-appr, .btn-reject-appr').forEach(btn => {
       btn.addEventListener('click', async () => {
         const isApprove = btn.classList.contains('btn-approve-appr');
@@ -20011,6 +20375,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
           await refreshDashboard(true, true);
 
           if (!isSameScope()) return;
+          options.afterDecision?.(result);
         } catch (err) {
           if (!isSameScope()) return;
 
@@ -20041,11 +20406,13 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
   async function renderSettingsView(container) {
     const thisGen = renderGeneration;
     const thisPage = state.currentPage;
+    const preferencesEpoch = state.preferencesEpoch;
 
     let settings = state.rawSettings || {};
     try {
       const s = await callBridge('settings.get');
-      if (s) settings = s;
+      if (s && applyReadPreferences(s, preferencesEpoch)) settings = s;
+      else if (s) settings = state.rawSettings || {};
     } catch {}
 
     let daemonStatus = null;
@@ -20092,6 +20459,8 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
           </select>
         </div>
       </div>
+
+      <div id="appearance-settings-mount"></div>
 
       <div class="card" style="margin-top: 14px;">
         <div class="card-header">
@@ -20320,6 +20689,10 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
       section.setAttribute('aria-label', t(key));
       section.setAttribute('data-i18n-aria-label', key);
       indexes.forEach(index => { if (cards[index]) section.append(cards[index]); });
+      if (id === 'general') {
+        const appearanceMount = document.getElementById('appearance-settings-mount');
+        if (appearanceMount) section.append(appearanceMount);
+      }
       settingsLayout.querySelector('.settings-panels').append(section);
     });
     const selectSettingsCategory = id => {
@@ -20333,6 +20706,15 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
     };
     settingsLayout.querySelectorAll('[data-settings-category]').forEach(button => button.addEventListener('click', () => selectSettingsCategory(button.dataset.settingsCategory)));
     selectSettingsCategory(state.settingsCategory || 'general');
+
+    const appearanceMount = document.getElementById('appearance-settings-mount');
+    if (appearanceMount && window.VelaAppearance && typeof window.VelaAppearance.mount === 'function') {
+      window.VelaAppearance.mount(appearanceMount, {
+        settings,
+        save: saveAppearanceSettings,
+        onError: error => showToast({ key: 'settings.saveFailed', params: { error: error?.message || '' } }, 'error')
+      });
+    }
 
     // Keep diagnostics available without placing service identities before preferences.
     settingsLayout.querySelectorAll('.daemon-info-grid').forEach(grid => {
@@ -20406,9 +20788,9 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
         const previousLocale = window.VelaI18n ? window.VelaI18n.getLocale() : 'zh-CN';
         localeSelect.disabled = true;
         try {
-          const res = await callBridge('settings.save', { locale: selectedLocale });
-          const confirmed = (res && res.locale) ? res.locale : selectedLocale;
-          state.rawSettings = Object.assign({}, state.rawSettings, { locale: confirmed });
+          const saved = await enqueueConfirmedSettingsSave({ locale: selectedLocale });
+          if (saved.locale !== 'en' && saved.locale !== 'zh-CN') throw new Error(t('settings.saveLocaleFailed'));
+          const confirmed = saved.locale;
           currentModalInstance = ++modalInstanceCounter;
           if (window.VelaI18n) {
             window.VelaI18n.setLocale(confirmed);
@@ -20432,7 +20814,9 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
     loginCb?.addEventListener('change', updateDraft);
     analysisCb?.addEventListener('change', updateDraft);
 
-    document.getElementById('btn-save-settings').addEventListener('click', async () => {
+    document.getElementById('btn-save-settings').addEventListener('click', async event => {
+      const button = event.currentTarget;
+      if (button.disabled) return;
       const payload = {
         notifications: Boolean(notifCb && notifCb.checked),
         notificationSound: Boolean(soundCb && soundCb.checked),
@@ -20442,14 +20826,22 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
         launchAtLogin: Boolean(loginCb && loginCb.checked),
         analysisEnabled: Boolean(analysisCb && analysisCb.checked)
       };
+      const draftAtSubmit = state.settingsDraft;
+      const requestEpoch = ++state.settingsSaveEpoch;
+      button.disabled = true;
 
       try {
-        await callBridge('settings.save', payload);
-        state.settingsDraft = null;
+        const confirmed = await enqueueConfirmedSettingsSave(payload);
+        if (requestEpoch !== state.settingsSaveEpoch) return;
+        // Keep edits made while this request was in flight; only the exact
+        // submitted draft is confirmed by this response.
+        if (state.settingsDraft === draftAtSubmit) state.settingsDraft = null;
         showToast({ key: 'settings.saved' });
         await refreshDashboard(true, true);
       } catch (err) {
-        showToast({ key: 'settings.saveFailed', params: { error: err.message || '' } }, 'error');
+        if (requestEpoch === state.settingsSaveEpoch) showToast({ key: 'settings.saveFailed', params: { error: err.message || '' } }, 'error');
+      } finally {
+        if (requestEpoch === state.settingsSaveEpoch && document.contains(button)) button.disabled = false;
       }
     });
 
@@ -22080,6 +22472,7 @@ function validateAndApplyRecall(side, variantObj, candidateMemIds = []) {
     sessionDetailSequence++;
     sessionRelationSequence++;
     state.loadedSessionDetail = null;
+    state.sessionDetailTabOwner = null;
 
     if (drawerTrapHandler) {
       document.removeEventListener('keydown', drawerTrapHandler, true);

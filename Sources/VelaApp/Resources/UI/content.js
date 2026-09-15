@@ -25,7 +25,9 @@
     edit:'<path d="m15 4 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14v6Z"/>',
     archive:'<rect x="3" y="3" width="18" height="4" rx="1"/><path d="M5 7v13h14V7M9 11h6"/>',
     folder:'<path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>',
-    chevron:'<path d="m7 10 5 5 5-5"/>'
+    project:'<path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>',
+    chevron:'<path d="m7 10 5 5 5-5"/>',
+    chevronRight:'<path d="m10 7 5 5-5 5"/>'
   };
   function icon(name, className = '') {
     return `<svg class="semantic-icon ${escape(className)}" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] || iconPaths.workflow}</svg>`;
@@ -232,6 +234,29 @@
     }
   }, true);
   document.addEventListener('click', event => {
+    const summary = event.target.closest?.('details.action-menu > summary');
+    if (summary) {
+      const menu = summary.parentElement;
+      if (!menu) return;
+
+      // The native details toggle is dispatched after click propagation. Open
+      // and place the fixed popup in this synchronous activation instead, so a
+      // newly expanded menu never exists at its CSS fallback coordinates long
+      // enough to scroll a containing list and trigger the external-scroll
+      // close handler below. Preventing the default preserves click activation
+      // for both pointer and the summary's Enter/Space-generated clicks.
+      event.preventDefault();
+      if (menu.open) {
+        closeMenu(menu);
+      } else {
+        openMenus().forEach(other => closeMenu(other));
+        const panel = menu.querySelector('.action-menu-items');
+        if (panel) panel.style.visibility = 'hidden';
+        menu.open = true;
+        positionMenu(menu);
+      }
+      return;
+    }
     openMenus().forEach(menu => {
       if (!menu.contains(event.target) || event.target.closest('button')) closeMenu(menu);
     });

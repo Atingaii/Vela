@@ -43,6 +43,8 @@
 
 ## What you can use
 
+The [September 16 desktop redesign record](docs/implementation/blume-native-followup-2026-09-16.md) documents the newer workspace/companion shell, appearance controls and verified browser flows. The native screenshot above is the earlier baseline; the new window lifecycle still needs native acceptance.
+
 - **Observe sessions:** browse normalized messages and supported tool events, inspect project setup, and review token counts reported by local logs. Inferred states and incomplete history are labeled.
 - **Edit project instructions:** read current Markdown, edit a block or the whole document, review the complete change and request approval. Changes are written only after approval and can be undone from the file’s history; external edits are protected. See the [Setup editing guide](docs/implementation/setup-editing-guide.md) for supported files and draft behavior.
 - **Keep useful context:** save memories with provenance and explicit scope, recall active memories within a conservative budget, and export checkpoints containing user notes and a captured Git state.

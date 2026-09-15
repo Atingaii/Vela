@@ -376,8 +376,8 @@ public enum VelaLocalization {
             VelaLocale.en: "Launch at login requires running as a macOS application bundle (.app)"
         ],
         "error.launchAtLoginConfigFailed": [
-            VelaLocale.zhCN: "配置开机自启动失败: {error}",
-            VelaLocale.en: "Failed to configure launch at login: {error}"
+            VelaLocale.zhCN: "偏好设置已保存，但开机登录项未同步更新（{error}）。可在 macOS「系统设置 > 通用 > 登录项」中核对。",
+            VelaLocale.en: "Preferences saved, but the login item could not be updated ({error}). You can verify this in macOS System Settings > General > Login Items."
         ],
         "error.launchAtLoginOSRequired": [
             VelaLocale.zhCN: "开机自启需要 macOS 13 及更高版本系统支持",

@@ -21,6 +21,15 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
     private var window: NSWindow!
     private var webView: WKWebView!
     private var statusItem: NSStatusItem!
+    private var companionPanel: NSPanel?
+    private var companionExpandButton: NSButton?
+    private var companionUnpinButton: NSButton?
+    private var companionPinned = false
+    private var companionCollapsed = false
+    private var workspaceFrame: NSRect?
+    private var companionFrame: NSRect?
+    private var lastWindowState = ""
+
 
     // Helper Process & Stdin/Stdout Queues
     private var helperProcess: Process?
@@ -37,6 +46,9 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
     // Request tracking & limits (Max 128 pending calls)
     private var pendingRequestIds = Set<String>()
     private var pendingRequestMethods: [String: String] = [:]
+    private var pendingPreferenceEpochs: [String: UInt64] = [:]
+    private var pendingLaunchAtLogin: [String: Bool] = [:]
+    private var confirmedPreferenceEpoch: UInt64 = 0
     private var pendingTimers: [String: DispatchSourceTimer] = [:]
     private let requestLock = NSLock()
     private let maxPendingRequests = 128
@@ -60,6 +72,7 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
 
     // Authoritative Core Locale & In-flight language switching
     private var currentLocale: String = VelaLocale.defaultLocale
+    private var currentTheme = VelaPreferences.defaultTheme
     private var isLanguageChangeInFlight = false
     private var activeLanguageChangeRequestId: String?
     private var pendingLanguageChangeLocale: String?
@@ -166,13 +179,16 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         hostPollTimer?.invalidate()
         currentSoundPreview?.stop()
         currentSoundPreview = nil
+        companionPanel?.close()
+        companionPanel = nil
         terminateVelaHelper()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag {
-            window?.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+        // A visible non-activating panel still makes `flag` true. Reopening the
+        // app must nevertheless restore the interactive renderer in that case.
+        if companionCollapsed || !flag {
+            showMainWindow()
         }
         return true
     }
@@ -191,8 +207,7 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.window?.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            self.showMainWindow()
             let userInfo = response.notification.request.content.userInfo
             let count = userInfo["count"] as? Int ?? 1
             if let source = userInfo["source"] as? String {
@@ -353,7 +368,7 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             backing: .buffered,
             defer: false
         )
-        window.minSize = NSSize(width: 900, height: 620)
+        window.minSize = NSSize(width: 400, height: 560)
         window.title = "Vela"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
@@ -502,7 +517,7 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
 
         // Native narrow draggable strip at top of window
         // Sized to x: 80 .. (windowWidth - 320), excluding the full wide search affordance on the right
-        let dragStripWidth = max(100, window.contentView!.bounds.width - 400)
+        let dragStripWidth = max(0, window.contentView!.bounds.width - 360)
         let dragStrip = DraggableTitlebarView(frame: NSRect(x: 80, y: window.contentView!.bounds.height - 38, width: dragStripWidth, height: 38))
         dragStrip.autoresizingMask = [.width, .minYMargin]
         window.contentView?.addSubview(dragStrip)
@@ -512,8 +527,155 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        sender.orderOut(nil)
+        if companionPinned { setCompanionAction("pin") }
+        else { sender.orderOut(nil) }
         return false
+    }
+
+    // MARK: - Single-renderer companion window
+
+    private func windowLabel(_ zh: String, _ en: String) -> String {
+        currentLocale == VelaLocale.en ? en : zh
+    }
+
+    private var windowSnapshot: [String: Any] {
+        ["layout": window.frame.width <= 720 ? "companion" : "workspace",
+         "pinned": companionPinned, "collapsed": companionCollapsed,
+         "fullScreen": window.styleMask.contains(.fullScreen)]
+    }
+
+    private func publishWindowState() {
+        guard window != nil else { return }
+        let key = "\(window.frame.width <= 720)-\(companionPinned)-\(companionCollapsed)-\(window.styleMask.contains(.fullScreen))"
+        if key != lastWindowState {
+            lastWindowState = key
+            if isWebReady { dispatchWebEvent(name: "vela:windowChanged", detail: windowSnapshot) }
+        }
+    }
+
+    func windowDidResize(_ notification: Notification) { publishWindowState() }
+    func windowDidEnterFullScreen(_ notification: Notification) { publishWindowState() }
+    func windowDidExitFullScreen(_ notification: Notification) { publishWindowState() }
+
+    private func screenForWindowFrame(_ frame: NSRect) -> NSScreen? {
+        let screens = NSScreen.screens
+        let screen = screens.max { lhs, rhs in
+            let lhsIntersection = lhs.visibleFrame.intersection(frame)
+            let rhsIntersection = rhs.visibleFrame.intersection(frame)
+            return lhsIntersection.width * lhsIntersection.height < rhsIntersection.width * rhsIntersection.height
+        }
+        return screen ?? window.screen ?? NSScreen.main
+    }
+
+    private func fittedWindowFrame(_ requested: NSRect) -> NSRect {
+        let screen = screenForWindowFrame(requested)
+        guard let visible = screen?.visibleFrame else { return requested }
+        let width = min(requested.width, visible.width), height = min(requested.height, visible.height)
+        return NSRect(x: max(visible.minX, min(requested.minX, visible.maxX - width)),
+                      y: max(visible.minY, min(requested.minY, visible.maxY - height)), width: width, height: height)
+    }
+
+    private func saveVisibleWindowFrame() {
+        if !companionCollapsed {
+            if window.frame.width <= 720 { companionFrame = window.frame }
+            else { workspaceFrame = window.frame }
+        }
+    }
+
+    private func defaultCompanionFrame() -> NSRect {
+        let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? window.frame
+        return NSRect(x: visible.maxX - 456, y: visible.maxY - 776, width: 440, height: 760)
+    }
+
+    private func ensureCompanionPanel() {
+        if companionPanel != nil { return }
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 188, height: 48),
+                            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.level = .floating
+        panel.isFloatingPanel = true
+        panel.hidesOnDeactivate = false
+        panel.isReleasedWhenClosed = false
+        panel.isMovableByWindowBackground = true
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = true
+        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+        panel.appearance = desktopAppearance(for: currentTheme)
+        let backdrop = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 188, height: 48))
+        backdrop.material = .popover
+        backdrop.state = .active
+        backdrop.wantsLayer = true
+        backdrop.layer?.cornerRadius = 14
+        backdrop.layer?.masksToBounds = true
+        let expand = NSButton(title: "Vela", target: self, action: #selector(expandCompanion))
+        expand.frame = NSRect(x: 14, y: 8, width: 126, height: 32)
+        expand.isBordered = false
+        expand.alignment = .left
+        expand.font = .systemFont(ofSize: 13, weight: .medium)
+        let unpin = NSButton(image: NSImage(systemSymbolName: "pin.slash", accessibilityDescription: nil) ?? NSImage(), target: self, action: #selector(unpinCompanion))
+        unpin.frame = NSRect(x: 146, y: 8, width: 30, height: 32)
+        unpin.isBordered = false
+        backdrop.addSubview(expand); backdrop.addSubview(unpin)
+        panel.contentView = backdrop
+        companionPanel = panel
+        companionExpandButton = expand
+        companionUnpinButton = unpin
+        updateCompanionLabels()
+    }
+
+    private func updateCompanionLabels() {
+        var title = "Vela"
+        if currentRunningCount > 0 { title += " · \(currentRunningCount)" }
+        if currentApprovalsCount > 0 { title += " · !\(currentApprovalsCount)" }
+        companionExpandButton?.title = title
+        companionExpandButton?.toolTip = windowLabel("展开 Vela", "Expand Vela")
+        companionExpandButton?.setAccessibilityLabel(windowLabel("展开 Vela", "Expand Vela"))
+        companionUnpinButton?.toolTip = windowLabel("取消固定", "Unpin")
+        companionUnpinButton?.setAccessibilityLabel(windowLabel("取消固定", "Unpin"))
+    }
+
+    @objc private func expandCompanion() { setCompanionAction("expand") }
+    @objc private func unpinCompanion() { setCompanionAction("unpin") }
+
+    private func setCompanionAction(_ action: String) {
+        guard !window.styleMask.contains(.fullScreen) else { return }
+        saveVisibleWindowFrame()
+        switch action {
+        case "workspace":
+            companionPinned = false; companionCollapsed = false
+            companionPanel?.orderOut(nil)
+            window.level = .normal
+            window.setFrame(fittedWindowFrame(workspaceFrame ?? NSRect(x: window.frame.minX, y: window.frame.minY, width: 1250, height: 800)), display: true)
+        case "companion":
+            companionCollapsed = false
+            companionPanel?.orderOut(nil)
+            window.setFrame(fittedWindowFrame(companionFrame ?? defaultCompanionFrame()), display: true)
+        case "pin":
+            ensureCompanionPanel()
+            let anchor = companionCollapsed ? companionPanel!.frame : window.frame
+            companionPinned = true; companionCollapsed = true
+            let frame = fittedWindowFrame(NSRect(x: anchor.maxX - 188, y: anchor.maxY - 48, width: 188, height: 48))
+            companionPanel?.setFrame(frame, display: true)
+            window.orderOut(nil)
+            companionPanel?.orderFrontRegardless()
+            publishWindowState()
+            return
+        case "expand", "unpin":
+            let wasCollapsed = companionCollapsed
+            if action == "unpin" { companionPinned = false }
+            companionCollapsed = false
+            if wasCollapsed, let panel = companionPanel {
+                var next = companionFrame ?? defaultCompanionFrame()
+                next.origin = NSPoint(x: panel.frame.maxX - next.width, y: panel.frame.maxY - next.height)
+                window.setFrame(fittedWindowFrame(next), display: true)
+            }
+            companionPanel?.orderOut(nil)
+        default: return
+        }
+        window.level = companionPinned ? .floating : .normal
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        publishWindowState()
     }
 
     // MARK: - Menu Bar Status Item
@@ -566,6 +728,7 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
                 parts.append("!\(self.currentApprovalsCount)")
             }
             button.title = parts.joined(separator: " · ")
+            self.updateCompanionLabels()
 
             if let summaryItem = self.statusSummaryItem {
                 if self.currentRunningCount == 0 && self.currentApprovalsCount == 0 {
@@ -585,6 +748,7 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
     }
 
     @objc private func showMainWindow() {
+        if companionCollapsed { setCompanionAction("expand"); return }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -859,6 +1023,22 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         }
     }
 
+    private func desktopAppearance(for theme: String) -> NSAppearance? {
+        switch theme {
+        case "light": return NSAppearance(named: .aqua)
+        case "dark": return NSAppearance(named: .darkAqua)
+        default: return nil
+        }
+    }
+
+    private func updateConfirmedTheme(_ newTheme: String) {
+        guard VelaPreferences.supportedThemes.contains(newTheme) else { return }
+        currentTheme = newTheme
+        let appearance = desktopAppearance(for: newTheme)
+        window?.appearance = appearance
+        companionPanel?.appearance = appearance
+    }
+
     private func syncConfirmedLocaleFromPreferences(_ dictionary: [String: Any], method: String?) {
         let prefs: [String: Any]?
         if method == "settings.get" || method == "settings.save" {
@@ -875,10 +1055,14 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             prefs = nil
         }
 
-        guard let confirmedPrefs = prefs,
-              let rawLocale = confirmedPrefs["locale"] as? String else { return }
-        let canonical = VelaLocale.canonical(rawLocale)
-        updateConfirmedLocale(canonical)
+        guard let confirmedPrefs = prefs else { return }
+        if let rawLocale = confirmedPrefs["locale"] as? String {
+            let canonical = VelaLocale.canonical(rawLocale)
+            updateConfirmedLocale(canonical)
+        }
+        if let theme = confirmedPrefs["theme"] as? String {
+            updateConfirmedTheme(theme)
+        }
     }
 
     @objc private func showAbout() {
@@ -1095,6 +1279,8 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
                 self.pendingTimers.removeAll()
                 self.pendingRequestIds.removeAll()
                 self.pendingRequestMethods.removeAll()
+                self.pendingPreferenceEpochs.removeAll()
+                self.pendingLaunchAtLogin.removeAll()
                 self.requestLock.unlock()
 
                 if hadActiveLanguageChange {
@@ -1173,6 +1359,8 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
                 self.pendingTimers.removeAll()
                 self.pendingRequestIds.removeAll()
                 self.pendingRequestMethods.removeAll()
+                self.pendingPreferenceEpochs.removeAll()
+                self.pendingLaunchAtLogin.removeAll()
                 self.requestLock.unlock()
                 self.terminateVelaHelper()
                 self.launchVelaHelper()
@@ -1200,13 +1388,12 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             }
 
             // Re-serialize strictly validated JSON object
-            guard let sanitizedData = try? JSONSerialization.data(withJSONObject: obj),
-                  let jsonString = String(data: sanitizedData, encoding: .utf8) else {
+            guard (try? JSONSerialization.data(withJSONObject: obj)) != nil else {
                 continue
             }
 
             DispatchQueue.main.async { [weak self] in
-                self?.handleHelperOutputLine(obj: obj, jsonString: jsonString)
+                self?.handleHelperOutputLine(obj: obj)
             }
         }
     }
@@ -1233,13 +1420,34 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         }
     }
 
-    private func handleHelperOutputLine(obj: [String: Any], jsonString: String) {
+    private func applyConfirmedLaunchAtLogin(_ enabled: Bool) throws {
+        if !isAppBundle {
+            if enabled { throw VelaError(VelaLocalization.string("error.launchAtLoginAppRequired", locale: currentLocale)) }
+            return
+        }
+        guard #available(macOS 13.0, *) else {
+            if enabled { throw VelaError(VelaLocalization.string("error.launchAtLoginOSRequired", locale: currentLocale)) }
+            return
+        }
+        let currentStatus = SMAppService.mainApp.status
+        if enabled {
+            if currentStatus != .enabled && currentStatus != .requiresApproval {
+                try SMAppService.mainApp.register()
+            }
+        } else if currentStatus == .enabled || currentStatus == .requiresApproval {
+            try SMAppService.mainApp.unregister()
+        }
+    }
+
+    private func handleHelperOutputLine(obj: [String: Any]) {
         let rawId = obj["id"]
         let idStr = (rawId as? String) ?? (rawId != nil ? String(describing: rawId!) : "")
 
         requestLock.lock()
         let wasPending = pendingRequestIds.remove(idStr) != nil
         let reqMethod = pendingRequestMethods.removeValue(forKey: idStr)
+        let readPreferenceEpoch = pendingPreferenceEpochs.removeValue(forKey: idStr)
+        let requestedLaunchAtLogin = pendingLaunchAtLogin.removeValue(forKey: idStr)
         if let timer = pendingTimers.removeValue(forKey: idStr) {
             timer.cancel()
         }
@@ -1248,6 +1456,25 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         guard wasPending else {
             // Stale or timed-out request; ignore completely
             return
+        }
+
+        // A dashboard read already in flight when a save completed must not
+        // reset confirmed native preferences. This fence is host-local; it does
+        // not reinterpret the helper response or claim a cross-process revision.
+        let isConfirmedPreferenceSave = reqMethod == "settings.save" && obj["error"] == nil && obj["result"] is [String: Any]
+        if isConfirmedPreferenceSave { confirmedPreferenceEpoch &+= 1 }
+        let maySyncPreferences = isConfirmedPreferenceSave || readPreferenceEpoch == confirmedPreferenceEpoch
+        var response = obj
+        if let requestedLaunchAtLogin, isConfirmedPreferenceSave {
+            do {
+                try applyConfirmedLaunchAtLogin(requestedLaunchAtLogin)
+            } catch {
+                // The desired preference is already confirmed by Core. Do not
+                // issue an automatic compensating save: it could overwrite a
+                // newer settings request. Surface the unapplied OS action.
+                response.removeValue(forKey: "result")
+                response["error"] = ["message": VelaLocalization.string("error.launchAtLoginConfigFailed", locale: currentLocale, placeholders: ["error": error.localizedDescription])]
+            }
         }
 
         // Internal Language Change Response
@@ -1277,8 +1504,10 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         // Internal Initial Settings Response
         if idStr.hasPrefix("host-init-settings-") {
             if let result = obj["result"] as? [String: Any] {
-                syncConfirmedLocaleFromPreferences(result, method: "settings.get")
-                syncNotificationPreference(from: result, method: "settings.get")
+                if maySyncPreferences {
+                    syncConfirmedLocaleFromPreferences(result, method: "settings.get")
+                    syncNotificationPreference(from: result, method: "settings.get")
+                }
             }
             return
         }
@@ -1287,24 +1516,29 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         if idStr.hasPrefix("host-poll-") {
             self.isHostPollInFlight = false
             if let result = obj["result"] as? [String: Any] {
-                extractCountsAndUpdateStatus(result: result, method: reqMethod ?? "dashboard.get")
+                extractCountsAndUpdateStatus(result: result, method: reqMethod ?? "dashboard.get", syncPreferences: maySyncPreferences)
             }
             return
         }
 
         // Inspect response to capture registered projects, counts, locale and observe transitions
         if let result = obj["result"] as? [String: Any] {
-            extractCountsAndUpdateStatus(result: result, method: reqMethod)
+            extractCountsAndUpdateStatus(result: result, method: reqMethod, syncPreferences: maySyncPreferences)
         }
 
-        // Pass strictly re-serialized JSON string to JS
-        let js = "window.__velaReceive(\(jsonString));"
+        // Pass the confirmed result, or the explicit post-confirmation OS
+        // failure, through the same strictly serialized bridge.
+        guard let responseData = try? JSONSerialization.data(withJSONObject: response),
+              let responseJSONString = String(data: responseData, encoding: .utf8) else { return }
+        let js = "window.__velaReceive(\(responseJSONString));"
         webView.evaluateJavaScript(js, completionHandler: nil)
     }
 
-    private func extractCountsAndUpdateStatus(result: [String: Any], method: String?) {
-        self.syncNotificationPreference(from: result, method: method)
-        self.syncConfirmedLocaleFromPreferences(result, method: method)
+    private func extractCountsAndUpdateStatus(result: [String: Any], method: String?, syncPreferences: Bool = true) {
+        if syncPreferences {
+            self.syncNotificationPreference(from: result, method: method)
+            self.syncConfirmedLocaleFromPreferences(result, method: method)
+        }
         if let projects = result["projects"] as? [[String: Any]] {
             self.registeredProjects = projects.compactMap { $0["path"] as? String }
         }
@@ -1326,7 +1560,7 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         self.trackTransitionsAndNotify(result: result)
     }
 
-    private func sendToHelper(id: Any, method: String, params: [String: Any]) {
+    private func sendToHelper(id: Any, method: String, params: [String: Any], launchAtLogin: Bool? = nil) {
         let idStr = String(describing: id)
         let isHostPoll = idStr.hasPrefix("host-poll-")
         let isHostLang = idStr.hasPrefix("host-lang-")
@@ -1350,12 +1584,16 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         }
         pendingRequestIds.insert(idStr)
         pendingRequestMethods[idStr] = method
+        pendingPreferenceEpochs[idStr] = confirmedPreferenceEpoch
+        if let launchAtLogin { pendingLaunchAtLogin[idStr] = launchAtLogin }
         requestLock.unlock()
 
         guard isHelperRunning, let stdin = helperStdin else {
             requestLock.lock()
             pendingRequestIds.remove(idStr)
             pendingRequestMethods.removeValue(forKey: idStr)
+            pendingPreferenceEpochs.removeValue(forKey: idStr)
+            pendingLaunchAtLogin.removeValue(forKey: idStr)
             requestLock.unlock()
             if isHostPoll {
                 self.isHostPollInFlight = false
@@ -1381,6 +1619,8 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             requestLock.lock()
             pendingRequestIds.remove(idStr)
             pendingRequestMethods.removeValue(forKey: idStr)
+            pendingPreferenceEpochs.removeValue(forKey: idStr)
+            pendingLaunchAtLogin.removeValue(forKey: idStr)
             requestLock.unlock()
             if isHostPoll {
                 self.isHostPollInFlight = false
@@ -1415,6 +1655,8 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             self.requestLock.lock()
             let wasPending = self.pendingRequestIds.remove(idStr) != nil
             let reqMethod = self.pendingRequestMethods.removeValue(forKey: idStr)
+            self.pendingPreferenceEpochs.removeValue(forKey: idStr)
+            self.pendingLaunchAtLogin.removeValue(forKey: idStr)
             self.pendingTimers.removeValue(forKey: idStr)
             self.requestLock.unlock()
             if isHostPoll {
@@ -1458,6 +1700,8 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
                     self.requestLock.lock()
                     self.pendingRequestIds.remove(idStr)
                     self.pendingRequestMethods.removeValue(forKey: idStr)
+                    self.pendingPreferenceEpochs.removeValue(forKey: idStr)
+                    self.pendingLaunchAtLogin.removeValue(forKey: idStr)
                     if let t = self.pendingTimers.removeValue(forKey: idStr) {
                         t.cancel()
                     }
@@ -1656,60 +1900,26 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         let requestedNotif = params["notifications"] as? Bool
         let requestedLogin = params["launchAtLogin"] as? Bool
 
-        let proceedWithLoginAndForward = { [weak self] (notifGranted: Bool?) in
+        if requestedLogin == true {
+            guard isAppBundle else {
+                respondToJS(id: id, result: nil, error: VelaLocalization.string("error.launchAtLoginAppRequired", locale: currentLocale))
+                return
+            }
+            guard #available(macOS 13.0, *) else {
+                respondToJS(id: id, result: nil, error: VelaLocalization.string("error.launchAtLoginOSRequired", locale: currentLocale))
+                return
+            }
+        }
+
+        let proceedWithLoginAndForward = { [weak self] in
             guard let self = self else { return }
-            if let granted = notifGranted {
-                self.currentNotificationSettings["notifications"] = granted
-                self.isNotificationsEffective = granted
-            }
-            if let sound = params["notificationSound"] as? Bool {
-                self.currentNotificationSettings["notificationSound"] = sound
-            }
-            if let apprv = params["notifyApprovals"] as? Bool {
-                self.currentNotificationSettings["notifyApprovals"] = apprv
-            }
-            if let comp = params["notifyCompleted"] as? Bool {
-                self.currentNotificationSettings["notifyCompleted"] = comp
-            }
-            if let errs = params["notifyErrors"] as? Bool {
-                self.currentNotificationSettings["notifyErrors"] = errs
-            }
+            // OS authorization permits notifications, but does not confirm the
+            // user's stored preference. Only a successful helper reply updates
+            // notification behavior through syncNotificationPreference.
 
-            if let reqLogin = requestedLogin {
-                if !self.isAppBundle {
-                    if reqLogin {
-                        self.respondToJS(id: id, result: nil, error: VelaLocalization.string("error.launchAtLoginAppRequired", locale: self.currentLocale))
-                        return
-                    }
-                } else {
-                    if #available(macOS 13.0, *) {
-                        let currentStatus = SMAppService.mainApp.status
-                        do {
-                            if reqLogin {
-                                if currentStatus != .enabled && currentStatus != .requiresApproval {
-                                    try SMAppService.mainApp.register()
-                                }
-                            } else {
-                                if currentStatus == .enabled || currentStatus == .requiresApproval {
-                                    try SMAppService.mainApp.unregister()
-                                }
-                            }
-                        } catch {
-                            let msg = VelaLocalization.string("error.launchAtLoginConfigFailed", locale: self.currentLocale, placeholders: ["error": error.localizedDescription])
-                            self.respondToJS(id: id, result: nil, error: msg)
-                            return
-                        }
-                    } else {
-                        if reqLogin {
-                            self.respondToJS(id: id, result: nil, error: VelaLocalization.string("error.launchAtLoginOSRequired", locale: self.currentLocale))
-                            return
-                        }
-                    }
-                }
-            }
-
-            // Forward validated settings to backend helper preserving all fields
-            self.sendToHelper(id: id, method: "settings.save", params: params)
+            // Persist first. The host performs the single requested system
+            // action only after the helper confirms this exact preference.
+            self.sendToHelper(id: id, method: "settings.save", params: params, launchAtLogin: requestedLogin)
         }
 
         if requestedNotif == true {
@@ -1729,15 +1939,11 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
                         self.respondToJS(id: id, result: nil, error: VelaLocalization.string("error.notificationDenied", locale: self.currentLocale))
                         return
                     }
-                    proceedWithLoginAndForward(true)
+                    proceedWithLoginAndForward()
                 }
             }
         } else {
-            if requestedNotif == false {
-                self.currentNotificationSettings["notifications"] = false
-                self.isNotificationsEffective = false
-            }
-            proceedWithLoginAndForward(requestedNotif)
+            proceedWithLoginAndForward()
         }
     }
 
@@ -1745,8 +1951,26 @@ final class VelaApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDe
 
     private func handleSystemMethod(id: Any, method: String, params: [String: Any]) {
         switch method {
+        case "system.window.get":
+            guard params.isEmpty else {
+                respondToJS(id: id, result: nil, error: windowLabel("窗口参数无效", "Invalid window parameters")); return
+            }
+            respondToJS(id: id, result: windowSnapshot, error: nil)
+
+        case "system.window.set":
+            guard params.count == 1, let action = params["action"] as? String,
+                  ["workspace", "companion", "pin", "expand", "unpin"].contains(action) else {
+                respondToJS(id: id, result: nil, error: windowLabel("窗口操作无效", "Invalid window action")); return
+            }
+            guard !window.styleMask.contains(.fullScreen) else {
+                respondToJS(id: id, result: nil, error: windowLabel("请先退出全屏，再切换窗口模式。", "Exit full screen before changing window mode.")); return
+            }
+            setCompanionAction(action)
+            respondToJS(id: id, result: windowSnapshot, error: nil)
+
         case "system.ready":
             self.isWebReady = true
+            dispatchWebEvent(name: "vela:windowChanged", detail: windowSnapshot)
             if let pending = self.pendingNotificationRoute {
                 self.dispatchWebEvent(name: "vela:notificationRoute", detail: pending)
                 self.pendingNotificationRoute = nil

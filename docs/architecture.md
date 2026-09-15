@@ -25,6 +25,10 @@ MCP → 独立只读或候选贡献入口，不启动调度
 
 RPC 响应可乱序，按 ID 匹配。Foundation 与长自动化分队列，但共享 helper 与数据库，不是独立故障域。默认不增加常驻 Node、Chromium 或 Python 服务；可选 Walrus 包的 Node 依赖不进入默认 Mac 应用。后台服务显式安装和启动，不因打开设置、SDK 或 MCP 被启用。
 
+桌面 workspace 与 companion 复用一个主窗口、一个 WKWebView 和一个 helper。收拢状态使用不含 WebView 的原生 NSPanel；模式与窗口位置只在当前进程内保留。`system.window.get` 只接受空参数，`system.window.set` 只接受 `workspace|companion|pin|expand|unpin`，renderer 不能传入 frame、level、路径或代码。全屏中拒绝模式切换，屏幕变化时约束恢复位置；源码实现与原生生命周期验收分开记录，见 [ADR 0049](adr/0049-native-companion-window.md)。
+
+`Preferences.swift` 对 `theme`、`density`、`zoomPercent` 使用严格 schema，见 [ADR 0050](adr/0050-desktop-appearance-preferences.md)。renderer 的各类设置共用串行保存队列，仅成功的完整回包更新 confirmed state；renderer 与 host 分别以读请求代际防止旧 dashboard 覆盖较新的偏好。这些进程内机制不替代 Store 的跨进程 CAS。
+
 多个 helper/daemon/CLI 可以使用同一 store，因此执行授权、事件领取和恢复依赖 SQLite CAS 与跨进程 lease，不能只用 Swift 对象锁。关闭窗口和退出应用的行为与独立 launchd 服务分开；停止服务在信号控制队列关闭启动 gate，清理拥有的进程组，等待有界状态持久化，不能提前伪报已停止。详见 [ADR 0006](adr/0006-independent-scheduling.md)。
 
 ## 模块责任

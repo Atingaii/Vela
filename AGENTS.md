@@ -12,7 +12,7 @@ Read `README.md` and `docs/architecture.md` before substantial changes. `docs/st
 
 ## UI implementation
 
-On 2026-09-14, the initiator explicitly authorized Codex to implement the desktop and website UI directly, superseding the earlier Gemini authoring requirement. Use this current authorization; retain earlier provenance as historical evidence only. Keep credentials out of source and logs. Use familiar, readable developer-tool interactions with a restrained neutral palette, clear primary actions and progressive disclosure. Desktop layout should take inspiration from Codex without copying proprietary code or assets.
+On 2026-09-16, the initiator explicitly reaffirmed that frontend design and UI implementation must be authored through Antigravity CLI using Gemini 3.8 Flash (High); basic implementation may be delegated to GPT Terra, while the primary agent owns complex review and verification. This supersedes the 2026-09-14 permission for direct Codex UI authorship. Mechanical integration and testing must preserve the actual author provenance; do not replace the requested UI model silently. Keep credentials out of source and logs. Use familiar, readable developer-tool interactions with a restrained neutral palette, clear primary actions and progressive disclosure. Desktop layout should take inspiration from Codex without copying proprietary code or assets.
 
 ## Engineering
 

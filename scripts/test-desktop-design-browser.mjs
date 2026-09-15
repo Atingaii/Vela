@@ -33,7 +33,7 @@ const { chromium } = require('../.task-tmp/ui-browser-tools/node_modules/playwri
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const PAGES = ['agents', 'workflows', 'memory', 'setup', 'inbox', 'usage', 'improve', 'lab', 'settings'];
-const NARROW_PAGES = ['agents', 'workflows', 'memory', 'inbox'];
+const NARROW_PAGES = ['agents', 'setup', 'usage', 'improve'];
 const IMPORTANT_SCREENSHOTS = new Set(PAGES);
 const arg = (name) => {
   const index = process.argv.indexOf(name);
@@ -62,7 +62,14 @@ fs.mkdirSync(screenshotsDir, { recursive: true });
 const fixtureDir = path.dirname(contractPath);
 const frozenUIPath = path.join(fixtureDir, 'ui-snapshot');
 if (!fs.statSync(frozenUIPath).isDirectory() || fs.lstatSync(frozenUIPath).isSymbolicLink()) throw new Error('fixture must retain an ordinary ui-snapshot directory.');
-const treeHashes = (dir) => Object.fromEntries(fs.readdirSync(dir).sort().filter(name => fs.lstatSync(path.join(dir, name)).isFile() && !fs.lstatSync(path.join(dir, name)).isSymbolicLink()).map(name => [name, createHash('sha256').update(fs.readFileSync(path.join(dir, name))).digest('hex')]));
+const UI_SOURCE_FILES = ['app.js', 'appearance.js', 'app.css', 'content.js', 'reading.css', 'i18n.js', 'index.html'];
+const treeHashes = (dir) => {
+  const names = fs.readdirSync(dir).sort().filter(name => fs.lstatSync(path.join(dir, name)).isFile() && !fs.lstatSync(path.join(dir, name)).isSymbolicLink());
+  for (const name of UI_SOURCE_FILES) {
+    if (!names.includes(name)) throw new Error(`frozen UI snapshot is missing required source ${name}.`);
+  }
+  return Object.fromEntries(names.map(name => [name, createHash('sha256').update(fs.readFileSync(path.join(dir, name))).digest('hex')]));
+};
 const setupPath = path.join(fixtureDir, 'design-fixture-setup.json');
 const setup = fs.existsSync(setupPath) ? JSON.parse(fs.readFileSync(setupPath, 'utf8')) : null;
 const uiSourceBefore = treeHashes(frozenUIPath);
@@ -99,26 +106,42 @@ page.on('console', message => { if (message.type() === 'error') pageErrors.push(
 
 const screenshot = async (name) => {
   const file = path.join(screenshotsDir, `${name}.png`);
-  await page.screenshot({ path: file, fullPage: true });
+  await page.screenshot({ animations: 'disabled', path: file, fullPage: true });
   report.screenshots.push(path.relative(ROOT, file));
 };
 const locatorVisible = async (locator) => await locator.count() > 0 && await locator.first().isVisible();
-const activePage = () => page.locator('.nav-link.active[data-page]');
+// Both responsive navigation surfaces retain the same selected route. The
+// interaction helper below only clicks the visible surface; reading that
+// shared route must not require there to be only one DOM navigation control.
+const activePage = () => page.locator('.nav-link.active[data-page], .companion-link.active[data-page]').first();
 const pageReady = {
   agents: '#session-search-input', workflows: '#workflows-tab-content', memory: '#memory-page-content',
-  setup: '#btn-scan-setup', inbox: '#approval-list, .empty-state', usage: '#usage-provider-count',
+  setup: '#btn-scan-setup', inbox: '#approval-list, .empty-state', usage: '#usage-codex-quota-card',
   improve: '#page-container .page-header', lab: '#page-container .page-header', settings: '#setting-locale'
 };
+const visiblePageLink = async (name) => {
+  const direct = page.locator(`.nav-link[data-page="${name}"]:visible, .companion-link[data-page="${name}"]:visible`).first();
+  if (await locatorVisible(direct)) return direct;
+  // Companion secondary routes are deliberately disclosed from the More menu;
+  // never fall back to clicking an invisible desktop sidebar item.
+  const more = page.locator('.companion-nav .action-menu > summary:visible').first();
+  if (await locatorVisible(more)) {
+    await more.click();
+    const disclosed = page.locator(`.companion-link[data-page="${name}"]:visible`).first();
+    if (await locatorVisible(disclosed)) return disclosed;
+  }
+  throw new Error(`visible page navigation missing: ${name}`);
+};
 const go = async (name) => {
-  const link = page.locator(`.nav-link[data-page="${name}"]`);
-  if (!(await locatorVisible(link))) throw new Error(`visible page navigation missing: ${name}`);
+  const link = await visiblePageLink(name);
   await link.click();
-  await page.waitForFunction(pageName => document.querySelector('.nav-link.active[data-page]')?.dataset.page === pageName, name);
+  await page.waitForFunction(pageName => document.querySelector('.nav-link.active[data-page], .companion-link.active[data-page]')?.dataset.page === pageName, name);
   const readiness = pageReady[name];
   if (readiness) await page.locator(readiness).first().waitFor({ state: 'visible', timeout: 8_000 });
   if (name === 'usage') await page.waitForFunction(() => {
-    const count = document.querySelector('#usage-provider-count')?.textContent?.trim();
-    return Boolean(count && count !== '-');
+    const accountTab = document.querySelector('[data-usagetab="quota"]');
+    const accountPanel = document.querySelector('#usage-codex-quota-card:not([hidden])');
+    return Boolean(accountTab && (accountTab.classList.contains('active') || accountTab.getAttribute('aria-selected') === 'true' || accountTab.getAttribute('aria-pressed') === 'true') && accountPanel?.querySelector('.quota-provider-heading') && !accountPanel.querySelector('[data-i18n="common.loading"]'));
   });
 };
 const isNoPageOverflow = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
@@ -200,17 +223,36 @@ try {
     });
   }
 
-  await record('narrow-four-pages-900x650', async () => {
-    await page.setViewportSize({ width: 900, height: 650 });
+  await record('companion-core-pages-440x760', async () => {
+    await page.setViewportSize({ width: 440, height: 760 });
     const observations = [];
     for (const name of NARROW_PAGES) {
       await go(name);
       const overflow = !(await isNoPageOverflow());
       observations.push({ page: name, pageHorizontalOverflow: overflow });
-      if (overflow) throw new Error(`${name}: document has horizontal overflow at 900×650.`);
-      await screenshot(`design-${name}-narrow-900x650`);
+      if (overflow) throw new Error(`${name}: document has horizontal overflow at 440×760.`);
+      await screenshot(`design-${name}-companion-440x760`);
     }
-    return { viewport: [900, 650], pages: observations };
+    return { viewport: [440, 760], pages: observations };
+  });
+
+  await record('activity-history-entry-and-account-default-use-visible-current-shell-controls', async () => {
+    await page.setViewportSize({ width: 1250, height: 800 });
+    await go('agents');
+    const activity = page.locator('[data-agentstab="sessions"]:visible');
+    const history = page.locator('[data-agentstab="recent"]:visible');
+    if (!(await locatorVisible(activity)) || !(await locatorVisible(history))) throw new Error('Activity and History entry controls must remain visible in the desktop shell.');
+    await activity.click();
+    await page.waitForFunction(() => document.querySelector('[data-agentstab="sessions"]')?.classList.contains('active'));
+    await history.click();
+    await page.waitForFunction(() => document.querySelector('[data-agentstab="recent"]')?.classList.contains('active'));
+    await go('usage');
+    const account = page.locator('[data-usagetab="quota"]').first();
+    const accountPanel = page.locator('#usage-codex-quota-card:not([hidden])').first();
+    if (!(await locatorVisible(account)) || !(await locatorVisible(accountPanel))) throw new Error('Usage must open the visible Account tab and panel by default.');
+    const accountSelected = await account.evaluate(element => element.classList.contains('active') || element.getAttribute('aria-selected') === 'true' || element.getAttribute('aria-pressed') === 'true');
+    if (!accountSelected) throw new Error('Usage Account tab is rendered but not selected by default.');
+    return { activityHistoryVisible: true, accountDefault: true };
   });
 
   await record('sidebar-collapse-removes-hidden-navigation-from-focus', async () => {
@@ -280,6 +322,10 @@ try {
     const fixture = contract.toolCommand;
     if (!fixture.sessionId || !fixture.title || !fixture.command || !fixture.rawRecord) throw new Error('toolCommand fixture contract lacks real source identity or exact bytes.');
     const session = page.locator(`.session-card[data-id="${fixture.sessionId}"]`);
+    if (!(await locatorVisible(session))) {
+      await page.locator('[data-agentstab="recent"]:visible').click();
+      await page.waitForFunction(() => document.querySelector('[data-agentstab="recent"]')?.classList.contains('active'));
+    }
     if (!(await locatorVisible(session))) throw new Error('real helper did not render the ingested tool-command session.');
     await session.locator('.session-title-btn').click();
     const drawer = page.locator('#detail-drawer:not(.hidden)');
@@ -327,6 +373,13 @@ try {
     await go('workflows');
     requiredTitle(contract.workflowLongChinese, 'workflowLongChinese');
     requiredTitle(contract.workflowLongEnglish, 'workflowLongEnglish');
+    await page.evaluate(() => {
+      window.__menuTestEvents = [];
+      for (const name of ['click', 'toggle', 'scroll', 'focusin']) document.addEventListener(name, event => {
+        window.__menuTestEvents.push({type: name, target: event.target.tagName, className: String(event.target.className || ''), open: event.target.open, time: performance.now(), openMenus: document.querySelectorAll('details.action-menu[open]').length});
+        if (window.__menuTestEvents.length > 40) window.__menuTestEvents.shift();
+      }, true);
+    });
     const inspected = [];
     for (const [label, fixture] of Object.entries({ chinese: contract.workflowLongChinese, english: contract.workflowLongEnglish })) {
       const row = workflowRow(fixture.id);
@@ -352,17 +405,41 @@ try {
       const [titleBox, menuBox, rowBox] = await Promise.all([title.boundingBox(), menuTrigger.boundingBox(), row.boundingBox()]);
       if (!titleBox || !menuBox || !rowBox || menuBox.width < 36 || menuBox.height < 36 || titleBox.x + titleBox.width > menuBox.x || menuBox.x + menuBox.width > rowBox.x + rowBox.width + 0.5) throw new Error(`${label} title/menu geometry violates fixed reachable action menu.`);
       await menuTrigger.evaluate(element => element.scrollIntoView({ block: 'end', inline: 'nearest' }));
+      // Scrolling intentionally closes an open product menu. Finish the setup
+      // scroll (including its queued scroll event) before opening the menu.
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await menuTrigger.focus();
       await menuTrigger.click();
       const menu = row.locator('details.action-menu').first();
       if (!(await menu.evaluate(el => el.open))) throw new Error(`${label} action menu did not open exactly once.`);
-      const menuRect = await menu.boundingBox();
+      const panel = menu.locator('.action-menu-items');
+      await panel.waitFor({ state: 'visible' });
+      // Native details toggles dispatch asynchronously; await the product's
+      // positioning handler before measuring the actual popup.
+      try {
+        await page.waitForFunction(el => el.style.left && el.style.top && el.parentElement.querySelector('summary')?.getAttribute('aria-expanded') === 'true', await panel.elementHandle());
+      } catch (error) {
+        throw new Error(`${label} positioning did not settle: ${JSON.stringify(await page.evaluate(() => window.__menuTestEvents))}; ${error}`);
+      }
+      const menuRect = await panel.boundingBox();
       const viewport = page.viewportSize();
-      if (!menuRect || !viewport || menuRect.left < 0 || menuRect.right > viewport.width || menuRect.top < 0 || menuRect.bottom > viewport.height) throw new Error(`${label} action menu is unreachable near the viewport edge.`);
+      if (!menuRect || !viewport || menuRect.x < 0 || menuRect.x + menuRect.width > viewport.width || menuRect.y < 0 || menuRect.y + menuRect.height > viewport.height) throw new Error(`${label} action menu is unreachable near the viewport edge: ${JSON.stringify(menuRect)} in ${JSON.stringify(viewport)}.`);
+      const items = panel.locator('button:not(:disabled)');
+      if (!(await items.count())) throw new Error(`${label} action menu has no available actions.`);
+      await page.keyboard.press('ArrowDown');
+      if (!(await items.first().evaluate(el => document.activeElement === el))) throw new Error(`${label} ArrowDown did not focus the first action.`);
+      await items.first().click({ trial: true });
+      await page.keyboard.press('End');
+      if (!(await items.last().evaluate(el => document.activeElement === el))) throw new Error(`${label} End did not focus the last action.`);
+      await items.last().click({ trial: true });
       await page.keyboard.press('Escape');
       if (await menu.evaluate(el => el.open)) throw new Error(`${label} Escape did not close action menu.`);
       if (!(await menuTrigger.evaluate(el => document.activeElement === el))) throw new Error(`${label} Escape did not return focus to menu trigger.`);
-      inspected.at(-1).menu = { width: menuBox.width, height: menuBox.height };
+      await menuTrigger.press('Enter');
+      await page.waitForFunction(el => el.open && el.querySelector('summary')?.getAttribute('aria-expanded') === 'true', await menu.elementHandle());
+      await menuTrigger.press('Space');
+      if (await menu.evaluate(el => el.open)) throw new Error(`${label} Space did not close the keyboard-opened menu.`);
+      inspected.at(-1).menu = { trigger: menuBox, panel: menuRect, keyboardAndHitTargets: true };
     }
     return inspected;
   });

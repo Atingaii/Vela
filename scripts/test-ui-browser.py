@@ -45,11 +45,12 @@ const readline = require('node:readline');
       else if(command==='fill')await page.locator(args[0]).fill(args[1]);
       else if(command==='select')await page.locator(args[0]).selectOption(args[1]);
       else if(command==='press')await page.keyboard.press(args[0]);
+      else if(command==='viewport')await page.setViewportSize({width:Number(args[0]),height:Number(args[1])});
       else if(command==='wait')await page.locator(args[0]).waitFor();
       else if(command==='snapshot')output=await page.locator(args.includes('-s')?args[args.indexOf('-s')+1]:'body').ariaSnapshot();
       else if(command==='eval')output=JSON.stringify(await page.evaluate(args[0]));
       else if(command==='get'&&args[0]==='url')output=page.url();
-      else if(command==='screenshot')await page.screenshot({path:args[0]});
+      else if(command==='screenshot')await page.screenshot({path:args[0],animations:'disabled'});
       else if(command==='close'){await browser.close();console.log(JSON.stringify({output}));break;}
       else throw Error('Unsupported test driver command: '+command);
       console.log(JSON.stringify({output}));
