@@ -533,6 +533,7 @@ fn broadcast(app: &AppHandle, snap: UsageSnapshot) {
     *st.glm.lock().unwrap() = snap.clone();
     persist(&snap);
     let _ = app.emit("glm", &snap);
+    crate::refresh::complete("glm");
 }
 
 pub fn start(app: AppHandle) {

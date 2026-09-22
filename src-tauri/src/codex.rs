@@ -888,6 +888,7 @@ fn broadcast(app: &AppHandle, snap: UsageSnapshot) {
     *st.codex.lock().unwrap() = snap.clone();
     persist(&snap);
     let _ = app.emit("codex", &snap);
+    crate::refresh::complete("codex");
 }
 
 pub fn start(app: AppHandle) {

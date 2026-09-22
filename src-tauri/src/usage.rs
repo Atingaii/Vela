@@ -616,6 +616,7 @@ fn set_and_broadcast(app: &AppHandle, mutate: impl FnOnce(&mut UsageSnapshot)) {
     };
     persist(&snap);
     let _ = app.emit("usage", &snap);
+    crate::refresh::complete("claude");
 }
 
 /// What one account contributes to the shared reading. Kept across ticks so a refresh that fails for

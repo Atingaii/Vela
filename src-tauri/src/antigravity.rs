@@ -808,6 +808,7 @@ fn broadcast(app: &AppHandle, snap: UsageSnapshot) {
     *st.antigravity.lock().unwrap() = snap.clone();
     persist(&snap);
     let _ = app.emit("antigravity", &snap);
+    crate::refresh::complete("gemini");
 }
 
 fn sleep_interruptible(secs: u64) {
@@ -845,6 +846,7 @@ fn start_cli(app: AppHandle) {
                 continue;
             }
             if last_attempt.is_some_and(|last| last.elapsed() < CLI_TTL) {
+                crate::refresh::complete("gemini");
                 continue;
             }
             let st = app.state::<AppState>();
@@ -852,6 +854,7 @@ fn start_cli(app: AppHandle) {
             if !previous.windows.is_empty()
                 && now_ms().saturating_sub(previous.fetched_at) < CLI_TTL.as_millis() as u64
             {
+                crate::refresh::complete("gemini");
                 continue;
             }
             last_attempt = Some(Instant::now());
@@ -885,6 +888,7 @@ fn start_cli(app: AppHandle) {
             *st.antigravity.lock().unwrap() = snap.clone();
             persist(&snap);
             let _ = app.emit("antigravity", &snap);
+            crate::refresh::complete("gemini");
         }
     });
 

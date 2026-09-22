@@ -30,6 +30,7 @@ mod pace;
 mod phone_link;
 mod platform;
 mod providers;
+mod refresh;
 mod secrets;
 mod server;
 mod settings_window;
@@ -725,16 +726,11 @@ fn get_claude_auth() -> claude_auth::AuthState {
 /// Asks one provider to read again, and says whether a reading is on its way. Claude's rate-limit
 /// wait stands, as on the Mac: asking early spends a request and can double the wait.
 pub(crate) fn refresh_provider(app: &AppHandle, provider: &str) -> bool {
-    if !providers::enabled(app, provider) {
+    if !providers::enabled(app, provider) || snapshot_of(app, provider).backoff_until > now_ms() {
         return false;
     }
     match provider {
-        "claude" => {
-            if app.state::<AppState>().usage.lock().unwrap().backoff_until > now_ms() {
-                return false;
-            }
-            usage::request_refresh();
-        }
+        "claude" => usage::request_refresh(),
         "codex" => codex::request_refresh(),
         "cursor" => cursor::request_refresh(),
         "grok" => grok::request_refresh(),
@@ -744,7 +740,9 @@ pub(crate) fn refresh_provider(app: &AppHandle, provider: &str) -> bool {
             let app = app.clone();
             let id = id.trim_start_matches("custom-endpoint-").to_string();
             tauri::async_runtime::spawn(async move {
+                let provider = format!("custom-endpoint-{id}");
                 let _ = custom_endpoint::probe_custom_endpoint(app, id).await;
+                refresh::complete(&provider);
             });
         }
         _ => return providers::request(provider),
@@ -753,14 +751,29 @@ pub(crate) fn refresh_provider(app: &AppHandle, provider: &str) -> bool {
 }
 
 pub(crate) fn refresh_all(app: &AppHandle) {
-    for provider in TRAY_PROVIDER_IDS {
-        refresh_provider(app, provider);
-    }
-    for p in providers::get_providers(app.clone()) {
-        refresh_provider(app, &p.id);
-    }
+    let _ = refresh_all_tracked(app);
     let a = app.clone();
     std::thread::spawn(move || reload_glyphs(&a));
+}
+/// Arm before scheduling: even an immediate cached/error reply completes this
+/// generation. The phone uses the same read path as the desktop's Refresh All.
+pub(crate) fn refresh_all_tracked(app: &AppHandle) -> Vec<(String, u64)> {
+    let ids: std::collections::BTreeSet<_> = TRAY_PROVIDER_IDS
+        .iter()
+        .map(|id| id.to_string())
+        .chain(
+            providers::get_providers(app.clone())
+                .into_iter()
+                .map(|p| p.id),
+        )
+        .collect();
+    ids.into_iter()
+        .filter_map(|id| {
+            let generation = refresh::generation(&id);
+            let accepted = refresh_provider(app, &id);
+            (accepted && snapshot_of(app, &id).status != "absent").then_some((id, generation))
+        })
+        .collect()
 }
 
 /// A click on a ring refetches that provider, as on the Mac.

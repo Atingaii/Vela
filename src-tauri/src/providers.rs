@@ -227,6 +227,7 @@ pub fn publish_profile(app: &AppHandle, id: &str, snap: UsageSnapshot) {
     }
     drop(st);
     let _ = app.emit("providers", get_providers(app.clone()));
+    crate::refresh::complete(id);
 }
 
 #[tauri::command]
@@ -401,6 +402,7 @@ pub fn start(app: AppHandle) {
                     }
                 }
                 let _ = app.emit("providers", get_providers(app.clone()));
+                crate::refresh::complete(id);
             }
             for p in profile_list().into_iter().filter(|p| p.kind != "claude") {
                 if !enabled(&app, &p.id) {

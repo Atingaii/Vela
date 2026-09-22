@@ -339,6 +339,7 @@ fn broadcast(app: &AppHandle, snap: UsageSnapshot) {
     *st.cursor.lock().unwrap() = snap.clone();
     persist(&snap);
     let _ = app.emit("cursor", &snap);
+    crate::refresh::complete("cursor");
 }
 
 fn sleep_interruptible(secs: u64) {

@@ -191,18 +191,35 @@ pub fn set_phone_link(app: AppHandle, enabled: bool) -> Result<(), String> {
             pairing,
             gate: auth::Gate::default(),
         });
-        std::thread::spawn(move || {
-            crate::activity::lower_thread_priority();
-            while !stop.load(Ordering::Acquire) {
-                match server.recv_timeout(Duration::from_secs(1)) {
-                    Ok(Some(request)) if !stop.load(Ordering::Acquire) => {
-                        serve(&app, request, &stop)
+        // Two bounded workers let health/pair/snapshot proceed while one phone
+        // waits for refresh. No unbounded thread per HTTP request.
+        for _ in 0..2 {
+            let app = app.clone();
+            let server = server.clone();
+            let stop = stop.clone();
+            std::thread::spawn(move || {
+                crate::activity::lower_thread_priority();
+                while !stop.load(Ordering::Acquire) {
+                    match server.recv_timeout(Duration::from_secs(1)) {
+                        Ok(Some(request)) if !stop.load(Ordering::Acquire) => {
+                            serve(&app, request, &stop)
+                        }
+                        Ok(_) => {}
+                        Err(_) => break,
                     }
-                    Ok(_) => {}
-                    Err(_) => break,
                 }
-            }
-        });
+                stop.store(true, Ordering::Release);
+                let mut runtime = RUNTIME.lock().unwrap();
+                if runtime
+                    .as_ref()
+                    .is_some_and(|r| Arc::ptr_eq(&r.stop, &stop))
+                {
+                    runtime.take();
+                    drop(runtime);
+                    let _ = app.emit("phone_link", ());
+                }
+            });
+        }
     }
     Ok(())
 }
@@ -524,8 +541,13 @@ fn serve(app: &AppHandle, mut request: tiny_http::Request, stop: &AtomicBool) {
     match (method.as_str(), path.as_str()) {
         ("GET", "/api/v3/snapshot") => encrypted(request, snapshot(app), &keys.encryption, &aad),
         ("POST", "/api/v3/refresh") => {
-            crate::refresh_all(app);
-            encrypted(request, snapshot(app), &keys.encryption, &aad);
+            let pending = crate::refresh_all_tracked(app);
+            crate::refresh::wait(&pending, stop);
+            if stop.load(Ordering::Acquire) {
+                respond(request, 503, json!({"error":"unavailable"}));
+            } else {
+                encrypted(request, snapshot(app), &keys.encryption, &aad);
+            }
         }
         _ => respond(request, 404, json!({"error":"not-found"})),
     }
@@ -557,6 +579,6 @@ fn snapshot(app: &AppHandle) -> Value {
         .snapshot(&cfg.lang, &crate::resolved_lang(&cfg.lang), true, false)
         .sessions;
     let mut sessions:Vec<_>=sessions.into_iter().map(|s|json!({"id":s.id,"name":s.title,"detail":s.last,"state":match s.state.as_str(){"running"=>"busy","attention"=>"waiting",_=>"idle"},"waitingFor":if s.attn.is_empty(){None}else{Some(s.attn)},"since":iso(s.started)})).collect();
-    sessions.extend(st.activity.lock().unwrap().iter().enumerate().map(|(i,s)|json!({"id":format!("{}-{i}",s.provider),"name":s.name,"detail":s.detail,"state":s.state,"waitingFor":null,"since":iso(s.since)})));
+    sessions.extend(st.activity.lock().unwrap().iter().map(|s|json!({"id":s.id,"name":s.name,"detail":s.detail,"state":s.state,"waitingFor":null,"since":iso(s.since)})));
     json!({"server":{"name":name(),"version":crate::BUILD,"generatedAt":iso(crate::now_ms()),"demo":false},"providers":providers,"sessions":sessions})
 }
