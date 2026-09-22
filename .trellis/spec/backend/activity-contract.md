@@ -47,4 +47,4 @@ Bad：从默认 ~/.codex 读取所有账户，或仅凭 transcript mtime 将等�
 Wrong：`waitingFor:null` 固定输出；将桌面 success 原样作为手机 v3 状态。
 Correct：手机通过专用投影保留等待原因并映射 success → idle。
 
-仍待迁移：Claude profile 活动隔离、各供应商完整完成事件、真实客户端与双平台体验验收。本契约不表示全量会话迁移完成。
+仍待迁移：Claude profile 活动隔离、Codex/Cursor 完整生命周期采集、真实客户端与双平台体验验收。本契约不表示全量会话迁移完成。

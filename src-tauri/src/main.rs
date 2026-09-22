@@ -106,7 +106,7 @@ pub fn broadcast(app: &AppHandle) {
             false,
         )
     };
-    notifications::observe(app, &snap);
+    notifications::observe(app);
     let _ = app.emit("state", &snap);
 }
 

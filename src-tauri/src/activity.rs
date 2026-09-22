@@ -734,6 +734,7 @@ pub fn start(app: AppHandle) {
                     let st = app.state::<AppState>();
                     *st.activity.lock().unwrap() = found.clone();
                 }
+                crate::notifications::observe(&app);
                 let _ = app.emit("activity", &found);
             }
             std::thread::sleep(INTERVAL);

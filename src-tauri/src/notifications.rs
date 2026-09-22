@@ -61,67 +61,107 @@ impl Default for Preferences {
 struct Transition {
     kind: &'static str,
     session_id: String,
+    provider: String,
 }
 #[derive(Default)]
-struct Transitions(HashMap<String, String>);
+struct Transitions(HashMap<(String, String), String>);
 impl Transitions {
-    fn update(&mut self, snap: &crate::state::Snapshot, prefs: &Preferences) -> Vec<Transition> {
-        self.0
-            .retain(|id, _| snap.sessions.iter().any(|s| &s.id == id));
-        let mut messages = Vec::new();
-        for session in &snap.sessions {
-            let previous = self.0.insert(session.id.clone(), session.state.clone());
-            // Only leaving a known busy session announces. Startup, idle→waiting and
-            // sessions disappearing are silent, matching SessionCompletionWatcher.
-            if previous.as_deref() != Some("running") {
+    fn update(
+        &mut self,
+        snap: &crate::state::Snapshot,
+        activities: &[crate::activity::Activity],
+        prefs: &Preferences,
+    ) -> Vec<Transition> {
+        let rows = snap
+            .sessions
+            .iter()
+            .map(|s| {
+                (
+                    "claude",
+                    s.id.as_str(),
+                    match s.state.as_str() {
+                        "running" => "busy",
+                        "attention" => "waiting",
+                        "done" => "success",
+                        other => other,
+                    },
+                    s.last_event.max(s.started),
+                )
+            })
+            .chain(activities.iter().map(|s| {
+                (
+                    s.provider.as_str(),
+                    s.id.as_str(),
+                    s.state.as_str(),
+                    s.since,
+                )
+            }));
+        let mut current = HashMap::new();
+        let mut events = Vec::new();
+        for (provider, id, state, since) in rows {
+            let key = (provider.to_owned(), id.to_owned());
+            let previous = self.0.get(&key).map(String::as_str);
+            current.insert(key, state.to_owned());
+            // Only leaving a known busy session announces. New/vanished sessions are silent.
+            if previous != Some("busy") {
                 continue;
             }
-            match session.state.as_str() {
-                "attention" if prefs.attention => messages.push(Transition {
-                    kind: "attention",
-                    session_id: session.id.clone(),
-                }),
-                "done" | "idle" if prefs.done => messages.push(Transition {
-                    kind: "done",
-                    session_id: session.id.clone(),
-                }),
-                _ => {}
-            }
+            let kind = match state {
+                "waiting" if prefs.attention => "attention",
+                "success" | "idle" if prefs.done => "done",
+                _ => continue,
+            };
+            events.push((
+                since,
+                Transition {
+                    kind,
+                    session_id: id.into(),
+                    provider: provider.into(),
+                },
+            ));
         }
-        messages.sort_by_key(|event| {
-            std::cmp::Reverse(
-                snap.sessions
-                    .iter()
-                    .find(|s| s.id == event.session_id)
-                    .map(|s| s.last_event.max(s.started))
-                    .unwrap_or(0),
-            )
-        });
-        messages
+        self.0 = current;
+        events.sort_by_key(|(since, _)| std::cmp::Reverse(*since));
+        events.into_iter().map(|(_, event)| event).collect()
     }
 }
 static SEEN: Mutex<Option<Transitions>> = Mutex::new(None);
 
-pub fn observe(app: &AppHandle, snap: &crate::state::Snapshot) {
-    let prefs = app
-        .state::<crate::AppState>()
-        .cfg
-        .lock()
-        .unwrap()
-        .notifications
-        .clone();
-    let events = SEEN
-        .lock()
-        .unwrap()
-        .get_or_insert_with(Transitions::default)
-        .update(
-            snap,
+pub fn observe(app: &AppHandle) {
+    // Serialize reads with transition updates. Concurrent hook and activity publishers must
+    // never replay an older snapshot after a newer one has already been observed.
+    let (events, prefs, lang) = {
+        let mut seen = SEEN.lock().unwrap();
+        let st = app.state::<crate::AppState>();
+        let cfg = st.cfg.lock().unwrap().clone();
+        let lang = crate::resolved_lang(&cfg.lang);
+        let mut snap = st
+            .store
+            .lock()
+            .unwrap()
+            .snapshot(&cfg.lang, &lang, true, false);
+        if cfg.providers.disabled.contains("claude") {
+            snap.sessions.clear();
+        }
+        let activities: Vec<_> = st
+            .activity
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|s| !cfg.providers.disabled.contains(&s.provider))
+            .cloned()
+            .collect();
+        let events = seen.get_or_insert_with(Transitions::default).update(
+            &snap,
+            &activities,
             &Preferences {
                 attention: true,
                 done: true,
-                ..prefs.clone()
+                ..cfg.notifications.clone()
             },
         );
+        (events, cfg.notifications, lang)
+    };
     let mut notified = BTreeSet::new();
     for transition in events.into_iter().take(1) {
         let event = transition.kind;
@@ -129,7 +169,7 @@ pub fn observe(app: &AppHandle, snap: &crate::state::Snapshot) {
             if prefs.announce_session_end {
                 send_peek(
                     app,
-                    "claude",
+                    &transition.provider,
                     event,
                     "",
                     prefs.peek_seconds,
@@ -154,7 +194,7 @@ pub fn observe(app: &AppHandle, snap: &crate::state::Snapshot) {
         }
 
         // Do not put prompts, paths, or session titles onto the OS lock screen.
-        let chinese = snap.lang_resolved.starts_with("zh");
+        let chinese = lang.starts_with("zh");
         let body = match (event, chinese) {
             ("attention", true) => "有会话正在等待你的回应。",
             ("done", true) => "任务已完成，打开 Vela 查看会话。",
@@ -462,6 +502,77 @@ pub fn start(app: AppHandle) {
 mod tests {
     use super::*;
     #[test]
+    fn providers_share_transition_rules_without_sharing_session_identity() {
+        let mut store = crate::state::Store::default();
+        let snap = store.snapshot("en", "en", true, false);
+        let prefs = Preferences {
+            done: true,
+            attention: true,
+            ..Default::default()
+        };
+        let mut watcher = Transitions::default();
+        let row = |provider: &str, state: &str, since| crate::activity::Activity {
+            id: "same-session-id".into(),
+            provider: provider.into(),
+            state: state.into(),
+            name: String::new(),
+            detail: String::new(),
+            waiting_for: None,
+            since,
+        };
+        // Startup is quiet even when a provider is already waiting or finished.
+        assert!(watcher
+            .update(
+                &snap,
+                &[row("codex-work", "busy", 1), row("gemini", "waiting", 2)],
+                &prefs
+            )
+            .is_empty());
+        // The other provider's equal session ID cannot turn waiting→success into completion.
+        let events = watcher.update(
+            &snap,
+            &[row("codex-work", "waiting", 3), row("gemini", "success", 4)],
+            &prefs,
+        );
+        assert_eq!(
+            events,
+            vec![Transition {
+                provider: "codex-work".into(),
+                session_id: "same-session-id".into(),
+                kind: "attention"
+            }]
+        );
+        assert!(watcher
+            .update(
+                &snap,
+                &[row("codex-work", "waiting", 3), row("gemini", "success", 4)],
+                &prefs
+            )
+            .is_empty());
+        watcher.update(
+            &snap,
+            &[row("codex-work", "busy", 5), row("gemini", "busy", 6)],
+            &prefs,
+        );
+        let events = watcher.update(
+            &snap,
+            &[row("codex-work", "idle", 7), row("gemini", "success", 8)],
+            &prefs,
+        );
+        assert_eq!(
+            events
+                .iter()
+                .map(|e| (e.provider.as_str(), e.kind))
+                .collect::<Vec<_>>(),
+            vec![("gemini", "done"), ("codex-work", "done")]
+        );
+        watcher.update(&snap, &[row("gemini", "busy", 9)], &prefs);
+        assert!(watcher.update(&snap, &[], &prefs).is_empty());
+        assert!(watcher
+            .update(&snap, &[row("gemini", "success", 10)], &prefs)
+            .is_empty());
+    }
+    #[test]
     fn repeated_snapshots_and_disabled_notifications_are_silent() {
         let mut store = crate::state::Store::default();
         let mut t = Transitions::default();
@@ -469,6 +580,7 @@ mod tests {
         assert!(t
             .update(
                 &snap,
+                &[],
                 &Preferences {
                     attention: true,
                     done: true,
@@ -497,6 +609,7 @@ mod tests {
         assert_eq!(
             t.update(
                 &snap,
+                &[],
                 &Preferences {
                     done: true,
                     attention: false,
@@ -508,6 +621,7 @@ mod tests {
         assert!(t
             .update(
                 &snap,
+                &[],
                 &Preferences {
                     done: true,
                     attention: true,
@@ -516,12 +630,13 @@ mod tests {
             )
             .is_empty());
         snap.sessions[0].state = "running".into();
-        t.update(&snap, &Preferences::default());
+        t.update(&snap, &[], &Preferences::default());
         snap.sessions[0].state = "attention".into();
-        assert!(t.update(&snap, &Preferences::default()).is_empty());
+        assert!(t.update(&snap, &[], &Preferences::default()).is_empty());
         assert!(t
             .update(
                 &snap,
+                &[],
                 &Preferences {
                     attention: true,
                     done: true,
@@ -530,7 +645,7 @@ mod tests {
             )
             .is_empty());
         snap.sessions[0].state = "running".into();
-        t.update(&snap, &Preferences::default());
+        t.update(&snap, &[], &Preferences::default());
         // A newer idle session must not steal the completed session's click target.
         let mut other = snap.sessions[0].clone();
         other.id = "newer".into();
@@ -544,15 +659,16 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            t.update(&snap, &enabled),
+            t.update(&snap, &[], &enabled),
             vec![Transition {
                 kind: "done",
-                session_id: "test".into()
+                session_id: "test".into(),
+                provider: "claude".into()
             }]
         );
-        assert!(t.update(&snap, &enabled).is_empty());
+        assert!(t.update(&snap, &[], &enabled).is_empty());
         snap.sessions.clear();
-        t.update(&snap, &Preferences::default());
+        t.update(&snap, &[], &Preferences::default());
         assert!(t.0.is_empty());
     }
     #[test]
@@ -581,11 +697,11 @@ mod tests {
             done: true,
             ..Default::default()
         };
-        assert!(watcher.update(&snap, &prefs).is_empty());
+        assert!(watcher.update(&snap, &[], &prefs).is_empty());
         for s in &mut snap.sessions {
             s.state = "done".into();
         }
-        let events = watcher.update(&snap, &prefs);
+        let events = watcher.update(&snap, &[], &prefs);
         assert_eq!(
             events
                 .iter()
@@ -593,6 +709,6 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["newer", "older"]
         );
-        assert!(watcher.update(&snap, &prefs).is_empty());
+        assert!(watcher.update(&snap, &[], &prefs).is_empty());
     }
 }

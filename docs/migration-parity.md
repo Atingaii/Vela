@@ -53,3 +53,5 @@
 2026-09-22 用量元数据阶段检查：Rust 180 通过、3 忽略；Node 10 通过；Playwright 15 通过。修复 Kimi `TIME_UNIT_*` 字段导致的 5 小时窗口遗漏、Copilot 剩余次数与已用次数混淆；恢复 MiniMax boost 计数与 Claude/Codex/Kimi/Copilot/MiniMax/OpenCode/Command Code 的已知套餐字段，桌面卡片与手机快照共享。旧缓存兼容，手机 backoff 保留原采集时间；未因此完成全部供应商元数据、block 或手机真实互通验收。
 
 2026-09-22 活动阶段检查：Rust 188 通过、3 忽略；Node 10 通过；Playwright 17 通过；HTML 脚本检查通过。Codex 独立账户使用各自 turns/names/rollout，Antigravity 迁移提问/批准/权限等待、9 秒完成与 60 秒工作超时、跨安装目录有效会话选择。桌面恢复完成脉冲与状态优先级，手机保留 waitingFor 并按 v3 将 success 映射 idle。停用账户不采样。`7031640` 的 macOS / Windows / browser CI 全部通过（[run 35732551138](https://github.com/Atingaii/Vela/actions/runs/35732551138)），不含本次活动改动。跨供应商完成通知、Claude profile 活动、原生实测仍未完成。
+
+2026-09-22 跨供应商提醒阶段检查：Rust 189 通过、3 忽略。Claude 与活动采集共用按账户/会话隔离的完成转换器，busy → waiting / success / idle 触发对应提醒；首帧、消失、重复静默，批次只取最新。没有增加线程。Codex/Cursor 源头完整生命周期与真实窗口定位仍待迁移，不能把转换器接通等同于全部客户端完成提醒已验收。

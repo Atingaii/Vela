@@ -25,7 +25,7 @@
 
 - `npm run check:ui`：4 个 WebView 页面的内联脚本语法。
 - `npm test`：UI 逻辑回归（10 项）。
-- `npm run test:ui`：Playwright 单 worker，15 个界面场景（含保留但不开放的扩展源码回归），使用明确的测试 IPC fixture；不把模拟桥接当真实系统集成测试。
+- `npm run test:ui`：Playwright 单 worker，17 个界面场景（含保留但不开放的扩展源码回归），使用明确的测试 IPC fixture；不把模拟桥接当真实系统集成测试。
 - `cargo test --locked --workspace -- --test-threads=1`：状态、用量解析、配置变更、备份、插件和原有供应商逻辑；调用真实已安装 CLI 的测试保持 ignored。
 - GitHub Actions：macOS / Windows 单任务构建与 Rust 测试，以及独立浏览器测试。最终结果以仓库当前提交的 Actions 状态为准。
 
