@@ -1,0 +1,47 @@
+name: macOS downloaded release trust
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing preview release to assess
+        required: true
+        default: v0.1.0-preview.4
+permissions:
+  contents: read
+jobs:
+  trust:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download, verify checksum and assess public DMG
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/velo-trust/download" "$RUNNER_TEMP/velo-trust/volume" "$RUNNER_TEMP/velo-trust/installed" trust-reports
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern Velo-macos-arm64.dmg --pattern SHA256SUMS.txt --dir "$RUNNER_TEMP/velo-trust/download"
+          export TRUST_ROOT="$RUNNER_TEMP/velo-trust"
+          node --input-type=module <<'JS'
+          import {readFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          const root=process.env.TRUST_ROOT+'/download/';
+          const line=readFileSync(root+'SHA256SUMS.txt','utf8').split('\n').find(x=>/\s+\*?Velo-macos-arm64\.dmg$/.test(x));
+          if(!line || createHash('sha256').update(readFileSync(root+'Velo-macos-arm64.dmg')).digest('hex')!==line.split(/\s+/)[0])throw new Error('DMG checksum mismatch');
+          JS
+          hdiutil verify "$TRUST_ROOT/download/Velo-macos-arm64.dmg"
+          hdiutil attach "$TRUST_ROOT/download/Velo-macos-arm64.dmg" -mountpoint "$TRUST_ROOT/volume" -nobrowse
+          trap 'hdiutil detach "$TRUST_ROOT/volume"' EXIT
+          ditto "$TRUST_ROOT/volume/Velo.app" "$TRUST_ROOT/installed/Velo.app"
+          node scripts/assess-macos.mjs "$TRUST_ROOT/installed/Velo.app" trust-reports/macos-arm64.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-distribution-trust
+          path: trust-reports/
+          if-no-files-found: error

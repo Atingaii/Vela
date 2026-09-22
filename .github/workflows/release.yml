@@ -68,6 +68,7 @@ jobs:
           trap 'hdiutil detach "$RUNNER_TEMP/velo-volume"' EXIT
           ditto "$RUNNER_TEMP/velo-volume/Velo.app" "$RUNNER_TEMP/velo-installed/Velo.app"
           codesign --verify --deep --strict --verbose=2 "$RUNNER_TEMP/velo-installed/Velo.app"
+          node scripts/assess-macos.mjs "$RUNNER_TEMP/velo-installed/Velo.app" "release-assets/trust-macos-${{ matrix.arch }}.json" --allow-unnotarized-preview
           test -x "$RUNNER_TEMP/velo-installed/Velo.app/Contents/MacOS/vela-hook"
           node scripts/smoke-installed.mjs "$RUNNER_TEMP/velo-installed/Velo.app/Contents/MacOS/velo" "release-assets/smoke-macos-${{ matrix.arch }}.json"
           cp "$dmg" "release-assets/Velo-macos-${{ matrix.arch }}.dmg"
@@ -115,6 +116,8 @@ jobs:
           test -s Velo-macos-arm64.dmg
           test -s Velo-macos-x64.dmg
           test -s Velo-windows-x64-setup.exe
+          test -s trust-macos-arm64.json
+          test -s trust-macos-x64.json
           node -e 'for(const name of ["macos-arm64","macos-x64","windows-x64"]){const r=require("./smoke-"+name+".json");if(!r.success)throw new Error(name)}'
           sha256sum Velo-* > SHA256SUMS.txt
           cd ..

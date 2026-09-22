@@ -21,3 +21,9 @@ macOS 将 DMG 中的 Velo 拖入「应用程序」。Windows 运行安装程序�
 
 问题反馈：https://github.com/Atingaii/Velo/issues
 官网：https://velo.codes
+
+### macOS 安装被拦截时
+
+若提示「Apple 无法验证 Velo.app 是否包含恶意软件」，先点「完成」保留应用，再打开「系统设置 → 隐私与安全」，找到 Velo 的拦截记录，选择「仍要打开」，按系统提示确认。仅对核对过来源的 Velo 操作；如果应用已移到废纸篓，先重新从官网安装。操作路径见 [Apple 官方说明](https://support.apple.com/zh-cn/102445)。
+
+**安装 smoke 通过不代表 Gatekeeper 通过。** 当前 preview.4 未公证，系统默认打开会拦截。后续预览流水线附 `trust-macos-*.json` 分别记录签名完整性、Developer ID、Gatekeeper 和公证票据；只有 `ready_for_default_open: true` 才能宣称通过默认打开验证。
