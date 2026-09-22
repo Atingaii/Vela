@@ -1,13 +1,13 @@
 <p align="center">
-  <img src="docs/assets/readme/vela-hero.png" alt="Vela — Your AI workflow, at a glance." width="100%">
+  <img src="docs/assets/readme/velo-hero.png" alt="Velo — Your AI workflow, at a glance." width="100%">
 </p>
 
-<h1 align="center">Vela</h1>
+<h1 align="center">Velo</h1>
 <p align="center"><strong>在屏幕边缘，看见 AI 编程的每一刻。</strong></p>
 <p align="center">用量、重置时间、运行与等待状态，抬眼即见。</p>
 
 <p align="center">
-  <a href="https://github.com/Atingaii/Vela/actions/workflows/ci.yml"><img src="https://github.com/Atingaii/Vela/actions/workflows/ci.yml/badge.svg" alt="Cross-platform checks"></a>
+  <a href="https://github.com/Atingaii/Velo/actions/workflows/ci.yml"><img src="https://github.com/Atingaii/Velo/actions/workflows/ci.yml/badge.svg" alt="Cross-platform checks"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-69c8b3" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-42484c" alt="目标平台：macOS 与 Windows">
   <img src="https://img.shields.io/badge/status-in%20development-c99d54" alt="开发中">
@@ -22,13 +22,13 @@
 
 ---
 
-Vela 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工具的额度和会话状态收进屏幕边缘的一条小面板，让你在终端、编辑器和多个账户之间工作时，少一次切换，少一次等待。
+Velo 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工具的额度和会话状态收进屏幕边缘的一条小面板，让你在终端、编辑器和多个账户之间工作时，少一次切换，少一次等待。
 
 鼠标移到圆环上，可以查看额度窗口、重置时间和会话信息；需要你回应或任务完成时，通过状态变化与提醒及时发现。
 
-> **当前为开发版本。** 核心界面和多项集成已实现，完整功能对齐、双平台原生体验及真实账户验收仍在进行。建议从源码体验；详细进展见 [功能核对表](docs/migration-parity.md) 和 [兼容性与验收](docs/verification.md)。
+> **当前为开发版本。** 核心界面和多项集成已实现，完整功能对齐、双平台原生体验及真实账户验收仍在进行。可下载安装预览版或从源码运行；详细进展见 [功能核对表](docs/migration-parity.md) 和 [兼容性与验收](docs/verification.md)。
 
-## 为什么使用 Vela
+## 为什么使用 Velo
 
 - **额度一眼可见**：以圆环展示各工具的用量，悬停查看短期、每周等额度窗口及重置时间。
 - **减少无效等待**：区分运行中、等待回应和已完成状态；支持完成、额度阈值与重置提醒，具体覆盖依集成而定。
@@ -39,14 +39,14 @@ Vela 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工
 
 ## 界面预览
 
-以下图片由仓库当前 HTML 界面在浏览器中渲染，**账户、额度和会话均为演示数据**，用于展示布局和操作方式，不代表原生窗口或真实服务验收。头图为 Vela 品牌插画。
+以下图片由仓库当前 HTML 界面在浏览器中渲染，**账户、额度和会话均为演示数据**，用于展示布局和操作方式，不代表原生窗口或真实服务验收。头图为 Velo 品牌插画。
 
 ### 用量与活动，留在视线边缘
 
 每个工具对应一个圆环。悬停后展开详细额度和活动卡片，工作时保持紧凑。
 
 <p align="center">
-  <img src="docs/assets/readme/usage-panel.png" alt="Vela 用量面板演示：Claude、Codex 和 Cursor 圆环，悬停展示 Claude 额度与会话状态；使用模拟数据" width="420">
+  <img src="docs/assets/readme/usage-panel.png" alt="Velo 用量面板演示：Claude、Codex 和 Cursor 圆环，悬停展示 Claude 额度与会话状态；使用模拟数据" width="420">
 </p>
 
 ### 按你的工作方式安排账户
@@ -54,7 +54,7 @@ Vela 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工
 在一个设置窗口中管理账户显示与排序，并访问外观、提醒和各集成的配置。
 
 <p align="center">
-  <img src="docs/assets/readme/accounts-settings.png" alt="Vela 账户设置界面，展示模拟账户的圆环排序与显示开关" width="860">
+  <img src="docs/assets/readme/accounts-settings.png" alt="Velo 账户设置界面，展示模拟账户的圆环排序与显示开关" width="860">
 </p>
 
 ## 集成与当前状态
@@ -73,6 +73,20 @@ Vela 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工
 
 ## 快速开始
 
+### 下载安装包
+
+[官网下载](https://velo.codes/#download) · [预览版发布页](https://github.com/Atingaii/Velo/releases/tag/v0.1.0-preview.3)
+
+| 平台 | 安装包 |
+| --- | --- |
+| macOS · Apple Silicon | [Velo-macos-arm64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.3/Velo-macos-arm64.dmg) |
+| macOS · Intel | [Velo-macos-x64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.3/Velo-macos-x64.dmg) |
+| Windows · x64 | [Velo-windows-x64-setup.exe](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.3/Velo-windows-x64-setup.exe) |
+
+macOS 打开 DMG 并将 Velo 拖入「应用程序」；Windows 运行安装向导。预览版 macOS 使用 ad-hoc 签名、尚未公证，Windows 尚未代码签名，首次打开可能需要系统确认。请先阅读 [安装说明](docs/releases/preview.md)，核对 [SHA-256](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.3/SHA256SUMS.txt)；不需要关闭系统保护。
+
+发布流程在三个系统 runner 上执行安装后原生 WebView、IPC 和辅助程序检查。真实账户与完整系统体验仍需单独验收。自动更新尚未配置，升级请重新下载。
+
 ### 环境准备
 
 | 环境 | 要求 |
@@ -86,20 +100,20 @@ Vela 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工
 ### 从源码运行
 
 ```sh
-git clone https://github.com/Atingaii/Vela.git
-cd Vela
+git clone https://github.com/Atingaii/Velo.git
+cd Velo
 npm ci
 npm run dev
 ```
 
 启动脚本会先构建 `vela-hook`，再启动桌面应用。首次构建需要下载并编译 Rust 依赖。
 
-1. 在你使用的 AI 编程工具中完成登录，再启动 Vela。
+1. 在你使用的 AI 编程工具中完成登录，再启动 Velo。
 2. 从托盘菜单打开设置，在「账户」中选择显示的账户和顺序。
 3. 在「外观」中选择位置与显示方式，在「提醒」中按需开启通知。
 4. 悬停圆环查看额度与重置时间。某些集成需要额外密钥、客户端或显式启用，请按对应设置操作。
 
-如需 Claude Code 的会话状态，在设置中开启对应消息 / hook 选项；这会向 Claude Code 设置文件添加用于向 Vela 发送状态的配置。
+如需 Claude Code 的会话状态，在设置中开启对应消息 / hook 选项；这会向 Claude Code 设置文件添加用于向 Velo 发送状态的配置。
 
 ### 构建安装包
 
@@ -107,11 +121,11 @@ npm run dev
 npm run build
 ```
 
-在目标系统上构建对应安装包，产物位于 `target/release/bundle/`。当前仓库尚未提供正式安装包；签名、公证及签名更新源仍需在正式分发前配置。
+在目标系统上构建对应安装包，产物位于 `target/release/bundle/`。仓库提供预览安装包；正式发行仍需配置签名、公证及签名更新源。
 
 ## 数据与隐私
 
-Vela 在本机保存配置，并按启用的集成读取本地状态或请求相应服务。它仍需要联网查询在线服务的额度。
+Velo 在本机保存配置，并按启用的集成读取本地状态或请求相应服务。它仍需要联网查询在线服务的额度。
 
 | 数据 | 存放方式 |
 | --- | --- |
@@ -125,7 +139,7 @@ Vela 在本机保存配置，并按启用的集成读取本地状态或请求相
 
 ## 开发与验证
 
-Vela 使用 **Tauri 2 + Rust + HTML / CSS / JavaScript**，共享桌面界面，并在 Rust 层适配原生窗口、托盘、凭据与通知。
+Velo 使用 **Tauri 2 + Rust + HTML / CSS / JavaScript**，共享桌面界面，并在 Rust 层适配原生窗口、托盘、凭据与通知。
 
 ```text
 src-tauri/src/     Rust 后端与平台集成
@@ -150,9 +164,9 @@ Cargo 构建与 Playwright 均限制为单 worker。浏览器测试使用模拟 
 
 ## 参与贡献
 
-欢迎通过 [Issues](https://github.com/Atingaii/Vela/issues) 提交问题和建议，通过 Pull Request 改进项目。
+欢迎通过 [Issues](https://github.com/Atingaii/Velo/issues) 提交问题和建议，通过 Pull Request 改进项目。
 
-- **报告问题**：附上系统版本、Vela 提交版本、复现步骤、预期与实际结果；截图或日志请先脱敏。
+- **报告问题**：附上系统版本、Velo 提交版本、复现步骤、预期与实际结果；截图或日志请先脱敏。
 - **改进代码**：先查阅 [功能核对表](docs/migration-parity.md)，围绕一个明确问题提交改动，并附相应验证结果。
 - **调整方向**：涉及新功能或较大设计变更时，先在 Issue 中讨论范围。
 
@@ -164,4 +178,4 @@ Cargo 构建与 Playwright 均限制为单 worker。浏览器测试使用模拟 
 
 ## 致谢
 
-Vela 参考并沿用了 [Codenotch](https://github.com/vinzdg/codenotch)项目的设计与部分实现。感谢 Vinz 及其贡献者，相关来源与原始授权已保留。
+Velo 参考并沿用了 [Codenotch](https://github.com/vinzdg/codenotch)项目的设计与部分实现。感谢 Vinz 及其贡献者，相关来源与原始授权已保留。

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://velo.codes/sitemap.xml

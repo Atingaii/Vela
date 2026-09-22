@@ -65,7 +65,7 @@ test('用量不自动扫描，未知费用无预测，多维汇总安全显示',
 test('MCP 同步使用选中的平台，Skill 可保存正文',async({page})=>{
  await bridge(page);await page.goto('/workbench.html');await page.locator('#tab-shared').click();await page.locator('#mcp-editor summary').click();await page.locator('#mcp-id').fill('demo');await page.locator('#mcp-command').fill('node');await page.locator('#save-mcp').click();await page.locator('.target[value="gemini"]').uncheck();await page.locator('[data-sync="mcp"]').click();expect(await page.evaluate(()=>calls.find(c=>c.cmd==='preview_sync').args.request.targets)).toEqual(['claude','codex']);await page.locator('#cancel-review').click();await page.locator('#skill-editor summary').click();await page.locator('#skill-id').fill('review');await page.locator('#skill-description').fill('Review changes');await page.locator('#skill-instructions').fill('Read the diff.');await page.locator('#save-skill').click();await expect(page.locator('#skill-list')).toContainText('review');
 });
-test('无桌面桥接时明确报错，不显示伪造数据',async({page})=>{await page.goto('/workbench.html');await expect(page.locator('#status')).toContainText('需要在 Vela 桌面应用内打开');await page.locator('#tab-usage').click();await expect(page.locator('#cost')).toHaveText('—');});
+test('无桌面桥接时明确报错，不显示伪造数据',async({page})=>{await page.goto('/workbench.html');await expect(page.locator('#status')).toContainText('需要在 Velo 桌面应用内打开');await page.locator('#tab-usage').click();await expect(page.locator('#cost')).toHaveText('—');});
 
 test('账户排序被保留，关闭最后一个账户不会重新显示全部',async({page})=>{
  await bridge(page,{accounts:true});await page.goto('/settings.html');await page.locator('#tab-accounts').click();

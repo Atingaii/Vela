@@ -1,0 +1,14 @@
+/en / 302
+/en/* / 302
+/product /#features 301
+/product/* /#features 301
+/usecases /#features 301
+/usecases/* /#features 301
+/integrations /#features 301
+/integrations/* /#features 301
+/compare /#features 301
+/compare/* /#features 301
+/docs /#faq 301
+/docs/* /#faq 301
+/download /#download 301
+/download/* /#download 301
