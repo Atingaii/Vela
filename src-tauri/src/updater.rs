@@ -1,7 +1,7 @@
 //! Keeping the Windows app up to date, the way Sparkle keeps the Mac one up to date.
 //!
 //! Until this existed there was no update path on Windows at all: someone who installed
-//! `Vela-Setup.exe` stayed on that build for good, because nothing in the app ever
+//! `Velo-Setup.exe` stayed on that build for good, because nothing in the app ever
 //! mentioned that a newer one had been cut. Every release reached them only if they
 //! happened to look at the repository again.
 //!

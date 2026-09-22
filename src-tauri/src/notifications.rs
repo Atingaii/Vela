@@ -197,11 +197,11 @@ pub fn observe(app: &AppHandle) {
         let chinese = lang.starts_with("zh");
         let body = match (event, chinese) {
             ("attention", true) => "有会话正在等待你的回应。",
-            ("done", true) => "任务已完成，打开 Vela 查看会话。",
+            ("done", true) => "任务已完成，打开 Velo 查看会话。",
             ("attention", false) => "A session is waiting for your response.",
-            _ => "A task finished. Open Vela to return to the session.",
+            _ => "A task finished. Open Velo to return to the session.",
         };
-        if let Err(e) = app.notification().builder().title("Vela").body(body).show() {
+        if let Err(e) = app.notification().builder().title("Velo").body(body).show() {
             crate::applog(&format!("Notification failed: {e}"));
         }
     }
@@ -232,7 +232,7 @@ pub fn set_notifications(app: AppHandle, prefs: Preferences) -> Result<Preferenc
             .request_permission()
             .map_err(|e| e.to_string())?;
         if permission != PermissionState::Granted {
-            return Err("请先在系统设置中允许 Vela 发送通知。".into());
+            return Err("请先在系统设置中允许 Velo 发送通知。".into());
         }
     }
     let state = app.state::<crate::AppState>();
@@ -473,7 +473,7 @@ pub fn start(app: AppHandle) {
                                         e.fraction * 100.
                                     )
                                 };
-                                system_notice(&app, "Vela", &message);
+                                system_notice(&app, "Velo", &message);
                                 continue;
                             }
                         };

@@ -1,0 +1,121 @@
+name: Build and publish preview
+on:
+  push:
+    tags: ['v*-preview.*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: preview-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run check:ui
+      - run: npm test
+      - run: npx playwright install --with-deps chromium --only-shell
+      - run: npm run test:ui
+  package:
+    needs: browser
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - os: macos-latest
+            arch: arm64
+            bundles: app,dmg
+          - os: macos-15-intel
+            arch: x64
+            bundles: app,dmg
+          - os: windows-latest
+            arch: x64
+            bundles: nsis
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      CARGO_BUILD_JOBS: 1
+      RUST_TEST_THREADS: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - run: cargo test --locked --workspace -- --test-threads=1
+      - run: npm run build -- --bundles ${{ matrix.bundles }}
+      - name: Mount DMG, copy application, verify signature and launch
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets "$RUNNER_TEMP/velo-volume" "$RUNNER_TEMP/velo-installed"
+          dmg=$(find target/release/bundle/dmg -name '*.dmg' -type f -print -quit)
+          test -n "$dmg"
+          hdiutil verify "$dmg"
+          hdiutil attach "$dmg" -mountpoint "$RUNNER_TEMP/velo-volume" -nobrowse
+          trap 'hdiutil detach "$RUNNER_TEMP/velo-volume"' EXIT
+          ditto "$RUNNER_TEMP/velo-volume/Velo.app" "$RUNNER_TEMP/velo-installed/Velo.app"
+          codesign --verify --deep --strict --verbose=2 "$RUNNER_TEMP/velo-installed/Velo.app"
+          test -x "$RUNNER_TEMP/velo-installed/Velo.app/Contents/MacOS/vela-hook"
+          node scripts/smoke-installed.mjs "$RUNNER_TEMP/velo-installed/Velo.app/Contents/MacOS/velo" "release-assets/smoke-macos-${{ matrix.arch }}.json"
+          cp "$dmg" "release-assets/Velo-macos-${{ matrix.arch }}.dmg"
+      - name: Install NSIS package and launch installed app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          $installer = Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          if (-not $installer) { throw 'Missing NSIS installer' }
+          $destination = Join-Path $env:RUNNER_TEMP 'Velo-installed'
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$destination") -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer exit: $($process.ExitCode)" }
+          if (-not (Test-Path "$destination/vela-hook.exe")) { throw 'Bundled helper missing' }
+          node scripts/smoke-installed.mjs "$destination/velo.exe" release-assets/smoke-windows-x64.json
+          if ($LASTEXITCODE -ne 0) { throw 'Installed app failed smoke test' }
+          Copy-Item $installer.FullName release-assets/Velo-windows-x64-setup.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ runner.os }}-${{ matrix.arch }}
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    needs: [browser, package]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: package-*
+          merge-multiple: true
+          path: release-assets
+      - name: Verify complete artifact set and publish preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-assets
+          test -s Velo-macos-arm64.dmg
+          test -s Velo-macos-x64.dmg
+          test -s Velo-windows-x64-setup.exe
+          node -e 'for(const name of ["macos-arm64","macos-x64","windows-x64"]){const r=require("./smoke-"+name+".json");if(!r.success)throw new Error(name)}'
+          sha256sum Velo-* > SHA256SUMS.txt
+          cd ..
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --prerelease --title "Velo $RELEASE_TAG" --notes-file docs/releases/preview.md

@@ -245,6 +245,7 @@ impl Default for Config {
 }
 
 pub fn config_path() -> PathBuf {
+    if let Some(root) = crate::smoke::root() { return root.join("config.json"); }
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("vela")

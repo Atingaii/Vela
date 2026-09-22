@@ -1,5 +1,6 @@
 #![cfg_attr(all(not(debug_assertions), windows), windows_subsystem = "windows")]
 
+mod smoke;
 mod activity;
 mod agy_cli;
 mod antigravity;
@@ -1605,6 +1606,7 @@ fn get_lang_resolved(app: AppHandle) -> String {
 
 #[tauri::command]
 fn get_autostart() -> bool {
+    if smoke::root().is_some() { return false; }
     autostart::is_enabled()
 }
 
@@ -1619,6 +1621,7 @@ fn set_autostart(on: bool) -> Result<String, String> {
 
 #[tauri::command]
 fn get_hooks_installed() -> bool {
+    if smoke::root().is_some() { return false; }
     hooks_install::is_installed()
 }
 
@@ -1844,6 +1847,7 @@ const CONSOLE_CMDS: [&str; 4] = ["install-hooks", "uninstall-hooks", "autostart"
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if let Err(error) = smoke::configure(&args) { eprintln!("{error}"); std::process::exit(1); }
     if let Some(cmd) = args.get(1) {
         // Attaching on the GUI path too tied the notch to whatever cmd.exe launched it: closing that
         // window sends CTRL_CLOSE_EVENT to every process on the console, and with no handler the
@@ -1865,7 +1869,7 @@ fn main() {
                 let r = match args.get(2).map(|s| s.as_str()) {
                     Some("on") => autostart::enable(),
                     Some("off") => autostart::disable(),
-                    _ => Err("usage: vela.exe autostart on|off".into()),
+                    _ => Err("usage: velo.exe autostart on|off".into()),
                 };
                 report(r);
                 return;
@@ -1885,7 +1889,7 @@ fn main() {
         }
     }
 
-    let cfg = config::load();
+    let cfg = if smoke::root().is_some() { config::Config::default() } else { config::load() };
     let port = cfg.port;
 
     tauri::Builder::default()
@@ -1893,7 +1897,7 @@ fn main() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // Opening Vela again while it runs brings Settings forward, as on the Mac: with the
+            // Opening Velo again while it runs brings Settings forward, as on the Mac: with the
             // tray icon hidden it is the way back. Logged too, for a rebuild that was not picked up.
             applog(&format!("single instance: another launch was refused; the running instance is build={BUILD} — quit it from the tray first if you just rebuilt"));
             settings_window::open(app);
@@ -1901,16 +1905,17 @@ fn main() {
         .manage(AppState {
             store: Mutex::new(Default::default()),
             cfg: Mutex::new(cfg),
-            usage: Mutex::new(usage::load_persisted()),
-            codex: Mutex::new(codex::load_persisted()),
-            cursor: Mutex::new(cursor::load_persisted()),
-            grok: Mutex::new(grok::load_persisted()),
-            antigravity: Mutex::new(antigravity::load_persisted()),
-            glm: Mutex::new(glm::load_persisted()),
+            usage: Mutex::new(if smoke::root().is_some() { Default::default() } else { usage::load_persisted() }),
+            codex: Mutex::new(if smoke::root().is_some() { Default::default() } else { codex::load_persisted() }),
+            cursor: Mutex::new(if smoke::root().is_some() { Default::default() } else { cursor::load_persisted() }),
+            grok: Mutex::new(if smoke::root().is_some() { Default::default() } else { grok::load_persisted() }),
+            antigravity: Mutex::new(if smoke::root().is_some() { Default::default() } else { antigravity::load_persisted() }),
+            glm: Mutex::new(if smoke::root().is_some() { Default::default() } else { glm::load_persisted() }),
             glyphs: Mutex::new(Default::default()),
             activity: Mutex::new(Vec::new()),
         })
         .invoke_handler(tauri::generate_handler![
+            smoke::smoke_ready,
             custom_endpoint::get_custom_endpoints,
             custom_endpoint::save_custom_endpoint,
             custom_endpoint::delete_custom_endpoint,
@@ -2015,6 +2020,7 @@ fn main() {
             }
             tray::setup(&handle)?;
             notchmenu::setup(&handle);
+            if smoke::root().is_some() { smoke::start(&handle); return Ok(()); }
             start_menu_updater(handle.clone());
             updater::check_on_launch(&handle);
 
@@ -2070,7 +2076,7 @@ fn main() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("Vela failed to start");
+        .expect("Velo failed to start");
 }
 
 #[cfg(test)]

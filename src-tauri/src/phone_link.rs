@@ -53,7 +53,7 @@ fn now() -> u64 {
 fn name() -> String {
     std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
-        .unwrap_or_else(|_| "Vela".into())
+        .unwrap_or_else(|_| "Velo".into())
         .chars()
         .take(64)
         .collect()
@@ -633,7 +633,7 @@ fn provider_json(
         .as_deref()
         .map(str::trim)
         .filter(|p| !p.is_empty())
-        .map(|plan| json!({"plan":plan,"source":"Vela"}));
+        .map(|plan| json!({"plan":plan,"source":"Velo"}));
     json!({"id":id,"displayName":label,"fidelity":if s.windows.iter().any(|w|w.derived){"derived"}else{"official"},"status":status,"windows":windows,"headlineId":head,"block":null,"account":account})
 }
 

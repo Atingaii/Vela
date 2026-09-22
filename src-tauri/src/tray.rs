@@ -13,7 +13,7 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
         builder = builder.icon(icon);
     }
     builder
-        .tooltip(concat!("Vela v", env!("CARGO_PKG_VERSION")))
+        .tooltip(concat!("Velo v", env!("CARGO_PKG_VERSION")))
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, ev| handle(app, ev.id().as_ref()))
@@ -129,9 +129,9 @@ fn tooltip(app: &AppHandle) -> String {
         parts.push(format!("{} {value}", provider.label));
     }
     if parts.is_empty() {
-        concat!("Vela v", env!("CARGO_PKG_VERSION")).to_string()
+        concat!("Velo v", env!("CARGO_PKG_VERSION")).to_string()
     } else {
-        format!("Vela — {}", parts.join(" · "))
+        format!("Velo — {}", parts.join(" · "))
     }
 }
 

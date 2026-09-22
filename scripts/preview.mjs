@@ -8,4 +8,4 @@ const server=createServer(async(req,res)=>{
  try {res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end(await readFile(new URL(`../src-tauri/ui/${name}`,import.meta.url)));}
  catch{res.writeHead(500).end();}
 });
-server.listen(4173,'127.0.0.1',()=>console.log('Vela UI preview: http://127.0.0.1:4173 (desktop IPC requires Tauri)'));
+server.listen(4173,'127.0.0.1',()=>console.log('Velo UI preview: http://127.0.0.1:4173 (desktop IPC requires Tauri)'));

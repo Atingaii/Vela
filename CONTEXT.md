@@ -1,6 +1,6 @@
-# Vela
+# Velo
 
-Vela 在桌面边缘呈现 AI 工具的用量与会话状态，并提供跨 CLI 的辅助能力。
+Velo 在桌面边缘呈现 AI 工具的用量与会话状态，并提供跨 CLI 的辅助能力。
 
 ## Language
 
@@ -15,3 +15,7 @@ Vela 在桌面边缘呈现 AI 工具的用量与会话状态，并提供跨 CLI 
 **读取启停**：是否读取某个账户的状态和用量，与是否显示圆环分别控制。
 
 **全量迁移**：保留 Codenotch Swift 主线已存在的功能与交互，同时让 macOS 和 Windows 使用同一产品实现。
+
+## 发行与身份
+
+公开品牌和仓库为 Velo，官网 https://velo.codes。配置、凭据库与 hook 继续使用既有内部标识以兼容已有数据；见 [ADR 0007](docs/adr/0007-velo-preview-distribution.md)。安装包通过 GitHub Actions 的安装启动 gate 后发布预览版；官网使用 Cloudflare Pages 的静态站点。

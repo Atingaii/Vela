@@ -4,7 +4,7 @@
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-/// (Claude Code event name, whether it needs a matcher, the internal event reported to Vela)
+/// (Claude Code event name, whether it needs a matcher, the internal event reported to Velo)
 const WIRING: &[(&str, bool, &str)] = &[
     ("SessionStart", false, "session_start"),
     ("UserPromptSubmit", false, "running"),
@@ -172,7 +172,7 @@ pub fn uninstall() -> Result<String, String> {
         }
     }
     backup_and_write(&path, &root)?;
-    Ok(format!("removed {removed} Vela hook(s)"))
+    Ok(format!("removed {removed} Velo hook(s)"))
 }
 
 fn without_ours(mut entry: Value) -> Option<Value> {
@@ -200,7 +200,7 @@ mod tests {
     }
     #[test]
     fn uninstall_preserves_other_commands_in_the_same_group() {
-        let entry = json!({"matcher":"*","hooks":[{"command":"'/Applications/Vela.app/Contents/MacOS/vela-hook' done"},{"command":"codenotch-hook done"},{"command":"echo mine"}]});
+        let entry = json!({"matcher":"*","hooks":[{"command":"'/Applications/Velo.app/Contents/MacOS/vela-hook' done"},{"command":"codenotch-hook done"},{"command":"echo mine"}]});
         let kept = without_ours(entry).unwrap();
         assert_eq!(kept["hooks"].as_array().unwrap().len(), 2);
         assert_eq!(kept["matcher"], "*");

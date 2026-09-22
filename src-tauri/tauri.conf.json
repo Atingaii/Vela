@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Vela",
+  "productName": "Velo",
   "version": "0.1.0",
   "identifier": "com.atingaii.vela",
   "build": {
@@ -40,13 +40,16 @@
     ],
     "createUpdaterArtifacts": false,
     "macOS": {
-      "minimumSystemVersion": "12.0"
-    }
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": "-"
+    },
+    "shortDescription": "AI coding usage and session status at your screen edge",
+    "homepage": "https://velo.codes"
   },
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/Atingaii/Vela/releases/latest/download/latest.json"
+        "https://github.com/Atingaii/Velo/releases/latest/download/latest.json"
       ],
       "pubkey": "REPLACE_WITH_TAURI_PUBLIC_KEY"
     }

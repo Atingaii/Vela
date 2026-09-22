@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vela Settings</title>
+<title>Velo Settings</title>
 <style>
   /* Swift SettingsPalette / SettingsView at the pinned migration baseline. */
   :root{color-scheme:dark;--accent:#0a7aff;--on-accent:#fff;--text:#fff;
@@ -109,7 +109,7 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
 <div id="app">
   <nav id="side" role="tablist" aria-orientation="vertical" aria-label="Settings sections">
     <div class="band" data-tauri-drag-region></div>
-    <div class="brand" data-tauri-drag-region><svg viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#050505"/><path d="m5 6 6 11 6-11" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/></svg><span>Vela</span></div>
+    <div class="brand" data-tauri-drag-region><svg viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#050505"/><path d="m5 6 6 11 6-11" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/></svg><span>Velo</span></div>
     <button class="row" id="tab-accounts" role="tab" aria-controls="pane-accounts" aria-selected="false" tabindex="-1"><span class="badge b-blue"><svg viewBox="0 0 12 12"><circle cx="6" cy="4" r="2.4"/><path d="M1.5 11.2c.4-2.5 2.3-3.9 4.5-3.9s4.1 1.4 4.5 3.9z"/></svg></span><span>Accounts</span><span id="account-count" class="account-count" data-dynamic></span></button>
     <button class="row provider-tab" id="tab-phone" role="tab" aria-controls="pane-phone" aria-selected="false" tabindex="-1"><span class="badge"><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="5" y="1" width="8" height="16" rx="2" stroke="currentColor" fill="none"/><path d="M8 14h2" stroke="currentColor"/></svg></span><span>Phone</span></button>
     <button class="row provider-tab" id="tab-ollama" role="tab" aria-controls="pane-ollama" aria-selected="false" tabindex="-1"><span class="badge"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="2" y="3" width="14" height="10" rx="2" stroke="currentColor" fill="none"/><path d="M6 16h6M9 13v3" stroke="currentColor"/></svg></span><span>Ollama</span></button>
@@ -119,8 +119,8 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
     <button class="row" id="tab-notifications" role="tab" aria-controls="pane-notifications" aria-selected="false" tabindex="-1"><span class="badge b-red"><svg viewBox="0 0 12 12"><path d="M6 1a3 3 0 0 0-3 3v3L2 9h8L9 7V4a3 3 0 0 0-3-3M4.5 10h3a1.5 1.5 0 0 1-3 0"/></svg></span><span>Notifications</span></button>
     <button class="row" id="tab-general" role="tab" aria-controls="pane-general" aria-selected="false" tabindex="-1"><span class="badge b-gray"><svg viewBox="0 0 12 12"><path fill-rule="evenodd" d="M5.1.6h1.8l.3 1.5 1.1.5 1.3-.8 1.3 1.3-.8 1.3.5 1.1 1.5.3v1.8l-1.5.3-.5 1.1.8 1.3-1.3 1.3-1.3-.8-1.1.5-.3 1.5H5.1l-.3-1.5-1.1-.5-1.3.8-1.3-1.3.8-1.3-.5-1.1L.6 6.9V5.1l1.5-.3.5-1.1-.8-1.3 1.3-1.3 1.3.8 1.1-.5zM6 4.1a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8z"/></svg></span><span>General</span></button>
     <div class="grow" data-tauri-drag-region></div>
-    <button class="row" id="quit"><span class="badge b-red"><svg viewBox="0 0 12 12"><path d="M6 1.2v4.3" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M3.4 3.1a3.9 3.9 0 1 0 5.2 0" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg></span><span>Quit Vela</span></button>
-    <div class="side-version">Vela <span id="side-version" data-dynamic>0.1.0</span></div>
+    <button class="row" id="quit"><span class="badge b-red"><svg viewBox="0 0 12 12"><path d="M6 1.2v4.3" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M3.4 3.1a3.9 3.9 0 1 0 5.2 0" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg></span><span>Quit Velo</span></button>
+    <div class="side-version">Velo <span id="side-version" data-dynamic>0.1.0</span></div>
   </nav>
 
   <main id="pane">
@@ -236,7 +236,7 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
               <option value="uk">Українська</option>
             </select>
           </div>
-          <div class="item cap">Sets the language used by Vela. “Follow system” uses your system language.</div>
+          <div class="item cap">Sets the language used by Velo. “Follow system” uses your system language.</div>
         </div>
         <div class="sec">Usage colours</div><div class="group">
           <div class="item"><label for="appearance-watch">Watch</label><input id="appearance-watch" type="range" min="1" max="98" step="1"><output id="appearance-watch_value"></output></div>
@@ -254,20 +254,20 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
       <section class="pane" id="pane-general" role="tabpanel" aria-labelledby="tab-general" hidden>
         <div class="sec">App</div>
         <div class="group">
-          <div class="item"><span>Open Vela at login</span><button class="switch" id="sw-autostart" role="switch" aria-checked="false" aria-label="Open Vela at login"></button></div>
-          <div class="item cap">Vela opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Vela yourself.</div>
+          <div class="item"><span>Open Velo at login</span><button class="switch" id="sw-autostart" role="switch" aria-checked="false" aria-label="Open Velo at login"></button></div>
+          <div class="item cap">Velo opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Velo yourself.</div>
           <div class="item"><span>Version</span><span class="value" id="about-version" data-dynamic>0.1.0</span></div>
           <div class="item"><span>Updates</span><span class="value" id="update-status" data-dynamic></span><button class="btn" id="btn-update" data-dynamic>Check for updates</button></div>
-          <div class="item cap">Signed updates are available when a Vela release feed has been configured.</div>
+          <div class="item cap">Signed updates are available when a Velo release feed has been configured.</div>
         </div>
         <div class="group">
           <!-- Stage 2 entry stays hidden until the complete Swift migration is accepted. -->
           <div class="item" hidden><span>Extensions and CLI tools</span><button class="btn" id="btn-workbench">Open tools</button></div>
           <div class="item"><span>Data folder</span><button class="btn" id="btn-data">Open folder</button></div>
-          <div class="item cap">Everything Vela remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.</div>
+          <div class="item cap">Everything Velo remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.</div>
         </div>
         <div class="group">
-          <div class="item cap"><span>Project and source</span> <button class="link" id="author">Atingaii / Vela</button></div>
+          <div class="item cap"><span>Project and source</span> <button class="link" id="author">Atingaii / Velo</button></div>
         </div>
       </section>
 
@@ -278,7 +278,7 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
 
 <script>
 /* ---------------------------------------------------------------------------
-   Vela settings: the Mac's three panes — Accounts, Appearance, General.
+   Velo settings: the Mac's three panes — Accounts, Appearance, General.
 
    Every value on screen comes from a Rust command and is written back by one.
    Every call is wrapped so a failure paints the strip under the title instead
@@ -314,13 +314,13 @@ const PT_BR_STATIC = {
   'Installing…':'Instalando…',
   'Up to date':'Atualizado',
   'Could not check for updates':'Não foi possível verificar atualizações',
-  'Signed updates are available when a Vela release feed has been configured.':'O Vela procura uma nova versão pouco depois de iniciar e pode instalá-la para você. O download vem do GitHub e a assinatura é verificada antes de qualquer execução.',
+  'Signed updates are available when a Velo release feed has been configured.':'O Velo procura uma nova versão pouco depois de iniciar e pode instalá-la para você. O download vem do GitHub e a assinatura é verificada antes de qualquer execução.',
   'Settings sections':'Seções das configurações',
   'Close':'Fechar',
   'Accounts':'Contas',
   'Appearance':'Aparência',
   'General':'Geral',
-  'Quit Vela':'Encerrar o Vela',
+  'Quit Velo':'Encerrar o Velo',
   'Connected':'Conectado',
   'Not connected':'Não conectado',
   'These have no ring to place. Switch one on and it joins the end of the list above.':'Estes não têm anel para posicionar. Ative um e ele entra no fim da lista acima.',
@@ -333,8 +333,8 @@ const PT_BR_STATIC = {
   'Weekly Limit':'Limite semanal',
   'Gemini Models':'Modelos Gemini',
   'Claude and GPT models':'Modelos Claude e GPT',
-  'Let Claude Code notify Vela':'Permitir que o Claude Code notifique o Vela',
-  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Vela a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'Ao ativar esta opção, algumas linhas são adicionadas ao arquivo de configurações do Claude Code para que ele envie uma mensagem curta ao Vela quando uma sessão começa, quando está trabalhando, quando aguarda sua resposta e quando termina. Isso faz o anel girar e o anel âmbar pulsar.',
+  'Let Claude Code notify Velo':'Permitir que o Claude Code notifique o Velo',
+  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Velo a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'Ao ativar esta opção, algumas linhas são adicionadas ao arquivo de configurações do Claude Code para que ele envie uma mensagem curta ao Velo quando uma sessão começa, quando está trabalhando, quando aguarda sua resposta e quando termina. Isso faz o anel girar e o anel âmbar pulsar.',
   'Notch':'Notch',
   'Show':'Exibição',
   'Always show':'Sempre exibir',
@@ -356,7 +356,7 @@ const PT_BR_STATIC = {
   'Show on hover':'Exibir ao passar o cursor',
   'A small pill at the screen edge that opens when you reach it.':'Uma pequena cápsula na borda da tela que abre quando você chega nela.',
   'The notch stays open with every reading visible.':'O notch fica aberto com todas as leituras visíveis.',
-  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Vela keeps counting your usage either way.':'A barra preta na borda direita da tela, com um anel para cada ferramenta. Ao desativá-la, a barra desaparece; o Vela continua contabilizando seu uso de qualquer forma.',
+  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Velo keeps counting your usage either way.':'A barra preta na borda direita da tela, com um anel para cada ferramenta. Ao desativá-la, a barra desaparece; o Velo continua contabilizando seu uso de qualquer forma.',
   'Recentre':'Recentralizar',
   'Hold Alt / Option and drag the notch to slide it along its edge. Each edge remembers where you left it. Recentre puts it back in the middle of the edge it is on, or on the main screen\'s right-hand edge if the screen it was on has been unplugged.':'Segure Alt e arraste o notch para movê-lo ao longo da borda. Cada borda lembra onde você o deixou. Recentralizar o coloca novamente no meio da borda atual ou na borda direita da tela principal se a tela anterior tiver sido desconectada.',
   'Edge':'Borda',
@@ -378,21 +378,21 @@ const PT_BR_STATIC = {
   'App icon':'Ícone do app',
   'System tray':'Bandeja do sistema',
   'Neither':'Nenhum',
-  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Vela.':'O pequeno ícone próximo ao relógio. Clique com o botão direito para abrir esta janela, atualizar as leituras ou sair do Vela.',
-  'No icon in the system tray. Open Vela again from the Start menu to bring these settings back.':'Nenhum ícone na bandeja do sistema. Abra o Vela novamente pelo menu Iniciar para acessar estas configurações.',
-  'Held on: the notch is hidden, so this icon is the only way left to reach Vela. Switch the notch back on first if you want to hide it.':'Mantido ativado: o notch está oculto, então este ícone é a única forma de acessar o Vela. Ative o notch primeiro se quiser ocultar o ícone.',
-  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Vela, so Vela will not let both of them be switched off at the same time.':'O ícone da barra de tarefas foi mantido ativado. Com o notch oculto, ele é a única forma de abrir esta janela ou sair do Vela; por isso, os dois não podem ser desativados ao mesmo tempo.',
+  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Velo.':'O pequeno ícone próximo ao relógio. Clique com o botão direito para abrir esta janela, atualizar as leituras ou sair do Velo.',
+  'No icon in the system tray. Open Velo again from the Start menu to bring these settings back.':'Nenhum ícone na bandeja do sistema. Abra o Velo novamente pelo menu Iniciar para acessar estas configurações.',
+  'Held on: the notch is hidden, so this icon is the only way left to reach Velo. Switch the notch back on first if you want to hide it.':'Mantido ativado: o notch está oculto, então este ícone é a única forma de acessar o Velo. Ative o notch primeiro se quiser ocultar o ícone.',
+  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Velo, so Velo will not let both of them be switched off at the same time.':'O ícone da barra de tarefas foi mantido ativado. Com o notch oculto, ele é a única forma de abrir esta janela ou sair do Velo; por isso, os dois não podem ser desativados ao mesmo tempo.',
   'Language':'Idioma',
   'Follow system':'Seguir o sistema',
   'English':'English',
   'Русский':'Русский',
-  'Sets the language used by Vela. “Follow system” uses your system language.':'Define o idioma usado pelo Vela. “Seguir o sistema” usa o idioma configurado no próprio Windows.',
-  'Open Vela at login':'Abrir o Vela ao iniciar a sessão',
-  'Vela opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Vela yourself.':'O Vela abre automaticamente sempre que você entra neste computador e permanece em segundo plano até uma sessão de programação começar. Se desativar esta opção, será necessário abrir o Vela manualmente.',
+  'Sets the language used by Velo. “Follow system” uses your system language.':'Define o idioma usado pelo Velo. “Seguir o sistema” usa o idioma configurado no próprio Windows.',
+  'Open Velo at login':'Abrir o Velo ao iniciar a sessão',
+  'Velo opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Velo yourself.':'O Velo abre automaticamente sempre que você entra neste computador e permanece em segundo plano até uma sessão de programação começar. Se desativar esta opção, será necessário abrir o Velo manualmente.',
   'Version':'Versão',
   'Data folder':'Pasta de dados',
   'Open folder':'Abrir pasta',
-  'Everything Vela remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Tudo o que o Vela armazena fica em uma única pasta: suas configurações, o arquivo de log e a pasta "glyphs", onde você pode colocar seus próprios ícones. Abre no Explorador de Arquivos.',
+  'Everything Velo remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Tudo o que o Velo armazena fica em uma única pasta: suas configurações, o arquivo de log e a pasta "glyphs", onde você pode colocar seus próprios ícones. Abre no Explorador de Arquivos.',
   'App designed and developed by':'App projetado e desenvolvido por',
   'Saved':'Salvo'
 };
@@ -404,17 +404,17 @@ const RU_STATIC = {
   'Installing…':'Установка…',
   'Up to date':'Актуальная версия',
   'Could not check for updates':'Не удалось проверить обновления',
-  'Signed updates are available when a Vela release feed has been configured.':'Vela проверяет наличие новой версии вскоре после запуска и может установить её за вас. Загрузка идёт с GitHub, а её подпись проверяется до того, как что-либо будет запущено.',
+  'Signed updates are available when a Velo release feed has been configured.':'Velo проверяет наличие новой версии вскоре после запуска и может установить её за вас. Загрузка идёт с GitHub, а её подпись проверяется до того, как что-либо будет запущено.',
   'Settings sections':'Разделы настроек', 'Close':'Закрыть',
-  'Accounts':'Аккаунты', 'Appearance':'Внешний вид', 'General':'Общие', 'Quit Vela':'Выйти из Vela',
+  'Accounts':'Аккаунты', 'Appearance':'Внешний вид', 'General':'Общие', 'Quit Velo':'Выйти из Velo',
   'Connected':'Подключён', 'Not connected':'Не подключён',
   'These have no ring to place. Switch one on and it joins the end of the list above.':'У этих провайдеров нет кольца. Включите один, и он добавится в конец списка выше.',
   'One provider always stays ticked, so the pill is never empty.':'Хотя бы один провайдер всегда выбран, поэтому панель не бывает пустой.',
   'At least one provider stays on the notch':'На панели должен остаться хотя бы один провайдер',
   'Notch reads':'Показания панели', 'Model data':'Данные модели', 'Automatic':'Автоматически', '5-Hour Limit':'Лимит на 5 часов', 'Weekly Limit':'Недельный лимит',
   'Gemini Models':'Модели Gemini', 'Claude and GPT models':'Модели Claude и GPT',
-  'Let Claude Code notify Vela':'Разрешить Claude Code уведомлять Vela',
-  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Vela a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'При включении в файл настроек Claude Code добавляются строки, чтобы он сообщал Vela о начале работы, процессе, ожидании ответа и завершении сеанса. Благодаря этому кольцо вращается, а янтарное кольцо пульсирует.',
+  'Let Claude Code notify Velo':'Разрешить Claude Code уведомлять Velo',
+  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Velo a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'При включении в файл настроек Claude Code добавляются строки, чтобы он сообщал Velo о начале работы, процессе, ожидании ответа и завершении сеанса. Благодаря этому кольцо вращается, а янтарное кольцо пульсирует.',
   'Notch':'Панель', 'Show':'Показывать', 'Always show':'Всегда показывать', 'Hide':'Скрыть',
   'Size':'Размер', 'Small':'Маленький', 'Medium':'Средний', 'Large':'Большой',
   'Takes the least room on the edge. Readable, but not from across the desk.':'Занимает минимум места у края. Читается вблизи, но не издалека.',
@@ -427,7 +427,7 @@ const RU_STATIC = {
   'Show on hover':'Показывать при наведении',
   'A small pill at the screen edge that opens when you reach it.':'Небольшая панель у края экрана, которая открывается при наведении.',
   'The notch stays open with every reading visible.':'Выемка остаётся открытой, и все данные видны.',
-  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Vela keeps counting your usage either way.':'Чёрная панель у правого края экрана с отдельным кольцом для каждого инструмента. При выключении панель исчезает, но Vela продолжает считать использование.',
+  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Velo keeps counting your usage either way.':'Чёрная панель у правого края экрана с отдельным кольцом для каждого инструмента. При выключении панель исчезает, но Velo продолжает считать использование.',
   'Recentre':'По центру',
   'Hold Alt / Option and drag the notch to slide it along its edge. Each edge remembers where you left it. Recentre puts it back in the middle of the edge it is on, or on the main screen\'s right-hand edge if the screen it was on has been unplugged.':'Удерживайте Alt и перетаскивайте панель вдоль края. Для каждого края запоминается последнее положение. Кнопка «По центру» возвращает её на середину текущего края или на правый край главного экрана, если монитор, на котором она находилась, был отключен.',
   'Edge':'Край', 'Left':'Слева', 'Right':'Справа', 'Top':'Сверху', 'Bottom':'Снизу',
@@ -441,16 +441,16 @@ const RU_STATIC = {
   'Show move handle':'Показывать ручку перемещения',
   'The notch is back in the middle':'Панель возвращена в центр',
   'App':'Приложение', 'App icon':'Значок приложения', 'System tray':'Системный трей', 'Neither':'Ни то ни другое',
-  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Vela.':'Небольшой значок рядом с часами. Щелчок правой кнопкой открывает это окно, обновляет данные или завершает работу Vela.',
-  'No icon in the system tray. Open Vela again from the Start menu to bring these settings back.':'Значка в системном трее нет. Откройте Vela снова из меню «Пуск», чтобы вернуть эти настройки.',
-  'Held on: the notch is hidden, so this icon is the only way left to reach Vela. Switch the notch back on first if you want to hide it.':'Оставлен включённым: панель скрыта, поэтому этот значок — единственный способ открыть Vela. Сначала включите панель, если хотите скрыть значок.',
-  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Vela, so Vela will not let both of them be switched off at the same time.':'Значок в панели задач оставлен включённым. При скрытой панели это единственный способ открыть окно или завершить работу Vela, поэтому оба элемента нельзя выключить одновременно.',
+  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Velo.':'Небольшой значок рядом с часами. Щелчок правой кнопкой открывает это окно, обновляет данные или завершает работу Velo.',
+  'No icon in the system tray. Open Velo again from the Start menu to bring these settings back.':'Значка в системном трее нет. Откройте Velo снова из меню «Пуск», чтобы вернуть эти настройки.',
+  'Held on: the notch is hidden, so this icon is the only way left to reach Velo. Switch the notch back on first if you want to hide it.':'Оставлен включённым: панель скрыта, поэтому этот значок — единственный способ открыть Velo. Сначала включите панель, если хотите скрыть значок.',
+  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Velo, so Velo will not let both of them be switched off at the same time.':'Значок в панели задач оставлен включённым. При скрытой панели это единственный способ открыть окно или завершить работу Velo, поэтому оба элемента нельзя выключить одновременно.',
   'Language':'Язык', 'Follow system':'Как в системе', 'English':'English', 'Русский':'Русский',
-  'Sets the language used by Vela. “Follow system” uses your system language.':'Задаёт язык Vela. Вариант «Как в системе» использует язык Windows.',
-  'Open Vela at login':'Открывать Vela при входе',
-  'Vela opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Vela yourself.':'Vela запускается при входе в систему и тихо работает в фоне до начала сеанса разработки. Если выключить эту настройку, Vela нужно запускать вручную.',
+  'Sets the language used by Velo. “Follow system” uses your system language.':'Задаёт язык Velo. Вариант «Как в системе» использует язык Windows.',
+  'Open Velo at login':'Открывать Velo при входе',
+  'Velo opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Velo yourself.':'Velo запускается при входе в систему и тихо работает в фоне до начала сеанса разработки. Если выключить эту настройку, Velo нужно запускать вручную.',
   'Version':'Версия', 'Data folder':'Папка данных', 'Open folder':'Открыть папку',
-  'Everything Vela remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Все данные Vela хранятся в одной папке: настройки, журнал и папка «glyphs» для собственных значков. Открывается в Проводнике.',
+  'Everything Velo remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Все данные Velo хранятся в одной папке: настройки, журнал и папка «glyphs» для собственных значков. Открывается в Проводнике.',
   'App designed and developed by':'Приложение разработал', 'Saved':'Сохранено'
 };
 const ZH_STATIC = {
@@ -461,12 +461,12 @@ const ZH_STATIC = {
   'Installing…':'正在安装…',
   'Up to date':'已是最新版本',
   'Could not check for updates':'无法检查更新',
-  'Signed updates are available when a Vela release feed has been configured.':'Vela 会在启动后不久查找新版本，并可以为你安装。下载来自 GitHub，运行任何内容之前都会校验其签名。',
+  'Signed updates are available when a Velo release feed has been configured.':'Velo 会在启动后不久查找新版本，并可以为你安装。下载来自 GitHub，运行任何内容之前都会校验其签名。',
   'Settings sections':'设置部分',
   'Accounts':'账号',
   'Appearance':'外观',
   'General':'通用',
-  'Quit Vela':'退出 Vela',
+  'Quit Velo':'退出 Velo',
   'Connected':'已连接',
   'Not connected':'未连接',
   'These have no ring to place. Switch one on and it joins the end of the list above.':'这些没有圆环可放。打开其中一个，它会接到上面列表的末尾。',
@@ -478,8 +478,8 @@ const ZH_STATIC = {
   'Weekly Limit':'每周额度',
   'Gemini Models':'Gemini 模型',
   'Claude and GPT models':'Claude 和 GPT 模型',
-  'Let Claude Code notify Vela':'允许 Claude Code 通知 Vela',
-  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Vela a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'开启此选项会在你的 Claude Code 设置文件中添加几行代码，以便 Claude Code 在会话开始、处理中、等待你回答以及完成时向 Vela 发送简短消息。这就是圆环旋转和琥珀色圆环闪烁的原因。',
+  'Let Claude Code notify Velo':'允许 Claude Code 通知 Velo',
+  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Velo a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'开启此选项会在你的 Claude Code 设置文件中添加几行代码，以便 Claude Code 在会话开始、处理中、等待你回答以及完成时向 Velo 发送简短消息。这就是圆环旋转和琥珀色圆环闪烁的原因。',
   'Notch':'刘海',
   'Show':'显示',
   'Always show':'始终显示',
@@ -501,30 +501,30 @@ const ZH_STATIC = {
   'Show on hover':'悬停时显示',
   'A small pill at the screen edge that opens when you reach it.':'屏幕边缘一颗小胶囊，指针移过去就会展开。',
   'The notch stays open with every reading visible.':'刘海保持展开，所有读数都看得见。',
-  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Vela keeps counting your usage either way.':'屏幕右侧边缘的黑色胶囊，每个工具对应一个圆环。关闭它后胶囊会消失；无论哪种情况，Vela 都会继续统计你的使用情况。',
+  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Velo keeps counting your usage either way.':'屏幕右侧边缘的黑色胶囊，每个工具对应一个圆环。关闭它后胶囊会消失；无论哪种情况，Velo 都会继续统计你的使用情况。',
   'Recentre':'重新居中',
   'Hold Alt / Option and drag the notch to slide it along its edge. Each edge remembers where you left it. Recentre puts it back in the middle of the edge it is on, or on the main screen\'s right-hand edge if the screen it was on has been unplugged.':'按住 Alt 拖动刘海，沿边缘滑动。每条边都会记住你放的位置。“重新居中”操作会将其放回当前所在边缘的中间；如果它所在的屏幕已被断开连接，则会将其放回主屏幕的右侧边缘。',
   'The notch is back in the middle':'刘海已回到中间',
   'App':'应用',
   'App icon':'应用图标',
   'Neither':'都不显示',
-  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Vela.':'时钟旁边的小图标。右键点击它可打开此窗口、刷新读数或退出 Vela。',
-  'Held on: the notch is hidden, so this icon is the only way left to reach Vela. Switch the notch back on first if you want to hide it.':'强制开启：刘海已被隐藏，因此该图标是访问 Vela 的唯一方式。如果你想隐藏此图标，请先重新开启刘海。',
-  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Vela, so Vela will not let both of them be switched off at the same time.':'任务栏图标已保持开启。在刘海隐藏的情况下，它是打开此窗口或退出 Vela 的唯一方式，因此 Vela 不允许同时关闭两者。',
+  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Velo.':'时钟旁边的小图标。右键点击它可打开此窗口、刷新读数或退出 Velo。',
+  'Held on: the notch is hidden, so this icon is the only way left to reach Velo. Switch the notch back on first if you want to hide it.':'强制开启：刘海已被隐藏，因此该图标是访问 Velo 的唯一方式。如果你想隐藏此图标，请先重新开启刘海。',
+  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Velo, so Velo will not let both of them be switched off at the same time.':'任务栏图标已保持开启。在刘海隐藏的情况下，它是打开此窗口或退出 Velo 的唯一方式，因此 Velo 不允许同时关闭两者。',
   'Language':'语言',
   'Follow system':'跟随系统',
-  'Sets the language used by Vela. “Follow system” uses your system language.':'设置 Vela 使用的语言。“跟随系统”会使用 操作系统的默认语言设置。',
-  'Open Vela at login':'登录时打开 Vela',
-  'Vela opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Vela yourself.':'每次登录此计算机时，Vela 都会自动打开，并在后台静默等待，直到编码会话开始。关闭此选项后，你需要手动打开 Vela。',
+  'Sets the language used by Velo. “Follow system” uses your system language.':'设置 Velo 使用的语言。“跟随系统”会使用 操作系统的默认语言设置。',
+  'Open Velo at login':'登录时打开 Velo',
+  'Velo opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Velo yourself.':'每次登录此计算机时，Velo 都会自动打开，并在后台静默等待，直到编码会话开始。关闭此选项后，你需要手动打开 Velo。',
   'Version':'版本',
   'Data folder':'数据文件夹',
   'Open folder':'打开文件夹',
-  'Everything Vela remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Vela 记住的所有内容都保存在一个文件夹中：你的设置、它的日志文件，以及你可以在其中放入自定义图标的“glyphs”文件夹。在文件资源管理器中打开。',
+  'Everything Velo remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Velo 记住的所有内容都保存在一个文件夹中：你的设置、它的日志文件，以及你可以在其中放入自定义图标的“glyphs”文件夹。在文件资源管理器中打开。',
   'App designed and developed by':'应用设计与开发',
   'Saved':'已保存',
   'System tray':'系统托盘',
   'Close':'关闭',
-  'No icon in the system tray. Open Vela again from the Start menu to bring these settings back.':'系统托盘中无图标。请从“开始”菜单再次打开 Vela 以恢复这些设置。',
+  'No icon in the system tray. Open Velo again from the Start menu to bring these settings back.':'系统托盘中无图标。请从“开始”菜单再次打开 Velo 以恢复这些设置。',
   'Model data':'模型数据',
   'Show move handle':'显示移动手柄',
   'Edge':'边缘',
@@ -549,12 +549,12 @@ const ZH_HANT_STATIC = {
   'Installing…':'正在安裝…',
   'Up to date':'已是最新版本',
   'Could not check for updates':'無法檢查更新',
-  'Signed updates are available when a Vela release feed has been configured.':'Vela 會在啟動後不久尋找新版本，並可以為你安裝。下載來自 GitHub，執行任何內容之前都會驗證其簽章。',
+  'Signed updates are available when a Velo release feed has been configured.':'Velo 會在啟動後不久尋找新版本，並可以為你安裝。下載來自 GitHub，執行任何內容之前都會驗證其簽章。',
   'Settings sections':'設定部分',
   'Accounts':'帳號',
   'Appearance':'外觀',
   'General':'一般',
-  'Quit Vela':'結束 Vela',
+  'Quit Velo':'結束 Velo',
   'Connected':'已連線',
   'Not connected':'未連線',
   'These have no ring to place. Switch one on and it joins the end of the list above.':'這些沒有圓環可放。開啟其中一個，它會接到上面列表的末尾。',
@@ -566,8 +566,8 @@ const ZH_HANT_STATIC = {
   'Weekly Limit':'每週額度',
   'Gemini Models':'Gemini 模型',
   'Claude and GPT models':'Claude 和 GPT 模型',
-  'Let Claude Code notify Vela':'允許 Claude Code 通知 Vela',
-  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Vela a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'開啟此選項會在你的 Claude Code 設定檔中加入幾行程式碼，以便 Claude Code 在工作階段開始、處理中、等待你回答以及完成時向 Vela 傳送簡短訊息。這就是圓環旋轉和琥珀色圓環閃爍的原因。',
+  'Let Claude Code notify Velo':'允許 Claude Code 通知 Velo',
+  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Velo a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'開啟此選項會在你的 Claude Code 設定檔中加入幾行程式碼，以便 Claude Code 在工作階段開始、處理中、等待你回答以及完成時向 Velo 傳送簡短訊息。這就是圓環旋轉和琥珀色圓環閃爍的原因。',
   'Notch':'瀏海',
   'Show':'顯示',
   'Always show':'始終顯示',
@@ -589,30 +589,30 @@ const ZH_HANT_STATIC = {
   'Show on hover':'懸停時顯示',
   'A small pill at the screen edge that opens when you reach it.':'螢幕邊緣一顆小膠囊，游標移過去就會展開。',
   'The notch stays open with every reading visible.':'瀏海保持展開，所有讀數都看得見。',
-  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Vela keeps counting your usage either way.':'螢幕右側邊緣的黑色膠囊，每個工具對應一個圓環。關閉它後膠囊會消失；無論哪種情況，Vela 都會繼續統計你的使用情況。',
+  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Velo keeps counting your usage either way.':'螢幕右側邊緣的黑色膠囊，每個工具對應一個圓環。關閉它後膠囊會消失；無論哪種情況，Velo 都會繼續統計你的使用情況。',
   'Recentre':'重新置中',
   'Hold Alt / Option and drag the notch to slide it along its edge. Each edge remembers where you left it. Recentre puts it back in the middle of the edge it is on, or on the main screen\'s right-hand edge if the screen it was on has been unplugged.':'按住 Alt 拖動瀏海，沿邊緣滑動。每條邊都會記住你放的位置。「重新置中」會將它放回目前所在邊緣的中間；如果它所在的螢幕已拔除，則會放回主螢幕的右側邊緣。',
   'The notch is back in the middle':'瀏海已回到中間',
   'App':'App',
   'App icon':'App 圖示',
   'Neither':'都不顯示',
-  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Vela.':'時鐘旁邊的小圖示。在它上面按右鍵可開啟此視窗、重新整理讀數或結束 Vela。',
-  'Held on: the notch is hidden, so this icon is the only way left to reach Vela. Switch the notch back on first if you want to hide it.':'強制開啟：瀏海已被隱藏，因此該圖示是前往 Vela 的唯一方式。如果你想隱藏此圖示，請先重新開啟瀏海。',
-  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Vela, so Vela will not let both of them be switched off at the same time.':'工作列圖示已保持開啟。在瀏海隱藏的情況下，它是開啟此視窗或結束 Vela 的唯一方式，因此 Vela 不允許同時關閉兩者。',
+  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Velo.':'時鐘旁邊的小圖示。在它上面按右鍵可開啟此視窗、重新整理讀數或結束 Velo。',
+  'Held on: the notch is hidden, so this icon is the only way left to reach Velo. Switch the notch back on first if you want to hide it.':'強制開啟：瀏海已被隱藏，因此該圖示是前往 Velo 的唯一方式。如果你想隱藏此圖示，請先重新開啟瀏海。',
+  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Velo, so Velo will not let both of them be switched off at the same time.':'工作列圖示已保持開啟。在瀏海隱藏的情況下，它是開啟此視窗或結束 Velo 的唯一方式，因此 Velo 不允許同時關閉兩者。',
   'Language':'語言',
   'Follow system':'跟隨系統',
-  'Sets the language used by Vela. “Follow system” uses your system language.':'設定 Vela 使用的語言。「跟隨系統」會使用 Windows 本身的語言設定。',
-  'Open Vela at login':'登入時開啟 Vela',
-  'Vela opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Vela yourself.':'每次登入這部電腦時，Vela 都會自動開啟，並在背景靜默等待，直到編碼工作階段開始。關閉此選項後，你需要手動開啟 Vela。',
+  'Sets the language used by Velo. “Follow system” uses your system language.':'設定 Velo 使用的語言。「跟隨系統」會使用 Windows 本身的語言設定。',
+  'Open Velo at login':'登入時開啟 Velo',
+  'Velo opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Velo yourself.':'每次登入這部電腦時，Velo 都會自動開啟，並在背景靜默等待，直到編碼工作階段開始。關閉此選項後，你需要手動開啟 Velo。',
   'Version':'版本',
   'Data folder':'資料資料夾',
   'Open folder':'開啟資料夾',
-  'Everything Vela remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Vela 記住的所有內容都儲存在一個資料夾中：你的設定、它的日誌檔，以及你可以放入自訂圖示的「glyphs」資料夾。在檔案總管中開啟。',
+  'Everything Velo remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Velo 記住的所有內容都儲存在一個資料夾中：你的設定、它的日誌檔，以及你可以放入自訂圖示的「glyphs」資料夾。在檔案總管中開啟。',
   'App designed and developed by':'App 設計與開發',
   'Saved':'已儲存',
   'System tray':'系統匣',
   'Close':'關閉',
-  'No icon in the system tray. Open Vela again from the Start menu to bring these settings back.':'系統匣中無圖示。請從「開始」功能表再次開啟 Vela 以還原這些設定。',
+  'No icon in the system tray. Open Velo again from the Start menu to bring these settings back.':'系統匣中無圖示。請從「開始」功能表再次開啟 Velo 以還原這些設定。',
   'Model data':'模型資料',
   'Show move handle':'顯示移動手柄',
   'Edge':'邊緣',
@@ -637,13 +637,13 @@ const JA_STATIC = {
   'Installing…':'インストール中…',
   'Up to date':'最新の状態です',
   'Could not check for updates':'アップデートを確認できませんでした',
-  'Signed updates are available when a Vela release feed has been configured.':'Vela は起動して間もなく新しいバージョンを探し、あなたの代わりにインストールできます。ダウンロードは GitHub から行われ、何かを実行する前に署名が検証されます。',
+  'Signed updates are available when a Velo release feed has been configured.':'Velo は起動して間もなく新しいバージョンを探し、あなたの代わりにインストールできます。ダウンロードは GitHub から行われ、何かを実行する前に署名が検証されます。',
   'Show move handle':'移動ハンドルを表示',
   'Settings sections':'設定セクション',
   'Accounts':'アカウント',
   'Appearance':'外観',
   'General':'一般',
-  'Quit Vela':'Vela を終了',
+  'Quit Velo':'Velo を終了',
   'Connected':'接続済み',
   'Not connected':'未接続',
   'These have no ring to place. Switch one on and it joins the end of the list above.':'これらには配置するリングがありません。オンにすると、上の一覧の末尾に加わります。',
@@ -655,8 +655,8 @@ const JA_STATIC = {
   'Weekly Limit':'週間の上限',
   'Gemini Models':'Gemini モデル',
   'Claude and GPT models':'Claude と GPT のモデル',
-  'Let Claude Code notify Vela':'Claude Code から Vela に通知を送信する',
-  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Vela a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'これをオンにすると、Claude Code の設定ファイルに数行が追加され、セッションの開始時、処理中、回答の待機中、および終了時に Claude Code が Vela に短いメッセージを送信するようになります。これにより、リングが回転したり、琥珀色のリングが点滅したりします。',
+  'Let Claude Code notify Velo':'Claude Code から Velo に通知を送信する',
+  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Velo a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'これをオンにすると、Claude Code の設定ファイルに数行が追加され、セッションの開始時、処理中、回答の待機中、および終了時に Claude Code が Velo に短いメッセージを送信するようになります。これにより、リングが回転したり、琥珀色のリングが点滅したりします。',
   'Notch':'ノッチ',
   'Show':'表示',
   'Always show':'常に表示',
@@ -678,30 +678,30 @@ const JA_STATIC = {
   'Show on hover':'ホバー時に表示',
   'A small pill at the screen edge that opens when you reach it.':'画面の端に小さなピル。ポインタを近づけると開きます。',
   'The notch stays open with every reading visible.':'ノッチは開いたままで、すべての読み取りが見えます。',
-  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Vela keeps counting your usage either way.':'画面の右端にある黒いピルには、ツールごとに1つのリングが表示されます。オフにするとピルは消えますが、どちらにしても Vela は使用量のカウントを続けます。',
+  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Velo keeps counting your usage either way.':'画面の右端にある黒いピルには、ツールごとに1つのリングが表示されます。オフにするとピルは消えますが、どちらにしても Velo は使用量のカウントを続けます。',
   'Recentre':'中央に戻す',
   'Hold Alt / Option and drag the notch to slide it along its edge. Each edge remembers where you left it. Recentre puts it back in the middle of the edge it is on, or on the main screen\'s right-hand edge if the screen it was on has been unplugged.':'Alt を押しながらノッチをドラッグすると、辺に沿って動かせます。位置は辺ごとに記憶されます。「中央に戻す」を使うと、現在配置されている端の中央に戻ります。もし配置されていた画面が取り外されている場合は、メイン画面の右端に戻ります。',
   'The notch is back in the middle':'ノッチが中央に戻りました',
   'App':'アプリ',
   'App icon':'アプリアイコン',
   'Neither':'どちらにも出さない',
-  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Vela.':'時計のそばにある小さなアイコンです。右クリックするとこのウィンドウを開いたり、読み取りを更新したり、Vela を終了したりできます。',
-  'Held on: the notch is hidden, so this icon is the only way left to reach Vela. Switch the notch back on first if you want to hide it.':'保持オン: ノッチが非表示になっているため、Vela にアクセスできるのはこのアイコンだけです。このアイコンを非表示にしたい場合は、先にノッチをオンに戻してください。',
-  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Vela, so Vela will not let both of them be switched off at the same time.':'タスクバーアイコンはオンのままです。ノッチが非表示の場合、このウィンドウを開いたり Vela を終了したりする唯一の手段となるため、Vela は両方を同時にオフにすることを許可しません。',
+  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Velo.':'時計のそばにある小さなアイコンです。右クリックするとこのウィンドウを開いたり、読み取りを更新したり、Velo を終了したりできます。',
+  'Held on: the notch is hidden, so this icon is the only way left to reach Velo. Switch the notch back on first if you want to hide it.':'保持オン: ノッチが非表示になっているため、Velo にアクセスできるのはこのアイコンだけです。このアイコンを非表示にしたい場合は、先にノッチをオンに戻してください。',
+  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Velo, so Velo will not let both of them be switched off at the same time.':'タスクバーアイコンはオンのままです。ノッチが非表示の場合、このウィンドウを開いたり Velo を終了したりする唯一の手段となるため、Velo は両方を同時にオフにすることを許可しません。',
   'Language':'言語',
   'Follow system':'システムに従う',
-  'Sets the language used by Vela. “Follow system” uses your system language.':'Vela で使用する言語を設定します。「システムに従う」は、Windows 自体に設定されている言語を使用します。',
-  'Open Vela at login':'ログイン時に Vela を開く',
-  'Vela opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Vela yourself.':'このコンピューターにサインインするたびに Vela が自動的に開き、コーディングセッションが始まるまでバックグラウンドで静かに待機します。オフにすると、Vela を手動で開く必要があります。',
+  'Sets the language used by Velo. “Follow system” uses your system language.':'Velo で使用する言語を設定します。「システムに従う」は、Windows 自体に設定されている言語を使用します。',
+  'Open Velo at login':'ログイン時に Velo を開く',
+  'Velo opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Velo yourself.':'このコンピューターにサインインするたびに Velo が自動的に開き、コーディングセッションが始まるまでバックグラウンドで静かに待機します。オフにすると、Velo を手動で開く必要があります。',
   'Version':'バージョン',
   'Data folder':'データフォルダー',
   'Open folder':'フォルダーを開く',
-  'Everything Vela remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Vela が記憶するすべてのデータは1つのフォルダーに保存されます。設定、ログファイル、そして独自のアイコンをドロップできる「glyphs」フォルダーです。エクスプローラーで開きます。',
+  'Everything Velo remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Velo が記憶するすべてのデータは1つのフォルダーに保存されます。設定、ログファイル、そして独自のアイコンをドロップできる「glyphs」フォルダーです。エクスプローラーで開きます。',
   'App designed and developed by':'デザインと開発',
   'Saved':'保存しました',
   'System tray':'システムトレイ',
   'Close':'閉じる',
-  'No icon in the system tray. Open Vela again from the Start menu to bring these settings back.':'システムトレイにアイコンを表示しません。これらの設定に戻るには、スタートメニューから Vela をもう一度開いてください。',
+  'No icon in the system tray. Open Velo again from the Start menu to bring these settings back.':'システムトレイにアイコンを表示しません。これらの設定に戻るには、スタートメニューから Velo をもう一度開いてください。',
   'Model data':'モデルのデータ'
 };
 const KO_STATIC = {
@@ -712,12 +712,12 @@ const KO_STATIC = {
   'Installing…':'설치 중…',
   'Up to date':'최신 버전입니다',
   'Could not check for updates':'업데이트를 확인할 수 없습니다',
-  'Signed updates are available when a Vela release feed has been configured.':'Vela는 시작한 직후에 새 버전을 찾아보고, 대신 설치해 줄 수 있습니다. 다운로드는 GitHub에서 이루어지며, 무엇이든 실행하기 전에 서명을 확인합니다.',
+  'Signed updates are available when a Velo release feed has been configured.':'Velo는 시작한 직후에 새 버전을 찾아보고, 대신 설치해 줄 수 있습니다. 다운로드는 GitHub에서 이루어지며, 무엇이든 실행하기 전에 서명을 확인합니다.',
   'Settings sections':'설정 섹션',
   'Accounts':'계정',
   'Appearance':'모양',
   'General':'일반',
-  'Quit Vela':'Vela 종료',
+  'Quit Velo':'Velo 종료',
   'Connected':'연결됨',
   'Not connected':'연결되지 않음',
   'These have no ring to place. Switch one on and it joins the end of the list above.':'이 항목들은 아직 표시할 링이 없습니다. 켜면 위 목록의 끝에 추가됩니다.',
@@ -729,8 +729,8 @@ const KO_STATIC = {
   'Weekly Limit':'주간 제한',
   'Gemini Models':'Gemini 모델',
   'Claude and GPT models':'Claude 및 GPT 모델',
-  'Let Claude Code notify Vela':'Claude Code가 Vela에 알리도록 허용',
-  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Vela a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'이것을 켜면 Claude Code 설정 파일에 몇 줄이 추가되어 세션이 시작될 때, 작업 중일 때, 사용자의 응답을 기다릴 때, 그리고 완료될 때 Claude Code가 Vela에 짧은 메시지를 보냅니다. 이것이 링을 회전하게 하고 주황색 링을 깜박이게 하는 원리입니다.',
+  'Let Claude Code notify Velo':'Claude Code가 Velo에 알리도록 허용',
+  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Velo a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'이것을 켜면 Claude Code 설정 파일에 몇 줄이 추가되어 세션이 시작될 때, 작업 중일 때, 사용자의 응답을 기다릴 때, 그리고 완료될 때 Claude Code가 Velo에 짧은 메시지를 보냅니다. 이것이 링을 회전하게 하고 주황색 링을 깜박이게 하는 원리입니다.',
   'Notch':'노치',
   'Show':'표시',
   'Always show':'항상 표시',
@@ -765,30 +765,30 @@ const KO_STATIC = {
   'Lies flat along the bottom edge, with the card opening above it.':'화면 아래쪽 가장자리에 가로로 눕고, 카드는 위로 열립니다.',
   'Which screen the notch lives on.':'노치를 표시할 화면입니다.',
   'this screen cannot be remembered by name':'이 화면은 이름으로 기억할 수 없습니다',
-  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Vela keeps counting your usage either way.':'화면 오른쪽 가장자리에 있는 검은색 필로, 도구당 하나의 링이 있습니다. 끄면 필이 사라지지만, 어느 쪽이든 Vela는 사용량을 계속 계산합니다.',
+  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Velo keeps counting your usage either way.':'화면 오른쪽 가장자리에 있는 검은색 필로, 도구당 하나의 링이 있습니다. 끄면 필이 사라지지만, 어느 쪽이든 Velo는 사용량을 계속 계산합니다.',
   'Recentre':'가운데로 되돌리기',
   'Hold Alt / Option and drag the notch to slide it along its edge. Each edge remembers where you left it. Recentre puts it back in the middle of the edge it is on, or on the main screen\'s right-hand edge if the screen it was on has been unplugged.':'Alt 키를 누른 채 노치를 드래그하면 가장자리를 따라 옮길 수 있습니다. 가장자리마다 마지막 위치를 기억합니다. \'가운데로 되돌리기\'를 사용하면 현재 위치한 가장자리의 중앙으로 돌아가며, 필이 있던 화면이 연결 해제된 경우에는 기본 화면의 오른쪽 가장자리로 돌아갑니다.',
   'The notch is back in the middle':'노치가 중앙으로 돌아왔습니다',
   'App':'앱',
   'App icon':'앱 아이콘',
   'Neither':'표시 안 함',
-  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Vela.':'시계 옆에 있는 작은 아이콘입니다. 마우스 오른쪽 버튼을 클릭하면 이 창이 열리거나, 측정값을 새로 고치거나, Vela를 종료할 수 있습니다.',
-  'Held on: the notch is hidden, so this icon is the only way left to reach Vela. Switch the notch back on first if you want to hide it.':'유지됨: 노치가 숨겨져 있으므로 이 아이콘이 Vela에 접근할 수 있는 유일한 방법입니다. 이 아이콘을 숨기려면 먼저 노치를 다시 켜십시오.',
-  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Vela, so Vela will not let both of them be switched off at the same time.':'작업 표시줄 아이콘이 켜진 상태로 유지되었습니다. 노치가 숨겨진 상태에서는 이 창을 열거나 Vela를 종료하는 유일한 방법이므로, Vela는 두 가지를 동시에 끄는 것을 허용하지 않습니다.',
+  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Velo.':'시계 옆에 있는 작은 아이콘입니다. 마우스 오른쪽 버튼을 클릭하면 이 창이 열리거나, 측정값을 새로 고치거나, Velo를 종료할 수 있습니다.',
+  'Held on: the notch is hidden, so this icon is the only way left to reach Velo. Switch the notch back on first if you want to hide it.':'유지됨: 노치가 숨겨져 있으므로 이 아이콘이 Velo에 접근할 수 있는 유일한 방법입니다. 이 아이콘을 숨기려면 먼저 노치를 다시 켜십시오.',
+  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Velo, so Velo will not let both of them be switched off at the same time.':'작업 표시줄 아이콘이 켜진 상태로 유지되었습니다. 노치가 숨겨진 상태에서는 이 창을 열거나 Velo를 종료하는 유일한 방법이므로, Velo는 두 가지를 동시에 끄는 것을 허용하지 않습니다.',
   'Language':'언어',
   'Follow system':'시스템 따르기',
-  'Sets the language used by Vela. “Follow system” uses your system language.':'Vela에서 사용할 언어를 설정합니다. "시스템 따르기"는 Windows 자체에 설정된 언어를 사용합니다.',
-  'Open Vela at login':'로그인 시 Vela 열기',
-  'Vela opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Vela yourself.':'이 컴퓨터에 로그인할 때마다 Vela가 자동으로 열리며, 코딩 세션이 시작될 때까지 백그라운드에서 조용히 대기합니다. 이 기능을 끄면 Vela를 직접 열어야 합니다.',
+  'Sets the language used by Velo. “Follow system” uses your system language.':'Velo에서 사용할 언어를 설정합니다. "시스템 따르기"는 Windows 자체에 설정된 언어를 사용합니다.',
+  'Open Velo at login':'로그인 시 Velo 열기',
+  'Velo opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Velo yourself.':'이 컴퓨터에 로그인할 때마다 Velo가 자동으로 열리며, 코딩 세션이 시작될 때까지 백그라운드에서 조용히 대기합니다. 이 기능을 끄면 Velo를 직접 열어야 합니다.',
   'Version':'버전',
   'Data folder':'데이터 폴더',
   'Open folder':'폴더 열기',
-  'Everything Vela remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Vela가 기억하는 모든 항목은 하나의 폴더에 저장됩니다: 설정, 로그 파일, 그리고 사용자 지정 아이콘을 넣을 수 있는 "glyphs" 폴더가 있습니다. 파일 탐색기에서 열립니다.',
+  'Everything Velo remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Velo가 기억하는 모든 항목은 하나의 폴더에 저장됩니다: 설정, 로그 파일, 그리고 사용자 지정 아이콘을 넣을 수 있는 "glyphs" 폴더가 있습니다. 파일 탐색기에서 열립니다.',
   'App designed and developed by':'앱 디자인 및 개발',
   'Saved':'저장됨',
   'System tray':'시스템 트레이',
   'Close':'닫기',
-  'No icon in the system tray. Open Vela again from the Start menu to bring these settings back.':'시스템 트레이에 아이콘이 없습니다. 이 설정을 다시 가져오려면 시작 메뉴에서 Vela를 다시 여십시오.',
+  'No icon in the system tray. Open Velo again from the Start menu to bring these settings back.':'시스템 트레이에 아이콘이 없습니다. 이 설정을 다시 가져오려면 시작 메뉴에서 Velo를 다시 여십시오.',
   'Model data':'모델 데이터',
   'English':'English',
   'Show move handle':'이동 핸들 표시',
@@ -803,12 +803,12 @@ const UK_STATIC = {
   'Installing…':'Встановлення…',
   'Up to date':'Актуальна версія',
   'Could not check for updates':'Не вдалося перевірити оновлення',
-  'Signed updates are available when a Vela release feed has been configured.':'Vela шукає нову версію невдовзі після запуску і може встановити її за вас. Завантаження надходить із GitHub, а його підпис перевіряється перед тим, як щось буде запущено.',
+  'Signed updates are available when a Velo release feed has been configured.':'Velo шукає нову версію невдовзі після запуску і може встановити її за вас. Завантаження надходить із GitHub, а його підпис перевіряється перед тим, як щось буде запущено.',
   'Settings sections':'Розділи налаштувань',
   'Accounts':'Акаунти',
   'Appearance':'Зовнішній вигляд',
   'General':'Загальні',
-  'Quit Vela':'Вийти з Vela',
+  'Quit Velo':'Вийти з Velo',
   'Connected':'Підключені',
   'Not connected':'Не підключені',
   'These have no ring to place. Switch one on and it joins the end of the list above.':'У цих немає кільця для розміщення. Увімкніть будь-який — і він стане в кінець списку вище.',
@@ -820,8 +820,8 @@ const UK_STATIC = {
   'Weekly Limit':'Тижневий ліміт',
   'Gemini Models':'Моделі Gemini',
   'Claude and GPT models':'Моделі Claude і GPT',
-  'Let Claude Code notify Vela':'Дозволити Claude Code сповіщати Vela',
-  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Vela a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'Коли це ввімкнено, у файл налаштувань Claude Code додається кілька рядків, щоб він надсилав Vela коротке повідомлення на початку сесії, під час роботи, коли чекає на вашу відповідь і коли завершує. Саме завдяки цьому кільце обертається, а бурштинове пульсує.',
+  'Let Claude Code notify Velo':'Дозволити Claude Code сповіщати Velo',
+  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Velo a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'Коли це ввімкнено, у файл налаштувань Claude Code додається кілька рядків, щоб він надсилав Velo коротке повідомлення на початку сесії, під час роботи, коли чекає на вашу відповідь і коли завершує. Саме завдяки цьому кільце обертається, а бурштинове пульсує.',
   'Notch':'Виріз',
   'Show':'Показувати',
   'Always show':'Показувати завжди',
@@ -857,34 +857,34 @@ const UK_STATIC = {
   'Which screen the notch lives on.':'На якому екрані живе виріз.',
   'this screen cannot be remembered by name':'цей екран неможливо запамʼятати за назвою',
   'Hold Alt / Option and drag the notch to slide it along its edge. Each edge remembers where you left it. Recentre puts it back in the middle of the edge it is on, or on the main screen\'s right-hand edge if the screen it was on has been unplugged.':'Утримуйте Alt і перетягніть виріз, щоб посунути його вздовж краю. Кожен край памʼятає останнє положення. Кнопка «Центрувати» повертає його на середину поточного краю або на правий край основного екрана, якщо екран, на якому він був, відʼєднано.',
-  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Vela keeps counting your usage either way.':'Чорна панель біля правого краю екрана, по кільцю на кожен інструмент. Якщо вимкнути, панель зникне — але використання Vela рахує в будь-якому разі.',
+  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Velo keeps counting your usage either way.':'Чорна панель біля правого краю екрана, по кільцю на кожен інструмент. Якщо вимкнути, панель зникне — але використання Velo рахує в будь-якому разі.',
   'Recentre':'Центрувати',
   'The pill can be dragged up and down the right-hand edge. If it has ended up somewhere you cannot see it — off the bottom of a screen you have unplugged, say — this drops it back into the middle of the edge.':'Панель можна перетягувати вгору й вниз уздовж правого краю. Якщо вона опинилась там, де ви її не бачите (скажімо, нижче за край екрана, який ви відʼєднали), ця кнопка повертає її на середину краю.',
   'The notch is back in the middle':'Виріз повернувся в центр',
   'App':'Застосунок',
   'App icon':'Значок застосунку',
   'Neither':'Ніде',
-  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Vela.':'Невеликий значок унизу біля годинника. Клацання правою кнопкою відкриває це вікно, оновлює показники або завершує роботу Vela.',
-  'Held on: the notch is hidden, so this icon is the only way left to reach Vela. Switch the notch back on first if you want to hide it.':'Лишено ввімкненим: виріз приховано, тож цей значок — єдиний спосіб дістатися до Vela. Щоб сховати значок, спершу увімкніть виріз назад.',
-  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Vela, so Vela will not let both of them be switched off at the same time.':'Значок на панелі задач лишено ввімкненим. Коли виріз приховано, це єдиний спосіб відкрити це вікно чи завершити роботу Vela, тож вимкнути обидва одночасно застосунок не дасть.',
+  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Velo.':'Невеликий значок унизу біля годинника. Клацання правою кнопкою відкриває це вікно, оновлює показники або завершує роботу Velo.',
+  'Held on: the notch is hidden, so this icon is the only way left to reach Velo. Switch the notch back on first if you want to hide it.':'Лишено ввімкненим: виріз приховано, тож цей значок — єдиний спосіб дістатися до Velo. Щоб сховати значок, спершу увімкніть виріз назад.',
+  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Velo, so Velo will not let both of them be switched off at the same time.':'Значок на панелі задач лишено ввімкненим. Коли виріз приховано, це єдиний спосіб відкрити це вікно чи завершити роботу Velo, тож вимкнути обидва одночасно застосунок не дасть.',
   'Language':'Мова',
   'Follow system':'Як у системі',
-  'Sets the language used by Vela. “Follow system” uses your system language.':'Задає мову Vela. Варіант «Як у системі» бере мову, вибрану в самій Windows.',
-  'Open Vela at login':'Відкривати Vela під час входу',
-  'Vela opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Vela yourself.':'Vela відкривається сам щоразу, коли ви входите на цей компʼютер, і тихо чекає у фоні, доки не почнеться сесія розробки. Якщо вимкнути, відкривати Vela доведеться вручну.',
+  'Sets the language used by Velo. “Follow system” uses your system language.':'Задає мову Velo. Варіант «Як у системі» бере мову, вибрану в самій Windows.',
+  'Open Velo at login':'Відкривати Velo під час входу',
+  'Velo opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Velo yourself.':'Velo відкривається сам щоразу, коли ви входите на цей компʼютер, і тихо чекає у фоні, доки не почнеться сесія розробки. Якщо вимкнути, відкривати Velo доведеться вручну.',
   'Version':'Версія',
   'Data folder':'Тека даних',
   'Open folder':'Відкрити теку',
-  'Everything Vela remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Усе, що памʼятає Vela, лежить в одній теці: ваші налаштування, його журнал і тека «glyphs», куди можна покласти власні значки. Відкривається у Провіднику.',
+  'Everything Velo remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.':'Усе, що памʼятає Velo, лежить в одній теці: ваші налаштування, його журнал і тека «glyphs», куди можна покласти власні значки. Відкривається у Провіднику.',
   'App designed and developed by':'Дизайн і розробка застосунку —',
   'Saved':'Збережено',
   'System tray':'Область сповіщень',
   'Close':'Закрити',
-  'No icon in the system tray. Open Vela again from the Start menu to bring these settings back.':'Значка в області сповіщень немає. Відкрийте Vela знову з меню «Пуск», щоб повернути ці налаштування.',
+  'No icon in the system tray. Open Velo again from the Start menu to bring these settings back.':'Значка в області сповіщень немає. Відкрийте Velo знову з меню «Пуск», щоб повернути ці налаштування.',
   'Model data':'Дані моделі'
 };
 Object.assign(ZH_STATIC, {"When a session ends": "会话结束时", "Open the notch for a moment": "短暂展开刘海", "For": "持续时间", "3 seconds": "3 秒", "5 seconds": "5 秒", "10 seconds": "10 秒", "Play a sound": "播放提示音", "Finished": "已完成", "Waiting on you": "等待回应", "Preview": "试听", "When a limit is reached": "额度耗尽时", "Show notification for session limit": "显示会话额度通知", "Show notification for weekly limit": "显示周额度通知", "Alert sound": "提醒声音", "Preview session limit alert": "预览会话额度提醒", "Preview weekly limit alert": "预览周额度提醒", "When a limit resets": "额度重置时", "Show notification from notch": "从刘海显示通知", "Reset sound": "重置声音", "Preview notification": "预览通知", "Threshold alerts": "阈值提醒", "Mute threshold alerts": "静音额度提醒", "Click the notification to return to the session’s app.": "点击提醒以返回会话所在的应用。", "A system notification at 80% and 100%, once per crossing. Mute a provider from its row in Accounts.": "额度跨过 80% 和 100% 时各提醒一次，可在账户行将相应服务静音。"});
-Object.assign(ZH_STATIC, {'Reorder':'调整顺序','Drag to reorder; use arrow keys':'拖动排序；也可使用方向键','Phone connected.':'手机已连接。','Pairing code expired. Close and reopen to try again.':'配对码已过期，请关闭后重新打开。','Pairing is closed.':'配对已关闭。','Phone':'手机','See your usage on your phone.':'在手机上查看用量。','Allow phones on this network':'允许同一网络内的手机连接','Your phone reads usage from this computer over your Wi-Fi. Nothing leaves your network.':'手机通过 Wi-Fi 读取本机用量，数据仅在局域网内传输。','Connect a Phone…':'连接手机…','Connect a Phone':'连接手机','Paired phones':'已配对的手机','No phones yet.':'尚未配对手机。','Scan with the Codenotch phone app on the same Wi-Fi network.':'使用同一 Wi-Fi 网络内的 Codenotch 手机应用扫码。','Copy Link':'复制链接','Remove phone?':'移除手机？','Remove':'移除','Cancel':'取消','Close':'关闭','This computer is not on a local network.':'本机未连接局域网。','Reset time':'重置时间','Reset date':'重置日期','Time remaining':'剩余时间','Show usage pace':'显示用量节奏','Claude daily pace ring':'Claude 每日额度圆环','Compares each timed allowance with the time left until reset, showing quota in deficit or held in reserve.':'比较额度消耗与距重置的时间，显示超前使用或预留的额度。',"Claude's main ring shows today's share of the weekly limit. The session moves to the thin ring and the card; alerts follow the daily ring.":'Claude 主圆环显示本周截至今日的累计份额。会话额度移到细圆环及卡片中，提醒跟随每日圆环。','Show Spark and code review':'显示 Spark 和代码审查','Dashed weekly ring':'虚线周额度圆环','Custom size':'自定义尺寸','Usage colours':'用量颜色','Watch':'留意','Critical':'紧张','Save':'保存','Connection':'连接','Loaded models':'已加载模型','Custom Endpoints':'自定义端点','Models running in Ollama on this computer.':'本机 Ollama 正在运行的模型。','Models loaded in LM Studio on this computer.':'本机 LM Studio 已加载的模型。','OpenAI-compatible APIs, local runtimes and custom proxies.':'兼容 OpenAI 的 API、本地运行时与自定义代理。','Memory':'内存','Model size':'模型大小','Context':'上下文','No models loaded.':'没有已加载的模型。','Waiting for a local runtime reading.':'等待本地运行时读数。','Usage':'用量','Choose which providers the notch reads.':'选择刘海读取的服务。','How the notch looks and where it sits.':'刘海的外观与位置。','What Vela tells you, and when.':'Vela 的提醒内容与时机。','Startup, updates and everything else.':'启动、更新与其他选项。',"Extensions and CLI tools":"扩展与 CLI 工具", "Open tools":"打开工具", "Notifications": "通知", "Waiting for your response": "等待你的回应", "Task completed": "任务完成", "Only notify when a session changes state. Prompts and project paths stay private.": "仅在会话状态变化时提醒，不在通知中显示提示词和项目路径。", "Sound and delivery follow your system notification settings.": "声音和送达方式遵循系统通知设置。", "Project and source": "项目与源码", "Updates not configured": "尚未配置更新源", "Signed updates are available when a Vela release feed has been configured.": "配置 Vela 发布源后，可获取经过签名验证的更新。"});
+Object.assign(ZH_STATIC, {'Reorder':'调整顺序','Drag to reorder; use arrow keys':'拖动排序；也可使用方向键','Phone connected.':'手机已连接。','Pairing code expired. Close and reopen to try again.':'配对码已过期，请关闭后重新打开。','Pairing is closed.':'配对已关闭。','Phone':'手机','See your usage on your phone.':'在手机上查看用量。','Allow phones on this network':'允许同一网络内的手机连接','Your phone reads usage from this computer over your Wi-Fi. Nothing leaves your network.':'手机通过 Wi-Fi 读取本机用量，数据仅在局域网内传输。','Connect a Phone…':'连接手机…','Connect a Phone':'连接手机','Paired phones':'已配对的手机','No phones yet.':'尚未配对手机。','Scan with the Codenotch phone app on the same Wi-Fi network.':'使用同一 Wi-Fi 网络内的 Codenotch 手机应用扫码。','Copy Link':'复制链接','Remove phone?':'移除手机？','Remove':'移除','Cancel':'取消','Close':'关闭','This computer is not on a local network.':'本机未连接局域网。','Reset time':'重置时间','Reset date':'重置日期','Time remaining':'剩余时间','Show usage pace':'显示用量节奏','Claude daily pace ring':'Claude 每日额度圆环','Compares each timed allowance with the time left until reset, showing quota in deficit or held in reserve.':'比较额度消耗与距重置的时间，显示超前使用或预留的额度。',"Claude's main ring shows today's share of the weekly limit. The session moves to the thin ring and the card; alerts follow the daily ring.":'Claude 主圆环显示本周截至今日的累计份额。会话额度移到细圆环及卡片中，提醒跟随每日圆环。','Show Spark and code review':'显示 Spark 和代码审查','Dashed weekly ring':'虚线周额度圆环','Custom size':'自定义尺寸','Usage colours':'用量颜色','Watch':'留意','Critical':'紧张','Save':'保存','Connection':'连接','Loaded models':'已加载模型','Custom Endpoints':'自定义端点','Models running in Ollama on this computer.':'本机 Ollama 正在运行的模型。','Models loaded in LM Studio on this computer.':'本机 LM Studio 已加载的模型。','OpenAI-compatible APIs, local runtimes and custom proxies.':'兼容 OpenAI 的 API、本地运行时与自定义代理。','Memory':'内存','Model size':'模型大小','Context':'上下文','No models loaded.':'没有已加载的模型。','Waiting for a local runtime reading.':'等待本地运行时读数。','Usage':'用量','Choose which providers the notch reads.':'选择刘海读取的服务。','How the notch looks and where it sits.':'刘海的外观与位置。','What Velo tells you, and when.':'Velo 的提醒内容与时机。','Startup, updates and everything else.':'启动、更新与其他选项。',"Extensions and CLI tools":"扩展与 CLI 工具", "Open tools":"打开工具", "Notifications": "通知", "Waiting for your response": "等待你的回应", "Task completed": "任务完成", "Only notify when a session changes state. Prompts and project paths stay private.": "仅在会话状态变化时提醒，不在通知中显示提示词和项目路径。", "Sound and delivery follow your system notification settings.": "声音和送达方式遵循系统通知设置。", "Project and source": "项目与源码", "Updates not configured": "尚未配置更新源", "Signed updates are available when a Velo release feed has been configured.": "配置 Velo 发布源后，可获取经过签名验证的更新。"});
 Object.assign(ZH_STATIC,{'Follow active window':'跟随活动窗口','Fold for full-screen apps':'全屏应用前台运行时收起','The notch folds away while a full-screen app is frontmost, and returns when you leave it. Off keeps it in place over full-screen apps.':'全屏应用位于前台时收起刘海，离开后恢复。关闭后刘海会保持显示在全屏应用上方。'});
 const STATIC_TEXT = { 'pt-BR': PT_BR_STATIC, ru: RU_STATIC, zh: ZH_STATIC, 'zh-Hant': ZH_HANT_STATIC, ja: JA_STATIC, ko: KO_STATIC, uk: UK_STATIC };
 const STATUS_TEXT = {
@@ -1014,7 +1014,7 @@ window.addEventListener('pagehide',()=>{if(document.getElementById('phone-pairin
 /* ---- the sidebar -------------------------------------------------------- */
 const TABS = ['accounts', 'phone', 'ollama', 'lmstudio', 'custom', 'appearance', 'notifications', 'general'];
 const TITLES = {phone:'Phone', ollama:'Ollama',lmstudio:'LM Studio',custom:'Custom Endpoints',accounts:'Accounts', appearance:'Appearance', notifications:'Notifications', general:'General' };
-const SUBTITLES={phone:'See your usage on your phone.',ollama:'Models running in Ollama on this computer.',lmstudio:'Models loaded in LM Studio on this computer.',custom:'OpenAI-compatible APIs, local runtimes and custom proxies.',accounts:'Choose which providers the notch reads.',appearance:'How the notch looks and where it sits.',notifications:'What Vela tells you, and when.',general:'Startup, updates and everything else.'};
+const SUBTITLES={phone:'See your usage on your phone.',ollama:'Models running in Ollama on this computer.',lmstudio:'Models loaded in LM Studio on this computer.',custom:'OpenAI-compatible APIs, local runtimes and custom proxies.',accounts:'Choose which providers the notch reads.',appearance:'How the notch looks and where it sits.',notifications:'What Velo tells you, and when.',general:'Startup, updates and everything else.'};
 const TAB_KEY = 'vela.settings.pane';
 let curTab = TABS[0];
 function showTab(id, moveFocus){
@@ -1123,7 +1123,7 @@ function drawSwitch(el, s){
   el.disabled = s.busy;
 }
 const hooks = remote('get_hooks_installed', 'set_hooks_installed', 'The Claude Code messages', () => renderAccounts());
-const autostart = remote('get_autostart', 'set_autostart', 'Open Vela at login', () => drawSwitch(document.getElementById('sw-autostart'), autostart));
+const autostart = remote('get_autostart', 'set_autostart', 'Open Velo at login', () => drawSwitch(document.getElementById('sw-autostart'), autostart));
 document.getElementById('sw-autostart').addEventListener('click', () => autostart.toggle());
 
 /* ---- Accounts: which providers get a ring --------------------------------
@@ -1132,7 +1132,7 @@ let notchSlots = null, notchSaving = false;
 const AG_LIMITS = [['automatic', 'Automatic'], ['5h', '5-Hour Limit'], ['weekly', 'Weekly Limit']];
 const AG_MODELS = [['gemini', 'Gemini Models'], ['3p', 'Claude and GPT models']];
 let agPrefs = { limit:'automatic', model:'gemini' };
-const HOOKS_WHY = 'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Vela a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.';
+const HOOKS_WHY = 'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Velo a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.';
 const ONE_STAYS = 'One provider always stays ticked, so the pill is never empty.';
 const NO_RING = 'These have no ring to place. Switch one on and it joins the end of the list above.';
 
@@ -1161,9 +1161,9 @@ function accountBlock(p, isOn, locked){
       + '<div class="acct-sub"><span>' + esc(ui('Model data', 'Model data')) + '</span>' + agSelect('model', AG_MODELS, agPrefs.model) + '</div>';
   }
   if(p.id === 'claude'){
-    h += '<div class="acct-sub"><span>' + esc(ui('Let Claude Code notify Vela', 'Let Claude Code notify Vela')) + '</span>'
+    h += '<div class="acct-sub"><span>' + esc(ui('Let Claude Code notify Velo', 'Let Claude Code notify Velo')) + '</span>'
       + '<button class="switch' + (hooks.value ? ' on' : '') + '" role="switch" aria-checked="' + hooks.value + '" data-remote="hooks"'
-      + (hooks.busy ? ' disabled' : '') + ' aria-label="' + esc(ui('Let Claude Code notify Vela', 'Let Claude Code notify Vela')) + '"></button></div>'
+      + (hooks.busy ? ' disabled' : '') + ' aria-label="' + esc(ui('Let Claude Code notify Velo', 'Let Claude Code notify Velo')) + '"></button></div>'
       + '<div class="acct-detail">' + esc(ui(HOOKS_WHY, HOOKS_WHY)) + '</div>';
   }
   h += '<div class="acct-sub"><span>'+esc(uiLang.startsWith('zh')?'连接并读取用量':'Read usage')+'</span><button class="switch'+(!disabledProviders.includes(p.id)?' on':'')+'" role="switch" aria-checked="'+!disabledProviders.includes(p.id)+'" data-connect="'+esc(p.id)+'" aria-label="'+esc(p.label)+'"></button></div>';
@@ -1300,11 +1300,11 @@ loadCustom().catch(()=>{});
    whenever the notch is hidden, and its answer says what was actually stored. */
 const SHOW_WHY = 'The notch stays open with every reading visible.';
 const HOVER_WHY = 'A small pill at the screen edge that opens when you reach it.';
-const HIDE_WHY = 'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Vela keeps counting your usage either way.';
-const TRAY_WHY = 'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Vela.';
-const NO_TRAY_WHY = 'No icon in the system tray. Open Vela again from the Start menu to bring these settings back.';
-const HELD_ON = 'Held on: the notch is hidden, so this icon is the only way left to reach Vela. Switch the notch back on first if you want to hide it.';
-const KEPT_ON = 'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Vela, so Vela will not let both of them be switched off at the same time.';
+const HIDE_WHY = 'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Velo keeps counting your usage either way.';
+const TRAY_WHY = 'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Velo.';
+const NO_TRAY_WHY = 'No icon in the system tray. Open Velo again from the Start menu to bring these settings back.';
+const HELD_ON = 'Held on: the notch is hidden, so this icon is the only way left to reach Velo. Switch the notch back on first if you want to hide it.';
+const KEPT_ON = 'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Velo, so Velo will not let both of them be switched off at the same time.';
 let flags = { notch:true, hover:false, tray:true }, flagsBusy = false, flagsCorrected = false;
 
 function readFlags(v){

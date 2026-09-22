@@ -20,7 +20,7 @@ pub fn open_workbench(app: AppHandle) {
                 "workbench",
                 WebviewUrl::App("workbench.html".into()),
             )
-            .title("Vela · 工具")
+            .title("Velo · 工具")
             .inner_size(980.0, 720.0)
             .min_inner_size(760.0, 560.0)
             .center()

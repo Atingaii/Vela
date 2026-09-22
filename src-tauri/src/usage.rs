@@ -1,4 +1,4 @@
-//! Claude usage adapter (official), implemented from the upstream Vela's documented behaviour.
+//! Claude usage adapter (official), implemented from the upstream Velo's documented behaviour.
 //! Endpoint: GET https://api.anthropic.com/api/oauth/usage
 //! Headers: Authorization: Bearer <token>; anthropic-beta: oauth-2025-04-20; 15 s timeout
 //! Rules (upstream's discipline):
@@ -394,7 +394,7 @@ fn run_renewal(cli: &std::path::Path, dir: &Path) -> std::io::Result<()> {
         }
     }
     // Which account gets renewed is said here, never inherited: CLAUDE_CONFIG_DIR is not CLAUDE_CODE_*, so it
-    // survives the loop above, and a Vela started from a shell pointed at another account used to renew
+    // survives the loop above, and a Velo started from a shell pointed at another account used to renew
     // that one while the account on screen stayed expired.
     cmd.env("CLAUDE_CONFIG_DIR", dir);
     #[cfg(windows)]

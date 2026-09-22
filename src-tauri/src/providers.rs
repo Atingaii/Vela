@@ -217,6 +217,7 @@ pub fn get_providers(app: AppHandle) -> Vec<Reading> {
     result
 }
 fn profile_list() -> Vec<profiles::Profile> {
+    if crate::smoke::root().is_some() { return Vec::new(); }
     profiles::discover(&dirs::home_dir().unwrap_or_default())
 }
 pub fn publish_profile(app: &AppHandle, id: &str, snap: UsageSnapshot) {

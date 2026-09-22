@@ -42,7 +42,7 @@ fn request(url: &str, token: Option<&str>, body: Option<Value>) -> Result<Value,
     let mut req = agent
         .request(if body.is_some() { "POST" } else { "GET" }, url)
         .set("Accept", "application/json")
-        .set("User-Agent", "Vela/0.1")
+        .set("User-Agent", "Velo/0.1")
         .set("X-GitHub-Api-Version", "2022-11-28")
         .set("Connect-Protocol-Version", "1");
     if let Some(token) = token {

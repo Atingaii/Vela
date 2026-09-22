@@ -35,7 +35,7 @@ pub fn usage_succeeded() {
 }
 
 // No interpolated shell input: even paths containing apostrophes arrive in env.
-const LOGIN_SCRIPT: &str = "$Host.UI.RawUI.WindowTitle = 'Vela - Claude sign-in'; Write-Host 'Complete sign-in in your browser. Paste any code in this window.'; & $env:VELA_CLAUDE_CLI auth login --claudeai; $loginResult = $LASTEXITCODE; if ($loginResult -eq 0) { Write-Host 'Sign-in complete. Vela will refresh automatically.'; Start-Sleep -Seconds 2 } else { Write-Host 'Sign-in failed or cancelled. Retry from Vela.'; Start-Sleep -Seconds 8 }; exit $loginResult";
+const LOGIN_SCRIPT: &str = "$Host.UI.RawUI.WindowTitle = 'Velo - Claude sign-in'; Write-Host 'Complete sign-in in your browser. Paste any code in this window.'; & $env:VELA_CLAUDE_CLI auth login --claudeai; $loginResult = $LASTEXITCODE; if ($loginResult -eq 0) { Write-Host 'Sign-in complete. Velo will refresh automatically.'; Start-Sleep -Seconds 2 } else { Write-Host 'Sign-in failed or cancelled. Retry from Velo.'; Start-Sleep -Seconds 8 }; exit $loginResult";
 
 #[cfg(windows)]
 fn login_command(cli: &std::path::Path) -> Result<Command, String> {

@@ -453,7 +453,7 @@ pub fn preview_sync(request: Request) -> Result<Value, String> {
         &request,
         |key| {
             std::env::var(key).map_err(|_| {
-                format!("Vela 进程未继承环境变量 {key}，请设置变量后从同一终端启动 Vela")
+                format!("Velo 进程未继承环境变量 {key}，请设置变量后从同一终端启动 Velo")
             })
         },
     )?;

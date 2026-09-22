@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Vela windows: events, settings drag and close.",
+  "description": "Velo windows: events, settings drag and close.",
   "windows": [
     "notch",
     "settings",

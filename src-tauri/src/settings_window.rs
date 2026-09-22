@@ -26,7 +26,8 @@ fn open_now(app: &AppHandle) {
     // Swift SettingsView: 860 × 600, centred, not resizable. `shadow` on an undecorated window is what
     // gives it Windows 11's rounded corners.
     let builder = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("settings.html".into()))
-        .title("Vela Settings")
+        .title("Velo Settings")
+        .initialization_script(if crate::smoke::root().is_some() { crate::smoke::PAGE_CHECK } else { "" })
         .inner_size(860.0, 600.0)
         .resizable(false)
         .maximizable(false)
@@ -79,7 +80,7 @@ pub fn quit_app(app: AppHandle) {
 /// The credit line's link, as on the Mac.
 #[tauri::command]
 pub fn open_author_page() {
-    let _ = crate::platform::open(std::ffi::OsStr::new("https://github.com/Atingaii/Vela"));
+    let _ = crate::platform::open(std::ffi::OsStr::new("https://github.com/Atingaii/Velo"));
 }
 
 fn palette(bytes: &[u8]) -> Vec<String> {

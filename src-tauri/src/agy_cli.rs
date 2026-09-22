@@ -576,7 +576,7 @@ pub(crate) fn run_cmd_conpty(
             _ => break Err("Antigravity CLI timed out".into()),
         }
     };
-    // This group was created by Vela. Never terminate an existing CLI process.
+    // This group was created by Velo. Never terminate an existing CLI process.
     unsafe {
         libc::kill(-(child.id() as i32), libc::SIGKILL);
     }
