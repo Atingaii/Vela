@@ -110,3 +110,26 @@ Renamed repository and visible product to Velo; filled GitHub About and velo.cod
 ### Status
 
 [OK] **Completed**
+
+
+## Session 4: 官网导航、首屏示意与图标优化
+<!-- trellis-session: v=2 fp=16a40336f49ff656 -->
+
+**Date**: 2026-09-23
+**Task**: 官网导航、首屏示意与图标优化
+**Branch**: `main`
+
+### Summary
+
+研究 Bear、CleanShot 和 Raycast 官网，改为首页、下载和使用指南三个静态页面；首屏改为适配主题的交互示意并明确示例数据，补齐 PNG/ICO/Apple 图标。Cloudflare 正式域名三页 1440/390/320px 与悬停、键盘、移动点击、主题、FAQ、旧 hash 跳转验证通过，公开安装包链接可用。生产部署 7d67af4c-804d-461a-bfc5-9d46679b6305。保留 docs/evidence/website-navigation，已停止测试服务和浏览器并清理本轮临时产物。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e508ac7` | feat: simplify website navigation and add responsive product demo [skip ci] |
+| `45a0d91` | docs: record production website navigation verification [skip ci] |
+
+### Status
+
+[OK] **Completed**
