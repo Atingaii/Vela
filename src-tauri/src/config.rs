@@ -66,7 +66,7 @@ pub struct Config {
     #[serde(default = "default_notch_edge")]
     pub notch_edge: String,
     /// Which monitor the notch lives on, by the system's device name (`\\.\DISPLAY2`). None, or a
-    /// name no longer attached, means the primary monitor — so unplugging a screen cannot strand it.
+    /// name no longer attached, follows the active window, falling back to the primary monitor.
     #[serde(default)]
     pub notch_monitor: Option<String>,
     /// Notch size as a multiple of the designed size, one of `SIZES`. The whole notch scales: the

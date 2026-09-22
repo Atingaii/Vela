@@ -45,3 +45,5 @@
 2026-09-22 后续阶段检查：Rust 170 通过、3 忽略；Node 10 通过；Playwright 11 通过，新增节奏开关、每日份额圆环与关闭恢复覆盖。`e4c059e` 的 macOS / Windows / browser CI 全部通过（[run 35726507080](https://github.com/Atingaii/Vela/actions/runs/35726507080)），该结果不包含其后的节奏改动。尚未完成原生逐屏视觉验收。
 
 2026-09-22 手机刷新阶段检查：Rust 172 通过、3 忽略。`/api/v3/refresh` 等待已接受读取完成，最多 20 秒；失败/无变化也完成，退避中的账户不请求。服务器固定两个低优先级 worker；活动使用来源会话 ID，服务结束清除运行状态。剩余：完整账户/额度字段、登录后的真实手机互通，以及慢请求体的底层超时。
+
+2026-09-22 窗口交互阶段检查：Rust 174 通过、3 忽略；Node 10 通过；Playwright 13 通过。默认跟随前台窗口、固定显示器选择、全屏收起/悬停唤醒及独立的临时“保持展开”已移植。Windows 判断排除普通任务栏内最大化与桌面；macOS 保留 Swift 的菜单栏留白容差，硬件 safe-area 与 visibleFrame 补充路径仍待完善。`f63cc23` 的三项 CI 已通过（[run 35728495307](https://github.com/Atingaii/Vela/actions/runs/35728495307)），不含此次窗口 API 改动。

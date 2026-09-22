@@ -210,6 +210,8 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
         <div class="group">
           <div class="item"><span>Show</span><span class="seg" id="seg-show"><button data-v="show">Always show</button><button data-v="hover">Show on hover</button><button data-v="hide">Hide</button></span></div>
           <div class="item cap" id="cap-show" data-dynamic></div>
+          <div class="item"><span>Fold for full-screen apps</span><button class="switch" id="appearance-folds_for_fullscreen" role="switch" aria-label="Fold for full-screen apps" aria-checked="true"></button></div>
+          <div class="item cap">The notch folds away while a full-screen app is frontmost, and returns when you leave it. Off keeps it in place over full-screen apps.</div>
           <div class="item"><span>Size</span><span class="seg" id="seg-size"><button data-v="0.8">Small</button><button data-v="1">Medium</button><button data-v="1.25">Large</button></span></div>
           <div class="item"><label for="appearance-custom_enabled">Custom size</label><input id="appearance-custom_enabled" type="checkbox"><input id="appearance-custom_scale" type="range" min="0.75" max="1.5" step="0.01" aria-label="Custom size"><output id="appearance-scale_value"></output></div>
           <div class="item"><span>Edge</span><span class="seg" id="seg-edge"><button data-v="left">Left</button><button data-v="right">Right</button><button data-v="top">Top</button><button data-v="bottom">Bottom</button></span></div>
@@ -883,6 +885,7 @@ const UK_STATIC = {
 };
 Object.assign(ZH_STATIC, {"When a session ends": "会话结束时", "Open the notch for a moment": "短暂展开刘海", "For": "持续时间", "3 seconds": "3 秒", "5 seconds": "5 秒", "10 seconds": "10 秒", "Play a sound": "播放提示音", "Finished": "已完成", "Waiting on you": "等待回应", "Preview": "试听", "When a limit is reached": "额度耗尽时", "Show notification for session limit": "显示会话额度通知", "Show notification for weekly limit": "显示周额度通知", "Alert sound": "提醒声音", "Preview session limit alert": "预览会话额度提醒", "Preview weekly limit alert": "预览周额度提醒", "When a limit resets": "额度重置时", "Show notification from notch": "从刘海显示通知", "Reset sound": "重置声音", "Preview notification": "预览通知", "Threshold alerts": "阈值提醒", "Mute threshold alerts": "静音额度提醒", "Click the notification to return to the session’s app.": "点击提醒以返回会话所在的应用。", "A system notification at 80% and 100%, once per crossing. Mute a provider from its row in Accounts.": "额度跨过 80% 和 100% 时各提醒一次，可在账户行将相应服务静音。"});
 Object.assign(ZH_STATIC, {'Reorder':'调整顺序','Drag to reorder; use arrow keys':'拖动排序；也可使用方向键','Phone connected.':'手机已连接。','Pairing code expired. Close and reopen to try again.':'配对码已过期，请关闭后重新打开。','Pairing is closed.':'配对已关闭。','Phone':'手机','See your usage on your phone.':'在手机上查看用量。','Allow phones on this network':'允许同一网络内的手机连接','Your phone reads usage from this computer over your Wi-Fi. Nothing leaves your network.':'手机通过 Wi-Fi 读取本机用量，数据仅在局域网内传输。','Connect a Phone…':'连接手机…','Connect a Phone':'连接手机','Paired phones':'已配对的手机','No phones yet.':'尚未配对手机。','Scan with the Codenotch phone app on the same Wi-Fi network.':'使用同一 Wi-Fi 网络内的 Codenotch 手机应用扫码。','Copy Link':'复制链接','Remove phone?':'移除手机？','Remove':'移除','Cancel':'取消','Close':'关闭','This computer is not on a local network.':'本机未连接局域网。','Reset time':'重置时间','Reset date':'重置日期','Time remaining':'剩余时间','Show usage pace':'显示用量节奏','Claude daily pace ring':'Claude 每日额度圆环','Compares each timed allowance with the time left until reset, showing quota in deficit or held in reserve.':'比较额度消耗与距重置的时间，显示超前使用或预留的额度。',"Claude's main ring shows today's share of the weekly limit. The session moves to the thin ring and the card; alerts follow the daily ring.":'Claude 主圆环显示本周截至今日的累计份额。会话额度移到细圆环及卡片中，提醒跟随每日圆环。','Show Spark and code review':'显示 Spark 和代码审查','Dashed weekly ring':'虚线周额度圆环','Custom size':'自定义尺寸','Usage colours':'用量颜色','Watch':'留意','Critical':'紧张','Save':'保存','Connection':'连接','Loaded models':'已加载模型','Custom Endpoints':'自定义端点','Models running in Ollama on this computer.':'本机 Ollama 正在运行的模型。','Models loaded in LM Studio on this computer.':'本机 LM Studio 已加载的模型。','OpenAI-compatible APIs, local runtimes and custom proxies.':'兼容 OpenAI 的 API、本地运行时与自定义代理。','Memory':'内存','Model size':'模型大小','Context':'上下文','No models loaded.':'没有已加载的模型。','Waiting for a local runtime reading.':'等待本地运行时读数。','Usage':'用量','Choose which providers the notch reads.':'选择刘海读取的服务。','How the notch looks and where it sits.':'刘海的外观与位置。','What Vela tells you, and when.':'Vela 的提醒内容与时机。','Startup, updates and everything else.':'启动、更新与其他选项。',"Extensions and CLI tools":"扩展与 CLI 工具", "Open tools":"打开工具", "Notifications": "通知", "Waiting for your response": "等待你的回应", "Task completed": "任务完成", "Only notify when a session changes state. Prompts and project paths stay private.": "仅在会话状态变化时提醒，不在通知中显示提示词和项目路径。", "Sound and delivery follow your system notification settings.": "声音和送达方式遵循系统通知设置。", "Project and source": "项目与源码", "Updates not configured": "尚未配置更新源", "Signed updates are available when a Vela release feed has been configured.": "配置 Vela 发布源后，可获取经过签名验证的更新。"});
+Object.assign(ZH_STATIC,{'Follow active window':'跟随活动窗口','Fold for full-screen apps':'全屏应用前台运行时收起','The notch folds away while a full-screen app is frontmost, and returns when you leave it. Off keeps it in place over full-screen apps.':'全屏应用位于前台时收起刘海，离开后恢复。关闭后刘海会保持显示在全屏应用上方。'});
 const STATIC_TEXT = { 'pt-BR': PT_BR_STATIC, ru: RU_STATIC, zh: ZH_STATIC, 'zh-Hant': ZH_HANT_STATIC, ja: JA_STATIC, ko: KO_STATIC, uk: UK_STATIC };
 const STATUS_TEXT = {
   en:{ ok:'', stale:'last reading is old', needsAuth:'not signed in', absent:'not installed', none:'nothing to report', error:'not reachable' },
@@ -1370,10 +1373,10 @@ async function saveRestoredAppearance(command,args){
 document.getElementById('seg-weekly').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!b.disabled)saveRestoredAppearance('set_weekly_ring',{placement:b.dataset.v});});
 document.getElementById('sw-move').addEventListener('click',()=>saveRestoredAppearance('set_move_handle',{on:!moveHandle}));
 
-let appearance={reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,weekly_dashed:false,custom_scale:null,watch:.5,critical:.7},appearanceSaving=false;
+let appearance={reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,folds_for_fullscreen:true,weekly_dashed:false,custom_scale:null,watch:.5,critical:.7},appearanceSaving=false;
 function renderAppearance(){
  field('appearance-reset_time').value=appearance.reset_time;
- for(const key of ['show_codex_extra','weekly_dashed','show_usage_pace','claude_daily_pace'])drawSwitch(field('appearance-'+key),{value:appearance[key],busy:appearanceSaving});
+ for(const key of ['show_codex_extra','weekly_dashed','show_usage_pace','claude_daily_pace','folds_for_fullscreen'])drawSwitch(field('appearance-'+key),{value:appearance[key],busy:appearanceSaving});
  field('appearance-custom_enabled').checked=appearance.custom_scale!=null;
  field('appearance-custom_scale').disabled=appearanceSaving||appearance.custom_scale==null;
  field('appearance-custom_scale').value=appearance.custom_scale??notchSize;
@@ -1385,7 +1388,7 @@ async function saveAppearance(patch){
  try{appearance=await invoke('set_appearance',{prefs:{...appearance,...patch}});toast();}catch(error){strip(errText(error));}
  finally{appearanceSaving=false;renderAppearance();}
 }
-for(const key of ['show_codex_extra','weekly_dashed','show_usage_pace','claude_daily_pace'])field('appearance-'+key).addEventListener('click',()=>saveAppearance({[key]:!appearance[key]}));
+for(const key of ['show_codex_extra','weekly_dashed','show_usage_pace','claude_daily_pace','folds_for_fullscreen'])field('appearance-'+key).addEventListener('click',()=>saveAppearance({[key]:!appearance[key]}));
 field('appearance-reset_time').addEventListener('change',e=>saveAppearance({reset_time:e.target.value}));
 field('appearance-custom_enabled').addEventListener('change',e=>saveAppearance({custom_scale:e.target.checked?notchSize:null}));
 field('appearance-custom_scale').addEventListener('change',e=>saveAppearance({custom_scale:Number(e.target.value)}));
@@ -1471,12 +1474,13 @@ function renderScreens(){
   cap.hidden = !many;
   if(!many) return;
   sel.textContent = '';
+  const follow=document.createElement('option');follow.value='';follow.textContent=ui('Follow active window','Follow active window');follow.selected=!monitors.some(m=>m.pinned);sel.appendChild(follow);
   for(const m of monitors){
     const o = document.createElement('option');
     o.value = m.id || '';
     o.textContent = m.label + (m.primary ? ' · ' + ui('Main', 'Main') : '');
     if(!m.id) o.disabled = true;
-    if(m.current) o.selected = true;
+    if(m.pinned) o.selected = true;
     sel.appendChild(o);
   }
   const who = monitors.find(m => m.current);

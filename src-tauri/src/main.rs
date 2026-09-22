@@ -17,6 +17,7 @@ mod doctor;
 mod dropzones;
 mod edge_plugins;
 mod focus;
+mod front_window;
 mod glm;
 mod glyphs;
 mod grok;
@@ -172,7 +173,7 @@ pub fn screens(app: &AppHandle) -> Vec<Screen> {
     out
 }
 
-/// The monitor the notch should sit on: the configured one while it is still attached, else primary.
+/// Pin to an attached display, otherwise follow the frontmost window with a primary fallback.
 fn target_screen(app: &AppHandle) -> Option<Screen> {
     let want = {
         let st = app.state::<AppState>();
@@ -186,6 +187,19 @@ fn target_screen(app: &AppHandle) -> Option<Screen> {
             .find(|s| s.name.as_deref() == Some(name.as_str()))
         {
             return Some(s.clone());
+        }
+    }
+    if let Some(window) = front_window::selected() {
+        if let Some(screen) = list
+            .iter()
+            .filter(|s| window.intersection(front_window::screen_rect(s)) > 0.0)
+            .max_by(|a, b| {
+                window
+                    .intersection(front_window::screen_rect(a))
+                    .total_cmp(&window.intersection(front_window::screen_rect(b)))
+            })
+        {
+            return Some(screen.clone());
         }
     }
     list.into_iter().next()
@@ -413,20 +427,28 @@ const WORK_AREA_POLL_MS: u64 = 1000;
 /// once in a session.
 fn start_work_area_watch(app: AppHandle) {
     std::thread::spawn(move || {
-        let mut last = target_screen(&app).map(|s| s.work);
+        let geometry = |s: Screen| (s.x, s.y, s.w, s.h, s.scale.to_bits(), s.work);
+        let mut last = target_screen(&app).map(geometry);
         loop {
             std::thread::sleep(std::time::Duration::from_millis(WORK_AREA_POLL_MS));
-            // Mid-drag the notch is following the pointer, and placing it again would fight that.
             if DRAGGING.load(std::sync::atomic::Ordering::SeqCst) {
                 continue;
             }
-            let now = target_screen(&app).map(|s| s.work);
-            if now == last {
-                continue;
+            let windows = front_window::sample();
+            let screen = target_screen(&app);
+            let fullscreen = screen.as_ref().is_some_and(|s| {
+                windows
+                    .iter()
+                    .any(|w| w.covers(front_window::screen_rect(s), cfg!(target_os = "macos")))
+            });
+            if front_window::set_fullscreen(fullscreen) {
+                let _ = app.emit("fullscreen", fullscreen);
             }
-            applog(&format!("work area changed: {last:?} -> {now:?}"));
-            last = now;
-            place_notch(&app);
+            let now = screen.map(geometry);
+            if now != last {
+                last = now;
+                place_notch(&app);
+            }
         }
     });
 }
@@ -1469,11 +1491,15 @@ fn get_app_icon() -> Option<String> {
 
 // ---------------- what is on screen at all ----------------
 
+static NOTCH_PINNED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 #[derive(serde::Serialize, Clone)]
 struct UiFlags {
     notch_visible: bool,
     notch_on_hover: bool,
     tray_visible: bool,
+    fullscreen: bool,
+    pinned: bool,
 }
 
 fn ui_flags(c: &config::Config) -> UiFlags {
@@ -1481,6 +1507,8 @@ fn ui_flags(c: &config::Config) -> UiFlags {
         notch_visible: c.notch_visible,
         notch_on_hover: c.notch_on_hover,
         tray_visible: c.tray_visible,
+        fullscreen: front_window::fullscreen(),
+        pinned: NOTCH_PINNED.load(std::sync::atomic::Ordering::Relaxed),
     }
 }
 
@@ -1504,6 +1532,10 @@ fn set_ui_flags(
     let flags = {
         let st = app.state::<AppState>();
         let mut c = st.cfg.lock().unwrap();
+        if c.notch_visible != notch_visible || notch_on_hover.is_some_and(|v| v != c.notch_on_hover)
+        {
+            NOTCH_PINNED.store(false, std::sync::atomic::Ordering::Relaxed);
+        }
         c.notch_visible = notch_visible;
         if let Some(on_hover) = notch_on_hover {
             c.notch_on_hover = on_hover;
@@ -1516,22 +1548,18 @@ fn set_ui_flags(
     flags
 }
 
-/// The notch menu's Keep open: the Mac's own shortcut between Always show and Show on hover
-/// (`onToggleKeepOpen` flips `notchVisibility`), so it is the same setting from another place.
+/// Swift's temporary pin is independent of the persistent Show setting.
 pub fn toggle_keep_open(app: &AppHandle) {
-    {
-        let st = app.state::<AppState>();
-        let mut c = st.cfg.lock().unwrap();
-        c.notch_on_hover = !c.notch_on_hover;
-        config::save(&c);
-    }
-    apply_visibility(app);
+    let pinned = !NOTCH_PINNED.fetch_xor(true, std::sync::atomic::Ordering::Relaxed);
+    let _ = app.emit("notch_pinned", pinned);
+}
+#[tauri::command]
+fn toggle_notch_pin(app: AppHandle) {
+    toggle_keep_open(&app);
 }
 
-pub fn keeps_open(app: &AppHandle) -> bool {
-    let st = app.state::<AppState>();
-    let c = st.cfg.lock().unwrap();
-    !c.notch_on_hover
+pub fn keeps_open(_app: &AppHandle) -> bool {
+    NOTCH_PINNED.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 /// Puts the two switches into effect.
@@ -1541,8 +1569,7 @@ pub fn apply_visibility(app: &AppHandle) {
         let c = st.cfg.lock().unwrap();
         (c.notch_visible, c.tray_visible, ui_flags(&c))
     };
-    // The page folds or stays open by these, and the Settings window redraws its Show row from them
-    // when Keep open changed them from the notch's own menu
+    // Pages share the persistent visibility choice and the independent temporary pin.
     let _ = app.emit("ui_flags", flags);
     if let Some(w) = app.get_webview_window("notch") {
         if notch {
@@ -1666,6 +1693,7 @@ pub struct MonitorInfo {
     pub label: String,
     pub primary: bool,
     pub current: bool,
+    pub pinned: bool,
 }
 
 #[tauri::command]
@@ -1683,17 +1711,13 @@ fn get_monitors(app: AppHandle) -> Vec<MonitorInfo> {
             id: s.name.clone(),
             label: format!("{}  {} × {}", i + 1, s.w, s.h),
             primary: i == 0,
-            // With no explicit choice the primary monitor is the one in use
-            current: if want.is_some() {
-                s.name == chosen
-            } else {
-                i == 0
-            },
+            current: s.name == chosen,
+            pinned: want.is_some() && s.name == want,
         })
         .collect()
 }
 
-/// `None` (or a name that is no longer attached) means the primary monitor.
+/// `None` follows the frontmost window; disconnected displays fall back without stranding the notch.
 #[tauri::command]
 fn set_notch_monitor(app: AppHandle, id: Option<String>) {
     {
@@ -1939,6 +1963,7 @@ fn main() {
             drag_begin,
             refresh_ring,
             notchmenu::show_notch_menu,
+            toggle_notch_pin,
             set_hot,
             report_dpr,
             notch_hidden,

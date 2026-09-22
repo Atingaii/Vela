@@ -3,7 +3,7 @@ async function bridge(page,{deny=false,accounts=false}={}){
  await page.addInitScript(({deny,accounts})=>{
   let library={providers:[],mcp:[],skills:[]},enabled=[],prefs={attention:false,done:false};
   let slots=null,phoneEnabled=false,pairing=false,devices=[];
-  let appearance={reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,weekly_dashed:false,custom_scale:null,watch:.5,critical:.7};
+  let appearance={reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,folds_for_fullscreen:true,weekly_dashed:false,custom_scale:null,watch:.5,critical:.7};
   const listeners={};window.emitFixture=(name,payload)=>listeners[name]?.forEach(cb=>cb({payload}));
   window.calls=[];
   window.__TAURI__={core:{invoke:async(cmd,args)=>{
@@ -146,4 +146,35 @@ test('每日份额替代 Claude 主圆环，会话移到细环，关闭后恢复
  await expect(page.locator('.w-pace').first()).toHaveCSS('color','rgb(255, 149, 0)');await expect(page.locator('.w-used .w-pace')).toHaveCount(2);
  const arc=page.locator('svg.ring circle[opacity="0.85"]');const dash=await arc.getAttribute('stroke-dasharray');expect(Number(dash.split(' ')[0])/Number(dash.split(' ')[1])).toBeCloseTo(.8,2);
  await page.evaluate(()=>emitFixture('appearance',{show_usage_pace:false,claude_daily_pace:false}));await expect(page.locator('.cell .pct')).toHaveText('80%');await expect(page.locator('#card .w-label')).toHaveCount(2);await expect(page.locator('.w-pace')).toHaveCount(0);expect(errors).toEqual([]);
+});
+
+
+test('全屏自动收起仍可悬停唤醒，退出全屏或关闭选项后恢复',async({page})=>{
+ await bridge(page);await page.goto('/notch.html');
+ await expect.poll(()=>page.evaluate(()=>calls.some(c=>c.cmd==='get_ui_flags'))).toBe(true);
+ await page.evaluate(()=>emitFixture('fullscreen',true));await expect(page.locator('body')).toHaveClass(/folded/);
+ await page.evaluate(()=>emitFixture('notch_pointer',true));await expect(page.locator('body')).not.toHaveClass(/folded/);
+ await page.evaluate(()=>emitFixture('notch_pointer',false));await expect(page.locator('body')).toHaveClass(/folded/);
+ await page.evaluate(()=>emitFixture('notch_pinned',true));await expect(page.locator('body')).not.toHaveClass(/folded/);
+ await page.evaluate(()=>emitFixture('notch_pinned',false));await expect(page.locator('body')).toHaveClass(/folded/);
+ await page.evaluate(()=>emitFixture('fullscreen',false));await expect(page.locator('body')).not.toHaveClass(/folded/);
+ await page.evaluate(()=>{emitFixture('fullscreen',true);emitFixture('appearance',{folds_for_fullscreen:false});});
+ await expect(page.locator('body')).not.toHaveClass(/folded/);
+});
+test('跟随屏幕与固定屏幕可往返切换，全屏选项默认开启且保存',async({page})=>{
+ await bridge(page);await page.addInitScript(()=>{
+  const invoke=window.__TAURI__.core.invoke;let pinned=null;
+  window.__TAURI__.core.invoke=async(cmd,args)=>{
+   if(cmd==='get_monitors')return ['display1','display2'].map((id,i)=>({id,label:id,primary:i===0,current:id===(pinned||'display2'),pinned:id===pinned}));
+   if(cmd==='set_notch_monitor'){pinned=args.id;window.calls.push({cmd,args});return;}
+   return invoke(cmd,args);
+  };
+ });
+ await page.goto('/settings.html');await page.locator('#tab-appearance').click();
+ await expect(page.locator('#screen')).toHaveValue('');await page.locator('#screen').selectOption('display1');await expect(page.locator('#screen')).toHaveValue('display1');
+ await page.locator('#screen').selectOption('');await expect(page.locator('#screen')).toHaveValue('');
+ expect(await page.evaluate(()=>calls.filter(c=>c.cmd==='set_notch_monitor').at(-1).args.id)).toBe(null);
+ await expect(page.locator('#appearance-folds_for_fullscreen')).toHaveAttribute('aria-checked','true');
+ await page.locator('#appearance-folds_for_fullscreen').click();await expect(page.locator('#appearance-folds_for_fullscreen')).toHaveAttribute('aria-checked','false');
+ expect(await page.evaluate(()=>calls.filter(c=>c.cmd==='set_appearance').at(-1).args.prefs.folds_for_fullscreen)).toBe(false);
 });
