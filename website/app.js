@@ -19,16 +19,30 @@ function redirectLegacySection(){
 redirectLegacySection();
 window.addEventListener('hashchange',redirectLegacySection);
 
-const examples={
-  claude:{name:'Claude',used:38,status:'运行中',period:'当前会话',reset:'2 小时后重置',task:'正在处理你的任务'},
-  codex:{name:'Codex',used:62,status:'等待回应',period:'短期窗口',reset:'3 小时后重置',task:'有一步需要你确认'},
-  cursor:{name:'Cursor',used:19,status:'已完成',period:'当前周期',reset:'12 天后重置',task:'任务完成，可以继续了'}
-};
-const demoTools=[...document.querySelectorAll('[data-tool]')];
-function showExample(key){
-  const value=examples[key];if(!value)return;
-  for(const button of demoTools){const selected=button.dataset.tool===key;button.classList.toggle('is-selected',selected);button.setAttribute('aria-pressed',String(selected));}
-  for(const [id,text] of Object.entries({'demo-name':value.name,'demo-used':`${value.used}%`,'demo-status':value.status,'demo-period':value.period,'demo-reset':value.reset,'demo-task':value.task}))document.getElementById(id).textContent=text;
-  const meter=document.querySelector('.demo-meter');meter.setAttribute('aria-valuenow',String(value.used));meter.setAttribute('aria-label',`${value.name} 示例已用额度`);meter.firstElementChild.style.width=`${value.used}%`;
+// Original image links still work without JavaScript; the dialog adds in-page zoom.
+const imageLinks=[...document.querySelectorAll('[data-lightbox]')];
+if(imageLinks.length){
+ const viewer=document.createElement('dialog');viewer.className='screenshot-viewer';viewer.setAttribute('aria-labelledby','viewer-title');
+ const bar=document.createElement('div');bar.className='viewer-toolbar';
+ const title=document.createElement('h2');title.id='viewer-title';
+ const original=document.createElement('a');original.textContent='打开原图 ↗';original.target='_blank';original.rel='noopener';
+ const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','关闭截图');
+ const scroll=document.createElement('div');scroll.className='viewer-scroll';scroll.tabIndex=0;scroll.setAttribute('aria-label','高清截图，可滚动查看细节');
+ const image=document.createElement('img');scroll.append(image);bar.append(title,original,close);viewer.append(bar,scroll);document.body.append(viewer);
+ close.addEventListener('click',()=>viewer.close());
+ viewer.addEventListener('click',e=>{if(e.target===viewer)viewer.close();});
+ viewer.addEventListener('close',()=>root.classList.remove('viewer-open'));
+ for(const link of imageLinks)link.addEventListener('click',e=>{
+  if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;
+  e.preventDefault();const source=link.querySelector('img');title.textContent=source.alt;image.src=source.src;image.alt=source.alt;image.dataset.wide=String(source.width>600||source.naturalWidth>1000);original.href=link.href;
+  viewer.showModal();root.classList.add('viewer-open');scroll.scrollTop=0;scroll.scrollLeft=0;close.focus();
+ });
 }
-for(const button of demoTools){for(const event of ['mouseenter','focus','click'])button.addEventListener(event,()=>showExample(button.dataset.tool));}
+
+// Keep the download as an ordinary file link; show the next steps, not fake progress.
+const downloadNext=document.getElementById('download-next');
+if(downloadNext){
+ for(const link of document.querySelectorAll('[data-download-platform="macos"]'))link.addEventListener('click',()=>{
+  downloadNext.hidden=false;downloadNext.focus({preventScroll:true});downloadNext.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+ });
+}

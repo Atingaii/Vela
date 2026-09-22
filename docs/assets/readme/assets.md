@@ -39,3 +39,9 @@ Use case: logo-brand. Create a finished premium open-source software README hero
 ## 品牌更名
 
 内置 imagegen 基于原头图编辑，仅将 Vela 字样更正为 Velo，保存为 `velo-hero.png`。编辑提示词：Replace the large word "Vela" with exactly "Velo"; preserve the composition, tagline, sculpture, palette, textures and aspect ratio. 原头图保留作历史素材。
+
+## 官网详细界面截图（2026-09-23）
+
+`website/assets/product-usage.png`、`product-accounts.png`、`product-appearance.png`、`product-position.png`、`product-notifications.png` 直接来自当前 `src-tauri/ui`。使用 2x 分辨率、原有界面样式；用量图保留透明背景，外观位置截图只滚动真实设置面板。截图不是重新绘制的 UI，也不是原生进程或真实账户运行证据。
+
+复用上面的 glyph fixture 生成方法，将输出目录改为 `output/playwright/velo-product/`。在 `npm run preview` 后，通过 Playwright CLI 运行 `docs/assets/readme/capture-product.js`。账户与额度仍来自 `demo-bridge.js`，捕获代码不修改产品源码，产物直接写入 website/assets。

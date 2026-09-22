@@ -18,6 +18,7 @@
 <header class="site-header"><nav class="nav shell" aria-label="主导航">
 <a class="brand" href="/" aria-label="Velo 首页"><img src="/assets/mark.svg" alt="" width="28" height="28">Velo</a>
 <div class="nav-actions">
+<a class="guide-link" href="/product/">产品说明</a>
 <a class="guide-link" href="/guide/">使用指南</a>
 <button id="theme" class="icon-button" aria-label="切换到深色模式" title="切换主题"><span aria-hidden="true">◐</span></button>
 <a class="button primary nav-download" href="/download/">下载 Velo <span aria-hidden="true">↓</span></a>
@@ -30,28 +31,13 @@
 <h1>Your tools.<br>Your limits.<br><span class="muted-heading">In view.</span></h1>
 <p class="hero-zh">AI 编程状态，抬眼即见。</p>
 <p class="intro">额度还剩多少，任务有没有完成，什么时候需要你回应。<br class="desktop-break">Velo 把这些信息收进屏幕边缘，让你继续专注眼前的工作。</p>
-<div class="actions"><a class="button primary" href="/download/">下载预览版 <span aria-hidden="true">↓</span></a><a class="button secondary" href="/guide/">使用指南 <span aria-hidden="true">↗</span></a></div>
-<p class="fine">macOS & Windows · MIT · 0.1.0 Preview</p>
+<div class="actions"><a class="button primary" href="/download/">下载预览版 <span aria-hidden="true">↓</span></a><a class="button secondary" href="/product/">了解产品 <span aria-hidden="true">↗</span></a></div>
+<p class="fine">macOS & Windows · MIT · 0.1.0 Preview<br><a href="/guide/#macos-open">Mac 首次打开需要手动允许 ↗</a></p>
 </div>
-<figure class="product-demo" aria-labelledby="demo-caption">
-<div class="demo-window">
-<div class="demo-window-bar"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>你的工作空间</span><span class="demo-window-tag">VELO</span></div>
-<div class="demo-canvas">
-<div class="demo-work" aria-hidden="true"><span class="work-label">KEEP YOUR FLOW</span><span class="work-title">专注在手上的事。</span><div class="work-lines"><i></i><i></i><i></i><i></i></div><span class="work-note">状态，留给边缘。</span></div>
-<div class="demo-detail" id="demo-detail" aria-live="polite" aria-atomic="true">
-<div class="demo-detail-heading"><strong id="demo-name">Claude</strong><span class="demo-status" id="demo-status">运行中</span></div>
-<div class="demo-amount"><span id="demo-used">38%</span><span>已用额度</span></div>
-<div class="demo-meter" role="progressbar" aria-label="Claude 示例已用额度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="38"><span></span></div>
-<div class="demo-reset"><span id="demo-period">当前会话</span><span id="demo-reset">2 小时后重置</span></div>
-<div class="demo-detail-foot"><span class="status-dot" aria-hidden="true"></span><span id="demo-task">正在处理你的任务</span></div>
-</div>
-<div class="demo-edge" role="group" aria-label="切换工具示例">
-<button type="button" class="demo-tool is-selected" data-tool="claude" aria-pressed="true" aria-label="查看 Claude 示例额度 38%" aria-controls="demo-detail"><span class="demo-ring ring-claude"><span>Cl</span></span><span>38%</span></button>
-<button type="button" class="demo-tool" data-tool="codex" aria-pressed="false" aria-label="查看 Codex 示例额度 62%" aria-controls="demo-detail"><span class="demo-ring ring-codex"><span>Cx</span></span><span>62%</span></button>
-<button type="button" class="demo-tool" data-tool="cursor" aria-pressed="false" aria-label="查看 Cursor 示例额度 19%" aria-controls="demo-detail"><span class="demo-ring ring-cursor"><span>Cu</span></span><span>19%</span></button>
-</div>
-</div></div>
-<figcaption id="demo-caption"><span>选择圆环，查看状态。</span><span>交互示意 · 示例数据</span></figcaption>
+<figure class="hero-product-shot">
+<div class="shot-label"><span>VELO IN ACTION</span><a href="/product/">查看产品说明 ↗</a></div>
+<a class="shot-canvas" href="/assets/product-usage.png" data-lightbox aria-label="放大用量圆环与悬浮详情截图"><img src="/assets/product-usage.png" alt="Velo 实际用量界面：Claude 会话及每周额度、重置时间，右侧为 Claude、Codex、Cursor 圆环。演示数据。" width="700" height="940" fetchpriority="high"></a>
+<figcaption><strong>用量与状态，就在屏幕边缘。</strong><span>当前界面截图 · 演示数据 · 点击放大</span></figcaption>
 </figure>
 </section>
 <div class="integrations shell" aria-label="集成示例"><span class="section-label">与你熟悉的工具一起工作</span><div><span>Claude Code</span><span>Codex</span><span>Cursor</span><span>Antigravity</span><span>+ 更多集成</span></div><p>具体能力依集成而异，完整状态见 <a href="https://github.com/Atingaii/Velo/blob/main/docs/migration-parity.md">功能核对表 ↗</a></p></div>
@@ -70,5 +56,5 @@
 
 </main>
 <footer class="shell site-footer"><a class="brand" href="/">Velo<span class="fine">Your AI workflow, at a glance.</span></a>
-<nav aria-label="页脚导航"><a href="/guide/">使用指南</a><a href="https://github.com/Atingaii/Velo/releases">更新记录 ↗</a><a href="https://github.com/Atingaii/Velo">GitHub ↗</a><a href="https://github.com/Atingaii/Velo/blob/main/LICENSE">MIT License</a><a href="https://github.com/Atingaii/Velo/blob/main/THIRD_PARTY_NOTICES.md">来源与致谢</a></nav></footer>
+<nav aria-label="页脚导航"><a href="/product/">产品说明</a><a href="/guide/">使用指南</a><a href="https://github.com/Atingaii/Velo/releases">更新记录 ↗</a><a href="https://github.com/Atingaii/Velo">GitHub ↗</a><a href="https://github.com/Atingaii/Velo/blob/main/LICENSE">MIT License</a><a href="https://github.com/Atingaii/Velo/blob/main/THIRD_PARTY_NOTICES.md">来源与致谢</a></nav></footer>
 </body></html>

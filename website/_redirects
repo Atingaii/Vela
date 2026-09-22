@@ -1,7 +1,5 @@
 /en / 302
 /en/* / 302
-/product /#features 301
-/product/* /#features 301
 /usecases /#features 301
 /usecases/* /#features 301
 /integrations /#features 301
