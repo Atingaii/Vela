@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 2
+- **Total Sessions**: 3
 - **Last Active**: 2026-09-22
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~87 | Active |
+| `journal-1.md` | ~112 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 3 | 2026-09-22 | Velo preview release and production website | `1a00178`, `d0df59a`, `c5bef30`, `0c99f52` | `main` |
 | 2 | 2026-09-22 | README 产品介绍与品牌配图 | `da56dbc` | `main` |
 | 1 | 2026-09-22 | Swift 迁移：提醒、额度元数据与独立账户活动 | `2b48d35`, `7031640`, `d60b3fb`, `4723174` | `main` |
 <!-- @@@/auto:session-history -->

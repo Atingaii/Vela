@@ -85,3 +85,28 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 3: Velo preview release and production website
+<!-- trellis-session: v=2 fp=23fb65212999b3c1 -->
+
+**Date**: 2026-09-22
+**Task**: Velo preview release and production website
+**Branch**: `main`
+
+### Summary
+
+Renamed repository and visible product to Velo; filled GitHub About and velo.codes homepage. Published v0.1.0-preview.4 with ARM64/Intel DMGs and Windows NSIS after successful CI 35741468475 and installed-native release gates 35741472156. Public assets downloaded and SHA-256 verified; ARM64 DMG installed and smoke-tested locally. Preserved website visual style and deployed existing Cloudflare Pages velo production 4dc336e0-2cf5-4ff6-9086-d8ed36b24b65; desktop/mobile/theme/download checks passed. Evidence retained in docs/evidence. Preview is not Apple-notarized or Windows-code-signed; live accounts and full parity remain unverified. Cleaned task-only downloads, installed copies, browser logs and helper build artifacts; retained source and dependencies.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1a00178` | feat: ship Velo preview packages with installed native smoke gates |
+| `d0df59a` | feat: refresh Velo website and download documentation |
+| `c5bef30` | fix: launch the renamed Velo binary from bundled hooks |
+| `0c99f52` | docs: record verified Velo release and production deployment [skip ci] |
+
+### Status
+
+[OK] **Completed**
