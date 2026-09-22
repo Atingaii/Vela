@@ -14,12 +14,10 @@
 //!     rollout, with a silence threshold that depends on the entry type.
 //!   - Claude cloud sessions: no local transcript, so they are inferred from the desktop app's
 //!     network throughput (marked ~).
-//!   - Antigravity: transcript.jsonl is appended during a run (each step is written only once it
-//!     completes, so status is always DONE and useless); written within the last 45 s = working
-//!     (the model can think for a long time between steps, hence the wide window).
+//!   - Antigravity: bounded transcript tail + read-only permission status, matching Swift.
 //!
 //! Polled every 2 s (upstream cadence), broadcast only on change. Cost discipline: database
-//! connections stay open, nothing is re-queried unless the file's mtime changed, the rollout tail
+//! Cursor/Codex connections stay open, their queries are gated by mtime; the Codex rollout tail
 //! is re-read only when its mtime changed, PowerShell runs only occasionally to find the network
 //! process pid, and the thread runs at lowered priority.
 
@@ -29,7 +27,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
 const INTERVAL: Duration = Duration::from_secs(2);
-const ANTIGRAVITY_STALE_MS: u64 = 45_000;
+mod antigravity;
 
 #[derive(Clone, Serialize, Debug, PartialEq)]
 pub struct Activity {
@@ -37,10 +35,11 @@ pub struct Activity {
     pub id: String,
     /// Provider id other than claude: codex / cursor / gemini
     pub provider: String,
-    /// busy | waiting
+    /// busy | waiting | success | idle
     pub state: String,
     pub name: String,
     pub detail: String,
+    pub waiting_for: Option<String>,
     /// ms epoch
     pub since: u64,
 }
@@ -126,6 +125,7 @@ impl DbCache {
 /// Everything the probe thread keeps between ticks
 struct Ctx {
     cursor: DbCache,
+    codex_home: std::path::PathBuf,
     codex_turns: DbCache,
     codex_names: Option<rusqlite::Connection>,
     rollout_path: Option<std::path::PathBuf>,
@@ -136,10 +136,13 @@ struct Ctx {
 
 impl Ctx {
     fn new() -> Self {
-        let home = dirs::home_dir().unwrap_or_default();
+        Self::for_codex(dirs::home_dir().unwrap_or_default().join(".codex"))
+    }
+    fn for_codex(home: std::path::PathBuf) -> Self {
         Self {
             cursor: DbCache::new(crate::cursor::store_url().unwrap_or_default()),
-            codex_turns: DbCache::new(home.join(".codex").join("thread_history_1.sqlite")),
+            codex_turns: DbCache::new(home.join("thread_history_1.sqlite")),
+            codex_home: home,
             codex_names: None,
             rollout_path: None,
             rollout_checked_at: 0,
@@ -196,6 +199,7 @@ fn cursor_activity(ctx: &mut Ctx) -> Vec<Activity> {
                 } else {
                     v.get("subtitle").and_then(|x| x.as_str()).unwrap_or("Working").to_string()
                 },
+                waiting_for: blocked.then(|| "needs your input".into()),
                 since,
             });
         }
@@ -278,8 +282,7 @@ fn codex_last_step(text: &str) -> Option<(CodexStep, u64)> {
 fn codex_turns_in_progress(ctx: &mut Ctx) -> Vec<Activity> {
     let now = now_ms();
     if ctx.codex_names.is_none() {
-        ctx.codex_names =
-            dirs::home_dir().and_then(|h| open_ro(&h.join(".codex").join("state_5.sqlite")));
+        ctx.codex_names = open_ro(&ctx.codex_home.join("state_5.sqlite"));
     }
     let names = ctx.codex_names.as_ref();
     ctx.codex_turns.refresh(|conn| {
@@ -336,6 +339,7 @@ fn codex_turns_in_progress(ctx: &mut Ctx) -> Vec<Activity> {
                 state: if waiting { "waiting" } else { "busy" }.into(),
                 name,
                 detail: if waiting { "needs your input".into() } else { "Working".into() },
+                waiting_for: waiting.then(|| "needs your input".into()),
                 since: started_ms,
             });
         }
@@ -353,7 +357,7 @@ fn codex_activity(ctx: &mut Ctx) -> Vec<Activity> {
     let now = now_ms();
     if now.saturating_sub(ctx.rollout_checked_at) > 30_000 || ctx.rollout_path.is_none() {
         ctx.rollout_checked_at = now;
-        ctx.rollout_path = crate::codex::newest_rollout();
+        ctx.rollout_path = crate::codex::newest_rollout_in(&ctx.codex_home);
     }
     let Some(p) = ctx.rollout_path.clone() else {
         return vec![];
@@ -390,6 +394,7 @@ fn codex_activity(ctx: &mut Ctx) -> Vec<Activity> {
                     state: "busy".into(),
                     name: "Codex".into(),
                     detail: "Working".into(),
+                    waiting_for: None,
                     since: at,
                 }];
             }
@@ -559,6 +564,7 @@ fn claude_activity() -> Vec<Activity> {
             state: "busy".into(),
             name: "Claude".into(),
             detail: "Streaming (network)".into(),
+            waiting_for: None,
             since: last,
         }]
     } else {
@@ -569,35 +575,10 @@ fn claude_activity() -> Vec<Activity> {
 // ---------------- Antigravity ----------------
 
 fn antigravity_activity() -> Vec<Activity> {
-    let mut newest: Option<(String, u64)> = None;
-    let brains = crate::antigravity::state_roots()
-        .into_iter()
-        .filter_map(|r| std::fs::read_dir(r.join("brain")).ok());
-    for e in brains.flat_map(|rd| rd.flatten()) {
-        let t = e
-            .path()
-            .join(".system_generated")
-            .join("logs")
-            .join("transcript.jsonl");
-        let Some(m) = mtime_ms(&t) else { continue };
-        if newest.as_ref().map(|(_, n)| m > *n).unwrap_or(true) {
-            newest = Some((e.file_name().to_string_lossy().to_string(), m));
-        }
-    }
-    let Some((session_id, at)) = newest else {
-        return vec![];
-    };
-    if now_ms().saturating_sub(at) > ANTIGRAVITY_STALE_MS {
-        return vec![];
-    }
-    vec![Activity {
-        id: format!("antigravity-{session_id}"),
-        provider: "gemini".into(),
-        state: "busy".into(),
-        name: "Antigravity".into(),
-        detail: "Working".into(),
-        since: at,
-    }]
+    antigravity_activity_in(&crate::antigravity::state_roots())
+}
+fn antigravity_activity_in(roots: &[std::path::PathBuf]) -> Vec<Activity> {
+    antigravity::read(roots, now_ms())
 }
 
 // ---------------- Putting it together ----------------
@@ -617,19 +598,26 @@ fn presence() -> Presence {
     }
 }
 
-fn read_all(p: Presence, ctx: &mut Ctx) -> Vec<Activity> {
-    let mut all = Vec::new();
-    all.extend(claude_activity());
-    if p.cursor {
-        all.extend(cursor_activity(ctx));
-    }
-    if p.codex {
-        all.extend(codex_activity(ctx));
-    }
-    if p.gemini {
-        all.extend(antigravity_activity());
-    }
-    all
+fn profile_activity(
+    profile: &crate::providers::profiles::Profile,
+    contexts: &mut std::collections::BTreeMap<String, Ctx>,
+) -> Vec<Activity> {
+    let rows = match profile.kind {
+        "codex" => codex_activity(
+            contexts
+                .entry(profile.id.clone())
+                .or_insert_with(|| Ctx::for_codex(profile.home.clone())),
+        ),
+        "antigravity" => antigravity_activity_in(std::slice::from_ref(&profile.home)),
+        _ => Vec::new(),
+    };
+    rows.into_iter()
+        .map(|mut row| {
+            row.id = format!("{}:{}", profile.id, row.id);
+            row.provider = profile.id.clone();
+            row
+        })
+        .collect()
 }
 
 /// For doctor: the raw material behind the Codex working-state decision
@@ -691,14 +679,43 @@ pub fn start(app: AppHandle) {
         let mut ctx = Ctx::new();
         let mut last: Vec<Activity> = Vec::new();
         let mut pres = presence();
+        let mut profiles = Vec::new();
+        let mut contexts = std::collections::BTreeMap::new();
         let mut tick: u32 = 0;
         loop {
             // Presence checks (finding the exe, reading credentials) once a minute are plenty; the 2 s tick does only stats and a query
             if tick.is_multiple_of(30) {
                 pres = presence();
+                profiles =
+                    crate::providers::profiles::discover(&dirs::home_dir().unwrap_or_default());
+                contexts.retain(|id, _| profiles.iter().any(|p| &p.id == id));
             }
             tick = tick.wrapping_add(1);
-            let found = read_all(pres, &mut ctx);
+            let disabled = app
+                .state::<AppState>()
+                .cfg
+                .lock()
+                .unwrap()
+                .providers
+                .disabled
+                .clone();
+            let mut found = Vec::new();
+            if !disabled.contains("claude") {
+                found.extend(claude_activity());
+            }
+            if pres.cursor && !disabled.contains("cursor") {
+                found.extend(cursor_activity(&mut ctx));
+            }
+            if pres.codex && !disabled.contains("codex") {
+                found.extend(codex_activity(&mut ctx));
+            }
+            if pres.gemini && !disabled.contains("gemini") {
+                found.extend(antigravity_activity());
+            }
+            for profile in profiles.iter().filter(|p| !disabled.contains(&p.id)) {
+                found.extend(profile_activity(profile, &mut contexts));
+            }
+            contexts.retain(|id, _| !disabled.contains(id));
             if found != last {
                 // Log the first 20 state changes (with the Codex raw material) so thresholds can be calibrated
                 static LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
@@ -722,4 +739,59 @@ pub fn start(app: AppHandle) {
             std::thread::sleep(INTERVAL);
         }
     });
+}
+
+#[cfg(test)]
+mod account_tests {
+    use super::*;
+    fn codex_fixture(home: &std::path::Path, title: &str) {
+        std::fs::create_dir_all(home).unwrap();
+        let conn = rusqlite::Connection::open(home.join("thread_history_1.sqlite")).unwrap();
+        conn.execute_batch("CREATE TABLE thread_turns(thread_id TEXT,status TEXT,started_at INTEGER); CREATE TABLE thread_items(thread_id TEXT,created_at_ms INTEGER,item_type TEXT);").unwrap();
+        conn.execute(
+            "INSERT INTO thread_turns VALUES ('same-thread','inProgress',?1)",
+            [now_ms() as i64],
+        )
+        .unwrap();
+        let names = rusqlite::Connection::open(home.join("state_5.sqlite")).unwrap();
+        names.execute_batch("CREATE TABLE threads(id TEXT,title TEXT,first_user_message TEXT,agent_nickname TEXT);").unwrap();
+        names
+            .execute(
+                "INSERT INTO threads VALUES ('same-thread',?1,'','')",
+                [title],
+            )
+            .unwrap();
+    }
+    #[test]
+    fn codex_profiles_use_their_own_turns_names_and_stable_ids() {
+        let d = tempfile::tempdir().unwrap();
+        let mut contexts = std::collections::BTreeMap::new();
+        let make = |slug: &str| crate::providers::profiles::Profile {
+            id: format!("codex-{slug}"),
+            name: slug.into(),
+            kind: "codex",
+            home: d.path().join(slug),
+            headline: "primary",
+        };
+        let work = make("work");
+        let personal = make("personal");
+        codex_fixture(&work.home, "Work fixture");
+        codex_fixture(&personal.home, "Personal fixture");
+        let a = profile_activity(&work, &mut contexts);
+        let b = profile_activity(&personal, &mut contexts);
+        assert_eq!(a[0].name, "Work fixture");
+        assert_eq!(b[0].name, "Personal fixture");
+        assert_eq!(a[0].provider, "codex-work");
+        assert_ne!(a[0].id, b[0].id);
+        assert_eq!(profile_activity(&work, &mut contexts)[0].id, a[0].id);
+    }
+    #[test]
+    fn antigravity_profile_does_not_borrow_another_accounts_transcript() {
+        let d = tempfile::tempdir().unwrap();
+        let path = d.path().join("work/brain/fixture/.system_generated/logs");
+        std::fs::create_dir_all(&path).unwrap();
+        std::fs::write(path.join("transcript.jsonl"), "{\"type\":\"USER_INPUT\"}\n").unwrap();
+        assert_eq!(antigravity_activity_in(&[d.path().join("work")]).len(), 1);
+        assert!(antigravity_activity_in(&[d.path().join("personal")]).is_empty());
+    }
 }

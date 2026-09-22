@@ -7,7 +7,7 @@
 | 范围 | 基准能力 | 状态 |
 | --- | --- | --- |
 | 原有供应商 | Claude、Codex、Cursor、Antigravity、GLM、Grok | 已有，核对中 |
-| 独立账户 | Claude / Codex / Antigravity profile，各自圆环、活动与启停 | 待补齐 |
+| 独立账户 | Claude / Codex / Antigravity profile，各自圆环、活动与启停 | Codex / Antigravity 活动已按账户读取，Claude 活动及完整原生验收待补齐 |
 | 新供应商 | MiniMax、Devin、OpenCode、Command Code、GitHub Copilot、Kimi、Kiro、Ollama Cloud、Gemini API | 已移植解析与串行采集，真实账户与异常语义待验收 |
 | 网页会话 | DeepSeek、MiniMax、QianwenAI 的显式登录、退出和用量解析 | 待迁移 |
 | 本地运行时 | Ollama、LM Studio 模型发现、上下文、速度、活动、日用量；Ollama 显式中转 | 待迁移 |
@@ -51,3 +51,5 @@
 2026-09-22 提醒阶段检查：Rust 175 通过、3 忽略；Node 10 通过；Playwright 14 通过，覆盖独立额度卡片、关闭、完成只展开和返回会话。重置/耗尽分别持续 5/6 秒；批量完成只选最新会话，固定 Swift 基准没有提醒队列。卡片计时与完成展开独立。`a54201f` 的 macOS / Windows / browser CI 全部通过（[run 35729501896](https://github.com/Atingaii/Vela/actions/runs/35729501896)），不含后续提醒修改。原生通知权限、真实终端定位与完整视觉一致性仍待验证。
 
 2026-09-22 用量元数据阶段检查：Rust 180 通过、3 忽略；Node 10 通过；Playwright 15 通过。修复 Kimi `TIME_UNIT_*` 字段导致的 5 小时窗口遗漏、Copilot 剩余次数与已用次数混淆；恢复 MiniMax boost 计数与 Claude/Codex/Kimi/Copilot/MiniMax/OpenCode/Command Code 的已知套餐字段，桌面卡片与手机快照共享。旧缓存兼容，手机 backoff 保留原采集时间；未因此完成全部供应商元数据、block 或手机真实互通验收。
+
+2026-09-22 活动阶段检查：Rust 188 通过、3 忽略；Node 10 通过；Playwright 17 通过；HTML 脚本检查通过。Codex 独立账户使用各自 turns/names/rollout，Antigravity 迁移提问/批准/权限等待、9 秒完成与 60 秒工作超时、跨安装目录有效会话选择。桌面恢复完成脉冲与状态优先级，手机保留 waitingFor 并按 v3 将 success 映射 idle。停用账户不采样。`7031640` 的 macOS / Windows / browser CI 全部通过（[run 35732551138](https://github.com/Atingaii/Vela/actions/runs/35732551138)），不含本次活动改动。跨供应商完成通知、Claude profile 活动、原生实测仍未完成。

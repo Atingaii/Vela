@@ -3,7 +3,7 @@
 mod gemini_logs;
 mod kiro;
 mod parse;
-mod profiles;
+pub(crate) mod profiles;
 mod transport;
 
 use crate::usage::UsageSnapshot;

@@ -222,3 +222,50 @@ test('账户套餐和剩余次数保留原始含义，无上限不画百分比�
  await expect(page.locator('.w-track')).toHaveCount(0);
  await expect(page.locator('.cell .pct')).toHaveText('75');
 });
+
+test('独立账户仅显示属于自己的活动圆环与会话',async({page})=>{
+ await page.setViewportSize({width:360,height:650});await bridge(page);await page.addInitScript(()=>{
+  const invoke=window.__TAURI__.core.invoke;
+  window.__TAURI__.core.invoke=async(cmd,args)=>{
+   if(cmd==='get_notch_slots')return [{provider:'codex-work'},{provider:'codex-personal'}];
+   if(cmd==='get_providers')return ['work','personal'].map(slug=>({id:'codex-'+slug,name:'Codex ('+slug+')',headline:'primary',enabled:true,snap:{status:'ok',windows:[{id:'primary',label:'5-hour',used:.1}],fetched_at:Date.now()}}));
+   if(cmd==='get_activity')return [{id:'codex-work:thread',provider:'codex-work',state:'busy',name:'Work fixture',detail:'Working',since:Date.now()}];
+   if(cmd==='get_state')return {sessions:[],agg:'idle',lang_resolved:'en'};
+   return invoke(cmd,args);
+  };
+ });
+ await page.goto('/notch.html');await expect(page.locator('.cell')).toHaveCount(2);
+ await expect(page.locator('[data-p="codex-work"] .arc-spin')).toHaveCount(1);
+ await expect(page.locator('[data-p="codex-personal"] .arc-spin')).toHaveCount(0);
+ await page.locator('[data-p="codex-personal"]').hover();await expect(page.locator('#card')).not.toContainText('Work fixture');
+ await page.locator('[data-p="codex-work"]').hover();await expect(page.locator('#card')).toContainText('Work fixture');
+});
+
+test('Antigravity 等待原因、完成脉冲和会话优先级保持原版语义',async({page})=>{
+ await page.setViewportSize({width:360,height:650});await bridge(page);await page.addInitScript(()=>{
+  const invoke=window.__TAURI__.core.invoke;
+  window.__TAURI__.core.invoke=async(cmd,args)=>{
+   if(cmd==='get_notch_slots')return [{provider:'gemini'}];
+   if(cmd==='get_antigravity')return {status:'ok',windows:[{id:'model',label:'Model',used:.1}],fetched_at:Date.now()};
+   if(cmd==='get_activity')return [{id:'antigravity-fixture',provider:'gemini',state:'waiting',name:'Antigravity',detail:'Permission',waiting_for:'Permission',since:Date.now()}];
+   if(cmd==='get_state')return {sessions:[],agg:'idle',lang_resolved:'zh'};
+   return invoke(cmd,args);
+  };
+ });
+ await page.goto('/notch.html');await expect(page.locator('.cell')).toHaveCount(1);
+ await expect(page.locator('.arc-pulse circle')).toHaveAttribute('stroke','#F2FF00');
+ await page.locator('.cell').hover();await expect(page.locator('.c-sessions')).toContainText('权限');
+ await page.evaluate(()=>emitFixture('activity',[{id:'antigravity-fixture',provider:'gemini',state:'success',name:'Antigravity',detail:'Complete',waiting_for:null,since:Date.now()}]));
+ await expect(page.locator('.arc-pulse circle')).toHaveAttribute('stroke','#00FF88');
+ await expect(page.locator('.c-sessions')).toContainText('已完成');
+ await expect(page.locator('.s-dot')).toHaveCSS('background-color','rgb(0, 255, 136)');
+ await page.evaluate(()=>emitFixture('activity',[
+  {id:'done',provider:'gemini',state:'success',name:'Completed fixture',detail:'Complete',since:3000},
+  {id:'busy',provider:'gemini',state:'busy',name:'Busy fixture',detail:'Working',since:2000},
+  {id:'wait',provider:'gemini',state:'waiting',name:'Waiting fixture',detail:'Question',waiting_for:'Question',since:1000}
+ ]));
+ await expect(page.locator('.s-row').first()).toContainText('Waiting fixture');
+ await expect(page.locator('.s-row').nth(1)).toContainText('Busy fixture');
+ await expect(page.locator('.arc-pulse circle')).toHaveAttribute('stroke','#F2FF00');
+ await page.evaluate(()=>emitFixture('activity',[]));await expect(page.locator('.arc-pulse')).toHaveCount(0);
+});

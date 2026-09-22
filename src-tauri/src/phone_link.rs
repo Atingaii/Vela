@@ -591,8 +591,18 @@ fn snapshot(app: &AppHandle) -> Value {
         .snapshot(&cfg.lang, &crate::resolved_lang(&cfg.lang), true, false)
         .sessions;
     let mut sessions:Vec<_>=sessions.into_iter().map(|s|json!({"id":s.id,"name":s.title,"detail":s.last,"state":match s.state.as_str(){"running"=>"busy","attention"=>"waiting",_=>"idle"},"waitingFor":if s.attn.is_empty(){None}else{Some(s.attn)},"since":iso(s.started)})).collect();
-    sessions.extend(st.activity.lock().unwrap().iter().map(|s|json!({"id":s.id,"name":s.name,"detail":s.detail,"state":s.state,"waitingFor":null,"since":iso(s.since)})));
+    sessions.extend(st.activity.lock().unwrap().iter().map(activity_json));
     json!({"server":{"name":name(),"version":crate::BUILD,"generatedAt":iso(crate::now_ms()),"demo":false},"providers":providers,"sessions":sessions})
+}
+
+fn activity_json(s: &crate::activity::Activity) -> Value {
+    // v3 has busy/waiting/idle only, including during the desktop success pulse.
+    let state = match s.state.as_str() {
+        "busy" => "busy",
+        "waiting" => "waiting",
+        _ => "idle",
+    };
+    json!({"id":s.id,"name":s.name,"detail":s.detail,"state":state,"waitingFor":s.waiting_for,"since":iso(s.since)})
 }
 
 /// Pure wire projection: no inferred denominators or plans, and explicit nulls as in v3.
@@ -687,5 +697,34 @@ mod snapshot_tests {
             provider_json("kimi", "Kimi", &s, None)["status"]["kind"],
             "error"
         );
+    }
+}
+
+#[cfg(test)]
+mod activity_wire_tests {
+    use super::*;
+    #[test]
+    fn waiting_reason_survives_and_success_uses_v3_idle() {
+        let mut s = crate::activity::Activity {
+            id: "antigravity-work:fixture".into(),
+            provider: "antigravity-work".into(),
+            state: "waiting".into(),
+            name: "Antigravity".into(),
+            detail: "Permission".into(),
+            waiting_for: Some("Permission".into()),
+            since: 1000,
+        };
+        let v = activity_json(&s);
+        assert_eq!(v["waitingFor"], "Permission");
+        assert_eq!(v["state"], "waiting");
+        assert_eq!(v["id"], s.id);
+        assert_eq!(v["since"], "1970-01-01T00:00:01Z");
+        s.state = "success".into();
+        s.detail = "Complete".into();
+        s.waiting_for = None;
+        let v = activity_json(&s);
+        assert_eq!(v["state"], "idle");
+        assert_eq!(v["detail"], "Complete");
+        assert!(v["waitingFor"].is_null());
     }
 }

@@ -270,8 +270,7 @@ const listen = window.__TAURI__.event.listen;
 
 /* Colour ramp (upstream palette values) */
 const AMPLE='#00FF88', WATCH='#F2FF00', CRIT='#FF3F00';
-// The status arc is neutral on purpose: the ring behind it is coloured by how much of the limit
-// is gone, and a green arc inside it reads as part of that scale. Waiting borrows the warning yellow.
+// Working stays neutral; waiting and completion pulse with the corresponding Swift palette color.
 const TRACK='#303030', INK='#ffffff', DIM='#808080';
 let appearance={reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,folds_for_fullscreen:true,weekly_dashed:false,watch:.5,critical:.7};
 const tone=f=> f>=appearance.critical?CRIT : f>=appearance.watch?WATCH : AMPLE;
@@ -303,7 +302,7 @@ let glmSnap={status:'absent',windows:[],fetched_at:0,note:''};
 let agSnap={status:'absent',windows:[],fetched_at:0,note:''};
 let glyphEpoch=0;
 let glyphs={}; // id → {kind:'mark'|'appicon', url}
-let activity=[]; // working state of the non-Claude providers: {provider,state:'busy'|'waiting',name,detail,since}
+let activity=[]; // working state of the non-Claude providers: {provider,state:'busy'|'waiting'|'success'|'idle',name,detail,waiting_for,since}
 /* Which screen edge the notch is pinned to. Rust owns it (it is what placed the window); the page is
    told so it can mirror or rotate itself to match. 'right' is the default and the pre-edge layout. */
 let notchEdge='right';
@@ -879,8 +878,11 @@ const UI={
       usedLeft:(used,left)=>`已用 ${used}% · 剩餘 ${left}%`,andMore:n=>`另有 ${n} 個`,updated:a=>`更新於 ${a}`},
 };
 function ui(){return UI[uiLang]||UI.en;}
+// Fixed Swift Localizable.xcstrings: activity waiting reasons and completion.
+const ACTIVITY_COPY={"ja":{"Question":"質問","Approval":"承認","Permission":"許可","Complete":"完了"},"zh":{"Question":"提问","Approval":"批准","Permission":"权限","Complete":"已完成"},"zh-Hant":{"Question":"提問","Approval":"批准","Permission":"權限","Complete":"已完成"},"ru":{"Question":"Вопрос","Approval":"Подтверждение","Permission":"Разрешение","Complete":"Завершено"},"de":{"Question":"Frage","Approval":"Genehmigung","Permission":"Berechtigung","Complete":"Abgeschlossen"},"uk":{"Question":"Питання","Approval":"Підтвердження","Permission":"Дозвіл","Complete":"Завершено"},"ko":{"Question":"질문","Approval":"승인","Permission":"권한","Complete":"완료"},"uz":{"Question":"Savol","Approval":"Tasdiqlash","Permission":"Ruxsat","Complete":"Tugallangan"}};
 function textCopy(value){
   if(!value) return '';
+  if(ACTIVITY_COPY[uiLang]?.[value]) return ACTIVITY_COPY[uiLang][value];
   const table=TEXT[uiLang];
   if(!table) return value;
   if(table[value]) return table[value];
@@ -907,6 +909,7 @@ function workState(id){
   const acts=activity.filter(a=>a.provider===id);
   if(acts.some(a=>a.state==='waiting')) return 'attention';
   if(acts.some(a=>a.state==='busy')) return 'running';
+  if(acts.some(a=>a.state==='success')) return 'done';
   return 'idle';
 }
 function glyphHtml(p,small){
@@ -1085,7 +1088,7 @@ function renderRing(){
       // Its own layer, so a stale reading can dim around it without dimming it: see `.ringwrap.stale`
       const ws=workState(p.base);
       if(ws==='running') activity.innerHTML=`<g class="arc-spin">${svgArc(17.2308,0.28,INK,2.6325)}</g>`;
-      else if(ws==='attention') activity.innerHTML=`<g class="arc-pulse"><circle cx="28" cy="28" r="17.2308" fill="none" stroke="${WATCH}" stroke-width="2.6325"/></g>`;
+      else if(ws==='attention'||ws==='done') activity.innerHTML=`<g class="arc-pulse"><circle cx="28" cy="28" r="17.2308" fill="none" stroke="${ws==='done'?AMPLE:WATCH}" stroke-width="2.6325"/></g>`;
       else activity.innerHTML='';
     }
     if(p.snap.status==='needsAuth'||p.snap.status==='none') pct.textContent='—';
@@ -1237,13 +1240,14 @@ function renderCard(){
       }
       html+=moreRow(act.length-SESSION_ROWS)+`</div>`;
     }
-  }else{ // other providers: detected activity rows (Cursor reports state; Codex/Antigravity are inferred from recent writes)
-    // Waiting before busy, newest first within each, so what gets cut is what matters least
-    const acts=activity.filter(a=>a.provider===p.base).sort((a,b)=>(b.state==='waiting')-(a.state==='waiting')||b.since-a.since);
+  }else{ // other providers: source-reported or transcript-derived activity rows
+    // Swift priority: waiting, busy, success, idle; newest within each state.
+    const rank={waiting:0,busy:1,success:2,idle:3};
+    const acts=activity.filter(a=>a.provider===p.base).sort((a,b)=>(rank[a.state]??3)-(rank[b.state]??3)||b.since-a.since);
     if(acts.length){
       html+=`<div class="c-sessions">`;
       for(const a of acts.slice(0,SESSION_ROWS)){
-        const col=a.state==='waiting'?WATCH:INK;
+        const col=a.state==='waiting'?WATCH:a.state==='success'?AMPLE:a.state==='idle'?TRACK:INK;
         html+=`<div class="s-row"><span class="s-dot" style="background:${col}"></span>${esc(a.name)}<span style="color:#808080;margin-left:auto">${esc(textCopy(a.detail))}</span></div>`;
       }
       html+=moreRow(acts.length-SESSION_ROWS)+`</div>`;

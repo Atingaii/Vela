@@ -440,7 +440,7 @@ pub fn newest_rollout() -> Option<PathBuf> {
     newest_rollout_in(&codex_home()?)
 }
 
-fn newest_rollout_in(home: &Path) -> Option<PathBuf> {
+pub(crate) fn newest_rollout_in(home: &Path) -> Option<PathBuf> {
     indexed_rollout(&home.join("state_5.sqlite"))
         .or_else(|| newest_recent_rollout(&home.join("sessions")))
 }

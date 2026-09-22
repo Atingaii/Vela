@@ -1,13 +1,13 @@
 use std::path::{Path, PathBuf};
 #[derive(Clone)]
-pub(super) struct Profile {
+pub(crate) struct Profile {
     pub id: String,
     pub name: String,
     pub kind: &'static str,
     pub home: PathBuf,
     pub headline: &'static str,
 }
-pub(super) fn discover(home: &Path) -> Vec<Profile> {
+pub(crate) fn discover(home: &Path) -> Vec<Profile> {
     let mut out = Vec::new();
     for (root, prefix, kind, title, marker, headline) in [
         (
