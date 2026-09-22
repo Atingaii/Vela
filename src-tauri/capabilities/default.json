@@ -1,0 +1,14 @@
+{
+  "identifier": "default",
+  "description": "Vela windows: events, settings drag and close.",
+  "windows": [
+    "notch",
+    "settings",
+    "workbench"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-close"
+  ]
+}

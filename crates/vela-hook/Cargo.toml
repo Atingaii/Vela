@@ -1,0 +1,11 @@
+[package]
+name = "vela-hook"
+version = "0.1.0"
+edition = "2021"
+description = "Vela hook launcher: report Claude Code hook events, auto-start main app"
+license = "MIT"
+repository = "https://github.com/Atingaii/Vela"
+
+[dependencies]
+dirs = "5"
+serde_json = "1"
