@@ -1,0 +1,172 @@
+{
+  "base": "https://velo.codes",
+  "checks": [
+    {
+      "route": "/",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "scrollWidth": 390,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true
+    },
+    {
+      "route": "/",
+      "width": 320,
+      "scrollWidth": 320,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true
+    },
+    {
+      "route": "/product/",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true,
+      "current": "/product/"
+    },
+    {
+      "route": "/product/",
+      "width": 390,
+      "scrollWidth": 390,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true,
+      "current": "/product/"
+    },
+    {
+      "route": "/product/",
+      "width": 320,
+      "scrollWidth": 320,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true,
+      "current": "/product/"
+    },
+    {
+      "route": "/guide/",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true,
+      "current": "/guide/"
+    },
+    {
+      "route": "/guide/",
+      "width": 390,
+      "scrollWidth": 390,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true,
+      "current": "/guide/"
+    },
+    {
+      "route": "/guide/",
+      "width": 320,
+      "scrollWidth": 320,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true,
+      "current": "/guide/"
+    },
+    {
+      "route": "/download/",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true,
+      "current": "/download/"
+    },
+    {
+      "route": "/download/",
+      "width": 390,
+      "scrollWidth": 390,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true,
+      "current": "/download/"
+    },
+    {
+      "route": "/download/",
+      "width": 320,
+      "scrollWidth": 320,
+      "nav": [
+        "Velo",
+        "产品说明",
+        "使用指南",
+        "下载 Velo ↓"
+      ],
+      "h1": 1,
+      "images": true,
+      "current": "/download/"
+    }
+  ],
+  "interactions": "image zoom, Escape, focus restoration, mobile image scrolling, real navigation, theme persistence, real DMG download and follow-up, install help, launch FAQ, legacy hashes passed",
+  "errors": []
+}
