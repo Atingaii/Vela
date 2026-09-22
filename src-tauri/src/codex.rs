@@ -332,6 +332,7 @@ fn window_from(
         ),
         used: (pct / 100.0).clamp(0.0, 1.0),
         resets_at: reset_at_ms(w, now, "reset_at", "reset_after_seconds"),
+        duration: num(w.get("limit_window_seconds")),
         group: group.map(str::to_string),
         ..Default::default()
     })
@@ -578,6 +579,7 @@ pub fn snapshot_from_rollout(
                 label: label_for(num(w.get("window_minutes")), id),
                 used: (pct / 100.0).clamp(0.0, 1.0),
                 resets_at: reset_at_ms(w, now, "resets_at", "resets_in_seconds"),
+                duration: num(w.get("window_minutes")).map(|n| n * 60.0),
                 ..Default::default()
             });
         }
@@ -657,6 +659,7 @@ fn app_server_snapshot(result: &serde_json::Value) -> Option<UsageSnapshot> {
         windows.push(LimitWindow {
             id: id.into(),
             label: label_for(w.get("windowDurationMins").and_then(|x| x.as_f64()), id),
+            duration: num(w.get("windowDurationMins")).map(|n| n * 60.0),
             used: (used / 100.0).clamp(0.0, 1.0),
             resets_at: w
                 .get("resetsAt")

@@ -205,6 +205,13 @@ pub fn parse_credits(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
     let current_end = iso_ms(current.and_then(|p| p.get("end")));
     let resets_at = current_end.or_else(|| iso_ms(config.get("billingPeriodEnd")));
 
+    let duration = resets_at
+        .zip(
+            iso_ms(current.and_then(|p| p.get("start")))
+                .or_else(|| iso_ms(config.get("billingPeriodStart"))),
+        )
+        .and_then(|(end, start)| end.checked_sub(start))
+        .map(|ms| ms as f64 / 1000.0);
     let mut out: Vec<LimitWindow> = Vec::new();
     let products = config.get("productUsage").and_then(|x| x.as_array());
     let headline_label = products
@@ -219,6 +226,7 @@ pub fn parse_credits(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
             label: headline_label.unwrap_or_else(|| "Grok Build".into()),
             used,
             resets_at,
+            duration,
             ..Default::default()
         });
     } else if let Some(products) = products {
@@ -240,6 +248,7 @@ pub fn parse_credits(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
                 label,
                 used,
                 resets_at,
+                duration,
                 ..Default::default()
             });
         }
@@ -261,6 +270,7 @@ pub fn parse_credits(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
                 label: "Weekly limit".into(),
                 used: 0.0,
                 resets_at,
+                duration,
                 ..Default::default()
             });
         }

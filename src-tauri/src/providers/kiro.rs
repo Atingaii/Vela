@@ -60,6 +60,7 @@ pub(super) fn parse_cli(input: &str) -> Result<Vec<LimitWindow>, Failure> {
             label: "Credits".into(),
             used,
             resets_at: reset,
+            duration: (reset.is_some() || lower.contains("monthly")).then_some(30. * 86400.),
             ..Default::default()
         });
     }
@@ -222,6 +223,7 @@ fn apply_limits(windows: &mut Vec<LimitWindow>, v: &serde_json::Value) {
             w.used = (total - overage) / limit;
             if reset.is_some() {
                 w.resets_at = reset;
+                w.duration = w.duration.or(Some(30. * 86400.));
             }
         }
     }

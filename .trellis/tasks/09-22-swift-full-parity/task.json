@@ -2,7 +2,7 @@
   "id": "swift-full-parity",
   "name": "swift-full-parity",
   "title": "Codenotch Swift 全量迁移",
-  "description": "保留 Swift 主线能力和交互，跨 macOS 与 Windows 实现；先完成迁移，再整理设置与扩展",
+  "description": "首版只转换实现语言与平台适配，保留固定 Swift 主线全部逻辑、UI 和效果；全量验收后仅实现边缘插件，再暂停。",
   "status": "in_progress",
   "dev_type": null,
   "scope": null,

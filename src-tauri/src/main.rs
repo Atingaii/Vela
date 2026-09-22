@@ -26,6 +26,7 @@ mod ledger;
 mod local_runtime;
 mod notchmenu;
 mod notifications;
+mod pace;
 mod phone_link;
 mod platform;
 mod providers;
@@ -1199,6 +1200,11 @@ fn ring_window<'a>(
     antigravity_model: &str,
 ) -> Option<&'a usage::LimitWindow> {
     let by_id = |id: &str| windows.iter().find(|w| w.id == id);
+    if pace::claude(provider) {
+        if let Some(daily) = by_id(pace::DAILY_ID) {
+            return Some(daily);
+        }
+    }
     match provider {
         "claude" => by_id("session"),
         "codex" => by_id("primary"),
@@ -1281,7 +1287,7 @@ fn lane_is(w: &usage::LimitWindow, limit: &str) -> bool {
 /// Ids match the ones the page uses, so the tray, the settings window and the notch all agree.
 pub(crate) fn snapshot_of(app: &AppHandle, id: &str) -> usage::UsageSnapshot {
     let st = app.state::<AppState>();
-    match id {
+    let snapshot = match id {
         "codex" => st.codex.lock().unwrap().clone(),
         "cursor" => st.cursor.lock().unwrap().clone(),
         "grok" => st.grok.lock().unwrap().clone(),
@@ -1300,7 +1306,9 @@ pub(crate) fn snapshot_of(app: &AppHandle, id: &str) -> usage::UsageSnapshot {
             .find(|p| p.id == id)
             .map(|p| p.snap)
             .unwrap_or_else(|| providers::snapshot(id)),
-    }
+    };
+    let enabled = st.cfg.lock().unwrap().appearance.claude_daily_pace;
+    pace::apply(id, snapshot, enabled, now_ms())
 }
 
 /// A provider's ring as a whole percentage, for the tray icon and the settings picker. A count

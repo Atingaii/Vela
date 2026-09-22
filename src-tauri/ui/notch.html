@@ -102,16 +102,18 @@
     clip-path:path('M0 0C0 8.18 16.36 12.43 28.2051 16.359C16.36 20.29 0 24.54 0 32.7179Z');
   }
   #card.show + #tail{display:block}
-  .c-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-  .c-title{font-size:14px;font-weight:700}
+  .c-head{display:flex;align-items:center;gap:6.3932px;margin-bottom:7.8974px}
+  .c-title{font-size:13.6944px;font-weight:600}
   .c-sub{font-size:11px;color:#808080;margin-bottom:10px}
-  .win{margin-top:10px}
-  .w-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;flex-wrap:wrap;column-gap:8px}
-  .w-label{color:#e8e8ea;font-weight:600;white-space:nowrap}
-  .w-reset{color:#808080;font-size:11px;white-space:nowrap;margin-left:auto} /* wrap as a whole when it does not fit; never break inside a word */
-  .w-track{height:4px;border-radius:2px;background:#2d2d2d;margin:6px 0 4px;overflow:hidden}
+  .win{margin-top:7.5214px}
+  .w-row{display:flex;justify-content:space-between;align-items:baseline;font-size:9.4802px;flex-wrap:wrap;column-gap:8px}
+  .w-label{color:#fff;font-weight:400;white-space:nowrap}
+  .w-reset{color:#808080;font-size:9.4802px;white-space:nowrap;margin-left:auto} /* wrap as a whole when it does not fit; never break inside a word */
+  .w-track{height:3.9487px;border-radius:2px;background:#2d2d2d;margin:6.3179px 0 6.6940px;overflow:hidden}
   .w-fill{height:100%;border-radius:2px}
-  .w-used{font-size:11px;color:#808080}
+  .w-used{font-size:9.4802px;color:#fff;white-space:nowrap}
+  .w-pace{color:#808080}
+  .w-pace.deficit{color:#ff9500}
   .g-head{font-size:12px;font-weight:700;color:#e8e8ea;margin-top:12px}
   .g-box{border:1px solid #242424;border-radius:10px;padding:0 10px 8px;margin-top:6px}
   .c-note{font-size:12px;color:#c8c8c8;line-height:1.5;margin-top:6px}
@@ -259,7 +261,7 @@ const AMPLE='#00FF88', WATCH='#F2FF00', CRIT='#FF3F00';
 // The status arc is neutral on purpose: the ring behind it is coloured by how much of the limit
 // is gone, and a green arc inside it reads as part of that scale. Waiting borrows the warning yellow.
 const TRACK='#303030', INK='#ffffff', DIM='#808080';
-let appearance={reset_time:'automatic',show_codex_extra:true,weekly_dashed:false,watch:.5,critical:.7};
+let appearance={reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,weekly_dashed:false,watch:.5,critical:.7};
 const tone=f=> f>=appearance.critical?CRIT : f>=appearance.watch?WATCH : AMPLE;
 // Whole percents, except where rounding would read as nothing used or nothing left, as the Mac's Percent does
 function smallPct(v){
@@ -932,6 +934,27 @@ function claudeCells(){
       .map(w=>Object.assign({},w,{id:String(w.id).split('@')[0]}))})
   }));
 }
+// BEGIN TESTABLE PACE
+function usagePace(window,now){
+  if(window.count!=null||!Number.isFinite(window.used)||window.used<0||!Number.isFinite(window.duration)||window.duration<=0||!Number.isFinite(window.resets_at)||window.resets_at<=now)return null;
+  return (Math.min(window.used,1)-(1-Math.min((window.resets_at-now)/(window.duration*1000),1)))*100;
+}
+function paceSummary(points){
+  const magnitude=Math.abs(points),rounded=Math.round(magnitude*10)/10;
+  return (rounded===0&&magnitude>0?'<0.1':String(rounded))+'% '+(points>0?'deficit':'reserved');
+}
+function dailyPace(window,now){
+  if(window.count!=null||!Number.isFinite(window.used)||window.used<0||!Number.isFinite(window.resets_at))return null;
+  const day=86400000,start=window.resets_at-7*day,index=Math.min(6,Math.floor(Math.max(0,Math.min(now-start,7*day))/day));
+  return {id:'daily_pace',label:'Daily pace',used:window.used/((index+1)/7),resets_at:index===6?window.resets_at:start+(index+1)*day,duration:null};
+}
+function pacedProvider(p,enabled,now){
+  if(!enabled||!(p.base==='claude'||p.base.startsWith('claude-'))||p.snap.windows.some(w=>w.id==='daily_pace'))return p;
+  const weekly=p.snap.windows.find(w=>['weekly_all','seven_day','weekly'].includes(w.id));
+  const daily=weekly&&dailyPace(weekly,now);
+  return daily?{...p,snap:{...p.snap,windows:[daily,...p.snap.windows]}}:p;
+}
+// END TESTABLE PACE
 let extraProviders=[];
 let disabledProviders=[];
 function providers(){
@@ -943,10 +966,8 @@ function providers(){
   if(agSnap.status!=='absent') list.push({id:'gemini',base:'gemini',name:'Antigravity',glyph:'Ag',snap:agSnap});
   for(const p of extraProviders) { if(p.enabled&&p.snap.status!=='absent') list.push({id:p.id,base:p.id,name:p.name,glyph:p.name.slice(0,2),snap:{...p.snap,headline:p.headline}}); }
   for(let i=list.length-1;i>=0;i--) if(disabledProviders.includes(list[i].base)) list.splice(i,1);
-  if(Array.isArray(notchSlots)){
-    return notchSlots.flatMap(slot=>list.filter(p=>p.base===slot.provider));
-  }
-  return list;
+  const visible=Array.isArray(notchSlots)?notchSlots.flatMap(slot=>list.filter(p=>p.base===slot.provider)):list;
+  return visible.map(p=>pacedProvider(p,appearance.claude_daily_pace,Date.now()));
 }
 // Antigravity's "Notch reads" and "Model data", as in the Mac app; chosen in settings
 let agPrefs={limit:'automatic',model:'gemini'};
@@ -966,7 +987,7 @@ function laneIs(w,limit){
 function headlineOf(snap,id){
   const ws=snap.windows; if(!ws.length) return null;
   const byId=x=>ws.find(w=>w.id===x)||null;
-  if(id==='claude') return byId('session');
+  if(id==='claude'||id.startsWith('claude-')) return byId('daily_pace')||byId('session');
   if(id==='codex') return byId('primary');
   if(id==='cursor') return byId('included')||byId('api');
   if(id==='grok') return byId('credits')||ws[0];
@@ -985,7 +1006,7 @@ function headlineOf(snap,id){
 function weeklyOf(snap,id){
   const ws=snap.windows.filter(w=>w.count==null); if(!ws.length) return null;
   const byId=x=>ws.find(w=>w.id===x)||null;
-  if(id==='claude'||id.startsWith('claude-')) return byId('seven_day')||byId('weekly_all')||byId('weekly');
+  if(id==='claude'||id.startsWith('claude-')) return byId('daily_pace')?byId('session'):byId('seven_day')||byId('weekly_all')||byId('weekly');
   if(id==='codex'||id.startsWith('codex-')) return byId('secondary');
   if(id==='cursor') return null;
   if(id==='grok') return null; // the credits window is already the weekly one
@@ -1123,6 +1144,17 @@ async function signInClaude(){
   renderCard();
 }
 // CLAUDE_AUTH_ACTIONS_END
+// Exact translations from the pinned Swift Localizable.xcstrings.
+const PACE_COPY={"ru":{"Daily pace":"Дневной темп","%@%% deficit":"дефицит %@%%","%@%% reserved":"резерв %@%%"},"fr":{"Daily pace":"Rythme quotidien","%@%% deficit":"%@ %% de déficit","%@%% reserved":"%@ %% en réserve"},"de":{"Daily pace":"Tagestempo","%@%% deficit":"%@ %% Defizit","%@%% reserved":"%@ %% Reserve"},"ja":{"Daily pace":"日次ペース","%@%% deficit":"%@%% 超過","%@%% reserved":"%@%% 余裕"},"pt-BR":{"Daily pace":"Ritmo diário","%@%% deficit":"%@%% de déficit","%@%% reserved":"%@%% em reserva"},"zh":{"Daily pace":"每日节奏","%@%% deficit":"%@%% 透支","%@%% reserved":"%@%% 预留"},"zh-Hant":{"Daily pace":"每日節奏","%@%% deficit":"%@%% 透支","%@%% reserved":"%@%% 預留"},"uk":{"Daily pace":"Денний темп","%@%% deficit":"%@%% дефіциту","%@%% reserved":"%@%% запасу"},"ko":{"Daily pace":"일일 사용 속도","%@%% deficit":"%@%% 초과","%@%% reserved":"%@%% 여유"},"uz":{"Daily pace":"Kunlik surʼat","%@%% deficit":"%@%% ortiqcha sarflangan","%@%% reserved":"%@%% zaxira"}};
+function paceCopy(key){return PACE_COPY[uiLang]?.[key]||key;}
+function paceText(points){
+  const value=paceSummary(points).split('%')[0];
+  return paceCopy(points>0?'%@%% deficit':'%@%% reserved').replace('%@',value).replace('%%','%');
+}
+function paceHtml(window){
+  const points=appearance.show_usage_pace?usagePace(window,Date.now()):null;
+  return points===null?'':`<span class="w-pace${points>0?' deficit':''}"> · ${esc(paceText(points))}</span>`;
+}
 function renderCard(){
   const c=document.getElementById('card');
   const p=providers().find(x=>x.id===hoverId)||providers()[0];
@@ -1153,14 +1185,14 @@ function renderCard(){
         if(group) html+=`<div class="g-head">${esc(textCopy(group))}</div><div class="g-box">`;
       }
       if(w.count!=null){
-        html+=`<div class="win"><div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span></div>
+        html+=`<div class="win"><div class="w-row"><span class="w-label">${esc(w.id==='daily_pace'?paceCopy('Daily pace'):textCopy(w.label))}</span></div>
           <div class="w-used">${esc((p.base==='gemini'||p.base.startsWith('antigravity-'))?(w.count>0?`${w.derived?'~':''}${w.count} ${textCopy(w.count===1?'request today':'requests today')}`:textCopy('no requests today')):`${w.derived?'~':''}${w.count.toLocaleString()}`)}</div></div>`;
         continue;
       }
       html+=`<div class="win">
-        <div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span><span class="w-reset">${resetCopy(w.resets_at)}</span></div>
+        <div class="w-row"><span class="w-label">${esc(w.id==='daily_pace'?paceCopy('Daily pace'):textCopy(w.label))}</span><span class="w-reset">${resetCopy(w.resets_at)}</span></div>
         <div class="w-track"><div class="w-fill" style="width:${(Math.min(w.used,1)*100).toFixed(0)}%;background:${tone(w.used)}"></div></div>
-        <div class="w-used">${esc(usedCopy(w))}</div>
+        <div class="w-used">${esc(usedCopy(w))}${paceHtml(w)}</div>
       </div>`;
     }
     if(group) html+=`</div>`;

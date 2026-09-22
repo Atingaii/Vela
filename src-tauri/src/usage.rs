@@ -140,6 +140,9 @@ pub struct LimitWindow {
     pub used: f64,
     /// Reset time, ms epoch (None = unknown)
     pub resets_at: Option<u64>,
+    /// Reported quota duration in seconds; absent means pace cannot be inferred.
+    #[serde(default)]
+    pub duration: Option<f64>,
     /// Pure count window (no published denominator, e.g. Antigravity's requests today) — the cell shows ~N and the ring draws only its track
     #[serde(default)]
     pub count: Option<i64>,
@@ -503,6 +506,7 @@ fn parse_response(v: &serde_json::Value) -> Vec<LimitWindow> {
                 label: label_for(kind),
                 used: (pct / 100.0).clamp(0.0, 1.0),
                 resets_at: resets,
+                duration: claude_duration(kind),
                 ..Default::default()
             });
         }
@@ -542,12 +546,23 @@ fn parse_response(v: &serde_json::Value) -> Vec<LimitWindow> {
             label,
             used,
             resets_at,
+            duration: claude_duration(id),
             ..Default::default()
         });
     }
     // session always comes first (upstream display order)
     out.sort_by_key(|w| if w.id == "session" { 0 } else { 1 });
     out
+}
+
+fn claude_duration(kind: &str) -> Option<f64> {
+    if kind == "session" {
+        Some(5.0 * 3600.0)
+    } else if kind.starts_with("weekly_") || kind.starts_with("seven_day") {
+        Some(7.0 * 86400.0)
+    } else {
+        None
+    }
 }
 
 enum FetchErr {

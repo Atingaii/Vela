@@ -1,6 +1,7 @@
 //! Pure ports of the Swift usage decoders; missing quota never means 0% used.
 use super::Failure;
 use crate::usage::LimitWindow;
+use chrono::{Datelike, Timelike};
 use serde_json::Value;
 
 pub(super) fn number(v: &Value) -> Option<f64> {
@@ -31,7 +32,22 @@ fn meter(id: &str, label: &str, used: f64, reset: Option<u64>) -> LimitWindow {
         count: None,
         derived: false,
         group: None,
+        duration: None,
     }
+}
+// OpenCode uses the preceding Gregorian month; Copilot only declares a monthly
+// cadence at midnight UTC on the first. Never substitute a 30-day estimate.
+fn monthly_duration(reset: Option<u64>, first_only: bool) -> Option<f64> {
+    let end = chrono::DateTime::from_timestamp_millis(reset?.try_into().ok()?)?;
+    if first_only && (end.day() != 1 || end.hour() != 0 || end.minute() != 0 || end.second() != 0) {
+        return None;
+    }
+    let start = end.checked_sub_months(chrono::Months::new(1))?;
+    Some((end - start).num_milliseconds() as f64 / 1000.)
+}
+fn timed(mut window: LimitWindow, duration: Option<f64>) -> LimitWindow {
+    window.duration = duration;
+    window
 }
 fn count(id: &str, label: &str, n: f64) -> LimitWindow {
     let mut w = meter(id, label, 0., None);
@@ -55,11 +71,14 @@ pub(super) fn opencode(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
         .iter()
         .filter_map(|(id, label)| {
             let x = &v["usage"][*id];
-            Some(meter(
-                id,
-                label,
-                number(&x["percent"])? / 100.,
-                date(&x["resetsAt"]),
+            let reset = date(&x["resetsAt"]);
+            Some(timed(
+                meter(id, label, number(&x["percent"])? / 100., reset),
+                match *id {
+                    "rolling" => Some(5. * 3600.),
+                    "weekly" => Some(7. * 86400.),
+                    _ => monthly_duration(reset, false),
+                },
             ))
         })
         .collect(),
@@ -80,6 +99,11 @@ pub(super) fn kimi(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
             count(id, label, used)
         };
         w.resets_at = date(&x["resetTime"]);
+        w.duration = Some(if id == "weekly" {
+            7. * 86400.
+        } else {
+            5. * 3600.
+        });
         Some(w)
     }
     let mut out = Vec::new();
@@ -146,6 +170,9 @@ pub(super) fn copilot(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
                     count(id, &format!("{id} · count"), n)
                 };
                 w.resets_at = reset;
+                if w.count.is_none() {
+                    w.duration = monthly_duration(reset, true);
+                }
                 Some(w)
             })
             .collect(),
@@ -293,7 +320,24 @@ pub(super) fn minimax(v: &Value, now: u64) -> Result<Vec<LimitWindow>, Failure> 
                         .map(|n| now.saturating_add(n as u64))
                 })
             };
-            out.push(meter(id, label, used, reset));
+            let start = date(
+                &lane[if id == "weekly" {
+                    "weekly_start_time"
+                } else {
+                    "start_time"
+                }],
+            );
+            let duration = date(&lane[end])
+                .zip(start)
+                .and_then(|(end, start)| end.checked_sub(start))
+                .filter(|ms| *ms > 0)
+                .map(|ms| ms as f64 / 1000.)
+                .unwrap_or(if id == "weekly" {
+                    7. * 86400.
+                } else {
+                    5. * 3600.
+                });
+            out.push(timed(meter(id, label, used, reset), Some(duration)));
         }
     }
     nonempty(out)
@@ -321,6 +365,26 @@ pub(super) fn ollama(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn reported_cycles_match_swift_including_calendar_months() {
+        let leap = date(&json!("2024-03-01T00:00:00Z"));
+        assert_eq!(monthly_duration(leap, true), Some(29. * 86400.));
+        assert_eq!(
+            monthly_duration(date(&json!("2024-03-31T12:00:00Z")), false),
+            Some(31. * 86400.)
+        );
+        assert_eq!(
+            monthly_duration(date(&json!("2024-03-01T12:00:00Z")), true),
+            None
+        );
+        let open=opencode(&json!({"usage":{"rolling":{"percent":20},"weekly":{"percent":30},"monthly":{"percent":40,"resetsAt":"2024-03-01T00:00:00Z"}}})).unwrap();
+        assert_eq!(
+            open.iter().map(|w| w.duration).collect::<Vec<_>>(),
+            vec![Some(18000.), Some(604800.), Some(2505600.)]
+        );
+        let mm=minimax(&json!({"model_remains":[{"model_name":"general","current_interval_remaining_percent":70,"start_time":1800000000000u64,"end_time":1800014400000u64}]}),1800000000000).unwrap();
+        assert_eq!(mm[0].duration, Some(14400.));
+    }
     #[test]
     fn quota_direction_and_missing_values() {
         assert_eq!(

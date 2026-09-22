@@ -247,6 +247,7 @@ pub fn start(app: AppHandle) {
         "antigravity",
         "glm",
         "providers",
+        "appearance",
     ] {
         let tx = tx.clone();
         app.listen(event, move |_| {
@@ -256,8 +257,13 @@ pub fn start(app: AppHandle) {
     std::thread::spawn(move || {
         crate::activity::lower_thread_priority();
         let mut watcher = crate::usage_alerts::Watcher::default();
+        let mut daily_mode = None;
         while rx.recv().is_ok() {
             let cfg = app.state::<crate::AppState>().cfg.lock().unwrap().clone();
+            if daily_mode != Some(cfg.appearance.claude_daily_pace) {
+                watcher = crate::usage_alerts::Watcher::default();
+                daily_mode = Some(cfg.appearance.claude_daily_pace);
+            }
             for option in crate::get_tray_options(app.clone()) {
                 if !crate::providers::enabled(&app, &option.id) {
                     continue;
@@ -276,7 +282,13 @@ pub fn start(app: AppHandle) {
                     .windows
                     .iter()
                     .find(|w| match option.id.as_str() {
-                        "claude" => w.id == "weekly_all",
+                        id if crate::pace::claude(id) => {
+                            if head.is_some_and(|h| h.id == crate::pace::DAILY_ID) {
+                                w.id == "session"
+                            } else {
+                                matches!(w.id.as_str(), "weekly_all" | "seven_day" | "weekly")
+                            }
+                        }
                         "codex" => w.id == "secondary",
                         _ => w.id == "weekly_all" || w.id == "weekly" || w.id == "secondary",
                     })

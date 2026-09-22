@@ -197,6 +197,7 @@ pub(super) fn read(home: &Path, budget: Option<u64>) -> Result<Vec<LimitWindow>,
             Some(total.min(i64::MAX as u64) as i64)
         },
         resets_at: Some(end),
+        duration: None,
         derived: true,
         group: None,
     }];
@@ -212,6 +213,7 @@ pub(super) fn read(home: &Path, budget: Option<u64>) -> Result<Vec<LimitWindow>,
                 used: 0.,
                 count: Some(n.min(i64::MAX as u64) as i64),
                 resets_at: None,
+                duration: None,
                 derived: true,
                 group: Some(source.into()),
             });

@@ -161,6 +161,7 @@ pub fn fetch(
         count: Some(models.len() as i64),
         used: 0.,
         resets_at: None,
+        duration: None,
         derived: false,
         group: None,
     }];
@@ -201,6 +202,7 @@ pub fn fetch(
             count: m.context.map(|n| n.min(i64::MAX as u64) as i64),
             used: 0.,
             resets_at: None,
+            duration: None,
             derived: false,
             group: Some("Context capacity · tokens".into()),
         });

@@ -423,6 +423,11 @@ fn windows_from(v: &serde_json::Value) -> Vec<LimitWindow> {
             .map(|ms| ms.max(0.0) as u64);
         out.push(LimitWindow {
             label: label_for(&id, unit, number),
+            duration: number.and_then(|n| match unit {
+                Some(3) => Some(n as f64 * 3600.0),
+                Some(6) => Some(n as f64 * 604800.0),
+                _ => None,
+            }),
             used: (pct / 100.0).clamp(0.0, 1.0),
             resets_at,
             id,

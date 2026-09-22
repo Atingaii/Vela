@@ -186,6 +186,10 @@ fn parse_iso(v: Option<&serde_json::Value>) -> Option<u64> {
 /// usage-summary → (windows, note). When there are no windows the note says why (Unlimited / free plan without an allowance)
 pub fn parse_summary(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
     let resets_at = parse_iso(v.get("billingCycleEnd"));
+    let duration = resets_at
+        .zip(parse_iso(v.get("billingCycleStart")))
+        .and_then(|(end, start)| end.checked_sub(start))
+        .map(|ms| ms as f64 / 1000.0);
     let usage = v
         .get("individualUsage")
         .cloned()
@@ -202,6 +206,7 @@ pub fn parse_summary(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
             label: "Included usage".into(),
             used: total,
             resets_at,
+            duration,
             ..Default::default()
         });
     }
@@ -212,6 +217,7 @@ pub fn parse_summary(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
                 label: "API usage".into(),
                 used: api,
                 resets_at,
+                duration,
                 ..Default::default()
             });
         }
@@ -227,6 +233,7 @@ pub fn parse_summary(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
                     label: "On demand".into(),
                     used: (u / limit).clamp(0.0, 1.0),
                     resets_at,
+                    duration,
                     ..Default::default()
                 });
             }

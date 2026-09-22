@@ -128,6 +128,7 @@ pub fn readings(app: &AppHandle) -> Vec<crate::providers::Reading> {
                         Some(e.used as i64)
                     },
                     resets_at: None,
+                    duration: None,
                     derived: true,
                     group: None,
                 }],

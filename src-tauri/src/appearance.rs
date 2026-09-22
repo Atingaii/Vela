@@ -7,6 +7,8 @@ use tauri::{AppHandle, Emitter, Manager};
 pub struct Preferences {
     pub reset_time: String,
     pub show_codex_extra: bool,
+    pub show_usage_pace: bool,
+    pub claude_daily_pace: bool,
     pub weekly_dashed: bool,
     pub custom_scale: Option<f64>,
     pub watch: f64,
@@ -17,6 +19,8 @@ impl Default for Preferences {
         Self {
             reset_time: "automatic".into(),
             show_codex_extra: true,
+            show_usage_pace: false,
+            claude_daily_pace: false,
             weekly_dashed: false,
             custom_scale: None,
             watch: 0.5,

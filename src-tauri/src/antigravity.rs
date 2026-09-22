@@ -304,6 +304,43 @@ fn parse_iso(v: Option<&serde_json::Value>) -> Option<u64> {
 }
 
 /// The server reports what remains and the notch shows what is used: flip it here so the view never learns about provider differences
+// Same recognized cadences as AntigravityQuotaParser; unknown models have no pace.
+fn bucket_duration(bucket: &serde_json::Value) -> Option<f64> {
+    let values: Vec<_> = ["window", "bucketId", "displayName"]
+        .iter()
+        .filter_map(|key| bucket[*key].as_str())
+        .map(|s| {
+            s.trim()
+                .to_ascii_lowercase()
+                .trim_end_matches(" limit")
+                .to_string()
+        })
+        .collect();
+    if values
+        .iter()
+        .any(|s| s == "weekly" || s.ends_with("-weekly") || s.ends_with(" weekly"))
+    {
+        return Some(7. * 86400.);
+    }
+    if values.iter().any(|s| {
+        [
+            "session",
+            "5h",
+            "5-hour",
+            "five hour",
+            "five-hour",
+            "hourly",
+        ]
+        .contains(&s.as_str())
+            || ["-session", "-5h", "-5-hour", "-five-hour", "-hourly"]
+                .iter()
+                .any(|suffix| s.ends_with(suffix))
+    }) {
+        return Some(5. * 3600.);
+    }
+    None
+}
+
 pub fn windows_from_bridge(v: &serde_json::Value) -> Vec<LimitWindow> {
     let mut out = Vec::new();
     let Some(groups) = v.pointer("/response/groups").and_then(|g| g.as_array()) else {
@@ -338,6 +375,7 @@ pub fn windows_from_bridge(v: &serde_json::Value) -> Vec<LimitWindow> {
                 id,
                 used: (1.0 - rem).clamp(0.0, 1.0),
                 resets_at: parse_iso(b.get("resetTime")),
+                duration: bucket_duration(b),
                 ..Default::default()
             });
         }
@@ -593,6 +631,7 @@ fn direct_quota(token: &str) -> Option<Vec<LimitWindow>> {
                 label,
                 used: (used / limit).clamp(0.0, 1.0),
                 resets_at: parse_iso(b.get("resetTime")),
+                duration: bucket_duration(b),
                 ..Default::default()
             })
         })

@@ -3,10 +3,13 @@ async function bridge(page,{deny=false,accounts=false}={}){
  await page.addInitScript(({deny,accounts})=>{
   let library={providers:[],mcp:[],skills:[]},enabled=[],prefs={attention:false,done:false};
   let slots=null,phoneEnabled=false,pairing=false,devices=[];
+  let appearance={reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,weekly_dashed:false,custom_scale:null,watch:.5,critical:.7};
   const listeners={};window.emitFixture=(name,payload)=>listeners[name]?.forEach(cb=>cb({payload}));
   window.calls=[];
   window.__TAURI__={core:{invoke:async(cmd,args)=>{
    window.calls.push({cmd,args});
+   if(cmd==='get_appearance')return appearance;
+   if(cmd==='set_appearance'){appearance=args.prefs;return appearance;}
    if(cmd==='get_library')return library;
    if(cmd==='get_notch_slots')return slots;
    if(cmd==='set_notch_slots'){slots=args.slots;return;}
@@ -111,4 +114,36 @@ test('刘海保持账户顺序、悬浮卡片与全关状态，图标刷新能�
  await page.evaluate(()=>emitFixture('glyphs',{claude:{kind:'svg',svg:'<svg data-replaced="yes" viewBox="0 0 1 1"><path d="M0 0 L1 1Z"/></svg>'}}));
  await expect(page.locator('.cell [data-replaced]')).toHaveCount(1);
  await page.evaluate(()=>emitFixture('notch_slots',[]));await expect(page.locator('.cell')).toHaveCount(0);expect(errors).toEqual([]);
+});
+
+test('原版用量节奏和每日圆环开关默认关闭且独立保存',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await bridge(page);await page.goto('/settings.html');await page.locator('#tab-appearance').click();
+ for(const key of ['show_usage_pace','claude_daily_pace'])await expect(page.locator('#appearance-'+key)).toHaveAttribute('aria-checked','false');
+ await page.locator('#appearance-show_usage_pace').click();await expect(page.locator('#appearance-show_usage_pace')).toHaveAttribute('aria-checked','true');
+ await page.locator('#appearance-claude_daily_pace').click();await expect(page.locator('#appearance-claude_daily_pace')).toHaveAttribute('aria-checked','true');
+ const saved=await page.evaluate(()=>calls.filter(c=>c.cmd==='set_appearance').at(-1).args.prefs);
+ expect(saved).toMatchObject({show_usage_pace:true,claude_daily_pace:true,show_codex_extra:true,watch:.5,critical:.7});expect(errors).toEqual([]);
+});
+test('每日份额替代 Claude 主圆环，会话移到细环，关闭后恢复原始快照',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await bridge(page);
+ await page.addInitScript(()=>{
+  const invoke=window.__TAURI__.core.invoke,now=Date.now(),day=86400000;
+  window.__TAURI__.core.invoke=async(cmd,args)=>{
+   if(cmd==='get_notch_slots')return [{provider:'claude'}];
+   if(cmd==='get_usage')return {status:'ok',fetched_at:now,windows:[{id:'session',label:'Session',used:.8,resets_at:now+9000000,duration:18000},{id:'weekly_all',label:'Weekly',used:.1,resets_at:now+6.5*day,duration:604800}]};
+   if(['get_codex','get_cursor','get_grok','get_antigravity','get_glm'].includes(cmd))return {status:'absent',windows:[]};
+   if(cmd==='get_weekly_ring')return 'outside';
+   if(cmd==='get_activity'||cmd==='get_providers')return [];
+   if(cmd==='get_state')return {sessions:[],agg:'idle',lang_resolved:'en'};
+   return invoke(cmd,args);
+  };
+ });
+ await page.setViewportSize({width:350,height:650});await page.goto('/notch.html');await expect(page.locator('.cell .pct')).toHaveText('80%');
+ await page.locator('.cell').hover();await expect(page.locator('.w-pace')).toHaveCount(0);
+ await page.evaluate(()=>emitFixture('appearance',{show_usage_pace:true,claude_daily_pace:true}));
+ await expect(page.locator('.cell .pct')).toHaveText('70%');await expect(page.locator('#card .w-label').first()).toHaveText('Daily pace');
+ await expect(page.locator('.w-pace')).toHaveCount(2);await expect(page.locator('.w-pace').first()).toHaveText(' · 30% deficit');
+ await expect(page.locator('.w-pace').first()).toHaveCSS('color','rgb(255, 149, 0)');await expect(page.locator('.w-used .w-pace')).toHaveCount(2);
+ const arc=page.locator('svg.ring circle[opacity="0.85"]');const dash=await arc.getAttribute('stroke-dasharray');expect(Number(dash.split(' ')[0])/Number(dash.split(' ')[1])).toBeCloseTo(.8,2);
+ await page.evaluate(()=>emitFixture('appearance',{show_usage_pace:false,claude_daily_pace:false}));await expect(page.locator('.cell .pct')).toHaveText('80%');await expect(page.locator('#card .w-label')).toHaveCount(2);await expect(page.locator('.w-pace')).toHaveCount(0);expect(errors).toEqual([]);
 });
