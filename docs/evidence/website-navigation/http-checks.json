@@ -1,0 +1,52 @@
+[
+  {
+    "path": "/",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/download/",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/guide/",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "/favicon.ico?v=2",
+    "status": 200,
+    "content_type": "image/vnd.microsoft.icon"
+  },
+  {
+    "path": "/assets/favicon-v2-32.png",
+    "status": 200,
+    "content_type": "image/png"
+  },
+  {
+    "path": "/assets/apple-touch-icon-v2.png",
+    "status": 200,
+    "content_type": "image/png"
+  },
+  {
+    "path": "/docs",
+    "status": 200,
+    "content_type": "text/html; charset=utf-8"
+  },
+  {
+    "path": "https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-macos-arm64.dmg",
+    "status": 200,
+    "content_type": "application/octet-stream"
+  },
+  {
+    "path": "https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-macos-x64.dmg",
+    "status": 200,
+    "content_type": "application/octet-stream"
+  },
+  {
+    "path": "https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-windows-x64-setup.exe",
+    "status": 200,
+    "content_type": "application/octet-stream"
+  }
+]

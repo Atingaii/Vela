@@ -1,0 +1,159 @@
+{
+  "checks": [
+    {
+      "path": "/",
+      "width": 1440,
+      "scroll": 1440,
+      "h1": 1,
+      "broken": 0,
+      "nav": [
+        "/",
+        "/guide/",
+        "/download/"
+      ],
+      "current": null,
+      "icons": [
+        "https://velo.codes/assets/favicon-v2-32.png",
+        "https://velo.codes/favicon.ico?v=2"
+      ]
+    },
+    {
+      "path": "/",
+      "width": 390,
+      "scroll": 390,
+      "h1": 1,
+      "broken": 0,
+      "nav": [
+        "/",
+        "/guide/",
+        "/download/"
+      ],
+      "current": null,
+      "icons": [
+        "https://velo.codes/assets/favicon-v2-32.png",
+        "https://velo.codes/favicon.ico?v=2"
+      ]
+    },
+    {
+      "path": "/",
+      "width": 320,
+      "scroll": 320,
+      "h1": 1,
+      "broken": 0,
+      "nav": [
+        "/",
+        "/guide/",
+        "/download/"
+      ],
+      "current": null,
+      "icons": [
+        "https://velo.codes/assets/favicon-v2-32.png",
+        "https://velo.codes/favicon.ico?v=2"
+      ]
+    },
+    {
+      "path": "/download/",
+      "width": 1440,
+      "scroll": 1440,
+      "h1": 1,
+      "broken": 0,
+      "nav": [
+        "/",
+        "/guide/",
+        "/download/"
+      ],
+      "current": "/download/",
+      "icons": [
+        "https://velo.codes/assets/favicon-v2-32.png",
+        "https://velo.codes/favicon.ico?v=2"
+      ]
+    },
+    {
+      "path": "/download/",
+      "width": 390,
+      "scroll": 390,
+      "h1": 1,
+      "broken": 0,
+      "nav": [
+        "/",
+        "/guide/",
+        "/download/"
+      ],
+      "current": "/download/",
+      "icons": [
+        "https://velo.codes/assets/favicon-v2-32.png",
+        "https://velo.codes/favicon.ico?v=2"
+      ]
+    },
+    {
+      "path": "/download/",
+      "width": 320,
+      "scroll": 320,
+      "h1": 1,
+      "broken": 0,
+      "nav": [
+        "/",
+        "/guide/",
+        "/download/"
+      ],
+      "current": "/download/",
+      "icons": [
+        "https://velo.codes/assets/favicon-v2-32.png",
+        "https://velo.codes/favicon.ico?v=2"
+      ]
+    },
+    {
+      "path": "/guide/",
+      "width": 1440,
+      "scroll": 1440,
+      "h1": 1,
+      "broken": 0,
+      "nav": [
+        "/",
+        "/guide/",
+        "/download/"
+      ],
+      "current": "/guide/",
+      "icons": [
+        "https://velo.codes/assets/favicon-v2-32.png",
+        "https://velo.codes/favicon.ico?v=2"
+      ]
+    },
+    {
+      "path": "/guide/",
+      "width": 390,
+      "scroll": 390,
+      "h1": 1,
+      "broken": 0,
+      "nav": [
+        "/",
+        "/guide/",
+        "/download/"
+      ],
+      "current": "/guide/",
+      "icons": [
+        "https://velo.codes/assets/favicon-v2-32.png",
+        "https://velo.codes/favicon.ico?v=2"
+      ]
+    },
+    {
+      "path": "/guide/",
+      "width": 320,
+      "scroll": 320,
+      "h1": 1,
+      "broken": 0,
+      "nav": [
+        "/",
+        "/guide/",
+        "/download/"
+      ],
+      "current": "/guide/",
+      "icons": [
+        "https://velo.codes/assets/favicon-v2-32.png",
+        "https://velo.codes/favicon.ico?v=2"
+      ]
+    }
+  ],
+  "interactions": "hover, focus, mobile click, real navigation, FAQ, theme persistence, legacy hashes, keyboard skip: passed",
+  "errors": []
+}
