@@ -8,7 +8,5 @@
 /integrations/* /#features 301
 /compare /#features 301
 /compare/* /#features 301
-/docs /#faq 301
-/docs/* /#faq 301
-/download /#download 301
-/download/* /#download 301
+/docs /guide/ 301
+/docs/* /guide/ 301

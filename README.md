@@ -75,7 +75,7 @@ Velo 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工
 
 ### 下载安装包
 
-[官网下载](https://velo.codes/#download) · [预览版发布页](https://github.com/Atingaii/Velo/releases/tag/v0.1.0-preview.4)
+[官网下载](https://velo.codes/download/) · [预览版发布页](https://github.com/Atingaii/Velo/releases/tag/v0.1.0-preview.4)
 
 | 平台 | 安装包 |
 | --- | --- |
