@@ -63,3 +63,25 @@
 
 - 继续迁移网页会话供应商、本地运行时完整指标、Claude profile 活动、Codex/Cursor 生命周期与应用入口；补齐硬件刘海、多屏和材质，随后逐屏逐交互验收。
 - 阶段 1 全量验收后才完成边缘插件，然后暂停；当前不归档任务。
+
+
+## Session 2: README 产品介绍与品牌配图
+<!-- trellis-session: v=2 fp=333639409812e800 -->
+
+**Date**: 2026-09-22
+**Task**: README 产品介绍与品牌配图
+**Branch**: `main`
+
+### Summary
+
+重写产品 README，新增 imagegen 品牌头图与两张当前界面演示截图；来源只在文末致谢。页面语法、10 项 Node 与 17 项 Chrome 浏览器回归通过，GitHub Markdown 渲染和 1100/390px 排版检查通过。清理本次预览、截图检查产物和独立 npm 缓存，保留素材与可复用依赖。未修改产品源码或版本，未发布安装包。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `da56dbc` | docs: present Vela with product guide and branded visuals |
+
+### Status
+
+[OK] **Completed**
