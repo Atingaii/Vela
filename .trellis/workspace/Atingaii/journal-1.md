@@ -133,3 +133,27 @@ Renamed repository and visible product to Velo; filled GitHub About and velo.cod
 ### Status
 
 [OK] **Completed**
+
+
+## Session 5: 未公证 Mac 安装指引与真实界面介绍
+<!-- trellis-session: v=2 fp=1f05dddcf010ef20 -->
+
+**Date**: 2026-09-23
+**Task**: 未公证 Mac 安装指引与真实界面介绍
+**Branch**: `main`
+
+### Summary
+
+用户选择未开通开发者账号阶段的逐应用允许流程。公开 ARM DMG 本机与 GitHub 信任检查均确认 ad-hoc、Gatekeeper 拒绝、无公证；如实保留报告与发行附件。隔离原生 smoke 和 macOS/Windows/browser 常规 CI 通过。官网新增产品说明及五张 2x 当前 UI 截图，下载后展开步骤，补齐系统确认与无普通窗口排障；正式站四页和真实 DMG 下载验证通过。Cloudflare 生产 90478fc1，预览 4ebc5e90。保留源码和证据，清理约 34 MB 本轮下载、临时浏览器产物及两项预览服务；未修改用户应用、账户或安全设置。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `656adab` | fix: assess Gatekeeper separately from installation smoke |
+| `e9119b2` | feat: guide unsigned Mac installs and show detailed product screenshots [skip ci] |
+| `c36e2d2` | docs: record downloaded app trust and website installation verification [skip ci] |
+
+### Status
+
+[OK] **Completed**
