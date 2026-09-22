@@ -178,3 +178,28 @@ test('跟随屏幕与固定屏幕可往返切换，全屏选项默认开启且�
  await page.locator('#appearance-folds_for_fullscreen').click();await expect(page.locator('#appearance-folds_for_fullscreen')).toHaveAttribute('aria-checked','false');
  expect(await page.evaluate(()=>calls.filter(c=>c.cmd==='set_appearance').at(-1).args.prefs.folds_for_fullscreen)).toBe(false);
 });
+
+test('额度提醒使用独立卡片，关闭后恢复用量，完成提醒只展开且点击回到会话',async({page})=>{
+ await page.setViewportSize({width:360,height:650});await bridge(page);await page.addInitScript(()=>{
+  const invoke=window.__TAURI__.core.invoke;
+  window.__TAURI__.core.invoke=async(cmd,args)=>{
+   if(cmd==='get_notch_slots')return [{provider:'claude'}];
+   if(cmd==='get_usage')return {status:'ok',windows:[{id:'session',label:'Session',used:.25,resets_at:Date.now()+3600000}],fetched_at:Date.now()};
+   if(cmd==='get_state')return {sessions:[],agg:'idle',lang_resolved:'en'};
+   return invoke(cmd,args);
+  };
+ });
+ await page.goto('/notch.html');await expect(page.locator('.cell')).toHaveCount(1);
+ await page.evaluate(()=>emitFixture('notch_alert',{provider:'claude',provider_name:'Claude',kind:'sessionLimitReached',label:'5-hour',seconds:6,resets_at:Date.now()+3600000}));
+ await expect(page.locator('#card')).toHaveClass(/usage-alert/);await expect(page.locator('.alert-status')).toHaveText('Session limit reached (100% used)');
+ await expect(page.locator('.alert-reset')).toContainText('Resets at');await expect(page.locator('#card .win')).toHaveCount(0);
+ expect(await page.locator('#card').evaluate(el=>Math.round(el.getBoundingClientRect().height))).toBe(79);
+ if(process.env.VELA_SCREENSHOTS)await page.screenshot({path:'/tmp/vela-usage-alert.png'});
+ await page.evaluate(()=>emitFixture('notch_alert',{provider:'claude',kind:'done',seconds:3,session_id:'older-session'}));
+ await expect(page.locator('.alert-status')).toHaveText('Session limit reached (100% used)');
+ await page.locator('.alert-dismiss').click();await expect(page.locator('#card')).not.toHaveClass(/show/);
+ await page.evaluate(()=>{emitFixture('ui_flags',{notch_visible:true,notch_on_hover:true});emitFixture('notch_pointer',false);emitFixture('notch_alert',{provider:'claude',kind:'done',seconds:3,session_id:'session-42'});});
+ await expect(page.locator('body')).not.toHaveClass(/folded/);await expect(page.locator('#card')).not.toHaveClass(/show/);
+ await page.locator('.cell').click();await expect.poll(()=>page.evaluate(()=>calls.filter(c=>c.cmd==='focus_session').at(-1)?.args.id)).toBe('session-42');
+ expect(await page.evaluate(()=>calls.some(c=>c.cmd==='refresh_usage'))).toBe(false);
+});

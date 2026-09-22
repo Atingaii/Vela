@@ -88,6 +88,15 @@ impl Transitions {
                 _ => {}
             }
         }
+        messages.sort_by_key(|event| {
+            std::cmp::Reverse(
+                snap.sessions
+                    .iter()
+                    .find(|s| s.id == event.session_id)
+                    .map(|s| s.last_event.max(s.started))
+                    .unwrap_or(0),
+            )
+        });
         messages
     }
 }
@@ -114,7 +123,7 @@ pub fn observe(app: &AppHandle, snap: &crate::state::Snapshot) {
             },
         );
     let mut notified = BTreeSet::new();
-    for transition in events {
+    for transition in events.into_iter().take(1) {
         let event = transition.kind;
         if prefs.announce_session_end || prefs.session_sound {
             if prefs.announce_session_end {
@@ -201,6 +210,8 @@ struct Peek {
     label: String,
     seconds: u32,
     session_id: Option<String>,
+    provider_name: String,
+    resets_at: Option<u64>,
 }
 fn send_peek(
     app: &AppHandle,
@@ -210,6 +221,15 @@ fn send_peek(
     seconds: u32,
     session_id: Option<String>,
 ) {
+    if !app
+        .state::<crate::AppState>()
+        .cfg
+        .lock()
+        .unwrap()
+        .notch_visible
+    {
+        return;
+    }
     let _ = app.emit(
         "notch_alert",
         Peek {
@@ -218,6 +238,60 @@ fn send_peek(
             label: label.into(),
             seconds,
             session_id,
+            provider_name: provider.into(),
+            resets_at: None,
+        },
+    );
+}
+fn system_notice(app: &AppHandle, title: &str, body: &str) {
+    // Swift requests notification permission lazily, when a real crossing needs delivery.
+    use tauri_plugin_notification::PermissionState;
+    match app.notification().request_permission() {
+        Ok(PermissionState::Granted) => {
+            if let Err(e) = app.notification().builder().title(title).body(body).show() {
+                crate::applog(&format!("Notification failed: {e}"));
+            }
+        }
+        Ok(_) => {}
+        Err(e) => crate::applog(&format!("Notification permission failed: {e}")),
+    }
+}
+fn usage_peek(
+    app: &AppHandle,
+    provider: &str,
+    provider_name: &str,
+    kind: &str,
+    label: &str,
+    resets_at: Option<u64>,
+) {
+    let cfg = app.state::<crate::AppState>().cfg.lock().unwrap().clone();
+    if !cfg.notch_visible {
+        let zh = crate::resolved_lang(&cfg.lang).starts_with("zh");
+        let title = match (kind, zh) {
+            ("reset", true) => format!("{provider_name} 额度已重置"),
+            ("reset", false) => format!("{provider_name} has reset"),
+            (_, true) => format!("{provider_name} 额度已耗尽"),
+            _ => format!("{provider_name} limit reached"),
+        };
+        let body = match (kind, zh) {
+            ("reset", true) => format!("{label} 额度已恢复。"),
+            ("reset", false) => format!("Its {label} limit is available again."),
+            (_, true) => format!("{label} 额度已耗尽。"),
+            _ => format!("Its {label} limit is spent."),
+        };
+        system_notice(app, &title, &body);
+        return;
+    }
+    let _ = app.emit(
+        "notch_alert",
+        Peek {
+            provider: provider.into(),
+            provider_name: provider_name.into(),
+            kind: kind.into(),
+            label: label.into(),
+            seconds: if kind == "reset" { 5 } else { 6 },
+            session_id: None,
+            resets_at,
         },
     );
 }
@@ -226,14 +300,33 @@ pub fn preview_notch_alert(app: AppHandle, kind: String) -> Result<(), String> {
     if !["reset", "sessionLimitReached", "weeklyLimitReached"].contains(&kind.as_str()) {
         return Err("未知提醒类型".into());
     }
-    let seconds = app
+    let prefs = app
         .state::<crate::AppState>()
         .cfg
         .lock()
         .unwrap()
         .notifications
-        .peek_seconds;
-    send_peek(&app, "claude", &kind, "Claude", seconds, None);
+        .clone();
+    let (sound, name) = if kind == "reset" {
+        (prefs.reset_sound, &prefs.reset_sound_name)
+    } else {
+        (prefs.limit_sound, &prefs.limit_sound_name)
+    };
+    if sound {
+        let _ = crate::chime::play(name);
+    }
+    usage_peek(
+        &app,
+        "claude",
+        "Claude",
+        &kind,
+        if kind == "weeklyLimitReached" {
+            "Weekly"
+        } else {
+            "5-hour"
+        },
+        Some(crate::now_ms() + 5 * 3600_000),
+    );
     Ok(())
 }
 pub fn start(app: AppHandle) {
@@ -340,19 +433,21 @@ pub fn start(app: AppHandle) {
                                         e.fraction * 100.
                                     )
                                 };
-                                let _ = app
-                                    .notification()
-                                    .builder()
-                                    .title("Vela")
-                                    .body(message)
-                                    .show();
+                                system_notice(&app, "Vela", &message);
                                 continue;
                             }
                         };
                         if enabled {
-                            send_peek(&app, &option.id, kind, &e.label, p.peek_seconds, None);
+                            usage_peek(
+                                &app,
+                                &option.id,
+                                &option.label,
+                                kind,
+                                &e.label,
+                                window.resets_at,
+                            );
                         }
-                        if enabled && sound {
+                        if sound && (enabled || kind == "reset") {
                             let _ = crate::chime::play(name);
                         }
                     }
@@ -459,5 +554,45 @@ mod tests {
         snap.sessions.clear();
         t.update(&snap, &Preferences::default());
         assert!(t.0.is_empty());
+    }
+    #[test]
+    fn simultaneous_completions_offer_the_newest_session_first() {
+        let mut store = crate::state::Store::default();
+        let mut snap = store.snapshot("en", "en", true, false);
+        for (id, at) in [("older", 10), ("newer", 20)] {
+            snap.sessions.push(crate::state::Session {
+                id: id.into(),
+                title: String::new(),
+                state: "running".into(),
+                started: 1,
+                total: 0,
+                last: String::new(),
+                attn: String::new(),
+                prompt: String::new(),
+                model: String::new(),
+                ppid: 0,
+                last_event: at,
+                cwd: String::new(),
+                last_hook: 0,
+            });
+        }
+        let mut watcher = Transitions::default();
+        let prefs = Preferences {
+            done: true,
+            ..Default::default()
+        };
+        assert!(watcher.update(&snap, &prefs).is_empty());
+        for s in &mut snap.sessions {
+            s.state = "done".into();
+        }
+        let events = watcher.update(&snap, &prefs);
+        assert_eq!(
+            events
+                .iter()
+                .map(|e| e.session_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["newer", "older"]
+        );
+        assert!(watcher.update(&snap, &prefs).is_empty());
     }
 }

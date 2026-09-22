@@ -1148,7 +1148,8 @@ fn focus_session(app: AppHandle, id: String) -> bool {
     };
     match ppid {
         Some(p) => focus::focus_terminal(p),
-        None => focus::focus_claude_desktop(),
+        None if id == "claude-desktop-network" => focus::focus_claude_desktop(),
+        None => false,
     }
 }
 

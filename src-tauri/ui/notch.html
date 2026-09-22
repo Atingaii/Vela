@@ -104,6 +104,17 @@
   #card.show + #tail{display:block}
   .c-head{display:flex;align-items:center;gap:6.3932px;margin-bottom:7.8974px}
   .c-title{font-size:13.6944px;font-weight:600}
+  #card.usage-alert{height:78.9744px;overflow:hidden}
+  .usage-alert .c-head{margin-bottom:0}
+  .alert-heading{flex:1;min-width:0}
+  .alert-title-row{display:flex;align-items:center;gap:4.5128px}
+  .alert-title-row .c-title{flex:1;white-space:nowrap}
+  .alert-dismiss{width:16px;height:16px;flex:none;border:0;padding:0;background:none;color:#808080;font:700 11px system-ui;cursor:pointer}
+  .alert-subtitle,.alert-reset,.alert-status{font-size:9.4802px;white-space:nowrap}
+  .alert-subtitle,.alert-reset{color:#808080;overflow:hidden;text-overflow:ellipsis}
+  .alert-status{display:flex;align-items:center;gap:4.5128px;margin-top:7.8974px}
+  .alert-dot{width:6.0171px;height:6.0171px;border-radius:50%;background:currentColor;flex:none}
+  .alert-reset{margin-top:3.0085px}
   .c-sub{font-size:11px;color:#808080;margin-bottom:10px}
   .win{margin-top:7.5214px}
   .w-row{display:flex;justify-content:space-between;align-items:baseline;font-size:9.4802px;flex-wrap:wrap;column-gap:8px}
@@ -1156,8 +1167,23 @@ function paceHtml(window){
   const points=appearance.show_usage_pace?usagePace(window,Date.now()):null;
   return points===null?'':`<span class="w-pace${points>0?' deficit':''}"> · ${esc(paceText(points))}</span>`;
 }
+const ALERT_COPY={"ja":{"Quota is available (0% used)":"割り当てに空きがあります（0% 使用）","Session limit reached (100% used)":"セッションの上限に到達（100% 使用）","Weekly limit reached (100% used)":"週間の上限に到達（100% 使用）","Next reset":"次のリセット","Resets at":"リセット時刻"},"uk":{"Quota is available (0% used)":"Ліміт доступний (0% використано)","Session limit reached (100% used)":"Ліміт сесії вичерпано (100% використано)","Weekly limit reached (100% used)":"Тижневий ліміт вичерпано (100% використано)","Next reset":"Наступне скидання","Resets at":"Скидання о"},"zh":{"Quota is available (0% used)":"额度可用（已用 0%）","Session limit reached (100% used)":"会话额度已用尽（已用 100%）","Weekly limit reached (100% used)":"每周额度已用尽（已用 100%）","Next reset":"下次重置","Resets at":"重置于"},"zh-Hant":{"Quota is available (0% used)":"配額可用（已用 0%）","Session limit reached (100% used)":"已達工作階段上限（已用 100%）","Weekly limit reached (100% used)":"已達每週上限（已用 100%）","Next reset":"下次重置","Resets at":"重置於"},"ko":{"Quota is available (0% used)":"사용 가능한 할당량이 있습니다 (0% 사용)","Session limit reached (100% used)":"세션 한도 도달 (100% 사용)","Weekly limit reached (100% used)":"주간 한도 도달 (100% 사용)","Next reset":"다음 재설정","Resets at":"재설정 시각"},"uz":{"Quota is available (0% used)":"Kvota mavjud (0% ishlatilgan)","Session limit reached (100% used)":"Sessiya limitiga yetildi (100% ishlatilgan)","Weekly limit reached (100% used)":"Haftalik limitga yetildi (100% ishlatilgan)","Next reset":"Keyingi yangilanish","Resets at":"Yangilanish vaqti"}};
+function alertText(key){return ALERT_COPY[uiLang]?.[key]||key;}
+function renderUsageAlert(alert){
+ const p=providers().find(p=>p.id===alert.provider)||{id:alert.provider,base:alert.provider,name:alert.provider_name||alert.provider};
+ const zh=uiLang.startsWith('zh'),reset=alert.kind==='reset',weekly=alert.kind==='weeklyLimitReached';
+ const title=(alert.provider_name||p.name)+(zh?(reset?' 额度已重置':weekly?' 周额度':' 额度已耗尽'):(reset?' Reset':weekly?' Weekly Limit':' Limit Reached'));
+ const subtitle=textCopy(alert.label)+(zh?(reset?'额度已恢复':'额度已耗尽'):(reset?' limit refreshed':' limit is spent'));
+ const status=reset?'Quota is available (0% used)':weekly?'Weekly limit reached (100% used)':'Session limit reached (100% used)';
+ const next=alert.resets_at?`<div class="alert-reset">${esc(alertText(reset?'Next reset':'Resets at'))} ${esc(new Date(alert.resets_at).toLocaleTimeString(uiLang,{hour:'numeric',minute:'2-digit',hour12:!stateSnap.clock_24h}))}</div>`:'';
+ card.innerHTML=`<div class="c-head">${glyphHtml(p,true)}<div class="alert-heading"><div class="alert-title-row"><span class="c-title">${esc(title)}</span><button class="alert-dismiss" aria-label="${esc(alertText('Close'))}">×</button></div><div class="alert-subtitle">${esc(subtitle)}</div></div></div><div class="alert-status" role="status" style="color:${reset?AMPLE:CRIT}"><span class="alert-dot"></span>${esc(alertText(status))}</div>${next}`;
+ card.querySelector('.alert-dismiss').onclick=e=>{e.stopPropagation();notchAlert=null;card.classList.remove('usage-alert');hideCard();};
+ placeCard();
+}
 function renderCard(){
   const c=document.getElementById('card');
+  c.classList.toggle('usage-alert',!!notchAlert);
+  if(notchAlert){renderUsageAlert(notchAlert);return;}
   const p=providers().find(x=>x.id===hoverId)||providers()[0];
   if(!p)return;
   const snap=p.snap;
@@ -1165,10 +1191,6 @@ function renderCard(){
   // p.name is no longer a constant: for a second account it is built from the home
   // directory's slug and the subscriptionType read out of .credentials.json.
   let html=`<div class="c-head">${headIcon}<span class="c-title">${esc(ui().title(p.name))}</span></div>`;
-  if(notchAlert){
-    const zh=uiLang.startsWith('zh');const titles={done:zh?'任务已完成':'Task finished',attention:zh?'等待你的回应':'Waiting on you',reset:zh?'额度已重置':'Usage reset',sessionLimitReached:zh?'会话额度已耗尽':'Session limit reached',weeklyLimitReached:zh?'周额度已耗尽':'Weekly limit reached'};
-    html+='<div class="c-note" role="status">'+esc(titles[notchAlert.kind]||'')+'</div>';
-  }
   if(staleOf(snap)&&snap.fetched_at) html+=`<div class="c-sub">${ui().updated(ago(snap.fetched_at))}</div>`;
   if(snap.status==='needsAuth'){
     const who={claude:'Sign in to Claude Code to see usage.',cursor:'Sign in to Cursor to see usage.',codex:'Sign in to Codex to see usage.',grok:'Run grok login to see usage.',gemini:'Sign in to Antigravity to see usage.'}[p.base]||'';
@@ -1415,7 +1437,7 @@ function settle(id){
 }
 // Alt+drag, the Mac's ⌥-drag. Without Alt a press on the pill is only ever a click — a ring
 // refreshes (#244) — so one that slips can no longer carry the notch off (#251).
-pill.addEventListener('mousedown',e=>{ if(e.button!==0||folded)return; press={x:e.clientX,y:e.clientY,id:cellAt(e.clientX,e.clientY),alt:e.altKey}; });
+pill.addEventListener('mousedown',e=>{ if(e.button!==0)return; if(folded){takePendingFocus();return;} press={x:e.clientX,y:e.clientY,id:cellAt(e.clientX,e.clientY),alt:e.altKey}; });
 document.addEventListener('mousemove',e=>{
   if(!press||dragging||!press.alt)return;
   if(Math.abs(e.clientY-press.y)>4||Math.abs(e.clientX-press.x)>4){
@@ -1425,7 +1447,7 @@ document.addEventListener('mousemove',e=>{
 });
 document.addEventListener('mouseup',e=>{
   if(e.button!==0)return;
-  if(press&&!dragging){if(press.id)refreshRing(press.id);else invoke('toggle_notch_pin').catch(e=>notice(e));}
+  if(press&&!dragging&&!takePendingFocus()){if(press.id)refreshRing(press.id);else invoke('toggle_notch_pin').catch(e=>notice(e));}
   press=null;
 });
 // The Mac's right-click menu, naming the ring or card under the pointer; WebView2's own menu never shows
@@ -1527,7 +1549,7 @@ listen('move_end',()=>{ carrying=false; moveHandle.classList.remove('armed'); se
    notch on purpose — folding under them is what #239's reviewers caught, so it is ruled out here. */
 const FOLD_GRACE=450; // NotchWindowController.foldGrace
 function shouldFold(){return !pinned&&(onHover||(fullscreen&&appearance.folds_for_fullscreen));}
-function foldAllowed(){ return !notchAlert&&shouldFold()&&!pointerIn&&!carrying&&!dragging&&!menuOpen; }
+function foldAllowed(){ return Date.now()>=peekUntil&&!notchAlert&&shouldFold()&&!pointerIn&&!carrying&&!dragging&&!menuOpen; }
 function setFolded(f){
   if(f===folded) return;
   folded=f;
@@ -1551,15 +1573,25 @@ invoke('get_ui_flags').then(applyUiFlags).catch(()=>{});
 listen('move_handle',e=>{ showMove=e.payload!==false; reportHot(); }).catch(()=>{});
 invoke('get_move_handle').then(v=>{ showMove=v!==false; reportHot(); }).catch(()=>{});
 
-let notchAlert=null,alertTimer=null;
+let notchAlert=null,alertTimer=null,peekTimer=null,peekUntil=0,pendingFocus=null;
 listen('notch_alert',e=>{
- const alert=e.payload;if(!alert||carrying||dragging||menuOpen)return;
- notchAlert=alert;clearTimeout(alertTimer);clearTimeout(hideTimer);unfold();
- const target=providers().find(p=>p.id===alert.provider);if(target)hoverId=target.id;
- showCard();
- alertTimer=setTimeout(()=>{notchAlert=null;if(pointerIn){renderCard();}else{hideCard();scheduleFold();}},Math.min(10,Math.max(3,alert.seconds||5))*1000);
+ const alert=e.payload;if(!alert)return;
+ const seconds=Math.min(10,Math.max(3,alert.seconds||5));
+ peekUntil=Date.now()+seconds*1000;
+ if(alert.session_id)pendingFocus={id:alert.session_id,until:peekUntil+2000};
+ clearTimeout(peekTimer);clearTimeout(hideTimer);unfold();
+ if(['reset','sessionLimitReached','weeklyLimitReached'].includes(alert.kind)){
+  notchAlert=alert;clearTimeout(alertTimer);
+  const target=providers().find(p=>p.id===alert.provider);if(target)hoverId=target.id;showCard();
+  alertTimer=setTimeout(()=>{notchAlert=null;card.classList.remove('usage-alert');if(pointerIn){if(card.classList.contains('show'))renderCard();}else{hideCard();scheduleFold();}},seconds*1000);
+ }
+ peekTimer=setTimeout(()=>{peekUntil=0;scheduleFold();},seconds*1000);
 }).catch(()=>{});
-card.addEventListener('click',e=>{if(notchAlert?.session_id&&!e.target.closest('button'))invoke('focus_session',{id:notchAlert.session_id}).catch(()=>{});});
+function takePendingFocus(){
+ if(!pendingFocus||pendingFocus.until<=Date.now()){pendingFocus=null;return false;}
+ const id=pendingFocus.id;pendingFocus=null;peekUntil=0;clearTimeout(peekTimer);
+ invoke('focus_session',{id}).catch(e=>notice(e));setFolded(true);return true;
+}
 function acceptAppearance(prefs){if(prefs){appearance={...appearance,...prefs};scheduleFold(fullscreen);renderRing();if(card.classList.contains('show'))renderCard();}}
 invoke('get_appearance').then(acceptAppearance).catch(()=>{});
 listen('appearance',e=>acceptAppearance(e.payload)).catch(()=>{});

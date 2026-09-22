@@ -10,6 +10,7 @@
 - [state-management](state-management.md)
 - [type-safety](type-safety.md)
 - [quality-guidelines](quality-guidelines.md)
+- [notification-contract](notification-contract.md)
 
 ## Quality Check
 
