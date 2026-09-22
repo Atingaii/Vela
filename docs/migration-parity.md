@@ -49,3 +49,5 @@
 2026-09-22 窗口交互阶段检查：Rust 174 通过、3 忽略；Node 10 通过；Playwright 13 通过。默认跟随前台窗口、固定显示器选择、全屏收起/悬停唤醒及独立的临时“保持展开”已移植。Windows 判断排除普通任务栏内最大化与桌面；macOS 保留 Swift 的菜单栏留白容差，硬件 safe-area 与 visibleFrame 补充路径仍待完善。`f63cc23` 的三项 CI 已通过（[run 35728495307](https://github.com/Atingaii/Vela/actions/runs/35728495307)），不含此次窗口 API 改动。
 
 2026-09-22 提醒阶段检查：Rust 175 通过、3 忽略；Node 10 通过；Playwright 14 通过，覆盖独立额度卡片、关闭、完成只展开和返回会话。重置/耗尽分别持续 5/6 秒；批量完成只选最新会话，固定 Swift 基准没有提醒队列。卡片计时与完成展开独立。`a54201f` 的 macOS / Windows / browser CI 全部通过（[run 35729501896](https://github.com/Atingaii/Vela/actions/runs/35729501896)），不含后续提醒修改。原生通知权限、真实终端定位与完整视觉一致性仍待验证。
+
+2026-09-22 用量元数据阶段检查：Rust 180 通过、3 忽略；Node 10 通过；Playwright 15 通过。修复 Kimi `TIME_UNIT_*` 字段导致的 5 小时窗口遗漏、Copilot 剩余次数与已用次数混淆；恢复 MiniMax boost 计数与 Claude/Codex/Kimi/Copilot/MiniMax/OpenCode/Command Code 的已知套餐字段，桌面卡片与手机快照共享。旧缓存兼容，手机 backoff 保留原采集时间；未因此完成全部供应商元数据、block 或手机真实互通验收。

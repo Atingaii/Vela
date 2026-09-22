@@ -1,5 +1,5 @@
 use super::{parse, Failure};
-use crate::usage::LimitWindow;
+use crate::usage::UsageSnapshot;
 use serde_json::{json, Value};
 use std::{
     io::Read,
@@ -139,7 +139,7 @@ fn devin_token() -> Option<String> {
     let doc = text.parse::<toml_edit::DocumentMut>().ok()?;
     doc.get("windsurf_api_key")?.as_str().map(str::to_owned)
 }
-pub(super) fn fetch(id: &str, china: bool) -> Result<Vec<LimitWindow>, Failure> {
+pub(super) fn fetch(id: &str, china: bool) -> Result<UsageSnapshot, Failure> {
     match id {
         "opencode" => {
             let root = std::env::var_os("XDG_DATA_HOME")
@@ -151,11 +151,10 @@ pub(super) fn fetch(id: &str, china: bool) -> Result<Vec<LimitWindow>, Failure> 
                 &["key", "apiKey", "api_key", "token", "accessToken"],
             )
             .ok_or(Failure::Absent)?;
-            parse::opencode(&request(
-                "https://opencode.ai/zen/go/v1/usage",
-                Some(&token),
-                None,
-            )?)
+            parse::reading(
+                id,
+                &request("https://opencode.ai/zen/go/v1/usage", Some(&token), None)?,
+            )
         }
         "kimi" => {
             let root = std::env::var_os("KIMI_CODE_HOME")
@@ -166,23 +165,25 @@ pub(super) fn fetch(id: &str, china: bool) -> Result<Vec<LimitWindow>, Failure> 
             if parse::number(&v["expires_at"]).is_none_or(|t| t * 1000. <= crate::now_ms() as f64) {
                 return Err(Failure::Expired);
             }
-            parse::kimi(&request(
-                "https://api.kimi.com/coding/v1/usages",
-                Some(&token),
-                None,
-            )?)
+            parse::reading(
+                id,
+                &request("https://api.kimi.com/coding/v1/usages", Some(&token), None)?,
+            )
         }
         "copilot" => {
             let token = copilot_token().ok_or(Failure::Absent)?;
-            parse::copilot(&request(
-                "https://api.github.com/copilot_internal/user",
-                Some(&token),
-                None,
-            )?)
+            parse::reading(
+                id,
+                &request(
+                    "https://api.github.com/copilot_internal/user",
+                    Some(&token),
+                    None,
+                )?,
+            )
         }
         "devin" => {
             let token = devin_token().ok_or(Failure::Absent)?;
-            parse::devin(&request("https://server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus",None,Some(json!({"metadata":{"apiKey":token,"ideName":"windsurf","ideVersion":"1.108.2","extensionName":"windsurf","extensionVersion":"1.108.2","locale":"en"}})))?)
+            parse::reading(id, &request("https://server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus",None,Some(json!({"metadata":{"apiKey":token,"ideName":"windsurf","ideVersion":"1.108.2","extensionName":"windsurf","extensionVersion":"1.108.2","locale":"en"}})))?)
         }
         "commandcode" => {
             let token = env(&["COMMAND_CODE_API_KEY"])
@@ -208,7 +209,21 @@ pub(super) fn fetch(id: &str, china: bool) -> Result<Vec<LimitWindow>, Failure> 
                 Some(&token),
                 None,
             )?;
-            parse::commandcode(&summary, &credits, &subscription)
+            let plan = sub["planId"]
+                .as_str()
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| {
+                    if s.to_lowercase().contains("goat") {
+                        "GOAT".into()
+                    } else {
+                        s.into()
+                    }
+                });
+            Ok(UsageSnapshot {
+                windows: parse::commandcode(&summary, &credits, &subscription)?,
+                plan,
+                ..Default::default()
+            })
         }
         "minimax" => {
             let token = env(&[
@@ -229,7 +244,7 @@ pub(super) fn fetch(id: &str, china: bool) -> Result<Vec<LimitWindow>, Failure> 
                     Some(&token),
                     None,
                 )
-                .and_then(|v| parse::minimax(&v, crate::now_ms()))
+                .and_then(|v| parse::reading(id, &v))
                 {
                     Err(Failure::Invalid) => continue,
                     result => return result,
@@ -241,11 +256,10 @@ pub(super) fn fetch(id: &str, china: bool) -> Result<Vec<LimitWindow>, Failure> 
             let token = env(&["OLLAMA_API_KEY"])
                 .or_else(|| crate::secrets::read("ollama-cloud").ok())
                 .ok_or(Failure::Absent)?;
-            parse::ollama(&request(
-                "https://ollama.com/api/usage",
-                Some(&token),
-                None,
-            )?)
+            parse::reading(
+                id,
+                &request("https://ollama.com/api/usage", Some(&token), None)?,
+            )
         }
         _ => Err(Failure::Absent),
     }

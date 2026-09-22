@@ -203,3 +203,22 @@ test('额度提醒使用独立卡片，关闭后恢复用量，完成提醒只�
  await page.locator('.cell').click();await expect.poll(()=>page.evaluate(()=>calls.filter(c=>c.cmd==='focus_session').at(-1)?.args.id)).toBe('session-42');
  expect(await page.evaluate(()=>calls.some(c=>c.cmd==='refresh_usage'))).toBe(false);
 });
+
+
+test('账户套餐和剩余次数保留原始含义，无上限不画百分比条',async({page})=>{
+ await page.setViewportSize({width:360,height:650});await bridge(page);await page.addInitScript(()=>{
+  const invoke=window.__TAURI__.core.invoke;
+  window.__TAURI__.core.invoke=async(cmd,args)=>{
+   if(cmd==='get_notch_slots')return [{provider:'copilot'}];
+   if(cmd==='get_providers')return [{id:'copilot',name:'GitHub Copilot',headline:'premium_interactions',enabled:true,snap:{status:'ok',plan:'<Pro & Team>',windows:[{id:'premium_interactions',label:'Premium requests',used:0,count:75,remaining:75}],fetched_at:Date.now()}}];
+   if(cmd==='get_state')return {sessions:[],agg:'idle',lang_resolved:'en'};
+   return invoke(cmd,args);
+  };
+ });
+ await page.goto('/notch.html');await expect(page.locator('.cell')).toHaveCount(1);
+ await page.locator('.cell').hover();await expect(page.locator('#card')).toHaveClass(/show/);
+ await expect(page.locator('.c-plan')).toHaveText('<Pro & Team>');
+ await expect(page.locator('.w-used')).toHaveText('75 left');
+ await expect(page.locator('.w-track')).toHaveCount(0);
+ await expect(page.locator('.cell .pct')).toHaveText('75');
+});

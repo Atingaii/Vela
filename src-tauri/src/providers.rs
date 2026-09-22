@@ -341,7 +341,10 @@ pub fn start(app: AppHandle) {
                     .providers
                     .minimax_china;
                 let result = if id == "kiro" {
-                    kiro::read()
+                    kiro::read().map(|windows| UsageSnapshot {
+                        windows,
+                        ..Default::default()
+                    })
                 } else if id == "gemini-api" {
                     let budget = app
                         .state::<crate::AppState>()
@@ -350,7 +353,12 @@ pub fn start(app: AppHandle) {
                         .unwrap()
                         .providers
                         .gemini_token_budget;
-                    gemini_logs::read(&dirs::home_dir().unwrap_or_default(), budget)
+                    gemini_logs::read(&dirs::home_dir().unwrap_or_default(), budget).map(
+                        |windows| UsageSnapshot {
+                            windows,
+                            ..Default::default()
+                        },
+                    )
                 } else if matches!(id, "ollama-local" | "lmstudio") {
                     let prefs = app
                         .state::<crate::AppState>()
@@ -368,6 +376,10 @@ pub fn start(app: AppHandle) {
                         },
                         &prefs.disabled_models,
                     )
+                    .map(|windows| UsageSnapshot {
+                        windows,
+                        ..Default::default()
+                    })
                 } else {
                     transport::fetch(id, china)
                 };
@@ -376,13 +388,11 @@ pub fn start(app: AppHandle) {
                     continue;
                 }
                 let snap = match result {
-                    Ok(windows) => UsageSnapshot {
-                        status: "ok".into(),
-                        windows,
-                        fetched_at: crate::now_ms(),
-                        note: String::new(),
-                        backoff_until: 0,
-                    },
+                    Ok(mut reading) => {
+                        reading.status = "ok".into();
+                        reading.fetched_at = crate::now_ms();
+                        reading
+                    }
                     Err(e) => failure(old, e, crate::now_ms()),
                 };
                 next.insert(

@@ -9,6 +9,7 @@
 - [error-handling](error-handling.md)
 - [logging-guidelines](logging-guidelines.md)
 - [quality-guidelines](quality-guidelines.md)
+- [quota-metadata](quota-metadata.md)
 
 ## Quality Check
 

@@ -4,6 +4,55 @@ use crate::usage::LimitWindow;
 use chrono::{Datelike, Timelike};
 use serde_json::Value;
 
+/// Keep account metadata with the reading through cache and Phone Link serialization.
+pub(super) fn reading(id: &str, v: &Value) -> Result<crate::usage::UsageSnapshot, Failure> {
+    let windows = match id {
+        "opencode" => opencode(v),
+        "kimi" => kimi(v),
+        "copilot" => copilot(v),
+        "devin" => devin(v),
+        "minimax" => minimax(v, crate::now_ms()),
+        "ollama-cloud" => ollama(v),
+        _ => Err(Failure::Invalid),
+    }?;
+    let text = |v: &Value| {
+        v.as_str()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+    };
+    let plan = match id {
+        "opencode" => Some("Go".into()),
+        "kimi" => text(&v["user"]["membership"]["level"]).map(|s| {
+            s.strip_prefix("LEVEL_")
+                .unwrap_or(&s)
+                .split('_')
+                .map(|part| {
+                    let mut chars = part.chars();
+                    chars
+                        .next()
+                        .map(|c| c.to_uppercase().to_string() + &chars.as_str().to_lowercase())
+                        .unwrap_or_default()
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        }),
+        "copilot" => text(&v["copilot_plan"]).or_else(|| text(&v["plan"])),
+        "minimax" => {
+            let payload = v.get("data").filter(|d| d.is_object()).unwrap_or(v);
+            ["current_subscribe_title", "plan_name", "combo_title"]
+                .iter()
+                .find_map(|key| text(&payload[*key]))
+        }
+        _ => None,
+    };
+    Ok(crate::usage::UsageSnapshot {
+        windows,
+        plan,
+        ..Default::default()
+    })
+}
+
 pub(super) fn number(v: &Value) -> Option<f64> {
     v.as_f64()
         .or_else(|| v.as_str()?.trim().parse().ok())
@@ -25,6 +74,8 @@ pub(super) fn date(v: &Value) -> Option<u64> {
 }
 fn meter(id: &str, label: &str, used: f64, reset: Option<u64>) -> LimitWindow {
     LimitWindow {
+        remaining: None,
+        used_count: None,
         id: id.into(),
         label: label.into(),
         used: used.max(0.),
@@ -86,8 +137,7 @@ pub(super) fn opencode(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
 }
 pub(super) fn kimi(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
     fn window(x: &Value, id: &str) -> Option<LimitWindow> {
-        let used =
-            number(&x["used"]).or_else(|| Some(number(&x["limit"])? - number(&x["remaining"])?))?;
+        let used = number(&x["used"])?;
         let label = if id == "weekly" {
             "Weekly limit"
         } else {
@@ -117,8 +167,9 @@ pub(super) fn kimi(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
             .unwrap_or("")
             .to_lowercase();
         let id = match (d, unit.as_str()) {
-            (Some(300.), "minute" | "minutes") | (Some(5.), "hour" | "hours") => "rolling",
-            (Some(1.), "week" | "weeks") => "weekly",
+            (Some(300.), "time_unit_minute" | "minute" | "minutes")
+            | (Some(5.), "time_unit_hour" | "hour" | "hours") => "rolling",
+            (Some(1.), "time_unit_week" | "week" | "weeks") => "weekly",
             _ => continue,
         };
         if let Some(w) = window(&x["detail"], id) {
@@ -166,8 +217,18 @@ pub(super) fn copilot(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
                         .unwrap_or_else(|| (cap - number(&x["remaining"]).unwrap_or(cap)).max(0.));
                     meter(id, id, used / cap, reset)
                 } else {
-                    let n = number(&x["remaining"]).or_else(|| number(&x["used"]))?;
-                    count(id, &format!("{id} · count"), n)
+                    let used = number(&x["used"]);
+                    let remaining = number(&x["remaining"]);
+                    if let Some(n) = used.filter(|n| *n >= 0.) {
+                        count(id, id, n.round())
+                    } else if used.is_none() {
+                        let n = remaining.filter(|n| *n >= 0.)?.round();
+                        let mut w = count(id, id, n);
+                        w.remaining = Some(n.min(i64::MAX as f64) as i64);
+                        w
+                    } else {
+                        return None;
+                    }
                 };
                 w.resets_at = reset;
                 if w.count.is_none() {
@@ -337,7 +398,31 @@ pub(super) fn minimax(v: &Value, now: u64) -> Result<Vec<LimitWindow>, Failure> 
                 } else {
                     5. * 3600.
                 });
-            out.push(timed(meter(id, label, used, reset), Some(duration)));
+            let mut w = timed(meter(id, label, used, reset), Some(duration));
+            if !unlimited {
+                if pct.is_some() {
+                    let boost_key = if id == "weekly" {
+                        "weekly_boost_permill"
+                    } else {
+                        "interval_boost_permill"
+                    };
+                    let boost = number(&lane[boost_key])
+                        .or_else(|| number(&lane[format!("{boost_key}e")]))
+                        .filter(|n| *n > 0.);
+                    if let Some(boost) = boost {
+                        let cap = (boost / 10.).round().max(1.);
+                        let spent = (used * cap).round();
+                        w.used_count = Some(spent as i64);
+                        w.remaining = Some((cap - spent).max(0.) as i64);
+                    }
+                } else {
+                    w.remaining = left.map(|n| n as i64);
+                    w.used_count = total
+                        .zip(left)
+                        .map(|(total, left)| (total - left).max(0.) as i64);
+                }
+            }
+            out.push(w);
         }
     }
     nonempty(out)
@@ -365,6 +450,35 @@ pub(super) fn ollama(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn kimi_wire_units_preserve_the_five_hour_window_and_plan() {
+        let v = json!({"user":{"membership":{"level":"LEVEL_ADVANCED"}},"usage":{"used":"2","limit":"100"},"limits":[{"window":{"duration":300,"timeUnit":"TIME_UNIT_MINUTE"},"detail":{"used":"8","limit":"100"}},{"window":{"duration":24,"timeUnit":"TIME_UNIT_HOUR"},"detail":{"used":"99","limit":"100"}}]});
+        let r = reading("kimi", &v).unwrap();
+        assert_eq!(r.plan.as_deref(), Some("Advanced"));
+        assert_eq!(r.windows.len(), 2);
+        assert_eq!(r.windows[1].id, "rolling");
+        assert_eq!(r.windows[1].used, 0.08);
+        assert_eq!(r.windows[1].duration, Some(18000.));
+        assert!(kimi(&json!({"usage":{"remaining":90,"limit":100}})).is_err());
+    }
+    #[test]
+    fn copilot_unknown_denominator_keeps_remaining_and_used_distinct() {
+        let r = reading("copilot", &json!({"copilot_plan":"individual","quota_snapshots":{"premium_interactions":{"remaining":72},"chat":{"used":8,"remaining":50},"completions":{"used":-2}}})).unwrap();
+        assert_eq!(r.plan.as_deref(), Some("individual"));
+        assert_eq!(r.windows.len(), 2);
+        assert_eq!(r.windows[0].remaining, Some(72));
+        assert_eq!(r.windows[1].count, Some(8));
+        assert_eq!(r.windows[1].remaining, None);
+    }
+    #[test]
+    fn minimax_plan_and_boost_counts_survive_without_changing_fraction() {
+        let r = reading("minimax", &json!({"data":{"plan_name":"Starter","model_remains":[{"model_name":"general","current_interval_remaining_percent":75,"interval_boost_permill":2000}]}})).unwrap();
+        assert_eq!(r.plan.as_deref(), Some("Starter"));
+        assert_eq!(r.windows[0].used, 0.25);
+        assert_eq!(r.windows[0].count, None);
+        assert_eq!(r.windows[0].used_count, Some(50));
+        assert_eq!(r.windows[0].remaining, Some(150));
+    }
     #[test]
     fn reported_cycles_match_swift_including_calendar_months() {
         let leap = date(&json!("2024-03-01T00:00:00Z"));

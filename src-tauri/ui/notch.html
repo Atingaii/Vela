@@ -103,6 +103,7 @@
   }
   #card.show + #tail{display:block}
   .c-head{display:flex;align-items:center;gap:6.3932px;margin-bottom:7.8974px}
+  .c-plan{font-size:9.4802px;color:#808080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .c-title{font-size:13.6944px;font-weight:600}
   #card.usage-alert{height:78.9744px;overflow:hidden}
   .usage-alert .c-head{margin-bottom:0}
@@ -1190,7 +1191,7 @@ function renderCard(){
   const headIcon=glyphHtml(p,true);
   // p.name is no longer a constant: for a second account it is built from the home
   // directory's slug and the subscriptionType read out of .credentials.json.
-  let html=`<div class="c-head">${headIcon}<span class="c-title">${esc(ui().title(p.name))}</span></div>`;
+  let html=`<div class="c-head">${headIcon}<div style="min-width:0"><span class="c-title">${esc(ui().title(p.name))}</span>${snap.plan?`<div class="c-plan">${esc(snap.plan)}</div>`:''}</div></div>`;
   if(staleOf(snap)&&snap.fetched_at) html+=`<div class="c-sub">${ui().updated(ago(snap.fetched_at))}</div>`;
   if(snap.status==='needsAuth'){
     const who={claude:'Sign in to Claude Code to see usage.',cursor:'Sign in to Cursor to see usage.',codex:'Sign in to Codex to see usage.',grok:'Run grok login to see usage.',gemini:'Sign in to Antigravity to see usage.'}[p.base]||'';
@@ -1208,8 +1209,13 @@ function renderCard(){
         if(group) html+=`<div class="g-head">${esc(textCopy(group))}</div><div class="g-box">`;
       }
       if(w.count!=null){
-        html+=`<div class="win"><div class="w-row"><span class="w-label">${esc(w.id==='daily_pace'?paceCopy('Daily pace'):textCopy(w.label))}</span></div>
-          <div class="w-used">${esc((p.base==='gemini'||p.base.startsWith('antigravity-'))?(w.count>0?`${w.derived?'~':''}${w.count} ${textCopy(w.count===1?'request today':'requests today')}`:textCopy('no requests today')):`${w.derived?'~':''}${w.count.toLocaleString()}`)}</div></div>`;
+        const n=(w.derived?'~':'')+w.count.toLocaleString();
+        if(w.remaining!=null){
+          const left=({"ru":"Осталось {n}","fr":"{n} restants","ja":"残り {n}","pt-BR":"{n} restantes","zh":"剩余 {n}","zh-Hant":"剩餘 {n}","de":"{n} übrig","uk":"Лишилось {n}","ko":"{n}개 남음","uz":"{n} qoldi","en":"{n} left"})[uiLang]?.replace('{n}',n)||`${n} left`;
+          html+=`<div class="win"><div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span><span class="w-reset">${resetCopy(w.resets_at)}</span></div><div class="w-used">${esc(left)}</div></div>`;
+        }else{
+          html+=`<div class="win"><div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span><span class="w-count">${esc(n)}</span></div></div>`;
+        }
         continue;
       }
       html+=`<div class="win">

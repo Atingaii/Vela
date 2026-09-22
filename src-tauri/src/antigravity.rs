@@ -1146,6 +1146,7 @@ pub fn read_profile(home: &std::path::Path, mut previous: UsageSnapshot) -> Usag
     }
     if let Some(windows) = direct_quota(&cred.access_token) {
         return UsageSnapshot {
+            plan: None,
             status: "ok".into(),
             windows,
             fetched_at: now_ms(),

@@ -786,6 +786,7 @@ fn read_once() -> UsageSnapshot {
                         snap.status = "ok".into();
                         snap.windows = windows;
                         snap.fetched_at = now_ms();
+                        snap.plan = plan.clone();
                         snap.note = plan
                             .map(|p| format!("{} · via Codex", cap(&p)))
                             .unwrap_or_default();
@@ -848,6 +849,7 @@ fn read_once() -> UsageSnapshot {
             snap.status = if fresh { "ok" } else { "stale" }.into();
             snap.windows = windows;
             snap.fetched_at = rec; // the recorded time is what counts; the UI shows Updated N ago from it
+            snap.plan = plan.clone();
             snap.note = match plan {
                 Some(p) => format!("{} · from last Codex run", cap(&p)),
                 None => "from last Codex run".into(),
@@ -1408,6 +1410,10 @@ pub fn read_profile(home: &std::path::Path, mut previous: UsageSnapshot) -> Usag
                 let windows = windows_from_usage(&v);
                 if !windows.is_empty() {
                     return UsageSnapshot {
+                        plan: v["plan_type"]
+                            .as_str()
+                            .map(str::to_owned)
+                            .or_else(|| cred.plan.clone()),
                         status: "ok".into(),
                         windows,
                         fetched_at: now_ms(),
@@ -1442,6 +1448,7 @@ pub fn read_profile(home: &std::path::Path, mut previous: UsageSnapshot) -> Usag
         .and_then(|t| snapshot_from_rollout(&t))
     {
         return UsageSnapshot {
+            plan: plan.clone(),
             status: "stale".into(),
             windows,
             fetched_at: recorded.unwrap_or(0),

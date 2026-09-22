@@ -566,12 +566,24 @@ fn snapshot(app: &AppHandle) -> Value {
             .position(|s| s.provider == o.id)
             .unwrap_or(usize::MAX)
     });
-    let providers:Vec<_>=options.into_iter().filter(|o|!matches!(o.id.as_str(),"ollama-local"|"lmstudio")&&crate::providers::enabled(app,&o.id)).map(|o|{
-        let s=crate::snapshot_of(app,&o.id);let head=crate::ring_window(&o.id,&s.windows,&cfg.antigravity_limit,&cfg.antigravity_model).map(|w|w.id.clone());
-        let status=match s.status.as_str(){"ok"=>json!({"kind":"ok"}),"stale"=>json!({"kind":"stale","since":iso(s.fetched_at)}),"needsAuth"|"absent"=>json!({"kind":"needsAuth"}),"accessDenied"=>json!({"kind":"accessDenied"}),"unsupported"=>json!({"kind":"unsupported","why":s.note}),_=>json!({"kind":"error","why":s.note})};
-        let windows:Vec<_>=s.windows.iter().map(|w|json!({"id":w.id,"label":w.label,"usedFraction":if w.count.is_none()&&w.used.is_finite(){Some(w.used)}else{None},"remaining":null,"used":w.count,"resetsAt":w.resets_at.and_then(iso)})).collect();
-        json!({"id":o.id,"displayName":o.label,"fidelity":if s.windows.iter().any(|w|w.derived){"derived"}else{"official"},"status":status,"windows":windows,"headlineId":head,"block":null,"account":null})
-    }).collect();
+    let providers: Vec<_> = options
+        .into_iter()
+        .filter(|o| {
+            !matches!(o.id.as_str(), "ollama-local" | "lmstudio")
+                && crate::providers::enabled(app, &o.id)
+        })
+        .map(|o| {
+            let s = crate::snapshot_of(app, &o.id);
+            let head = crate::ring_window(
+                &o.id,
+                &s.windows,
+                &cfg.antigravity_limit,
+                &cfg.antigravity_model,
+            )
+            .map(|w| w.id.as_str());
+            provider_json(&o.id, &o.label, &s, head)
+        })
+        .collect();
     let sessions = st
         .store
         .lock()
@@ -581,4 +593,99 @@ fn snapshot(app: &AppHandle) -> Value {
     let mut sessions:Vec<_>=sessions.into_iter().map(|s|json!({"id":s.id,"name":s.title,"detail":s.last,"state":match s.state.as_str(){"running"=>"busy","attention"=>"waiting",_=>"idle"},"waitingFor":if s.attn.is_empty(){None}else{Some(s.attn)},"since":iso(s.started)})).collect();
     sessions.extend(st.activity.lock().unwrap().iter().map(|s|json!({"id":s.id,"name":s.name,"detail":s.detail,"state":s.state,"waitingFor":null,"since":iso(s.since)})));
     json!({"server":{"name":name(),"version":crate::BUILD,"generatedAt":iso(crate::now_ms()),"demo":false},"providers":providers,"sessions":sessions})
+}
+
+/// Pure wire projection: no inferred denominators or plans, and explicit nulls as in v3.
+fn provider_json(
+    id: &str,
+    label: &str,
+    s: &crate::usage::UsageSnapshot,
+    head: Option<&str>,
+) -> Value {
+    let status = match s.status.as_str() {
+        "ok" => json!({"kind":"ok"}),
+        "stale" => json!({"kind":"stale","since":iso(s.fetched_at)}),
+        "backoff" if s.fetched_at > 0 => json!({"kind":"stale","since":iso(s.fetched_at)}),
+        "needsAuth" | "absent" | "signedOutByOwner" => json!({"kind":"needsAuth"}),
+        "accessDenied" => json!({"kind":"accessDenied"}),
+        "unsupported" => json!({"kind":"unsupported","why":s.note}),
+        _ => json!({"kind":"error","why":s.note}),
+    };
+    let windows: Vec<_> = s.windows.iter().map(|w| json!({
+        "id": w.id, "label": w.label,
+        "usedFraction": if w.count.is_none() && w.used.is_finite() { Some(w.used) } else { None },
+        "remaining": w.remaining,
+        "used": w.used_count.or_else(|| if w.remaining.is_none() { w.count } else { None }),
+        "resetsAt": w.resets_at.and_then(iso)
+    })).collect();
+    let account = s
+        .plan
+        .as_deref()
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .map(|plan| json!({"plan":plan,"source":"Vela"}));
+    json!({"id":id,"displayName":label,"fidelity":if s.windows.iter().any(|w|w.derived){"derived"}else{"official"},"status":status,"windows":windows,"headlineId":head,"block":null,"account":account})
+}
+
+#[cfg(test)]
+mod snapshot_tests {
+    use super::*;
+    use crate::usage::{LimitWindow, UsageSnapshot};
+    #[test]
+    fn remaining_only_never_becomes_used_or_a_percentage() {
+        let s = UsageSnapshot {
+            status: "ok".into(),
+            plan: Some("Pro".into()),
+            windows: vec![
+                LimitWindow {
+                    id: "premium".into(),
+                    count: Some(75),
+                    remaining: Some(75),
+                    ..Default::default()
+                },
+                LimitWindow {
+                    id: "requests".into(),
+                    count: Some(8),
+                    ..Default::default()
+                },
+                LimitWindow {
+                    id: "quota".into(),
+                    used: 0.25,
+                    used_count: Some(25),
+                    remaining: Some(75),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        let v = provider_json("copilot", "GitHub Copilot", &s, Some("premium"));
+        assert_eq!(v["account"]["plan"], "Pro");
+        assert_eq!(v["headlineId"], "premium");
+        assert!(v["windows"][0]["usedFraction"].is_null());
+        assert!(v["windows"][0]["used"].is_null());
+        assert_eq!(v["windows"][0]["remaining"], 75);
+        assert_eq!(v["windows"][1]["used"], 8);
+        assert_eq!(v["windows"][2]["usedFraction"], 0.25);
+        assert_eq!(v["windows"][2]["used"], 25);
+        assert!(v["windows"][2]["resetsAt"].is_null());
+    }
+    #[test]
+    fn cached_backoff_uses_original_time_and_old_cache_remains_readable() {
+        let mut s: UsageSnapshot = serde_json::from_value(
+            json!({"status":"backoff","windows":[],"fetched_at":1000,"note":"rate limited"}),
+        )
+        .unwrap();
+        let v = provider_json("kimi", "Kimi", &s, None);
+        assert_eq!(
+            v["status"],
+            json!({"kind":"stale","since":"1970-01-01T00:00:01Z"})
+        );
+        assert!(v["account"].is_null());
+        assert!(v["headlineId"].is_null());
+        s.fetched_at = 0;
+        assert_eq!(
+            provider_json("kimi", "Kimi", &s, None)["status"]["kind"],
+            "error"
+        );
+    }
 }

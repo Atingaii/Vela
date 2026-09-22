@@ -188,6 +188,8 @@ pub(super) fn read(home: &Path, budget: Option<u64>) -> Result<Vec<LimitWindow>,
         .fold(0u64, |n, (_, s)| n.saturating_add(s.month));
     let budget = budget.filter(|n| *n > 0);
     let mut windows = vec![LimitWindow {
+        remaining: None,
+        used_count: None,
         id: "month".into(),
         label: "Tokens this month · local records".into(),
         used: budget.map(|b| total as f64 / b as f64).unwrap_or(0.),
@@ -208,6 +210,8 @@ pub(super) fn read(home: &Path, budget: Option<u64>) -> Result<Vec<LimitWindow>,
             ("calls", "Calls this month", t.calls),
         ] {
             windows.push(LimitWindow {
+                remaining: None,
+                used_count: None,
                 id: format!("{source}/{id}"),
                 label: label.into(),
                 used: 0.,

@@ -146,6 +146,11 @@ pub struct LimitWindow {
     /// Pure count window (no published denominator, e.g. Antigravity's requests today) — the cell shows ~N and the ring draws only its track
     #[serde(default)]
     pub count: Option<i64>,
+    /// Provider-reported counts can coexist with a fraction; unknown stays absent.
+    #[serde(default)]
+    pub remaining: Option<i64>,
+    #[serde(default)]
+    pub used_count: Option<i64>,
     /// The number is ours, not the vendor's (upstream fidelity=.derived) — the card adds a ~ prefix
     #[serde(default)]
     pub derived: bool,
@@ -164,6 +169,8 @@ pub struct UsageSnapshot {
     pub note: String,
     #[serde(default)]
     pub backoff_until: u64,
+    #[serde(default)]
+    pub plan: Option<String>,
 }
 
 fn store_path() -> std::path::PathBuf {
@@ -843,6 +850,7 @@ pub fn start(app: AppHandle) {
                         &app,
                         &id,
                         UsageSnapshot {
+                            plan: read_credentials(&p.dir).and_then(|c| c.plan),
                             status: acc.status.clone(),
                             windows,
                             fetched_at: acc.fetched_at,

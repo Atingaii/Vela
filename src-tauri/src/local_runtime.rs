@@ -156,6 +156,8 @@ pub fn fetch(
         },
     );
     let mut windows = vec![crate::usage::LimitWindow {
+        remaining: None,
+        used_count: None,
         id: "models".into(),
         label: "Loaded models".into(),
         count: Some(models.len() as i64),
@@ -185,6 +187,8 @@ pub fn fetch(
             })
             .unwrap_or_default();
         windows.push(crate::usage::LimitWindow {
+            remaining: None,
+            used_count: None,
             id: m.id.clone(),
             label: format!(
                 "{}{}{}{}",

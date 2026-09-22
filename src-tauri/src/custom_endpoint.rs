@@ -112,6 +112,7 @@ pub fn readings(app: &AppHandle) -> Vec<crate::providers::Reading> {
                 format!("Manual token usage · {:.0}", e.used)
             };
             let snap = crate::usage::UsageSnapshot {
+                plan: None,
                 status: if e.health == "unreachable" {
                     "stale"
                 } else {
@@ -119,6 +120,8 @@ pub fn readings(app: &AppHandle) -> Vec<crate::providers::Reading> {
                 }
                 .into(),
                 windows: vec![crate::usage::LimitWindow {
+                    remaining: None,
+                    used_count: None,
                     id: "manual".into(),
                     label,
                     used: e.budget.map(|b| e.used / b).unwrap_or(0.),
