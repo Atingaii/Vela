@@ -10,7 +10,7 @@
 | 跳回终端、完成确认 | Win32 | AppKit + 进程树 | 原生构建 CI；前台焦点待实机 |
 | Claude CLI 账户、hooks、日志 | 保留 | 配置文件 + 非交互 Keychain 查询 + Terminal 登录 | 配置与 hook 测试；真实账号授权不在自动测试中 |
 | Cursor、Grok、GLM | 保留 | 使用跨平台配置路径 | 解析测试；真实服务可用性不作保证 |
-| Antigravity | ConPTY + Credential Manager / 本地桥 | 有界 CLI 子进程 / 本地桥 | 非 Windows CLI 为管道，需确认具体 agy 版本是否要求 PTY；系统凭据 fallback 待补 |
+| Antigravity | ConPTY + Credential Manager / 本地桥 | 有界 CLI 子进程 / 本地桥 / 非交互 Keychain | 非 Windows CLI 为管道，需确认具体 agy 版本是否要求 PTY；Keychain 拒绝访问时不在后台反复弹窗 |
 | Claude Desktop 网络活动推测 | Windows IO 计数 | 无对应 IO 推测 | macOS 仍可用会话日志与 hook；不能宣称推测能力等价 |
 | 开机启动 | 注册表 | LaunchAgent | 文件/实现检查；登录启动待实机 |
 | 通知 | 系统插件 | 系统插件 | 去重、权限失败 UI 测试；系统送达待实机 |

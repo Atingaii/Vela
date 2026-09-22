@@ -27,7 +27,8 @@ fn is_ours(entry: &Value) -> bool {
                 h["command"]
                     .as_str()
                     .map(|c| {
-                        c.starts_with("\"") && c.contains("vela-hook.exe\" ")
+                        c.starts_with("\"")
+                            && (c.contains("\\vela-hook.exe\" ") || c.contains("/vela-hook.exe\" "))
                             || c.starts_with("'") && c.contains("/vela-hook' ")
                     })
                     .unwrap_or(false)
@@ -85,9 +86,15 @@ fn backup_and_write(path: &PathBuf, root: &Value) -> Result<(), String> {
 
 pub fn is_installed() -> bool {
     settings_path()
-        .and_then(|p| std::fs::read_to_string(p).ok())
-        .map(|t| t.contains("vela-hook"))
-        .unwrap_or(false)
+        .and_then(|p| load(&p).ok())
+        .and_then(|v| v["hooks"].as_object().cloned())
+        .is_some_and(|events| {
+            events
+                .values()
+                .filter_map(Value::as_array)
+                .flatten()
+                .any(is_ours)
+        })
 }
 
 pub fn install() -> Result<String, String> {
@@ -197,6 +204,15 @@ mod tests {
         let kept = without_ours(entry).unwrap();
         assert_eq!(kept["hooks"].as_array().unwrap().len(), 2);
         assert_eq!(kept["matcher"], "*");
+    }
+    #[test]
+    fn unrelated_similar_binary_is_not_a_vela_hook() {
+        assert!(!is_ours(
+            &json!({"hooks":[{"command": "\"C:\\tools\\my-vela-hook.exe\" done"}]})
+        ));
+        assert!(is_ours(
+            &json!({"hooks":[{"command": "\"C:\\tools\\vela-hook.exe\" done"}]})
+        ));
     }
     #[test]
     fn write_keeps_a_byte_exact_backup() {

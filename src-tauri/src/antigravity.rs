@@ -375,9 +375,17 @@ fn read_credential_raw() -> Option<Vec<u8>> {
         }
     }
 }
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 fn read_credential_raw() -> Option<Vec<u8>> {
     None
+}
+
+#[cfg(target_os = "macos")]
+fn read_credential_raw() -> Option<Vec<u8>> {
+    use security_framework::item::{ItemClass, ItemSearchOptions, SearchResult};
+    ItemSearchOptions::new().class(ItemClass::generic_password()).service("gemini")
+        .account("antigravity").load_data(true).limit(1).skip_authenticated_items(true).search().ok()?
+        .into_iter().find_map(|item| match item { SearchResult::Data(data) => Some(data), _ => None })
 }
 
 /// Raw JSON, or base64 with a `go-keyring-base64:` prefix (UTF-16 storage is accepted too)

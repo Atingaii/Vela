@@ -1328,9 +1328,11 @@ document.getElementById('author').addEventListener('click', () => {
    was asked for rather than interrupting anything. */
 const updBtn = document.getElementById('btn-update');
 const updStatus = document.getElementById('update-status');
+let lastUpdateState = null;
 function renderUpdate(st){
+  lastUpdateState = st;
   st = st || {};
-  if(st.configured === false){ updStatus.textContent=ui('Updates not configured','Updates not configured'); updBtn.disabled=true; return; }
+  if(st.configured === false){ updStatus.textContent=ui('Updates not configured','Updates not configured'); updBtn.textContent=ui('Check for updates','Check for updates'); updBtn.disabled=true; return; }
   const busy = !!(st.checking || st.installing);
   updBtn.disabled = busy;
   if(st.installing){ updStatus.textContent = ui('Installing…', 'Installing…'); updBtn.textContent = ui('Update', 'Update'); return; }

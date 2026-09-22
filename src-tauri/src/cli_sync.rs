@@ -252,6 +252,9 @@ fn build(
     resolve: impl Fn(&str) -> Result<String, String>,
 ) -> Result<Vec<Change>, String> {
     validate(lib)?;
+    // Resolve OS aliases (e.g. macOS /var -> /private/var) once at the trusted
+    // user root; links inside CLI configuration directories remain forbidden.
+    let home = fs::canonicalize(home).map_err(|e| format!("无法解析用户目录: {e}"))?;
     if request.targets.is_empty()
         || request.targets.len() > 3
         || request.targets.iter().any(|s| !cli_ok(s))
@@ -642,6 +645,24 @@ mod tests {
         assert_eq!(c.len(), 3);
         assert!(String::from_utf8_lossy(&c[0].after).contains("name: review"));
         assert!(!id_ok("../escape"));
+    }
+    #[cfg(unix)]
+    #[test]
+    fn root_alias_is_resolved_but_cli_symlinks_are_rejected() {
+        let t = tempfile::tempdir().unwrap();
+        let root = t.path().join("home");
+        fs::create_dir(&root).unwrap();
+        let alias = t.path().join("alias");
+        std::os::unix::fs::symlink(&root, &alias).unwrap();
+        let request = Request {
+            kind: "skill".into(), id: "review".into(), targets: vec!["claude".into()],
+        };
+        assert!(build(&alias, &library(), &request, |_| panic!()).is_ok());
+        let outside = t.path().join("outside");
+        fs::create_dir(&outside).unwrap();
+        std::os::unix::fs::symlink(&outside, root.join(".claude")).unwrap();
+        assert!(build(&alias, &library(), &request, |_| panic!()).is_err());
+        assert_eq!(fs::read_dir(outside).unwrap().count(), 0);
     }
     #[test]
     fn codex_provider_uses_environment_reference() {

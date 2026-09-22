@@ -124,9 +124,6 @@ impl Screen {
     /// Where the notch may sit. Falls back to the whole monitor if the platform reports no usable
     /// work area, which would otherwise pin the notch to (0, 0) with no span to move along.
     fn area(&self) -> (i32, i32, i32, i32) {
-        #[cfg(target_os = "macos")]
-        return (self.x, self.y, self.w, self.h);
-        #[allow(unreachable_code)]
         let (x, y, w, h) = self.work;
         if w > 0 && h > 0 {
             (x, y, w, h)
@@ -1698,6 +1695,7 @@ fn main() {
             edge_plugins::edge_plugin_action,
             ledger::read_ledger,
             ledger::save_billing,
+            ledger::get_billing,
             cli_sync::get_library,
             cli_sync::save_library,
             cli_sync::preview_sync,

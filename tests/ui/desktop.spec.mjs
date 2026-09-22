@@ -6,6 +6,7 @@ async function bridge(page,{deny=false}={}){
   window.__TAURI__={core:{invoke:async(cmd,args)=>{
    window.calls.push({cmd,args});
    if(cmd==='get_library')return library;
+   if(cmd==='get_billing')return {currency:'CNY',cycle_day:15,subscription:30,rates:[]};
    if(cmd==='save_library'){library=args.library;return;}
    if(cmd==='list_edge_plugins')return {plugins:[],enabled};
    if(cmd==='set_edge_plugin'){enabled=args.on?[...enabled,args.id]:enabled.filter(x=>x!==args.id);return;}
@@ -29,7 +30,7 @@ async function bridge(page,{deny=false}={}){
  },{deny});
 }
 test('精简设置正常渲染，通知拒绝后不假装保存',async({page})=>{
- const errors=[];page.on('pageerror',e=>errors.push(e.message));await bridge(page,{deny:true});await page.goto('/settings.html');
+ await page.setViewportSize({width:680,height:520});const errors=[];page.on('pageerror',e=>errors.push(e.message));await bridge(page,{deny:true});await page.goto('/settings.html');
  await page.locator('#tab-appearance').click();await expect(page.locator('#seg-edge')).toBeVisible();await expect(page.locator('#seg-weekly')).toHaveCount(0);await expect(page.locator('#sw-move')).toHaveCount(0);
  await page.locator('#tab-notifications').click();await page.locator('#sw-attention').click();await expect(page.locator('#sw-attention')).toHaveAttribute('aria-checked','false');await expect(page.getByText('系统拒绝通知权限')).toBeVisible();
  await page.locator('#tab-general').click();await expect(page.locator('#lang')).toBeVisible();await expect(page.locator('#btn-workbench')).toBeVisible();expect(errors).toEqual([]);if(process.env.VELA_SCREENSHOTS)await page.screenshot({path:'/tmp/vela-settings.png'});
@@ -46,7 +47,7 @@ test('供应商从保存到预览再应用，取消不会写 CLI',async({page})=
  await page.locator('[data-sync="provider"]').click();await page.locator('#apply-review').click();await expect(page.locator('#status')).toContainText('已更新 1 个文件');
 });
 test('用量不自动扫描，未知费用无预测，多维汇总安全显示',async({page})=>{
- await bridge(page);await page.goto('/workbench.html');await page.locator('#tab-usage').click();expect(await page.evaluate(()=>calls.some(c=>c.cmd==='read_ledger'))).toBe(false);await page.locator('#refresh-usage').click();await expect(page.locator('#forecast')).toHaveText('—');await expect(page.locator('#coverage')).toContainText('缺少单价');await page.locator('#dimension').selectOption('project');await expect(page.locator('#usage-rows')).toContainText('<img src=x onerror=alert(1)>');await expect(page.locator('#usage-rows img')).toHaveCount(0);
+ await bridge(page);await page.goto('/workbench.html');await page.locator('#tab-usage').click();expect(await page.evaluate(()=>calls.some(c=>c.cmd==='read_ledger'))).toBe(false);await expect(page.locator('#currency')).toHaveValue('CNY');await expect(page.locator('#cycle-day')).toHaveValue('15');await page.locator('#refresh-usage').click();await expect(page.locator('#forecast')).toHaveText('—');await expect(page.locator('#coverage')).toContainText('缺少单价');await page.locator('#dimension').selectOption('project');await expect(page.locator('#usage-rows')).toContainText('<img src=x onerror=alert(1)>');await expect(page.locator('#usage-rows img')).toHaveCount(0);
 });
 test('MCP 同步使用选中的平台，Skill 可保存正文',async({page})=>{
  await bridge(page);await page.goto('/workbench.html');await page.locator('#tab-shared').click();await page.locator('#mcp-editor summary').click();await page.locator('#mcp-id').fill('demo');await page.locator('#mcp-command').fill('node');await page.locator('#save-mcp').click();await page.locator('.target[value="gemini"]').uncheck();await page.locator('[data-sync="mcp"]').click();expect(await page.evaluate(()=>calls.find(c=>c.cmd==='preview_sync').args.request.targets)).toEqual(['claude','codex']);await page.locator('#cancel-review').click();await page.locator('#skill-editor summary').click();await page.locator('#skill-id').fill('review');await page.locator('#skill-description').fill('Review changes');await page.locator('#skill-instructions').fill('Read the diff.');await page.locator('#save-skill').click();await expect(page.locator('#skill-list')).toContainText('review');

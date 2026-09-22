@@ -64,6 +64,16 @@ fn billing_path() -> PathBuf {
     crate::workbench::root().join("billing.json")
 }
 #[tauri::command]
+pub fn get_billing() -> Result<Billing, String> {
+    let billing = match fs::read(billing_path()) {
+        Ok(b) => serde_json::from_slice(&b).map_err(|e| format!("计费配置损坏: {e}"))?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Billing::default(),
+        Err(e) => return Err(e.to_string()),
+    };
+    validate(&billing)?;
+    Ok(billing)
+}
+#[tauri::command]
 pub fn save_billing(billing: Billing) -> Result<(), String> {
     validate(&billing)?;
     crate::workbench::atomic(
@@ -77,6 +87,7 @@ fn validate(b: &Billing) -> Result<(), String> {
         || !(1..=31).contains(&b.cycle_day)
         || !b.subscription.is_finite()
         || b.subscription < 0.0
+        || b.subscription > 1e12
         || b.rates.len() > 100
     {
         return Err("账期、币种或订阅金额无效".into());
@@ -87,7 +98,7 @@ fn validate(b: &Billing) -> Result<(), String> {
             || !seen.insert(&r.model)
             || [r.input, r.output, r.cache_read, r.cache_write]
                 .iter()
-                .any(|n| !n.is_finite() || *n < 0.0)
+                .any(|n| !n.is_finite() || *n < 0.0 || *n > 1e9)
         {
             return Err("模型名称需唯一，单价须为非负数".into());
         }
@@ -374,12 +385,7 @@ fn scan(home: &Path, billing: Billing, today: NaiveDate) -> Result<Report, Strin
 #[tauri::command]
 pub async fn read_ledger() -> Result<Report, String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let billing = match fs::read(billing_path()) {
-            Ok(b) => serde_json::from_slice(&b).map_err(|e| format!("计费配置损坏: {e}"))?,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Billing::default(),
-            Err(e) => return Err(e.to_string()),
-        };
-        validate(&billing)?;
+        let billing = get_billing()?;
         scan(
             &dirs::home_dir().ok_or("无法定位用户目录")?,
             billing,
@@ -426,6 +432,33 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows.values().next().unwrap().input, 10);
         assert_eq!(skip, 1);
+    }
+    #[test]
+    fn costs_forecast_and_missing_prices_are_distinct() {
+        let t = tempfile::tempdir().unwrap();
+        let dir = t.path().join(".claude/projects/test");
+        fs::create_dir_all(&dir).unwrap();
+        let line = serde_json::json!({"type":"assistant","sessionId":"s","timestamp":"2026-09-10T12:00:00Z","message":{"id":"m","model":"test","usage":{"input_tokens":1_000_000,"output_tokens":500_000,"cache_read_input_tokens":100_000}}});
+        fs::write(dir.join("a.jsonl"), line.to_string()).unwrap();
+        let today = NaiveDate::from_ymd_opt(2026, 9, 10).unwrap();
+        let unknown = scan(t.path(), Billing::default(), today).unwrap();
+        assert_eq!(unknown.unknown_records, 1);
+        assert!(unknown.forecast.is_none());
+        let b = Billing {
+            rates: vec![Rate {
+                model: "test".into(),
+                input: 2.0,
+                output: 4.0,
+                cache_read: 0.5,
+                cache_write: 1.0,
+            }],
+            subscription: 20.0,
+            ..Billing::default()
+        };
+        let r = scan(t.path(), b, today).unwrap();
+        assert!((r.known_cost - 4.05).abs() < 1e-9);
+        assert!((r.forecast.unwrap() - 12.15).abs() < 1e-9);
+        assert_eq!(r.billing.subscription, 20.0);
     }
     #[test]
     fn no_data_has_no_forecast() {

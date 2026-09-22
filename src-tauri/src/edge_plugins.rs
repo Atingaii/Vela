@@ -12,10 +12,10 @@ static LOCK: Mutex<()> = Mutex::new(());
 const FILE_LIMIT: u64 = 50 * 1024 * 1024;
 #[derive(Serialize)]
 pub struct Manifest {
-    id: &'static str,
-    name: &'static str,
-    version: u32,
-    capabilities: &'static [&'static str],
+    pub id: &'static str,
+    pub name: &'static str,
+    pub version: u32,
+    pub capabilities: &'static [&'static str],
 }
 pub trait EdgePlugin: Sync {
     fn manifest(&self) -> Manifest;
