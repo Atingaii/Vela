@@ -101,14 +101,32 @@ fn persist(s: &UsageSnapshot) {
 pub fn find_executable() -> Option<PathBuf> {
     #[cfg(unix)]
     {
-        let mut dirs = vec![PathBuf::from("/opt/homebrew/bin"), PathBuf::from("/usr/local/bin")];
-        if let Some(h) = dirs::home_dir() { dirs.push(h.join(".local/bin")); dirs.push(h.join(".codex/bin")); }
-        if let Some(p) = std::env::var_os("PATH") { dirs.extend(std::env::split_paths(&p).filter(|p| p.is_absolute())); }
-        if let Some(p) = dirs.into_iter().map(|d| d.join("codex")).find(|p| p.is_file()) { return Some(p); }
+        let mut dirs = vec![
+            PathBuf::from("/opt/homebrew/bin"),
+            PathBuf::from("/usr/local/bin"),
+        ];
+        if let Some(h) = dirs::home_dir() {
+            dirs.push(h.join(".local/bin"));
+            dirs.push(h.join(".codex/bin"));
+        }
+        if let Some(p) = std::env::var_os("PATH") {
+            dirs.extend(std::env::split_paths(&p).filter(|p| p.is_absolute()));
+        }
+        if let Some(p) = dirs
+            .into_iter()
+            .map(|d| d.join("codex"))
+            .find(|p| p.is_file())
+        {
+            return Some(p);
+        }
     }
     let mut cands: Vec<PathBuf> = Vec::new();
     if let Some(appdata) = dirs::config_dir() {
-        let pkg = appdata.join("npm").join("node_modules").join("@openai").join("codex");
+        let pkg = appdata
+            .join("npm")
+            .join("node_modules")
+            .join("@openai")
+            .join("codex");
         if let Ok(rd) = std::fs::read_dir(pkg.join("bin")) {
             for e in rd.flatten() {
                 let n = e.file_name().to_string_lossy().to_lowercase();
@@ -165,7 +183,10 @@ fn jwt_claims(token: &str) -> Option<serde_json::Value> {
 
 /// Reads Codex's sign-in state; a missing file or missing field both mean "not signed in"
 fn load_credential() -> Option<Credential> {
-    let text = std::fs::read_to_string(auth_path()?).ok()?;
+    load_credential_at(&auth_path()?)
+}
+fn load_credential_at(path: &std::path::Path) -> Option<Credential> {
+    let text = std::fs::read_to_string(path).ok()?;
     let v: serde_json::Value = serde_json::from_str(&text).ok()?;
     let tokens = v.get("tokens")?;
     let access_token = tokens.get("access_token")?.as_str()?.trim().to_string();
@@ -187,7 +208,12 @@ fn load_credential() -> Option<Credential> {
                 .as_str()
                 .map(String::from)
         });
-    Some(Credential { access_token, account_id, plan, expired })
+    Some(Credential {
+        access_token,
+        account_id,
+        plan,
+        expired,
+    })
 }
 
 enum LiveErr {
@@ -203,11 +229,16 @@ fn fetch_usage(cred: &Credential) -> Result<serde_json::Value, LiveErr> {
         .set("ChatGPT-Account-Id", &cred.account_id)
         .set("Accept", "application/json")
         .set("Cache-Control", "no-cache, no-store")
-        .set("User-Agent", concat!("vela/", env!("CARGO_PKG_VERSION"), " (Windows)"))
+        .set(
+            "User-Agent",
+            concat!("vela/", env!("CARGO_PKG_VERSION"), " (Windows)"),
+        )
         .timeout(Duration::from_secs(15))
         .call();
     match resp {
-        Ok(r) => r.into_json().map_err(|e| LiveErr::Other(format!("parse: {e}"))),
+        Ok(r) => r
+            .into_json()
+            .map_err(|e| LiveErr::Other(format!("parse: {e}"))),
         Err(ureq::Error::Status(code @ (401 | 403), r)) => {
             // 401 is about the token; 403 can also be an edge node rejecting the user agent — record the status and the start of the body rather than folding both into "please sign in"
             let head: String = r
@@ -221,7 +252,10 @@ fn fetch_usage(cred: &Credential) -> Result<serde_json::Value, LiveErr> {
             Err(LiveErr::NeedsAuth)
         }
         Err(ureq::Error::Status(429, r)) => {
-            let ra = r.header("retry-after").and_then(|s| s.trim().parse::<u64>().ok()).unwrap_or(0);
+            let ra = r
+                .header("retry-after")
+                .and_then(|s| s.trim().parse::<u64>().ok())
+                .unwrap_or(0);
             Err(LiveErr::RateLimited(ra.max(BACKOFF_MIN_SECS)))
         }
         Err(ureq::Error::Status(code, _)) => Err(LiveErr::Other(format!("HTTP {code}"))),
@@ -271,9 +305,11 @@ fn secs_to_ms(s: f64) -> Option<u64> {
 }
 
 fn reset_at_ms(w: &serde_json::Value, now: u64, epoch_key: &str, delay_key: &str) -> Option<u64> {
-    num(w.get(epoch_key))
-        .and_then(secs_to_ms)
-        .or_else(|| num(w.get(delay_key)).and_then(secs_to_ms).map(|ms| now.saturating_add(ms)))
+    num(w.get(epoch_key)).and_then(secs_to_ms).or_else(|| {
+        num(w.get(delay_key))
+            .and_then(secs_to_ms)
+            .map(|ms| now.saturating_add(ms))
+    })
 }
 
 /// Skip a window with no `used_percent`. Extra ids still pass primary/secondary to `label_for`.
@@ -290,7 +326,10 @@ fn window_from(
     let pct = num(w.get("used_percent"))?;
     Some(LimitWindow {
         id: id.into(),
-        label: label_for(num(w.get("limit_window_seconds")).map(|s| s / 60.0), fallback),
+        label: label_for(
+            num(w.get("limit_window_seconds")).map(|s| s / 60.0),
+            fallback,
+        ),
         used: (pct / 100.0).clamp(0.0, 1.0),
         resets_at: reset_at_ms(w, now, "reset_at", "reset_after_seconds"),
         group: group.map(str::to_string),
@@ -354,7 +393,10 @@ fn push_unique(out: &mut Vec<LimitWindow>, window: LimitWindow) {
 fn windows_from_usage(v: &serde_json::Value) -> Vec<LimitWindow> {
     let now = now_ms();
     let mut out = Vec::new();
-    for (id, key) in [("primary", "primary_window"), ("secondary", "secondary_window")] {
+    for (id, key) in [
+        ("primary", "primary_window"),
+        ("secondary", "secondary_window"),
+    ] {
         if let Some(w) = v
             .pointer(&format!("/rate_limit/{key}"))
             .and_then(|x| window_from(x, id, id, now, None))
@@ -369,7 +411,14 @@ fn windows_from_usage(v: &serde_json::Value) -> Vec<LimitWindow> {
             if !names_spark(extra) {
                 continue;
             }
-            append_extra(extra.get("rate_limit"), "spark", "spark-secondary", "Spark", now, &mut out);
+            append_extra(
+                extra.get("rate_limit"),
+                "spark",
+                "spark-secondary",
+                "Spark",
+                now,
+                &mut out,
+            );
         }
     }
     append_extra(
@@ -400,8 +449,10 @@ fn indexed_rollout(database: &Path) -> Option<PathBuf> {
     // No immutable=1: resumed-thread updates may still be in the writer's WAL.
     // Never create/migrate the database; schema changes or contention use the bounded fallback.
     let db = Connection::open_with_flags(
-        database, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    ).ok()?;
+        database,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()?;
     db.busy_timeout(Duration::from_millis(50)).ok()?;
     let mut query = db.prepare(
         "SELECT rollout_path FROM threads WHERE archived = 0 ORDER BY updated_at_ms DESC LIMIT 8",
@@ -409,11 +460,16 @@ fn indexed_rollout(database: &Path) -> Option<PathBuf> {
         "SELECT rollout_path FROM threads WHERE archived = 0 ORDER BY updated_at DESC LIMIT 8",
     )).ok()?;
     let paths = query.query_map([], |row| row.get::<_, String>(0)).ok()?;
-    let found = paths.filter_map(Result::ok).map(PathBuf::from).find(|path| {
-        path.file_name().and_then(|name| name.to_str())
-            .map(|name| name.starts_with("rollout-") && name.ends_with(".jsonl"))
-            .unwrap_or(false) && path.is_file()
-    });
+    let found = paths
+        .filter_map(Result::ok)
+        .map(PathBuf::from)
+        .find(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.starts_with("rollout-") && name.ends_with(".jsonl"))
+                .unwrap_or(false)
+                && path.is_file()
+        });
     found
 }
 
@@ -440,7 +496,10 @@ fn newest_recent_rollout(root: &Path) -> Option<PathBuf> {
         if let Ok(rd) = std::fs::read_dir(&d) {
             for e in rd.flatten() {
                 let p = e.path();
-                let name = p.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                let name = p
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_default();
                 if !(name.starts_with("rollout-") && name.ends_with(".jsonl")) {
                     continue;
                 }
@@ -457,7 +516,12 @@ fn newest_recent_rollout(root: &Path) -> Option<PathBuf> {
 
 fn list_dirs(p: &Path) -> Vec<PathBuf> {
     std::fs::read_dir(p)
-        .map(|rd| rd.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect())
+        .map(|rd| {
+            rd.flatten()
+                .map(|e| e.path())
+                .filter(|p| p.is_dir())
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -471,9 +535,13 @@ pub fn tail_text(path: &Path) -> Option<String> {
 }
 
 /// The last rate_limits snapshot at the tail of a rollout → (windows, recorded-at ms, plan)
-pub fn snapshot_from_rollout(text: &str) -> Option<(Vec<LimitWindow>, Option<u64>, Option<String>)> {
+pub fn snapshot_from_rollout(
+    text: &str,
+) -> Option<(Vec<LimitWindow>, Option<u64>, Option<String>)> {
     for line in text.lines().rev().filter(|l| l.contains("rate_limits")) {
-        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
         // rate_limits may sit at the top level or under payload
         let rl = v
             .get("rate_limits")
@@ -482,8 +550,13 @@ pub fn snapshot_from_rollout(text: &str) -> Option<(Vec<LimitWindow>, Option<u64
         let Some(rl) = rl else { continue };
         // Multiple buckets are emitted separately. Spark must never stand in for core Codex.
         // Legacy snapshots without an id are still accepted.
-        if rl.get("limit_id").or_else(|| rl.get("limitId"))
-            .and_then(|v| v.as_str()).map(|id| id != "codex").unwrap_or(false) {
+        if rl
+            .get("limit_id")
+            .or_else(|| rl.get("limitId"))
+            .and_then(|v| v.as_str())
+            .map(|id| id != "codex")
+            .unwrap_or(false)
+        {
             continue;
         }
         let recorded = v
@@ -494,8 +567,12 @@ pub fn snapshot_from_rollout(text: &str) -> Option<(Vec<LimitWindow>, Option<u64
         let now = now_ms();
         let mut out = Vec::new();
         for id in ["primary", "secondary"] {
-            let Some(w) = rl.get(id).filter(|x| x.is_object()) else { continue };
-            let Some(pct) = num(w.get("used_percent")) else { continue };
+            let Some(w) = rl.get(id).filter(|x| x.is_object()) else {
+                continue;
+            };
+            let Some(pct) = num(w.get("used_percent")) else {
+                continue;
+            };
             out.push(LimitWindow {
                 id: id.into(),
                 label: label_for(num(w.get("window_minutes")), id),
@@ -507,7 +584,10 @@ pub fn snapshot_from_rollout(text: &str) -> Option<(Vec<LimitWindow>, Option<u64
         if out.is_empty() {
             continue;
         }
-        let plan = rl.get("plan_type").and_then(|x| x.as_str()).map(String::from);
+        let plan = rl
+            .get("plan_type")
+            .and_then(|x| x.as_str())
+            .map(String::from);
         return Some((out, recorded, plan));
     }
     None
@@ -520,18 +600,34 @@ pub fn snapshot_from_rollout(text: &str) -> Option<(Vec<LimitWindow>, Option<u64
 fn native_codex() -> Option<PathBuf> {
     if let Some(local) = dirs::data_local_dir() {
         let mut bins = list_dirs(&local.join("OpenAI/Codex/bin"));
-        bins.sort_by_key(|p| std::cmp::Reverse(std::fs::metadata(p).and_then(|m| m.modified()).ok()));
-        if let Some(exe) = bins.into_iter().map(|p| p.join("codex.exe")).find(|p| p.is_file()) {
+        bins.sort_by_key(|p| {
+            std::cmp::Reverse(std::fs::metadata(p).and_then(|m| m.modified()).ok())
+        });
+        if let Some(exe) = bins
+            .into_iter()
+            .map(|p| p.join("codex.exe"))
+            .find(|p| p.is_file())
+        {
             return Some(exe);
         }
     }
     find_executable().filter(|p| {
-        if cfg!(windows) { return p.extension().and_then(|x| x.to_str()) == Some("exe"); }
+        if cfg!(windows) {
+            return p.extension().and_then(|x| x.to_str()) == Some("exe");
+        }
         // Only native Mach-O / ELF executables; never execute npm shell wrappers.
         use std::io::Read;
         let mut magic = [0u8; 4];
-        std::fs::File::open(p).and_then(|mut f| f.read_exact(&mut magic)).is_ok()
-            && matches!(magic, [0xcf,0xfa,0xed,0xfe] | [0xfe,0xed,0xfa,0xcf] | [0xca,0xfe,0xba,0xbe] | [0x7f,b'E',b'L',b'F'])
+        std::fs::File::open(p)
+            .and_then(|mut f| f.read_exact(&mut magic))
+            .is_ok()
+            && matches!(
+                magic,
+                [0xcf, 0xfa, 0xed, 0xfe]
+                    | [0xfe, 0xed, 0xfa, 0xcf]
+                    | [0xca, 0xfe, 0xba, 0xbe]
+                    | [0x7f, b'E', b'L', b'F']
+            )
     })
 }
 
@@ -542,33 +638,59 @@ fn app_server_snapshot(result: &serde_json::Value) -> Option<UsageSnapshot> {
         Some(buckets) => buckets.get("codex")?,
         None => result.get("rateLimits")?,
     };
-    if core.get("limitId").and_then(|x| x.as_str()).map(|id| id != "codex").unwrap_or(false) {
+    if core
+        .get("limitId")
+        .and_then(|x| x.as_str())
+        .map(|id| id != "codex")
+        .unwrap_or(false)
+    {
         return None;
     }
     let mut windows = Vec::new();
     for id in ["primary", "secondary"] {
-        let Some(w) = core.get(id).filter(|v| v.is_object()) else { continue };
-        let Some(used) = w.get("usedPercent").and_then(|x| x.as_f64()) else { continue };
+        let Some(w) = core.get(id).filter(|v| v.is_object()) else {
+            continue;
+        };
+        let Some(used) = w.get("usedPercent").and_then(|x| x.as_f64()) else {
+            continue;
+        };
         windows.push(LimitWindow {
             id: id.into(),
             label: label_for(w.get("windowDurationMins").and_then(|x| x.as_f64()), id),
             used: (used / 100.0).clamp(0.0, 1.0),
-            resets_at: w.get("resetsAt").and_then(|x| x.as_u64()).map(|s| s.saturating_mul(1000)),
+            resets_at: w
+                .get("resetsAt")
+                .and_then(|x| x.as_u64())
+                .map(|s| s.saturating_mul(1000)),
             ..Default::default()
         });
     }
-    if windows.is_empty() { return None; }
-    Some(UsageSnapshot { status: "ok".into(), windows, fetched_at: now_ms(),
-        note: "via Codex app-server".into(), ..Default::default() })
+    if windows.is_empty() {
+        return None;
+    }
+    Some(UsageSnapshot {
+        status: "ok".into(),
+        windows,
+        fetched_at: now_ms(),
+        note: "via Codex app-server".into(),
+        ..Default::default()
+    })
 }
 
 fn read_app_server() -> Option<UsageSnapshot> {
     use std::io::{BufRead, BufReader, Write};
     use std::process::{Command, Stdio};
     let mut command = Command::new(native_codex()?);
-    command.arg("app-server").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+    command
+        .arg("app-server")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
     #[cfg(windows)]
-    { use std::os::windows::process::CommandExt; command.creation_flags(0x0800_0000); }
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000);
+    }
     let mut child = command.spawn().ok()?;
     let result = (|| {
         let mut input = child.stdin.take()?;
@@ -576,20 +698,36 @@ fn read_app_server() -> Option<UsageSnapshot> {
         let (tx, rx) = std::sync::mpsc::sync_channel(16);
         std::thread::spawn(move || {
             for line in BufReader::new(output).lines().map_while(Result::ok) {
-                if tx.send(line).is_err() { break; }
+                if tx.send(line).is_err() {
+                    break;
+                }
             }
         });
         writeln!(input, "{}", serde_json::json!({"id":1,"method":"initialize","params":{"clientInfo":{"name":"vela","version":env!("CARGO_PKG_VERSION")}}})).ok()?;
         input.flush().ok()?;
         let deadline = std::time::Instant::now() + Duration::from_secs(20);
         loop {
-            let line = rx.recv_timeout(deadline.checked_duration_since(std::time::Instant::now())?).ok()?;
-            let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
+            let line = rx
+                .recv_timeout(deadline.checked_duration_since(std::time::Instant::now())?)
+                .ok()?;
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) else {
+                continue;
+            };
             match v.get("id").and_then(|x| x.as_u64()) {
                 Some(1) => {
                     v.get("result")?;
-                    writeln!(input, "{}", serde_json::json!({"method":"initialized","params":{}})).ok()?;
-                    writeln!(input, "{}", serde_json::json!({"id":2,"method":"account/rateLimits/read"})).ok()?;
+                    writeln!(
+                        input,
+                        "{}",
+                        serde_json::json!({"method":"initialized","params":{}})
+                    )
+                    .ok()?;
+                    writeln!(
+                        input,
+                        "{}",
+                        serde_json::json!({"id":2,"method":"account/rateLimits/read"})
+                    )
+                    .ok()?;
                     input.flush().ok()?;
                 }
                 Some(2) => return app_server_snapshot(v.get("result")?),
@@ -608,7 +746,9 @@ pub fn present() -> bool {
     native_codex().is_some()
         || find_executable().is_some()
         || auth_path().map(|p| p.is_file()).unwrap_or(false)
-        || codex_home().map(|h| h.join("sessions").is_dir()).unwrap_or(false)
+        || codex_home()
+            .map(|h| h.join("sessions").is_dir())
+            .unwrap_or(false)
 }
 
 fn read_once() -> UsageSnapshot {
@@ -620,7 +760,10 @@ fn read_once() -> UsageSnapshot {
     let now = now_ms();
     if held_until > now {
         snap.backoff_until = held_until;
-        live_note = Some(format!("Rate limited — retrying in {}s", (held_until - now) / 1000));
+        live_note = Some(format!(
+            "Rate limited — retrying in {}s",
+            (held_until - now) / 1000
+        ));
     } else {
         match load_credential() {
             None => {
@@ -632,14 +775,23 @@ fn read_once() -> UsageSnapshot {
                 Ok(v) => {
                     let windows = windows_from_usage(&v);
                     if !windows.is_empty() {
-                        let plan = v.get("plan_type").and_then(|x| x.as_str()).map(String::from).or(cred.plan);
+                        let plan = v
+                            .get("plan_type")
+                            .and_then(|x| x.as_str())
+                            .map(String::from)
+                            .or(cred.plan);
                         snap.status = "ok".into();
                         snap.windows = windows;
                         snap.fetched_at = now_ms();
-                        snap.note = plan.map(|p| format!("{} · via Codex", cap(&p))).unwrap_or_default();
+                        snap.note = plan
+                            .map(|p| format!("{} · via Codex", cap(&p)))
+                            .unwrap_or_default();
                         return snap;
                     }
-                    let keys: Vec<String> = v.as_object().map(|o| o.keys().cloned().collect()).unwrap_or_default();
+                    let keys: Vec<String> = v
+                        .as_object()
+                        .map(|o| o.keys().cloned().collect())
+                        .unwrap_or_default();
                     crate::applog(&format!("codex: usage reply has no windows (top-level keys {keys:?}), falling back to the rollout"));
                     live_note = Some("Codex reported no usage windows".into());
                 }
@@ -656,10 +808,14 @@ fn read_once() -> UsageSnapshot {
                     BACKOFF_UNTIL.store(until, std::sync::atomic::Ordering::Relaxed);
                     snap.backoff_until = until;
                     live_note = Some(format!("Rate limited — retrying in {secs}s"));
-                    crate::applog(&format!("codex: usage endpoint returned 429, retrying in {secs}s"));
+                    crate::applog(&format!(
+                        "codex: usage endpoint returned 429, retrying in {secs}s"
+                    ));
                 }
                 Err(LiveErr::Other(e)) => {
-                    crate::applog(&format!("codex: live read failed ({e}), falling back to the rollout"));
+                    crate::applog(&format!(
+                        "codex: live read failed ({e}), falling back to the rollout"
+                    ));
                     live_note = Some(format!("Live read failed ({e})"));
                 }
             },
@@ -679,7 +835,10 @@ fn read_once() -> UsageSnapshot {
         }
     }
     // Fallback: rollout
-    match newest_rollout().and_then(|p| tail_text(&p)).and_then(|t| snapshot_from_rollout(&t)) {
+    match newest_rollout()
+        .and_then(|p| tail_text(&p))
+        .and_then(|t| snapshot_from_rollout(&t))
+    {
         Some((windows, recorded, plan)) => {
             let rec = recorded.unwrap_or(0);
             let fresh = rec > 0 && now_ms().saturating_sub(rec) <= CURRENT_FOR_MS;
@@ -736,9 +895,19 @@ pub fn start(app: AppHandle) {
             let _ = app.emit("codex", &snap);
         }
         if !present() {
-            broadcast(&app, UsageSnapshot { status: "absent".into(), ..Default::default() });
+            broadcast(
+                &app,
+                UsageSnapshot {
+                    status: "absent".into(),
+                    ..Default::default()
+                },
+            );
             // Codex is not installed: look again every 10 minutes
             loop {
+                if !crate::providers::enabled(&app, "codex") {
+                    std::thread::sleep(Duration::from_secs(1));
+                    continue;
+                }
                 for _ in 0..600 {
                     if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
                         break;
@@ -751,6 +920,10 @@ pub fn start(app: AppHandle) {
             }
         }
         loop {
+            if !crate::providers::enabled(&app, "codex") {
+                std::thread::sleep(Duration::from_secs(1));
+                continue;
+            }
             let snap = read_once();
             let hold = snap.backoff_until.saturating_sub(now_ms()) / 1000;
             broadcast(&app, snap);
@@ -769,10 +942,16 @@ pub fn probe() -> String {
     let auth = match load_credential() {
         Some(c) => format!(
             "auth.json usable{}{}",
-            if c.expired { " (access_token expired)" } else { "" },
+            if c.expired {
+                " (access_token expired)"
+            } else {
+                ""
+            },
             c.plan.map(|p| format!(", plan={p}")).unwrap_or_default()
         ),
-        None if auth_path().map(|p| p.is_file()).unwrap_or(false) => "auth.json present but has no token".to_string(),
+        None if auth_path().map(|p| p.is_file()).unwrap_or(false) => {
+            "auth.json present but has no token".to_string()
+        }
         None => "auth.json not found".to_string(),
     };
     let exe = find_executable();
@@ -786,8 +965,10 @@ pub fn probe() -> String {
         .unwrap_or_else(|| "?".into());
     format!(
         "Codex: {auth} | executable {} | newest rollout {} (modified {})",
-        exe.map(|p| p.display().to_string()).unwrap_or_else(|| "not found".into()),
-        roll.map(|p| p.display().to_string()).unwrap_or_else(|| "none".into()),
+        exe.map(|p| p.display().to_string())
+            .unwrap_or_else(|| "not found".into()),
+        roll.map(|p| p.display().to_string())
+            .unwrap_or_else(|| "none".into()),
         age
     )
 }
@@ -844,7 +1025,10 @@ mod tests {
         assert_eq!(snap.windows[1].used, 1.0);
         let value = serde_json::json!({"rateLimits": {"limitId": "codex",
             "primary": "invalid", "secondary": {"usedPercent": 20}}});
-        assert_eq!(ids(&app_server_snapshot(&value).unwrap().windows), ["secondary"]);
+        assert_eq!(
+            ids(&app_server_snapshot(&value).unwrap().windows),
+            ["secondary"]
+        );
     }
 
     #[test]
@@ -869,26 +1053,46 @@ mod tests {
 
     #[test]
     fn resumed_thread_in_old_date_directory_is_found() {
-        let root = std::env::temp_dir().join(format!("vela-rollout-test-{}-{}", std::process::id(), now_ms()));
+        let root = std::env::temp_dir().join(format!(
+            "vela-rollout-test-{}-{}",
+            std::process::id(),
+            now_ms()
+        ));
         std::fs::create_dir(&root).unwrap();
         for day in ["2026/07/31", "2026/09/10", "2026/09/11", "2026/09/12"] {
             std::fs::create_dir_all(root.join("sessions").join(day)).unwrap();
         }
         let earlier = UNIX_EPOCH + Duration::from_secs(1700000000);
         for day in ["2026/09/10", "2026/09/11", "2026/09/12"] {
-            let file = std::fs::File::create(root.join("sessions").join(day).join("rollout-inactive.jsonl")).unwrap();
-            file.set_times(std::fs::FileTimes::new().set_modified(earlier)).unwrap();
+            let file = std::fs::File::create(
+                root.join("sessions")
+                    .join(day)
+                    .join("rollout-inactive.jsonl"),
+            )
+            .unwrap();
+            file.set_times(std::fs::FileTimes::new().set_modified(earlier))
+                .unwrap();
         }
         let active = root.join("sessions/2026/07/31/rollout-active.jsonl");
         std::fs::write(&active, "{}").unwrap();
         // The bounded directory fallback intentionally cannot see this old directory.
         assert_ne!(newest_rollout_in(&root), Some(active.clone()));
-        assert!(!root.join("state_5.sqlite").exists(), "read-only lookup must not create a database");
+        assert!(
+            !root.join("state_5.sqlite").exists(),
+            "read-only lookup must not create a database"
+        );
         let db = rusqlite::Connection::open(root.join("state_5.sqlite")).unwrap();
-        db.execute_batch("PRAGMA journal_mode=WAL;
+        db.execute_batch(
+            "PRAGMA journal_mode=WAL;
             CREATE TABLE threads (rollout_path TEXT, archived INTEGER, updated_at_ms INTEGER);
-            CREATE INDEX recent_threads ON threads(archived, updated_at_ms DESC);").unwrap();
-        db.execute("INSERT INTO threads VALUES (?1, 0, 100)", [active.to_str().unwrap()]).unwrap();
+            CREATE INDEX recent_threads ON threads(archived, updated_at_ms DESC);",
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO threads VALUES (?1, 0, 100)",
+            [active.to_str().unwrap()],
+        )
+        .unwrap();
         // Keep the writer open: the read-only connection must see the committed WAL update.
         assert_eq!(newest_rollout_in(&root), Some(active.clone()));
         db.execute("UPDATE threads SET archived = 1", []).unwrap();
@@ -899,19 +1103,38 @@ mod tests {
 
     #[test]
     fn rollout_index_skips_missing_paths_and_accepts_legacy_timestamp_column() {
-        let root = std::env::temp_dir().join(format!("vela-index-test-{}-{}", std::process::id(), now_ms()));
+        let root = std::env::temp_dir().join(format!(
+            "vela-index-test-{}-{}",
+            std::process::id(),
+            now_ms()
+        ));
         std::fs::create_dir(&root).unwrap();
         let database = root.join("state_5.sqlite");
         let active = root.join("rollout-active.jsonl");
         std::fs::write(&active, "{}").unwrap();
         let db = rusqlite::Connection::open(&database).unwrap();
-        db.execute_batch("CREATE TABLE threads (rollout_path TEXT, archived INTEGER, updated_at INTEGER);").unwrap();
-        db.execute("INSERT INTO threads VALUES (?1, 0, 1)", [active.to_str().unwrap()]).unwrap();
-        db.execute("INSERT INTO threads VALUES (?1, 0, 2)", [root.join("rollout-missing.jsonl").to_str().unwrap()]).unwrap();
+        db.execute_batch(
+            "CREATE TABLE threads (rollout_path TEXT, archived INTEGER, updated_at INTEGER);",
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO threads VALUES (?1, 0, 1)",
+            [active.to_str().unwrap()],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO threads VALUES (?1, 0, 2)",
+            [root.join("rollout-missing.jsonl").to_str().unwrap()],
+        )
+        .unwrap();
         assert_eq!(indexed_rollout(&database), Some(active));
         // Bound file metadata work even when the newest entries are unavailable.
         for stamp in 3..10 {
-            db.execute("INSERT INTO threads VALUES ('rollout-missing.jsonl', 0, ?1)", [stamp]).unwrap();
+            db.execute(
+                "INSERT INTO threads VALUES ('rollout-missing.jsonl', 0, ?1)",
+                [stamp],
+            )
+            .unwrap();
         }
         assert_eq!(indexed_rollout(&database), None);
         drop(db);
@@ -920,7 +1143,11 @@ mod tests {
 
     #[test]
     fn corrupt_rollout_index_uses_bounded_directory_fallback() {
-        let root = std::env::temp_dir().join(format!("vela-index-fallback-{}-{}", std::process::id(), now_ms()));
+        let root = std::env::temp_dir().join(format!(
+            "vela-index-fallback-{}-{}",
+            std::process::id(),
+            now_ms()
+        ));
         let day = root.join("sessions/2026/09/16");
         std::fs::create_dir_all(&day).unwrap();
         let active = day.join("rollout-active.jsonl");
@@ -933,10 +1160,14 @@ mod tests {
     #[test]
     #[ignore = "Reads quota through the installed signed-in native Codex client; opt in explicitly"]
     fn live_native_quota() {
-        let snap = read_app_server().expect("native quota read should succeed for this signed-in client");
+        let snap =
+            read_app_server().expect("native quota read should succeed for this signed-in client");
         assert_eq!(snap.status, "ok");
         assert!(!snap.windows.is_empty());
-        assert!(snap.windows.iter().all(|window| matches!(window.id.as_str(), "primary" | "secondary")));
+        assert!(snap
+            .windows
+            .iter()
+            .all(|window| matches!(window.id.as_str(), "primary" | "secondary")));
     }
 
     fn windows(json: &str) -> Vec<LimitWindow> {
@@ -969,8 +1200,14 @@ mod tests {
         }"#,
         );
         assert_eq!(ids(&ws), ["primary", "secondary", "spark", "code-review"]);
-        assert_eq!(labels(&ws), ["5h limit", "Weekly limit", "5h limit", "Weekly limit"]);
-        assert_eq!(groups(&ws), [None, None, Some("Spark"), Some("Code review")]);
+        assert_eq!(
+            labels(&ws),
+            ["5h limit", "Weekly limit", "5h limit", "Weekly limit"]
+        );
+        assert_eq!(
+            groups(&ws),
+            [None, None, Some("Spark"), Some("Code review")]
+        );
         assert!((ws[0].used - 0.25).abs() < 1e-9);
         assert!((ws[2].used - 0.99).abs() < 1e-9);
         assert!((ws[3].used - 0.90).abs() < 1e-9);
@@ -995,9 +1232,21 @@ mod tests {
                   "secondary_window":{{"used_percent":5,"limit_window_seconds":604800}}}}}}]
             }}"#
             ));
-            assert_eq!(ids(&ws), ["primary", "spark", "spark-secondary"], "{field}={name}");
-            assert_eq!(groups(&ws)[1..], [Some("Spark"), Some("Spark")], "{field}={name}");
-            assert_eq!(labels(&ws)[1..], ["5h limit", "Weekly limit"], "{field}={name}");
+            assert_eq!(
+                ids(&ws),
+                ["primary", "spark", "spark-secondary"],
+                "{field}={name}"
+            );
+            assert_eq!(
+                groups(&ws)[1..],
+                [Some("Spark"), Some("Spark")],
+                "{field}={name}"
+            );
+            assert_eq!(
+                labels(&ws)[1..],
+                ["5h limit", "Weekly limit"],
+                "{field}={name}"
+            );
         }
     }
 
@@ -1054,7 +1303,10 @@ mod tests {
               "secondary_window":{"used_percent":8,"limit_window_seconds":18000}}
         }"#,
         );
-        assert_eq!(ids(&ws), ["primary", "spark-secondary", "code-review-secondary"]);
+        assert_eq!(
+            ids(&ws),
+            ["primary", "spark-secondary", "code-review-secondary"]
+        );
         assert_eq!(groups(&ws)[1..], [Some("Spark"), Some("Code review")]);
         assert_eq!(ws[1].label, "Weekly limit");
         assert_eq!(ws[2].label, "5h limit");
@@ -1101,9 +1353,15 @@ mod tests {
             ]
         }"#,
         );
-        assert_eq!(ids(&ws), ["primary", "secondary", "spark", "spark-secondary"]);
+        assert_eq!(
+            ids(&ws),
+            ["primary", "secondary", "spark", "spark-secondary"]
+        );
         assert_eq!(groups(&ws), [None, None, Some("Spark"), Some("Spark")]);
-        assert_eq!(labels(&ws), ["5h limit", "Weekly limit", "5h limit", "Weekly limit"]);
+        assert_eq!(
+            labels(&ws),
+            ["5h limit", "Weekly limit", "5h limit", "Weekly limit"]
+        );
         assert!((ws[2].used - 0.40).abs() < 1e-9);
         assert!((ws[3].used - 0.12).abs() < 1e-9);
     }
@@ -1133,4 +1391,60 @@ mod tests {
         assert_eq!(ws[0].label, "Monthly limit");
         assert!((ws[0].used - 0.16).abs() < 1e-4);
     }
+}
+
+/// An independent CLI account: never borrow the default profile's auth or rate-limit state.
+pub fn read_profile(home: &std::path::Path, mut previous: UsageSnapshot) -> UsageSnapshot {
+    if previous.backoff_until > now_ms() {
+        return previous;
+    }
+    match load_credential_at(&home.join("auth.json")) {
+        Some(cred) if !cred.expired => match fetch_usage(&cred) {
+            Ok(v) => {
+                let windows = windows_from_usage(&v);
+                if !windows.is_empty() {
+                    return UsageSnapshot {
+                        status: "ok".into(),
+                        windows,
+                        fetched_at: now_ms(),
+                        note: cred.plan.unwrap_or_default(),
+                        backoff_until: 0,
+                    };
+                }
+            }
+            Err(LiveErr::RateLimited(seconds)) => {
+                previous.status = "backoff".into();
+                previous.backoff_until = now_ms().saturating_add(seconds.saturating_mul(1000));
+                return previous;
+            }
+            Err(LiveErr::NeedsAuth) => {
+                previous.status = "needsAuth".into();
+                return previous;
+            }
+            Err(_) => {}
+        },
+        Some(_) => {
+            previous.status = "needsAuth".into();
+            previous.note = "此账户凭据已过期，请在对应 CLI 中重新登录".into();
+            return previous;
+        }
+        None => {
+            previous.status = "needsAuth".into();
+            return previous;
+        }
+    }
+    if let Some((windows, recorded, plan)) = newest_rollout_in(home)
+        .and_then(|p| tail_text(&p))
+        .and_then(|t| snapshot_from_rollout(&t))
+    {
+        return UsageSnapshot {
+            status: "stale".into(),
+            windows,
+            fetched_at: recorded.unwrap_or(0),
+            note: plan.unwrap_or_else(|| "from last Codex run".into()),
+            backoff_until: 0,
+        };
+    }
+    previous.status = "stale".into();
+    previous
 }

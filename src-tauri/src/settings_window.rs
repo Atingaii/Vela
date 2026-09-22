@@ -1,15 +1,10 @@
 //! The settings window. Created when it is opened and destroyed when it is closed, so no second
-//! WebView sits hidden for the life of the app. Frameless over Windows 11's Mica, the closest
-//! Windows material to the Mac's window vibrancy, and told what the page cannot read for itself:
-//! whether Mica is there to draw on, and the accent colour.
+//! WebView sits hidden for the life of the app. The Swift baseline uses a solid dark
+//! surface on both platforms; wallpaper and system light mode must not alter it.
 
-use tauri::window::{Effect, EffectsBuilder};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const LABEL: &str = "settings";
-/// Mica arrived with Windows 11's first build.
-const FIRST_MICA_BUILD: u32 = 22000;
-
 /// Always built on a later turn of the event loop. A window built inside a synchronous command
 /// deadlocks WebView2 and comes up blank, and asking `run_on_main_thread` from the main thread —
 /// where those commands run — builds it on the spot, so the request is posted from another thread.
@@ -28,23 +23,28 @@ fn open_now(app: &AppHandle) {
         let _ = w.set_focus();
         return;
     }
-    // The Mac's window: 680 × 520, centred, not resizable. `shadow` on an undecorated window is what
+    // Swift SettingsView: 860 × 600, centred, not resizable. `shadow` on an undecorated window is what
     // gives it Windows 11's rounded corners.
-    let mut builder = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("settings.html".into()))
+    let builder = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("settings.html".into()))
         .title("Vela Settings")
-        .inner_size(680.0, 520.0)
+        .inner_size(860.0, 600.0)
         .resizable(false)
         .maximizable(false)
         .decorations(false)
         .shadow(true)
         .center();
-    // Without Mica the window stays opaque and the page draws solid surfaces instead
-    if has_mica() {
-        builder = builder.transparent(true).effects(EffectsBuilder::new().effect(Effect::Mica).build());
-    }
     match builder.build() {
         // Raised again once it exists: a window created while the app is not in front can come up behind
         Ok(w) => {
+            w.on_window_event(|event| {
+                if matches!(
+                    event,
+                    tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed
+                ) {
+                    // A closing WebView cannot reliably finish a pagehide IPC request.
+                    let _ = crate::phone_link::phone_pairing(false);
+                }
+            });
             let _ = w.set_focus();
         }
         Err(e) => crate::applog(&format!("settings window: {e}")),
@@ -61,10 +61,13 @@ pub struct SystemLook {
 #[tauri::command]
 pub fn get_system_look() -> SystemLook {
     SystemLook {
-        mica: has_mica(),
-        accent: reg_binary(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent", "AccentPalette")
-            .map(|bytes| palette(&bytes))
-            .unwrap_or_default(),
+        mica: false,
+        accent: reg_binary(
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent",
+            "AccentPalette",
+        )
+        .map(|bytes| palette(&bytes))
+        .unwrap_or_default(),
     }
 }
 
@@ -79,15 +82,13 @@ pub fn open_author_page() {
     let _ = crate::platform::open(std::ffi::OsStr::new("https://github.com/Atingaii/Vela"));
 }
 
-fn has_mica() -> bool {
-    reg_string(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion", "CurrentBuildNumber")
-        .and_then(|build| build.trim().parse::<u32>().ok())
-        .is_some_and(|build| build >= FIRST_MICA_BUILD)
-}
-
 fn palette(bytes: &[u8]) -> Vec<String> {
     let (colours, _) = bytes.as_chunks::<4>();
-    colours.iter().take(7).map(|c| format!("#{:02x}{:02x}{:02x}", c[0], c[1], c[2])).collect()
+    colours
+        .iter()
+        .take(7)
+        .map(|c| format!("#{:02x}{:02x}{:02x}", c[0], c[1], c[2]))
+        .collect()
 }
 
 #[cfg(windows)]
@@ -95,20 +96,17 @@ fn reg_binary(key: &str, value: &str) -> Option<Vec<u8>> {
     use windows::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_BINARY};
     let mut data = vec![0u8; 64];
     let mut size = data.len() as u32;
-    reg_get(HKEY_CURRENT_USER, key, value, RRF_RT_REG_BINARY, data.as_mut_ptr().cast(), &mut size).then(|| {
+    reg_get(
+        HKEY_CURRENT_USER,
+        key,
+        value,
+        RRF_RT_REG_BINARY,
+        data.as_mut_ptr().cast(),
+        &mut size,
+    )
+    .then(|| {
         data.truncate(size as usize);
         data
-    })
-}
-
-#[cfg(windows)]
-fn reg_string(key: &str, value: &str) -> Option<String> {
-    use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ};
-    let mut data = vec![0u16; 64];
-    let mut size = (data.len() * 2) as u32;
-    reg_get(HKEY_LOCAL_MACHINE, key, value, RRF_RT_REG_SZ, data.as_mut_ptr().cast(), &mut size).then(|| {
-        let chars = (size as usize / 2).min(data.len());
-        String::from_utf16_lossy(&data[..chars]).trim_end_matches('\0').to_string()
     })
 }
 
@@ -129,11 +127,6 @@ fn reg_get(
 
 #[cfg(not(windows))]
 fn reg_binary(_key: &str, _value: &str) -> Option<Vec<u8>> {
-    None
-}
-
-#[cfg(not(windows))]
-fn reg_string(_key: &str, _value: &str) -> Option<String> {
     None
 }
 

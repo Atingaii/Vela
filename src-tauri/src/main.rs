@@ -1,38 +1,46 @@
 #![cfg_attr(all(not(debug_assertions), windows), windows_subsystem = "windows")]
 
+mod activity;
+mod agy_cli;
+mod antigravity;
+mod appearance;
 mod autostart;
+mod chime;
+mod claude_auth;
+mod cli_sync;
+mod codex;
 mod config;
+mod cursor;
+mod custom_endpoint;
+mod diag;
 mod doctor;
+mod dropzones;
+mod edge_plugins;
 mod focus;
+mod glm;
+mod glyphs;
+mod grok;
 mod hooks_install;
 mod i18n;
+mod ledger;
+mod local_runtime;
 mod notchmenu;
+mod notifications;
+mod phone_link;
+mod platform;
+mod providers;
+mod secrets;
 mod server;
+mod settings_window;
 mod state;
 mod tray;
-mod traymenu;
-mod usage;
-mod claude_auth;
-mod codex;
-mod cursor;
-mod grok;
-mod antigravity;
-mod glm;
-mod agy_cli;
-mod glyphs;
 mod trayicon;
-mod activity;
-mod diag;
-mod dropzones;
-mod watcher;
-mod settings_window;
-mod platform;
-mod notifications;
+mod traymenu;
 mod updater;
+mod usage;
+mod usage_alerts;
+mod watcher;
 mod workbench;
-mod edge_plugins;
-mod ledger;
-mod cli_sync;
 
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
@@ -80,7 +88,7 @@ fn resolved_lang(raw: &str) -> String {
 pub fn ui_scale(app: &AppHandle) -> f64 {
     let st = app.state::<AppState>();
     let c = st.cfg.lock().unwrap();
-    config::snap_scale(c.scale)
+    c.appearance.effective_scale(c.scale)
 }
 
 pub fn broadcast(app: &AppHandle) {
@@ -88,7 +96,12 @@ pub fn broadcast(app: &AppHandle) {
     let snap = {
         let store = st.store.lock().unwrap();
         let cfg = st.cfg.lock().unwrap();
-        store.snapshot(&cfg.lang, &resolved_lang(&cfg.lang), i18n::clock_24h(), false)
+        store.snapshot(
+            &cfg.lang,
+            &resolved_lang(&cfg.lang),
+            i18n::clock_24h(),
+            false,
+        )
     };
     notifications::observe(app, &snap);
     let _ = app.emit("state", &snap);
@@ -118,18 +131,18 @@ impl Screen {
             w: m.size().width as i32,
             h: m.size().height as i32,
             scale: m.scale_factor(),
-            work: (wa.position.x, wa.position.y, wa.size.width as i32, wa.size.height as i32),
+            work: (
+                wa.position.x,
+                wa.position.y,
+                wa.size.width as i32,
+                wa.size.height as i32,
+            ),
         }
     }
-    /// Where the notch may sit. Falls back to the whole monitor if the platform reports no usable
-    /// work area, which would otherwise pin the notch to (0, 0) with no span to move along.
+    /// The Swift notch attaches to physical screen edges. Work-area insets only keep
+    /// the expanded card away from the Dock/taskbar; they never move the edge itself.
     fn area(&self) -> (i32, i32, i32, i32) {
-        let (x, y, w, h) = self.work;
-        if w > 0 && h > 0 {
-            (x, y, w, h)
-        } else {
-            (self.x, self.y, self.w, self.h)
-        }
+        (self.x, self.y, self.w, self.h)
     }
 }
 
@@ -146,7 +159,10 @@ pub fn screens(app: &AppHandle) -> Vec<Screen> {
     if let Ok(all) = w.available_monitors() {
         for m in all {
             let s = Screen::of(&m);
-            if !out.iter().any(|o| o.name == s.name && o.x == s.x && o.y == s.y) {
+            if !out
+                .iter()
+                .any(|o| o.name == s.name && o.x == s.x && o.y == s.y)
+            {
                 out.push(s);
             }
         }
@@ -163,7 +179,10 @@ fn target_screen(app: &AppHandle) -> Option<Screen> {
     };
     let list = screens(app);
     if let Some(name) = want {
-        if let Some(s) = list.iter().find(|s| s.name.as_deref() == Some(name.as_str())) {
+        if let Some(s) = list
+            .iter()
+            .find(|s| s.name.as_deref() == Some(name.as_str()))
+        {
             return Some(s.clone());
         }
     }
@@ -247,8 +266,9 @@ fn notch_hidden() {
 /// The screen the pointer is over, for a carry that can cross between them. None in the gap a
 /// smaller screen leaves beside a larger one, where the carry stays on the screen it was last over.
 fn screen_at(list: &[Screen], x: f64, y: f64) -> Option<&Screen> {
-    list.iter()
-        .find(|s| x >= s.x as f64 && x < (s.x + s.w) as f64 && y >= s.y as f64 && y < (s.y + s.h) as f64)
+    list.iter().find(|s| {
+        x >= s.x as f64 && x < (s.x + s.w) as f64 && y >= s.y as f64 && y < (s.y + s.h) as f64
+    })
 }
 
 /// By where it is rather than by name, which the platform is not obliged to report.
@@ -338,9 +358,18 @@ pub fn place_notch(app: &AppHandle) {
         let (x, y) = edge_origin(&mon, &edge, ww, wh, ratio);
         let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
         let mut placed = (x, y, ww, wh);
-        if w.outer_size().map(|s| s.width != target.width).unwrap_or(false) {
+        if w.outer_size()
+            .map(|s| s.width != target.width)
+            .unwrap_or(false)
+        {
             let _ = w.set_size(target);
-            let (x, y) = edge_origin(&mon, &edge, target.width as i32, target.height as i32, ratio);
+            let (x, y) = edge_origin(
+                &mon,
+                &edge,
+                target.width as i32,
+                target.height as i32,
+                ratio,
+            );
             let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
             placed = (x, y, target.width as i32, target.height as i32);
         }
@@ -349,7 +378,8 @@ pub fn place_notch(app: &AppHandle) {
         // Nor can it see the taskbar: a card opened near the bottom of a side edge slid under it.
         // The page is `size` × the monitor scale smaller than the window in CSS px.
         let css = (ms * size).max(0.01);
-        let insets = work_insets(&mon, placed.0, placed.1, placed.2, placed.3).map(|v| v as f64 / css);
+        let insets =
+            work_insets(&mon, placed.0, placed.1, placed.2, placed.3).map(|v| v as f64 / css);
         *NOTCH_INSETS.lock().unwrap() = insets;
         let _ = w.emit("notch_insets", insets);
         // Placement log line: the first thing to check when the notch is not visible. Appended, not
@@ -406,7 +436,11 @@ pub fn reset_bar(app: &AppHandle) {
     let stranded = {
         let st = app.state::<AppState>();
         let want = st.cfg.lock().unwrap().notch_monitor.clone();
-        want.is_some_and(|name| !screens(app).iter().any(|s| s.name.as_deref() == Some(name.as_str())))
+        want.is_some_and(|name| {
+            !screens(app)
+                .iter()
+                .any(|s| s.name.as_deref() == Some(name.as_str()))
+        })
     };
     {
         let st = app.state::<AppState>();
@@ -538,7 +572,11 @@ fn begin_move(app: AppHandle, depth: f64, length: f64) {
         applog(&format!(
             "notch carry: {from} -> {target} on {:?}{}",
             mon.name,
-            if unnameable { " (unnamed screen, staying put)" } else { "" }
+            if unnameable {
+                " (unnamed screen, staying put)"
+            } else {
+                ""
+            }
         ));
         if target != from || crossed || unnameable {
             {
@@ -572,7 +610,9 @@ fn drag_begin(app: AppHandle) {
             DRAGGING.store(false, std::sync::atomic::Ordering::SeqCst);
             return;
         };
-        let (Ok(start_cur), Ok(start_pos), Ok(size)) = (app.cursor_position(), w.outer_position(), w.outer_size()) else {
+        let (Ok(start_cur), Ok(start_pos), Ok(size)) =
+            (app.cursor_position(), w.outer_position(), w.outer_size())
+        else {
             DRAGGING.store(false, std::sync::atomic::Ordering::SeqCst);
             return;
         };
@@ -613,7 +653,11 @@ fn drag_begin(app: AppHandle) {
             std::thread::sleep(std::time::Duration::from_millis(8));
         }
         if moved {
-            let along = if vertical { along_at(last_y, wh, ay, ah) } else { along_at(last_x, ww, ax, aw) };
+            let along = if vertical {
+                along_at(last_y, wh, ay, ah)
+            } else {
+                along_at(last_x, ww, ax, aw)
+            };
             {
                 let st = app.state::<AppState>();
                 let mut c = st.cfg.lock().unwrap();
@@ -654,7 +698,12 @@ pub fn apply_lang(app: &AppHandle, lang: &str) {
 fn get_state(state: tauri::State<AppState>) -> state::Snapshot {
     let store = state.store.lock().unwrap();
     let cfg = state.cfg.lock().unwrap();
-    store.snapshot(&cfg.lang, &resolved_lang(&cfg.lang), i18n::clock_24h(), false)
+    store.snapshot(
+        &cfg.lang,
+        &resolved_lang(&cfg.lang),
+        i18n::clock_24h(),
+        false,
+    )
 }
 
 #[tauri::command]
@@ -663,14 +712,21 @@ fn get_usage(state: tauri::State<AppState>) -> usage::UsageSnapshot {
 }
 
 #[tauri::command]
-fn claude_sign_in() -> Result<(), String> { claude_auth::start_login() }
+fn claude_sign_in() -> Result<(), String> {
+    claude_auth::start_login()
+}
 
 #[tauri::command]
-fn get_claude_auth() -> claude_auth::AuthState { claude_auth::state() }
+fn get_claude_auth() -> claude_auth::AuthState {
+    claude_auth::state()
+}
 
 /// Asks one provider to read again, and says whether a reading is on its way. Claude's rate-limit
 /// wait stands, as on the Mac: asking early spends a request and can double the wait.
 pub(crate) fn refresh_provider(app: &AppHandle, provider: &str) -> bool {
+    if !providers::enabled(app, provider) {
+        return false;
+    }
     match provider {
         "claude" => {
             if app.state::<AppState>().usage.lock().unwrap().backoff_until > now_ms() {
@@ -683,7 +739,14 @@ pub(crate) fn refresh_provider(app: &AppHandle, provider: &str) -> bool {
         "grok" => grok::request_refresh(),
         "gemini" => antigravity::request_refresh(),
         "glm" => glm::request_refresh(),
-        _ => return false,
+        id if id.starts_with("custom-endpoint-") => {
+            let app = app.clone();
+            let id = id.trim_start_matches("custom-endpoint-").to_string();
+            tauri::async_runtime::spawn(async move {
+                let _ = custom_endpoint::probe_custom_endpoint(app, id).await;
+            });
+        }
+        _ => return providers::request(provider),
     }
     true
 }
@@ -691,6 +754,9 @@ pub(crate) fn refresh_provider(app: &AppHandle, provider: &str) -> bool {
 pub(crate) fn refresh_all(app: &AppHandle) {
     for provider in TRAY_PROVIDER_IDS {
         refresh_provider(app, provider);
+    }
+    for p in providers::get_providers(app.clone()) {
+        refresh_provider(app, &p.id);
     }
     let a = app.clone();
     std::thread::spawn(move || reload_glyphs(&a));
@@ -732,7 +798,10 @@ pub fn reload_glyphs(app: &AppHandle) {
 
 #[tauri::command]
 fn open_data_dir() {
-    let dir = config::config_path().parent().map(|p| p.to_path_buf()).unwrap_or_default();
+    let dir = config::config_path()
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_default();
     let _ = std::fs::create_dir_all(glyphs::user_dir());
     let _ = platform::open(dir.as_os_str());
 }
@@ -766,7 +835,9 @@ pub(crate) fn provider_page(provider: &str) -> Option<(&'static str, &'static st
 }
 
 pub(crate) fn open_provider_page(provider: &str) {
-    let Some((url, _)) = provider_page(provider) else { return };
+    let Some((url, _)) = provider_page(provider) else {
+        return;
+    };
     let _ = platform::open(std::ffi::OsStr::new(url));
 }
 
@@ -798,7 +869,9 @@ fn set_hot(rects: Vec<[f64; 4]>, expanded: bool) {
 /// that sets both is the only route. Clearing it again is safe — the notch is not otherwise layered
 /// (its transparency is DWM composition), so the window returns to the styles it had.
 fn set_click_through(app: &AppHandle, on: bool) {
-    let Some(w) = app.get_webview_window("notch") else { return };
+    let Some(w) = app.get_webview_window("notch") else {
+        return;
+    };
     let _ = w.set_ignore_cursor_events(on);
 }
 
@@ -833,11 +906,16 @@ pub fn applog(line: &str) {
     use std::io::Write;
     let log = config::config_path().with_file_name("run.log");
     // Past the cap the log starts again rather than growing for as long as the app runs.
-    let full = std::fs::metadata(&log).map(|m| m.len() > RUN_LOG_MAX_BYTES).unwrap_or(false);
+    let full = std::fs::metadata(&log)
+        .map(|m| m.len() > RUN_LOG_MAX_BYTES)
+        .unwrap_or(false);
     let opened = if full {
         std::fs::File::create(&log)
     } else {
-        std::fs::OpenOptions::new().create(true).append(true).open(&log)
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log)
     };
     if let Ok(mut f) = opened {
         let _ = writeln!(f, "{line}");
@@ -854,7 +932,9 @@ pub fn applog(line: &str) {
 /// through one, which is what a landing on another screen waits for before it shows the notch.
 #[tauri::command]
 fn report_dpr(app: AppHandle, dpr: f64, w: f64, h: f64, settled: Option<bool>) {
-    let Some(win) = app.get_webview_window("notch") else { return };
+    let Some(win) = app.get_webview_window("notch") else {
+        return;
+    };
     let want = target_screen(&app)
         .map(|s| s.scale)
         .unwrap_or_else(|| win.scale_factor().unwrap_or(1.0))
@@ -886,7 +966,10 @@ fn report_dpr(app: AppHandle, dpr: f64, w: f64, h: f64, settled: Option<bool>) {
     }
     // A correction resizes the page once more, and its own settled report follows; the landing is
     // shown on the first settled report that needed none
-    if settled == Some(true) && !corrected && LANDING.swap(0, std::sync::atomic::Ordering::SeqCst) != 0 {
+    if settled == Some(true)
+        && !corrected
+        && LANDING.swap(0, std::sync::atomic::Ordering::SeqCst) != 0
+    {
         let _ = app.emit_to("notch", "notch_reveal", ());
     }
 }
@@ -953,13 +1036,20 @@ fn start_pointer_watchdog(app: AppHandle) {
         let mut click_through: Option<bool> = None;
         loop {
             std::thread::sleep(std::time::Duration::from_millis(WATCHDOG_MS));
-            let Some(w) = app.get_webview_window("notch") else { continue };
-            let (Ok(pos), Ok(cur)) = (w.outer_position(), app.cursor_position()) else { continue };
+            let Some(w) = app.get_webview_window("notch") else {
+                continue;
+            };
+            let (Ok(pos), Ok(cur)) = (w.outer_position(), app.cursor_position()) else {
+                continue;
+            };
             let rects = HOT.lock().unwrap().clone();
             // Cursor position relative to the window's top-left, in physical pixels; the hot rectangles are physical too, so no scale conversion
             let lx = cur.x - pos.x as f64;
             let ly = cur.y - pos.y as f64;
-            let size = w.outer_size().ok().map(|s| (s.width as f64, s.height as f64));
+            let size = w
+                .outer_size()
+                .ok()
+                .map(|s| (s.width as f64, s.height as f64));
             let inside = cursor_in_hot(&rects, lx, ly, size);
 
             if click_through != Some(!inside) {
@@ -970,7 +1060,11 @@ fn start_pointer_watchdog(app: AppHandle) {
                 let _ = app.emit_to("notch", "notch_pointer", inside);
                 applog(&format!(
                     "click-through {} at cursor_rel=({lx:.0},{ly:.0}) rects={rects:?}",
-                    if inside { "off (cursor on the notch)" } else { "on (cursor elsewhere)" }
+                    if inside {
+                        "off (cursor on the notch)"
+                    } else {
+                        "on (cursor elsewhere)"
+                    }
                 ));
             }
 
@@ -1003,7 +1097,10 @@ fn start_pointer_watchdog(app: AppHandle) {
 /// Log channel for the page: JS writes key diagnostics into run.log (if invoke itself fails, the page reports on screen instead)
 #[tauri::command]
 fn log_js(msg: String) {
-    applog(&format!("js: {}", msg.chars().take(600).collect::<String>()));
+    applog(&format!(
+        "js: {}",
+        msg.chars().take(600).collect::<String>()
+    ));
 }
 
 #[tauri::command]
@@ -1047,6 +1144,7 @@ fn set_scale(app: AppHandle, scale: f64) -> f64 {
     let value = {
         let st = app.state::<AppState>();
         let mut c = st.cfg.lock().unwrap();
+        c.appearance.custom_scale = None;
         c.scale = config::snap_scale(scale);
         config::save(&c);
         c.scale
@@ -1110,7 +1208,19 @@ fn ring_window<'a>(
         // plan falls through to Antigravity's lane picker and the ring shows the
         // tightest window it can find instead of the session.
         "glm" => by_id("session"),
-        _ => antigravity_lane(windows, antigravity_limit, antigravity_model),
+        "gemini" => antigravity_lane(windows, antigravity_limit, antigravity_model),
+        id if id.starts_with("claude-") => by_id("session"),
+        id if id.starts_with("codex-") => by_id("primary"),
+        id if id.starts_with("antigravity-") => {
+            antigravity_lane(windows, antigravity_limit, antigravity_model)
+        }
+        _ => {
+            if let Some(p) = providers::CATALOG.iter().find(|p| p.id == provider) {
+                by_id(p.headline)
+            } else {
+                windows.first()
+            }
+        }
     }
 }
 
@@ -1123,7 +1233,11 @@ fn antigravity_lane<'a>(
     model: &str,
 ) -> Option<&'a usage::LimitWindow> {
     let family: Vec<_> = windows.iter().filter(|w| lane_family(w) == model).collect();
-    let lanes = if family.is_empty() { windows.iter().collect() } else { family };
+    let lanes = if family.is_empty() {
+        windows.iter().collect()
+    } else {
+        family
+    };
     if limit != "automatic" {
         if let Some(w) = tightest(lanes.iter().copied().filter(|w| lane_is(w, limit))) {
             return Some(w);
@@ -1151,9 +1265,16 @@ fn lane_is(w: &usage::LimitWindow, limit: &str) -> bool {
     let text = format!("{} {}", w.id, w.label).to_lowercase();
     match limit {
         "weekly" => text.contains("weekly"),
-        _ => ["5h", "5-hour", "five hour", "five-hour", "hourly", "session"]
-            .iter()
-            .any(|k| text.contains(k)),
+        _ => [
+            "5h",
+            "5-hour",
+            "five hour",
+            "five-hour",
+            "hourly",
+            "session",
+        ]
+        .iter()
+        .any(|k| text.contains(k)),
     }
 }
 
@@ -1166,7 +1287,19 @@ pub(crate) fn snapshot_of(app: &AppHandle, id: &str) -> usage::UsageSnapshot {
         "grok" => st.grok.lock().unwrap().clone(),
         "gemini" => st.antigravity.lock().unwrap().clone(),
         "glm" => st.glm.lock().unwrap().clone(),
-        _ => st.usage.lock().unwrap().clone(),
+        "claude" => {
+            let own = providers::snapshot("claude");
+            if own.status == "absent" {
+                st.usage.lock().unwrap().clone()
+            } else {
+                own
+            }
+        }
+        _ => custom_endpoint::readings(app)
+            .into_iter()
+            .find(|p| p.id == id)
+            .map(|p| p.snap)
+            .unwrap_or_else(|| providers::snapshot(id)),
     }
 }
 
@@ -1213,11 +1346,23 @@ struct TrayOption {
 
 #[tauri::command]
 fn get_tray_options(app: AppHandle) -> Vec<TrayOption> {
+    let extra = providers::get_providers(app.clone());
     TRAY_PROVIDER_IDS
         .iter()
+        .copied()
+        .chain(
+            extra
+                .iter()
+                .filter(|p| p.id != "claude")
+                .map(|p| p.id.as_str()),
+        )
         .map(|id| TrayOption {
-            id: (*id).to_string(),
-            label: provider_label(id).to_string(),
+            id: id.to_string(),
+            label: extra
+                .iter()
+                .find(|p| p.id == id)
+                .map(|p| p.name.clone())
+                .unwrap_or_else(|| provider_label(id).to_string()),
             status: snapshot_of(&app, id).status,
             used: ring_pct(&app, id),
         })
@@ -1235,7 +1380,10 @@ struct AntigravityPrefs {
 fn get_antigravity_prefs(app: AppHandle) -> AntigravityPrefs {
     let st = app.state::<AppState>();
     let c = st.cfg.lock().unwrap();
-    AntigravityPrefs { limit: c.antigravity_limit.clone(), model: c.antigravity_model.clone() }
+    AntigravityPrefs {
+        limit: c.antigravity_limit.clone(),
+        model: c.antigravity_model.clone(),
+    }
 }
 
 /// Unknown values are refused rather than stored. The notch draws its own rings, so it is told.
@@ -1251,34 +1399,45 @@ fn set_antigravity_prefs(app: AppHandle, limit: String, model: String) -> Antigr
             c.antigravity_model = model;
         }
         config::save(&c);
-        AntigravityPrefs { limit: c.antigravity_limit.clone(), model: c.antigravity_model.clone() }
+        AntigravityPrefs {
+            limit: c.antigravity_limit.clone(),
+            model: c.antigravity_model.clone(),
+        }
     };
     let _ = app.emit("antigravity_prefs", &prefs);
     tray::refresh_menu(&app);
     prefs
 }
 
-/// Which providers get a ring on the notch. An empty list means every provider.
+/// None preserves legacy automatic selection; Some([]) is an intentional empty notch.
 #[tauri::command]
-fn get_notch_slots(app: AppHandle) -> Vec<config::TraySlot> {
+fn get_notch_slots(app: AppHandle) -> Option<Vec<config::TraySlot>> {
     let st = app.state::<AppState>();
     let c = st.cfg.lock().unwrap();
-    c.notch_slots.clone()
+    (c.notch_selection_explicit || !c.notch_slots.is_empty()).then(|| c.notch_slots.clone())
 }
 
 #[tauri::command]
-fn set_notch_slots(app: AppHandle, slots: Vec<config::TraySlot>) {
-    let list = {
-        let st = app.state::<AppState>();
-        let mut c = st.cfg.lock().unwrap();
-        c.notch_slots = slots;
-        // Kept in step so an older build reading this file still shows the right providers
-        c.notch_providers = c.notch_slots.iter().map(|s| s.provider.clone()).collect();
-        config::save(&c);
-        c.notch_slots.clone()
-    };
-    // The notch is a separate window and draws its own cells, so it has to be told.
-    let _ = app.emit("notch_slots", list);
+fn set_notch_slots(app: AppHandle, slots: Vec<config::TraySlot>) -> Result<(), String> {
+    let mut seen = std::collections::HashSet::new();
+    if slots.len() > 256
+        || slots
+            .iter()
+            .any(|s| s.provider.is_empty() || s.provider.len() > 200 || !seen.insert(&s.provider))
+    {
+        return Err("无效或重复的账户选择".into());
+    }
+    let st = app.state::<AppState>();
+    let mut cfg = st.cfg.lock().unwrap();
+    let mut next = cfg.clone();
+    next.notch_selection_explicit = true;
+    next.notch_slots = slots.clone();
+    next.notch_providers = slots.iter().map(|s| s.provider.clone()).collect();
+    config::save_checked(&next)?;
+    *cfg = next;
+    drop(cfg);
+    let _ = app.emit("notch_slots", slots);
+    Ok(())
 }
 
 /// The application's own icon, so the settings window shows what the taskbar shows.
@@ -1297,7 +1456,11 @@ struct UiFlags {
 }
 
 fn ui_flags(c: &config::Config) -> UiFlags {
-    UiFlags { notch_visible: c.notch_visible, notch_on_hover: c.notch_on_hover, tray_visible: c.tray_visible }
+    UiFlags {
+        notch_visible: c.notch_visible,
+        notch_on_hover: c.notch_on_hover,
+        tray_visible: c.tray_visible,
+    }
 }
 
 #[tauri::command]
@@ -1311,7 +1474,12 @@ fn get_ui_flags(app: AppHandle) -> UiFlags {
 /// whenever the notch is off. The answer says what was actually stored, so the settings window can
 /// show the corrected state rather than a lie. Show on hover is not "off": the pill stays on screen.
 #[tauri::command]
-fn set_ui_flags(app: AppHandle, notch_visible: bool, tray_visible: bool, notch_on_hover: Option<bool>) -> UiFlags {
+fn set_ui_flags(
+    app: AppHandle,
+    notch_visible: bool,
+    tray_visible: bool,
+    notch_on_hover: Option<bool>,
+) -> UiFlags {
     let flags = {
         let st = app.state::<AppState>();
         let mut c = st.cfg.lock().unwrap();
@@ -1495,7 +1663,11 @@ fn get_monitors(app: AppHandle) -> Vec<MonitorInfo> {
             label: format!("{}  {} × {}", i + 1, s.w, s.h),
             primary: i == 0,
             // With no explicit choice the primary monitor is the one in use
-            current: if want.is_some() { s.name == chosen } else { i == 0 },
+            current: if want.is_some() {
+                s.name == chosen
+            } else {
+                i == 0
+            },
         })
         .collect()
 }
@@ -1653,7 +1825,11 @@ fn main() {
                 return;
             }
             "doctor" => {
-                let out = if args.get(2).map(|s| s.as_str()) == Some("deep") { diag::run() } else { doctor::run() };
+                let out = if args.get(2).map(|s| s.as_str()) == Some("deep") {
+                    diag::run()
+                } else {
+                    doctor::run()
+                };
                 println!("{out}");
                 let log = config::config_path().with_file_name("doctor.log");
                 let _ = std::fs::write(log, &out);
@@ -1689,6 +1865,19 @@ fn main() {
             activity: Mutex::new(Vec::new()),
         })
         .invoke_handler(tauri::generate_handler![
+            custom_endpoint::get_custom_endpoints,
+            custom_endpoint::save_custom_endpoint,
+            custom_endpoint::delete_custom_endpoint,
+            custom_endpoint::probe_custom_endpoint,
+            local_runtime::get_local_runtime_settings,
+            local_runtime::get_local_models,
+            local_runtime::set_local_runtime_settings,
+            providers::get_providers,
+            providers::get_provider_settings,
+            providers::set_provider_settings,
+            providers::set_provider_enabled,
+            providers::get_disabled_providers,
+            secrets::save_provider_secret,
             workbench::open_workbench,
             edge_plugins::list_edge_plugins,
             edge_plugins::set_edge_plugin,
@@ -1707,6 +1896,15 @@ fn main() {
             updater::get_update_state,
             updater::check_for_update,
             updater::install_update,
+            chime::get_alert_sounds,
+            phone_link::get_phone_link,
+            phone_link::phone_pairing,
+            phone_link::set_phone_link,
+            phone_link::remove_phone,
+            chime::preview_alert_sound,
+            notifications::preview_notch_alert,
+            appearance::get_appearance,
+            appearance::set_appearance,
             notifications::get_notifications,
             notifications::set_notifications,
             get_codex,
@@ -1783,6 +1981,9 @@ fn main() {
             grok::start(handle.clone());
             antigravity::start(handle.clone());
             glm::start(handle.clone());
+            notifications::start(handle.clone());
+            phone_link::start(handle.clone());
+            providers::start(handle.clone());
             activity::start(handle.clone());
             // Collecting glyphs may read icon resources out of a few executables; do it off the main thread and push when done
             let gh = handle.clone();
@@ -1838,7 +2039,11 @@ mod tests {
     fn every_provider_opens_its_own_page() {
         let mut hosts: Vec<&str> = TRAY_PROVIDER_IDS
             .iter()
-            .map(|id| provider_page(id).unwrap_or_else(|| panic!("{id} has no usage page")).1)
+            .map(|id| {
+                provider_page(id)
+                    .unwrap_or_else(|| panic!("{id} has no usage page"))
+                    .1
+            })
             .collect();
         hosts.sort();
         hosts.dedup();
@@ -1849,12 +2054,35 @@ mod tests {
     #[test]
     fn the_taskbar_is_measured_against_the_window() {
         // 3200 × 2000 with a 72 px taskbar along the bottom
-        let s = Screen { name: None, x: 0, y: 0, w: 3200, h: 2000, scale: 1.5, work: (0, 0, 3200, 1928) };
-        assert_eq!(work_insets(&s, 2768, 1376, 432, 624), [0, 0, 72, 0], "right edge, at the bottom");
-        assert_eq!(work_insets(&s, 2768, 512, 432, 624), [0, 0, 0, 0], "right edge, clear of it");
-        assert_eq!(work_insets(&s, 1000, 1928, 624, 624).map(|v| v <= 624), [true; 4], "never more than the window");
+        let s = Screen {
+            name: None,
+            x: 0,
+            y: 0,
+            w: 3200,
+            h: 2000,
+            scale: 1.5,
+            work: (0, 0, 3200, 1928),
+        };
+        assert_eq!(
+            work_insets(&s, 2768, 1376, 432, 624),
+            [0, 0, 72, 0],
+            "right edge, at the bottom"
+        );
+        assert_eq!(
+            work_insets(&s, 2768, 512, 432, 624),
+            [0, 0, 0, 0],
+            "right edge, clear of it"
+        );
+        assert_eq!(
+            work_insets(&s, 1000, 1928, 624, 624).map(|v| v <= 624),
+            [true; 4],
+            "never more than the window"
+        );
         // A taskbar on the left
-        let s = Screen { work: (72, 0, 3128, 2000), ..s };
+        let s = Screen {
+            work: (72, 0, 3128, 2000),
+            ..s
+        };
         assert_eq!(work_insets(&s, 0, 700, 432, 624), [0, 0, 0, 72]);
     }
 
@@ -1862,36 +2090,54 @@ mod tests {
     /// `edge_origin`, so the two must be exact inverses or the notch jumps when it is let go.
     #[test]
     fn a_slid_notch_lands_where_it_was_let_go() {
-        let s = Screen { name: None, x: 0, y: 0, w: 3200, h: 2000, scale: 1.5, work: (0, 0, 3200, 1928) };
+        let s = Screen {
+            name: None,
+            x: 0,
+            y: 0,
+            w: 3200,
+            h: 2000,
+            scale: 1.5,
+            work: (0, 0, 3200, 1928),
+        };
         for along in [0.2, 0.5, 0.73] {
             let (_, y) = super::edge_origin(&s, "right", 432, 624, along);
-            assert!((super::along_at(y, 624, 0, 1928) - along).abs() < 1e-3, "right at {along}");
+            assert!(
+                (super::along_at(y, 624, 0, 2000) - along).abs() < 1e-3,
+                "right at {along}"
+            );
             let (x, _) = super::edge_origin(&s, "top", 624, 624, along);
-            assert!((super::along_at(x, 624, 0, 3200) - along).abs() < 1e-3, "top at {along}");
+            assert!(
+                (super::along_at(x, 624, 0, 3200) - along).abs() < 1e-3,
+                "top at {along}"
+            );
         }
         // Pushed hard against an end, what it saves is the end it stopped at, not the pointer
         let (_, y) = super::edge_origin(&s, "right", 432, 624, 0.0);
-        assert_eq!(super::edge_origin(&s, "right", 432, 624, super::along_at(y, 624, 0, 1928)).1, y);
+        assert_eq!(
+            super::edge_origin(&s, "right", 432, 624, super::along_at(y, 624, 0, 2000)).1,
+            y
+        );
     }
 
-    /// A notch on the edge the taskbar is docked to used to sit under it.
     #[test]
-    fn the_notch_is_placed_inside_the_work_area() {
-        // 3200 × 2000 with a 72 px taskbar along the bottom
-        let s = Screen { name: None, x: 0, y: 0, w: 3200, h: 2000, scale: 1.5, work: (0, 0, 3200, 1928) };
-        for edge in ["left", "right", "top", "bottom"] {
-            let (ww, wh) = if crate::config::edge_is_vertical(edge) { (432, 624) } else { (624, 624) };
-            let (x, y) = super::edge_origin(&s, edge, ww, wh, 0.5);
-            assert!(y + wh <= 1928, "{edge}: ({x},{y}) {ww}x{wh} reaches into the taskbar");
-            assert_eq!(work_insets(&s, x, y, ww, wh), [0; 4], "{edge}: nothing covers it");
-        }
-        // A taskbar on the left moves the left edge in, and leaves the right one where it was
-        let s = Screen { work: (72, 0, 3128, 2000), ..s };
-        assert_eq!(super::edge_origin(&s, "left", 432, 624, 0.5).0, 72);
+    fn dock_and_taskbar_do_not_move_the_physical_edge() {
+        let s = Screen {
+            name: None,
+            x: 0,
+            y: 0,
+            w: 3200,
+            h: 2000,
+            scale: 1.5,
+            work: (72, 0, 3128, 1928),
+        };
+        assert_eq!(super::edge_origin(&s, "left", 432, 624, 0.5).0, 0);
         assert_eq!(super::edge_origin(&s, "right", 432, 624, 0.5).0, 3200 - 432);
-        // Nothing usable reported: the whole monitor, as before
-        let s = Screen { work: (0, 0, 0, 0), ..s };
-        assert_eq!(super::edge_origin(&s, "bottom", 624, 624, 1.0), (3200 - 624, 2000 - 624));
+        assert_eq!(
+            super::edge_origin(&s, "bottom", 624, 624, 0.5).1,
+            2000 - 624
+        );
+        let (x, y) = super::edge_origin(&s, "left", 432, 624, 0.5);
+        assert_eq!(work_insets(&s, x, y, 432, 624), [0, 0, 0, 72]);
     }
 
     #[test]
@@ -1903,7 +2149,10 @@ mod tests {
             assert!(w >= pill, "{edge}: {w} px cannot hold a {pill} px pill");
             // `#card`'s max-height on a flat edge is the window less 150 px for the pill, the 30 px
             // gap and the margins, and the tallest card the page has measured is 400 px.
-            assert!(h - 150.0 >= 400.0, "{edge}: {h} px leaves the card too little room");
+            assert!(
+                h - 150.0 >= 400.0,
+                "{edge}: {h} px leaves the card too little room"
+            );
         }
         for edge in ["left", "right"] {
             assert_eq!(notch_window_size(edge), (NOTCH_W, super::NOTCH_LONG));
@@ -1922,7 +2171,10 @@ mod tests {
             .find(|l| l.trim_start().starts_with("const DESIGN_W_UPRIGHT"))
             .expect("notch.html declares its design widths on one line");
         let width_of = |key: &str| -> f64 {
-            let after = line.split(key).nth(1).unwrap_or_else(|| panic!("{key} missing"));
+            let after = line
+                .split(key)
+                .nth(1)
+                .unwrap_or_else(|| panic!("{key} missing"));
             after
                 .trim_start_matches('=')
                 .chars()
@@ -1954,18 +2206,52 @@ mod tests {
     /// the pointer crosses the gap a shorter screen leaves beside a taller one.
     #[test]
     fn a_carry_crosses_onto_whichever_screen_the_pointer_is_over() {
-        let main = Screen { name: Some("1".into()), x: 0, y: 0, w: 2560, h: 1600, scale: 1.25, work: (0, 0, 2560, 1552) };
+        let main = Screen {
+            name: Some("1".into()),
+            x: 0,
+            y: 0,
+            w: 2560,
+            h: 1600,
+            scale: 1.25,
+            work: (0, 0, 2560, 1552),
+        };
         // An older monitor to the right, shorter, and sitting 200 px lower
-        let old = Screen { name: Some("2".into()), x: 2560, y: 200, w: 1920, h: 1080, scale: 1.0, work: (2560, 200, 1920, 1040) };
+        let old = Screen {
+            name: Some("2".into()),
+            x: 2560,
+            y: 200,
+            w: 1920,
+            h: 1080,
+            scale: 1.0,
+            work: (2560, 200, 1920, 1040),
+        };
         let all = [main.clone(), old.clone()];
-        assert_eq!(super::screen_at(&all, 100.0, 100.0).and_then(|s| s.name.clone()), main.name);
-        assert_eq!(super::screen_at(&all, 3000.0, 700.0).and_then(|s| s.name.clone()), old.name);
-        assert!(super::screen_at(&all, 3000.0, 100.0).is_none(), "above the shorter screen is on neither");
-        assert!(super::screen_at(&all, 2560.0, 700.0).is_some(), "the shared border belongs to the right-hand one");
+        assert_eq!(
+            super::screen_at(&all, 100.0, 100.0).and_then(|s| s.name.clone()),
+            main.name
+        );
+        assert_eq!(
+            super::screen_at(&all, 3000.0, 700.0).and_then(|s| s.name.clone()),
+            old.name
+        );
+        assert!(
+            super::screen_at(&all, 3000.0, 100.0).is_none(),
+            "above the shorter screen is on neither"
+        );
+        assert!(
+            super::screen_at(&all, 2560.0, 700.0).is_some(),
+            "the shared border belongs to the right-hand one"
+        );
         assert!(super::same_screen(&main, &main.clone()));
         assert!(!super::same_screen(&main, &old));
         // The same place with no name reported is still the same screen
-        assert!(super::same_screen(&Screen { name: None, ..old.clone() }, &old));
+        assert!(super::same_screen(
+            &Screen {
+                name: None,
+                ..old.clone()
+            },
+            &old
+        ));
     }
 
     /// The pill sits in the middle of the window, so half of it, a fillet and the settings orb's reach
@@ -1976,7 +2262,10 @@ mod tests {
         let pill = 5.0 * (44.0 + 6.0 + 21.0) + 4.0 * 14.0 + 36.0;
         for edge in ["left", "right"] {
             let (_, h) = notch_window_size(edge);
-            assert!(h / 2.0 >= pill / 2.0 + 38.7 + 28.5, "{edge}: {h} px leaves no room for the orb");
+            assert!(
+                h / 2.0 >= pill / 2.0 + 38.7 + 28.5,
+                "{edge}: {h} px leaves no room for the orb"
+            );
         }
     }
 
@@ -2019,7 +2308,9 @@ mod tests {
         for x in (CARD[0] + CARD[2]) as i32..WIDE_PILL[0] as i32 {
             let x = x as f64;
             assert!(
-                [WIDE_PILL, TAIL, CARD].iter().any(|r| cursor_in_hot(&[*r], x, y, WIDE)),
+                [WIDE_PILL, TAIL, CARD]
+                    .iter()
+                    .any(|r| cursor_in_hot(&[*r], x, y, WIDE)),
                 "cold at x={x}"
             );
         }
@@ -2041,8 +2332,18 @@ mod tests {
 
     #[test]
     fn the_pad_reaches_slightly_past_the_pill() {
-        assert!(cursor_in_hot(&[PILL], PILL[0] - HOT_PAD + 1.0, 300.0, WINDOW));
-        assert!(!cursor_in_hot(&[PILL], PILL[0] - HOT_PAD - 1.0, 300.0, WINDOW));
+        assert!(cursor_in_hot(
+            &[PILL],
+            PILL[0] - HOT_PAD + 1.0,
+            300.0,
+            WINDOW
+        ));
+        assert!(!cursor_in_hot(
+            &[PILL],
+            PILL[0] - HOT_PAD - 1.0,
+            300.0,
+            WINDOW
+        ));
     }
 
     #[test]
@@ -2058,7 +2359,11 @@ mod tests {
     }
 
     fn win(id: &str, used: f64) -> LimitWindow {
-        LimitWindow { id: id.into(), used, ..Default::default() }
+        LimitWindow {
+            id: id.into(),
+            used,
+            ..Default::default()
+        }
     }
 
     fn pick<'a>(provider: &str, windows: &'a [LimitWindow]) -> Option<&'a str> {
@@ -2071,12 +2376,20 @@ mod tests {
 
     /// The four lanes Antigravity's language server reported on a real machine
     fn bridge() -> [LimitWindow; 4] {
-        [win("gemini-weekly", 0.03), win("gemini-5h", 0.0), win("3p-weekly", 0.5), win("3p-5h", 0.9)]
+        [
+            win("gemini-weekly", 0.03),
+            win("gemini-5h", 0.0),
+            win("3p-weekly", 0.5),
+            win("3p-5h", 0.9),
+        ]
     }
 
     #[test]
     fn claude_means_the_session_even_when_the_week_is_fuller() {
-        assert_eq!(pick("claude", &[win("session", 0.10), win("weekly_all", 0.60)]), Some("session"));
+        assert_eq!(
+            pick("claude", &[win("session", 0.10), win("weekly_all", 0.60)]),
+            Some("session")
+        );
     }
 
     #[test]
@@ -2086,22 +2399,43 @@ mod tests {
 
     #[test]
     fn codex_means_its_core_window_and_cursor_its_included_usage() {
-        assert_eq!(pick("codex", &[win("primary", 0.2), win("secondary", 0.9)]), Some("primary"));
-        assert_eq!(pick("cursor", &[win("included", 0.3), win("api", 0.9)]), Some("included"));
-        assert_eq!(pick("cursor", &[win("api", 0.9), win("on_demand", 0.95)]), Some("api"));
+        assert_eq!(
+            pick("codex", &[win("primary", 0.2), win("secondary", 0.9)]),
+            Some("primary")
+        );
+        assert_eq!(
+            pick("cursor", &[win("included", 0.3), win("api", 0.9)]),
+            Some("included")
+        );
+        assert_eq!(
+            pick("cursor", &[win("api", 0.9), win("on_demand", 0.95)]),
+            Some("api")
+        );
     }
 
     #[test]
     fn codex_never_substitutes_an_extra_bucket_for_core_usage() {
-        assert_eq!(pick("codex", &[win("spark", 0.1), win("primary", 0.32)]), Some("primary"));
-        assert_eq!(pick("codex", &[win("spark", 0.1), win("secondary", 0.4)]), None);
+        assert_eq!(
+            pick("codex", &[win("spark", 0.1), win("primary", 0.32)]),
+            Some("primary")
+        );
+        assert_eq!(
+            pick("codex", &[win("spark", 0.1), win("secondary", 0.4)]),
+            None
+        );
         assert_eq!(pick("codex", &[win("secondary", 0.4)]), None);
-        assert_eq!(pick("codex", &[win("spark", 0.1), win("code-review", 0.2)]), None);
+        assert_eq!(
+            pick("codex", &[win("spark", 0.1), win("code-review", 0.2)]),
+            None
+        );
     }
 
     #[test]
     fn antigravity_reads_only_gemini_lanes_unless_told_otherwise() {
-        assert_eq!(lane(&bridge(), "automatic", "gemini"), Some("gemini-weekly"));
+        assert_eq!(
+            lane(&bridge(), "automatic", "gemini"),
+            Some("gemini-weekly")
+        );
         assert_eq!(lane(&bridge(), "automatic", "3p"), Some("3p-5h"));
     }
 
@@ -2118,21 +2452,37 @@ mod tests {
             win("Gemini Models Five Hour Limit", 0.1),
             win("Claude and GPT models Five Hour Limit", 0.7),
         ];
-        assert_eq!(lane(&cli, "5h", "gemini"), Some("Gemini Models Five Hour Limit"));
-        assert_eq!(lane(&cli, "automatic", "3p"), Some("Claude and GPT models Five Hour Limit"));
+        assert_eq!(
+            lane(&cli, "5h", "gemini"),
+            Some("Gemini Models Five Hour Limit")
+        );
+        assert_eq!(
+            lane(&cli, "automatic", "3p"),
+            Some("Claude and GPT models Five Hour Limit")
+        );
     }
 
     #[test]
     fn a_spent_lane_leads_only_once_every_lane_is_spent() {
         let one_spent = [win("gemini-5h", 1.0), win("gemini-weekly", 0.4)];
-        assert_eq!(lane(&one_spent, "automatic", "gemini"), Some("gemini-weekly"));
+        assert_eq!(
+            lane(&one_spent, "automatic", "gemini"),
+            Some("gemini-weekly")
+        );
         let all_spent = [win("gemini-weekly", 1.0), win("gemini-5h", 1.0)];
         assert_eq!(lane(&all_spent, "automatic", "gemini"), Some("gemini-5h"));
     }
 
     #[test]
     fn a_request_count_still_leads_when_it_is_all_there_is() {
-        let requests = LimitWindow { id: "requests".into(), count: Some(79), ..Default::default() };
-        assert_eq!(pick("gemini", std::slice::from_ref(&requests)), Some("requests"));
+        let requests = LimitWindow {
+            id: "requests".into(),
+            count: Some(79),
+            ..Default::default()
+        };
+        assert_eq!(
+            pick("gemini", std::slice::from_ref(&requests)),
+            Some("requests")
+        );
     }
 }

@@ -30,13 +30,17 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
 fn menu_lines(app: &AppHandle, lang: &str) -> Vec<(String, String, bool)> {
     let now = crate::now_ms();
     let mut lines = Vec::new();
-    for id in crate::TRAY_PROVIDER_IDS {
+    for provider in crate::get_tray_options(app.clone()) {
+        let id = provider.id.as_str();
+        if !crate::providers::enabled(app, id) {
+            continue;
+        }
         let snap = crate::snapshot_of(app, id);
         if snap.status == "absent" {
             continue;
         }
         let head = traymenu::header(
-            crate::provider_label(id),
+            &provider.label,
             crate::ring_fraction(app, id),
             traymenu::stale_since(&snap, now),
             now,
@@ -44,7 +48,10 @@ fn menu_lines(app: &AppHandle, lang: &str) -> Vec<(String, String, bool)> {
         );
         // Clicking a provider re-reads that one, as on the Mac.
         lines.push((format!("refresh:{id}"), head, true));
-        for (n, line) in traymenu::provider_lines(&snap, now, lang).iter().enumerate() {
+        for (n, line) in traymenu::provider_lines(&snap, now, lang)
+            .iter()
+            .enumerate()
+        {
             // Windows does not indent submenu-less items, so the indent is in the text.
             lines.push((format!("line:{id}:{n}"), format!("    {line}"), false));
         }
@@ -57,11 +64,19 @@ pub fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     build_menu_from(app, &lang, &menu_lines(app, &lang))
 }
 
-fn build_menu_from(app: &AppHandle, lang: &str, lines: &[(String, String, bool)]) -> tauri::Result<Menu<Wry>> {
+fn build_menu_from(
+    app: &AppHandle,
+    lang: &str,
+    lines: &[(String, String, bool)],
+) -> tauri::Result<Menu<Wry>> {
     let lang = lang.to_string();
     let mut items: Vec<tauri::menu::MenuItem<Wry>> = Vec::new();
     for (id, text, enabled) in lines {
-        items.push(MenuItemBuilder::with_id(id.clone(), text.clone()).enabled(*enabled).build(app)?);
+        items.push(
+            MenuItemBuilder::with_id(id.clone(), text.clone())
+                .enabled(*enabled)
+                .build(app)?,
+        );
     }
     if items.is_empty() {
         items.push(
@@ -100,14 +115,18 @@ pub(crate) fn language(app: &AppHandle) -> String {
 /// The hover text: the same figures the menu opens with, for when the menu is not open.
 fn tooltip(app: &AppHandle) -> String {
     let mut parts: Vec<String> = Vec::new();
-    for id in crate::TRAY_PROVIDER_IDS {
+    for provider in crate::get_tray_options(app.clone()) {
+        let id = provider.id.as_str();
+        if !crate::providers::enabled(app, id) {
+            continue;
+        }
         if crate::snapshot_of(app, id).status == "absent" {
             continue;
         }
         let value = crate::ring_fraction(app, id)
             .map(|f| format!("{}%", traymenu::pct(f)))
             .unwrap_or_else(|| "—".into());
-        parts.push(format!("{} {value}", crate::provider_label(id)));
+        parts.push(format!("{} {value}", provider.label));
     }
     if parts.is_empty() {
         concat!("Vela v", env!("CARGO_PKG_VERSION")).to_string()
@@ -124,7 +143,8 @@ fn tooltip(app: &AppHandle) -> String {
 /// click handlers already run on the main thread, but the readings poller and the settings window
 /// do not, so the hop is done here once rather than being remembered at every call site.
 /// What the menu last showed, so an unchanged refresh leaves it alone.
-static SHOWN: std::sync::Mutex<Option<(String, Vec<(String, String, bool)>)>> = std::sync::Mutex::new(None);
+static SHOWN: std::sync::Mutex<Option<(String, Vec<(String, String, bool)>)>> =
+    std::sync::Mutex::new(None);
 
 /// Swaps the menu only when a line of it would read differently. `set_menu` replaces the menu the
 /// user may have open this moment — the refresh runs on the main thread, which the open popup's

@@ -5,62 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vela Settings</title>
 <style>
-  /* The Mac's Settings (Sources/Settings/SettingsView.swift) over Windows 11's Mica: a sidebar card
-     darker than the pane, grouped sections with captions as rows, and Windows' own control cues —
-     a soft fill with an accent bar for the selected section, outlined toggles, the system accent.
-     The panel is translucent so Mica shows through; without Mica, body.solid draws the same tones. */
-  :root{
-    --accent:#0a7aff; --on-accent:#ffffff;
-    --text:#f2f2f4; --text2:rgba(235,235,245,.62); --text3:rgba(235,235,245,.38);
-    --pane:rgba(255,255,255,.13); --side:rgba(0,0,0,.40); --group:rgba(255,255,255,.06);
-    --line:rgba(255,255,255,.08); --hi:rgba(255,255,255,.05); --sep:rgba(255,255,255,.08);
-    --seg-bg:rgba(255,255,255,.09); --hover:rgba(255,255,255,.06); --sel-soft:rgba(255,255,255,.08);
-    --btn:rgba(255,255,255,.10); --btn-hover:rgba(255,255,255,.16);
-    --danger-bg:rgba(255,99,99,.14); --danger:#ff8a8a;
-  }
-  @media (prefers-color-scheme: light){
-    :root{
-      --text:#1d1d1f; --text2:rgba(60,60,67,.70); --text3:rgba(60,60,67,.45);
-      --pane:rgba(255,255,255,.50); --side:rgba(0,0,0,.06); --group:rgba(255,255,255,.72);
-      --line:rgba(0,0,0,.07); --hi:rgba(255,255,255,.80); --sep:rgba(0,0,0,.07);
-      --seg-bg:rgba(0,0,0,.06); --hover:rgba(0,0,0,.04); --sel-soft:rgba(0,0,0,.05);
-      --btn:rgba(0,0,0,.05); --btn-hover:rgba(0,0,0,.09);
-      --danger-bg:rgba(196,43,28,.10); --danger:#c42b1c;
-    }
-  }
+  /* Swift SettingsPalette / SettingsView at the pinned migration baseline. */
+  :root{color-scheme:dark;--accent:#0a7aff;--on-accent:#fff;--text:#fff;
+    --text2:rgba(255,255,255,.5);--text3:rgba(255,255,255,.32);
+    --pane:#0e0e10;--side:#161618;--group:#1b1b1d;--line:rgba(255,255,255,.07);
+    --hi:transparent;--sep:rgba(255,255,255,.07);--seg-bg:rgba(255,255,255,.09);
+    --hover:rgba(255,255,255,.05);--sel-soft:rgba(255,255,255,.10);
+    --btn:rgba(255,255,255,.10);--btn-hover:rgba(255,255,255,.16);
+    --danger-bg:rgba(255,99,99,.14);--danger:#ff8a8a}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:transparent;overflow:hidden;user-select:none}
   body{font:13.5px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;color:var(--text)}
-  body.solid{--pane:#3d3d40;--side:#1f2022;--group:#48484b;--hi:transparent;background:#2b2b2e}
-  @media (prefers-color-scheme: light){ body.solid{--pane:#f0f0f2;--side:#e2e2e6;--group:#ffffff;background:#f0f0f2} }
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   button{font:inherit;color:inherit}
   html[lang="ko"] body{word-break:keep-all}
   [hidden]{display:none!important}
 
-  #app{display:flex;height:100%;background:var(--pane)}
+  #app{display:flex;height:100%;background:var(--pane);border:1px solid rgba(255,255,255,.09);border-radius:20px;overflow:hidden}
 
-  /* ---- sidebar: a card inset from the window, as on the Mac ---- */
-  #side{width:196px;margin:4px;border-radius:14px;background:var(--side);border:1px solid var(--line);
-    box-shadow:inset 0 1px 0 var(--hi);display:flex;flex-direction:column;padding:0 8px 8px;flex:none}
-  #side .band{height:48px;flex:none}
+  /* Full-height sidebar, plain symbols and a soft selection pill. */
+  #side{width:220px;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;flex:none;padding:0 10px 16px}
+  #side .band{height:52px;flex:none}
+  .brand{display:flex;align-items:center;gap:10px;padding:0 8px 16px;font-size:14px;font-weight:600}
+  .brand svg{width:22px;height:22px}.side-version{padding:6px 10px 0;font-size:11px;color:var(--text3)}
   #side .grow{flex:1}
-  .row{position:relative;display:flex;align-items:center;gap:9px;width:100%;height:32px;padding:0 8px;margin-bottom:2px;
-    border:0;border-radius:8px;background:transparent;text-align:left;font-size:13.5px}
-  .row:hover{background:var(--hover)}
-  .row.sel{background:var(--sel-soft)}
-  .row.sel::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:2px;background:var(--accent)}
-  .badge{width:20px;height:20px;border-radius:5.5px;display:grid;place-items:center;flex:none}
-  .badge svg{width:12px;height:12px;fill:#fff}
-  .b-blue{background:linear-gradient(#4fa6ff,#0a6cff)}
-  .b-indigo{background:linear-gradient(#8784ff,#5856d6)}
-  .b-gray{background:linear-gradient(#a6a6ab,#727277)}
-  .b-red{background:linear-gradient(#ff6d62,#dd3328)}
+  .row{position:relative;display:flex;align-items:center;gap:9px;width:100%;min-height:32px;padding:6px 10px;margin-bottom:2px;
+    border:0;border-radius:8px;background:transparent;text-align:left;font-size:13px;color:rgba(255,255,255,.65);transition:background .16s,transform .2s}
+  .row:hover{background:var(--hover)}.row:active{transform:scale(.94)}
+  .row.sel{background:var(--sel-soft);color:rgba(255,255,255,.95);font-weight:500}
+  .badge{width:18px;height:18px;display:grid;place-items:center;flex:none}
+  .badge svg{width:18px;height:18px;fill:currentColor}
+  #quit{color:rgba(255,255,255,.55)}#quit:hover{color:#ff6b66}
+  .provider-tab{padding-left:28px}
+  .account-count{margin-left:auto;color:var(--text3);font-size:11px}
+  @keyframes pane-in{from{opacity:0;filter:blur(10px)}to{opacity:1;filter:blur(0)}}
+  .pane:not([hidden]){animation:pane-in .24s ease-out}
 
   /* ---- pane ---- */
   #pane{flex:1;display:flex;flex-direction:column;min-width:0}
-  #head{height:52px;display:flex;align-items:center;padding-left:24px;position:relative;flex:none}
-  #head h1{font-size:22px;font-weight:600;margin:0}
+  #head{min-height:88px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;padding:20px 24px;position:relative;flex:none;border-bottom:1px solid var(--line)}
+  #subtitle{font-size:12px;color:var(--text2);margin:0}
+  #head h1{font-size:19px;font-weight:600;margin:0}
   #close{position:absolute;top:0;right:0;width:46px;height:34px;border:0;background:transparent;color:var(--text2);
     display:grid;place-items:center;border-top-right-radius:8px}
   #close svg{width:10px;height:10px;stroke:currentColor;stroke-width:1.2}
@@ -87,6 +72,7 @@
   .acct.off .acct-name{color:var(--text2)}
   .acct.off .glyph{opacity:.5}
   .acct-detail{margin:4px 0 0 26px;font-size:12px;color:var(--text2)}
+  .provider-config{padding:14px;margin-top:14px}.provider-config summary{cursor:pointer;font-weight:600}.provider-config form{display:grid;gap:10px;margin-top:14px}.provider-config form[hidden]{display:none}.provider-config label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}.provider-config input:not([type=checkbox]):not([type=color]),.provider-config select{min-width:0;width:55%;padding:6px}.provider-config .endpoint-row{padding:10px 0;border-bottom:1px solid var(--line,#ddd);display:flex;gap:8px;align-items:center;flex-wrap:wrap}.provider-config .endpoint-row span{flex:1;overflow-wrap:anywhere}.acct-sub input{min-width:0;width:60%}
   .acct-sub{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 0 26px;font-size:13px}
   .glyph{width:16px;height:16px;display:inline-grid;place-items:center;flex:none;color:var(--text)}
   .glyph svg{width:16px;height:16px;fill:currentColor}
@@ -115,23 +101,31 @@
     padding:5px 10px;font-size:12px;color:var(--text2);opacity:0;transition:opacity .3s;pointer-events:none}
   #toast.show{opacity:1}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+.account-handle{border:0;background:transparent;color:#666;cursor:grab;padding:4px;font-size:18px}.account-handle:focus-visible{outline:2px solid #aaa;border-radius:5px}
+dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:16px;max-width:380px;padding:22px}dialog::backdrop{background:#0009}dialog p{font-size:13px;color:#aaa}#phone-qr{display:flex;justify-content:center}#phone-qr img{width:220px;height:220px}
 </style>
 </head>
 <body>
 <div id="app">
   <nav id="side" role="tablist" aria-orientation="vertical" aria-label="Settings sections">
     <div class="band" data-tauri-drag-region></div>
-    <button class="row" id="tab-accounts" role="tab" aria-controls="pane-accounts" aria-selected="false" tabindex="-1"><span class="badge b-blue"><svg viewBox="0 0 12 12"><circle cx="6" cy="4" r="2.4"/><path d="M1.5 11.2c.4-2.5 2.3-3.9 4.5-3.9s4.1 1.4 4.5 3.9z"/></svg></span><span>Accounts</span></button>
+    <div class="brand" data-tauri-drag-region><svg viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#050505"/><path d="m5 6 6 11 6-11" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/></svg><span>Vela</span></div>
+    <button class="row" id="tab-accounts" role="tab" aria-controls="pane-accounts" aria-selected="false" tabindex="-1"><span class="badge b-blue"><svg viewBox="0 0 12 12"><circle cx="6" cy="4" r="2.4"/><path d="M1.5 11.2c.4-2.5 2.3-3.9 4.5-3.9s4.1 1.4 4.5 3.9z"/></svg></span><span>Accounts</span><span id="account-count" class="account-count" data-dynamic></span></button>
+    <button class="row provider-tab" id="tab-phone" role="tab" aria-controls="pane-phone" aria-selected="false" tabindex="-1"><span class="badge"><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="5" y="1" width="8" height="16" rx="2" stroke="currentColor" fill="none"/><path d="M8 14h2" stroke="currentColor"/></svg></span><span>Phone</span></button>
+    <button class="row provider-tab" id="tab-ollama" role="tab" aria-controls="pane-ollama" aria-selected="false" tabindex="-1"><span class="badge"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="2" y="3" width="14" height="10" rx="2" stroke="currentColor" fill="none"/><path d="M6 16h6M9 13v3" stroke="currentColor"/></svg></span><span>Ollama</span></button>
+    <button class="row provider-tab" id="tab-lmstudio" role="tab" aria-controls="pane-lmstudio" aria-selected="false" tabindex="-1"><span class="badge"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="2" y="3" width="14" height="10" rx="2" stroke="currentColor" fill="none"/><path d="M6 16h6M9 13v3" stroke="currentColor"/></svg></span><span>LM Studio</span></button>
+    <button class="row provider-tab" id="tab-custom" role="tab" aria-controls="pane-custom" aria-selected="false" tabindex="-1"><span class="badge"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="2" y="3" width="14" height="10" rx="2" stroke="currentColor" fill="none"/><path d="M6 16h6M9 13v3" stroke="currentColor"/></svg></span><span>Custom Endpoints</span></button>
     <button class="row" id="tab-appearance" role="tab" aria-controls="pane-appearance" aria-selected="false" tabindex="-1"><span class="badge b-indigo"><svg viewBox="0 0 12 12"><path d="M10 .9a.8.8 0 0 1 1.1 1.1L6.4 6.7 5.3 5.6zM4.6 6.3l1.1 1.1c.2 1.9-1.9 3.6-4.7 3.1.9-.4 1.2-1 1.3-1.8.1-1.3 1.1-2.3 2.3-2.4z"/></svg></span><span>Appearance</span></button>
     <button class="row" id="tab-notifications" role="tab" aria-controls="pane-notifications" aria-selected="false" tabindex="-1"><span class="badge b-red"><svg viewBox="0 0 12 12"><path d="M6 1a3 3 0 0 0-3 3v3L2 9h8L9 7V4a3 3 0 0 0-3-3M4.5 10h3a1.5 1.5 0 0 1-3 0"/></svg></span><span>Notifications</span></button>
     <button class="row" id="tab-general" role="tab" aria-controls="pane-general" aria-selected="false" tabindex="-1"><span class="badge b-gray"><svg viewBox="0 0 12 12"><path fill-rule="evenodd" d="M5.1.6h1.8l.3 1.5 1.1.5 1.3-.8 1.3 1.3-.8 1.3.5 1.1 1.5.3v1.8l-1.5.3-.5 1.1.8 1.3-1.3 1.3-1.3-.8-1.1.5-.3 1.5H5.1l-.3-1.5-1.1-.5-1.3.8-1.3-1.3.8-1.3-.5-1.1L.6 6.9V5.1l1.5-.3.5-1.1-.8-1.3 1.3-1.3 1.3.8 1.1-.5zM6 4.1a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8z"/></svg></span><span>General</span></button>
     <div class="grow" data-tauri-drag-region></div>
     <button class="row" id="quit"><span class="badge b-red"><svg viewBox="0 0 12 12"><path d="M6 1.2v4.3" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M3.4 3.1a3.9 3.9 0 1 0 5.2 0" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg></span><span>Quit Vela</span></button>
+    <div class="side-version">Vela <span id="side-version" data-dynamic>0.1.0</span></div>
   </nav>
 
   <main id="pane">
     <div id="head" data-tauri-drag-region>
-      <h1 id="title" data-tauri-drag-region data-dynamic>Accounts</h1>
+      <h1 id="title" data-tauri-drag-region data-dynamic>Accounts</h1><p id="subtitle" data-tauri-drag-region data-dynamic></p>
       <button id="close" title="Close" aria-label="Close"><svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1L1 9"/></svg></button>
     </div>
     <div id="strip" role="alert" data-dynamic hidden></div>
@@ -144,34 +138,84 @@
           <div class="sec">Not connected</div>
           <div class="group" id="acc-off" data-dynamic></div>
         </div>
+        <details class="group provider-config" id="provider-config">
+          <summary>Provider configuration / 供应商配置</summary>
+          <form id="provider-preferences">
+            <label>MiniMax region / 区域<select id="minimax-region"><option value="global">Global</option><option value="china">China</option></select></label>
+            <label>Gemini monthly token budget / 月度预算<input id="gemini-budget" type="number" min="1" step="1" placeholder="未设置 / Not set"></label>
+            <button class="btn" type="submit">保存 / Save</button>
+          </form>
+
+        </details>
+
       </section>
 
+      <section class="pane" id="pane-phone" role="tabpanel" aria-labelledby="tab-phone" hidden>
+        <div class="group">
+          <div class="item"><span>Allow phones on this network</span><button class="switch" id="phone-enabled" role="switch" aria-label="Allow phones on this network" aria-checked="false"></button></div>
+          <div class="item cap">Your phone reads usage from this computer over your Wi-Fi. Nothing leaves your network.</div>
+          <div class="item" id="phone-status" role="status" data-dynamic></div>
+          <div class="item"><button class="btn" id="phone-connect">Connect a Phone…</button></div>
+        </div>
+        <div class="sec">Paired phones</div><div class="group" id="phone-devices" data-dynamic></div>
+        <dialog id="phone-pairing" aria-labelledby="phone-pairing-title"><h2 id="phone-pairing-title">Connect a Phone</h2><p>Scan with the Codenotch phone app on the same Wi-Fi network.</p><div id="phone-qr" data-dynamic></div><p id="phone-expires" data-dynamic></p><div class="item"><button class="btn" id="phone-copy">Copy Link</button><button class="btn" id="phone-close">Close</button></div></dialog>
+        <dialog id="phone-remove" aria-labelledby="phone-remove-title"><h2 id="phone-remove-title">Remove phone?</h2><p id="phone-remove-name" data-dynamic></p><div class="item"><button class="btn" id="phone-remove-confirm">Remove</button><button class="btn" id="phone-remove-cancel">Cancel</button></div></dialog>
+      </section>
+      <section class="pane" id="pane-ollama" role="tabpanel" aria-labelledby="tab-ollama" hidden>
+        <div class="sec">Connection</div><div class="group provider-config"><form id="ollama-preferences">
+        <label>Ollama URL<input id="ollama-url" type="url" required></label><button class="btn" type="submit">Save</button></form></div>
+        <div class="sec">Loaded models</div><div class="group" id="ollama-models" data-dynamic></div>
+      </section>
+      <section class="pane" id="pane-lmstudio" role="tabpanel" aria-labelledby="tab-lmstudio" hidden>
+        <div class="sec">Connection</div><div class="group provider-config"><form id="lmstudio-preferences">
+        <label>LM Studio URL<input id="lmstudio-url" type="url" required></label><button class="btn" type="submit">Save</button></form></div>
+        <div class="sec">Loaded models</div><div class="group" id="lmstudio-models" data-dynamic></div>
+      </section>
+      <section class="pane" id="pane-custom" role="tabpanel" aria-labelledby="tab-custom" hidden>
+        <div class="group provider-config" id="custom-config">
+
+          <div id="custom-list" data-dynamic></div>
+          <button class="btn" id="custom-add" type="button">添加端点 / Add endpoint</button>
+          <form id="custom-form" hidden>
+            <input id="custom-id" type="hidden">
+            <label>名称 / Name<input id="custom-name" required maxlength="120"></label>
+            <label>API URL<input id="custom-url" type="url" required placeholder="https://example.com/v1"></label>
+            <label>Credential header / 凭据请求头<input id="custom-header" value="Authorization" required pattern="[A-Za-z0-9-]+"></label>
+            <label>API key<input id="custom-key" type="password" autocomplete="off" placeholder="留空保留 / Leave blank to keep"></label>
+            <label>Model / 模型<input id="custom-model" list="custom-model-options" maxlength="200"><datalist id="custom-model-options"></datalist></label>
+            <label>Unit / 单位<select id="custom-unit"><option value="currency">USD</option><option value="tokens">Tokens</option></select></label>
+            <label>Budget / 预算<input id="custom-budget" type="number" min="0.000001" step="any" placeholder="Unknown / 未知"></label>
+            <label>Used / 已用<input id="custom-used" type="number" min="0" step="any" value="0" required></label>
+            <label>Color / 颜色<input id="custom-color" type="color" value="#6366f1"></label>
+            <label><input id="custom-remaining" type="checkbox">显示剩余额度 / Show remaining</label>
+            <p class="cap">预算和已用量手动维护；模型与连接状态通过 /models 检测。密钥保存到系统凭据库。</p>
+            <button class="btn" type="submit">保存 / Save</button>
+            <button class="btn" id="custom-cancel" type="button">取消 / Cancel</button>
+          </form>
+        </div>
+      </section>
       <section class="pane" id="pane-appearance" role="tabpanel" aria-labelledby="tab-appearance" hidden>
+        <div class="sec">Usage</div>
+        <div class="group">
+          <div class="item"><span>Reset time</span><select id="appearance-reset_time"><option value="automatic">Reset date</option><option value="remaining">Time remaining</option></select></div>
+          <div class="item"><span>Show Spark and code review</span><button class="switch" id="appearance-show_codex_extra" role="switch" aria-label="Show Spark and code review" aria-checked="true"></button></div>
+          <div class="item"><span>Weekly ring</span><span class="seg" id="seg-weekly"><button data-v="off">Off</button><button data-v="inside">Inside</button><button data-v="outside">Outside</button></span></div>
+          <div class="item"><span>Dashed weekly ring</span><button class="switch" id="appearance-weekly_dashed" role="switch" aria-label="Dashed weekly ring" aria-checked="false"></button></div>
+        </div>
         <div class="sec">Notch</div>
         <div class="group">
           <div class="item"><span>Show</span><span class="seg" id="seg-show"><button data-v="show">Always show</button><button data-v="hover">Show on hover</button><button data-v="hide">Hide</button></span></div>
           <div class="item cap" id="cap-show" data-dynamic></div>
           <div class="item"><span>Size</span><span class="seg" id="seg-size"><button data-v="0.8">Small</button><button data-v="1">Medium</button><button data-v="1.25">Large</button></span></div>
+          <div class="item"><label for="appearance-custom_enabled">Custom size</label><input id="appearance-custom_enabled" type="checkbox"><input id="appearance-custom_scale" type="range" min="0.75" max="1.5" step="0.01" aria-label="Custom size"><output id="appearance-scale_value"></output></div>
           <div class="item"><span>Edge</span><span class="seg" id="seg-edge"><button data-v="left">Left</button><button data-v="right">Right</button><button data-v="top">Top</button><button data-v="bottom">Bottom</button></span></div>
+          <div class="item"><span>Show move handle</span><button class="switch" id="sw-move" role="switch" aria-checked="true" aria-label="Show move handle"></button></div>
           <div class="item" id="row-screen" hidden><span>Screen</span>
             <select id="screen" aria-label="Screen"></select>
           </div>
           <div class="item cap" id="cap-screen" data-dynamic hidden></div>
           <div class="item"><span class="hint">Hold Alt / Option and drag the notch to slide it along its edge. Each edge remembers where you left it. Recentre puts it back in the middle of the edge it is on, or on the main screen's right-hand edge if the screen it was on has been unplugged.</span><button class="btn" id="btn-recentre">Recentre</button></div>
         </div>
-      </section>
-
-      <section class="pane" id="pane-notifications" role="tabpanel" aria-labelledby="tab-notifications" hidden>
-        <div class="group">
-          <div class="item"><span>Waiting for your response</span><button class="switch" id="sw-attention" role="switch" aria-checked="false" aria-label="Waiting for your response"></button></div>
-          <div class="item"><span>Task completed</span><button class="switch" id="sw-done" role="switch" aria-checked="false" aria-label="Task completed"></button></div>
-        </div>
-        <p class="item cap">Only notify when a session changes state. Prompts and project paths stay private.</p>
-        <p class="item cap">Sound and delivery follow your system notification settings.</p>
-      </section>
-
-      <section class="pane" id="pane-general" role="tabpanel" aria-labelledby="tab-general" hidden>
-        <div class="sec">App</div>
         <div class="group">
           <div class="item"><span>Language</span>
             <select id="lang" aria-label="Language">
@@ -188,6 +232,21 @@
           </div>
           <div class="item cap">Sets the language used by Vela. “Follow system” uses your system language.</div>
         </div>
+        <div class="sec">Usage colours</div><div class="group">
+          <div class="item"><label for="appearance-watch">Watch</label><input id="appearance-watch" type="range" min="1" max="98" step="1"><output id="appearance-watch_value"></output></div>
+          <div class="item"><label for="appearance-critical">Critical</label><input id="appearance-critical" type="range" min="2" max="100" step="1"><output id="appearance-critical_value"></output></div>
+        </div>
+      </section>
+
+      <section class="pane" id="pane-notifications" role="tabpanel" aria-labelledby="tab-notifications" hidden>
+        <div class="sec">When a session ends</div><div class="group"><div class="item"><span>Open the notch for a moment</span><button class="switch" id="notification-announce_session_end" role="switch" aria-label="Open the notch for a moment" aria-checked="true"></button></div><div class="item"><span>For</span><select id="notification-peek_seconds"><option value="3">3 seconds</option><option value="5">5 seconds</option><option value="10">10 seconds</option></select></div><div class="item"><span>Play a sound</span><button class="switch" id="notification-session_sound" role="switch" aria-label="Play a sound" aria-checked="true"></button></div><div class="item"><label for="notification-finished_sound">Finished</label><select id="notification-finished_sound"></select><button class="btn" data-preview-sound="finished_sound">Preview</button></div><div class="item"><label for="notification-blocked_sound">Waiting on you</label><select id="notification-blocked_sound"></select><button class="btn" data-preview-sound="blocked_sound">Preview</button></div><div class="item cap">Click the notification to return to the session’s app.</div></div>
+        <div class="sec">When a limit is reached</div><div class="group"><div class="item"><span>Show notification for session limit</span><button class="switch" id="notification-announce_session_limit" role="switch" aria-label="Show notification for session limit" aria-checked="true"></button></div><div class="item"><span>Show notification for weekly limit</span><button class="switch" id="notification-announce_weekly_limit" role="switch" aria-label="Show notification for weekly limit" aria-checked="true"></button></div><div class="item"><span>Play a sound</span><button class="switch" id="notification-limit_sound" role="switch" aria-label="Play a sound" aria-checked="true"></button></div><div class="item"><label for="notification-limit_sound_name">Alert sound</label><select id="notification-limit_sound_name"></select><button class="btn" data-preview-sound="limit_sound_name">Preview</button></div><div class="item"><button class="btn" data-preview-alert="sessionLimitReached">Preview session limit alert</button><button class="btn" data-preview-alert="weeklyLimitReached">Preview weekly limit alert</button></div></div>
+        <div class="sec">When a limit resets</div><div class="group"><div class="item"><span>Show notification from notch</span><button class="switch" id="notification-announce_reset" role="switch" aria-label="Show notification from notch" aria-checked="true"></button></div><div class="item"><span>Play a sound</span><button class="switch" id="notification-reset_sound" role="switch" aria-label="Play a sound" aria-checked="true"></button></div><div class="item"><label for="notification-reset_sound_name">Reset sound</label><select id="notification-reset_sound_name"></select><button class="btn" data-preview-sound="reset_sound_name">Preview</button></div><div class="item"><button class="btn" data-preview-alert="reset">Preview notification</button></div></div>
+        <div class="sec">Threshold alerts</div><div class="group"><div class="item cap">A system notification at 80% and 100%, once per crossing. Mute a provider from its row in Accounts.</div></div>
+      </section>
+
+      <section class="pane" id="pane-general" role="tabpanel" aria-labelledby="tab-general" hidden>
+        <div class="sec">App</div>
         <div class="group">
           <div class="item"><span>Open Vela at login</span><button class="switch" id="sw-autostart" role="switch" aria-checked="false" aria-label="Open Vela at login"></button></div>
           <div class="item cap">Vela opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Vela yourself.</div>
@@ -196,7 +255,8 @@
           <div class="item cap">Signed updates are available when a Vela release feed has been configured.</div>
         </div>
         <div class="group">
-          <div class="item"><span>Extensions and CLI tools</span><button class="btn" id="btn-workbench">Open tools</button></div>
+          <!-- Stage 2 entry stays hidden until the complete Swift migration is accepted. -->
+          <div class="item" hidden><span>Extensions and CLI tools</span><button class="btn" id="btn-workbench">Open tools</button></div>
           <div class="item"><span>Data folder</span><button class="btn" id="btn-data">Open folder</button></div>
           <div class="item cap">Everything Vela remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.</div>
         </div>
@@ -817,7 +877,8 @@ const UK_STATIC = {
   'No icon in the system tray. Open Vela again from the Start menu to bring these settings back.':'Значка в області сповіщень немає. Відкрийте Vela знову з меню «Пуск», щоб повернути ці налаштування.',
   'Model data':'Дані моделі'
 };
-Object.assign(ZH_STATIC, {"Extensions and CLI tools":"扩展与 CLI 工具", "Open tools":"打开工具", "Notifications": "通知", "Waiting for your response": "等待你的回应", "Task completed": "任务完成", "Only notify when a session changes state. Prompts and project paths stay private.": "仅在会话状态变化时提醒，不在通知中显示提示词和项目路径。", "Sound and delivery follow your system notification settings.": "声音和送达方式遵循系统通知设置。", "Project and source": "项目与源码", "Updates not configured": "尚未配置更新源", "Signed updates are available when a Vela release feed has been configured.": "配置 Vela 发布源后，可获取经过签名验证的更新。"});
+Object.assign(ZH_STATIC, {"When a session ends": "会话结束时", "Open the notch for a moment": "短暂展开刘海", "For": "持续时间", "3 seconds": "3 秒", "5 seconds": "5 秒", "10 seconds": "10 秒", "Play a sound": "播放提示音", "Finished": "已完成", "Waiting on you": "等待回应", "Preview": "试听", "When a limit is reached": "额度耗尽时", "Show notification for session limit": "显示会话额度通知", "Show notification for weekly limit": "显示周额度通知", "Alert sound": "提醒声音", "Preview session limit alert": "预览会话额度提醒", "Preview weekly limit alert": "预览周额度提醒", "When a limit resets": "额度重置时", "Show notification from notch": "从刘海显示通知", "Reset sound": "重置声音", "Preview notification": "预览通知", "Threshold alerts": "阈值提醒", "Mute threshold alerts": "静音额度提醒", "Click the notification to return to the session’s app.": "点击提醒以返回会话所在的应用。", "A system notification at 80% and 100%, once per crossing. Mute a provider from its row in Accounts.": "额度跨过 80% 和 100% 时各提醒一次，可在账户行将相应服务静音。"});
+Object.assign(ZH_STATIC, {'Reorder':'调整顺序','Drag to reorder; use arrow keys':'拖动排序；也可使用方向键','Phone connected.':'手机已连接。','Pairing code expired. Close and reopen to try again.':'配对码已过期，请关闭后重新打开。','Pairing is closed.':'配对已关闭。','Phone':'手机','See your usage on your phone.':'在手机上查看用量。','Allow phones on this network':'允许同一网络内的手机连接','Your phone reads usage from this computer over your Wi-Fi. Nothing leaves your network.':'手机通过 Wi-Fi 读取本机用量，数据仅在局域网内传输。','Connect a Phone…':'连接手机…','Connect a Phone':'连接手机','Paired phones':'已配对的手机','No phones yet.':'尚未配对手机。','Scan with the Codenotch phone app on the same Wi-Fi network.':'使用同一 Wi-Fi 网络内的 Codenotch 手机应用扫码。','Copy Link':'复制链接','Remove phone?':'移除手机？','Remove':'移除','Cancel':'取消','Close':'关闭','This computer is not on a local network.':'本机未连接局域网。','Reset time':'重置时间','Reset date':'重置日期','Time remaining':'剩余时间','Show Spark and code review':'显示 Spark 和代码审查','Dashed weekly ring':'虚线周额度圆环','Custom size':'自定义尺寸','Usage colours':'用量颜色','Watch':'留意','Critical':'紧张','Save':'保存','Connection':'连接','Loaded models':'已加载模型','Custom Endpoints':'自定义端点','Models running in Ollama on this computer.':'本机 Ollama 正在运行的模型。','Models loaded in LM Studio on this computer.':'本机 LM Studio 已加载的模型。','OpenAI-compatible APIs, local runtimes and custom proxies.':'兼容 OpenAI 的 API、本地运行时与自定义代理。','Memory':'内存','Model size':'模型大小','Context':'上下文','No models loaded.':'没有已加载的模型。','Waiting for a local runtime reading.':'等待本地运行时读数。','Usage':'用量','Choose which providers the notch reads.':'选择刘海读取的服务。','How the notch looks and where it sits.':'刘海的外观与位置。','What Vela tells you, and when.':'Vela 的提醒内容与时机。','Startup, updates and everything else.':'启动、更新与其他选项。',"Extensions and CLI tools":"扩展与 CLI 工具", "Open tools":"打开工具", "Notifications": "通知", "Waiting for your response": "等待你的回应", "Task completed": "任务完成", "Only notify when a session changes state. Prompts and project paths stay private.": "仅在会话状态变化时提醒，不在通知中显示提示词和项目路径。", "Sound and delivery follow your system notification settings.": "声音和送达方式遵循系统通知设置。", "Project and source": "项目与源码", "Updates not configured": "尚未配置更新源", "Signed updates are available when a Vela release feed has been configured.": "配置 Vela 发布源后，可获取经过签名验证的更新。"});
 const STATIC_TEXT = { 'pt-BR': PT_BR_STATIC, ru: RU_STATIC, zh: ZH_STATIC, 'zh-Hant': ZH_HANT_STATIC, ja: JA_STATIC, ko: KO_STATIC, uk: UK_STATIC };
 const STATUS_TEXT = {
   en:{ ok:'', stale:'last reading is old', needsAuth:'not signed in', absent:'not installed', none:'nothing to report', error:'not reachable' },
@@ -830,7 +891,7 @@ const STATUS_TEXT = {
   uk:{ ok:'', stale:'останній показник застарів', needsAuth:'не виконано вхід', absent:'не встановлено', none:'немає даних', error:'недоступний' }
 };
 let uiLang = 'en';
-function ui(key, fallback){ const table = STATIC_TEXT[uiLang]; return (table && table[key]) || fallback; }
+function ui(key, fallback=key){ const table = STATIC_TEXT[uiLang]; return (table && table[key]) || fallback; }
 /* Text the scripts draw is skipped here: renderers set it through ui() themselves. */
 function applyStaticUi(){
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -918,14 +979,41 @@ function loadLook(){
 }
 dark.addEventListener('change', applyAccent);
 
+/* Phone Link: only an open pairing dialog asks for the in-memory code. */
+let phoneView={enabled:false,devices:[],hosts:[]},phoneBusy=false,phoneRemoveId=null,phoneTimer=null;
+async function readPhone(){
+ try{const next=await invoke('get_phone_link',{pairing:document.getElementById('phone-pairing').open});if(next){phoneView=next;renderPhone();}}catch(error){strip(errText(error));}
+}
+function renderPhone(){
+ drawSwitch(document.getElementById('phone-enabled'),{value:phoneView.enabled,busy:phoneBusy});
+ document.getElementById('phone-status').textContent=phoneView.enabled?(phoneView.hosts.length?phoneView.hosts.join(', ')+':'+phoneView.port:ui('This computer is not on a local network.')):ui('Off');
+ document.getElementById('phone-devices').innerHTML=phoneView.devices.length?phoneView.devices.map(d=>'<div class="item"><span>'+esc(d.name)+'<small class="cap" style="display:block">'+esc(new Date(d.lastSeenAt*1000).toLocaleString())+'</small></span><button class="btn" data-remove-phone="'+esc(d.deviceId)+'">'+esc(ui('Remove'))+'</button></div>').join(''):'<div class="item cap">'+esc(ui('No phones yet.'))+'</div>';
+ const qr=document.getElementById('phone-qr');qr.replaceChildren();
+ if(phoneView.qr&&document.getElementById('phone-pairing').open){const img=document.createElement('img');img.alt=ui('Connect a Phone');img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(phoneView.qr);qr.append(img);}
+ document.getElementById('phone-copy').disabled=!phoneView.link;
+ document.getElementById('phone-expires').textContent=phoneView.pairing_state==='paired'?ui('Phone connected.'):phoneView.pairing_state==='expired'?ui('Pairing code expired. Close and reopen to try again.'):phoneView.expires_at?new Date(phoneView.expires_at).toLocaleTimeString():ui(phoneView.pairing_state==='open'?'This computer is not on a local network.':'Pairing is closed.');
+}
+async function enablePhone(enabled){if(phoneBusy)return false;phoneBusy=true;renderPhone();try{await invoke('set_phone_link',{enabled});await readPhone();return true;}catch(error){strip(errText(error));return false;}finally{phoneBusy=false;renderPhone();}}
+document.getElementById('phone-enabled').onclick=()=>enablePhone(!phoneView.enabled);
+document.getElementById('phone-connect').onclick=async()=>{if(!phoneView.enabled&&!await enablePhone(true))return;try{await invoke('phone_pairing',{open:true});}catch(error){strip(errText(error));return;}document.getElementById('phone-pairing').showModal();await readPhone();clearInterval(phoneTimer);phoneTimer=setInterval(readPhone,10000);};
+document.getElementById('phone-close').onclick=()=>document.getElementById('phone-pairing').close();
+document.getElementById('phone-pairing').addEventListener('close',()=>{clearInterval(phoneTimer);phoneTimer=null;phoneView.link=null;phoneView.qr=null;document.getElementById('phone-qr').replaceChildren();invoke('phone_pairing',{open:false}).catch(()=>{});});
+document.getElementById('phone-copy').onclick=async()=>{if(phoneView.link){try{await navigator.clipboard.writeText(phoneView.link);toast();}catch(error){strip(errText(error));}}};
+document.getElementById('phone-devices').onclick=e=>{const b=e.target.closest('[data-remove-phone]');if(!b)return;phoneRemoveId=b.dataset.removePhone;document.getElementById('phone-remove-name').textContent=phoneView.devices.find(d=>d.deviceId===phoneRemoveId)?.name||'';document.getElementById('phone-remove').showModal();};
+document.getElementById('phone-remove-cancel').onclick=()=>document.getElementById('phone-remove').close();
+document.getElementById('phone-remove-confirm').onclick=async()=>{try{await invoke('remove_phone',{deviceId:phoneRemoveId});document.getElementById('phone-remove').close();await readPhone();}catch(error){strip(errText(error));}};
+window.__TAURI__?.event.listen('phone_link',()=>readPhone()).catch(()=>{});
+window.addEventListener('pagehide',()=>{if(document.getElementById('phone-pairing').open)invoke('phone_pairing',{open:false}).catch(()=>{});});
 /* ---- the sidebar -------------------------------------------------------- */
-const TABS = ['accounts', 'appearance', 'notifications', 'general'];
-const TITLES = { accounts:'Accounts', appearance:'Appearance', notifications:'Notifications', general:'General' };
+const TABS = ['accounts', 'phone', 'ollama', 'lmstudio', 'custom', 'appearance', 'notifications', 'general'];
+const TITLES = {phone:'Phone', ollama:'Ollama',lmstudio:'LM Studio',custom:'Custom Endpoints',accounts:'Accounts', appearance:'Appearance', notifications:'Notifications', general:'General' };
+const SUBTITLES={phone:'See your usage on your phone.',ollama:'Models running in Ollama on this computer.',lmstudio:'Models loaded in LM Studio on this computer.',custom:'OpenAI-compatible APIs, local runtimes and custom proxies.',accounts:'Choose which providers the notch reads.',appearance:'How the notch looks and where it sits.',notifications:'What Vela tells you, and when.',general:'Startup, updates and everything else.'};
 const TAB_KEY = 'vela.settings.pane';
 let curTab = TABS[0];
 function showTab(id, moveFocus){
   if(TABS.indexOf(id) < 0) id = TABS[0];
   curTab = id;
+  if(id==='phone')readPhone();
   for(const t of TABS){
     const on = t === id;
     const btn = document.getElementById('tab-' + t);
@@ -935,6 +1023,7 @@ function showTab(id, moveFocus){
     document.getElementById('pane-' + t).hidden = !on;
   }
   document.getElementById('title').textContent = ui(TITLES[id], TITLES[id]);
+  document.getElementById('subtitle').textContent = ui(SUBTITLES[id],SUBTITLES[id]);
   document.getElementById('body').scrollTop = 0;
   try { localStorage.setItem(TAB_KEY, id); } catch(e) { /* not remembered, that is all */ }
   if(moveFocus) document.getElementById('tab-' + id).focus();
@@ -970,6 +1059,8 @@ document.getElementById('close').addEventListener('click', () => {
 /* ---- providers ---------------------------------------------------------- */
 const ORDER = ['claude', 'codex', 'glm', 'cursor', 'grok', 'gemini'];
 const FALLBACK_LABEL = { claude:'Claude', codex:'Codex', glm:'z.ai', cursor:'Cursor', grok:'Grok', gemini:'Antigravity' };
+let disabledProviders=[];
+let providerMetadata=[];
 let options = [];      // [{id,label,status,used}] from get_tray_options
 let glyphs = {};       // id -> {kind:'svg'|'png'|'appicon', svg, url}
 function providerList(){
@@ -980,11 +1071,15 @@ function statusText(p){
   return words[p.status] !== undefined ? words[p.status] : String(p.status || '');
 }
 function glyphHtml(p){
-  const g = glyphs[p.id];
-  if(g && g.kind === 'svg' && g.svg) return '<span class="glyph">' + g.svg + '</span>';
+  const base=p.id.startsWith('claude-')?'claude':p.id.startsWith('codex-')?'codex':p.id.startsWith('antigravity-')?'gemini':p.id;
+  const g = glyphs[p.id]||glyphs[base];
+  const scale=Number(g?.scale)||1;
+  if(g && g.kind === 'svg' && g.svg) return '<span class="glyph" style="transform:scale('+scale+')">' + g.svg + '</span>';
+  if(g?.kind==='template' && /^data:image\/(svg\+xml|png);base64,[A-Za-z0-9+/=]+$/.test(g.url)) return '<span class="glyph" style="transform:scale('+scale+');background:currentColor;mask:url('+g.url+') center/contain no-repeat;-webkit-mask:url('+g.url+') center/contain no-repeat"></span>';
   if(g && g.url) return '<span class="glyph"><img src="' + esc(g.url) + '" alt=""></span>';
   return '<span class="glyph letter">' + esc((p.label || p.id).charAt(0)) + '</span>';
 }
+invoke('get_disabled_providers').then(v=>{disabledProviders=Array.isArray(v)?v:[];renderAccounts();}).catch(()=>{});
 function refreshOptions(){
   call('get_tray_options', undefined, null).then(opts => {
     if(Array.isArray(opts) && opts.length){ options = opts.filter(o => o && typeof o.id === 'string'); renderAccounts(); }
@@ -1025,10 +1120,8 @@ const autostart = remote('get_autostart', 'set_autostart', 'Open Vela at login',
 document.getElementById('sw-autostart').addEventListener('click', () => autostart.toggle());
 
 /* ---- Accounts: which providers get a ring --------------------------------
-   Stored as {provider} slots, and an EMPTY list means every provider, so a provider added in a
-   later version turns up by itself. At least one always stays on: saving an empty list would
-   switch every provider back on, the opposite of what the click asked for. */
-let notchSlots = [];
+   null is the legacy automatic selection; [] explicitly hides all rings. */
+let notchSlots = null, notchSaving = false;
 const AG_LIMITS = [['automatic', 'Automatic'], ['5h', '5-Hour Limit'], ['weekly', 'Weekly Limit']];
 const AG_MODELS = [['gemini', 'Gemini Models'], ['3p', 'Claude and GPT models']];
 let agPrefs = { limit:'automatic', model:'gemini' };
@@ -1038,9 +1131,9 @@ const NO_RING = 'These have no ring to place. Switch one on and it joins the end
 
 function notchOn(){
   const ids = providerList().map(p => p.id);
-  if(!notchSlots.length) return ids.map(id => ({ provider:id }));
+  if(!Array.isArray(notchSlots)) return ids.map(id => ({ provider:id }));
   const on = notchSlots.filter(sl => sl && ids.indexOf(sl.provider) >= 0);
-  return on.length ? on : ids.map(id => ({ provider:id }));
+  return on;
 }
 function agSelect(key, choices, value){
   return '<select data-ag="' + key + '">'
@@ -1049,11 +1142,13 @@ function agSelect(key, choices, value){
 }
 function accountBlock(p, isOn, locked){
   const st = statusText(p);
-  let h = '<div class="acct' + (isOn ? '' : ' off') + '">'
-    + '<div class="acct-line"><span class="acct-name">' + glyphHtml(p) + '<span>' + esc(p.label || p.id) + '</span></span>'
+  const metadata=providerMetadata.find(x=>x.id===p.id);
+  let h = '<div class="acct' + (isOn ? '' : ' off') + '" data-account="'+esc(p.id)+'">'
+    + '<div class="acct-line">'+(isOn?'<button class="account-handle" draggable="true" data-reorder="'+esc(p.id)+'" aria-label="'+esc(ui('Reorder')+' '+p.label)+'" title="'+esc(ui('Drag to reorder; use arrow keys'))+'">⠿</button>':'')+'<span class="acct-name">' + glyphHtml(p) + '<span>' + esc(p.label || p.id) + '</span></span>'
     + '<button class="switch' + (isOn ? ' on' : '') + (locked ? ' locked' : '') + '" role="switch" aria-checked="' + isOn + '"'
     + ' data-np="' + esc(p.id) + '" aria-label="' + esc(p.label || p.id) + '"></button></div>';
   if(st) h += '<div class="acct-detail">' + esc(st) + '</div>';
+  if(metadata?.guidance) h += '<div class="acct-detail">'+esc(metadata.guidance)+'</div>';
   if(p.id === 'gemini' && isOn){
     h += '<div class="acct-sub"><span>' + esc(ui('Notch reads', 'Notch reads')) + '</span>' + agSelect('limit', AG_LIMITS, agPrefs.limit) + '</div>'
       + '<div class="acct-sub"><span>' + esc(ui('Model data', 'Model data')) + '</span>' + agSelect('model', AG_MODELS, agPrefs.model) + '</div>';
@@ -1064,28 +1159,35 @@ function accountBlock(p, isOn, locked){
       + (hooks.busy ? ' disabled' : '') + ' aria-label="' + esc(ui('Let Claude Code notify Vela', 'Let Claude Code notify Vela')) + '"></button></div>'
       + '<div class="acct-detail">' + esc(ui(HOOKS_WHY, HOOKS_WHY)) + '</div>';
   }
+  h += '<div class="acct-sub"><span>'+esc(uiLang.startsWith('zh')?'连接并读取用量':'Read usage')+'</span><button class="switch'+(!disabledProviders.includes(p.id)?' on':'')+'" role="switch" aria-checked="'+!disabledProviders.includes(p.id)+'" data-connect="'+esc(p.id)+'" aria-label="'+esc(p.label)+'"></button></div>';
+  if(['minimax','ollama-cloud'].includes(p.id)) h += '<div class="acct-sub"><input type="password" autocomplete="off" data-key="'+esc(p.id)+'" placeholder="API key" aria-label="API key"><button class="btn" data-save-key="'+esc(p.id)+'">'+(uiLang.startsWith('zh')?'保存密钥':'Save key')+'</button></div>';
+  h+='<div class="acct-sub"><span>'+esc(ui('Mute threshold alerts'))+'</span><button class="switch'+((notificationPrefs.muted_providers||[]).includes(p.id)?' on':'')+'" role="switch" aria-label="'+esc(ui('Mute threshold alerts')+' '+p.label)+'" aria-checked="'+(notificationPrefs.muted_providers||[]).includes(p.id)+'" data-mute="'+esc(p.id)+'"></button></div>';
   return h + '</div>';
 }
 function renderAccounts(){
+  if(document.activeElement?.matches('#acc-on input,#acc-off input'))return;
   const list = providerList();
   const onIds = notchOn().map(sl => sl.provider);
-  const connected = list.filter(p => onIds.indexOf(p.id) >= 0);
+  const connected = onIds.map(id=>list.find(p=>p.id===id)).filter(Boolean);
   const off = list.filter(p => onIds.indexOf(p.id) < 0);
-  document.getElementById('acc-on').innerHTML = connected.map(p => accountBlock(p, true, connected.length === 1)).join('')
-    + '<div class="item cap">' + esc(ui(ONE_STAYS, ONE_STAYS)) + '</div>';
+  document.getElementById('account-count').textContent=String(connected.length);
+  document.getElementById('acc-on').innerHTML = connected.map(p => accountBlock(p, true, false)).join('');
   document.getElementById('acc-off-wrap').hidden = !off.length;
   document.getElementById('acc-off').innerHTML = off.map(p => accountBlock(p, false, false)).join('')
     + '<div class="item cap">' + esc(ui(NO_RING, NO_RING)) + '</div>';
 }
 function saveNotch(next){
   const ids = providerList().map(p => p.id);
-  const store = next.length === ids.length ? [] : next;
+  if(notchSaving)return;
+  const store = next;
+  notchSaving=true;
   const prev = notchSlots;
   notchSlots = store;
   renderAccounts();
   invoke('set_notch_slots', { slots: store.map(sl => ({ provider:sl.provider })) })
     .then(() => toast())
-    .catch(e => { notchSlots = prev; renderAccounts(); strip('set_notch_slots failed: ' + errText(e)); });
+    .catch(e => { notchSlots = prev; renderAccounts(); strip('set_notch_slots failed: ' + errText(e)); })
+    .finally(()=>{notchSaving=false;});
 }
 function toggleNotch(id){
   const ids = providerList().map(p => p.id);
@@ -1093,16 +1195,28 @@ function toggleNotch(id){
   const on = notchOn().slice();
   const at = on.findIndex(sl => sl.provider === id);
   if(at >= 0){
-    if(on.length <= 1){ toast(ui('At least one provider stays on the notch', 'At least one provider stays on the notch')); return; }
     on.splice(at, 1);
   } else {
     on.push({ provider:id });
   }
-  on.sort((a, b) => ids.indexOf(a.provider) - ids.indexOf(b.provider));
   saveNotch(on);
 }
 const accountsPane = document.getElementById('pane-accounts');
-accountsPane.addEventListener('click', e => {
+let draggedAccount=null;
+accountsPane.addEventListener('dragstart',e=>{const handle=e.target.closest('[data-reorder]');if(!handle)return;draggedAccount=handle.dataset.reorder;e.dataTransfer.setData('text/plain',draggedAccount);e.dataTransfer.effectAllowed='move';});
+accountsPane.addEventListener('dragend',()=>{draggedAccount=null;});
+accountsPane.addEventListener('dragover',e=>{if(draggedAccount&&e.target.closest('#acc-on [data-account]')){e.preventDefault();e.dataTransfer.dropEffect='move';}});
+function moveAccount(id,target){const on=notchOn().slice(),from=on.findIndex(s=>s.provider===id),to=on.findIndex(s=>s.provider===target);if(from<0||to<0||from===to)return;on.splice(to,0,on.splice(from,1)[0]);saveNotch(on);}
+accountsPane.addEventListener('drop',e=>{const row=e.target.closest('#acc-on [data-account]');if(draggedAccount&&row){e.preventDefault();moveAccount(draggedAccount,row.dataset.account);}draggedAccount=null;});
+accountsPane.addEventListener('keydown',e=>{const handle=e.target.closest('[data-reorder]');if(!handle||!['ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const on=notchOn(),index=on.findIndex(s=>s.provider===handle.dataset.reorder),target=on[index+(e.key==='ArrowUp'?-1:1)];if(target){moveAccount(handle.dataset.reorder,target.provider);Array.from(accountsPane.querySelectorAll('[data-reorder]')).find(el=>el.dataset.reorder===handle.dataset.reorder)?.focus();}});
+
+accountsPane.addEventListener('click', async e => {
+  const mute=e.target.closest('[data-mute]');
+  if(mute){const muted=new Set(notificationPrefs.muted_providers||[]);if(muted.has(mute.dataset.mute))muted.delete(mute.dataset.mute);else muted.add(mute.dataset.mute);await saveNotification({muted_providers:[...muted]});return;}
+  const connect=e.target.closest('[data-connect]');
+  if(connect){try{await invoke('set_provider_enabled',{id:connect.dataset.connect,value:disabledProviders.includes(connect.dataset.connect)}); disabledProviders=await invoke('get_disabled_providers');renderAccounts();}catch(error){strip(errText(error));}return;}
+  const save=e.target.closest('[data-save-key]');
+  if(save){const input=Array.from(accountsPane.querySelectorAll('[data-key]')).find(el=>el.dataset.key===save.dataset.saveKey);try{await invoke('save_provider_secret',{id:save.dataset.saveKey,secret:input.value});input.value='';toast();}catch(error){strip(errText(error));}return;}
   const np = e.target.closest('[data-np]');
   if(np){ toggleNotch(np.dataset.np); return; }
   if(e.target.closest('[data-remote="hooks"]')) hooks.toggle();
@@ -1115,6 +1229,64 @@ accountsPane.addEventListener('change', e => {
     .then(v => { agPrefs = v; renderAccounts(); toast(); })
     .catch(err => { renderAccounts(); strip('set_antigravity_prefs failed: ' + errText(err)); });
 });
+
+/* Provider configuration stays outside account re-renders, preserving unsaved edits. */
+let localPreferences={ollama:'http://127.0.0.1:11434',lmstudio:'http://127.0.0.1:1234',disabled_models:[]};
+let customEndpoints=[];
+const field=id=>document.getElementById(id);
+invoke('get_providers').then(v=>{providerMetadata=Array.isArray(v)?v:[];renderAccounts();}).catch(()=>{});
+invoke('get_provider_settings').then(v=>{field('minimax-region').value=v.minimax_china?'china':'global';field('gemini-budget').value=v.gemini_token_budget??'';}).catch(()=>{});
+invoke('get_local_runtime_settings').then(v=>{if(!v)return;localPreferences=v;field('ollama-url').value=v.ollama;field('lmstudio-url').value=v.lmstudio;refreshLocalModels().catch(()=>{});}).catch(()=>{});
+async function saveForm(form,action){const button=form.querySelector('[type=submit]');button.disabled=true;try{await action();toast();}catch(error){strip(errText(error));}finally{button.disabled=false;}}
+field('provider-preferences').addEventListener('submit',e=>{e.preventDefault();saveForm(e.currentTarget,()=>invoke('set_provider_settings',{minimaxChina:field('minimax-region').value==='china',geminiTokenBudget:field('gemini-budget').value?Number(field('gemini-budget').value):null}));});
+for(const runtime of ['ollama','lmstudio'])field(runtime+'-preferences').addEventListener('submit',e=>{e.preventDefault();saveForm(e.currentTarget,async()=>{const prefs={...localPreferences,[runtime]:field(runtime+'-url').value};await invoke('set_local_runtime_settings',{prefs});localPreferences=prefs;await refreshLocalModels();});});
+async function refreshLocalModels(){
+ const readings=await invoke('get_local_models')||{};
+ for(const [runtime,id] of [['ollama','ollama-local'],['lmstudio','lmstudio']]){
+  const reading=readings[id],models=reading?.address===localPreferences[runtime]?reading.models:[];
+  field(runtime+'-models').innerHTML=(models||[]).length?models.map(m=>{
+   const key=id+'/'+m.id,enabled=!localPreferences.disabled_models.includes(key);
+   const size=m.size==null?'—':(m.size/1073741824).toFixed(1)+' GiB';
+   return '<div class="acct"><div class="acct-line"><span>'+esc(m.id)+'</span><button class="switch'+(enabled?' on':'')+'" role="switch" aria-checked="'+enabled+'" aria-label="'+esc(m.id)+'" data-local-model="'+esc(key)+'"></button></div><div class="acct-detail">'+esc(ui(m.size_kind==='memory'?'Memory':'Model size'))+': '+size+' · '+esc(ui('Context'))+': '+(m.context==null?'—':m.context.toLocaleString()+' tokens')+(m.quantization?' · '+esc(m.quantization):'')+'</div></div>';
+  }).join(''):'<div class="item cap">'+esc(ui(reading?.address===localPreferences[runtime]?'No models loaded.':'Waiting for a local runtime reading.'))+'</div>';
+ }
+}
+for(const runtime of ['ollama','lmstudio'])field(runtime+'-models').addEventListener('click',async e=>{
+ const b=e.target.closest('[data-local-model]');if(!b)return;b.disabled=true;
+ const disabled=new Set(localPreferences.disabled_models);if(disabled.has(b.dataset.localModel))disabled.delete(b.dataset.localModel);else disabled.add(b.dataset.localModel);
+ try{const prefs={...localPreferences,disabled_models:[...disabled]};await invoke('set_local_runtime_settings',{prefs});localPreferences=prefs;await refreshLocalModels();}catch(error){strip(errText(error));}finally{b.disabled=false;}
+});
+window.__TAURI__.event.listen('providers',()=>refreshLocalModels().catch(()=>{})).catch(()=>{});
+refreshLocalModels().catch(()=>{});
+function renderCustom(){
+ field('custom-list').innerHTML=customEndpoints.map(p=>'<div class="endpoint-row"><span>'+esc(p.name)+' · '+esc(p.health)+(p.latency_ms!=null?' · '+p.latency_ms+' ms':'')+'</span><button class="btn" data-custom-edit="'+esc(p.id)+'">编辑 / Edit</button><button class="btn" data-custom-probe="'+esc(p.id)+'">检测 / Check</button><button class="btn" data-custom-delete="'+esc(p.id)+'">删除 / Delete</button></div>').join('');
+}
+async function loadCustom(){const v=await invoke('get_custom_endpoints');customEndpoints=Array.isArray(v)?v:[];renderCustom();refreshOptions();}
+function editCustom(p={}){
+ field('custom-form').hidden=false;
+ for(const key of ['id','name','url','model'])field('custom-'+key).value=p[key]||'';
+ field('custom-header').value=p.header||'Authorization';field('custom-key').value='';field('custom-unit').value=p.unit||'currency';
+ field('custom-budget').value=p.budget??'';field('custom-used').value=p.used??0;field('custom-color').value=p.color||'#6366f1';field('custom-remaining').checked=!!p.display_remaining;
+ field('custom-model-options').innerHTML=(p.models||[]).map(m=>'<option value="'+esc(m)+'"></option>').join('');field('custom-name').focus();
+}
+field('custom-add').addEventListener('click',()=>editCustom());field('custom-cancel').addEventListener('click',()=>{field('custom-key').value='';field('custom-form').hidden=true;});
+field('custom-form').addEventListener('submit',e=>{e.preventDefault();saveForm(e.currentTarget,async()=>{
+ const id=field('custom-id').value||crypto.randomUUID();const old=customEndpoints.find(x=>x.id===id)||{};
+ const endpoint={...old,id,name:field('custom-name').value,url:field('custom-url').value,header:field('custom-header').value,model:field('custom-model').value,unit:field('custom-unit').value,budget:field('custom-budget').value?Number(field('custom-budget').value):null,used:Number(field('custom-used').value),color:field('custom-color').value,display_remaining:field('custom-remaining').checked};
+ await invoke('save_custom_endpoint',{endpoint});field('custom-id').value=id;
+ if(field('custom-key').value){await invoke('save_provider_secret',{id:'endpoint-'+id,secret:field('custom-key').value});field('custom-key').value='';}
+ field('custom-form').hidden=true;await loadCustom();
+});});
+field('custom-list').addEventListener('click',async e=>{
+ const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.customEdit){editCustom(customEndpoints.find(x=>x.id===b.dataset.customEdit));return;}
+ b.disabled=true;try{
+  if(b.dataset.customDelete){await invoke('delete_custom_endpoint',{id:b.dataset.customDelete});if(field('custom-id').value===b.dataset.customDelete){field('custom-key').value='';field('custom-form').hidden=true;}}
+  if(b.dataset.customProbe){await invoke('probe_custom_endpoint',{id:b.dataset.customProbe});}
+  await loadCustom();
+ }catch(error){strip(errText(error));}finally{b.disabled=false;}
+});
+loadCustom().catch(()=>{});
 
 /* ---- Appearance: Show, and App icon -------------------------------------
    Two choices, one command. Hiding both would leave nothing to click, so Rust keeps the tray icon
@@ -1178,6 +1350,45 @@ document.getElementById('seg-show').addEventListener('click', e => {
 // Keep open in the notch's own menu changes the same setting while this window may be open
 try { window.__TAURI__.event.listen('ui_flags', e => { if(!flagsBusy && e.payload){ flags = readFlags(e.payload); renderFlags(); } }); } catch(e) { /* read again next time it opens */ }
 
+/* Original weekly placement and move-handle preferences. */
+let weeklyPlacement='off', moveHandle=true, appearanceBusy=false;
+function renderRestoredAppearance(){
+  for(const b of document.querySelectorAll('#seg-weekly button')){
+    b.classList.toggle('on',b.dataset.v===weeklyPlacement);b.setAttribute('aria-pressed',String(b.dataset.v===weeklyPlacement));b.disabled=appearanceBusy;
+  }
+  drawSwitch(document.getElementById('sw-move'),{value:moveHandle,busy:appearanceBusy});
+}
+async function saveRestoredAppearance(command,args){
+  if(appearanceBusy)return;appearanceBusy=true;renderRestoredAppearance();
+  try{const result=await invoke(command,args);if(command==='set_weekly_ring')weeklyPlacement=result;else moveHandle=result;toast();}
+  catch(e){strip(errText(e));}finally{appearanceBusy=false;renderRestoredAppearance();}
+}
+document.getElementById('seg-weekly').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!b.disabled)saveRestoredAppearance('set_weekly_ring',{placement:b.dataset.v});});
+document.getElementById('sw-move').addEventListener('click',()=>saveRestoredAppearance('set_move_handle',{on:!moveHandle}));
+
+let appearance={reset_time:'automatic',show_codex_extra:true,weekly_dashed:false,custom_scale:null,watch:.5,critical:.7},appearanceSaving=false;
+function renderAppearance(){
+ field('appearance-reset_time').value=appearance.reset_time;
+ for(const key of ['show_codex_extra','weekly_dashed'])drawSwitch(field('appearance-'+key),{value:appearance[key],busy:appearanceSaving});
+ field('appearance-custom_enabled').checked=appearance.custom_scale!=null;
+ field('appearance-custom_scale').disabled=appearanceSaving||appearance.custom_scale==null;
+ field('appearance-custom_scale').value=appearance.custom_scale??notchSize;
+ field('appearance-scale_value').textContent=Math.round((appearance.custom_scale??notchSize)*100)+'%';
+ for(const key of ['watch','critical']){field('appearance-'+key).value=Math.round(appearance[key]*100);field('appearance-'+key+'_value').textContent=Math.round(appearance[key]*100)+'%';}
+}
+async function saveAppearance(patch){
+ if(appearanceSaving)return;appearanceSaving=true;renderAppearance();
+ try{appearance=await invoke('set_appearance',{prefs:{...appearance,...patch}});toast();}catch(error){strip(errText(error));}
+ finally{appearanceSaving=false;renderAppearance();}
+}
+for(const key of ['show_codex_extra','weekly_dashed'])field('appearance-'+key).addEventListener('click',()=>saveAppearance({[key]:!appearance[key]}));
+field('appearance-reset_time').addEventListener('change',e=>saveAppearance({reset_time:e.target.value}));
+field('appearance-custom_enabled').addEventListener('change',e=>saveAppearance({custom_scale:e.target.checked?notchSize:null}));
+field('appearance-custom_scale').addEventListener('change',e=>saveAppearance({custom_scale:Number(e.target.value)}));
+field('appearance-watch').addEventListener('change',e=>saveAppearance({watch:Math.min(Number(e.target.value)/100,appearance.critical-.01)}));
+field('appearance-critical').addEventListener('change',e=>saveAppearance({critical:Math.max(Number(e.target.value)/100,appearance.watch+.01)}));
+invoke('get_appearance').then(p=>{if(p)appearance=p;renderAppearance();}).catch(()=>{});
+
 /* ---- Appearance: size ------------------------------------------------------ */
 const SIZE_WHY = {
   '0.8': 'Takes the least room on the edge. Readable, but not from across the desk.',
@@ -1202,7 +1413,7 @@ document.getElementById('seg-size').addEventListener('click', e => {
   notchSize = want;
   renderSize();
   invoke('set_scale', { scale: want })
-    .then(v => { notchSize = typeof v === 'number' ? v : want; toast(); })
+    .then(v => { notchSize = typeof v === 'number' ? v : want; appearance.custom_scale=null; renderAppearance(); toast(); })
     .catch(err => {
       strip('set_scale failed: ' + errText(err));
       return call('get_scale', undefined, null).then(v => { if(typeof v === 'number') notchSize = v; });
@@ -1357,24 +1568,38 @@ try { window.__TAURI__.event.listen('update_state', e => renderUpdate(e.payload)
 catch(e) { /* the row still answers the button */ }
 
 /* ---- Notifications: persist before showing success ----------------------- */
-let notificationPrefs = {attention:false, done:false}, notificationBusy = false;
+const notificationKeys=['announce_session_end','session_sound','announce_session_limit','announce_weekly_limit','limit_sound','announce_reset','reset_sound'];
+const soundKeys=['finished_sound','blocked_sound','limit_sound_name','reset_sound_name'];
+let notificationPrefs={attention:false,done:false,announce_session_end:true,peek_seconds:5,session_sound:true,finished_sound:'Glass',blocked_sound:'Funk',announce_session_limit:true,announce_weekly_limit:true,limit_sound:true,limit_sound_name:'Funk',announce_reset:true,reset_sound:true,reset_sound_name:'Glass',muted_providers:[]},notificationBusy=false,alertSounds=[];
 function renderNotifications(){
-  for(const key of ['attention','done']) drawSwitch(document.getElementById('sw-'+key), {value:notificationPrefs[key],busy:notificationBusy});
+ for(const key of notificationKeys)drawSwitch(field('notification-'+key),{value:notificationPrefs[key],busy:notificationBusy});
+ field('notification-peek_seconds').value=String(notificationPrefs.peek_seconds);field('notification-peek_seconds').disabled=notificationBusy||!notificationPrefs.announce_session_end;
+ for(const key of soundKeys){
+  const choices=[...new Set([notificationPrefs[key],...alertSounds])].filter(Boolean);
+  field('notification-'+key).innerHTML=choices.map(name=>'<option value="'+esc(name)+'">'+esc(name)+'</option>').join('');field('notification-'+key).value=notificationPrefs[key];
+  const enabled=key==='limit_sound_name'?notificationPrefs.limit_sound:key==='reset_sound_name'?notificationPrefs.reset_sound:notificationPrefs.session_sound;
+  field('notification-'+key).disabled=notificationBusy||!enabled;
+ }
 }
-async function saveNotification(key){
-  if(notificationBusy) return;
-  notificationBusy=true; renderNotifications();
-  try {
-    notificationPrefs=await invoke('set_notifications', {prefs:{...notificationPrefs,[key]:!notificationPrefs[key]}});
-    toast();
-  } catch(e) { strip(errText(e)); }
-  finally { notificationBusy=false; renderNotifications(); }
+async function saveNotification(patch){
+ if(notificationBusy)return;notificationBusy=true;renderNotifications();
+ try{notificationPrefs=await invoke('set_notifications',{prefs:{...notificationPrefs,...patch}});toast();renderAccounts();}
+ catch(error){strip(errText(error));}finally{notificationBusy=false;renderNotifications();}
 }
-for(const key of ['attention','done']) document.getElementById('sw-'+key).addEventListener('click', () => saveNotification(key));
+for(const key of notificationKeys)field('notification-'+key).addEventListener('click',()=>saveNotification({[key]:!notificationPrefs[key]}));
+for(const key of soundKeys)field('notification-'+key).addEventListener('change',e=>saveNotification({[key]:e.target.value}));
+field('notification-peek_seconds').addEventListener('change',e=>saveNotification({peek_seconds:Number(e.target.value)}));
+field('pane-notifications').addEventListener('click',async e=>{
+ const sound=e.target.closest('[data-preview-sound]'),alert=e.target.closest('[data-preview-alert]');if(!sound&&!alert)return;
+ try{if(sound)await invoke('preview_alert_sound',{name:notificationPrefs[sound.dataset.previewSound]});else await invoke('preview_notch_alert',{kind:alert.dataset.previewAlert});}catch(error){strip(errText(error));}
+});
+invoke('get_alert_sounds').then(names=>{alertSounds=Array.isArray(names)?names:[];renderNotifications();}).catch(()=>{});
 
 /* ---- start ---------------------------------------------------------------- */
 function renderAll(){
   renderNotifications();
+  renderRestoredAppearance();
+  renderAppearance();
   if(lastUpdateState) renderUpdate(lastUpdateState);
   renderAccounts();
   renderFlags();
@@ -1383,14 +1608,15 @@ function renderAll(){
   renderScreens();
   drawSwitch(document.getElementById('sw-autostart'), autostart);
   document.getElementById('title').textContent = ui(TITLES[curTab], TITLES[curTab]);
+  document.getElementById('subtitle').textContent = ui(SUBTITLES[curTab],SUBTITLES[curTab]);
 }
 function boot(){
   showTab(savedTab());
   setUiLanguage('auto');
   loadLook();
   refreshOptions();
-  call('get_notch_slots', undefined, []).then(v => {
-    notchSlots = Array.isArray(v) ? v.filter(x => x && typeof x.provider === 'string').map(x => ({ provider:x.provider })) : [];
+  call('get_notch_slots', undefined, null).then(v => {
+    notchSlots = Array.isArray(v) ? v.filter(x => x && typeof x.provider === 'string').map(x => ({ provider:x.provider })) : null;
     renderAccounts();
   });
   call('get_antigravity_prefs', undefined, null).then(v => { if(v && typeof v === 'object'){ agPrefs = v; renderAccounts(); } });
@@ -1399,6 +1625,8 @@ function boot(){
   call('get_scale', undefined, null).then(v => { if(typeof v === 'number') notchSize = v; renderSize(); });
   call('get_notch_edge', undefined, null).then(v => { if(typeof v === 'string') notchEdge = v; renderEdge(); });
   refreshScreens();
+  call('get_weekly_ring',undefined,'off').then(v=>{weeklyPlacement=v||'off';renderRestoredAppearance();});
+  call('get_move_handle',undefined,true).then(v=>{moveHandle=v!==false;renderRestoredAppearance();});
   call('get_ui_flags', undefined, null).then(v => { if(v && typeof v === 'object') flags = readFlags(v); renderFlags(); });
   Promise.all([call('get_lang', undefined, 'auto'), call('get_lang_resolved', undefined, 'en')]).then(([raw, resolved]) => {
     const l = (typeof raw === 'string' && LANGS.indexOf(raw) >= 0) ? raw : 'auto';
@@ -1407,7 +1635,7 @@ function boot(){
     sel.dataset.previous = l;
     setUiLanguage(l === 'auto' && typeof resolved === 'string' ? resolved : l);
   });
-  call('get_notifications', undefined, null).then(prefs => { if(prefs) notificationPrefs=prefs; renderNotifications(); });
+  call('get_notifications', undefined, null).then(prefs => { if(prefs) notificationPrefs={...notificationPrefs,...prefs}; renderNotifications(); });
   autostart.refresh();
   hooks.refresh();
 }

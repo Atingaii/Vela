@@ -1,0 +1,4 @@
+{"file": "docs/migration-parity.md", "reason": "Swift 基准与验收范围"}
+{"file": "docs/adr/0006-full-swift-parity-before-product-changes.md", "reason": "顺序与架构约束"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Rust 规范入口"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "HTML JS 规范入口"}

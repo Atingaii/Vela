@@ -33,10 +33,10 @@ static BACKOFF_UNTIL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU6
 static CONSECUTIVE_429: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 pub fn request_refresh() {
-    // A manual "Refresh now" means the user wants a fresh attempt: clear the penalty
-    // box (the poll loop's own cadence is untouched).
-    BACKOFF_UNTIL.store(0, std::sync::atomic::Ordering::Relaxed);
-    CONSECUTIVE_429.store(0, std::sync::atomic::Ordering::Relaxed);
+    // A manual refresh must respect the service's persisted rate-limit deadline.
+    if BACKOFF_UNTIL.load(std::sync::atomic::Ordering::Relaxed) > now_ms() {
+        return;
+    }
     REFRESH.store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
@@ -113,7 +113,9 @@ fn host_of(url: &str) -> Option<String> {
 }
 
 fn read_json(p: &std::path::Path) -> Option<serde_json::Value> {
-    std::fs::read_to_string(p).ok().and_then(|t| serde_json::from_str(&t).ok())
+    std::fs::read_to_string(p)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
 }
 
 fn non_empty(v: Option<&serde_json::Value>) -> Option<String> {
@@ -131,7 +133,11 @@ fn manual_key() -> Option<Credential> {
         .filter(|h| is_zai_host(h))
         .map(|h| console_for_host(&h).to_string())
         .unwrap_or_else(|| "https://api.z.ai".into());
-    Some(Credential { token, base, source: "glm.json".into() })
+    Some(Credential {
+        token,
+        base,
+        source: "glm.json".into(),
+    })
 }
 
 /// ~/.claude/settings.json → env.ANTHROPIC_AUTH_TOKEN plus env.ANTHROPIC_BASE_URL.
@@ -149,7 +155,11 @@ fn claude_code_key() -> Option<Credential> {
     if !is_zai_host(&host) {
         return None;
     }
-    Some(Credential { token, base: console_for_host(&host).to_string(), source: "Claude Code".into() })
+    Some(Credential {
+        token,
+        base: console_for_host(&host).to_string(),
+        source: "Claude Code".into(),
+    })
 }
 
 /// ~/.zcode/v2/config.json → an enabled builtin:*-coding-plan provider with the plan key pasted in
@@ -163,12 +173,18 @@ fn zcode_plan_key() -> Option<Credential> {
         if !id.contains("coding-plan") {
             continue;
         }
-        let Some(provider) = providers[id].as_object() else { continue };
+        let Some(provider) = providers[id].as_object() else {
+            continue;
+        };
         if provider.get("enabled").and_then(|x| x.as_bool()) == Some(false) {
             continue;
         }
-        let Some(options) = provider.get("options").and_then(|x| x.as_object()) else { continue };
-        let Some(key) = non_empty(options.get("apiKey")) else { continue };
+        let Some(options) = provider.get("options").and_then(|x| x.as_object()) else {
+            continue;
+        };
+        let Some(key) = non_empty(options.get("apiKey")) else {
+            continue;
+        };
         let base = options
             .get("baseURL")
             .and_then(|x| x.as_str())
@@ -176,7 +192,11 @@ fn zcode_plan_key() -> Option<Credential> {
             .filter(|h| is_zai_host(h))
             .map(|h| console_for_host(&h).to_string())
             .unwrap_or_else(|| "https://api.z.ai".into());
-        return Some(Credential { token: key, base, source: "ZCode".into() });
+        return Some(Credential {
+            token: key,
+            base,
+            source: "ZCode".into(),
+        });
     }
     None
 }
@@ -189,30 +209,71 @@ fn zcode_oauth() -> Option<Credential> {
     if token.starts_with("enc:v1:") {
         return None; // encrypted at rest: a string we cannot read is one we must not send
     }
-    Some(Credential { token, base: "https://api.z.ai".into(), source: "ZCode".into() })
+    Some(Credential {
+        token,
+        base: "https://api.z.ai".into(),
+        source: "ZCode".into(),
+    })
 }
 
 /// OpenCode auth.json — the provider ids OpenCode's own sign-in writes, most specific first
 fn opencode_key() -> Option<Credential> {
-    let ids = ["zai-coding-plan", "zai", "z-ai", "z.ai", "glm", "zhipu", "zhipuai"];
+    let ids = [
+        "zai-coding-plan",
+        "zai",
+        "z-ai",
+        "z.ai",
+        "glm",
+        "zhipu",
+        "zhipuai",
+    ];
     let home = dirs::home_dir()?;
-    let mut paths = vec![home.join(".local").join("share").join("opencode").join("auth.json")];
+    let mut paths = vec![home
+        .join(".local")
+        .join("share")
+        .join("opencode")
+        .join("auth.json")];
     if let Some(appdata) = dirs::config_dir() {
         paths.push(appdata.join("opencode").join("auth.json"));
     }
     for p in paths {
-        let Some(root) = read_json(&p).and_then(|v| v.as_object().map(|o| o.clone())) else { continue };
+        let Some(root) = read_json(&p).and_then(|v| v.as_object().map(|o| o.clone())) else {
+            continue;
+        };
         for id in ids {
             let Some(entry) = root.get(id) else { continue };
             if let Some(token) = non_empty(Some(entry)) {
-                let base = if id.starts_with("zhipu") { "https://open.bigmodel.cn" } else { "https://api.z.ai" };
-                return Some(Credential { token, base: base.into(), source: "OpenCode".into() });
+                let base = if id.starts_with("zhipu") {
+                    "https://open.bigmodel.cn"
+                } else {
+                    "https://api.z.ai"
+                };
+                return Some(Credential {
+                    token,
+                    base: base.into(),
+                    source: "OpenCode".into(),
+                });
             }
             if let Some(obj) = entry.as_object() {
-                for field in ["apiKey", "api_key", "token", "key", "accessToken", "auth_token"] {
+                for field in [
+                    "apiKey",
+                    "api_key",
+                    "token",
+                    "key",
+                    "accessToken",
+                    "auth_token",
+                ] {
                     if let Some(token) = non_empty(obj.get(field)) {
-                        let base = if id.starts_with("zhipu") { "https://open.bigmodel.cn" } else { "https://api.z.ai" };
-                        return Some(Credential { token, base: base.into(), source: "OpenCode".into() });
+                        let base = if id.starts_with("zhipu") {
+                            "https://open.bigmodel.cn"
+                        } else {
+                            "https://api.z.ai"
+                        };
+                        return Some(Credential {
+                            token,
+                            base: base.into(),
+                            source: "OpenCode".into(),
+                        });
                     }
                 }
             }
@@ -235,8 +296,19 @@ pub fn present() -> bool {
     if let Some(home) = dirs::home_dir() {
         any = any || claude_code_key().is_some();
         any = any || home.join(".zcode").join("v2").join("config.json").is_file();
-        any = any || home.join(".zcode").join("v2").join("credentials.json").is_file();
-        any = any || home.join(".local").join("share").join("opencode").join("auth.json").is_file();
+        any = any
+            || home
+                .join(".zcode")
+                .join("v2")
+                .join("credentials.json")
+                .is_file();
+        any = any
+            || home
+                .join(".local")
+                .join("share")
+                .join("opencode")
+                .join("auth.json")
+                .is_file();
     }
     if let Some(appdata) = dirs::config_dir() {
         any = any || appdata.join("opencode").join("auth.json").is_file();
@@ -260,14 +332,22 @@ fn fetch(cred: &Credential) -> Result<serde_json::Value, FetchErr> {
         // looks like from here.
         .set("Authorization", &cred.token)
         .set("Accept", "application/json")
-        .set("User-Agent", concat!("vela/", env!("CARGO_PKG_VERSION"), " (Windows)"))
+        .set(
+            "User-Agent",
+            concat!("vela/", env!("CARGO_PKG_VERSION"), " (Windows)"),
+        )
         .timeout(Duration::from_secs(15))
         .call();
     match resp {
-        Ok(r) => r.into_json().map_err(|e| FetchErr::Other(format!("parse: {e}"))),
+        Ok(r) => r
+            .into_json()
+            .map_err(|e| FetchErr::Other(format!("parse: {e}"))),
         Err(ureq::Error::Status(401 | 403, _)) => Err(FetchErr::NeedsAuth),
         Err(ureq::Error::Status(429, r)) => {
-            let ra = r.header("retry-after").and_then(|s| s.trim().parse::<u64>().ok()).unwrap_or(0);
+            let ra = r
+                .header("retry-after")
+                .and_then(|s| s.trim().parse::<u64>().ok())
+                .unwrap_or(0);
             Err(FetchErr::RateLimited(ra))
         }
         Err(ureq::Error::Status(code, _)) => Err(FetchErr::Other(format!("HTTP {code}"))),
@@ -282,11 +362,18 @@ fn window_id(limit: &serde_json::Value) -> String {
     if ty == "TIME_LIMIT" {
         return "mcp".into();
     }
-    match (limit.get("unit").and_then(|x| x.as_i64()), limit.get("number").and_then(|x| x.as_i64())) {
+    match (
+        limit.get("unit").and_then(|x| x.as_i64()),
+        limit.get("number").and_then(|x| x.as_i64()),
+    ) {
         (Some(3), Some(5)) => "session".into(),
         (Some(6), Some(1)) => "weekly".into(),
         (Some(u), Some(n)) => format!("window-{u}x{n}"),
-        _ => ty.to_lowercase().is_empty().then(|| "unknown".to_string()).unwrap_or_else(|| ty.to_lowercase()),
+        _ => ty
+            .to_lowercase()
+            .is_empty()
+            .then(|| "unknown".to_string())
+            .unwrap_or_else(|| ty.to_lowercase()),
     }
 }
 
@@ -321,14 +408,19 @@ fn windows_from(v: &serde_json::Value) -> Vec<LimitWindow> {
     for l in limits {
         // Without a percentage there is nothing to draw; a bare count from an unnamed
         // allowance would be a reading with an invented scale.
-        let Some(pct) = l.get("percentage").and_then(|x| x.as_f64()) else { continue };
+        let Some(pct) = l.get("percentage").and_then(|x| x.as_f64()) else {
+            continue;
+        };
         let id = window_id(l);
         let unit = l.get("unit").and_then(|x| x.as_i64());
         let number = l.get("number").and_then(|x| x.as_i64());
         // Milliseconds since the epoch. The MCP row never carries a reset time, and — unlike
         // Claude's windows — a row is not dropped for lacking one: a percentage with no
         // countdown is still a reading.
-        let resets_at = l.get("nextResetTime").and_then(|x| x.as_f64()).map(|ms| ms.max(0.0) as u64);
+        let resets_at = l
+            .get("nextResetTime")
+            .and_then(|x| x.as_f64())
+            .map(|ms| ms.max(0.0) as u64);
         out.push(LimitWindow {
             label: label_for(&id, unit, number),
             used: (pct / 100.0).clamp(0.0, 1.0),
@@ -393,7 +485,11 @@ fn read_once() -> UsageSnapshot {
                 crate::applog("glm: reply carried no usable limits, keeping the last reading");
                 return snap;
             }
-            let level = v.pointer("/data/level").and_then(|x| x.as_str()).map(cap).unwrap_or_default();
+            let level = v
+                .pointer("/data/level")
+                .and_then(|x| x.as_str())
+                .map(cap)
+                .unwrap_or_default();
             snap.status = "ok".into();
             snap.windows = windows;
             snap.fetched_at = now_ms();
@@ -442,8 +538,18 @@ pub fn start(app: AppHandle) {
             let _ = app.emit("glm", &snap);
         }
         if !present() {
-            broadcast(&app, UsageSnapshot { status: "absent".into(), ..Default::default() });
+            broadcast(
+                &app,
+                UsageSnapshot {
+                    status: "absent".into(),
+                    ..Default::default()
+                },
+            );
             loop {
+                if !crate::providers::enabled(&app, "glm") {
+                    std::thread::sleep(Duration::from_secs(1));
+                    continue;
+                }
                 for _ in 0..600 {
                     if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
                         break;
@@ -456,6 +562,10 @@ pub fn start(app: AppHandle) {
             }
         }
         loop {
+            if !crate::providers::enabled(&app, "glm") {
+                std::thread::sleep(Duration::from_secs(1));
+                continue;
+            }
             let snap = read_once();
             let hold = snap.backoff_until.saturating_sub(now_ms()) / 1000;
             broadcast(&app, snap);
@@ -473,7 +583,9 @@ pub fn start(app: AppHandle) {
 pub fn probe() -> String {
     match load_credential() {
         Some(c) => format!("GLM: key via {} → {} console", c.source, c.base),
-        None if present() => "GLM: sources present but no usable key (ZCode enc:v1: tokens are skipped)".into(),
+        None if present() => {
+            "GLM: sources present but no usable key (ZCode enc:v1: tokens are skipped)".into()
+        }
         None => "GLM: no key source (ZCode, OpenCode or glm.json)".into(),
     }
 }

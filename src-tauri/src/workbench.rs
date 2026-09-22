@@ -1,7 +1,12 @@
 //! The extension window is created on demand; no hidden WebView or background polling.
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+pub const AVAILABLE: bool = false;
 #[tauri::command]
 pub fn open_workbench(app: AppHandle) {
+    // ADR 0006: product additions stay unavailable until full migration parity.
+    if !AVAILABLE {
+        return;
+    }
     let handle = app.clone();
     std::thread::spawn(move || {
         let _ = handle.run_on_main_thread(move || {

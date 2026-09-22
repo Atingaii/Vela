@@ -43,7 +43,10 @@ pub fn request_refresh() {
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /// Windows: %USERPROFILE%\.grok\auth.json (macOS: ~/.grok/auth.json)
@@ -115,18 +118,27 @@ pub fn pick(root: &serde_json::Value) -> Option<Creds> {
         if !is_trusted(key, entry) {
             continue;
         }
-        let token = entry.get("key").and_then(|x| x.as_str()).unwrap_or_default();
+        let token = entry
+            .get("key")
+            .and_then(|x| x.as_str())
+            .unwrap_or_default();
         if token.is_empty() {
             continue;
         }
         trusted.push(Creds {
             token: token.to_string(),
             expires_at: iso_ms(entry.get("expires_at")).unwrap_or(0),
-            email: entry.get("email").and_then(|x| x.as_str()).map(|s| s.to_string()),
+            email: entry
+                .get("email")
+                .and_then(|x| x.as_str())
+                .map(|s| s.to_string()),
         });
     }
     let now = now_ms();
-    if let Some(i) = trusted.iter().position(|c| c.expires_at == 0 || c.expires_at > now) {
+    if let Some(i) = trusted
+        .iter()
+        .position(|c| c.expires_at == 0 || c.expires_at > now)
+    {
         return Some(trusted.swap_remove(i));
     }
     trusted.into_iter().next()
@@ -142,9 +154,14 @@ fn read_credentials() -> Option<Creds> {
 
 /// For doctor: contains no secret values
 pub fn probe() -> String {
-    let Some(p) = auth_path() else { return "Grok: cannot locate the home directory".into() };
+    let Some(p) = auth_path() else {
+        return "Grok: cannot locate the home directory".into();
+    };
     if !p.is_file() {
-        return format!("Grok: {} not found (CLI not installed, or not signed in)", p.display());
+        return format!(
+            "Grok: {} not found (CLI not installed, or not signed in)",
+            p.display()
+        );
     }
     match read_credentials() {
         // No account email: doctor output is what people paste into issues.
@@ -163,7 +180,8 @@ pub fn probe() -> String {
 // ---------------- Parsing ----------------
 
 fn pct(v: Option<&serde_json::Value>) -> Option<f64> {
-    v.and_then(|x| x.as_f64()).map(|p| (p / 100.0).clamp(0.0, 1.0))
+    v.and_then(|x| x.as_f64())
+        .map(|p| (p / 100.0).clamp(0.0, 1.0))
 }
 
 /// "GrokBuild" → "Grok Build". The wire name is one word; the usage modal writes two.
@@ -205,13 +223,25 @@ pub fn parse_credits(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
         });
     } else if let Some(products) = products {
         for product in products {
-            let Some(used) = pct(product.get("usagePercent")) else { continue };
+            let Some(used) = pct(product.get("usagePercent")) else {
+                continue;
+            };
             let wire = product.get("product").and_then(|x| x.as_str());
             let label = wire.map(humanize).unwrap_or_else(|| "Usage".into());
             // The ring reads the window whose id is "credits"; using the wire name for the first
             // one left a valid bar on the card and a dash on the cell.
-            let id = if out.is_empty() { "credits".to_string() } else { wire.unwrap_or(&label).to_string() };
-            out.push(LimitWindow { id, label, used, resets_at, ..Default::default() });
+            let id = if out.is_empty() {
+                "credits".to_string()
+            } else {
+                wire.unwrap_or(&label).to_string()
+            };
+            out.push(LimitWindow {
+                id,
+                label,
+                used,
+                resets_at,
+                ..Default::default()
+            });
         }
     }
 
@@ -249,7 +279,9 @@ enum FetchErr {
 }
 
 fn fetch_once(token: &str) -> Result<serde_json::Value, FetchErr> {
-    let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(15)).build();
+    let agent = ureq::AgentBuilder::new()
+        .timeout(Duration::from_secs(15))
+        .build();
     match agent
         .get(ENDPOINT)
         .set("Authorization", &format!("Bearer {token}"))
@@ -257,8 +289,12 @@ fn fetch_once(token: &str) -> Result<serde_json::Value, FetchErr> {
         .set("Accept", "application/json")
         .call()
     {
-        Ok(r) => r.into_json::<serde_json::Value>().map_err(|e| FetchErr::Other(format!("parse: {e}"))),
-        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => Err(FetchErr::NeedsAuth),
+        Ok(r) => r
+            .into_json::<serde_json::Value>()
+            .map_err(|e| FetchErr::Other(format!("parse: {e}"))),
+        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => {
+            Err(FetchErr::NeedsAuth)
+        }
         Err(ureq::Error::Status(429, _)) => Err(FetchErr::RateLimited),
         Err(ureq::Error::Status(code, _)) => Err(FetchErr::Other(format!("HTTP {code}"))),
         Err(e) => Err(FetchErr::Other(format!("{e}"))),
@@ -296,12 +332,22 @@ fn read_once(prev: &UsageSnapshot) -> UsageSnapshot {
             snap.note = "Grok session was rejected — run grok login again".into();
         }
         Err(FetchErr::RateLimited) => {
-            snap.status = if snap.windows.is_empty() { "error" } else { "stale" }.into();
+            snap.status = if snap.windows.is_empty() {
+                "error"
+            } else {
+                "stale"
+            }
+            .into();
             snap.note = "Grok is rate limiting; the last reading stands".into();
         }
         Err(FetchErr::Other(msg)) => {
             // Stale beats invented: keep the old reading, marked stale
-            snap.status = if snap.windows.is_empty() { "error" } else { "stale" }.into();
+            snap.status = if snap.windows.is_empty() {
+                "error"
+            } else {
+                "stale"
+            }
+            .into();
             snap.note = msg;
         }
     }
@@ -332,8 +378,18 @@ pub fn start(app: AppHandle) {
             let _ = app.emit("grok", &snap);
         }
         if !present() {
-            broadcast(&app, UsageSnapshot { status: "absent".into(), ..Default::default() });
+            broadcast(
+                &app,
+                UsageSnapshot {
+                    status: "absent".into(),
+                    ..Default::default()
+                },
+            );
             loop {
+                if !crate::providers::enabled(&app, "grok") {
+                    std::thread::sleep(Duration::from_secs(1));
+                    continue;
+                }
                 sleep_interruptible(600); // Grok CLI is not installed: look again every 10 minutes
                 if present() {
                     break;
@@ -341,6 +397,10 @@ pub fn start(app: AppHandle) {
             }
         }
         loop {
+            if !crate::providers::enabled(&app, "grok") {
+                std::thread::sleep(Duration::from_secs(1));
+                continue;
+            }
             let prev = {
                 let st = app.state::<AppState>();
                 let s = st.grok.lock().unwrap().clone();
@@ -387,8 +447,10 @@ mod tests {
 
     #[test]
     fn a_customer_idp_entry_alone_is_not_used() {
-        let root: serde_json::Value =
-            serde_json::from_str(r#"{ "https://idp.example.com::abc": { "key": "private-proxy" } }"#).unwrap();
+        let root: serde_json::Value = serde_json::from_str(
+            r#"{ "https://idp.example.com::abc": { "key": "private-proxy" } }"#,
+        )
+        .unwrap();
         assert!(pick(&root).is_none());
     }
 

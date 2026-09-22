@@ -1,0 +1,107 @@
+{
+  "repository": "https://github.com/vinzdg/codenotch",
+  "revision": "117a38b8edae2ebd0944bc86b8760c6381685345",
+  "files": {
+    "claude.svg": {
+      "source": "Sources/Providers/GlyphOutline.swift",
+      "outline": "claude",
+      "sha256": "46ab2533a2fcbc9597f95cbb06831d1d44b4b163bde2d3de6791cd8f5a6e10a9"
+    },
+    "codex.svg": {
+      "source": "Sources/Providers/GlyphOutline.swift",
+      "outline": "openai",
+      "sha256": "c89522789b7a065baba5a1e37da80ff21ea0d1a87fc46334d8de8819d9bc002f"
+    },
+    "third.svg": {
+      "source": "Sources/Providers/GlyphOutline.swift",
+      "outline": "third",
+      "sha256": "e06f2ee7ef85c92fe46b7cb627a7e28ccfd2b1cd0533453f4ef54696a6f80785"
+    },
+    "cursor.svg": {
+      "source": "Sources/Providers/GlyphOutline.swift",
+      "outline": "cursor",
+      "sha256": "6ec7834698cf2606a74f926452f851206c3cd3e5cdc0034abbbc496bbf2d6fdb"
+    },
+    "gemini.svg": {
+      "source": "Sources/Providers/GlyphOutline.swift",
+      "outline": "antigravity",
+      "sha256": "54e3134c2b484e4198ec56057001b58f870f998040f51a834909fa0aa712c949"
+    },
+    "gemini-api.svg": {
+      "source": "Sources/Providers/GlyphOutline.swift",
+      "outline": "gemini",
+      "sha256": "b09b551fb3757867bbacacadbac27a8ff1e2227c33116d38785c38fe9b4837af"
+    },
+    "grok.svg": {
+      "source": "Sources/Providers/GlyphOutline.swift",
+      "outline": "grok",
+      "sha256": "a82637df5cc5f65a1ef1b9a913aab3fc0f1ee0823d7681e3e27943a0193cb899"
+    },
+    "kiro.svg": {
+      "source": "Sources/Providers/GlyphOutline.swift",
+      "outline": "kiro",
+      "sha256": "8eec275260d6945b9a7460dbab0de9b7b18470f5eb745c0e05f3a30202f34e01"
+    },
+    "copilot.svg": {
+      "source": "Sources/Providers/GlyphOutline.swift",
+      "outline": "copilot",
+      "sha256": "959be0932c6ed425c7053b8b705c0f1f1c53392049091236d8bdc07b47c8ee7c"
+    },
+    "commandcode.svg": {
+      "source": "Sources/Assets.xcassets/glyph-commandcode.imageset/commandcode.svg",
+      "sha256": "17b5a3e9765f629ac74d29507035d6fc19af6ba176bd980202d87469d3ca4597"
+    },
+    "deepseek.svg": {
+      "source": "Sources/Assets.xcassets/glyph-deepseek.imageset/deepseek.svg",
+      "sha256": "573e9ceb7f84e7bd80e4610cb95e15d7b67ea7399687dd76359cc8557cad33af"
+    },
+    "devin.png": {
+      "source": "Sources/Assets.xcassets/glyph-devin.imageset/devin.png",
+      "sha256": "ddb0c18544e82dbc11edbc698b35d36d652bc56339fd8e6394ac193d4e83355f"
+    },
+    "gemma.svg": {
+      "source": "Sources/Assets.xcassets/glyph-gemma.imageset/gemma.svg",
+      "sha256": "5f3a1a1f07888d550672bc9c287fe37b4c633c53f10beee85945fbb49772b666"
+    },
+    "glm.svg": {
+      "source": "Sources/Assets.xcassets/glyph-glm.imageset/zai.svg",
+      "sha256": "9dd89e571541d781ef1468ed0437688d9d51acb5864560b9ba3191db02d4b594"
+    },
+    "kimi.svg": {
+      "source": "Sources/Assets.xcassets/glyph-kimi.imageset/kimi.svg",
+      "sha256": "3cc6083a78d1130c245adbc3007c243ea76da9cfb8092788779a12066ca05313"
+    },
+    "lmstudio.svg": {
+      "source": "Sources/Assets.xcassets/glyph-lmstudio.imageset/lmstudio.svg",
+      "sha256": "119ede584a3cf1aacb68df02cdbd9c6016547c0fd96adee2d16bc29cbd49ad3f"
+    },
+    "meta.svg": {
+      "source": "Sources/Assets.xcassets/glyph-meta.imageset/meta.svg",
+      "sha256": "3d8fcc9485b5ea5df159784c62292b71b9eea7ec6d2b7c7a34c8f802b95b350d"
+    },
+    "minimax.svg": {
+      "source": "Sources/Assets.xcassets/glyph-minimax.imageset/minimax.svg",
+      "sha256": "01b726e7975f6506120b4310c7a73b2cbeaa4de30bee7e1d5a56523cd20aeaf4"
+    },
+    "mistral.svg": {
+      "source": "Sources/Assets.xcassets/glyph-mistral.imageset/mistral.svg",
+      "sha256": "ae10f0cf2272811a8c9d386e6e412813bcce2c88638578bb62a112b002513f1f"
+    },
+    "ollama.svg": {
+      "source": "Sources/Assets.xcassets/glyph-ollama.imageset/ollama.svg",
+      "sha256": "397a6ee071cce1496edd8a86dd1c91ce005712ec161690e411b3dc7f151181f5"
+    },
+    "opencode.svg": {
+      "source": "Sources/Assets.xcassets/glyph-opencode.imageset/opencode.svg",
+      "sha256": "cc342463be2bb14ad7cab14df6aa90626f64d8293664ca6bbe5f0ed213104e7d"
+    },
+    "qianwenai.png": {
+      "source": "Sources/Assets.xcassets/glyph-qianwenai.imageset/qianwenai.png",
+      "sha256": "496e405894553693cc2a1ba70f0557d55e4bf080f6a77736ca33d5050f323658"
+    },
+    "qwen.svg": {
+      "source": "Sources/Assets.xcassets/glyph-qwen.imageset/qwen.svg",
+      "sha256": "e15af619acc91c108aa6096d2282c3aabea184b38626d2984260aaa8908597dc"
+    }
+  }
+}

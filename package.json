@@ -9,10 +9,12 @@
     "check:ui": "node scripts/check-ui-scripts.mjs",
     "test": "node scripts/test.mjs",
     "test:ui": "playwright test --workers=1",
-    "preview": "node scripts/preview.mjs"
+    "preview": "node scripts/preview.mjs",
+    "trellis": "trellis"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "2.11.5",
-    "@playwright/test": "1.63.0"
+    "@mindfoldhq/trellis": "0.6.17",
+    "@playwright/test": "1.63.0",
+    "@tauri-apps/cli": "2.11.5"
   }
 }

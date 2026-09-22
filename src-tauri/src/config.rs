@@ -26,6 +26,16 @@ pub struct TraySlot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
+    pub phone_link: crate::phone_link::Preferences,
+    #[serde(default)]
+    pub appearance: crate::appearance::Preferences,
+    #[serde(default)]
+    pub custom_endpoints: Vec<crate::custom_endpoint::Endpoint>,
+    #[serde(default)]
+    pub local_runtime: crate::local_runtime::Preferences,
+    #[serde(default)]
+    pub providers: crate::providers::Preferences,
+    #[serde(default)]
     pub notifications: crate::notifications::Preferences,
     #[serde(default = "default_port")]
     pub port: u16,
@@ -71,9 +81,11 @@ pub struct Config {
     /// kept so an existing config migrates cleanly.
     #[serde(default)]
     pub notch_providers: Vec<String>,
-    /// Which providers get a ring on the notch, in order. An empty list means every provider.
+    /// Ordered explicit selection. Legacy empty means automatic until a choice is saved.
     #[serde(default)]
     pub notch_slots: Vec<TraySlot>,
+    #[serde(default)]
+    pub notch_selection_explicit: bool,
     /// Antigravity's lane on the ring, as the Mac app's "Notch reads": "automatic", "5h" or "weekly"
     #[serde(default = "default_antigravity_limit")]
     pub antigravity_limit: String,
@@ -153,10 +165,15 @@ fn carry_shared_position(cfg: &mut Config) {
 impl Config {
     /// Where the notch sits along `edge`: centred until it has been slid somewhere on that edge.
     pub fn along(&self, edge: &str) -> f64 {
-        self.notch_along.get(edge).copied().unwrap_or(0.5).clamp(0.0, 1.0)
+        self.notch_along
+            .get(edge)
+            .copied()
+            .unwrap_or(0.5)
+            .clamp(0.0, 1.0)
     }
     pub fn set_along(&mut self, edge: &str, along: f64) {
-        self.notch_along.insert(edge.to_string(), along.clamp(0.0, 1.0));
+        self.notch_along
+            .insert(edge.to_string(), along.clamp(0.0, 1.0));
     }
 }
 
@@ -195,7 +212,12 @@ fn default_lang() -> String {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            phone_link: Default::default(),
+            appearance: Default::default(),
             notifications: Default::default(),
+            providers: Default::default(),
+            local_runtime: Default::default(),
+            custom_endpoints: Vec::new(),
             port: default_port(),
             lang: default_lang(),
             bar_x: None,
@@ -209,7 +231,8 @@ impl Default for Config {
             scale: default_scale(),
             weekly_ring: default_weekly_ring(),
             notch_providers: Vec::new(), // empty = show them all
-            notch_slots: Vec::new(),     // filled in by load(), from notch_providers
+            notch_selection_explicit: false,
+            notch_slots: Vec::new(), // filled in by load(), from notch_providers
             antigravity_limit: default_antigravity_limit(),
             antigravity_model: default_antigravity_model(),
             glm_notch_fixed: true, // a fresh install picks from the full list already
@@ -239,11 +262,13 @@ pub fn load() -> Config {
 
     // Migration: before slots existed the notch was a plain provider list, one ring each. That is
     // exactly a list of slots, so nobody's choice is lost and nobody has to reconfigure anything.
-    if cfg.notch_slots.is_empty() {
+    if cfg.notch_slots.is_empty() && !cfg.notch_selection_explicit {
         cfg.notch_slots = cfg
             .notch_providers
             .iter()
-            .map(|p| TraySlot { provider: p.clone() })
+            .map(|p| TraySlot {
+                provider: p.clone(),
+            })
             .collect();
     }
 
@@ -272,7 +297,9 @@ fn migrate_glm_notch(cfg: &mut Config, raw: &Option<String>) {
         return;
     }
     if !cfg.notch_slots.is_empty() && !cfg.notch_slots.iter().any(|s| s.provider == "glm") {
-        cfg.notch_slots.push(TraySlot { provider: "glm".into() });
+        cfg.notch_slots.push(TraySlot {
+            provider: "glm".into(),
+        });
     }
     cfg.glm_notch_fixed = true;
 }
@@ -284,17 +311,23 @@ pub fn save_checked(cfg: &Config) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let mut tmp = tempfile::NamedTempFile::new_in(dir).map_err(|e| e.to_string())?;
     let bytes = serde_json::to_vec_pretty(cfg).map_err(|e| e.to_string())?;
-    tmp.write_all(&bytes).and_then(|_| tmp.as_file().sync_all()).map_err(|e| e.to_string())?;
+    tmp.write_all(&bytes)
+        .and_then(|_| tmp.as_file().sync_all())
+        .map_err(|e| e.to_string())?;
     tmp.persist(&path).map_err(|e| e.error.to_string())?;
     Ok(())
 }
 pub fn save(cfg: &Config) {
-    if let Err(e) = save_checked(cfg) { crate::applog(&format!("Settings save failed: {e}")); }
+    if let Err(e) = save_checked(cfg) {
+        crate::applog(&format!("Settings save failed: {e}"));
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{carry_shared_position, keep_open_on_upgrade, snap_scale, weekly_ring_or_off, Config};
+    use super::{
+        carry_shared_position, keep_open_on_upgrade, snap_scale, weekly_ring_or_off, Config,
+    };
 
     /// Show on hover is the Mac's default, so a fresh install gets it — but an update must not start
     /// folding a notch whose owner has only ever known it open.
@@ -306,10 +339,16 @@ mod tests {
 
         let mut upgraded = Config::default();
         keep_open_on_upgrade(&mut upgraded, Some(r#"{"notch_visible":true}"#));
-        assert!(!upgraded.notch_on_hover, "saved before the setting existed: stays open");
+        assert!(
+            !upgraded.notch_on_hover,
+            "saved before the setting existed: stays open"
+        );
 
         for chosen in [true, false] {
-            let mut c = Config { notch_on_hover: chosen, ..Default::default() };
+            let mut c = Config {
+                notch_on_hover: chosen,
+                ..Default::default()
+            };
             keep_open_on_upgrade(&mut c, Some(&format!(r#"{{"notch_on_hover":{chosen}}}"#)));
             assert_eq!(c.notch_on_hover, chosen, "a choice already made is kept");
         }
@@ -322,17 +361,33 @@ mod tests {
         assert_eq!(c.along("right"), 0.5, "an edge never slid along is centred");
         c.set_along("right", 0.2);
         assert_eq!(c.along("right"), 0.2);
-        assert_eq!(c.along("top"), 0.5, "sliding it on the right left the top where it was");
+        assert_eq!(
+            c.along("top"),
+            0.5,
+            "sliding it on the right left the top where it was"
+        );
         c.set_along("top", 7.0);
-        assert_eq!(c.along("top"), 1.0, "and it can never be put past the end of an edge");
+        assert_eq!(
+            c.along("top"),
+            1.0,
+            "and it can never be put past the end of an edge"
+        );
     }
 
     #[test]
     fn the_shared_position_moves_to_the_edge_the_notch_was_on() {
-        let mut c = Config { notch_y: 0.3, notch_edge: "left".into(), ..Default::default() };
+        let mut c = Config {
+            notch_y: 0.3,
+            notch_edge: "left".into(),
+            ..Default::default()
+        };
         carry_shared_position(&mut c);
         assert_eq!(c.along("left"), 0.3, "an existing config keeps its place");
-        assert_eq!(c.along("right"), 0.5, "the edges it was not on start centred");
+        assert_eq!(
+            c.along("right"),
+            0.5,
+            "the edges it was not on start centred"
+        );
         // Once carried over, a later load leaves it alone even though notch_y still reads 0.3
         c.set_along("left", 0.8);
         carry_shared_position(&mut c);
@@ -345,7 +400,11 @@ mod tests {
 
     #[test]
     fn the_shared_position_is_read_but_never_written_again() {
-        let mut v = serde_json::to_value(Config { notch_y: 0.3, ..Default::default() }).unwrap();
+        let mut v = serde_json::to_value(Config {
+            notch_y: 0.3,
+            ..Default::default()
+        })
+        .unwrap();
         assert!(v.get("notch_y").is_none(), "{v}");
         v["notch_y"] = serde_json::json!(0.3);
         let back: Config = serde_json::from_value(v).unwrap();

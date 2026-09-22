@@ -38,15 +38,21 @@ pub fn show_notch_menu(window: Window, provider: Option<String>) -> Result<(), S
         menu = menu.item(&open);
     }
     // Checked while the notch is always open; unticking it is Show on hover
-    let keep_open = CheckMenuItemBuilder::with_id(format!("{PREFIX}keep_open"), tr(&lang, "keep_open"))
-        .checked(crate::keeps_open(app))
-        .build(app)
-        .map_err(err)?;
+    let keep_open =
+        CheckMenuItemBuilder::with_id(format!("{PREFIX}keep_open"), tr(&lang, "keep_open"))
+            .checked(crate::keeps_open(app))
+            .build(app)
+            .map_err(err)?;
     let quit = MenuItemBuilder::with_id(format!("{PREFIX}quit"), tr(&lang, "quit_app"))
         .build(app)
         .map_err(err)?;
-    let tools = MenuItemBuilder::with_id(format!("{PREFIX}tools"), if lang.starts_with("zh") { "扩展与 CLI 工具…" } else { "Extensions and CLI tools…" }).build(app).map_err(err)?;
-    let menu = menu.separator().item(&keep_open).item(&tools).separator().item(&quit).build().map_err(err)?;
+    let menu = menu
+        .separator()
+        .item(&keep_open)
+        .separator()
+        .item(&quit)
+        .build()
+        .map_err(err)?;
     #[cfg(windows)]
     let before = foreground();
     // Returns once the menu has closed
@@ -89,7 +95,6 @@ fn handle(app: &AppHandle, id: &str) {
     }
     match item {
         "refresh" => crate::refresh_all(app),
-        "tools" => crate::workbench::open_workbench(app.clone()),
         "keep_open" => crate::toggle_keep_open(app),
         "quit" => app.exit(0),
         _ => {}

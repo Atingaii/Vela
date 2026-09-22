@@ -2,8 +2,8 @@
 //!
 //! Rule: **no vendor logo is drawn by hand here**; only existing artwork is used, in this order:
 //!   1. User override: `%APPDATA%\vela\glyphs\<id>.svg|.png`, or `glyphs\` next to the exe;
-//!   2. Built in: the `glyphs/*.svg` compiled into the exe, from npm `@lobehub/icons-static-svg`
-//!      1.95.0 (MIT), files unmodified; trademark notice in glyphs/NOTICE.md;
+//!   2. Built in: pinned Swift asset catalog / mechanically converted CGPoint outlines.
+//!      Reproduction script and provenance manifest live with the glyphs; see glyphs/NOTICE.md;
 //!   3. The installed application's own icon (PrivateExtractIconsW on the exe resources, 64 px → PNG).
 //!
 //! None of those → the page falls back to a letter.
@@ -24,18 +24,138 @@ pub struct Glyph {
     pub svg: String,
     /// Where it came from (for doctor)
     pub source: String,
+    /// Swift ProviderGlyph optical correction, inside the fixed layout box.
+    pub scale: f64,
 }
 
-pub const IDS: [&str; 5] = ["claude", "codex", "cursor", "grok", "gemini"];
-
-/// Built-in artwork (@lobehub/icons-static-svg, MIT): the OpenAI mark for codex (matching upstream's glyph choice), the Antigravity mark for gemini
-const BUILTIN: [(&str, &str); 5] = [
-    ("claude", include_str!("../glyphs/claude.svg")),
-    ("codex", include_str!("../glyphs/codex.svg")),
-    ("cursor", include_str!("../glyphs/cursor.svg")),
-    ("grok", include_str!("../glyphs/grok.svg")),
-    ("gemini", include_str!("../glyphs/gemini.svg")),
+pub const IDS: [&str; 24] = [
+    "claude",
+    "codex",
+    "cursor",
+    "grok",
+    "gemini",
+    "gemini-api",
+    "glm",
+    "kimi",
+    "kiro",
+    "copilot",
+    "opencode",
+    "commandcode",
+    "minimax",
+    "ollama-cloud",
+    "ollama-local",
+    "lmstudio",
+    "devin",
+    "deepseek",
+    "qianwenai",
+    "qwen",
+    "gemma",
+    "meta",
+    "mistral",
+    "third",
 ];
+
+const BUILTIN: &[(&str, &str)] = &[
+    ("claude", include_str!("../glyphs/swift/claude.svg")),
+    ("codex", include_str!("../glyphs/swift/codex.svg")),
+    ("cursor", include_str!("../glyphs/swift/cursor.svg")),
+    ("grok", include_str!("../glyphs/swift/grok.svg")),
+    ("gemini", include_str!("../glyphs/swift/gemini.svg")),
+    ("gemini-api", include_str!("../glyphs/swift/gemini-api.svg")),
+    ("kiro", include_str!("../glyphs/swift/kiro.svg")),
+    ("copilot", include_str!("../glyphs/swift/copilot.svg")),
+    ("third", include_str!("../glyphs/swift/third.svg")),
+];
+
+// Swift asset catalog images are template masks, including the two bitmap marks.
+const TEMPLATES: &[(&str, &str, &[u8])] = &[
+    (
+        "glm",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/glm.svg"),
+    ),
+    (
+        "kimi",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/kimi.svg"),
+    ),
+    (
+        "opencode",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/opencode.svg"),
+    ),
+    (
+        "commandcode",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/commandcode.svg"),
+    ),
+    (
+        "minimax",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/minimax.svg"),
+    ),
+    (
+        "ollama-cloud",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/ollama.svg"),
+    ),
+    (
+        "ollama-local",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/ollama.svg"),
+    ),
+    (
+        "lmstudio",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/lmstudio.svg"),
+    ),
+    (
+        "devin",
+        "image/png",
+        include_bytes!("../glyphs/swift/devin.png"),
+    ),
+    (
+        "deepseek",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/deepseek.svg"),
+    ),
+    (
+        "qianwenai",
+        "image/png",
+        include_bytes!("../glyphs/swift/qianwenai.png"),
+    ),
+    (
+        "qwen",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/qwen.svg"),
+    ),
+    (
+        "gemma",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/gemma.svg"),
+    ),
+    (
+        "meta",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/meta.svg"),
+    ),
+    (
+        "mistral",
+        "image/svg+xml",
+        include_bytes!("../glyphs/swift/mistral.svg"),
+    ),
+];
+
+fn optical_scale(id: &str) -> f64 {
+    match id {
+        "claude" | "cursor" | "qianwenai" => 0.97,
+        "codex" => 0.94,
+        "glm" | "opencode" | "kimi" | "kiro" | "minimax" | "ollama-cloud" => 0.95,
+        "commandcode" | "copilot" | "lmstudio" => 0.96,
+        "ollama-local" => 0.98,
+        _ => 1.0,
+    }
+}
 
 /// Minimal SVG sanitising before inlining into the DOM: drop <script> blocks and on*="…" event
 /// attributes (the built-in files have none; this guards user files). Every slice position comes
@@ -60,7 +180,10 @@ fn sanitize_svg(s: &str) -> String {
     let mut i = 0;
     while let Some(rel) = lo[i..].find(" on") {
         let start = i + rel;
-        let name_len = lo[start + 3..].bytes().take_while(|b| b.is_ascii_alphanumeric()).count();
+        let name_len = lo[start + 3..]
+            .bytes()
+            .take_while(|b| b.is_ascii_alphanumeric())
+            .count();
         let eq = start + 3 + name_len;
         if name_len > 0 && lo.as_bytes().get(eq) == Some(&b'=') {
             if let Some(&q) = lo.as_bytes().get(eq + 1) {
@@ -101,12 +224,24 @@ fn b64(bytes: &[u8]) -> String {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
-        let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
+        let b = [
+            chunk[0],
+            *chunk.get(1).unwrap_or(&0),
+            *chunk.get(2).unwrap_or(&0),
+        ];
         let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
         out.push(T[(n >> 18) as usize & 63] as char);
         out.push(T[(n >> 12) as usize & 63] as char);
-        out.push(if chunk.len() > 1 { T[(n >> 6) as usize & 63] as char } else { '=' });
-        out.push(if chunk.len() > 2 { T[n as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 1 {
+            T[(n >> 6) as usize & 63] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            T[n as usize & 63] as char
+        } else {
+            '='
+        });
     }
     out
 }
@@ -116,7 +251,10 @@ fn from_file(p: &Path) -> Option<Glyph> {
     if bytes.is_empty() || bytes.len() > 512 * 1024 {
         return None;
     }
-    let ext = p.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let ext = p
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
     match ext.as_str() {
         "svg" => Some(Glyph {
             kind: "svg".into(),
@@ -137,7 +275,9 @@ fn from_file(p: &Path) -> Option<Glyph> {
 /// Candidate executables of the installed apps (Windows); MSIX store versions live under WindowsApps where a normal process cannot read them, and that is fine
 fn app_candidates(id: &str) -> Vec<PathBuf> {
     let mut v = Vec::new();
-    let Some(local) = dirs::data_local_dir() else { return v };
+    let Some(local) = dirs::data_local_dir() else {
+        return v;
+    };
     let programs = local.join("Programs");
     match id {
         "claude" => {
@@ -176,10 +316,12 @@ fn app_candidates(id: &str) -> Vec<PathBuf> {
 #[cfg(windows)]
 fn from_exe(p: &Path) -> Option<Glyph> {
     use windows::Win32::Graphics::Gdi::{
-        DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
-        DIB_RGB_COLORS,
+        DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFO,
+        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
     };
-    use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, PrivateExtractIconsW, HICON, ICONINFO};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        DestroyIcon, GetIconInfo, PrivateExtractIconsW, HICON, ICONINFO,
+    };
 
     use std::os::windows::ffi::OsStrExt;
     let wide: Vec<u16> = p.as_os_str().encode_wide().collect();
@@ -192,7 +334,15 @@ fn from_exe(p: &Path) -> Option<Glyph> {
     unsafe {
         let mut icons = [HICON::default(); 1];
         let mut id = 0u32;
-        let n = PrivateExtractIconsW(&name, 0, SIZE, SIZE, Some(&mut icons[..]), Some(&mut id as *mut u32), 0);
+        let n = PrivateExtractIconsW(
+            &name,
+            0,
+            SIZE,
+            SIZE,
+            Some(&mut icons[..]),
+            Some(&mut id as *mut u32),
+            0,
+        );
         if n == 0 || icons[0].is_invalid() {
             return None;
         }
@@ -202,7 +352,11 @@ fn from_exe(p: &Path) -> Option<Glyph> {
         let mut result = None;
         if ok && !info.hbmColor.is_invalid() {
             let mut bm = BITMAP::default();
-            GetObjectW(info.hbmColor, std::mem::size_of::<BITMAP>() as i32, Some(&mut bm as *mut _ as *mut _));
+            GetObjectW(
+                info.hbmColor,
+                std::mem::size_of::<BITMAP>() as i32,
+                Some(&mut bm as *mut _ as *mut _),
+            );
             let (w, h) = (bm.bmWidth, bm.bmHeight);
             if w > 0 && h > 0 && w <= 512 && h <= 512 {
                 let hdc = GetDC(None);
@@ -219,7 +373,15 @@ fn from_exe(p: &Path) -> Option<Glyph> {
                     ..Default::default()
                 };
                 let mut buf = vec![0u8; (w * h * 4) as usize];
-                let lines = GetDIBits(hdc, info.hbmColor, 0, h as u32, Some(buf.as_mut_ptr() as *mut _), &mut bi, DIB_RGB_COLORS);
+                let lines = GetDIBits(
+                    hdc,
+                    info.hbmColor,
+                    0,
+                    h as u32,
+                    Some(buf.as_mut_ptr() as *mut _),
+                    &mut bi,
+                    DIB_RGB_COLORS,
+                );
                 let _ = ReleaseDC(None, hdc);
                 if lines > 0 {
                     // BGRA → RGBA; old-style icons with all-zero alpha are treated as opaque
@@ -285,7 +447,17 @@ pub fn collect() -> HashMap<String, Glyph> {
                 found = Some(Glyph {
                     kind: "svg".into(),
                     svg: sanitize_svg(svg),
-                    source: "built-in · @lobehub/icons-static-svg 1.95.0 (MIT)".into(),
+                    source: "built-in · Codenotch Swift 117a38b (MIT)".into(),
+                    ..Default::default()
+                });
+            }
+        }
+        if found.is_none() {
+            if let Some((_, mime, bytes)) = TEMPLATES.iter().find(|(key, _, _)| *key == id) {
+                found = Some(Glyph {
+                    kind: "template".into(),
+                    url: format!("data:{mime};base64,{}", b64(bytes)),
+                    source: "built-in · Codenotch Swift 117a38b (MIT)".into(),
                     ..Default::default()
                 });
             }
@@ -298,7 +470,8 @@ pub fn collect() -> HashMap<String, Glyph> {
                 }
             }
         }
-        if let Some(g) = found {
+        if let Some(mut g) = found {
+            g.scale = optical_scale(id);
             map.insert(id.to_string(), g);
         }
     }
@@ -308,7 +481,10 @@ pub fn collect() -> HashMap<String, Glyph> {
 /// For doctor
 pub fn probe() -> String {
     let m = collect();
-    let mut lines = vec![format!("glyph directory: {} (drop claude/codex/cursor/grok/gemini .svg or .png files here)", user_dir().display())];
+    let mut lines = vec![format!(
+        "glyph directory: {} (drop claude/codex/cursor/grok/gemini .svg or .png files here)",
+        user_dir().display()
+    )];
     for id in IDS {
         lines.push(match m.get(id) {
             Some(g) => format!("  {id}: {} ← {}", g.kind, g.source),

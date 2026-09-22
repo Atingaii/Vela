@@ -7,3 +7,7 @@
 3. [ADR-0003：可显式启停的边缘插件](0003-plugins.md)
 4. [ADR-0004：本地账本、估计与数据边界](0004-usage.md)
 5. [ADR-0005：多 CLI 配置适配与可恢复写入](0005-cli-sync.md)
+
+6. [ADR-0006：全量迁移与 UI 一致性优先，插件随后](0006-full-swift-parity-before-product-changes.md)
+
+当前交付顺序以 ADR-0006 和用户最新范围为准；ADR-0002、0004、0005 的产品扩展暂缓。
