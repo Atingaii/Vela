@@ -4,9 +4,15 @@ use std::sync::OnceLock;
 use tauri::Manager;
 
 static ROOT: OnceLock<PathBuf> = OnceLock::new();
+static VISUAL: OnceLock<bool> = OnceLock::new();
+
+pub fn visual() -> bool {
+    VISUAL.get().copied().unwrap_or(false)
+}
 
 pub fn configure(args: &[String]) -> Result<(), String> {
-    if args.get(1).map(String::as_str) != Some("--smoke-test") {
+    let mode = args.get(1).map(String::as_str);
+    if !matches!(mode, Some("--smoke-test" | "--visual-test")) {
         return Ok(());
     }
     let dir = args
@@ -22,7 +28,9 @@ pub fn configure(args: &[String]) -> Result<(), String> {
         return Err("smoke output directory must be empty".into());
     }
     ROOT.set(path.canonicalize().map_err(|e| e.to_string())?)
-        .map_err(|_| "smoke already configured".to_string())
+        .map_err(|_| "smoke already configured".to_string())?;
+    let _ = VISUAL.set(mode == Some("--visual-test"));
+    Ok(())
 }
 
 pub fn root() -> Option<&'static PathBuf> {
@@ -31,11 +39,48 @@ pub fn root() -> Option<&'static PathBuf> {
 
 pub fn start(app: &tauri::AppHandle) {
     crate::settings_window::open(app);
+    if visual() {
+        return;
+    }
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(30));
         finish(&app, false, false);
     });
+}
+
+/// Six synthetic providers reproduce the user's clipped stack without starting collectors.
+pub fn seed_visual(app: &tauri::AppHandle) {
+    let state = app.state::<crate::AppState>();
+    state.cfg.lock().unwrap().notch_on_hover = false;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    let sample = |id: &str, used: f64| crate::usage::UsageSnapshot {
+        status: "ok".into(),
+        fetched_at: now,
+        plan: Some("Visual test".into()),
+        windows: vec![crate::usage::LimitWindow {
+            id: id.into(),
+            label: "Session".into(),
+            used,
+            resets_at: Some(now + 7200000),
+            duration: Some(18000.0),
+            count: None,
+            remaining: None,
+            used_count: None,
+            derived: false,
+            group: None,
+        }],
+        ..Default::default()
+    };
+    *state.usage.lock().unwrap() = sample("session", 0.38);
+    *state.codex.lock().unwrap() = sample("primary", 0.62);
+    *state.cursor.lock().unwrap() = sample("included", 0.19);
+    *state.grok.lock().unwrap() = sample("credits", 0.27);
+    *state.glm.lock().unwrap() = sample("session", 0.41);
+    *state.antigravity.lock().unwrap() = sample("session", 0.54);
 }
 
 fn finish(app: &tauri::AppHandle, page_ready: bool, helper_present: bool) {

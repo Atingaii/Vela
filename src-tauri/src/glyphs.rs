@@ -454,12 +454,7 @@ pub fn collect() -> HashMap<String, Glyph> {
         }
         if found.is_none() {
             if let Some((_, mime, bytes)) = TEMPLATES.iter().find(|(key, _, _)| *key == id) {
-                found = Some(Glyph {
-                    kind: "template".into(),
-                    url: format!("data:{mime};base64,{}", b64(bytes)),
-                    source: "built-in · Codenotch Swift 117a38b (MIT)".into(),
-                    ..Default::default()
-                });
+                found = Some(template_glyph(mime, bytes));
             }
         }
         if found.is_none() {
@@ -478,6 +473,26 @@ pub fn collect() -> HashMap<String, Glyph> {
     map
 }
 
+/// Asset-catalog template rendering tints the artwork's alpha. Inline the trusted monochrome
+/// SVG paths, just like the other Swift glyphs: WKWebView must not depend on data-URL CSS masks.
+/// Preserve `fill="none"` (Ollama has intentional transparent paths).
+fn template_glyph(mime: &str, bytes: &[u8]) -> Glyph {
+    let mut g = Glyph {
+        source: "built-in · Codenotch Swift 117a38b (MIT)".into(),
+        ..Default::default()
+    };
+    if mime == "image/svg+xml" {
+        g.kind = "svg".into();
+        g.svg = String::from_utf8_lossy(bytes)
+            .replace("fill=\"#000\"", "fill=\"currentColor\"")
+            .replace("fill=\"black\"", "fill=\"currentColor\"");
+    } else {
+        g.kind = "template".into();
+        g.url = format!("data:{mime};base64,{}", b64(bytes));
+    }
+    g
+}
+
 /// For doctor
 pub fn probe() -> String {
     let m = collect();
@@ -492,4 +507,30 @@ pub fn probe() -> String {
         });
     }
     lines.join("\n")
+}
+
+#[cfg(test)]
+mod template_tests {
+    use super::*;
+    #[test]
+    fn svg_catalog_templates_use_visible_current_color_paths() {
+        for (_, mime, bytes) in TEMPLATES {
+            let glyph = template_glyph(mime, bytes);
+            if *mime == "image/svg+xml" {
+                assert_eq!(glyph.kind, "svg");
+                assert!(glyph.svg.contains("currentColor"));
+                assert!(!glyph.svg.contains("fill=\"#000\""));
+                assert!(!glyph.svg.contains("fill=\"black\""));
+                assert!(glyph.svg.contains("<path"));
+            } else {
+                assert_eq!(glyph.kind, "template");
+                assert!(glyph.url.starts_with("data:image/png;base64,"));
+            }
+        }
+        let ollama = template_glyph(
+            "image/svg+xml",
+            include_bytes!("../glyphs/swift/ollama.svg"),
+        );
+        assert!(ollama.svg.contains("fill=\"none\""));
+    }
 }

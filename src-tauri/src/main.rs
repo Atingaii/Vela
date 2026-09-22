@@ -1,6 +1,5 @@
 #![cfg_attr(all(not(debug_assertions), windows), windows_subsystem = "windows")]
 
-mod smoke;
 mod activity;
 mod agy_cli;
 mod antigravity;
@@ -26,6 +25,8 @@ mod hooks_install;
 mod i18n;
 mod ledger;
 mod local_runtime;
+mod notch_layout;
+mod notch_window;
 mod notchmenu;
 mod notifications;
 mod pace;
@@ -36,6 +37,7 @@ mod refresh;
 mod secrets;
 mod server;
 mod settings_window;
+mod smoke;
 mod state;
 mod tray;
 mod trayicon;
@@ -334,6 +336,61 @@ pub fn notch_window_size(edge: &str) -> (f64, f64) {
     }
 }
 
+/// Swift NotchGeometry keeps the drawn notch on the screen; the transparent tooltip margins
+/// may extend beyond it. Clamping the whole panel prevented placement near either end of an edge.
+fn content_edge_origin(
+    s: &Screen,
+    edge: &str,
+    ww: i32,
+    wh: i32,
+    ratio: f64,
+    shape: Option<f64>,
+) -> (i32, i32) {
+    let Some(shape) = shape else {
+        return edge_origin(s, edge, ww, wh, ratio);
+    };
+    let (ax, ay, aw, ah) = s.area();
+    let along = |span: i32, len: i32| {
+        let centre = if shape >= span as f64 {
+            span as f64 / 2.0
+        } else {
+            (span as f64 * ratio).clamp(shape / 2.0, span as f64 - shape / 2.0)
+        };
+        (centre - len as f64 / 2.0).round() as i32
+    };
+    match edge {
+        "left" => (ax, ay + along(ah, wh)),
+        "top" => (ax + along(aw, ww), ay),
+        "bottom" => (ax + along(aw, ww), ay + ah - wh),
+        _ => (ax + aw - ww, ay + along(ah, wh)),
+    }
+}
+
+/// Content measurement is accepted only from the notch, never from a settings/web login window.
+#[tauri::command]
+fn set_notch_content(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    content: notch_layout::Content,
+) -> Result<(), String> {
+    if window.label() != "notch" || !content.valid() {
+        return Err("invalid notch content measurement".into());
+    }
+    let changed = {
+        let mut current = notch_layout::CONTENT.lock().unwrap();
+        if *current == Some(content) {
+            false
+        } else {
+            *current = Some(content);
+            true
+        }
+    };
+    if changed {
+        place_notch(&app);
+    }
+    Ok(())
+}
+
 pub fn place_notch(app: &AppHandle) {
     let Some(w) = app.get_webview_window("notch") else {
         return;
@@ -353,11 +410,18 @@ pub fn place_notch(app: &AppHandle) {
             let c = st.cfg.lock().unwrap();
             config::edge_or_right(&c.notch_edge)
         };
-        let (width, height) = notch_window_size(&edge);
+        let content = *notch_layout::CONTENT.lock().unwrap();
+        let layout = content.map(|c| notch_layout::calculate(&edge, c, mon.h as f64 / ms, size));
+        let (width, height) = layout
+            .map(|l| (l.width, l.height))
+            .unwrap_or_else(|| notch_window_size(&edge));
+        if let Some(layout) = layout {
+            let _ = w.emit("notch_layout", layout);
+        }
         // Never taller or wider than the screen: Large on a small, highly scaled display can ask for more
         let target = tauri::PhysicalSize::new(
-            ((width * ms * size).round() as u32).min(mon.w.max(1) as u32),
-            ((height * ms * size).round() as u32).min(mon.h.max(1) as u32),
+            (width * ms * size).ceil() as u32,
+            (height * ms * size).ceil() as u32,
         );
         let _ = w.set_size(target);
         zoom_notch(&w, ms, size);
@@ -372,7 +436,8 @@ pub fn place_notch(app: &AppHandle) {
             let c = st.cfg.lock().unwrap();
             c.along(&edge)
         };
-        let (x, y) = edge_origin(&mon, &edge, ww, wh, ratio);
+        let shape = layout.map(|l| l.shape_length * ms * size);
+        let (x, y) = content_edge_origin(&mon, &edge, ww, wh, ratio, shape);
         let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
         let mut placed = (x, y, ww, wh);
         if w.outer_size()
@@ -380,12 +445,13 @@ pub fn place_notch(app: &AppHandle) {
             .unwrap_or(false)
         {
             let _ = w.set_size(target);
-            let (x, y) = edge_origin(
+            let (x, y) = content_edge_origin(
                 &mon,
                 &edge,
                 target.width as i32,
                 target.height as i32,
                 ratio,
+                shape,
             );
             let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
             placed = (x, y, target.width as i32, target.height as i32);
@@ -1508,7 +1574,11 @@ fn ui_flags(c: &config::Config) -> UiFlags {
     UiFlags {
         notch_visible: c.notch_visible,
         notch_on_hover: c.notch_on_hover,
-        tray_visible: c.tray_visible,
+        tray_visible: if cfg!(target_os = "macos") {
+            c.appearance.app_presence == "menuBar"
+        } else {
+            c.tray_visible
+        },
         fullscreen: front_window::fullscreen(),
         pinned: NOTCH_PINNED.load(std::sync::atomic::Ordering::Relaxed),
     }
@@ -1584,6 +1654,7 @@ pub fn apply_visibility(app: &AppHandle) {
     if let Some(t) = app.tray_by_id("main") {
         let _ = t.set_visible(tray_on);
     }
+    settings_window::apply_presence(app);
 }
 
 // ---------------- settings that used to live in the tray menu ----------------
@@ -1606,7 +1677,9 @@ fn get_lang_resolved(app: AppHandle) -> String {
 
 #[tauri::command]
 fn get_autostart() -> bool {
-    if smoke::root().is_some() { return false; }
+    if smoke::root().is_some() {
+        return false;
+    }
     autostart::is_enabled()
 }
 
@@ -1621,7 +1694,9 @@ fn set_autostart(on: bool) -> Result<String, String> {
 
 #[tauri::command]
 fn get_hooks_installed() -> bool {
-    if smoke::root().is_some() { return false; }
+    if smoke::root().is_some() {
+        return false;
+    }
     hooks_install::is_installed()
 }
 
@@ -1847,7 +1922,10 @@ const CONSOLE_CMDS: [&str; 4] = ["install-hooks", "uninstall-hooks", "autostart"
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if let Err(error) = smoke::configure(&args) { eprintln!("{error}"); std::process::exit(1); }
+    if let Err(error) = smoke::configure(&args) {
+        eprintln!("{error}");
+        std::process::exit(1);
+    }
     if let Some(cmd) = args.get(1) {
         // Attaching on the GUI path too tied the notch to whatever cmd.exe launched it: closing that
         // window sends CTRL_CLOSE_EVENT to every process on the console, and with no handler the
@@ -1889,28 +1967,62 @@ fn main() {
         }
     }
 
-    let cfg = if smoke::root().is_some() { config::Config::default() } else { config::load() };
+    let cfg = if smoke::root().is_some() {
+        config::Config::default()
+    } else {
+        config::load()
+    };
     let port = cfg.port;
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_updater::Builder::new().build());
+    // Isolated verification must never activate or send commands to an installed instance.
+    let builder = if smoke::root().is_none() {
+        builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // Opening Velo again while it runs brings Settings forward, as on the Mac: with the
             // tray icon hidden it is the way back. Logged too, for a rebuild that was not picked up.
             applog(&format!("single instance: another launch was refused; the running instance is build={BUILD} — quit it from the tray first if you just rebuilt"));
             settings_window::open(app);
         }))
+    } else {
+        builder
+    };
+    builder
         .manage(AppState {
             store: Mutex::new(Default::default()),
             cfg: Mutex::new(cfg),
-            usage: Mutex::new(if smoke::root().is_some() { Default::default() } else { usage::load_persisted() }),
-            codex: Mutex::new(if smoke::root().is_some() { Default::default() } else { codex::load_persisted() }),
-            cursor: Mutex::new(if smoke::root().is_some() { Default::default() } else { cursor::load_persisted() }),
-            grok: Mutex::new(if smoke::root().is_some() { Default::default() } else { grok::load_persisted() }),
-            antigravity: Mutex::new(if smoke::root().is_some() { Default::default() } else { antigravity::load_persisted() }),
-            glm: Mutex::new(if smoke::root().is_some() { Default::default() } else { glm::load_persisted() }),
+            usage: Mutex::new(if smoke::root().is_some() {
+                Default::default()
+            } else {
+                usage::load_persisted()
+            }),
+            codex: Mutex::new(if smoke::root().is_some() {
+                Default::default()
+            } else {
+                codex::load_persisted()
+            }),
+            cursor: Mutex::new(if smoke::root().is_some() {
+                Default::default()
+            } else {
+                cursor::load_persisted()
+            }),
+            grok: Mutex::new(if smoke::root().is_some() {
+                Default::default()
+            } else {
+                grok::load_persisted()
+            }),
+            antigravity: Mutex::new(if smoke::root().is_some() {
+                Default::default()
+            } else {
+                antigravity::load_persisted()
+            }),
+            glm: Mutex::new(if smoke::root().is_some() {
+                Default::default()
+            } else {
+                glm::load_persisted()
+            }),
             glyphs: Mutex::new(Default::default()),
             activity: Mutex::new(Vec::new()),
         })
@@ -1972,6 +2084,7 @@ fn main() {
             toggle_notch_pin,
             set_hot,
             report_dpr,
+            set_notch_content,
             notch_hidden,
             log_js,
             focus_session,
@@ -2016,11 +2129,22 @@ fn main() {
             let handle = app.handle().clone();
             place_notch(&handle);
             if let Some(w) = handle.get_webview_window("notch") {
+                notch_window::configure(&w);
                 let _ = w.show();
             }
             tray::setup(&handle)?;
+            settings_window::install_app_menu(&handle)?;
+            settings_window::apply_presence(&handle);
             notchmenu::setup(&handle);
-            if smoke::root().is_some() { smoke::start(&handle); return Ok(()); }
+            if smoke::root().is_some() {
+                if smoke::visual() {
+                    smoke::seed_visual(&handle);
+                    reload_glyphs(&handle);
+                    start_pointer_watchdog(handle.clone());
+                }
+                smoke::start(&handle);
+                return Ok(());
+            }
             start_menu_updater(handle.clone());
             updater::check_on_launch(&handle);
 
@@ -2075,8 +2199,14 @@ fn main() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("Velo failed to start");
+        .build(tauri::generate_context!())
+        .expect("Velo failed to start")
+        .run(|_app, _event| {
+            #[cfg(target_os = "macos")]
+            if matches!(_event, tauri::RunEvent::Reopen { .. }) {
+                settings_window::open(_app);
+            }
+        });
 }
 
 #[cfg(test)]
@@ -2193,25 +2323,6 @@ mod tests {
         assert_eq!(work_insets(&s, x, y, 432, 624), [0, 0, 0, 72]);
     }
 
-    #[test]
-    fn a_flat_notch_is_wide_enough_for_six_rings() {
-        // 6 × 44 px rings + 5 × 14 px gaps + 36 px padding + 2 × 38.7 px fillets + the orb's 28.5 px reach
-        let pill = 6.0 * 44.0 + 5.0 * 14.0 + 36.0 + 2.0 * (38.7 + 28.5);
-        for edge in ["top", "bottom"] {
-            let (w, h) = notch_window_size(edge);
-            assert!(w >= pill, "{edge}: {w} px cannot hold a {pill} px pill");
-            // `#card`'s max-height on a flat edge is the window less 150 px for the pill, the 30 px
-            // gap and the margins, and the tallest card the page has measured is 400 px.
-            assert!(
-                h - 150.0 >= 400.0,
-                "{edge}: {h} px leaves the card too little room"
-            );
-        }
-        for edge in ["left", "right"] {
-            assert_eq!(notch_window_size(edge), (NOTCH_W, super::NOTCH_LONG));
-        }
-    }
-
     /// `fitZoom` treats a window wider than the page's design width as a DPI disagreement and zooms
     /// the layout to close the gap, so a design width left behind when the window is widened zooms
     /// the whole notch instead — and `placeCard`, which writes unzoomed styles from zoomed rects,
@@ -2305,21 +2416,6 @@ mod tests {
             },
             &old
         ));
-    }
-
-    /// The pill sits in the middle of the window, so half of it, a fillet and the settings orb's reach
-    /// all have to fit between the centre and each end.
-    #[test]
-    fn an_upright_notch_has_room_for_five_rings_and_the_orb() {
-        // 5 cells (44 px ring + 6 px gap + 21 px percentage) + 4 × 14 px gaps + 36 px padding
-        let pill = 5.0 * (44.0 + 6.0 + 21.0) + 4.0 * 14.0 + 36.0;
-        for edge in ["left", "right"] {
-            let (_, h) = notch_window_size(edge);
-            assert!(
-                h / 2.0 >= pill / 2.0 + 38.7 + 28.5,
-                "{edge}: {h} px leaves no room for the orb"
-            );
-        }
     }
 
     /// Real values from the run.log in #106: a 2560×1600 display at 150 %.

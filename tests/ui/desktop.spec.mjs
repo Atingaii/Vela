@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 async function bridge(page,{deny=false,accounts=false}={}){
  await page.addInitScript(({deny,accounts})=>{
   let library={providers:[],mcp:[],skills:[]},enabled=[],prefs={attention:false,done:false};
-  let slots=null,phoneEnabled=false,pairing=false,devices=[];
+  let slots=null,disabled=[],phoneEnabled=false,pairing=false,devices=[];
   let appearance={reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,folds_for_fullscreen:true,weekly_dashed:false,custom_scale:null,watch:.5,critical:.7};
   const listeners={};window.emitFixture=(name,payload)=>listeners[name]?.forEach(cb=>cb({payload}));
   window.calls=[];
@@ -13,6 +13,14 @@ async function bridge(page,{deny=false,accounts=false}={}){
    if(cmd==='get_library')return library;
    if(cmd==='get_notch_slots')return slots;
    if(cmd==='set_notch_slots'){slots=args.slots;return;}
+   if(cmd==='get_disabled_providers')return disabled;
+   if(cmd==='set_provider_enabled'){
+    if(deny)throw new Error('无法保存账户设置');
+    slots??=['claude','codex'].filter(id=>!disabled.includes(id)).map(provider=>({provider}));
+    if(args.value){disabled=disabled.filter(id=>id!==args.id);if(!slots.some(s=>s.provider===args.id))slots.push({provider:args.id});}
+    else{disabled=[...new Set([...disabled,args.id])];slots=slots.filter(s=>s.provider!==args.id);}
+    return;
+   }
    if(cmd==='get_tray_options'&&accounts)return [{id:'claude',label:'Claude',status:'ok'},{id:'codex',label:'Codex',status:'ok'}];
    if(cmd==='get_phone_link')return {enabled:phoneEnabled,port:8788,hosts:['192.168.1.2'],devices,link:args.pairing&&pairing?'codenotch://pair?v=3&h=192.168.1.2&p=8788&c=fixture':null,qr:args.pairing&&pairing?'<svg xmlns="http://www.w3.org/2000/svg"/>':null};
    if(cmd==='set_phone_link'){phoneEnabled=args.enabled;return;}
@@ -74,8 +82,17 @@ test('账户排序被保留，关闭最后一个账户不会重新显示全部',
  await expect(page.locator('#acc-on [data-account]').first()).toHaveAttribute('data-account','codex');
  expect(await page.evaluate(()=>calls.filter(c=>c.cmd==='set_notch_slots').at(-1).args.slots)).toEqual([{provider:'codex'},{provider:'claude'}]);
  await page.locator('[data-np="claude"]').click();await page.locator('[data-np="codex"]').click();await expect(page.locator('#acc-on [data-account]')).toHaveCount(0);
- expect(await page.evaluate(()=>calls.filter(c=>c.cmd==='set_notch_slots').at(-1).args.slots)).toEqual([]);
+ expect(await page.evaluate(()=>calls.filter(c=>c.cmd==='set_provider_enabled').map(c=>c.args))).toEqual([{id:'claude',value:false},{id:'codex',value:false}]);
  await page.locator('[data-np="claude"]').click();await expect(page.locator('#acc-on [data-account]')).toHaveCount(1);
+});
+test('账户连接保存失败不改变连接状态，静音使用行内按钮',async({page})=>{
+ await bridge(page,{accounts:true,deny:true});await page.goto('/settings.html');
+ await expect(page.locator('[data-account="claude"] [role="switch"]')).toHaveCount(1);
+ await expect(page.locator('[data-account="claude"] [data-mute]')).toBeVisible();
+ await page.locator('[data-np="claude"]').click();
+ await expect(page.locator('#strip')).toContainText('无法保存账户设置');
+ await expect(page.locator('[data-np="claude"]')).toHaveAttribute('aria-checked','true');
+ await expect(page.locator('#acc-on [data-account]')).toHaveCount(2);
 });
 test('手机配对仅由明确操作开启，关闭窗口撤销配对码',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));await bridge(page);await page.goto('/settings.html');await page.locator('#tab-phone').click();
@@ -268,4 +285,105 @@ test('Antigravity 等待原因、完成脉冲和会话优先级保持原版语�
  await expect(page.locator('.s-row').nth(1)).toContainText('Busy fixture');
  await expect(page.locator('.arc-pulse circle')).toHaveAttribute('stroke','#F2FF00');
  await page.evaluate(()=>emitFixture('activity',[]));await expect(page.locator('.arc-pulse')).toHaveCount(0);
+});
+
+test('账户子页折叠持久化，Phone 保持顶层，键盘跳过隐藏子页',async({page})=>{
+ await bridge(page);await page.goto('/settings.html');await page.locator('#accounts-disclosure').click();
+ await expect(page.locator('#provider-tabs')).toBeHidden();await expect(page.locator('#tab-phone')).toBeVisible();
+ await page.locator('#tab-accounts').focus();await page.keyboard.press('ArrowDown');await expect(page.locator('#tab-phone')).toBeFocused();
+ await page.reload();await expect(page.locator('#provider-tabs')).toBeHidden();
+ await page.locator('#accounts-disclosure').click();await page.locator('#tab-ollama').click();await expect(page.locator('#pane-ollama')).toBeVisible();
+ await page.locator('#accounts-disclosure').click();await expect(page.locator('#tab-accounts')).toHaveAttribute('aria-selected','true');
+});
+
+test('六账户报告真实尺寸，窗口扩展后完整绘制弧线',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await bridge(page);
+ await page.addInitScript(()=>{
+  const invoke=window.__TAURI__.core.invoke;
+  window.__TAURI__.core.invoke=async(cmd,args)=>{
+   if(['get_usage','get_codex','get_cursor','get_grok','get_glm','get_antigravity'].includes(cmd))return {status:'ok',windows:[],fetched_at:Date.now(),note:'Waiting for first reading…'};
+   if(cmd==='get_activity'||cmd==='get_providers')return [];
+   if(cmd==='get_state')return {sessions:[],agg:'idle',lang_resolved:'en'};
+   return invoke(cmd,args);
+  };
+ });
+ await page.setViewportSize({width:360,height:650});await page.goto('/notch.html');await expect(page.locator('.cell')).toHaveCount(6);
+ await expect.poll(()=>page.evaluate(()=>calls.filter(c=>c.cmd==='set_notch_content').at(-1)?.args.content.count)).toBe(6);
+ const content=await page.evaluate(()=>calls.filter(c=>c.cmd==='set_notch_content').at(-1).args.content);
+ expect(content.cell_extent).toBeGreaterThan(70);expect(content.card_height).toBeGreaterThan(40);
+ await page.setViewportSize({width:334,height:900});
+ await page.evaluate(()=>emitFixture('notch_layout',{edge:'right',width:334.324786,height:900,spacing:20,depth:69.948718,scale:1}));
+ await expect(page.locator('#pill')).toHaveCSS('gap','20px');
+ const shape=await page.locator('.notch-surface').boundingBox();
+ expect(shape.y).toBeGreaterThan(28);expect(shape.y+shape.height).toBeLessThan(872);
+ await expect(page.locator('.notch-surface path')).toHaveAttribute('d',/^M .* A /);
+ expect(errors).toEqual([]);
+});
+
+test('四个边缘使用同一轮廓收缩，快速唤醒及减少动态效果不残留长条',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await bridge(page);
+ await page.addInitScript(()=>{
+  const invoke=window.__TAURI__.core.invoke;
+  window.__TAURI__.core.invoke=async(cmd,args)=>{
+   if(cmd==='get_notch_slots')return [{provider:'claude'},{provider:'codex'}];
+   if(['get_usage','get_codex'].includes(cmd))return {status:'ok',windows:[{id:cmd==='get_usage'?'session':'primary',label:'Session',used:.38}],fetched_at:Date.now()};
+   if(cmd==='get_activity'||cmd==='get_providers')return [];
+   if(cmd==='get_state')return {sessions:[],agg:'idle',lang_resolved:'en'};
+   return invoke(cmd,args);
+  };
+ });
+ await page.goto('/notch.html');await expect(page.locator('.cell')).toHaveCount(2);
+ for(const edge of ['left','right','top','bottom']){
+  const vertical=['left','right'].includes(edge),width=vertical?334:650,height=vertical?650:334;
+  await page.setViewportSize({width,height});
+  await page.evaluate(({edge,width,height})=>{
+   emitFixture('notch_edge',edge);
+   emitFixture('notch_layout',{edge,width,height,spacing:31.4017,depth:['left','right'].includes(edge)?69.9487:97.0649,scale:1});
+   emitFixture('notch_pointer',false);emitFixture('ui_flags',{notch_on_hover:true,fullscreen:true});
+  },{edge,width,height});
+  const surface=page.locator('.notch-surface');
+  await expect.poll(async()=>{const b=await surface.boundingBox();return Math.abs((vertical?b.width:b.height)-26*44/117);}).toBeLessThan(.02);
+  const folded=await surface.boundingBox();
+  expect(Math.abs((vertical?folded.height:folded.width)-210*44/117)).toBeLessThan(.1);
+  await expect(surface.locator('path')).toHaveAttribute('d',/A 4\.888/);
+  // Retarget the spring before its first expansion completes.
+  await page.evaluate(()=>{emitFixture('notch_pointer',true);emitFixture('notch_pointer',false);emitFixture('notch_pointer',true);});
+  await expect.poll(async()=>{const b=await surface.boundingBox();return vertical?b.width:b.height;}).toBeGreaterThan(65);
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.evaluate(()=>{emitFixture('notch_pointer',false);emitFixture('ui_flags',{notch_on_hover:true,fullscreen:true});});
+  await expect.poll(async()=>{const b=await surface.boundingBox();return Math.abs((vertical?b.width:b.height)-26*44/117);}).toBeLessThan(.02);
+  await page.evaluate(()=>emitFixture('notch_pointer',true));
+  const expanded=await surface.boundingBox();
+  expect(expanded.x).toBeGreaterThanOrEqual(-.1);expect(expanded.y).toBeGreaterThanOrEqual(-.1);
+  expect(expanded.x+expanded.width).toBeLessThan(width+.1);expect(expanded.y+expanded.height).toBeLessThan(height+.1);
+  await page.emulateMedia({reducedMotion:'no-preference'});
+ }
+ expect(errors).toEqual([]);
+});
+
+test('原版十一种强调色可保存，圆环与详情共同响应颜色变化',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await bridge(page);
+ await page.goto('/settings.html');await page.locator('#tab-appearance').click();
+ await expect(page.locator('[data-accent]')).toHaveCount(11);
+ await page.locator('[data-accent="ff33e1"]').click();
+ await expect(page.locator('[data-accent="ff33e1"]')).toHaveAttribute('aria-pressed','true');
+ expect(await page.evaluate(()=>calls.filter(c=>c.cmd==='set_appearance').at(-1).args.prefs.accent_color)).toBe('ff33e1');
+ expect(await page.evaluate(()=>document.documentElement.style.getPropertyValue('--accent'))).toBe('#ff33e1');
+ await page.addInitScript(()=>{
+  const invoke=window.__TAURI__.core.invoke;
+  window.__TAURI__.core.invoke=async(cmd,args)=>{
+   if(cmd==='get_notch_slots')return [{provider:'claude'}];
+   if(cmd==='get_usage')return {status:'ok',windows:[{id:'session',label:'Session',used:.2}],fetched_at:Date.now()};
+   if(cmd==='get_system_look')return {accent:['#123abc','#123abc','#123abc','#123abc','#123abc','#123abc','#123abc']};
+   if(cmd==='get_activity'||cmd==='get_providers')return [];
+   if(cmd==='get_state')return {sessions:[],agg:'idle',lang_resolved:'en'};
+   return invoke(cmd,args);
+  };
+ });
+ await page.goto('/notch.html');
+ await expect(page.locator('.reading circle')).toHaveAttribute('stroke','#123abc');
+ await page.evaluate(()=>emitFixture('appearance',{accent_color:'ff33e1'}));
+ await expect(page.locator('.reading circle')).toHaveAttribute('stroke','#ff33e1');
+ await page.locator('.cell').hover();await expect(page.locator('.w-fill')).toHaveCSS('background-color','rgb(255, 51, 225)');
+ expect(errors).toEqual([]);
 });

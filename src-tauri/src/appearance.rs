@@ -5,6 +5,8 @@ use tauri::{AppHandle, Emitter, Manager};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Preferences {
+    pub accent_color: String,
+    pub app_presence: String,
     pub reset_time: String,
     pub show_codex_extra: bool,
     pub show_usage_pace: bool,
@@ -18,6 +20,8 @@ pub struct Preferences {
 impl Default for Preferences {
     fn default() -> Self {
         Self {
+            accent_color: "system".into(),
+            app_presence: "dock".into(),
             reset_time: "automatic".into(),
             show_codex_extra: true,
             show_usage_pace: false,
@@ -32,7 +36,13 @@ impl Default for Preferences {
 }
 impl Preferences {
     fn validate(&self) -> Result<(), String> {
-        if !matches!(self.reset_time.as_str(), "automatic" | "remaining")
+        if ![
+            "system", "ff33e1", "eb4236", "eb8436", "ffd400", "00ff88", "00e5cc", "36a8eb",
+            "6c5ce7", "b026ff", "f7f6f5",
+        ]
+        .contains(&self.accent_color.as_str())
+            || !matches!(self.app_presence.as_str(), "dock" | "menuBar" | "hidden")
+            || !matches!(self.reset_time.as_str(), "automatic" | "remaining")
             || !self.watch.is_finite()
             || !self.critical.is_finite()
             || self.watch < 0.01
@@ -72,12 +82,40 @@ pub fn set_appearance(app: AppHandle, prefs: Preferences) -> Result<Preferences,
     *cfg = next;
     drop(cfg);
     crate::place_notch(&app);
+    crate::settings_window::apply_presence(&app);
     let _ = app.emit("appearance", &prefs);
     Ok(prefs)
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_the_pinned_accent_palette_can_be_saved() {
+        let mut p = Preferences::default();
+        assert_eq!(p.accent_color, "system");
+        for color in [
+            "system", "ff33e1", "eb4236", "eb8436", "ffd400", "00ff88", "00e5cc", "36a8eb",
+            "6c5ce7", "b026ff", "f7f6f5",
+        ] {
+            p.accent_color = color.into();
+            assert!(p.validate().is_ok());
+        }
+        for color in ["ffffff", "#ff33e1", "red;display:none"] {
+            p.accent_color = color.into();
+            assert!(p.validate().is_err());
+        }
+    }
+    #[test]
+    fn app_presence_defaults_to_dock_and_rejects_unknown_modes() {
+        let mut p: Preferences = serde_json::from_str("{}").unwrap();
+        assert_eq!(p.app_presence, "dock");
+        for mode in ["dock", "menuBar", "hidden"] {
+            p.app_presence = mode.into();
+            assert!(p.validate().is_ok());
+        }
+        p.app_presence = "typo".into();
+        assert!(p.validate().is_err());
+    }
     #[test]
     fn custom_size_survives_and_invalid_thresholds_are_refused() {
         let mut p = Preferences {

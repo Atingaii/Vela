@@ -245,7 +245,9 @@ impl Default for Config {
 }
 
 pub fn config_path() -> PathBuf {
-    if let Some(root) = crate::smoke::root() { return root.join("config.json"); }
+    if let Some(root) = crate::smoke::root() {
+        return root.join("config.json");
+    }
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("vela")
@@ -260,6 +262,8 @@ pub fn load() -> Config {
         .and_then(|t| serde_json::from_str(t).ok())
         .unwrap_or_default();
     keep_open_on_upgrade(&mut cfg, raw.as_deref());
+    #[cfg(target_os = "macos")]
+    preserve_app_presence(&mut cfg, raw.as_deref());
 
     // Migration: before slots existed the notch was a plain provider list, one ring each. That is
     // exactly a list of slots, so nobody's choice is lost and nobody has to reconfigure anything.
@@ -286,6 +290,21 @@ pub fn load() -> Config {
     cfg.scale = snap_scale(cfg.scale);
     cfg.weekly_ring = weekly_ring_or_off(&cfg.weekly_ring);
     cfg
+}
+
+/// Existing macOS builds were accessory apps with an optional status item. Preserve an explicit
+/// old choice, while a fresh install uses Swift's Dock default.
+#[cfg(any(target_os = "macos", test))]
+fn preserve_app_presence(cfg: &mut Config, raw: Option<&str>) {
+    let Some(saved) = raw.and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()) else {
+        return;
+    };
+    if saved.pointer("/appearance/app_presence").is_some() {
+        return;
+    }
+    if let Some(tray) = saved.get("tray_visible").and_then(|v| v.as_bool()) {
+        cfg.appearance.app_presence = if tray { "menuBar" } else { "hidden" }.into();
+    }
 }
 
 fn migrate_glm_notch(cfg: &mut Config, raw: &Option<String>) {
@@ -326,6 +345,23 @@ pub fn save(cfg: &Config) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn existing_icon_choices_survive_the_swift_presence_migration() {
+        let mut cfg = super::Config::default();
+        super::preserve_app_presence(&mut cfg, None);
+        assert_eq!(cfg.appearance.app_presence, "dock");
+        super::preserve_app_presence(&mut cfg, Some(r#"{"tray_visible":true}"#));
+        assert_eq!(cfg.appearance.app_presence, "menuBar");
+        super::preserve_app_presence(&mut cfg, Some(r#"{"tray_visible":false}"#));
+        assert_eq!(cfg.appearance.app_presence, "hidden");
+        cfg.appearance.app_presence = "dock".into();
+        super::preserve_app_presence(
+            &mut cfg,
+            Some(r#"{"tray_visible":false,"appearance":{"app_presence":"dock"}}"#),
+        );
+        assert_eq!(cfg.appearance.app_presence, "dock");
+    }
+
     use super::{
         carry_shared_position, keep_open_on_upgrade, snap_scale, weekly_ring_or_off, Config,
     };

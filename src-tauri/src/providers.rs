@@ -217,7 +217,9 @@ pub fn get_providers(app: AppHandle) -> Vec<Reading> {
     result
 }
 fn profile_list() -> Vec<profiles::Profile> {
-    if crate::smoke::root().is_some() { return Vec::new(); }
+    if crate::smoke::root().is_some() {
+        return Vec::new();
+    }
     profiles::discover(&dirs::home_dir().unwrap_or_default())
 }
 pub fn publish_profile(app: &AppHandle, id: &str, snap: UsageSnapshot) {
@@ -242,20 +244,15 @@ pub fn set_provider_enabled(app: AppHandle, id: String, value: bool) -> Result<(
     {
         return Err("未知供应商".into());
     }
+    let available: Vec<String> = crate::get_tray_options(app.clone())
+        .into_iter()
+        .map(|p| p.id)
+        .collect();
     {
         let state = app.state::<crate::AppState>();
         let mut cfg = state.cfg.lock().unwrap();
         let mut next = cfg.clone();
-        if let Some(key) = id.strip_prefix("custom-endpoint-") {
-            if let Some(e) = next.custom_endpoints.iter_mut().find(|e| e.id == key) {
-                e.enabled = value;
-            }
-        }
-        if value {
-            next.providers.disabled.remove(&id);
-        } else {
-            next.providers.disabled.insert(id.clone());
-        }
+        set_connection(&mut next, &available, &id, value);
         crate::config::save_checked(&next)?;
         *cfg = next;
     }
@@ -272,7 +269,40 @@ pub fn set_provider_enabled(app: AppHandle, id: String, value: bool) -> Result<(
         .disabled
         .clone();
     let _ = app.emit("disabled_providers", disabled);
+    let _ = app.emit("notch_slots", crate::get_notch_slots(app.clone()));
     Ok(())
+}
+
+/// Swift's account switch changes collection and ring membership together. Persist this as one
+/// transaction so a failed write cannot leave a hidden account collecting in the background.
+fn set_connection(cfg: &mut crate::config::Config, available: &[String], id: &str, value: bool) {
+    if !cfg.notch_selection_explicit && cfg.notch_slots.is_empty() {
+        cfg.notch_slots = available
+            .iter()
+            .filter(|id| !cfg.providers.disabled.contains(*id))
+            .map(|id| crate::config::TraySlot {
+                provider: id.clone(),
+            })
+            .collect();
+    }
+    cfg.notch_selection_explicit = true;
+    cfg.notch_slots.retain(|s| s.provider != id || value);
+    if value && !cfg.notch_slots.iter().any(|s| s.provider == id) {
+        cfg.notch_slots.push(crate::config::TraySlot {
+            provider: id.into(),
+        });
+    }
+    cfg.notch_providers = cfg.notch_slots.iter().map(|s| s.provider.clone()).collect();
+    if let Some(key) = id.strip_prefix("custom-endpoint-") {
+        if let Some(e) = cfg.custom_endpoints.iter_mut().find(|e| e.id == key) {
+            e.enabled = value;
+        }
+    }
+    if value {
+        cfg.providers.disabled.remove(id);
+    } else {
+        cfg.providers.disabled.insert(id.into());
+    }
 }
 #[tauri::command]
 pub fn get_disabled_providers(app: AppHandle) -> BTreeSet<String> {
@@ -480,6 +510,22 @@ fn failure(mut old: UsageSnapshot, e: Failure, now: u64) -> UsageSnapshot {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn account_connection_preserves_order_and_an_explicit_empty_selection() {
+        let mut cfg = crate::config::Config::default();
+        let ids = vec!["claude".into(), "codex".into()];
+        super::set_connection(&mut cfg, &ids, "claude", false);
+        assert!(cfg.providers.disabled.contains("claude"));
+        assert_eq!(cfg.notch_providers, ["codex"]);
+        super::set_connection(&mut cfg, &ids, "codex", false);
+        assert!(cfg.notch_selection_explicit && cfg.notch_slots.is_empty());
+        super::set_connection(&mut cfg, &ids, "claude", true);
+        assert_eq!(cfg.notch_providers, ["claude"]);
+        assert!(!cfg.providers.disabled.contains("claude"));
+        assert!(cfg.providers.disabled.contains("codex"));
+        super::set_connection(&mut cfg, &ids, "claude", true);
+        assert_eq!(cfg.notch_providers, ["claude"]);
+    }
     use super::*;
     #[test]
     fn failure_does_not_invent_or_erase_usage() {

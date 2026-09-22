@@ -64,7 +64,7 @@
   .glyph img.appicon{width:calc(30px * var(--k));height:calc(30px * var(--k));border-radius:calc(8px * var(--k));object-fit:cover}
   .c-head .mark{display:inline-block;width:16px;height:16px;color:#e8e8ea;margin-right:2px}
   .c-head .mark svg{width:16px;height:16px;fill:currentColor}
-  .pct{font-size:14.5px;line-height:18px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums}
+  .pct{font-size:14.221073px;line-height:17px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums}
   .dim{opacity:.55}
   /* A stale reading dims the reading only. The track, the week and the glyph are all saying the same
      old thing, but whether an agent is running right now is current either way, so the activity arc
@@ -82,7 +82,7 @@
   @media (prefers-reduced-motion: reduce){.arc-spin,.arc-pulse{animation:none}.ringwrap{transition:none}}
 
   /* Hover card, shown to the left of the pill */
-  #card{
+  #card,#card-measure{
     position:absolute;left:10px;right:108.6838px;top:50%;transform:translateY(-50%);
     /* Anchored on both sides = fluid width: whatever the WebView's real logical width, the card cannot
        extend past the window's left edge (a fixed max-width got clipped when the DPI disagreed).
@@ -93,6 +93,16 @@
     display:none;
   }
   #card.show{display:block}
+  #card-measure{display:block!important;position:fixed!important;visibility:hidden!important;
+    top:0!important;left:0!important;right:auto!important;transform:none!important;
+    width:225.641025641px!important;max-height:none!important;height:auto!important;overflow:visible!important;
+    margin:0!important;zoom:1!important;pointer-events:none!important}
+  /* The shape is the translated Swift path. It owns both curls and body, with no seams. */
+  #pill{background:transparent!important;border:0!important}
+  #pill::before,#pill::after{display:none}
+  .notch-surface{position:absolute;pointer-events:none;fill:#000;overflow:visible}
+  #pill{isolation:isolate}
+
   /* The tail, its point on the hovered ring: the Mac's curved wedge (TooltipTail), whose shoulders
      leave the card tangent to its edge so the two read as one shape. An element of its own rather
      than ::after, so the card's overflow cannot clip it and it can be reported as hot. It spans the
@@ -156,7 +166,7 @@
      than a fixed 70 px column. The card is centred under (or over) the hovered ring by `placeCard`. */
   body[data-edge="top"] #pill,body[data-edge="bottom"] #pill{
     right:auto;left:50%;top:auto;transform:translateX(-50%);
-    flex-direction:row;width:auto;height:auto;padding:12.9744px 26.1368px;
+    flex-direction:row;width:auto;height:auto;padding:12.9744px 22.4889px;
   }
   body[data-edge="top"] #pill::before,body[data-edge="top"] #pill::after,
   body[data-edge="bottom"] #pill::before,body[data-edge="bottom"] #pill::after{right:auto;top:auto;bottom:auto}
@@ -175,6 +185,13 @@
   body[data-edge="top"] #tail,body[data-edge="bottom"] #tail{right:auto;width:36px;height:32px}
   body[data-edge="top"] #tail{clip-path:path('M0 28.2051C8.18 28.2051 12.43 11.85 16.359 0C20.29 11.85 24.54 28.2051 32.7179 28.2051Z')}
   body[data-edge="bottom"] #tail{clip-path:path('M0 0C8.18 0 12.43 16.36 16.359 28.2051C20.29 16.36 24.54 0 32.7179 0Z')}
+
+  #card{left:auto;right:var(--card-seam,108.6838px);width:225.641025641px;margin:0;max-height:none}
+  body[data-edge="left"] #card{left:var(--card-seam,108.6838px);right:auto}
+  #tail{right:calc(var(--card-seam,108.6838px) - 28.205128205px)}
+  body[data-edge="left"] #tail{left:calc(var(--card-seam,108.6838px) - 28.205128205px);right:auto}
+  body[data-edge="top"] #card,body[data-edge="bottom"] #card{right:auto;max-height:none}
+  body[data-edge="top"] #tail,body[data-edge="bottom"] #tail{width:32.717948718px;height:28.205128205px}
 
   /* Show on hover, the Mac's .onHover: folded, the notch rests as a small pill at the edge. Its size is
      the Mac's NotchLayout.pillWidth × pillHeight, 26 × 210 of its design px — 10 × 79 of this page's,
@@ -198,9 +215,11 @@
   body[data-edge="top"] #rest,body[data-edge="bottom"] #rest{right:auto;left:50%;top:auto;translate:-50% 0;width:79px;height:10px;border:1px solid #2e2e2e}
   body[data-edge="top"] #rest{top:0;border-top:none;border-radius:0 0 6px 6px}
   body[data-edge="bottom"] #rest{bottom:0;border-bottom:none;border-radius:6px 6px 0 0}
+  #rest{background:transparent!important;border:0!important;width:9.777778px;height:78.974359px}
+  body[data-edge="top"] #rest,body[data-edge="bottom"] #rest{width:78.974359px;height:9.777778px}
   /* The rings leave by fading and sliding a little toward the edge, one after another — the Mac's
      NotchMotion.stagger, 28 of its design px (10 here), and no scaling: the clip does the concealing */
-  .cell{transition:opacity .18s ease calc(var(--i,0) * 28ms),translate .3s cubic-bezier(.32,.72,.24,1) calc(var(--i,0) * 28ms)}
+  .cell{transition:opacity .18s ease min(calc(var(--i,0) * 45ms),180ms),translate .3s cubic-bezier(.32,.72,.24,1) min(calc(var(--i,0) * 45ms),180ms)}
   body.folded .cell{opacity:0;translate:10px 0}
   body.folded[data-edge="left"] .cell{translate:-10px 0}
   body.folded[data-edge="top"] .cell{translate:0 -10px}
@@ -239,6 +258,7 @@
 </head>
 <body>
 <div id="root">
+  <svg class="notch-surface" aria-hidden="true"><path/></svg>
   <div id="card"></div>
   <div id="tail"></div>
   <div id="move" class="handle">
@@ -260,8 +280,8 @@
     <div class="h-disc"></div>
     <svg class="h-glyph" viewBox="0 0 12 12" aria-hidden="true"><path fill-rule="evenodd" d="M5.1.6h1.8l.3 1.5 1.1.5 1.3-.8 1.3 1.3-.8 1.3.5 1.1 1.5.3v1.8l-1.5.3-.5 1.1.8 1.3-1.3 1.3-1.3-.8-1.1.5-.3 1.5H5.1l-.3-1.5-1.1-.5-1.3.8-1.3-1.3.8-1.3-.5-1.1L.6 6.9V5.1l1.5-.3.5-1.1-.8-1.3 1.3-1.3 1.3.8 1.1-.5zM6 4.1a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8z"/></svg>
   </div>
-  <div id="pill"></div><!-- one .cell per provider, stacked vertically (upstream: data-driven, the same layout for 1–5 cells) -->
-  <div id="rest"></div><!-- after the pill, so its outline is drawn over the clipped pill -->
+  <div id="pill"></div><!-- The content stack is measured independently of the animated surface. -->
+  <div id="rest"></div><!-- Invisible resting hit-target geometry. The surface above draws its real shape. -->
   <div id="notice"></div>
 </div>
 <script>
@@ -272,8 +292,10 @@ const listen = window.__TAURI__.event.listen;
 const AMPLE='#00FF88', WATCH='#F2FF00', CRIT='#FF3F00';
 // Working stays neutral; waiting and completion pulse with the corresponding Swift palette color.
 const TRACK='#303030', INK='#ffffff', DIM='#808080';
-let appearance={reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,folds_for_fullscreen:true,weekly_dashed:false,watch:.5,critical:.7};
-const tone=f=> f>=appearance.critical?CRIT : f>=appearance.watch?WATCH : AMPLE;
+let appearance={accent_color:'system',reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,folds_for_fullscreen:true,weekly_dashed:false,watch:.5,critical:.7};
+let systemAccent='#007aff';
+const accent=()=>/^[0-9a-f]{6}$/.test(appearance.accent_color||'')?'#'+appearance.accent_color:systemAccent;
+const tone=f=> f>=appearance.critical?CRIT : f>=appearance.watch?WATCH : accent();
 // Whole percents, except where rounding would read as nothing used or nothing left, as the Mac's Percent does
 function smallPct(v){
   if(v<=0) return '0';
@@ -330,6 +352,7 @@ function applyEdge(e){
   // The window changes shape with the edge, and so does the width the zoom correction measures against
   reportDpr();
   // The pill changes shape, so both the hot rectangles and the card's anchor have to be measured again
+  drawNotchShape();
   if(card&&card.classList.contains('show')) placeCard();
   reportHot();
 }
@@ -916,7 +939,7 @@ function glyphHtml(p,small){
   const id=p.base||p.id,base=id.startsWith('claude-')?'claude':id.startsWith('codex-')?'codex':id.startsWith('antigravity-')?'gemini':id;
   const g=glyphs[id]||glyphs[base],scale=Number(g?.scale)||1;
   if(g&&g.kind==='svg'&&g.svg) return `<span class="mark" style="transform:scale(${scale})">${g.svg}</span>`;
-  if(g?.kind==='template' && /^data:image\/(svg\+xml|png);base64,[A-Za-z0-9+/=]+$/.test(g.url)) return `<span class="mark" style="transform:scale(${scale});background:currentColor;mask:url(${g.url}) center/contain no-repeat;-webkit-mask:url(${g.url}) center/contain no-repeat"></span>`;
+  if(g?.kind==='template' && /^data:image\/(svg\+xml|png);base64,[A-Za-z0-9+/=]+$/.test(g.url)) return `<span class="mark" style="transform:scale(${scale});background:currentColor;mask:url(${g.url}) center/contain no-repeat;mask-mode:alpha;-webkit-mask:url(${g.url}) center/contain no-repeat"></span>`;
   if(g&&g.url) return `<img class="${g.kind}" src="${g.url}" alt="${p.name}"${small?' style="width:16px;height:16px;border-radius:4px"':''}>`;
   return small?'':p.glyph; // fallback letter
 }
@@ -1098,6 +1121,8 @@ function renderRing(){
     glyph.classList.toggle('dim', !!(h && h.used>=1));
     wrap.classList.toggle('stale', staleOf(p.snap));
   }
+  drawNotchShape();
+  queueNotchLayout();
   reportHot(); // a provider appearing or leaving resizes the pill
 }
 
@@ -1180,7 +1205,7 @@ function renderUsageAlert(alert){
  const subtitle=textCopy(alert.label)+(zh?(reset?'额度已恢复':'额度已耗尽'):(reset?' limit refreshed':' limit is spent'));
  const status=reset?'Quota is available (0% used)':weekly?'Weekly limit reached (100% used)':'Session limit reached (100% used)';
  const next=alert.resets_at?`<div class="alert-reset">${esc(alertText(reset?'Next reset':'Resets at'))} ${esc(new Date(alert.resets_at).toLocaleTimeString(uiLang,{hour:'numeric',minute:'2-digit',hour12:!stateSnap.clock_24h}))}</div>`:'';
- card.innerHTML=`<div class="c-head">${glyphHtml(p,true)}<div class="alert-heading"><div class="alert-title-row"><span class="c-title">${esc(title)}</span><button class="alert-dismiss" aria-label="${esc(alertText('Close'))}">×</button></div><div class="alert-subtitle">${esc(subtitle)}</div></div></div><div class="alert-status" role="status" style="color:${reset?AMPLE:CRIT}"><span class="alert-dot"></span>${esc(alertText(status))}</div>${next}`;
+ card.innerHTML=`<div class="c-head">${glyphHtml(p,true)}<div class="alert-heading"><div class="alert-title-row"><span class="c-title">${esc(title)}</span><button class="alert-dismiss" aria-label="${esc(alertText('Close'))}">×</button></div><div class="alert-subtitle">${esc(subtitle)}</div></div></div><div class="alert-status" role="status" style="color:${reset?accent():CRIT}"><span class="alert-dot"></span>${esc(alertText(status))}</div>${next}`;
  card.querySelector('.alert-dismiss').onclick=e=>{e.stopPropagation();notchAlert=null;card.classList.remove('usage-alert');hideCard();};
  placeCard();
 }
@@ -1190,6 +1215,12 @@ function renderCard(){
   if(notchAlert){renderUsageAlert(notchAlert);return;}
   const p=providers().find(x=>x.id===hoverId)||providers()[0];
   if(!p)return;
+  c.innerHTML=cardHtml(p);
+  const signIn=c.querySelector('#claude-sign-in');
+  if(signIn) signIn.onclick=e=>{e.stopPropagation();signInClaude();};
+  placeCard();
+}
+function cardHtml(p){
   const snap=p.snap;
   const headIcon=glyphHtml(p,true);
   // p.name is no longer a constant: for a second account it is built from the home
@@ -1253,40 +1284,38 @@ function renderCard(){
       html+=moreRow(acts.length-SESSION_ROWS)+`</div>`;
     }
   }
-  c.innerHTML=html;
-  const signIn=c.querySelector('#claude-sign-in');
-  if(signIn) signIn.onclick=e=>{e.stopPropagation();signInClaude();};
-  placeCard();
+  return html;
 }
 // The card follows the hovered cell: centred on it along the pill (kept inside the window), tail pointing at it.
 // On the upright edges that means matching its vertical centre; on the flat ones, its horizontal centre,
 // and the card is pushed clear of a pill whose thickness follows the cells it holds.
 function placeCard(){
   const cell=pill.querySelector(`.cell[data-p="${hoverId}"]`)||pill;
-  const cr=cell.getBoundingClientRect();
-  // The point sits on the ring, not the cell, which includes the label below it
   const rr=(cell.querySelector('.ringwrap')||cell).getBoundingClientRect();
+  const z=parseFloat(document.documentElement.style.zoom)||1;
+  const scale=nativeLayout?.scale||1;
+  const cr=card.getBoundingClientRect(),tr=tail.getBoundingClientRect();
+  const cw=cr.width/z,ch=cr.height/z,tw=tr.width/z,th=tr.height/z;
+  const W=innerWidth/z,H=innerHeight/z;
+  const clamp=(v,start,end)=>Math.max(start,Math.min(v,Math.max(start,end)));
   card.style.transform='none';
   if(edgeIsVertical()){
-    const cy=cr.top+cr.height/2;
-    const H=innerHeight, ch=card.offsetHeight||0;
-    let top=Math.round(cy-ch/2); top=Math.max(8+insets[0],Math.min(top,H-insets[2]-ch-8));
-    card.style.top=top+'px'; card.style.left='';
-    const ry=rr.top+rr.height/2;
-    const th=tail.offsetHeight||36, ty=Math.max(top+16+th/2,Math.min(top+ch-16-th/2,ry));
-    tail.style.top=Math.round(ty-th/2)+'px'; tail.style.left='';
+    const ry=(rr.top+rr.height/2)/z;
+    const top=clamp(ry-ch/2,insets[0],H-insets[2]-ch);
+    card.style.top=(top*scale)+'px';card.style.left='';
+    tail.style.top=((clamp(ry,top+16/scale+th/2,top+ch-16/scale-th/2)-th/2)*scale)+'px';tail.style.left='';
   }else{
-    const pr=pill.getBoundingClientRect();
-    const cx=cr.left+cr.width/2;
-    const W=innerWidth, cw=card.offsetWidth||0, ch=card.offsetHeight||0;
-    let left=Math.round(cx-cw/2); left=Math.max(8+insets[3],Math.min(left,W-insets[1]-cw-8));
-    card.style.left=left+'px';
-    const rx=rr.left+rr.width/2;
-    const tw=tail.offsetWidth||36, tx=Math.max(left+16+tw/2,Math.min(left+cw-16-tw/2,rx));
-    tail.style.left=Math.round(tx-tw/2)+'px';
-    // 30 px of clear gap, the same the upright edges leave, with the tail spanning it 1 px under the pill
-    if(notchEdge==='top'){ card.style.top=Math.round(pr.bottom+38.7350)+'px'; tail.style.top=Math.round(pr.bottom+10.5299)+'px'; }
-    else{ card.style.top=Math.round(pr.top-38.7350-ch)+'px'; tail.style.top=Math.round(pr.top-38.7350)+'px'; }
+    const pr=pill.getBoundingClientRect(),rx=(rr.left+rr.width/2)/z;
+    const left=clamp(rx-cw/2,insets[3],W-insets[1]-cw);
+    card.style.left=(left*scale)+'px';
+    tail.style.left=((clamp(rx,left+16/scale+tw/2,left+cw-16/scale-tw/2)-tw/2)*scale)+'px';
+    if(notchEdge==='top'){
+      card.style.top=(pr.bottom/z*scale+38.735042735)+'px';
+      tail.style.top=(pr.bottom/z*scale+10.52991453)+'px';
+    }else{
+      card.style.top=((pr.top/z-ch)*scale-38.735042735)+'px';
+      tail.style.top=(pr.top/z*scale-38.735042735)+'px';
+    }
   }
 }
 
@@ -1325,7 +1354,7 @@ function reportHot(){
 /* What wakes the folded notch: the resting pill, as long along the edge as the pill and deepened into
    the screen by the Mac's pillHotZone — Design.px(90), 34 here — because the pill is small and the
    place that opens it should not be (NotchViewModel.wakeLength and wakeDepth). */
-const WAKE_BAND=34;
+const WAKE_BAND=90*44/117;
 function wakeRect(){
   const r=document.getElementById('rest').getBoundingClientRect(), k=window.devicePixelRatio||1;
   const b=WAKE_BAND*(parseFloat(document.documentElement.style.zoom)||1); // rects come back zoomed
@@ -1336,6 +1365,76 @@ function wakeRect(){
 function armWatchdog(){
   requestAnimationFrame(reportHot); // wait one frame so renderCard's new content is laid out before measuring
 }
+// Swift NotchViewModel layout bridge. Measure every present card at its unscaled width;
+// neither provider count nor a status line's height is a constant. No collector is run here.
+let nativeLayout=null,layoutFrame=0,lastContent='';
+function queueNotchLayout(){
+  if(layoutFrame)return;
+  layoutFrame=requestAnimationFrame(()=>{
+    layoutFrame=0;
+    const ps=providers(),cell=pill.querySelector('.cell');
+    const cellExtent=cell?cell.offsetHeight:71.1162;
+    const probe=document.createElement('div');probe.id='card-measure';document.body.append(probe);
+    let cardHeight=0;
+    for(const p of ps){probe.innerHTML=cardHtml(p);cardHeight=Math.max(cardHeight,probe.scrollHeight);}
+    probe.remove();
+    const content={count:ps.length,cell_extent:cellExtent,card_height:cardHeight};
+    const key=JSON.stringify(content);if(key===lastContent)return;
+    lastContent=key;
+    callq('set_notch_content',{content}).catch(()=>{lastContent='';});
+  });
+}
+function acceptNotchLayout(layout){
+  if(!layout||!Number.isFinite(layout.width)||!Number.isFinite(layout.height))return;
+  nativeLayout=layout;
+  pill.style.gap=layout.spacing+'px';
+  // Tooltip text retains its designed size when the notch is resized (NotchViewModel.panelSize).
+  card.style.zoom=String(1/layout.scale);
+  tail.style.zoom=String(1/layout.scale);
+  document.documentElement.style.setProperty('--card-seam',(layout.depth*layout.scale+38.735042735)+'px');
+  fitZoom();drawNotchShape();reportHot();
+  if(card.classList.contains('show'))placeCard();
+}
+listen('notch_layout',e=>acceptNotchLayout(e.payload)).catch(()=>{});
+// NotchMotion.unfold: a damped spring (response .42, dampingFraction .78).
+// Retarget with the existing velocity so a quick leave/re-enter does not restart the movement.
+let foldPosition=1,foldVelocity=0,foldFrame=0,foldTime=0;
+function animateFold(){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){
+    cancelAnimationFrame(foldFrame);foldFrame=0;foldVelocity=0;foldPosition=folded?0:1;drawNotchShape();return;
+  }
+  if(foldFrame)return;
+  foldTime=performance.now();foldFrame=requestAnimationFrame(tickFold);
+}
+function tickFold(now){
+  const target=folded?0:1,dt=Math.min((now-foldTime)/1000,.064),omega=2*Math.PI/.42,zeta=.78;
+  const decay=Math.exp(-zeta*omega*dt),wd=omega*Math.sqrt(1-zeta*zeta),c=Math.cos(wd*dt),s=Math.sin(wd*dt);
+  const error=foldPosition-target,velocity=foldVelocity;
+  foldPosition=target+decay*(error*c+(velocity+zeta*omega*error)/wd*s);
+  foldVelocity=decay*(velocity*c-(zeta*omega*velocity+omega*omega*error)/wd*s);
+  foldTime=now;
+  if(Math.abs(foldPosition-target)<.0001&&Math.abs(foldVelocity)<.005){foldPosition=target;foldVelocity=0;foldFrame=0;}
+  else foldFrame=requestAnimationFrame(tickFold);
+  drawNotchShape();
+}
+// One canonical SideNotchShape path for every size and edge, including the resting pill.
+function drawNotchShape(){
+  const svg=document.querySelector('.notch-surface');if(!svg)return;
+  const vertical=edgeIsVertical(),openDepth=vertical?pill.offsetWidth:pill.offsetHeight;
+  const flare=103*44/117,body=vertical?pill.offsetHeight:pill.offsetWidth;
+  const restDepth=26*44/117,restLength=210*44/117;
+  const depth=Math.max(1,restDepth+(openDepth-restDepth)*foldPosition);
+  const length=Math.max(1,restLength+(body+2*flare-restLength)*foldPosition);
+  const wanted=Math.max(0,Math.min(78.8*44/117,depth/2));
+  const curl=Math.max(0,Math.min(flare,length/2,depth-wanted));
+  const corner=Math.max(0,Math.min(wanted,(length-2*curl)/2));
+  const d=`M ${depth} 0 A ${curl} ${curl} 0 0 1 ${depth-curl} ${curl} L ${corner} ${curl} A ${corner} ${corner} 0 0 0 0 ${curl+corner} L 0 ${length-curl-corner} A ${corner} ${corner} 0 0 0 ${corner} ${length-curl} L ${depth-curl} ${length-curl} A ${curl} ${curl} 0 0 1 ${depth} ${length} Z`;
+  const path=svg.querySelector('path');path.setAttribute('d',d);
+  path.setAttribute('transform',notchEdge==='left'?`matrix(-1 0 0 1 ${depth} 0)`:notchEdge==='top'?`matrix(0 -1 1 0 0 ${depth})`:notchEdge==='bottom'?'matrix(0 1 1 0 0 0)':'');
+  const w=vertical?depth:length,h=vertical?length:depth;
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  Object.assign(svg.style,{width:w+'px',height:h+'px',left:vertical?(notchEdge==='left'?'0':'auto'):'50%',right:notchEdge==='right'?'0':'auto',top:vertical?'50%':notchEdge==='top'?'0':'auto',bottom:notchEdge==='bottom'?'0':'auto',transform:vertical?'translateY(-50%)':'translateX(-50%)'});
+}
 // Viewport fit (pure front-end fallback, independent of Rust): Rust sizes and zooms the window so this
 // page is as wide as the design, so if the CSS viewport is not that wide the WebView's DPR disagrees
 // with the monitor; CSS zoom pulls the layout back to the design size.
@@ -1344,7 +1443,7 @@ function armWatchdog(){
 // flat edge read the wider window as a DPR error and zoomed the whole notch by 520/360. Either number
 // left behind when the window changes width does the same thing, so a test in main.rs pins both.
 const DESIGN_W_UPRIGHT=360, DESIGN_W_FLAT=650;
-function designWidth(){ return edgeIsVertical()?DESIGN_W_UPRIGHT:DESIGN_W_FLAT; }
+function designWidth(){ return nativeLayout?.edge===notchEdge?nativeLayout.width:(edgeIsVertical()?DESIGN_W_UPRIGHT:DESIGN_W_FLAT); }
 function fitZoom(){
   const z=innerWidth/designWidth();
   document.documentElement.style.zoom=(Math.abs(z-1)>0.02)?String(z):'';
@@ -1359,7 +1458,7 @@ function reportDpr(settled){
 // Not measured yet: the width to measure against depends on the edge, and only Rust knows it. The
 // ask is at the bottom of this file and answers in a round trip; measuring first would zoom a flat
 // window by 520/360 for that moment.
-window.addEventListener('resize',()=>{clearTimeout(window._dprT);window._dprT=setTimeout(()=>{reportDpr(true);reportHot();},120);});
+window.addEventListener('resize',()=>{clearTimeout(window._dprT);window._dprT=setTimeout(()=>{reportDpr(true);drawNotchShape();reportHot();if(card.classList.contains('show'))placeCard();},120);});
 matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener('change',()=>reportDpr());
 // A landing on a screen at another scale: empty the page, which leaves the transparent window
 // invisible while it is resized and re-zoomed, and say so once that has painted — hiding the window
@@ -1565,6 +1664,7 @@ function setFolded(f){
   folded=f;
   if(f){ clearTimeout(hideTimer); hideCard(); setHovered(null); }
   document.body.classList.toggle('folded',f);
+  animateFold();
   reportHot();
 }
 function unfold(){ clearTimeout(foldTimer); setFolded(false); }
@@ -1602,6 +1702,7 @@ function takePendingFocus(){
  const id=pendingFocus.id;pendingFocus=null;peekUntil=0;clearTimeout(peekTimer);
  invoke('focus_session',{id}).catch(e=>notice(e));setFolded(true);return true;
 }
+invoke('get_system_look').then(look=>{if(/^#[0-9a-f]{6}$/i.test(look?.accent?.[3]||'')){systemAccent=look.accent[3];renderRing();if(card.classList.contains('show'))renderCard();}}).catch(()=>{});
 function acceptAppearance(prefs){if(prefs){appearance={...appearance,...prefs};scheduleFold(fullscreen);renderRing();if(card.classList.contains('show'))renderCard();}}
 invoke('get_appearance').then(acceptAppearance).catch(()=>{});
 listen('appearance',e=>acceptAppearance(e.payload)).catch(()=>{});
