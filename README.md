@@ -75,15 +75,15 @@ Velo 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工
 
 ### 下载安装包
 
-[官网下载](https://velo.codes/#download) · [预览版发布页](https://github.com/Atingaii/Velo/releases/tag/v0.1.0-preview.3)
+[官网下载](https://velo.codes/#download) · [预览版发布页](https://github.com/Atingaii/Velo/releases/tag/v0.1.0-preview.4)
 
 | 平台 | 安装包 |
 | --- | --- |
-| macOS · Apple Silicon | [Velo-macos-arm64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.3/Velo-macos-arm64.dmg) |
-| macOS · Intel | [Velo-macos-x64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.3/Velo-macos-x64.dmg) |
-| Windows · x64 | [Velo-windows-x64-setup.exe](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.3/Velo-windows-x64-setup.exe) |
+| macOS · Apple Silicon | [Velo-macos-arm64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-macos-arm64.dmg) |
+| macOS · Intel | [Velo-macos-x64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-macos-x64.dmg) |
+| Windows · x64 | [Velo-windows-x64-setup.exe](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-windows-x64-setup.exe) |
 
-macOS 打开 DMG 并将 Velo 拖入「应用程序」；Windows 运行安装向导。预览版 macOS 使用 ad-hoc 签名、尚未公证，Windows 尚未代码签名，首次打开可能需要系统确认。请先阅读 [安装说明](docs/releases/preview.md)，核对 [SHA-256](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.3/SHA256SUMS.txt)；不需要关闭系统保护。
+macOS 打开 DMG 并将 Velo 拖入「应用程序」；Windows 运行安装向导。预览版 macOS 使用 ad-hoc 签名、尚未公证，Windows 尚未代码签名，首次打开可能需要系统确认。请先阅读 [安装说明](docs/releases/preview.md)，核对 [SHA-256](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/SHA256SUMS.txt)；不需要关闭系统保护。
 
 发布流程在三个系统 runner 上执行安装后原生 WebView、IPC 和辅助程序检查。真实账户与完整系统体验仍需单独验收。自动更新尚未配置，升级请重新下载。
 

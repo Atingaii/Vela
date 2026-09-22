@@ -77,7 +77,7 @@ fn spawn_main() {
         return;
     };
     let Some(dir) = me.parent() else { return };
-    let exe = dir.join(if cfg!(windows) { "vela.exe" } else { "vela" });
+    let exe = main_executable(dir);
     if !exe.exists() {
         return;
     }
@@ -93,6 +93,39 @@ fn spawn_main() {
         cmd.creation_flags(DETACHED_PROCESS | CREATE_NO_WINDOW);
     }
     let _ = cmd.spawn();
+}
+
+fn main_executable(dir: &std::path::Path) -> std::path::PathBuf {
+    dir.join(if cfg!(windows) { "velo.exe" } else { "velo" })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::main_executable;
+
+    #[test]
+    fn launcher_matches_the_packaged_application_binary() {
+        let manifest = include_str!("../../../src-tauri/Cargo.toml");
+        let binary = manifest
+            .split("[[bin]]")
+            .nth(1)
+            .expect("explicit app binary");
+        let name = binary
+            .lines()
+            .find_map(|line| {
+                line.trim()
+                    .strip_prefix("name = ")
+                    .map(|value| value.trim_matches('"'))
+            })
+            .expect("app binary name");
+        let expected = format!("{name}{}", std::env::consts::EXE_SUFFIX);
+        assert_eq!(
+            main_executable(std::path::Path::new("installed"))
+                .file_name()
+                .unwrap(),
+            expected.as_str()
+        );
+    }
 }
 
 /// Parent process PID (≈ the Claude Code CLI process) via NtQueryInformationProcess, no dependency

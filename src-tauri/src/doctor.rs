@@ -1,4 +1,4 @@
-//! `vela.exe doctor` — self-diagnosis: look instead of guessing.
+//! `velo.exe doctor` — self-diagnosis: look instead of guessing.
 //! Checks the config, port occupancy, watch roots, the newest session file and how its tail parses,
 //! and writes to stdout plus %APPDATA%\vela\doctor.log.
 
