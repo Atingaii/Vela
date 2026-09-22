@@ -1,0 +1,46 @@
+[
+  {
+    "url": "https://velo.codes/",
+    "status": 200
+  },
+  {
+    "url": "https://velo.codes/assets/velo-hero.png",
+    "status": 200
+  },
+  {
+    "url": "https://velo.codes/styles.css",
+    "status": 200
+  },
+  {
+    "url": "https://velo.codes/app.js",
+    "status": 200
+  },
+  {
+    "url": "https://velo.codes/product/",
+    "status": 200
+  },
+  {
+    "url": "https://velo.codes/en/",
+    "status": 200
+  },
+  {
+    "url": "https://velo.codes/not-a-page",
+    "status": 404
+  },
+  {
+    "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-macos-arm64.dmg",
+    "status": 200
+  },
+  {
+    "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-macos-x64.dmg",
+    "status": 200
+  },
+  {
+    "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-windows-x64-setup.exe",
+    "status": 200
+  },
+  {
+    "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/SHA256SUMS.txt",
+    "status": 200
+  }
+]

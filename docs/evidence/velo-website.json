@@ -1,0 +1,35 @@
+{
+  "url": "https://velo.codes",
+  "project": "velo",
+  "deploymentId": "4dc336e0-2cf5-4ff6-9086-d8ed36b24b65",
+  "environment": "production",
+  "sourceCommit": "c5bef3056514e221bd63f1a28e3c338a82ddfdd9",
+  "deploymentCompletedAt": "2026-09-22T15:50:16.888995Z",
+  "checks": [
+    {
+      "width": 1440,
+      "scrollWidth": 1440,
+      "brokenImages": []
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390,
+      "brokenImages": []
+    },
+    {
+      "width": 320,
+      "scrollWidth": 320,
+      "brokenImages": []
+    }
+  ],
+  "themePersistence": "passed",
+  "faq": "passed",
+  "downloadNavigation": "passed",
+  "pageErrors": [],
+  "headers": {
+    "contentSecurityPolicy": "self-hosted resources only",
+    "xFrameOptions": "DENY",
+    "xContentTypeOptions": "nosniff",
+    "productionNoindex": false
+  }
+}

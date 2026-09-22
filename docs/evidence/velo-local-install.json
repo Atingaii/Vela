@@ -1,0 +1,26 @@
+{
+  "sourceRun": "https://github.com/Atingaii/Velo/actions/runs/35741472156",
+  "sourceArtifact": "package-macOS-arm64",
+  "sha256": "1a2e24557244dba7086823b996c7bb337f3ec9b8be112d5311de2b4b0becdc76",
+  "host": {
+    "os": "macOS",
+    "version": "27.0",
+    "arch": "arm64"
+  },
+  "dmgIntegrity": "passed",
+  "copyFromMountedDmg": "passed",
+  "codesignDeepStrict": "passed",
+  "installedExecutable": "Velo.app/Contents/MacOS/velo",
+  "smoke": {
+    "arch": "aarch64",
+    "bundled_helper": true,
+    "os": "macos",
+    "providers_started": false,
+    "settings_webview_and_ipc": true,
+    "success": true,
+    "version": "0.1.0"
+  },
+  "scope": "Native settings WebView, IPC and packaged helper; isolated configuration, no live provider/account collection.",
+  "publicReleaseDigestMatch": true,
+  "publicRelease": "https://github.com/Atingaii/Velo/releases/tag/v0.1.0-preview.4"
+}
