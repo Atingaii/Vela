@@ -100,3 +100,9 @@ Velo 最终三页截图来自最新源码原生构建的独立 `--visual-test` r
 [CI 35836915542](https://github.com/Atingaii/Velo/actions/runs/35836915542) 的 browser、Intel macOS 15.7.9 和 macOS-latest 原生 job 均通过。隔离原生报告分别为 [Intel x86_64](macos-smoke-ca25fff-intel.json) 与 [Apple Silicon arm64](macos-smoke-ca25fff-arm64.json)：版本与包版本均为 `0.1.1-preview.1`，WebView/IPC、helper、wake subscription 成功，`providers_started=false`，exit 0 且未超时；两份诊断报告的 `matching_crashes` 均为空（[Intel](macos-diagnostic-ca25fff-intel.json)、[Apple Silicon](macos-diagnostic-ca25fff-arm64.json)）。
 
 这些报告只证明对应 macOS runner 上的隔离启动 smoke，不覆盖 GUI 视觉、真实账号、发行安装或 Gatekeeper 验收。本节只记录 browser 与两项 macOS 结果；此前 Windows 报告保留为各自 SHA 的历史证据，不代表此提交的 Windows 验收。
+
+## 第六批：仅 Mac 的当前迁移检查（eeb5335）
+
+[CI 35840331022](https://github.com/Atingaii/Velo/actions/runs/35840331022) 的两项 Mac 原生作业与 browser 均通过。当前流水线不再运行 Windows 客户端检查，其他平台等待明确启动。新的 [Intel 报告](macos-smoke-eeb5335-intel.json)、[Apple Silicon 报告](macos-smoke-eeb5335-arm64.json)和[本机隔离应用报告](macos-smoke-eeb5335-local.json)均为 0.1.1-preview.1，WebView/IPC/helper/wake=true、providers_started=false、exit 0、无超时。
+
+本机还通过 Rust 383 + helper 1 / 3 ignored、Node 33 及 UI 脚本检查；最新 debug app 已为原生视觉对照准备独立副本。Mac 仍锁屏，以上不能替代真实侧栏、材质、设置逐交互、真实账号及 DMG/Gatekeeper/签名升级验收。Mac 平台范围见 [ADR 0009](../../adr/0009-macos-first-delivery.md)。
