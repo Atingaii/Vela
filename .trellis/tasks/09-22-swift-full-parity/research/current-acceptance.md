@@ -68,3 +68,6 @@
 
 
 本批最终标准 Tauri debug app 构建成功（`/tmp/velo-parity-crossing-native-build-final.log`），隔离 native smoke 成功：WebView/IPC/helper/wake_subscription=true，providers_started=false，0.1.1-preview.1，exit 0、无超时。报告已保存为 `docs/verification/native-parity-2026-09-23/macos-smoke-controls-edge-crossing.json`。该报告验证启动与订阅，不是锁屏期间的视觉/鼠标/实际睡眠恢复验收。
+
+
+925ae99 已推送，普通 CI 35830483977 启动。旧5176a88发行验证的 Intel macOS 15在DMG构建/签名校验通过后，隔离原生smoke约1.8秒以foreign Objective-C exception/SIGABRT退出，未生成成功报告；失败日志 /tmp/velo-intel-package-failed-job.log。该旧run35826536749其余过期工作已取消，arm64历史证据仍保留。新增按实际可执行文件及启动时间过滤的崩溃采集，保留异常原因和最后异常调用栈；失败不转为成功。普通CI新增macos-15-intel优先串行验证。诊断脚本Node全套28通过（/tmp/velo-macos-diagnostic-node.log），客户端未改。根因仍待新Intel运行的栈证据，不能因构建成功宣称安装可用。

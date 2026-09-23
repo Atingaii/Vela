@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-15-intel, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
@@ -52,7 +52,21 @@ jobs:
           app=$(find target/debug/bundle -name Velo.app -type d -print -quit)
           test -n "$app"
           test -x "$app/Contents/MacOS/vela-hook"
+          printf '%s\n' "$app/Contents/MacOS/velo" > ci-reports/native-smoke-binary.txt
+          node -e 'process.stdout.write(String(Date.now()))' > ci-reports/native-smoke-started-ms.txt
           node scripts/smoke-installed.mjs "$app/Contents/MacOS/velo" ci-reports/native-smoke-macos.json
+      - name: Capture only this debug macOS smoke process crash
+        if: ${{ always() && runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -s ci-reports/native-smoke-started-ms.txt; then
+            node scripts/collect-macos-smoke-diagnostic.mjs \
+              "$(cat ci-reports/native-smoke-binary.txt)" \
+              ci-reports/native-smoke-diagnostic.json \
+              "$(cat ci-reports/native-smoke-started-ms.txt)" \
+              ci-reports/native-smoke-macos.json
+          fi
       - name: Launch isolated native Windows WebView and IPC smoke
         if: runner.os == 'Windows'
         shell: pwsh
@@ -64,7 +78,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: native-smoke-${{ runner.os }}
+          name: native-smoke-${{ matrix.os }}
           path: ci-reports/
           if-no-files-found: ignore
           retention-days: 7

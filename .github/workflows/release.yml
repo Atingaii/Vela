@@ -72,6 +72,8 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$RUNNER_TEMP/velo-installed/Velo.app"
           node scripts/assess-macos.mjs "$RUNNER_TEMP/velo-installed/Velo.app" "release-assets/trust-macos-${{ matrix.arch }}.json" --allow-unnotarized-preview
           test -x "$RUNNER_TEMP/velo-installed/Velo.app/Contents/MacOS/vela-hook"
+          mkdir -p release-diagnostics
+          node -e 'process.stdout.write(String(Date.now()))' > "release-diagnostics/smoke-macos-${{ matrix.arch }}.started-ms"
           node scripts/smoke-installed.mjs "$RUNNER_TEMP/velo-installed/Velo.app/Contents/MacOS/velo" "release-assets/smoke-macos-${{ matrix.arch }}.json"
           cp "$dmg" "release-assets/Velo-macos-${{ matrix.arch }}.dmg"
           updater=$(find target/release/bundle/macos -maxdepth 1 -name '*.app.tar.gz' -type f -print -quit)
@@ -96,11 +98,32 @@ jobs:
           $signature = "$($installer.FullName).sig"
           if (-not (Test-Path $signature) -or (Get-Item $signature).Length -eq 0) { throw 'Missing signed NSIS updater artifact' }
           Copy-Item $signature release-assets/Velo-windows-x64-setup.exe.sig
+      - name: Capture only this macOS smoke process crash
+        if: ${{ always() && runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          started="release-diagnostics/smoke-macos-${{ matrix.arch }}.started-ms"
+          if test -s "$started"; then
+            node scripts/collect-macos-smoke-diagnostic.mjs \
+              "$RUNNER_TEMP/velo-installed/Velo.app/Contents/MacOS/velo" \
+              "release-diagnostics/smoke-macos-${{ matrix.arch }}-diagnostic.json" \
+              "$(cat "$started")" \
+              "release-assets/smoke-macos-${{ matrix.arch }}.json"
+          fi
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: package-${{ runner.os }}-${{ matrix.arch }}
           path: release-assets/
-          if-no-files-found: error
+          if-no-files-found: ignore
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'macOS'
+        with:
+          name: diagnostic-${{ matrix.arch }}
+          path: release-diagnostics/
+          if-no-files-found: ignore
           retention-days: 7
   publish:
     needs: [browser, package]
