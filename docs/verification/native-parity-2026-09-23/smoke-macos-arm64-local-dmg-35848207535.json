@@ -1,0 +1,24 @@
+{
+  "arch": "aarch64",
+  "bundled_helper": true,
+  "os": "macos",
+  "package_version": "0.1.1-preview.1",
+  "providers_started": false,
+  "settings_webview_and_ipc": true,
+  "success": true,
+  "update_verification_executable": null,
+  "version": "0.1.1-preview.1",
+  "wake_subscription": true,
+  "windows_taskbar_proxy": null,
+  "smoke_runner": {
+    "exit_code": 0,
+    "exit_signal": null,
+    "timed_out": false,
+    "interrupted_by": null,
+    "error": null,
+    "cleanup_error": null
+  },
+  "artifact_sha256": "8fa22fe8337094323382e4f846fdf6c5d9789da59fbdce42100a897b810effde",
+  "artifact_run": "35848207535",
+  "source_sha": "6859771f851ec28a21973f59146314b1d5a364a0"
+}

@@ -1,0 +1,37 @@
+{
+  "source_sha": "6859771f851ec28a21973f59146314b1d5a364a0",
+  "workflow_sha": "571739356fc03838c996ad212b3259628b78a1c0",
+  "run_id": "35848207535",
+  "architecture": "x64",
+  "artifact": "Velo-macos-x64.app.tar.gz",
+  "artifact_sha256": "5a3a7ab275b97ecd21e0da2b703b1a001b6f27b05b7dbb622edd877336d52429",
+  "signature_sha256": "fd60d198d95470b0daef5086be2fedeeae17f47b847cc61fddf9a467df5efa89",
+  "decoded_public_key_sha256": "74c2c880b7a667afd711bc30beb27ae193da0364b4b8f312b6b2e9d357ed6fba",
+  "version": "0.1.1-preview.1",
+  "minisign_verify_version": "0.2.5",
+  "signature_valid": true,
+  "signed_version_matches": true,
+  "modified_archive_rejected": true,
+  "modified_signed_version_rejected": true,
+  "verifier_source": "use minisign_verify::{PublicKey, Signature};\nfn main() {\n let args:Vec<String>=std::env::args().collect(); assert_eq!(args.len(),5);\n let public=PublicKey::decode(&std::fs::read_to_string(&args[1]).unwrap()).unwrap();\n let text=std::fs::read_to_string(&args[2]).unwrap(); let signature=Signature::decode(&text).unwrap();\n let mut bytes=std::fs::read(&args[3]).unwrap(); public.verify(&bytes,&signature,true).unwrap();\n let expected=format!(\"version:{}\",args[4]);\n assert!(signature.trusted_comment().split('\\t').any(|part|part==expected));\n let mid=bytes.len()/2; bytes[mid]^=1; assert!(public.verify(&bytes,&signature,true).is_err());\n let changed=text.replace(&expected,\"version:0.0.0\"); assert_ne!(changed,text);\n let wrong_version=Signature::decode(&changed).unwrap();\n let original=std::fs::read(&args[3]).unwrap(); assert!(public.verify(&original,&wrong_version,true).is_err());\n println!(\"{{\\\"signature_valid\\\":true,\\\"signed_version_matches\\\":true,\\\"modified_archive_rejected\\\":true,\\\"modified_signed_version_rejected\\\":true}}\");\n}\n",
+  "verification_boundary": "Actual artifact signature and tamper rejection; installation on Intel is covered separately by its CI smoke report.",
+  "dmg_bundle_files": {
+    "Contents/MacOS/velo": {
+      "matches": true,
+      "sha256": "fce5eecb5e2873c9633afa199beea29fb87436b02b5b09c9bbdeae2da6fd50fb"
+    },
+    "Contents/MacOS/vela-hook": {
+      "matches": true,
+      "sha256": "b34835a1eb36a36f3186d96d04553f67ce75aea17e26f3a89e587f112e8db7ca"
+    },
+    "Contents/Info.plist": {
+      "matches": true,
+      "sha256": "8bc14063d11a12c583bb3ea21364a9d6d8f44aaaf183386b5515a21e2c3ac402"
+    },
+    "Contents/_CodeSignature/CodeResources": {
+      "matches": true,
+      "sha256": "1f08cefd49adada0c5beaf9726f5fff0eae7abfc303c890d1e0f60ce754dea71"
+    }
+  },
+  "dmg_sha256": "d48c66f792dbc3d345faec21f439116e14937a60aa17442a81de45b3ef9df3fb"
+}

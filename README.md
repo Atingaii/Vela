@@ -26,7 +26,7 @@ Velo 是面向 **macOS 的 AI 编程桌面伴侣**。它把不同工具的额度
 
 鼠标移到圆环上，可以查看额度窗口、重置时间和会话信息；需要你回应或任务完成时，通过状态变化与提醒及时发现。
 
-> **当前为开发版本。** 核心界面和多项集成已实现，完整功能对齐、Mac 原生界面与交互及真实账户验收仍在进行。Windows、Linux 仅列入[后续规划](docs/platform-roadmap.md)，收到明确指示后再推进。可下载安装预览版或从源码运行；详细进展见 [功能核对表](docs/migration-parity.md) 和 [兼容性与验收](docs/verification.md)。
+> **当前交付范围仅限 macOS（Apple Silicon 与 Intel）。** 完整功能对齐、Mac 原生界面与交互及真实账户验收仍在进行。Windows、Linux 仅列入[后续规划](docs/platform-roadmap.md)，收到明确指示后再推进。`v0.1.1-preview.1` 已发布，可从下方获取两种 Mac 安装包。详细进展见 [功能核对表](docs/migration-parity.md) 和 [兼容性与验收](docs/verification.md)。
 
 ## 为什么使用 Velo
 
@@ -75,16 +75,16 @@ Velo 是面向 **macOS 的 AI 编程桌面伴侣**。它把不同工具的额度
 
 ### 下载安装包
 
-[官网下载](https://velo.codes/download/) · [预览版发布页](https://github.com/Atingaii/Velo/releases/tag/v0.1.0-preview.4)
+[官网下载](https://velo.codes/download/) · [v0.1.1-preview.1 发布页](https://github.com/Atingaii/Velo/releases/tag/v0.1.1-preview.1)
 
 | 平台 | 安装包 |
 | --- | --- |
-| macOS · Apple Silicon | [Velo-macos-arm64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-macos-arm64.dmg) |
-| macOS · Intel | [Velo-macos-x64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-macos-x64.dmg) |
+| macOS · Apple Silicon | [Velo-macos-arm64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/Velo-macos-arm64.dmg) |
+| macOS · Intel | [Velo-macos-x64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/Velo-macos-x64.dmg) |
 
-macOS 打开 DMG 并将 Velo 拖入「应用程序」。预览版使用 ad-hoc 签名、尚未公证，首次打开需要按安装说明对 Velo 单独允许。请先阅读 [安装说明](docs/releases/preview.md)，核对 [SHA-256](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/SHA256SUMS.txt)；不需要关闭系统保护。
+下载后打开 DMG，将 Velo 拖入「应用程序」。Mac 预览版没有 Developer ID 签名、尚未公证，Gatekeeper 不会默认信任；首次打开时按[安装说明](docs/releases/preview.md)仅对 Velo 单独允许，不需要关闭系统保护。校验安装包请使用 [SHA-256 文件](https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/SHA256SUMS.txt)。旧的 `v0.1.0-preview.4` 不支持应用内升级到新版；请手动下载并安装 `v0.1.1-preview.1`。历史 `.4` 说明仍见[原发布页](https://github.com/Atingaii/Velo/releases/tag/v0.1.0-preview.4)。
 
-当前发布流程在 Apple Silicon 与 Intel Mac runner 上执行 DMG 安装后的原生 WebView、IPC 和辅助程序检查。真实账户与完整系统体验仍需单独验收。当前公开的 `v0.1.0-preview.4` 安装包未配置新版本的更新公钥与 feed，升级请重新下载安装包。开发中的 `v0.1.1-preview.1` 尚未发布，自动更新链路仍待验收，目前不应视为更新可用。
+`v0.1.1-preview.1` 已接入签名自动更新；完整原生界面、功能对齐与真实账户仍在验收，实际升级的跨架构验证也在进行中。
 
 ### 环境准备
 

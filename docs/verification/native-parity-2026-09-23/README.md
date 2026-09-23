@@ -107,7 +107,7 @@ Velo 最终三页截图来自最新源码原生构建的独立 `--visual-test` r
 
 本机还通过 Rust 383 + helper 1 / 3 ignored、Node 33 及 UI 脚本检查；最新 debug app 已为原生视觉对照准备独立副本。Mac 仍锁屏，以上不能替代真实侧栏、材质、设置逐交互、真实账号及 DMG/Gatekeeper/签名升级验收。Mac 平台范围见 [ADR 0009](../../adr/0009-macos-first-delivery.md)。
 
-## 第七批：实际发行 DMG（6859771，进行中）
+## 第七批：实际发行 DMG（6859771，首次运行记录）
 
 标签 `v0.1.1-preview.1` 固定于 `6859771f851ec28a21973f59146314b1d5a364a0`；[发行流水线 35842708336](https://github.com/Atingaii/Velo/actions/runs/35842708336) 的 browser 和 Apple Silicon 包作业已通过。Intel 通过 Rust 检查、主程序 release 构建和 `.app` 签名后，在 `bundle_dmg.sh` 约 22 秒处失败；日志只有通用打包错误，尚未执行 Intel 安装 smoke。发布 job 正确跳过，Release/feed 没有公开。该失败与此前已修复的 Intel 原生启动 SIGABRT 分开记录。
 
@@ -120,3 +120,17 @@ Apple Silicon runner 已挂载 DMG、复制 `.app`、校验签名完整性并执
 失败日志还确认 `CACHE_ON_FAILURE=false`，没有执行缓存保存。固定 Swatinem action 的 `post-if` 为 `success() || env.CACHE_ON_FAILURE == 'true'`，`save-if: true` 单独不足以在失败后保存缓存；后续 CI 配置需显式启用 `cache-on-failure: true`。这只减少重编译，不改变任何安装或签名门槛。
 
 恢复验证 [35848207535](https://github.com/Atingaii/Velo/actions/runs/35848207535) 使用工作流 `5717393`，`source_ref=v0.1.1-preview.1` 固定客户端源码；每种架构的 `source.json` 记录实际 checkout SHA，不能把工作流 SHA 当作客户端 SHA。此次手动运行不会自动发布。后续真实升级验证复用同架构的 package 依赖缓存，临时旧源码仅将编译输出链接至 CI 工作区的 target；安装验证仍复制到全新的隔离目录，旧源码清理仅删除该链接并保留可复用编译缓存。
+
+## 第八批：双架构发行与公开签名更新
+
+恢复运行 [35848207535](https://github.com/Atingaii/Velo/actions/runs/35848207535) 的 browser、Apple Silicon 和 Intel 包作业全部通过。两份源码收据（[ARM](source-macos-arm64-35848207535.json)、[Intel](source-macos-x64-35848207535.json)）确认客户端仍为固定标签提交 `6859771f851ec28a21973f59146314b1d5a364a0`，工作流为 `571739356fc03838c996ad212b3259628b78a1c0`。此前 Intel DMG 失败在此次完整重建中未复现；尚不能断言先前失败的底层原因。
+
+两架构均从实际 DMG 复制应用后完成 WebView/IPC、helper、wake subscription 检查，版本与包版本均为 `0.1.1-preview.1`，providers=false、exit 0、无超时（[ARM](smoke-macos-arm64-35848207535.json)、[Intel](smoke-macos-x64-35848207535.json)）。同一 ARM DMG 在本机独立副本再次[通过启动检查](smoke-macos-arm64-local-dmg-35848207535.json)。
+
+Root 对两份真实更新归档使用应用内公钥和同版本 minisign-verify 验签，均通过；归档内容及受签名保护的版本说明分别篡改后均被拒绝。DMG 与更新归档中主程序、helper、Info.plist、CodeResources 的哈希一致（[ARM 验签记录](signed-artifact-macos-arm64-35848207535.json)、[Intel 验签记录](signed-artifact-macos-x64-35848207535.json)）。签名完整性通过，但 Developer ID、公证和 Gatekeeper 默认接受仍未通过（[ARM 信任报告](trust-macos-arm64-35848207535.json)、[Intel 信任报告](trust-macos-x64-35848207535.json)）。
+
+核验后公开 [v0.1.1-preview.1](https://github.com/Atingaii/Velo/releases/tag/v0.1.1-preview.1)，没有移动标签。全部 13 项公开资产的 GitHub digest 与大小已与通过验证的本地文件核对；另从公开 URL 下载 ARM DMG，其 SHA-256 为 `8fa22fe8337094323382e4f846fdf6c5d9789da59fbdce42100a897b810effde`，与验证产物一致。[公开更新 feed](https://raw.githubusercontent.com/Atingaii/Velo/updates-preview/latest.json) 返回 200，版本为 `0.1.1-preview.1`，只含 darwin-aarch64 / darwin-x86_64，签名与对应已验证文件一致。
+
+[本机真实升级报告](signed-update-macos-local-35848207535.json)证明隔离构建的 `0.1.1-preview.0` 经公开 feed 下载、验签、暂存、安装和重启为已发布 `.1`，安装后版本、WebView/IPC/helper/wake 检查通过。验证器的临时安装目录已自动清理，未覆盖用户安装。该 `.0` 是带相同公钥/feed 的内部验证基底；旧公开 `.4` 内部仍为 `0.1.0` 且未内置更新配置，不能自动升级，需手动重装。
+
+远端两架构真实升级检查 [35852348869](https://github.com/Atingaii/Velo/actions/runs/35852348869) 仍在运行。Mac 原生控制仍报告锁屏，因此最终发行包的四边、收起/展开、拖动、材质及完整设置交互尚未对照验收；真实账户、多屏和硬件刘海也不在上述安装/升级检查覆盖内。全量迁移任务保持进行中，Windows/Linux 仅规划。

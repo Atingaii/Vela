@@ -1,0 +1,96 @@
+{
+  "release": "https://github.com/Atingaii/Velo/releases/tag/v0.1.1-preview.1",
+  "tag": "v0.1.1-preview.1",
+  "draft": false,
+  "prerelease": true,
+  "client_sha": "6859771f851ec28a21973f59146314b1d5a364a0",
+  "validation_run": 35848207535,
+  "assets": [
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 552,
+      "sha256": "76c01f61f4f3f8e17e126e95f3820f8c5b1a7f652256baa69fd24e999fb9e847",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/SHA256SUMS.txt"
+    },
+    {
+      "name": "smoke-macos-arm64.json",
+      "bytes": 495,
+      "sha256": "202149497035ba6cdaf834cdaf38d3eece387e76b41d25c3e945e6b572571f6f",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/smoke-macos-arm64.json"
+    },
+    {
+      "name": "smoke-macos-x64.json",
+      "bytes": 494,
+      "sha256": "b04a425a2679c80c60082919f2d1b85e34ab119df7dfee3eb1cbcb1437bec974",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/smoke-macos-x64.json"
+    },
+    {
+      "name": "source-macos-arm64.json",
+      "bytes": 152,
+      "sha256": "447cc38890de8b8dcb4a374eaeeba7d3cc734740e21d3800c2192a005a21f6c3",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/source-macos-arm64.json"
+    },
+    {
+      "name": "source-macos-x64.json",
+      "bytes": 152,
+      "sha256": "447cc38890de8b8dcb4a374eaeeba7d3cc734740e21d3800c2192a005a21f6c3",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/source-macos-x64.json"
+    },
+    {
+      "name": "trust-macos-arm64.json",
+      "bytes": 1359,
+      "sha256": "ae49b7a6abcaa7151bcf636180cd6b69aa028e489c93d3f0f90764975d19b60d",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/trust-macos-arm64.json"
+    },
+    {
+      "name": "trust-macos-x64.json",
+      "bytes": 1361,
+      "sha256": "8fe29a8a863896fc7bf2b8d3f90b152b4f16c19b428736dbe555e2a0e8c0eef1",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/trust-macos-x64.json"
+    },
+    {
+      "name": "Velo-macos-arm64.app.tar.gz",
+      "bytes": 7248638,
+      "sha256": "a716b50389b0abcad688fcd21e05e7bea4b60aa78af28e05ae9f0cc5243f6a22",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/Velo-macos-arm64.app.tar.gz"
+    },
+    {
+      "name": "Velo-macos-arm64.app.tar.gz.sig",
+      "bytes": 432,
+      "sha256": "282c4c6733ad41cae4a423259a3063ed5111f82aa062154d0458e7a8153ee528",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/Velo-macos-arm64.app.tar.gz.sig"
+    },
+    {
+      "name": "Velo-macos-arm64.dmg",
+      "bytes": 7022476,
+      "sha256": "8fa22fe8337094323382e4f846fdf6c5d9789da59fbdce42100a897b810effde",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/Velo-macos-arm64.dmg"
+    },
+    {
+      "name": "Velo-macos-x64.app.tar.gz",
+      "bytes": 7702655,
+      "sha256": "5a3a7ab275b97ecd21e0da2b703b1a001b6f27b05b7dbb622edd877336d52429",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/Velo-macos-x64.app.tar.gz"
+    },
+    {
+      "name": "Velo-macos-x64.app.tar.gz.sig",
+      "bytes": 432,
+      "sha256": "fd60d198d95470b0daef5086be2fedeeae17f47b847cc61fddf9a467df5efa89",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/Velo-macos-x64.app.tar.gz.sig"
+    },
+    {
+      "name": "Velo-macos-x64.dmg",
+      "bytes": 7555320,
+      "sha256": "d48c66f792dbc3d345faec21f439116e14937a60aa17442a81de45b3ef9df3fb",
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/Velo-macos-x64.dmg"
+    }
+  ],
+  "public_arm64_dmg_download_sha256": "8fa22fe8337094323382e4f846fdf6c5d9789da59fbdce42100a897b810effde",
+  "feed_version": "0.1.1-preview.1",
+  "feed_platforms": [
+    "darwin-aarch64",
+    "darwin-x86_64"
+  ],
+  "native_visual_and_real_accounts_verified": false,
+  "gatekeeper_default_open_verified": false
+}
