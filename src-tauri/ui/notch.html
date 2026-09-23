@@ -139,10 +139,14 @@
   .g-head{font-size:12px;font-weight:700;color:#e8e8ea;margin-top:12px}
   .g-box{border:1px solid #242424;border-radius:10px;padding:0 10px 8px;margin-top:6px}
   .c-note{font-size:12px;color:#c8c8c8;line-height:1.5;margin-top:6px}
-  .c-sessions{margin-top:12px;border-top:1px solid #1e1e1e;padding-top:8px}
-  .s-row{display:flex;align-items:center;gap:6px;font-size:11px;color:#b0b0b3;padding:2px 0}
+  .c-sessions{margin-top:7.5214px;border-top:.9402px solid #1e1e1e}
+  .s-row{margin-top:7.5214px;font-size:9.4802px;line-height:12px;color:#b0b0b3}
+  .s-line{display:flex;align-items:center;gap:4.135px;min-height:12px}
+  .s-line + .s-line{margin-top:3.7607px}
+  .s-name,.s-detail{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .s-trailing{margin-left:auto;flex:none;color:#808080}
   .s-dot{width:6px;height:6px;border-radius:3px;flex:0 0 auto}
-  .s-more{font-size:11px;color:#808080;padding:2px 0}
+  .s-more{font-size:9.4802px;line-height:12px;color:#808080;margin-top:7.5214px}
 
   /* ---- The other three edges -------------------------------------------------
      The rules above draw the right-hand edge, the original layout and still the default. Each block
@@ -1157,9 +1161,47 @@ function ago(ms){
 }
 
 const STATE_DOT={running:INK,attention:WATCH,done:AMPLE,idle:TRACK};
-// The card is clipped, not scrolled, so rows past this would push its title off the top; the rest are counted, as on the Mac
-const SESSION_ROWS=5;
+// NotchLayout.defaultSessionCap until the native screen budget chooses 0...12.
+let sessionCap=4;
+const SESSION_CEILING=12;
 function moreRow(n){ return n>0?`<div class="s-more">${ui().andMore(n)}</div>`:''; }
+// SessionRow state words use the lowercase keys in the fixed Swift Localizable.xcstrings.
+const SESSION_STATE_COPY={
+  'zh':{working:'工作中',waiting:'等待中',complete:'已完成',idle:'空闲'},
+  'zh-Hant':{working:'工作中',waiting:'等待中',complete:'已完成',idle:'空閒'},
+  'ja':{working:'作業中',waiting:'待機中',complete:'完了',idle:'アイドル'},
+  'ko':{working:'작업 중',waiting:'대기 중',complete:'완료',idle:'유휴 상태'},
+  'ru':{working:'работает',waiting:'ожидает',complete:'завершено',idle:'бездействует'},
+  'fr':{working:'en cours',waiting:'en attente',idle:'inactive'},
+  'pt-BR':{working:'trabalhando',waiting:'aguardando',idle:'ocioso'},
+  'de':{working:'arbeitend',waiting:'wartend',complete:'abgeschlossen',idle:'untätig'},
+  'uk':{working:'працює',waiting:'очікує',complete:'завершено',idle:'простій'},
+  'uz':{working:'ishlamoqda',waiting:'kutmoqda',complete:'tugallandi',idle:'boʻsh'}
+};
+function sessionRow(name,detail,state){
+  const word=state==='attention'||state==='waiting'?'waiting':state==='done'||state==='success'?'complete':state==='idle'?'idle':'working';
+  const color=state==='attention'||state==='waiting'?WATCH:state==='done'||state==='success'?AMPLE:state==='idle'?TRACK:INK;
+  const stateLabel=SESSION_STATE_COPY[uiLang]?.[word]||word;
+  return `<div class="s-row"><div class="s-line"><span class="s-dot" style="background:${color}"></span><span class="s-name">${esc(name)}</span><span class="s-trailing">${esc(stateLabel)}</span></div><div class="s-line"><span class="s-detail">${esc(textCopy(detail||''))}</span></div></div>`;
+}
+function sessionRowsHtml(p,cap){
+  let rows;
+  if(p.base==='claude'){
+    rows=stateSnap.sessions.filter(s=>s.state!=='idle').map(s=>({name:s.title,detail:s.state==='attention'?(s.attn||s.last):(s.prompt||s.last),state:s.state}));
+  }else{
+    const rank={waiting:0,busy:1,success:2,idle:3};
+    rows=activity.filter(a=>a.provider===p.base).sort((a,b)=>(rank[a.state]??3)-(rank[b.state]??3)||b.since-a.since)
+      .map(a=>({name:a.name,detail:a.state==='waiting'?(a.waiting_for||a.detail):a.detail,state:a.state}));
+  }
+  if(!rows.length)return '';
+  const shown=rows.slice(0,Math.max(0,cap));
+  return `<div class="c-sessions">${shown.map(s=>sessionRow(s.name,s.detail,s.state)).join('')}${moreRow(rows.length-shown.length)}</div>`;
+}
+function budgetSessionHtml(cap){
+  // A hidden (cap + 1)th row is present in Swift's budget even when the live
+  // source currently reports no activity. The line below models its summary.
+  return `<div class="c-sessions">${Array.from({length:cap},()=>sessionRow('Session','Detail','busy')).join('')}<div class="s-more">and 1 more</div></div>`;
+}
 
 let hoverId='claude';
 let claudeAuth={busy:false,message:''};
@@ -1220,7 +1262,7 @@ function renderCard(){
   if(signIn) signIn.onclick=e=>{e.stopPropagation();signInClaude();};
   placeCard();
 }
-function cardHtml(p){
+function cardHtml(p,cap=sessionCap){
   const snap=p.snap;
   const headIcon=glyphHtml(p,true);
   // p.name is no longer a constant: for a second account it is built from the home
@@ -1262,28 +1304,7 @@ function cardHtml(p){
     if(snap.note) html+=`<div class="c-note">${esc(textCopy(snap.note))}</div>`;
   }
   if(offersClaudeSignIn(p)) html+=claudeAuthHtml(claudeAuth,claudeActionMessage);
-  if(p.base==='claude'){ // live sessions (a full list with jump-to-session is a follow-up)
-    const act=stateSnap.sessions.filter(s=>s.state!=='idle');
-    if(act.length){
-      html+=`<div class="c-sessions">`;
-      for(const s of act.slice(0,SESSION_ROWS)){
-        html+=`<div class="s-row"><span class="s-dot" style="background:${STATE_DOT[s.state]||'#666'}"></span>${esc(s.title)}</div>`;
-      }
-      html+=moreRow(act.length-SESSION_ROWS)+`</div>`;
-    }
-  }else{ // other providers: source-reported or transcript-derived activity rows
-    // Swift priority: waiting, busy, success, idle; newest within each state.
-    const rank={waiting:0,busy:1,success:2,idle:3};
-    const acts=activity.filter(a=>a.provider===p.base).sort((a,b)=>(rank[a.state]??3)-(rank[b.state]??3)||b.since-a.since);
-    if(acts.length){
-      html+=`<div class="c-sessions">`;
-      for(const a of acts.slice(0,SESSION_ROWS)){
-        const col=a.state==='waiting'?WATCH:a.state==='success'?AMPLE:a.state==='idle'?TRACK:INK;
-        html+=`<div class="s-row"><span class="s-dot" style="background:${col}"></span>${esc(a.name)}<span style="color:#808080;margin-left:auto">${esc(textCopy(a.detail))}</span></div>`;
-      }
-      html+=moreRow(acts.length-SESSION_ROWS)+`</div>`;
-    }
-  }
+  if(cap>=0)html+=sessionRowsHtml(p,cap);
   return html;
 }
 // The card follows the hovered cell: centred on it along the pill (kept inside the window), tail pointing at it.
@@ -1317,6 +1338,8 @@ function placeCard(){
       tail.style.top=(pr.top/z*scale-38.735042735)+'px';
     }
   }
+  // Moving or resizing the card also moves its bridge hit region in Rust.
+  armWatchdog();
 }
 
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
@@ -1342,12 +1365,22 @@ function callq(cmd,args){ // invoke with visible failure: any command error is r
 }
 // Hot rectangles are reported in physical pixels (multiplied by this page's real DPR), so the Rust side does no conversion — WebView2's DPR and the window scale can disagree
 function rectOf(el){const r=el.getBoundingClientRect(),k=window.devicePixelRatio||1;return [r.left*k,r.top*k,r.width*k,r.height*k];}
+function rectOfBounds(r){const k=window.devicePixelRatio||1;return [r.left*k,r.top*k,(r.right-r.left)*k,(r.bottom-r.top)*k];}
+// TooltipCard's hit region includes the gap between the surface and card for
+// the full card length. The native click-through gate must get that same gap.
+function cardBridge(){
+  const p=pill.getBoundingClientRect(),c=card.getBoundingClientRect();
+  if(notchEdge==='right')return {left:c.right,right:p.left,top:c.top,bottom:c.bottom};
+  if(notchEdge==='left')return {left:p.right,right:c.left,top:c.top,bottom:c.bottom};
+  if(notchEdge==='top')return {left:c.left,right:c.right,top:p.bottom,bottom:c.top};
+  return {left:c.left,right:c.right,top:c.bottom,bottom:p.top};
+}
 /* Rust gates click-through on these, so they are reported whenever the pill or card moves, not only
    when the card opens: a stale pill rectangle is a pill that cannot be clicked. */
 function reportHot(){
   if(folded){ callq('set_hot',{rects:[wakeRect()],expanded:false}).catch(()=>{}); return; }
   const open=card.classList.contains('show');
-  const rects=open?[rectOf(pill),rectOf(tail),rectOf(card)]:[rectOf(pill)];
+  const rects=open?[rectOf(pill),rectOf(tail),rectOf(card),rectOfBounds(cardBridge())]:[rectOf(pill)];
   if(placeHandles()){ rects.push(rectOf(orb)); if(showMove) rects.push(rectOf(moveHandle)); }
   callq('set_hot',{rects,expanded:open}).catch(()=>{});
 }
@@ -1365,20 +1398,47 @@ function wakeRect(){
 function armWatchdog(){
   requestAnimationFrame(reportHot); // wait one frame so renderCard's new content is laid out before measuring
 }
-// Swift NotchViewModel layout bridge. Measure every present card at its unscaled width;
-// neither provider count nor a status line's height is a constant. No collector is run here.
+// Swift NotchViewModel layout bridge. Each budget entry is the largest card
+// with cap rows and one hidden row. It depends on provider content and CSS,
+// never on the current activity count or the cap returned by Rust.
 let nativeLayout=null,layoutFrame=0,lastContent='';
 function queueNotchLayout(){
   if(layoutFrame)return;
   layoutFrame=requestAnimationFrame(()=>{
     layoutFrame=0;
     const ps=providers(),cell=pill.querySelector('.cell');
-    const cellExtent=cell?cell.offsetHeight:71.1162;
+    // fitZoom may zoom the document while the native window is settling on a
+    // monitor. A child `zoom:1` does not cancel that ancestor zoom; even
+    // scrollHeight's integer rounding then changes by 1–2px and feeds a new
+    // window size back into Rust. Measure in design coordinates for one frame,
+    // restoring the visible page before the browser paints.
+    const root=document.documentElement,previousZoom=root.style.zoom;
+    root.style.zoom='';
     const probe=document.createElement('div');probe.id='card-measure';document.body.append(probe);
-    let cardHeight=0;
-    for(const p of ps){probe.innerHTML=cardHtml(p);cardHeight=Math.max(cardHeight,probe.scrollHeight);}
-    probe.remove();
-    const content={count:ps.length,cell_extent:cellExtent,card_height:cardHeight};
+    let cellExtent,budgets;
+    try{
+      cellExtent=cell?cell.offsetHeight:71.1162;
+      budgets=Array(SESSION_CEILING+1).fill(0);
+      for(const p of ps){
+        const base=cardHtml(p,-1);
+        for(let cap=0;cap<=SESSION_CEILING;cap++){
+          probe.innerHTML=base+(p.snap.local_model||p.snap.localModel?'':budgetSessionHtml(cap));
+          budgets[cap]=Math.max(budgets[cap],probe.scrollHeight);
+        }
+      }
+    }finally{
+      probe.remove();
+      root.style.zoom=previousZoom;
+    }
+    const budgetHeights=budgets.map(n=>Math.round(n*1000)/1000);
+    const hasPlan=ps.some(p=>p.snap.plan!=null);
+    const hasTokenUsage=ps.some(p=>p.snap.token_usage!=null||p.snap.tokenUsage!=null);
+    const hasResetCredits=ps.some(p=>{
+      const credits=p.snap.reset_credits||p.snap.resetCredits;
+      return Number(credits?.available_count??credits?.availableCount??0)>0;
+    });
+    const content={count:ps.length,cell_extent:cellExtent,card_height:budgetHeights[4],budget_heights:budgetHeights,
+      has_plan:hasPlan,has_token_usage:hasTokenUsage,has_reset_credits:hasResetCredits};
     const key=JSON.stringify(content);if(key===lastContent)return;
     lastContent=key;
     callq('set_notch_content',{content}).catch(()=>{lastContent='';});
@@ -1386,6 +1446,8 @@ function queueNotchLayout(){
 }
 function acceptNotchLayout(layout){
   if(!layout||!Number.isFinite(layout.width)||!Number.isFinite(layout.height))return;
+  const nextCap=Number.isInteger(layout.session_cap)&&layout.session_cap>=0&&layout.session_cap<=SESSION_CEILING?layout.session_cap:sessionCap;
+  const capChanged=nextCap!==sessionCap;sessionCap=nextCap;
   nativeLayout=layout;
   pill.style.gap=layout.spacing+'px';
   // Tooltip text retains its designed size when the notch is resized (NotchViewModel.panelSize).
@@ -1393,7 +1455,7 @@ function acceptNotchLayout(layout){
   tail.style.zoom=String(1/layout.scale);
   document.documentElement.style.setProperty('--card-seam',(layout.depth*layout.scale+38.735042735)+'px');
   fitZoom();drawNotchShape();reportHot();
-  if(card.classList.contains('show'))placeCard();
+  if(card.classList.contains('show')){if(capChanged)renderCard();else placeCard();}
 }
 listen('notch_layout',e=>acceptNotchLayout(e.payload)).catch(()=>{});
 // NotchMotion.unfold: a damped spring (response .42, dampingFraction .78).
@@ -1483,8 +1545,7 @@ function pointerInHot(x,y){
   if(!card.classList.contains('show'))return false;
   const c=card.getBoundingClientRect();
   if(inRect(x,y,c,4))return true;
-  const u={left:Math.min(p.left,c.left),top:Math.min(p.top,c.top),right:Math.max(p.right,c.right),bottom:Math.max(p.bottom,c.bottom)};
-  return inRect(x,y,u,0);
+  return inRect(x,y,tail.getBoundingClientRect(),0)||inRect(x,y,cardBridge(),0);
 }
 let hideLogged=0;
 document.addEventListener('mousemove',e=>{

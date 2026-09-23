@@ -2058,6 +2058,7 @@ fn main() {
             get_claude_auth,
             updater::get_update_state,
             updater::check_for_update,
+            updater::set_automatic_updates,
             updater::install_update,
             chime::get_alert_sounds,
             phone_link::get_phone_link,

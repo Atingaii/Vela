@@ -48,3 +48,22 @@ CI 新增 WebKit，防止仅在 Chromium 通过而 WKWebView 显示缺失；远�
 - Windows 实机视觉与交互；构建 CI 不等同于实机验收。
 
 原生控制工具可以操作设置和应用菜单，但对不可聚焦的 Tauri 侧栏坐标点击报 `noWindowsAvailable`，因此本轮不把原生圆环 hover/click 标为通过。WebKit 的对应浏览器交互已通过。没有用关闭 Gatekeeper、修改真实账号或伪造原生操作来代替验证。
+
+## 第二批：设置页原生对照（进行中）
+
+本批对照继续使用固定 Swift SHA `117a38b8edae2ebd0944bc86b8760c6381685345`，但**设置页来自官方 Package CI 产物的正常模式**：Demo 模式不会构建 `SettingsWindowController`。参考包使用隔离的 bundle/配置副本；正常模式初次启动时默认启用 Claude/Codex，曾短暂只读访问本机账户。随后在参考副本关闭供应商，截图时账户数为 0，保存图片不含真实账户数据。它与上文 Demo 刘海截图是同一源码基准的两种运行模式，不能混作同一测试 fixture。
+
+Velo 最终三页截图来自最新源码原生构建的独立 `--visual-test` root10；该模式没有启动供应商采集。截图显示运行时从 macOS SF Symbols 转出的真实图标、原生标题栏和分段控件。Swift 三图实际为 860×600 px，Velo 窗口截图为 860×601 px（窗口外框/取整产生的 1 px 差异，未裁改），Velo 源码 `inner_size` 仍为 860×600。两者品牌、账户数和示例数据也不同；这些截图用于核对主要版式与控件，不是像素一致性证明。此前在独立 root08 已进行一次真实 IPC 操作：将「重置时间」切到「剩余时间」，关闭设置窗口，再用 ⌘, 重开后选择仍在；随后恢复「重置日期」。这证明该偏好在隔离运行中经关闭/重开保留，尚不代表其他设置项均已迁移。
+
+| 页面或路径 | 当前证据 | 边界 |
+| --- | --- | --- |
+| 外观 | [Swift 正常模式](swift-settings-appearance.jpg) 与 [Velo root10](velo-settings-appearance.jpg)：侧栏、标题、分组行、分段选择与开关可见 | 数据与账户数不同；滚动后各区、全部状态及无障碍尚未逐项验收 |
+| 通知 | [Swift 正常模式](swift-settings-notifications.jpg) 与 [Velo root10](velo-settings-notifications.jpg)：会话结束、声音、额度分组及滚动条右边距可见 | 仍有局部纵向约 7 pt 差异与文案差异；试听 IPC 有浏览器断言，原生逐项交互待验 |
+| 通用 | [Swift 正常模式](swift-settings-general.jpg) 与 [Velo root10](velo-settings-general.jpg)：登录启动、更新偏好、版本与检查入口可见 | Velo 预览版因未配签名 feed 禁用自动更新并给出说明；不宣称真实更新可用 |
+| 更新设置 | 自动更新偏好默认关闭、原子保存；缺签名 key/HTTPS feed 时拒绝开启；后台下载后复核开关与许可代次 | Tauri 单次启动/开启检查已实现；Sparkle 周期调度、真实签名 feed、下载和安装未实测 |
+| 刘海高度预算 | Rust 以固定的 Swift 高度公式计算，纳入 plan、token、reset 标志；探针排除祖先 CSS `zoom` 对量测的影响 | strict budget equality 已通过；这不是用 `fit_heights` 的 CSS 合成测量替代 Swift 公式，原生全场景仍待验 |
+| 设置内容边距 | 滚动条占据约 12 pt 时补偿内容宽度，使通用（无 gutter）与通知（有 gutter）的右边距均为 20 pt | 浏览器跨页断言通过；最新原生三页截图已保存并查看 |
+
+本批本地自动化单独计数：Rust 主程序 **204 通过、3 忽略**，helper **1 通过**（`/tmp/velo-final-parity-rust.log`）；Node **13 通过**；Chromium **28/28 通过**，包括通知页右对齐、两段说明、试听 IPC 与跨页 gutter 边距断言；WebKit **28/28 通过**。这些是本次修复后的结果，上文的 Rust 197 / Chromium 22 / WebKit 22 是上一批历史结果，未被本批重算或替换。最新源码原生构建通过，root10 三页截图已现场查看并保存。此处记录本地结果；本提交的远端 CI 结果按 GitHub Actions 对应 SHA 核对。macOS 原生操作与本地浏览器测试也不能代替 Windows 实机验收。
+
+全量迁移仍未完成：Liquid Glass、硬件刘海与多屏；完整 sign-out、缓存清理与在途请求取消；网页登录；token/reset 卡片 UI；Sparkle 周期调度与可验证签名发布/真实安装；Windows 实机。设置页对照的技术发现及后续检查见[研究记录](../../../.trellis/tasks/09-22-swift-full-parity/research/settings-native-followup.md)，全量任务继续保持进行中。

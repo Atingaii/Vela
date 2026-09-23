@@ -171,10 +171,87 @@ pub struct SystemLook {
     mica: bool,
     /// The accent palette as #rrggbb: light 3, light 2, light 1, accent, dark 1, dark 2, dark 3.
     accent: Vec<String>,
+    symbols: std::collections::BTreeMap<String, SystemSymbol>,
 }
 
-#[tauri::command]
-pub fn get_system_look() -> SystemLook {
+#[derive(serde::Serialize)]
+struct SystemSymbol {
+    url: String,
+    width: f64,
+    height: f64,
+}
+
+#[cfg(target_os = "macos")]
+fn system_symbol_from_png(bytes: &[u8], width: f64, height: f64) -> Option<SystemSymbol> {
+    use base64::Engine;
+    // Check the actual encoded output, not only AppKit's source image. A malformed or fully
+    // transparent representation should use the existing CSS fallback instead.
+    let decoded = tauri::image::Image::from_bytes(bytes).ok()?;
+    if !(1.0..=128.0).contains(&width)
+        || !(1.0..=128.0).contains(&height)
+        || !(1..=512).contains(&decoded.width())
+        || !(1..=512).contains(&decoded.height())
+        || !decoded.rgba().chunks_exact(4).any(|pixel| pixel[3] > 0)
+    {
+        return None;
+    }
+    Some(SystemSymbol {
+        url: format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(bytes)
+        ),
+        width,
+        height,
+    })
+}
+
+/// Render the same SF Symbols that SwiftUI requests, on the user's Mac. No exported Apple
+/// artwork is shipped in the cross-platform assets. Other platforms keep their vector fallback.
+fn settings_symbols() -> std::collections::BTreeMap<String, SystemSymbol> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::{
+            NSBitmapImageFileType, NSBitmapImageRep, NSImage, NSImageSymbolConfiguration,
+        };
+        use objc2_foundation::{NSDictionary, NSString};
+        [
+            ("accounts", "person.crop.circle.fill", 13.0),
+            ("phone", "iphone", 13.0),
+            ("custom", "network", 12.0),
+            ("appearance", "paintbrush.fill", 13.0),
+            ("notifications", "bell.badge.fill", 13.0),
+            ("general", "gearshape.fill", 13.0),
+            ("quit", "power", 13.0),
+        ]
+        .into_iter()
+        .filter_map(|(id, name, size)| {
+            let image = NSImage::imageWithSystemSymbolName_accessibilityDescription(
+                &NSString::from_str(name),
+                None,
+            )?;
+            let config = NSImageSymbolConfiguration::configurationWithPointSize_weight(size, 0.0);
+            let image = image.imageWithSymbolConfiguration(&config)?;
+            let size = image.size();
+            let tiff = image.TIFFRepresentation()?;
+            let bitmap = NSBitmapImageRep::imageRepWithData(&tiff)?;
+            // The properties dictionary is empty, so it contains no incorrectly typed values.
+            let data = unsafe {
+                bitmap.representationUsingType_properties(
+                    NSBitmapImageFileType::PNG,
+                    &NSDictionary::new(),
+                )
+            }?;
+            // NSData is owned by this call and never mutated while the byte slice is borrowed.
+            let bytes = unsafe { data.as_bytes_unchecked() };
+            system_symbol_from_png(bytes, size.width, size.height).map(|symbol| (id.into(), symbol))
+        })
+        .collect()
+    }
+    #[cfg(not(target_os = "macos"))]
+    std::collections::BTreeMap::new()
+}
+
+fn render_system_look() -> SystemLook {
     #[cfg(target_os = "macos")]
     let accent = {
         use objc2_app_kit::{NSColor, NSColorSpace};
@@ -202,6 +279,29 @@ pub fn get_system_look() -> SystemLook {
     SystemLook {
         mica: false,
         accent,
+        symbols: settings_symbols(),
+    }
+}
+
+/// AppKit's symbol rasterization and accent colour lookup run on the UI thread. The async
+/// command does not block that thread while waiting for the result.
+#[tauri::command]
+pub async fn get_system_look(app: AppHandle) -> Result<SystemLook, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let (tx, mut rx) = tauri::async_runtime::channel(1);
+        app.run_on_main_thread(move || {
+            let _ = tx.try_send(render_system_look());
+        })
+        .map_err(|e| e.to_string())?;
+        rx.recv()
+            .await
+            .ok_or_else(|| "Could not render system look".into())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        Ok(render_system_look())
     }
 }
 
@@ -268,6 +368,39 @@ fn reg_binary(_key: &str, _value: &str) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::palette;
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn platforms_without_sf_symbols_use_the_vector_fallback() {
+        assert!(super::settings_symbols().is_empty());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn symbol_png_must_decode_with_visible_alpha_and_reasonable_size() {
+        use super::system_symbol_from_png;
+        use base64::Engine;
+        // Synthetic RGBA PNGs keep AppKit off Rust's test worker thread. The installed app
+        // exercises the real SF Symbol rendering on its UI thread.
+        let visible = base64::engine::general_purpose::STANDARD
+            .decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAD0lEQVR4nGP4z8AAREgAAB7zAf9qN12tAAAAAElFTkSuQmCC")
+            .unwrap();
+        let transparent = base64::engine::general_purpose::STANDARD
+            .decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAC0lEQVR4nGNgQAcAABIAAXfx+gAAAAAASUVORK5CYII=")
+            .unwrap();
+        let symbol = system_symbol_from_png(&visible, 13.0, 13.0).unwrap();
+        assert!(symbol.url.starts_with("data:image/png;base64,"));
+        let delivered = base64::engine::general_purpose::STANDARD
+            .decode(symbol.url.trim_start_matches("data:image/png;base64,"))
+            .unwrap();
+        let decoded = tauri::image::Image::from_bytes(&delivered).unwrap();
+        assert_eq!((decoded.width(), decoded.height()), (2, 2));
+        assert!(decoded.rgba().chunks_exact(4).any(|pixel| pixel[3] > 0));
+        assert!(system_symbol_from_png(&transparent, 13.0, 13.0).is_none());
+        assert!(system_symbol_from_png(&visible, 0.0, 13.0).is_none());
+        assert!(system_symbol_from_png(&visible, 513.0, 13.0).is_none());
+        assert!(system_symbol_from_png(b"not a PNG", 13.0, 13.0).is_none());
+    }
 
     #[test]
     fn the_palette_reads_seven_colours_and_drops_the_alpha_byte() {

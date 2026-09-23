@@ -42,6 +42,10 @@ pub struct Config {
     /// "auto" | "zh" | "zh-Hant" | "en" | "ja" | "ko" | "pt-BR" | "ru" | "uk"
     #[serde(default = "default_lang")]
     pub lang: String,
+    /// Opt-in until a verifiable release feed is configured. Existing installations retain
+    /// their manual update behavior; Settings exposes the same choice as Swift's updater.
+    #[serde(default)]
+    pub automatic_updates: bool,
     #[serde(default)]
     pub bar_x: Option<i32>,
     #[serde(default)]
@@ -220,6 +224,7 @@ impl Default for Config {
             custom_endpoints: Vec::new(),
             port: default_port(),
             lang: default_lang(),
+            automatic_updates: false,
             bar_x: None,
             bar_y: None,
             bar_w: None,
@@ -345,6 +350,20 @@ pub fn save(cfg: &Config) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn automatic_updates_are_opt_in_and_survive_config_round_trip() {
+        let old: super::Config = serde_json::from_str(r#"{"lang":"en"}"#).unwrap();
+        assert!(
+            !old.automatic_updates,
+            "old configs must not silently opt in"
+        );
+        let mut enabled = old;
+        enabled.automatic_updates = true;
+        let saved = serde_json::to_string(&enabled).unwrap();
+        let reloaded: super::Config = serde_json::from_str(&saved).unwrap();
+        assert!(reloaded.automatic_updates);
+    }
+
     #[test]
     fn existing_icon_choices_survive_the_swift_presence_migration() {
         let mut cfg = super::Config::default();

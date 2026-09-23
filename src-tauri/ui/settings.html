@@ -8,33 +8,39 @@
   /* Swift SettingsPalette / SettingsView at the pinned migration baseline. */
   :root{color-scheme:dark;--accent:#0a7aff;--on-accent:#fff;--text:#fff;
     --text2:rgba(255,255,255,.5);--text3:rgba(255,255,255,.32);
-    --pane:#0e0e10;--side:#161618;--group:#1b1b1d;--line:rgba(255,255,255,.07);
+    --pane:#0e0e10;--side:#161618;--group:rgba(255,255,255,.035);--line:rgba(255,255,255,.07);
     --hi:transparent;--sep:rgba(255,255,255,.07);--seg-bg:rgba(255,255,255,.09);
     --hover:rgba(255,255,255,.05);--sel-soft:rgba(255,255,255,.10);
     --btn:rgba(255,255,255,.10);--btn-hover:rgba(255,255,255,.16);
     --danger-bg:rgba(255,99,99,.14);--danger:#ff8a8a}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:transparent;overflow:hidden;user-select:none}
-  body{font:13.5px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;color:var(--text)}
+  body{font:13px/16px -apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;color:var(--text)}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   button{font:inherit;color:inherit}
   html[lang="ko"] body{word-break:keep-all}
   [hidden]{display:none!important}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-  #app{display:flex;height:100%;background:var(--pane);border:1px solid rgba(255,255,255,.09);border-radius:20px;overflow:hidden}
+  #app{display:flex;height:100%;background:var(--pane);box-shadow:inset 0 0 0 1px rgba(255,255,255,.09);border-radius:20px;overflow:hidden}
 
   /* Full-height sidebar, plain symbols and a soft selection pill. */
   #side{width:220px;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;flex:none;padding:0 10px 16px}
   #side .band{height:52px;flex:none}
   .brand{display:flex;align-items:center;gap:10px;padding:0 8px 16px;font-size:14px;font-weight:600}
-  .brand svg{width:22px;height:22px}.side-version{padding:6px 10px 0;font-size:11px;color:var(--text3)}
+  .brand svg,.brand img{width:22px;height:22px}.side-version{padding:6px 10px 0;font-size:11px;color:var(--text3)}
   #side .grow{flex:1}
-  .row{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:32px;padding:6px 10px;margin-bottom:2px;
+  .row{position:relative;display:flex;align-items:center;gap:10px;width:100%;height:30px;padding:6px 10px;margin-bottom:2px;
     border:0;border-radius:8px;background:transparent;text-align:left;font-size:13px;color:rgba(255,255,255,.78);transition:background .14s,transform .22s}
   .row:hover{background:var(--hover)}.row:active{transform:scale(.97)}
+  /* Swift: the 18pt disclosure makes Accounts 30pt; the text rows are 16pt + 6pt padding each side. */
+  #side .row:not(#quit):not(#tab-accounts){height:28px}
   .row.sel{background:var(--sel-soft);color:rgba(255,255,255,.95);font-weight:500;box-shadow:inset 0 .5px rgba(255,255,255,.10),inset 0 -.5px rgba(255,255,255,.02)}
   .badge{width:18px;height:18px;display:grid;place-items:center;flex:none}
-  .badge svg{width:18px;height:18px;fill:currentColor}
+  .badge{color:rgba(255,255,255,.6)}.row.sel .badge{color:rgba(255,255,255,.95)}.row:hover .badge{color:rgba(255,255,255,.85)}
+  .badge svg{width:13px;height:13px;fill:currentColor}
+  .badge .glyph,.badge .glyph svg,.badge .glyph img{width:14px;height:14px;color:inherit}
+  .system-symbol{display:inline-block;background:currentColor;mask:var(--symbol) center/contain no-repeat;mask-mode:alpha;-webkit-mask:var(--symbol) center/contain no-repeat;flex:none}
   #quit{color:rgba(255,255,255,.55)}#quit:hover{color:#ff6b66}
   .provider-tab{padding-left:28px}
   #accounts-navigation{position:relative}
@@ -49,28 +55,53 @@
 
   /* ---- pane ---- */
   #pane{flex:1;display:flex;flex-direction:column;min-width:0}
-  #head{min-height:88px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;padding:20px 24px;position:relative;flex:none;border-bottom:1px solid var(--line)}
-  #subtitle{font-size:12px;color:var(--text2);margin:0}
-  #head h1{font-size:19px;font-weight:600;margin:0}
+  #head{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;padding:20px 24px;position:relative;flex:none;border-bottom:1px solid var(--line)}
+  #subtitle{font-size:12px;line-height:14px;color:var(--text2);margin:0}
+  #head h1{font-size:19px;line-height:23px;font-weight:600;margin:0}
   #close{position:absolute;top:0;right:0;width:46px;height:34px;border:0;background:transparent;color:var(--text2);
     display:grid;place-items:center;border-top-right-radius:8px}
   #close svg{width:10px;height:10px;stroke:currentColor;stroke-width:1.2}
   #close:hover{background:#c42b1c;color:#fff}
-  html[data-platform="macos"] #close{display:none}
+  html[data-platform="macos"] #close,html[data-platform="macos"] .windows-only{display:none}
+  .version-row{font-size:11px;line-height:13px;color:var(--text2)}
+  .version-row > span{flex:1}
+  .credits{justify-content:flex-start;gap:4px;font-size:11px;color:var(--text2)}
+  .btn.compact{padding:4px 10px;font-size:11px;line-height:14px}
   #strip{margin:0 20px 8px;padding:7px 10px;border-radius:8px;background:var(--danger-bg);color:var(--danger);font-size:12px;overflow-wrap:anywhere}
-  #body{flex:1;overflow:auto;padding:0 20px 20px;scrollbar-width:none}
-  #body::-webkit-scrollbar{display:none}
+  #body{flex:1;overflow:auto;padding:20px;padding-right:calc(20px - var(--body-scrollbar-gutter, 0px));scrollbar-width:thin;scrollbar-color:#ffffff66 transparent}
+  #body::-webkit-scrollbar{width:12px}#body::-webkit-scrollbar-thumb{background:#ffffff66;border-radius:8px;border:3px solid transparent;background-clip:padding-box}
 
-  .sec{font-size:13.5px;font-weight:600;margin:18px 12px 8px}
-  .pane > .sec:first-child{margin-top:6px}
-  .group{background:var(--group);border:1px solid var(--line);border-radius:10px;box-shadow:inset 0 1px 0 var(--hi)}
+  .sec{font-size:13px;line-height:16px;font-weight:600;margin:28px 10px 10px}
+  .pane > .sec:first-child{margin-top:0}
+  .group{background:var(--group);border:0;border-radius:10px}
   .group + .group{margin-top:14px}
-  .pane > .group:first-child{margin-top:6px}
-  .group > * + *{border-top:1px solid var(--sep)}
-  .item{padding:9px 12px;min-height:40px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .item.cap{min-height:0;padding:8px 12px;font-size:12px;color:var(--text2);display:block}
+  .pane > .group:first-child{margin-top:0}
+  .group > * + *{border-top:0}
+  .item,.acct{position:relative}
+  .group > .item + .item::before,.acct + .acct::before{content:"";position:absolute;top:0;left:10px;right:10px;height:1px;background:var(--sep)}
+  .item{padding:10px;min-height:36px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .item.cap{min-height:0;padding:10px;font-size:11px;line-height:13px;color:var(--text2);display:block}
   .item .hint{font-size:12px;color:var(--text2)}
   .value{color:var(--text2)}
+  #pane-appearance .sec{margin-top:20px}
+  #pane-appearance .sec:first-child{margin-top:0}
+  #pane-appearance .group + .sec{margin-top:20px}
+  #pane-appearance .item:not(.cap),#pane-notifications .item:not(.cap){padding:8px 10px;min-height:38px}
+  #pane-appearance .item.cap,#pane-notifications .item.cap{padding:12px 10px}
+  #pane-notifications .item.cap.tertiary{color:var(--text3)}
+  .sound-controls{display:flex;align-items:center;gap:8px;margin-left:auto;min-width:0}
+  .sound-controls select{min-width:0;max-width:150px;margin-left:auto;color:var(--accent);background:transparent;text-align:right}
+  .sound-preview{width:24px;height:24px;padding:0;border:0;border-radius:50%;background:transparent;color:rgba(255,255,255,.6);display:grid;place-items:center;flex:none}
+  .sound-preview:hover{background:rgba(255,255,255,.09);color:rgba(255,255,255,.95)}
+  .sound-preview:active{background:rgba(255,255,255,.16);transform:scale(.92)}
+  .sound-preview svg{width:16px;height:16px;stroke:currentColor;stroke-width:1.25;fill:none}
+  .sound-preview svg path{fill:currentColor;stroke:none}
+  #pane-appearance .scale-row{justify-content:flex-end}
+  #pane-appearance .scale-row input{flex:1;min-width:80px}
+  #pane-appearance .scale-row output{width:46px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text2)}
+  #pane-appearance .limit-row{display:block}
+  #pane-appearance .limit-label{display:flex;justify-content:space-between;margin-bottom:4px}
+  #pane-appearance .limit-row input{width:100%}
 
   .accent-swatches{display:flex;gap:2px}
   .accent-swatch{width:22px;height:22px;padding:0;border:1.5px solid transparent;border-radius:50%;background:transparent;display:grid;place-items:center}
@@ -92,13 +123,13 @@
   .glyph.letter{font-size:10px;font-weight:700;background:var(--seg-bg);border-radius:4px}
 
   /* ---- controls: Swift small switches and SettingsButtonStyles ---- */
-  .switch{width:32px;height:18px;border-radius:9px;border:1px solid #ffffff16;background:#ffffff26;position:relative;flex:none;padding:0}
-  .switch::after{content:"";position:absolute;top:1px;left:1px;width:14px;height:14px;border-radius:7px;background:#fff;transition:left .12s}
+  .switch{width:36px;height:16px;border-radius:8px;border:1px solid #ffffff16;background:#ffffff26;position:relative;flex:none;padding:0}
+  .switch::after{content:"";position:absolute;top:1px;left:1px;width:12px;height:12px;border-radius:6px;background:#fff;transition:left .12s}
   .switch.on{border-color:transparent;background:var(--accent)}
-  .switch.on::after{left:15px;background:var(--on-accent)}
+  .switch.on::after{left:21px;background:var(--on-accent)}
   .switch:disabled,.switch.locked{opacity:.5}
   .seg{display:inline-flex;background:var(--seg-bg);border-radius:7px;padding:2px;gap:2px;flex:none}
-  .seg button{border:0;background:transparent;font-size:13px;padding:3px 14px;border-radius:5px}
+  .seg button{border:0;background:transparent;font-size:13px;line-height:16px;padding:2px 14px;border-radius:5px}
   .seg button:hover:not(.on):not(:disabled){background:var(--hover)}
   .seg button.on{background:var(--accent);color:var(--on-accent)}
   .seg button:disabled{opacity:.45}
@@ -122,7 +153,7 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
 <div id="app">
   <nav id="side" role="tablist" aria-orientation="vertical" aria-label="Settings sections">
     <div class="band" data-tauri-drag-region></div>
-    <div class="brand" data-tauri-drag-region><svg viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#050505"/><path d="m5 6 6 11 6-11" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/></svg><span>Velo</span></div>
+    <div class="brand" data-tauri-drag-region><img src="brand.png" alt="" aria-hidden="true"><span>Velo</span></div>
     <div id="accounts-navigation">
     <button class="row" id="tab-accounts" role="tab" aria-controls="pane-accounts" aria-selected="false" tabindex="-1"><span class="badge b-blue"><svg viewBox="0 0 12 12"><circle cx="6" cy="4" r="2.4"/><path d="M1.5 11.2c.4-2.5 2.3-3.9 4.5-3.9s4.1 1.4 4.5 3.9z"/></svg></span><span>Accounts</span><span id="account-count" class="account-count" data-dynamic></span></button>
       <button id="accounts-disclosure" aria-expanded="true" aria-controls="provider-tabs" aria-label="Show or hide provider settings"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m2 3.5 3 3 3-3"/></svg></button>
@@ -213,33 +244,48 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
         </div>
       </section>
       <section class="pane" id="pane-appearance" role="tabpanel" aria-labelledby="tab-appearance" hidden>
-        <div class="sec">Usage</div>
+        <div class="sec">Notch</div>
         <div class="group">
-          <div class="item"><span>Reset time</span><select id="appearance-reset_time"><option value="automatic">Reset date</option><option value="remaining">Time remaining</option></select></div>
+          <div class="item"><span>Reset time</span><span class="seg" id="seg-reset_time"><button data-v="automatic">Reset date</button><button data-v="remaining">Time remaining</button></span></div>
+          <div class="item cap" id="cap-reset_time" data-dynamic></div>
           <div class="item"><span>Show usage pace</span><button class="switch" id="appearance-show_usage_pace" role="switch" aria-label="Show usage pace" aria-checked="false"></button></div>
           <div class="item cap">Compares each timed allowance with the time left until reset, showing quota in deficit or held in reserve.</div>
           <div class="item"><span>Show Spark and code review</span><button class="switch" id="appearance-show_codex_extra" role="switch" aria-label="Show Spark and code review" aria-checked="true"></button></div>
+          <div class="item cap">The ring still follows the main Codex window. Spark and code review stay in the hover card.</div>
           <div class="item"><span>Weekly ring</span><span class="seg" id="seg-weekly"><button data-v="off">Off</button><button data-v="inside">Inside</button><button data-v="outside">Outside</button></span></div>
-          <div class="item"><span>Dashed weekly ring</span><button class="switch" id="appearance-weekly_dashed" role="switch" aria-label="Dashed weekly ring" aria-checked="false"></button></div>
+          <div class="item cap" id="cap-weekly" data-dynamic></div>
+          <div class="item" id="row-weekly_dashed" hidden><span>Dashed weekly ring</span><button class="switch" id="appearance-weekly_dashed" role="switch" aria-label="Dashed weekly ring" aria-checked="false"></button></div>
           <div class="item"><span>Claude daily pace ring</span><button class="switch" id="appearance-claude_daily_pace" role="switch" aria-label="Claude daily pace ring" aria-checked="false"></button></div>
-          <div class="item cap">Claude's main ring shows today's share of the weekly limit. The session moves to the thin ring and the card; alerts follow the daily ring.</div>
-        </div>
-        <div class="sec">Notch</div>
-        <div class="group">
+          <div class="item cap">Claude's main ring shows today's share of the weekly limit — a seventh a day, counted from the weekly reset — instead of the session. The session moves to the thin ring and the card; alerts follow the daily ring.</div>
           <div class="item"><span>Show</span><span class="seg" id="seg-show"><button data-v="show">Always show</button><button data-v="hover">Show on hover</button><button data-v="hide">Hide</button></span></div>
           <div class="item cap" id="cap-show" data-dynamic></div>
           <div class="item"><span>Fold for full-screen apps</span><button class="switch" id="appearance-folds_for_fullscreen" role="switch" aria-label="Fold for full-screen apps" aria-checked="true"></button></div>
           <div class="item cap">The notch folds away while a full-screen app is frontmost, and returns when you leave it. Off keeps it in place over full-screen apps.</div>
-          <div class="item"><span>Size</span><span class="seg" id="seg-size"><button data-v="0.8">Small</button><button data-v="1">Medium</button><button data-v="1.25">Large</button></span></div>
-          <div class="item"><label for="appearance-custom_enabled">Custom size</label><input id="appearance-custom_enabled" type="checkbox"><input id="appearance-custom_scale" type="range" min="0.75" max="1.5" step="0.01" aria-label="Custom size"><output id="appearance-scale_value"></output></div>
-          <div class="item"><span>Edge</span><span class="seg" id="seg-edge"><button data-v="left">Left</button><button data-v="right">Right</button><button data-v="top">Top</button><button data-v="bottom">Bottom</button></span></div>
+          <div class="item"><span>Edge</span><span class="seg" id="seg-edge"><button data-v="right">Right</button><button data-v="left">Left</button><button data-v="top">Top</button><button data-v="bottom">Bottom</button></span></div>
+          <div class="item cap" id="cap-edge" data-dynamic></div>
+          <div class="item"><span>Size</span><span class="seg" id="seg-size-mode"><button data-v="preset">Preset</button><button data-v="custom">Custom</button></span></div>
+          <div id="preset-size-controls">
+            <div class="item"><span class="sr-only">Preset size</span><span class="seg" id="seg-size" aria-label="Preset size"><button data-v="0.8">Small</button><button data-v="1">Medium</button><button data-v="1.25">Large</button></span></div>
+            <div class="item cap" id="cap-size" data-dynamic></div>
+          </div>
+          <div id="custom-size-controls" hidden>
+            <div class="item scale-row"><input id="appearance-custom_scale" type="range" min="0.75" max="1.5" step="any" aria-label="Custom size"><output id="appearance-scale_value"></output></div>
+            <div class="item cap">Scales the whole surface — rings, text and tooltip together — so the proportions stay as drawn. 100% is the size the notch was designed at.</div>
+          </div>
+          <div class="item"><span class="hint">Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it.</span><button class="btn" id="btn-recentre">Recentre</button></div>
           <div class="item"><span>Show move handle</span><button class="switch" id="sw-move" role="switch" aria-checked="true" aria-label="Show move handle"></button></div>
-          <div class="item" id="row-screen" hidden><span>Screen</span>
-            <select id="screen" aria-label="Screen"></select>
+          <div class="item cap">The arc above the notch. Hold it to carry the notch to another edge — Edge above does the same.</div>
+          <div class="item" id="row-screen" hidden><span>Display</span>
+            <select id="screen" aria-label="Display"></select>
           </div>
           <div class="item cap" id="cap-screen" data-dynamic hidden></div>
-          <div class="item"><span class="hint">Hold Alt / Option and drag the notch to slide it along its edge. Each edge remembers where you left it. Recentre puts it back in the middle of the edge it is on, or on the main screen's right-hand edge if the screen it was on has been unplugged.</span><button class="btn" id="btn-recentre">Recentre</button></div>
         </div>
+        <div class="sec">Usage Limits</div><div class="group">
+          <div class="item limit-row"><div class="limit-label"><label for="appearance-watch">Watch limit</label><output id="appearance-watch_value"></output></div><input id="appearance-watch" type="range" min="1" max="99" step="1"></div>
+          <div class="item limit-row"><div class="limit-label"><label for="appearance-critical">Critical limit</label><output id="appearance-critical_value"></output></div><input id="appearance-critical" type="range" min="1" max="100" step="1"></div>
+          <div class="item"><button class="btn" id="appearance-reset_limits">Reset to defaults</button></div>
+        </div>
+        <div class="sec">App</div>
         <div class="group">
           <div class="item"><span>Accent color</span><div id="accent-swatches" class="accent-swatches" role="group" aria-label="Accent color"></div></div>
           <div id="app-presence-controls" hidden>
@@ -261,36 +307,28 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
           </div>
           <div class="item cap">Sets the language used by Velo. “Follow system” uses your system language.</div>
         </div>
-        <div class="sec">Usage colours</div><div class="group">
-          <div class="item"><label for="appearance-watch">Watch</label><input id="appearance-watch" type="range" min="1" max="98" step="1"><output id="appearance-watch_value"></output></div>
-          <div class="item"><label for="appearance-critical">Critical</label><input id="appearance-critical" type="range" min="2" max="100" step="1"><output id="appearance-critical_value"></output></div>
-        </div>
       </section>
 
       <section class="pane" id="pane-notifications" role="tabpanel" aria-labelledby="tab-notifications" hidden>
-        <div class="sec">When a session ends</div><div class="group"><div class="item"><span>Open the notch for a moment</span><button class="switch" id="notification-announce_session_end" role="switch" aria-label="Open the notch for a moment" aria-checked="true"></button></div><div class="item"><span>For</span><select id="notification-peek_seconds"><option value="3">3 seconds</option><option value="5">5 seconds</option><option value="10">10 seconds</option></select></div><div class="item"><span>Play a sound</span><button class="switch" id="notification-session_sound" role="switch" aria-label="Play a sound" aria-checked="true"></button></div><div class="item"><label for="notification-finished_sound">Finished</label><select id="notification-finished_sound"></select><button class="btn" data-preview-sound="finished_sound">Preview</button></div><div class="item"><label for="notification-blocked_sound">Waiting on you</label><select id="notification-blocked_sound"></select><button class="btn" data-preview-sound="blocked_sound">Preview</button></div><div class="item cap">Click the notification to return to the session’s app.</div></div>
-        <div class="sec">When a limit is reached</div><div class="group"><div class="item"><span>Show notification for session limit</span><button class="switch" id="notification-announce_session_limit" role="switch" aria-label="Show notification for session limit" aria-checked="true"></button></div><div class="item"><span>Show notification for weekly limit</span><button class="switch" id="notification-announce_weekly_limit" role="switch" aria-label="Show notification for weekly limit" aria-checked="true"></button></div><div class="item"><span>Play a sound</span><button class="switch" id="notification-limit_sound" role="switch" aria-label="Play a sound" aria-checked="true"></button></div><div class="item"><label for="notification-limit_sound_name">Alert sound</label><select id="notification-limit_sound_name"></select><button class="btn" data-preview-sound="limit_sound_name">Preview</button></div><div class="item"><button class="btn" data-preview-alert="sessionLimitReached">Preview session limit alert</button><button class="btn" data-preview-alert="weeklyLimitReached">Preview weekly limit alert</button></div></div>
-        <div class="sec">When a limit resets</div><div class="group"><div class="item"><span>Show notification from notch</span><button class="switch" id="notification-announce_reset" role="switch" aria-label="Show notification from notch" aria-checked="true"></button></div><div class="item"><span>Play a sound</span><button class="switch" id="notification-reset_sound" role="switch" aria-label="Play a sound" aria-checked="true"></button></div><div class="item"><label for="notification-reset_sound_name">Reset sound</label><select id="notification-reset_sound_name"></select><button class="btn" data-preview-sound="reset_sound_name">Preview</button></div><div class="item"><button class="btn" data-preview-alert="reset">Preview notification</button></div></div>
+        <div class="sec">When a session ends</div><div class="group"><div class="item"><span>Open the notch for a moment</span><button class="switch" id="notification-announce_session_end" role="switch" aria-label="Open the notch for a moment" aria-checked="true"></button></div><div class="item"><span>For</span><span class="seg" id="seg-peek_seconds"><button data-v="3">3 seconds</button><button data-v="5">5 seconds</button><button data-v="10">10 seconds</button></span></div><div class="item cap" id="cap-peek_seconds" data-dynamic></div><div class="item"><span>Play a sound</span><button class="switch" id="notification-session_sound" role="switch" aria-label="Play a sound" aria-checked="true"></button></div><div class="item"><label for="notification-finished_sound">Finished</label><span class="sound-controls"><select id="notification-finished_sound"></select><button class="sound-preview" type="button" data-preview-sound="finished_sound" aria-label="Preview sound"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="m6.5 4.9 4 3.1-4 3.1z"/></svg></button></span></div><div class="item"><label for="notification-blocked_sound">Waiting on you</label><span class="sound-controls"><select id="notification-blocked_sound"></select><button class="sound-preview" type="button" data-preview-sound="blocked_sound" aria-label="Preview sound"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="m6.5 4.9 4 3.1-4 3.1z"/></svg></button></span></div><div class="item cap">Velo already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead.</div><div class="item cap tertiary">The sound plays on the ordinary output, not the interface sound-effects channel — so it is still heard with “Play user interface sound effects” switched off in System Settings → Sound.</div></div>
+        <div class="sec">When a limit is reached</div><div class="group"><div class="item"><span>Show notification for session limit</span><button class="switch" id="notification-announce_session_limit" role="switch" aria-label="Show notification for session limit" aria-checked="true"></button></div><div class="item"><span>Show notification for weekly limit</span><button class="switch" id="notification-announce_weekly_limit" role="switch" aria-label="Show notification for weekly limit" aria-checked="true"></button></div><div class="item"><span>Play a sound</span><button class="switch" id="notification-limit_sound" role="switch" aria-label="Play a sound" aria-checked="true"></button></div><div class="item"><label for="notification-limit_sound_name">Alert sound</label><span class="sound-controls"><select id="notification-limit_sound_name"></select><button class="sound-preview" type="button" data-preview-sound="limit_sound_name" aria-label="Preview sound"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="m6.5 4.9 4 3.1-4 3.1z"/></svg></button></span></div><div class="item"><button class="btn" data-preview-alert="sessionLimitReached">Preview session limit alert</button><button class="btn" data-preview-alert="weeklyLimitReached">Preview weekly limit alert</button></div></div>
+        <div class="sec">When a limit resets</div><div class="group"><div class="item"><span>Show notification from notch</span><button class="switch" id="notification-announce_reset" role="switch" aria-label="Show notification from notch" aria-checked="true"></button></div><div class="item"><span>Play a sound</span><button class="switch" id="notification-reset_sound" role="switch" aria-label="Play a sound" aria-checked="true"></button></div><div class="item"><label for="notification-reset_sound_name">Reset sound</label><span class="sound-controls"><select id="notification-reset_sound_name"></select><button class="sound-preview" type="button" data-preview-sound="reset_sound_name" aria-label="Preview sound"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="m6.5 4.9 4 3.1-4 3.1z"/></svg></button></span></div><div class="item"><button class="btn" data-preview-alert="reset">Preview notification</button></div></div>
         <div class="sec">Threshold alerts</div><div class="group"><div class="item cap">A system notification at 80% and 100%, once per crossing. Mute a provider from its row in Accounts.</div></div>
       </section>
 
       <section class="pane" id="pane-general" role="tabpanel" aria-labelledby="tab-general" hidden>
-        <div class="sec">App</div>
         <div class="group">
           <div class="item"><span>Open Velo at login</span><button class="switch" id="sw-autostart" role="switch" aria-checked="false" aria-label="Open Velo at login"></button></div>
-          <div class="item cap">Velo opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Velo yourself.</div>
-          <div class="item"><span>Version</span><span class="value" id="about-version" data-dynamic>0.1.0</span></div>
-          <div class="item"><span>Updates</span><span class="value" id="update-status" data-dynamic></span><button class="btn" id="btn-update" data-dynamic>Check for updates</button></div>
-          <div class="item cap">Signed updates are available when a Velo release feed has been configured.</div>
+          <div class="item"><span>Install updates automatically</span><button class="switch" id="sw-automatic-updates" role="switch" aria-checked="false" aria-label="Install updates automatically" disabled></button></div>
+          <div class="item version-row"><span><span>Version</span> <span id="about-version" data-dynamic>0.1.0</span><span>. Updates are downloaded and verified before installation.</span></span><button class="btn compact" id="btn-update" data-dynamic>Check now</button></div>
+          <div class="item cap" id="update-status" role="status" data-dynamic hidden></div>
         </div>
-        <div class="group">
-          <!-- Stage 2 entry stays hidden until the complete Swift migration is accepted. -->
+        <div class="group windows-only">
           <div class="item" hidden><span>Extensions and CLI tools</span><button class="btn" id="btn-workbench">Open tools</button></div>
           <div class="item"><span>Data folder</span><button class="btn" id="btn-data">Open folder</button></div>
-          <div class="item cap">Everything Velo remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in your file manager.</div>
         </div>
         <div class="group">
-          <div class="item cap"><span>Project and source</span> <button class="link" id="author">Atingaii / Velo</button></div>
+          <div class="item credits"><span>App designed and developed by</span><button class="btn compact" id="author">Atingaii</button></div>
         </div>
       </section>
 
@@ -309,6 +347,7 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
 --------------------------------------------------------------------------- */
 
 document.getElementById('btn-workbench').addEventListener('click', () => invoke('open_workbench').catch(e => strip(errText(e))));
+document.documentElement.dataset.platform = /Mac/i.test(navigator.platform) ? 'macos' : 'windows';
 const BRIDGE = (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) || null;
 function invoke(cmd, args){
   if(!BRIDGE) return Promise.reject(new Error('the app bridge is not available'));
@@ -910,6 +949,40 @@ Object.assign(ZH_STATIC, {'Accent color':'强调色','Device accent color':'系�
 Object.assign(ZH_STATIC, {'Reorder':'调整顺序','Drag to reorder; use arrow keys':'拖动排序；也可使用方向键','Phone connected.':'手机已连接。','Pairing code expired. Close and reopen to try again.':'配对码已过期，请关闭后重新打开。','Pairing is closed.':'配对已关闭。','Phone':'手机','See your usage on your phone.':'在手机上查看用量。','Allow phones on this network':'允许同一网络内的手机连接','Your phone reads usage from this computer over your Wi-Fi. Nothing leaves your network.':'手机通过 Wi-Fi 读取本机用量，数据仅在局域网内传输。','Connect a Phone…':'连接手机…','Connect a Phone':'连接手机','Paired phones':'已配对的手机','No phones yet.':'尚未配对手机。','Scan with the Codenotch phone app on the same Wi-Fi network.':'使用同一 Wi-Fi 网络内的 Codenotch 手机应用扫码。','Copy Link':'复制链接','Remove phone?':'移除手机？','Remove':'移除','Cancel':'取消','Close':'关闭','This computer is not on a local network.':'本机未连接局域网。','Reset time':'重置时间','Reset date':'重置日期','Time remaining':'剩余时间','Show usage pace':'显示用量节奏','Claude daily pace ring':'Claude 每日额度圆环','Compares each timed allowance with the time left until reset, showing quota in deficit or held in reserve.':'比较额度消耗与距重置的时间，显示超前使用或预留的额度。',"Claude's main ring shows today's share of the weekly limit. The session moves to the thin ring and the card; alerts follow the daily ring.":'Claude 主圆环显示本周截至今日的累计份额。会话额度移到细圆环及卡片中，提醒跟随每日圆环。','Show Spark and code review':'显示 Spark 和代码审查','Dashed weekly ring':'虚线周额度圆环','Custom size':'自定义尺寸','Usage colours':'用量颜色','Watch':'留意','Critical':'紧张','Save':'保存','Connection':'连接','Loaded models':'已加载模型','Custom Endpoints':'自定义端点','Models running in Ollama on this computer.':'本机 Ollama 正在运行的模型。','Models loaded in LM Studio on this computer.':'本机 LM Studio 已加载的模型。','OpenAI-compatible APIs, local runtimes and custom proxies.':'兼容 OpenAI 的 API、本地运行时与自定义代理。','Memory':'内存','Model size':'模型大小','Context':'上下文','No models loaded.':'没有已加载的模型。','Waiting for a local runtime reading.':'等待本地运行时读数。','Usage':'用量','Choose which providers the notch reads.':'选择刘海读取的服务。','How the notch looks and where it sits.':'刘海的外观与位置。','What Velo tells you, and when.':'Velo 的提醒内容与时机。','Startup, updates and everything else.':'启动、更新与其他选项。',"Extensions and CLI tools":"扩展与 CLI 工具", "Open tools":"打开工具", "Notifications": "通知", "Waiting for your response": "等待你的回应", "Task completed": "任务完成", "Only notify when a session changes state. Prompts and project paths stay private.": "仅在会话状态变化时提醒，不在通知中显示提示词和项目路径。", "Sound and delivery follow your system notification settings.": "声音和送达方式遵循系统通知设置。", "Project and source": "项目与源码", "Updates not configured": "尚未配置更新源", "Signed updates are available when a Velo release feed has been configured.": "配置 Velo 发布源后，可获取经过签名验证的更新。"});
 Object.assign(ZH_STATIC,{'Follow active window':'跟随活动窗口','Fold for full-screen apps':'全屏应用前台运行时收起','The notch folds away while a full-screen app is frontmost, and returns when you leave it. Off keeps it in place over full-screen apps.':'全屏应用位于前台时收起刘海，离开后恢复。关闭后刘海会保持显示在全屏应用上方。'});
 const STATIC_TEXT = { 'pt-BR': PT_BR_STATIC, ru: RU_STATIC, zh: ZH_STATIC, 'zh-Hant': ZH_HANT_STATIC, ja: JA_STATIC, ko: KO_STATIC, uk: UK_STATIC };
+// Session descriptions from the pinned Swift catalog; the product name is adapted to Velo.
+Object.assign(STATIC_TEXT["pt-BR"], {});
+Object.assign(STATIC_TEXT["ru"], {});
+Object.assign(STATIC_TEXT["zh"], {"Velo already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead.":"Velo 已经知道助手何时停下来、或停下来问你。刘海展开时点一下，会把那个会话的应用带到前台 — 是应用，不是标签页：只有部分终端允许外部选定标签，所以提示里会写会话名称。","The sound plays on the ordinary output, not the interface sound-effects channel — so it is still heard with “Play user interface sound effects” switched off in System Settings → Sound.":"声音走普通输出，不是界面音效通道 — 所以在系统设置 → 声音里关掉「播放用户界面声音效果」之后仍然听得见。"});
+Object.assign(STATIC_TEXT["zh-Hant"], {"Velo already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead.":"Velo 已經知道助手何時停下來、或停下來問你。瀏海展開時點一下，會把那個工作階段的 App 帶到前景 — 是 App，不是分頁：只有部分終端允許外部選定標籤，所以提示裡會寫工作階段名稱。","The sound plays on the ordinary output, not the interface sound-effects channel — so it is still heard with “Play user interface sound effects” switched off in System Settings → Sound.":"聲音走普通輸出，不是介面音效通道 — 所以在系統設定 → 聲音裡關掉「播放使用者介面聲音效果」之後仍然聽得見。"});
+Object.assign(STATIC_TEXT["ja"], {"Velo already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead.":"Velo は、エージェントが作業を止めた瞬間や、あなたに質問するために止まった瞬間をすでに把握しています。開いているノッチをクリックすると、そのセッションのアプリが前面に出ます。タブではなくアプリです。外部からタブを選べるターミナルは一部に限られるため、代わりにツールチップがセッション名を示します。","The sound plays on the ordinary output, not the interface sound-effects channel — so it is still heard with “Play user interface sound effects” switched off in System Settings → Sound.":"サウンドは通常の出力で再生され、インターフェイスの効果音チャンネルは使いません。そのため、システム設定 → サウンドで「ユーザインターフェイスのサウンドエフェクトを再生」をオフにしていても聞こえます。"});
+Object.assign(STATIC_TEXT["ko"], {"Velo already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead.":"Velo는 에이전트가 작업을 마치거나 질문을 위해 멈추는 순간을 감지합니다. 노치가 열려 있을 때 클릭하면 해당 세션의 앱을 앞으로 가져옵니다. 외부에서 탭을 선택할 수 있는 터미널은 일부뿐이므로, 탭 대신 앱을 열고 툴팁에 세션 이름을 표시합니다.","The sound plays on the ordinary output, not the interface sound-effects channel — so it is still heard with “Play user interface sound effects” switched off in System Settings → Sound.":"소리는 인터페이스 효과음 채널이 아닌 일반 출력으로 재생합니다. 따라서 시스템 설정 → 사운드에서 ‘사용자 인터페이스 효과음 재생’을 꺼도 들립니다."});
+Object.assign(STATIC_TEXT["uk"], {"Velo already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead.":"Velo уже знає момент, коли агент завершує роботу або зупиняється, щоб щось запитати. Клік по відкритому вирізу виводить наперед застосунок цієї сесії — саме застосунок, не вкладку: лише деякі термінали дозволяють вибирати вкладку ззовні, тому підказка натомість називає сесію.","The sound plays on the ordinary output, not the interface sound-effects channel — so it is still heard with “Play user interface sound effects” switched off in System Settings → Sound.":"Звук відтворюється через звичайний вихід, а не через канал звукових ефектів інтерфейсу — тож його чути навіть тоді, коли «Відтворювати звукові ефекти інтерфейсу» вимкнено в Системних налаштуваннях → Звук."});
+// Display and hidden-state copy follows the same Swift baseline.
+Object.assign(STATIC_TEXT["pt-BR"], {"Display":"Tela","Moves to the display containing the window receiving keyboard input.":"Vai para a tela que contém a janela que está recebendo a digitação.","Nothing on screen. The readings stay in the menu bar menu when App icon is Menu bar. Otherwise, open Velo again from Applications to bring these settings back.":"Nada na tela. As leituras continuam no menu da barra de menus quando o Ícone do app é Barra de menus. Caso contrário, abra o Velo novamente em Aplicativos para trazer estes ajustes de volta."});
+Object.assign(STATIC_TEXT["ru"], {"Display":"Дисплей","Moves to the display containing the window receiving keyboard input.":"Перемещается на дисплей с окном, получающим ввод с клавиатуры.","Nothing on screen. The readings stay in the menu bar menu when App icon is Menu bar. Otherwise, open Velo again from Applications to bring these settings back.":"На экране ничего нет. Если значок приложения находится в строке меню, показания остаются в её меню. Иначе снова откройте Velo из папки «Программы», чтобы вернуть эти настройки."});
+Object.assign(STATIC_TEXT["zh"], {"Display":"显示器","Moves to the display containing the window receiving keyboard input.":"移到正在接收键盘输入的窗口所在的显示器。","Nothing on screen. The readings stay in the menu bar menu when App icon is Menu bar. Otherwise, open Velo again from Applications to bring these settings back.":"屏幕上什么都没有。应用图标选「菜单栏」时，读数仍在菜单栏菜单里。否则，从「应用程序」再打开 Velo，才能回到这些设置。"});
+Object.assign(STATIC_TEXT["zh-Hant"], {"Display":"顯示器","Moves to the display containing the window receiving keyboard input.":"移到正在接收鍵盤輸入的視窗所在的顯示器。","Nothing on screen. The readings stay in the menu bar menu when App icon is Menu bar. Otherwise, open Velo again from Applications to bring these settings back.":"螢幕上什麼都沒有。App 圖示選「選單列」時，讀數仍在選單列選單裡。否則，從「應用程式」再開啟 Velo，才能回到這些設定。"});
+Object.assign(STATIC_TEXT["ja"], {"Display":"ディスプレイ","Moves to the display containing the window receiving keyboard input.":"キーボード入力を受け取っているウインドウのあるディスプレイに移動します。","Nothing on screen. The readings stay in the menu bar menu when App icon is Menu bar. Otherwise, open Velo again from Applications to bring these settings back.":"画面には何も出ません。「アプリアイコン」が「メニューバー」なら、読み取りはメニューバーのメニューに残ります。それ以外の場合、この設定に戻るには、アプリケーションから Velo をもう一度開いてください。"});
+Object.assign(STATIC_TEXT["ko"], {"Display":"디스플레이","Moves to the display containing the window receiving keyboard input.":"키보드 입력을 받는 창이 있는 디스플레이로 이동합니다.","Nothing on screen. The readings stay in the menu bar menu when App icon is Menu bar. Otherwise, open Velo again from Applications to bring these settings back.":"화면에 아무것도 표시하지 않습니다. ‘앱 아이콘’이 ‘메뉴 막대’로 설정되어 있으면 메뉴 막대의 메뉴에서 측정값을 볼 수 있습니다. 그 외에는 응용 프로그램에서 Velo를 다시 열어 이 설정으로 돌아올 수 있습니다."});
+Object.assign(STATIC_TEXT["uk"], {"Display":"Дисплей","Moves to the display containing the window receiving keyboard input.":"Переходить на дисплей із вікном, що отримує ввід з клавіатури.","Nothing on screen. The readings stay in the menu bar menu when App icon is Menu bar. Otherwise, open Velo again from Applications to bring these settings back.":"Нічого на екрані. Якщо значок застосунку — «Рядок меню», показники лишаються в його меню. Інакше відкрийте Velo знову з теки «Програми», щоб повернути ці налаштування."});
+
+// Additional appearance copy is copied from the pinned Swift localization catalog.
+Object.assign(STATIC_TEXT["pt-BR"], {"Notch":"Notch","App":"App","Minutes under an hour; otherwise the reset date and time.":"Minutos quando falta menos de uma hora; caso contrário, a data e a hora da renovação.","Time until usage resets, such as 3 Days 3h or 3h 20m.":"Tempo até o uso renovar, como 3 dias 3h ou 3h 20m.","Claude's main ring shows today's share of the weekly limit — a seventh a day, counted from the weekly reset — instead of the session. The session moves to the thin ring and the card; alerts follow the daily ring.":"O anel principal do Claude mostra a parcela de hoje do limite semanal — um sétimo por dia, contado a partir da redefinição semanal — em vez da sessão. A sessão passa para o anel fino e o cartão; os alertas seguem o anel diário.","Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it.":"Segure ⌥ e arraste o notch para deslizá-lo ao longo da borda. Cada borda lembra onde você o deixou.","Takes the least room on the edge. Readable, but not from across the desk.":"Ocupa o mínimo de espaço na borda. Legível, mas não do outro lado da mesa.","The size the notch was drawn at.":"O tamanho com que o notch foi desenhado.","Easier to read at a glance, and harder to ignore.":"Mais fácil de ler de relance, e mais difícil de ignorar.","A wide bar across the top, readings side by side. On a Mac with a notch of its own it runs up to meet it, so the two read as one shape.":"Uma barra larga no topo, com as leituras lado a lado. Em um Mac com notch próprio, ela encosta nele, de modo que os dois formem uma só figura."});
+Object.assign(STATIC_TEXT["ru"], {"Notch":"Панель","App":"Приложение","Preset":"Предустановка","Custom":"Пользовательский","Preset size":"Размер предустановки","Minutes under an hour; otherwise the reset date and time.":"Минуты, если до сброса меньше часа; иначе дата и время сброса.","Time until usage resets, such as 3 Days 3h or 3h 20m.":"Время до сброса использования, например 3 дня 3 ч или 3 ч 20 мин.","One ring per provider, showing the headline limit. The weekly allowance stays in the hover card.":"Одно кольцо на провайдера с основным лимитом. Недельная квота остаётся в карточке при наведении.","A thinner ring for the weekly limit, drawn inside the main one. It shares the gap with the working indicator.":"Тонкое кольцо недельного лимита внутри основного. Оно делит зазор с индикатором работы.","A thinner ring for the weekly limit, drawn around the main one, in the margin between the ring and the notch edge.":"Тонкое кольцо недельного лимита вокруг основного, в промежутке между кольцом и краем панели.","Claude's main ring shows today's share of the weekly limit — a seventh a day, counted from the weekly reset — instead of the session. The session moves to the thin ring and the card; alerts follow the daily ring.":"Большое кольцо Claude показывает сегодняшнюю долю недельного лимита — по одной седьмой в день, отсчитывая от недельного сброса — вместо сессии. Сессия переходит в тонкое кольцо и в карточку; уведомления следуют за дневным кольцом.","Scales the whole surface — rings, text and tooltip together — so the proportions stay as drawn. 100% is the size the notch was designed at.":"Масштабирует всю поверхность — кольца, текст и подсказку — сохраняя пропорции. 100% — исходный размер панели.","Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it.":"Удерживайте ⌥ и перетаскивайте панель вдоль края. Для каждого края запоминается последнее положение.","Takes the least room on the edge. Readable, but not from across the desk.":"Занимает минимум места у края. Читается вблизи, но не издалека.","The size the notch was drawn at.":"Размер, для которого была отрисована панель.","Easier to read at a glance, and harder to ignore.":"Легче читать одним взглядом, но сложнее не заметить.","A wide bar across the top, readings side by side. On a Mac with a notch of its own it runs up to meet it, so the two read as one shape.":"Широкая панель сверху с показаниями рядом. На Mac с аппаратной выемкой она примыкает к ней, образуя единую форму."});
+Object.assign(STATIC_TEXT["zh"], {"Notch":"刘海","Usage Limits":"用量阈值","Watch limit":"关注阈值","Critical limit":"危急阈值","Reset to defaults":"恢复默认","App":"应用","Preset":"预设","Custom":"自定","Preset size":"预设大小","Minutes under an hour; otherwise the reset date and time.":"不足一小时显示分钟；否则显示重置日期和时间。","Time until usage resets, such as 3 Days 3h or 3h 20m.":"距离用量重置还有多久，例如 3 Days 3h 或 3h 20m。","The ring still follows the main Codex window. Spark and code review stay in the hover card.":"圆环仍跟着 Codex 的主窗口。Spark 和代码审查留在提示卡里。","One ring per provider, showing the headline limit. The weekly allowance stays in the hover card.":"每个服务一个圆环，显示主额度。每周额度仍在提示卡里。","A thinner ring for the weekly limit, drawn inside the main one. It shares the gap with the working indicator.":"一条更细的每周额度圆环，画在主环内侧。和工作指示共用那个空隙。","A thinner ring for the weekly limit, drawn around the main one, in the margin between the ring and the notch edge.":"一条更细的每周额度圆环，画在主环外侧，圆环和刘海边缘之间的空隙里。","Claude's main ring shows today's share of the weekly limit — a seventh a day, counted from the weekly reset — instead of the session. The session moves to the thin ring and the card; alerts follow the daily ring.":"Claude 的主圆环显示今日在每周限额中的份额（自每周重置起每天七分之一），而不是会话。会话移至细圆环和卡片；提醒跟随每日圆环。","Scales the whole surface — rings, text and tooltip together — so the proportions stay as drawn. 100% is the size the notch was designed at.":"整体缩放表面 — 圆环、文字和提示卡一起变，比例保持原样。100% 是刘海设计时的尺寸。","Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it.":"按住 ⌥ 拖动刘海，沿边缘滑动。每条边都会记住你放的位置。","The arc above the notch. Hold it to carry the notch to another edge — Edge above does the same.":"刘海上的弧。按住它可以把刘海拖到另一条边 — 上面的「边缘」也一样。","Takes the least room on the edge. Readable, but not from across the desk.":"边缘上占得最少。能读，但隔着桌子就不行。","The size the notch was drawn at.":"刘海绘制时的尺寸。","Easier to read at a glance, and harder to ignore.":"一眼更好读，也更难忽视。","Attached to the right-hand screen edge. Option-drag to move up or down.":"贴在屏幕右边缘。按住 ⌥ 拖动可上下移动。","Attached to the left-hand screen edge. Option-drag to move up or down.":"贴在屏幕左边缘。按住 ⌥ 拖动可上下移动。","A wide bar across the top, readings side by side. On a Mac with a notch of its own it runs up to meet it, so the two read as one shape.":"顶部一条横栏，读数并排。有硬件刘海的 Mac 上会贴上去，看起来像同一块。","Attached to the bottom screen edge. Option-drag to move left or right.":"贴在屏幕下边缘。按住 ⌥ 拖动可左右移动。"});
+Object.assign(STATIC_TEXT["zh-Hant"], {"Notch":"瀏海","Usage Limits":"用量閾值","Watch limit":"關注閾值","Critical limit":"危急閾值","Reset to defaults":"重設為預設值","App":"App","Preset":"預設","Custom":"自定","Preset size":"預設大小","Minutes under an hour; otherwise the reset date and time.":"不足一小時顯示分鐘；否則顯示重置日期和時間。","Time until usage resets, such as 3 Days 3h or 3h 20m.":"距離用量重置還有多久，例如 3 Days 3h 或 3h 20m。","The ring still follows the main Codex window. Spark and code review stay in the hover card.":"圓環仍會跟隨主要的 Codex 視窗。Spark 與程式碼審查留在懸停卡裡。","One ring per provider, showing the headline limit. The weekly allowance stays in the hover card.":"每個服務一個圓環，顯示主額度。每週額度仍在提示卡裡。","A thinner ring for the weekly limit, drawn inside the main one. It shares the gap with the working indicator.":"一條更細的每週額度圓環，畫在主環內側。和工作指示共用那個空隙。","A thinner ring for the weekly limit, drawn around the main one, in the margin between the ring and the notch edge.":"一條更細的每週額度圓環，畫在主環外側，圓環和瀏海邊緣之間的空隙裡。","Claude's main ring shows today's share of the weekly limit — a seventh a day, counted from the weekly reset — instead of the session. The session moves to the thin ring and the card; alerts follow the daily ring.":"Claude 的主圓環顯示今日在每週限額中的份額（自每週重置起每天七分之一），而不是工作階段。工作階段移至細圓環和卡片；提醒跟隨每日圓環。","Scales the whole surface — rings, text and tooltip together — so the proportions stay as drawn. 100% is the size the notch was designed at.":"整體縮放表面 — 圓環、文字和提示卡一起變，比例保持原樣。100% 是瀏海設計時的尺寸。","Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it.":"按住 ⌥ 拖動瀏海，沿邊緣滑動。每條邊都會記住你放的位置。","The arc above the notch. Hold it to carry the notch to another edge — Edge above does the same.":"瀏海上的弧形。按住它可把瀏海移到另一邊 — 上方的「邊緣」也能做同樣的事。","Takes the least room on the edge. Readable, but not from across the desk.":"邊緣上佔得最少。能讀，但隔著桌子就不行。","The size the notch was drawn at.":"瀏海繪製時的尺寸。","Easier to read at a glance, and harder to ignore.":"一眼更好讀，也更難忽視。","Attached to the right-hand screen edge. Option-drag to move up or down.":"已固定在螢幕右緣。按住 Option 拖移可上下移動。","Attached to the left-hand screen edge. Option-drag to move up or down.":"已固定在螢幕左緣。按住 Option 拖移可上下移動。","A wide bar across the top, readings side by side. On a Mac with a notch of its own it runs up to meet it, so the two read as one shape.":"頂部一條橫欄，讀數並排。有硬體瀏海的 Mac 上會貼上去，看起來像同一塊。","Attached to the bottom screen edge. Option-drag to move left or right.":"已固定在螢幕下緣。按住 Option 拖移可左右移動。"});
+Object.assign(STATIC_TEXT["ja"], {"Notch":"ノッチ","Usage Limits":"使用量のしきい値","Watch limit":"注意のしきい値","Critical limit":"危険のしきい値","Reset to defaults":"既定値に戻す","App":"アプリ","Preset":"プリセット","Custom":"カスタム","Preset size":"プリセットのサイズ","Minutes under an hour; otherwise the reset date and time.":"1 時間未満なら分、それ以外はリセットの日時。","Time until usage resets, such as 3 Days 3h or 3h 20m.":"使用量がリセットされるまでの時間。「3 日 3 時間」「3 時間 20 分」など。","The ring still follows the main Codex window. Spark and code review stay in the hover card.":"リングは引き続き Codex のメインウインドウに従います。Spark とコードレビューはホバーカードに表示されます。","One ring per provider, showing the headline limit. The weekly allowance stays in the hover card.":"サービスごとに 1 本のリングで主な上限を表示します。週間の枠はホバーカードに残ります。","A thinner ring for the weekly limit, drawn inside the main one. It shares the gap with the working indicator.":"週間の上限を細いリングで主リングの内側に描きます。作業中インジケータと同じ隙間を共有します。","A thinner ring for the weekly limit, drawn around the main one, in the margin between the ring and the notch edge.":"週間の上限を細いリングで主リングの外側、リングとノッチの端の間の余白に描きます。","Claude's main ring shows today's share of the weekly limit — a seventh a day, counted from the weekly reset — instead of the session. The session moves to the thin ring and the card; alerts follow the daily ring.":"Claude のメインリングに、セッションの代わりに週間上限の今日の割り当て（週次リセットから数えて 1 日あたり 7 分の 1）を表示します。セッションは細いリングとカードに移り、通知は日次リングに従います。","Scales the whole surface — rings, text and tooltip together — so the proportions stay as drawn. 100% is the size the notch was designed at.":"リング、文字、ツールチップをまとめて拡大縮小するので、比率は設計どおりのままです。100% がノッチの設計サイズです。","Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it.":"⌥ を押しながらノッチをドラッグすると、辺に沿って動かせます。位置は辺ごとに記憶されます。","The arc above the notch. Hold it to carry the notch to another edge — Edge above does the same.":"ノッチの上にある弧です。長押しすると、ノッチを別の辺へ運べます。上の「配置する辺」でも同じことができます。","Takes the least room on the edge. Readable, but not from across the desk.":"辺で占める場所が最小。読めますが、机の向こうからは無理です。","The size the notch was drawn at.":"ノッチが本来描かれるサイズ。","Easier to read at a glance, and harder to ignore.":"ひと目で読みやすく、無視しにくいサイズ。","Attached to the right-hand screen edge. Option-drag to move up or down.":"画面の右端に固定されています。⌥ ドラッグで上下に動かせます。","Attached to the left-hand screen edge. Option-drag to move up or down.":"画面の左端に固定されています。⌥ ドラッグで上下に動かせます。","A wide bar across the top, readings side by side. On a Mac with a notch of its own it runs up to meet it, so the two read as one shape.":"上端を横切る幅広のバー。読み取りが横並びになります。ノッチのある Mac ではそこまで伸びて、ひと続きの形に見えます。","Attached to the bottom screen edge. Option-drag to move left or right.":"画面の下端に固定されています。⌥ ドラッグで左右に動かせます。"});
+Object.assign(STATIC_TEXT["ko"], {"Notch":"노치","Usage Limits":"사용량 표시 기준","Watch limit":"주의 표시 기준","Critical limit":"위험 표시 기준","Reset to defaults":"기본값으로 재설정","App":"앱","Preset":"프리셋","Custom":"사용자 지정","Preset size":"프리셋 크기","Minutes under an hour; otherwise the reset date and time.":"1시간 미만이면 분으로, 그 외에는 재설정 날짜와 시간으로 표시합니다.","Time until usage resets, such as 3 Days 3h or 3h 20m.":"사용량이 재설정될 때까지 남은 시간을 3일 3시간 또는 3시간 20분처럼 표시합니다.","The ring still follows the main Codex window. Spark and code review stay in the hover card.":"링은 계속 Codex의 기본 집계 기간을 따릅니다. Spark와 코드 리뷰는 호버 카드에 표시합니다.","One ring per provider, showing the headline limit. The weekly allowance stays in the hover card.":"제공자당 하나의 링으로 주요 한도를 표시합니다. 주간 할당량은 호버 카드에 표시합니다.","A thinner ring for the weekly limit, drawn inside the main one. It shares the gap with the working indicator.":"기본 링 안쪽에 주간 한도를 얇은 링으로 표시합니다. 작업 중 표시와 같은 간격을 사용합니다.","A thinner ring for the weekly limit, drawn around the main one, in the margin between the ring and the notch edge.":"기본 링과 노치 가장자리 사이의 여백에 주간 한도를 얇은 링으로 표시합니다.","Claude's main ring shows today's share of the weekly limit — a seventh a day, counted from the weekly reset — instead of the session. The session moves to the thin ring and the card; alerts follow the daily ring.":"Claude의 기본 링에 세션 대신 주간 한도의 오늘 몫을 표시합니다. 주간 재설정일부터 하루에 7분의 1씩 계산합니다. 세션은 얇은 링과 카드로 옮겨 표시하고 알림은 일일 링을 기준으로 보냅니다.","Scales the whole surface — rings, text and tooltip together — so the proportions stay as drawn. 100% is the size the notch was designed at.":"링, 텍스트, 툴팁을 함께 확대·축소해 원래 비율을 유지합니다. 100%가 노치의 원래 디자인 크기입니다.","Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it.":"⌥ 키를 누른 채 노치를 드래그하면 가장자리를 따라 이동합니다. 가장자리마다 마지막 위치를 기억합니다.","The arc above the notch. Hold it to carry the notch to another edge — Edge above does the same.":"노치 위의 호입니다. 길게 누르면 노치를 다른 가장자리로 옮길 수 있습니다. 위의 ‘가장자리’ 설정으로도 같은 작업을 할 수 있습니다.","Takes the least room on the edge. Readable, but not from across the desk.":"가장자리에서 차지하는 공간이 가장 작습니다. 가까이에서는 읽기 쉽지만 멀리서는 잘 보이지 않습니다.","The size the notch was drawn at.":"노치의 원래 디자인 크기입니다.","Easier to read at a glance, and harder to ignore.":"한눈에 읽기 쉽고 눈에 잘 띕니다.","Attached to the right-hand screen edge. Option-drag to move up or down.":"화면 오른쪽 가장자리에 고정되어 있습니다. Option 키를 누른 채 드래그하면 위아래로 이동합니다.","Attached to the left-hand screen edge. Option-drag to move up or down.":"화면 왼쪽 가장자리에 고정되어 있습니다. Option 키를 누른 채 드래그하면 위아래로 이동합니다.","A wide bar across the top, readings side by side. On a Mac with a notch of its own it runs up to meet it, so the two read as one shape.":"위쪽 가장자리에 넓은 막대를 배치하고 측정값을 나란히 표시합니다. 노치가 있는 Mac에서는 기기 노치까지 이어져 하나의 모양처럼 보입니다.","Attached to the bottom screen edge. Option-drag to move left or right.":"화면 아래쪽 가장자리에 고정되어 있습니다. Option 키를 누른 채 드래그하면 좌우로 이동합니다."});
+Object.assign(STATIC_TEXT["uk"], {"Notch":"Виріз","Usage Limits":"Пороги використання","Watch limit":"Поріг уваги","Critical limit":"Критичний поріг","Reset to defaults":"Відновити типові значення","App":"Застосунок","Preset":"Стандартний","Custom":"Власний","Preset size":"Стандартний розмір","Minutes under an hour; otherwise the reset date and time.":"Хвилини, якщо лишилося менше години; інакше — дата й час скидання.","Time until usage resets, such as 3 Days 3h or 3h 20m.":"Час до скидання використання, наприклад 3 дні 3 год або 3 год 20 хв.","The ring still follows the main Codex window. Spark and code review stay in the hover card.":"Кільце й далі стежить за основним вікном ліміту Codex. Spark і перевірка коду лишаються в картці при наведенні.","One ring per provider, showing the headline limit. The weekly allowance stays in the hover card.":"Одне кільце на провайдера з головним лімітом. Тижневий ліміт лишається в картці при наведенні.","A thinner ring for the weekly limit, drawn inside the main one. It shares the gap with the working indicator.":"Тонше кільце тижневого ліміту всередині основного. Воно ділить проміжок з індикатором роботи.","A thinner ring for the weekly limit, drawn around the main one, in the margin between the ring and the notch edge.":"Тонше кільце тижневого ліміту навколо основного, у проміжку між кільцем і краєм вирізу.","Claude's main ring shows today's share of the weekly limit — a seventh a day, counted from the weekly reset — instead of the session. The session moves to the thin ring and the card; alerts follow the daily ring.":"Головне кільце Claude показує сьогоднішню частку тижневого ліміту — по одній сьомій на день, від тижневого скидання — замість сесії. Сесія переходить у тонке кільце й картку; сповіщення йдуть за денним кільцем.","Scales the whole surface — rings, text and tooltip together — so the proportions stay as drawn. 100% is the size the notch was designed at.":"Масштабує всю поверхню — кільця, текст і підказку разом, — щоб пропорції лишалися як у макеті. 100% — розмір, для якого створювали виріз.","Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it.":"Утримуйте ⌥ і перетягніть виріз, щоб посунути його вздовж краю. Кожен край памʼятає останнє положення.","The arc above the notch. Hold it to carry the notch to another edge — Edge above does the same.":"Дуга над вирізом. Утримуйте її, щоб перенести виріз на інший край — те саме робить «Край» вище.","Takes the least room on the edge. Readable, but not from across the desk.":"Займає найменше місця на краю. Читається зблизька, але не через увесь стіл.","The size the notch was drawn at.":"Розмір, для якого виріз і малювався.","Easier to read at a glance, and harder to ignore.":"Легше прочитати одним поглядом і важче не помітити.","Attached to the right-hand screen edge. Option-drag to move up or down.":"Закріплено біля правого краю екрана. Перетягування з Option рухає вгору чи вниз.","Attached to the left-hand screen edge. Option-drag to move up or down.":"Закріплено біля лівого краю екрана. Перетягування з Option рухає вгору чи вниз.","A wide bar across the top, readings side by side. On a Mac with a notch of its own it runs up to meet it, so the two read as one shape.":"Широка смуга вгорі, показники поруч. На Mac із власним вирізом вона примикає до нього, тож обидва читаються як одна форма.","Attached to the bottom screen edge. Option-drag to move left or right.":"Закріплено біля нижнього краю екрана. Перетягування з Option рухає ліворуч чи праворуч."});
+Object.assign(ZH_STATIC, {"Could not install the update":"无法安装更新","Update installed; restart the app to finish":"更新已安装，重新启动应用后生效"});
+// Session duration captions from the pinned Swift localization catalog.
+Object.assign(STATIC_TEXT["pt-BR"], {"Long enough to notice, short enough to ignore.":"Tempo suficiente para notar, curto o bastante para ignorar.","Long enough to read the session's name and reach for it.":"Tempo suficiente para ler o nome da sessão e alcançá-la.","Stays until you have had a chance to look up.":"Permanece até você ter tido a chance de olhar."});
+Object.assign(STATIC_TEXT["ru"], {"Long enough to notice, short enough to ignore.":"Достаточно долго, чтобы заметить, и достаточно коротко, чтобы не мешать.","Long enough to read the session's name and reach for it.":"Достаточно долго, чтобы прочитать название сеанса и открыть его.","Stays until you have had a chance to look up.":"Остаётся открытой, пока вы не успеете на неё посмотреть."});
+Object.assign(STATIC_TEXT["zh"], {"Long enough to notice, short enough to ignore.":"够注意到，也够被忽略。","Long enough to read the session's name and reach for it.":"够读完会话名称并伸手过去。","Stays until you have had a chance to look up.":"会一直留到你有机会抬头看。"});
+Object.assign(STATIC_TEXT["zh-Hant"], {"Long enough to notice, short enough to ignore.":"夠注意到，也夠被忽略。","Long enough to read the session's name and reach for it.":"夠讀完工作階段名稱並伸手過去。","Stays until you have had a chance to look up.":"會一直留到你有機會抬頭看。"});
+Object.assign(STATIC_TEXT["ja"], {"Long enough to notice, short enough to ignore.":"気づく程度に長く、無視できる程度に短く。","Long enough to read the session's name and reach for it.":"セッション名を読んで手を伸ばせる程度の長さ。","Stays until you have had a chance to look up.":"顔を上げる余裕ができるまで残ります。"});
+Object.assign(STATIC_TEXT["ko"], {"Long enough to notice, short enough to ignore.":"알아차릴 수 있을 만큼 길고, 방해되지 않을 만큼 짧게 표시합니다.","Long enough to read the session's name and reach for it.":"세션 이름을 읽고 클릭할 수 있을 만큼 표시합니다.","Stays until you have had a chance to look up.":"화면을 확인할 여유가 생길 때까지 표시합니다."});
+Object.assign(STATIC_TEXT["uk"], {"Long enough to notice, short enough to ignore.":"Досить довго, щоб помітити, і досить коротко, щоб не заважати.","Long enough to read the session's name and reach for it.":"Досить довго, щоб прочитати назву сесії й перейти до неї.","Stays until you have had a chance to look up.":"Тримається, доки ви не встигнете підвести погляд."});
 const STATUS_TEXT = {
   en:{ ok:'', stale:'last reading is old', needsAuth:'not signed in', absent:'not installed', none:'nothing to report', error:'not reachable' },
   'pt-BR':{ ok:'', stale:'última leitura desatualizada', needsAuth:'não autenticado', absent:'não instalado', none:'nada para exibir', error:'indisponível' },
@@ -992,7 +1065,20 @@ function toast(msg){
    Dark 1 with white text in light mode. Both are asked for again whenever the window comes forward,
    so an accent changed in Settings shows up without reopening this one. */
 const dark = matchMedia('(prefers-color-scheme: dark)');
-let palette = null;
+let palette = null, systemSymbols = {};
+function renderSidebarGlyphs(){
+  for(const [id,symbol] of Object.entries(systemSymbols)){
+    const el=document.querySelector(id==='quit'?'#quit .badge':'#tab-'+id+' .badge');
+    if(!el || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(symbol.url))continue;
+    const span=document.createElement('span');span.className='system-symbol';
+    span.style.setProperty('--symbol','url('+symbol.url+')');
+    span.style.width=Math.min(18,Number(symbol.width)||13)+'px';span.style.height=Math.min(18,Number(symbol.height)||13)+'px';
+    el.replaceChildren(span);
+  }
+  for(const [tab,id] of [['ollama','ollama-local'],['lmstudio','lmstudio']]){
+    if(glyphs[id])document.querySelector('#tab-'+tab+' .badge').innerHTML=glyphHtml({id});
+  }
+}
 function applyAccent(){
   const root=document.documentElement.style;
   const chosen=appearance?.accent_color||'system';
@@ -1004,6 +1090,7 @@ function loadLook(){
     if(!look) return;
     document.body.classList.toggle('solid', !look.mica);
     if(Array.isArray(look.accent) && look.accent.length >= 5) palette = look.accent;
+    systemSymbols=look.symbols||{};renderSidebarGlyphs();
     applyAccent();renderAppearance();
   });
 }
@@ -1037,6 +1124,7 @@ window.addEventListener('pagehide',()=>{if(document.getElementById('phone-pairin
 /* ---- the sidebar -------------------------------------------------------- */
 const TABS = ['accounts', 'ollama', 'lmstudio', 'custom', 'phone', 'appearance', 'notifications', 'general'];
 const TITLES = {phone:'Phone', ollama:'Ollama',lmstudio:'LM Studio',custom:'Custom Endpoints',accounts:'Accounts', appearance:'Appearance', notifications:'Notifications', general:'General' };
+Object.assign(ZH_STATIC, {'Install updates automatically':'自动安装更新','Check now':'立即检查','App designed and developed by':'应用设计与开发','. Updates are downloaded and verified before installation.':'。更新下载后会先验证签名，再安装。','Automatic updates are not available in this preview. Download new versions from velo.codes.':'此预览版暂不支持自动更新，可从 velo.codes 下载新版。'});
 const SUBTITLES={phone:'See your usage on your phone.',ollama:'Models running in Ollama on this computer.',lmstudio:'Models loaded in LM Studio on this computer.',custom:'OpenAI-compatible APIs, local runtimes and custom proxies.',accounts:'Choose which providers the notch reads.',appearance:'How the notch looks and where it sits.',notifications:'What Velo tells you, and when.',general:'Startup, updates and everything else.'};
 const TAB_KEY = 'vela.settings.pane';
 let curTab = TABS[0];
@@ -1068,6 +1156,7 @@ function showTab(id, moveFocus){
   document.getElementById('title').textContent = ui(TITLES[id], TITLES[id]);
   document.getElementById('subtitle').textContent = ui(SUBTITLES[id],SUBTITLES[id]);
   document.getElementById('body').scrollTop = 0;
+  syncBodyScrollbarGutter();
   try { localStorage.setItem(TAB_KEY, id); } catch(e) { /* not remembered, that is all */ }
   if(moveFocus) document.getElementById('tab-' + id).focus();
 }
@@ -1327,7 +1416,7 @@ loadCustom().catch(()=>{});
    whenever the notch is hidden, and its answer says what was actually stored. */
 const SHOW_WHY = 'The notch stays open with every reading visible.';
 const HOVER_WHY = 'A small pill at the screen edge that opens when you reach it.';
-const HIDE_WHY = 'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Velo keeps counting your usage either way.';
+const HIDE_WHY = 'Nothing on screen. The readings stay in the menu bar menu when App icon is Menu bar. Otherwise, open Velo again from Applications to bring these settings back.';
 const TRAY_WHY = 'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Velo.';
 const NO_TRAY_WHY = 'No icon in the system tray. Open Velo again from the Start menu to bring these settings back.';
 const HELD_ON = 'Held on: the notch is hidden, so this icon is the only way left to reach Velo. Switch the notch back on first if you want to hide it.';
@@ -1390,6 +1479,9 @@ function renderRestoredAppearance(){
   for(const b of document.querySelectorAll('#seg-weekly button')){
     b.classList.toggle('on',b.dataset.v===weeklyPlacement);b.setAttribute('aria-pressed',String(b.dataset.v===weeklyPlacement));b.disabled=appearanceBusy;
   }
+  const weeklyWhy={off:'One ring per provider, showing the headline limit. The weekly allowance stays in the hover card.',inside:'A thinner ring for the weekly limit, drawn inside the main one. It shares the gap with the working indicator.',outside:'A thinner ring for the weekly limit, drawn around the main one, in the margin between the ring and the notch edge.'};
+  field('cap-weekly').textContent=ui(weeklyWhy[weeklyPlacement]||weeklyWhy.off);
+  field('row-weekly_dashed').hidden=weeklyPlacement==='off';
   drawSwitch(document.getElementById('sw-move'),{value:moveHandle,busy:appearanceBusy});
 }
 async function saveRestoredAppearance(command,args){
@@ -1415,13 +1507,18 @@ function renderAppearance(){
  const presenceCopy={dock:'A normal app icon in the Dock while Velo is running.',menuBar:'A small icon in the menu bar instead, and nothing in the Dock.',hidden:'No icon anywhere. Open Velo again from Applications to bring these settings back.'};
  const presenceZh={dock:'Velo 运行时，在 Dock 中显示正常的应用图标。',menuBar:'仅在菜单栏显示小图标，Dock 中不显示。',hidden:'不显示应用图标。从“应用程序”再次打开 Velo，即可返回设置。'};
  field('cap-presence').textContent=(uiLang.startsWith('zh')?presenceZh:presenceCopy)[appearance.app_presence||'dock'];
- field('appearance-reset_time').value=appearance.reset_time;
+ drawSeg('seg-reset_time',appearance.reset_time,appearanceSaving);
+ field('cap-reset_time').textContent=ui(appearance.reset_time==='remaining'?'Time until usage resets, such as 3 Days 3h or 3h 20m.':'Minutes under an hour; otherwise the reset date and time.');
  for(const key of ['show_codex_extra','weekly_dashed','show_usage_pace','claude_daily_pace','folds_for_fullscreen'])drawSwitch(field('appearance-'+key),{value:appearance[key],busy:appearanceSaving});
- field('appearance-custom_enabled').checked=appearance.custom_scale!=null;
- field('appearance-custom_scale').disabled=appearanceSaving||appearance.custom_scale==null;
+ const custom=appearance.custom_scale!=null;
+ drawSeg('seg-size-mode',custom?'custom':'preset',appearanceSaving);
+ field('preset-size-controls').hidden=custom;
+ field('custom-size-controls').hidden=!custom;
+ field('appearance-custom_scale').disabled=appearanceSaving||!custom;
  field('appearance-custom_scale').value=appearance.custom_scale??notchSize;
  field('appearance-scale_value').textContent=Math.round((appearance.custom_scale??notchSize)*100)+'%';
- for(const key of ['watch','critical']){field('appearance-'+key).value=Math.round(appearance[key]*100);field('appearance-'+key+'_value').textContent=Math.round(appearance[key]*100)+'%';}
+ for(const key of ['watch','critical']){field('appearance-'+key).value=Math.round(appearance[key]*100);field('appearance-'+key).disabled=appearanceSaving;field('appearance-'+key+'_value').textContent=Math.round(appearance[key]*100)+'%';}
+ field('appearance-reset_limits').disabled=appearanceSaving;
 }
 field('accent-swatches').onclick=e=>{const b=e.target.closest('[data-accent]');if(b&&!b.disabled)saveAppearance({accent_color:b.dataset.accent});};
 field('seg-presence').onclick=e=>{const b=e.target.closest('button[data-v]');if(b&&!b.disabled)saveAppearance({app_presence:b.dataset.v});};
@@ -1431,11 +1528,13 @@ async function saveAppearance(patch){
  finally{appearanceSaving=false;renderAppearance();}
 }
 for(const key of ['show_codex_extra','weekly_dashed','show_usage_pace','claude_daily_pace','folds_for_fullscreen'])field('appearance-'+key).addEventListener('click',()=>saveAppearance({[key]:!appearance[key]}));
-field('appearance-reset_time').addEventListener('change',e=>saveAppearance({reset_time:e.target.value}));
-field('appearance-custom_enabled').addEventListener('change',e=>saveAppearance({custom_scale:e.target.checked?notchSize:null}));
+field('seg-reset_time').addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(b&&!b.disabled&&b.dataset.v!==appearance.reset_time)saveAppearance({reset_time:b.dataset.v});});
+field('seg-size-mode').addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(b&&!b.disabled&&(b.dataset.v==='custom')!==(appearance.custom_scale!=null))saveAppearance({custom_scale:b.dataset.v==='custom'?notchSize:null});});
+field('appearance-custom_scale').addEventListener('input',e=>{field('appearance-scale_value').textContent=Math.round(Number(e.target.value)*100)+'%';});
 field('appearance-custom_scale').addEventListener('change',e=>saveAppearance({custom_scale:Number(e.target.value)}));
 field('appearance-watch').addEventListener('change',e=>saveAppearance({watch:Math.min(Number(e.target.value)/100,appearance.critical-.01)}));
 field('appearance-critical').addEventListener('change',e=>saveAppearance({critical:Math.max(Number(e.target.value)/100,appearance.watch+.01)}));
+field('appearance-reset_limits').addEventListener('click',()=>saveAppearance({critical:.7,watch:.5}));
 invoke('get_appearance').then(p=>{if(p)appearance=p;renderAppearance();}).catch(()=>{});
 
 /* ---- Appearance: size ------------------------------------------------------ */
@@ -1453,6 +1552,7 @@ function renderSize(){
     b.disabled = sizeBusy;
   }
   const why = SIZE_WHY[String(notchSize)] || '';
+  field('cap-size').textContent=ui(why);
 }
 document.getElementById('seg-size').addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -1472,13 +1572,13 @@ document.getElementById('seg-size').addEventListener('click', e => {
 
 /* ---- Appearance: edge and screen -------------------------------------------
    The notch stands upright on the left and right edges and lies flat on the top and bottom ones. The
-   screen row only appears once there is more than one to choose between, and a monitor the platform
-   will not name cannot be picked (it has nothing stable to remember), so it is listed disabled. */
+   A monitor the platform will not name cannot be picked (it has nothing stable to remember),
+   so it is listed disabled. */
 const EDGE_WHY = {
-  left: 'Stands upright on the left-hand edge, with the card opening to its right.',
-  right: 'Stands upright on the right-hand edge, the side it was drawn for.',
-  top: 'Lies flat along the top edge, with the card opening below it.',
-  bottom: 'Lies flat along the bottom edge, with the card opening above it.'
+  right: 'Attached to the right-hand screen edge. Option-drag to move up or down.',
+  left: 'Attached to the left-hand screen edge. Option-drag to move up or down.',
+  top: 'A wide bar across the top, readings side by side. On a Mac with a notch of its own it runs up to meet it, so the two read as one shape.',
+  bottom: 'Attached to the bottom screen edge. Option-drag to move left or right.'
 };
 let notchEdge = 'right', edgeBusy = false;
 function renderEdge(){
@@ -1489,6 +1589,7 @@ function renderEdge(){
     b.disabled = edgeBusy;
   }
   const why = EDGE_WHY[notchEdge] || '';
+  field('cap-edge').textContent=ui(why);
 }
 document.getElementById('seg-edge').addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -1511,10 +1612,10 @@ function renderScreens(){
   const row = document.getElementById('row-screen');
   const cap = document.getElementById('cap-screen');
   const sel = document.getElementById('screen');
-  const many = monitors.length > 1;
-  row.hidden = !many;
-  cap.hidden = !many;
-  if(!many) return;
+  const available = monitors.length > 0;
+  row.hidden = !available;
+  cap.hidden = !available;
+  if(!available) return;
   sel.textContent = '';
   const follow=document.createElement('option');follow.value='';follow.textContent=ui('Follow active window','Follow active window');follow.selected=!monitors.some(m=>m.pinned);sel.appendChild(follow);
   for(const m of monitors){
@@ -1526,7 +1627,8 @@ function renderScreens(){
     sel.appendChild(o);
   }
   const who = monitors.find(m => m.current);
-  const text = 'Which screen the notch lives on.';
+  const pinned=monitors.find(m => m.pinned);
+  const text=pinned ? 'Pinned to ' + pinned.label + '.' : 'Moves to the display containing the window receiving keyboard input.';
   cap.textContent = ui(text, text) + (who && !who.id ? ' (' + ui('this screen cannot be remembered by name', 'this screen cannot be remembered by name') + ')' : '');
 }
 document.getElementById('screen').addEventListener('change', e => {
@@ -1589,27 +1691,44 @@ document.getElementById('author').addEventListener('click', () => {
    was asked for rather than interrupting anything. */
 const updBtn = document.getElementById('btn-update');
 const updStatus = document.getElementById('update-status');
-let lastUpdateState = null;
+let lastUpdateState = null, updateSaving=false;
+const automaticUpdateSwitch=document.getElementById('sw-automatic-updates');
+automaticUpdateSwitch.addEventListener('click',async()=>{
+ if(updateSaving || lastUpdateState?.configured!==true)return;
+ updateSaving=true;renderUpdate(lastUpdateState);
+ try{await invoke('set_automatic_updates',{on:!lastUpdateState.automatic});}
+ catch(error){strip(errText(error));}
+ finally{
+  updateSaving=false;
+  try{renderUpdate(await invoke('get_update_state'));}catch(_){renderUpdate(lastUpdateState);}
+ }
+});
 function renderUpdate(st){
   lastUpdateState = st;
   st = st || {};
-  if(st.configured === false){ updStatus.textContent=ui('Updates not configured','Updates not configured'); updBtn.textContent=ui('Check for updates','Check for updates'); updBtn.disabled=true; return; }
+  drawSwitch(automaticUpdateSwitch,{value:!!st.automatic,busy:updateSaving||st.configured!==true});
+  updStatus.hidden=false;
+  if(st.configured === false){ updStatus.textContent=ui('Automatic updates are not available in this preview. Download new versions from velo.codes.'); updBtn.textContent=ui('Check now'); updBtn.disabled=true; return; }
   const busy = !!(st.checking || st.installing);
   updBtn.disabled = busy;
   if(st.installing){ updStatus.textContent = ui('Installing…', 'Installing…'); updBtn.textContent = ui('Update', 'Update'); return; }
-  if(st.checking){ updStatus.textContent = ui('Checking…', 'Checking…'); updBtn.textContent = ui('Check for updates', 'Check for updates'); return; }
+  if(st.checking){ updStatus.textContent = ui('Checking…', 'Checking…'); updBtn.textContent = ui('Check now'); return; }
+  updBtn.textContent = ui(st.available ? 'Update' : 'Check now');
+  if(st.message){
+    // A failed install can leave an available version; the failure is the useful state.
+    updStatus.textContent = ui(st.message, st.message);
+    return;
+  }
   if(st.available){
     // The version is a number, so it is shown as one rather than translated into a sentence.
     updStatus.textContent = st.available;
-    updBtn.textContent = ui('Update', 'Update');
     return;
   }
-  updStatus.textContent = st.message ? ui('Could not check for updates', 'Could not check for updates')
-                                     : ui('Up to date', 'Up to date');
-  updBtn.textContent = ui('Check for updates', 'Check for updates');
+  updStatus.hidden=true;
+  updStatus.textContent = '';
 }
 updBtn.addEventListener('click', () => {
-  const available = updStatus.textContent && updBtn.textContent === ui('Update', 'Update');
+  const available = lastUpdateState?.configured===true && !!lastUpdateState.available;
   invoke(available ? 'install_update' : 'check_for_update')
     .catch(e => strip('update failed: ' + errText(e)));
 });
@@ -1623,10 +1742,15 @@ const soundKeys=['finished_sound','blocked_sound','limit_sound_name','reset_soun
 let notificationPrefs={attention:false,done:false,announce_session_end:true,peek_seconds:5,session_sound:true,finished_sound:'Glass',blocked_sound:'Funk',announce_session_limit:true,announce_weekly_limit:true,limit_sound:true,limit_sound_name:'Funk',announce_reset:true,reset_sound:true,reset_sound_name:'Glass',muted_providers:[]},notificationBusy=false,alertSounds=[];
 function renderNotifications(){
  for(const key of notificationKeys)drawSwitch(field('notification-'+key),{value:notificationPrefs[key],busy:notificationBusy});
- field('notification-peek_seconds').value=String(notificationPrefs.peek_seconds);field('notification-peek_seconds').disabled=notificationBusy||!notificationPrefs.announce_session_end;
+ drawSeg('seg-peek_seconds',String(notificationPrefs.peek_seconds),notificationBusy||!notificationPrefs.announce_session_end);
+ const peekCopy={3:'Long enough to notice, short enough to ignore.',5:"Long enough to read the session's name and reach for it.",10:'Stays until you have had a chance to look up.'};
+ field('cap-peek_seconds').textContent=ui(peekCopy[notificationPrefs.peek_seconds]||peekCopy[5]);
  for(const key of soundKeys){
   const choices=[...new Set([notificationPrefs[key],...alertSounds])].filter(Boolean);
   field('notification-'+key).innerHTML=choices.map(name=>'<option value="'+esc(name)+'">'+esc(name)+'</option>').join('');field('notification-'+key).value=notificationPrefs[key];
+  const preview=field('pane-notifications').querySelector('[data-preview-sound="'+key+'"]');
+  preview.setAttribute('aria-label',ui('Play')+' '+notificationPrefs[key]);
+  preview.title=preview.getAttribute('aria-label');
   const enabled=key==='limit_sound_name'?notificationPrefs.limit_sound:key==='reset_sound_name'?notificationPrefs.reset_sound:notificationPrefs.session_sound;
   field('notification-'+key).disabled=notificationBusy||!enabled;
  }
@@ -1638,7 +1762,7 @@ async function saveNotification(patch){
 }
 for(const key of notificationKeys)field('notification-'+key).addEventListener('click',()=>saveNotification({[key]:!notificationPrefs[key]}));
 for(const key of soundKeys)field('notification-'+key).addEventListener('change',e=>saveNotification({[key]:e.target.value}));
-field('notification-peek_seconds').addEventListener('change',e=>saveNotification({peek_seconds:Number(e.target.value)}));
+field('seg-peek_seconds').addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(b&&!b.disabled)saveNotification({peek_seconds:Number(b.dataset.v)});});
 field('pane-notifications').addEventListener('click',async e=>{
  const sound=e.target.closest('[data-preview-sound]'),alert=e.target.closest('[data-preview-alert]');if(!sound&&!alert)return;
  try{if(sound)await invoke('preview_alert_sound',{name:notificationPrefs[sound.dataset.previewSound]});else await invoke('preview_notch_alert',{kind:alert.dataset.previewAlert});}catch(error){strip(errText(error));}
@@ -1660,6 +1784,23 @@ function renderAll(){
   document.getElementById('title').textContent = ui(TITLES[curTab], TITLES[curTab]);
   document.getElementById('subtitle').textContent = ui(SUBTITLES[curTab],SUBTITLES[curTab]);
 }
+const bodyScrollPane=document.getElementById('body');
+let gutterFrame=0,bodyScrollbarGutter=-1;
+function syncBodyScrollbarGutter(){
+  if(gutterFrame)return;
+  gutterFrame=requestAnimationFrame(()=>{
+    gutterFrame=0;
+    // Overlay scrollbars report zero. A classic scrollbar consumes layout width;
+    // returning that width to the content keeps the grouped form's 20pt right inset.
+    const gutter=Math.max(0,Math.min(20,bodyScrollPane.offsetWidth-bodyScrollPane.clientWidth));
+    if(gutter===bodyScrollbarGutter)return;
+    bodyScrollbarGutter=gutter;
+    bodyScrollPane.style.setProperty('--body-scrollbar-gutter',gutter+'px');
+  });
+}
+if('ResizeObserver' in window)new ResizeObserver(syncBodyScrollbarGutter).observe(bodyScrollPane);
+window.addEventListener('resize',syncBodyScrollbarGutter);
+syncBodyScrollbarGutter();
 function boot(){
   showTab(savedTab());
   setUiLanguage('auto');
@@ -1670,8 +1811,8 @@ function boot(){
     renderAccounts();
   });
   call('get_antigravity_prefs', undefined, null).then(v => { if(v && typeof v === 'object'){ agPrefs = v; renderAccounts(); } });
-  call('get_glyphs', undefined, null).then(g => { if(g && typeof g === 'object'){ glyphs = g; renderAccounts(); } });
-  try { window.__TAURI__.event.listen('glyphs', e => { if(e.payload){ glyphs = e.payload; renderAccounts(); } }); } catch(e) { /* the letters stay */ }
+  call('get_glyphs', undefined, null).then(g => { if(g && typeof g === 'object'){ glyphs = g; renderSidebarGlyphs(); renderAccounts(); } });
+  try { window.__TAURI__.event.listen('glyphs', e => { if(e.payload){ glyphs = e.payload; renderSidebarGlyphs(); renderAccounts(); } }); } catch(e) { /* the letters stay */ }
   call('get_scale', undefined, null).then(v => { if(typeof v === 'number') notchSize = v; renderSize(); });
   call('get_notch_edge', undefined, null).then(v => { if(typeof v === 'string') notchEdge = v; renderEdge(); });
   refreshScreens();
