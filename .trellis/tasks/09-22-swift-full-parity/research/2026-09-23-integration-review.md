@@ -50,6 +50,11 @@
 26. 安装更新：按 ADR 0008 提供独立的签名预览 feed，三平台安装检查通过后才能更新 feed；Tauri 应用更新签名不等同 Apple 公证。实际密钥与篡改拒绝已验证，尚未完成客户端更新链路、新版安装包及更新验收。
 27. 跳回会话：前端只发稳定会话 ID；后端由当前活动映射到 PID，并复核采集时的进程出生时间与未停用状态。Windows 应选择最近的宿主窗口而非更上层 Explorer，且只有实际前台切换成功才报告成功。没有来源 PID 的行不可伪造跳转。
 28. Windows 应用呈现：设置中的应用图标选项必须有真实任务栏/托盘行为，不能只写配置；再次启动仍能打开设置。需分别验证操作系统等效行为与 macOS 原版行为。
+29. Gemini API 输出严格按固定源：month 总窗口保留实际 token 和可选预算百分比、today 总窗口、cli/opencode/hermes 各一个月窗口；不能添加每来源 calls/today 行，也不能有预算后丢掉实际 token。无日志采用原版 nothingMetered 语义。
+30. Devin 金额展示保留 Usage / Extra usage 分组，overage 的 used 是四舍五入后的 cents，usedText 是据该 cents 格式化的美元；金额不能只拼进 label 后再显示裸分数。Desktop 优先凭据、身份和源标签、CLI 空白校验与请求错误策略一并迁移。
+31. 声音原生桥接必须实际验证无声坏文件失败，不能用文件枚举测试代替 AVAudioPlayer 初始化结果。按源在调用 play 前替换 retained player；仅初始化失败才采用 NSSound 回退。
+
+最近检查：`882093e` 的浏览器/macOS/Windows CI 35816546847 全通过。当前后续检查点本机 Cargo 331 + helper 1、3 ignored（`/tmp/velo-migration-platform-ag-chime-tests.log`）、Node 18/18（`/tmp/velo-migration-platform-ag-node-tests.log`）通过。新 Windows 活动适配尚待对应提交的 CI，不能复用此前结果。
 
 ## 解锁后的原生复核顺序
 

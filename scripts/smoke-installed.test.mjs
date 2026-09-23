@@ -1,16 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-
-const runner = new URL('./smoke-installed.mjs', import.meta.url).pathname;
+import { runInstalledSmoke } from './smoke-installed-core.mjs';
 
 async function fixture() {
   const dir = await mkdtemp(join(tmpdir(), 'velo-smoke-runner-test-'));
-  const binary = join(dir, 'fixture.mjs');
-  await writeFile(binary, `#!/usr/bin/env node
+  const script = join(dir, 'fixture.mjs');
+  await writeFile(script, `
 import {spawn} from 'node:child_process';
 import {writeFileSync} from 'node:fs';
 import {join} from 'node:path';
@@ -25,56 +24,54 @@ if(process.env.SMOKE_FIXTURE_MODE==='pass') {
   setInterval(()=>{},1000);
 }
 `);
-  await chmod(binary, 0o755);
-  return { dir, binary };
+  return { dir, script };
 }
 
-async function run(binary, report, env = {}) {
-  const child = spawn(process.execPath, [runner, binary, report], {
-    env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'],
+async function run(script, reportPath, env = {}, timeoutMs = 2_000) {
+  const report = await runInstalledSmoke({
+    executable: process.execPath,
+    argsForDirectory: (dir) => [script, '--smoke-test', dir],
+    reportPath,
+    timeoutMs,
+    env: { ...process.env, ...env },
+    stdio: 'ignore',
   });
-  let stderr = '';
-  child.stderr.on('data', (chunk) => { stderr += chunk; });
-  const status = await new Promise((resolve) => child.once('close', (code, signal) => resolve({ code, signal })));
-  return { ...status, stderr, report: JSON.parse(await readFile(report, 'utf8')) };
+  assert.deepEqual(report, JSON.parse(await readFile(reportPath, 'utf8')));
+  return report;
 }
 
-// The fixture is a process-contract test only. The production runner always launches the actual
-// installed binary; its WebView/IPC behavior is verified by the installed-app smoke itself.
-test('installed smoke runner records success and cleans its own directory', { skip: process.platform === 'win32' }, async () => {
-  const { dir, binary } = await fixture();
+// The fixture tests the same process lifecycle on macOS and Windows with the native node.exe.
+// Production still invokes the real installed binary with --smoke-test <fresh directory>.
+test('installed smoke runner records success and cleans its own directory', async () => {
+  const { dir, script } = await fixture();
   try {
-    const result = await run(binary, join(dir, 'pass.json'), { SMOKE_FIXTURE_MODE: 'pass' });
-    assert.equal(result.code, 0);
-    assert.equal(result.report.success, true);
-    assert.equal(result.report.smoke_runner.exit_code, 0);
+    const report = await run(script, join(dir, 'pass.json'), { SMOKE_FIXTURE_MODE: 'pass' });
+    assert.equal(report.success, true);
+    assert.equal(report.smoke_runner.exit_code, 0);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('installed smoke runner preserves failure report without child output', { skip: process.platform === 'win32' }, async () => {
-  const { dir, binary } = await fixture();
+test('installed smoke runner preserves failure report without child output', async () => {
+  const { dir, script } = await fixture();
   try {
-    const result = await run(binary, join(dir, 'fail.json'), { SMOKE_FIXTURE_MODE: 'fail' });
-    assert.equal(result.code, 1);
-    assert.equal(result.report.success, false);
-    assert.equal(result.report.smoke_runner.exit_code, 9);
-    assert.match(result.report.smoke_runner.error, /smoke-result.json unavailable/);
+    const report = await run(script, join(dir, 'fail.json'), { SMOKE_FIXTURE_MODE: 'fail' });
+    assert.equal(report.success, false);
+    assert.equal(report.smoke_runner.exit_code, 9);
+    assert.match(report.smoke_runner.error, /smoke-result.json unavailable/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('installed smoke runner times out and terminates its process tree', { skip: process.platform === 'win32' }, async () => {
-  const { dir, binary } = await fixture();
+test('installed smoke runner times out and terminates its process tree', async () => {
+  const { dir, script } = await fixture();
   const heartbeat = join(dir, 'heartbeat');
   const pidPath = join(dir, 'grandchild.pid');
   let grandchildPid;
   try {
-    const result = await run(binary, join(dir, 'timeout.json'), {
+    const report = await run(script, join(dir, 'timeout.json'), {
       SMOKE_FIXTURE_MODE: 'hang', SMOKE_HEARTBEAT: heartbeat, SMOKE_CHILD_PID: pidPath,
-      VELO_SMOKE_TIMEOUT_MS: '500',
-    });
-    assert.equal(result.code, 1);
-    assert.equal(result.report.success, false);
-    assert.equal(result.report.smoke_runner.timed_out, true);
+    }, process.platform === 'win32' ? 2_500 : 500);
+    assert.equal(report.success, false);
+    assert.equal(report.smoke_runner.timed_out, true);
     grandchildPid = Number(await readFile(pidPath, 'utf8'));
     const before = await readFile(heartbeat, 'utf8');
     await new Promise((resolve) => setTimeout(resolve, 250));

@@ -27,11 +27,17 @@ fn focus_map() -> &'static Mutex<HashMap<String, (u32, Option<u64>)>> {
 /// Only current monitor-owned process IDs may be focused, and PID reuse is rechecked.
 pub fn focus_target(id: &str) -> Option<u32> {
     let (pid, start) = *focus_map().lock().ok()?.get(id)?;
-    (alive(pid, start) && kimi_identity(pid)).then_some(pid)
+    (start.is_some()
+        && crate::claude_session_monitor::process_start_ms(pid) == start
+        && kimi_identity(pid))
+    .then_some(pid)
 }
 
 pub fn read(now_ms: u64) -> Vec<Activity> {
     if crate::smoke::root().is_some() {
+        if let Ok(mut held) = focus_map().lock() {
+            held.clear();
+        }
         return Vec::new();
     }
     let root = std::env::var_os("KIMI_CODE_HOME")
@@ -48,13 +54,13 @@ fn read_at(root: &Path, now_ms: u64, mut live: Vec<Process>) -> Vec<Activity> {
     live.sort_by(|a, b| b.started_at.unwrap_or(0).cmp(&a.started_at.unwrap_or(0)));
     let mut out = Vec::new();
     for process in live {
+        if !alive(process.pid, process.started_at) {
+            continue;
+        }
         let key = resolve(&process.cwd);
         let Some(session_dir) = sessions.remove(&key) else {
             continue;
         };
-        if !alive(process.pid, process.started_at) {
-            continue;
-        }
         let row = session(&session_dir, &process, now_ms);
         if row.focusable {
             focus.insert(row.id.clone(), (process.pid, process.started_at));
@@ -92,20 +98,32 @@ fn index(root: &Path) -> HashMap<String, PathBuf> {
 }
 
 fn resolve(path: &str) -> String {
-    let mut value = path
-        .split('/')
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>()
-        .join("/");
-    if path.starts_with('/') {
-        value.insert(0, '/');
+    #[cfg(windows)]
+    {
+        let resolved = fs::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path));
+        return resolved
+            .to_string_lossy()
+            .replace('\\', "/")
+            .trim_end_matches('/')
+            .to_lowercase();
     }
-    for alias in ["/private/var", "/private/tmp", "/private/etc"] {
-        if value == alias || value.starts_with(&format!("{alias}/")) {
-            return value.trim_start_matches("/private").to_owned();
+    #[cfg(not(windows))]
+    {
+        let mut value = path
+            .split('/')
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join("/");
+        if path.starts_with('/') {
+            value.insert(0, '/');
         }
+        for alias in ["/private/var", "/private/tmp", "/private/etc"] {
+            if value == alias || value.starts_with(&format!("{alias}/")) {
+                return value.trim_start_matches("/private").to_owned();
+            }
+        }
+        value
     }
-    value
 }
 
 fn tail(path: &Path, max: u64) -> Option<Vec<u8>> {
@@ -239,7 +257,7 @@ fn session(dir: &Path, process: &Process, now_ms: u64) -> Activity {
         waiting_for,
         since,
         queued: 0,
-        focusable: kimi_identity(process.pid),
+        focusable: process.started_at.is_some() && kimi_identity(process.pid),
     }
 }
 
@@ -301,11 +319,25 @@ fn kimi_identity(pid: u32) -> bool {
             .to_string_lossy()
             .ends_with("/.kimi-code/bin/kimi")
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+fn alive(pid: u32, started_at: Option<u64>) -> bool {
+    let (Some(expected), Some(actual)) = (
+        started_at,
+        crate::claude_session_monitor::process_start_ms(pid),
+    ) else {
+        return false;
+    };
+    expected == actual
+}
+#[cfg(all(not(target_os = "macos"), not(windows)))]
 fn alive(_: u32, _: Option<u64>) -> bool {
     false
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+fn kimi_identity(pid: u32) -> bool {
+    windows_process(pid).is_some()
+}
+#[cfg(all(not(target_os = "macos"), not(windows)))]
 fn kimi_identity(_: u32) -> bool {
     false
 }
@@ -370,7 +402,68 @@ fn processes() -> Vec<Process> {
         })
         .collect()
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+fn windows_process_info(pid: u32) -> Option<(PathBuf, String, u64)> {
+    use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+    let mut system = System::new();
+    system.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[Pid::from_u32(pid)]),
+        true,
+        ProcessRefreshKind::nothing()
+            .with_exe(UpdateKind::Always)
+            .with_cwd(UpdateKind::Always),
+    );
+    let process = system.process(Pid::from_u32(pid))?;
+    let exe = process.exe()?.to_path_buf();
+    let cwd = process.cwd()?.to_string_lossy().into_owned();
+    let started_at = crate::claude_session_monitor::process_start_ms(pid)?;
+    if cwd.is_empty() {
+        return None;
+    }
+    Some((exe, cwd, started_at))
+}
+#[cfg(windows)]
+fn windows_process(pid: u32) -> Option<Process> {
+    let (exe, cwd, started_at) = windows_process_info(pid)?;
+    let name = exe.file_stem()?.to_string_lossy();
+    if !matches!(name.to_ascii_lowercase().as_str(), "kimi" | "kimi-code") {
+        return None;
+    }
+    Some(Process {
+        pid,
+        started_at: Some(started_at),
+        cwd,
+    })
+}
+#[cfg(windows)]
+fn processes() -> Vec<Process> {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+    let mut system = System::new();
+    system.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    let candidates = system
+        .processes()
+        .iter()
+        .filter(|(_, process)| {
+            matches!(
+                process
+                    .name()
+                    .to_string_lossy()
+                    .to_ascii_lowercase()
+                    .as_str(),
+                "kimi.exe" | "kimi-code.exe"
+            )
+        })
+        .map(|(pid, _)| *pid)
+        .collect::<Vec<_>>();
+    if candidates.is_empty() {
+        return Vec::new();
+    }
+    candidates
+        .into_iter()
+        .filter_map(|pid| windows_process(pid.as_u32()))
+        .collect()
+}
+#[cfg(all(not(target_os = "macos"), not(windows)))]
 fn processes() -> Vec<Process> {
     Vec::new()
 }
@@ -378,6 +471,52 @@ fn processes() -> Vec<Process> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    #[test]
+    fn windows_own_child_cwd_exe_and_precise_birth() {
+        use std::process::{Child, Command, Stdio};
+        use std::time::Duration;
+        struct ChildGuard(Child);
+        impl Drop for ChildGuard {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let temp = tempfile::tempdir().unwrap();
+        let child = Command::new("cmd.exe")
+            .args(["/Q", "/K"])
+            .current_dir(temp.path())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let mut guard = ChildGuard(child);
+        let pid = guard.0.id();
+        let mut found = None;
+        for _ in 0..30 {
+            found = windows_process_info(pid);
+            if found.is_some() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let (exe, cwd, birth) = found.expect("own child process must expose exe, cwd and birth");
+        assert_eq!(
+            exe.file_stem()
+                .unwrap()
+                .to_string_lossy()
+                .to_ascii_lowercase(),
+            "cmd"
+        );
+        assert_eq!(resolve(&cwd), resolve(&temp.path().to_string_lossy()));
+        assert!(alive(pid, Some(birth)));
+        assert!(!alive(pid, Some(birth + 1)), "birth must match exactly");
+        guard.0.kill().unwrap();
+        guard.0.wait().unwrap();
+        assert!(windows_process_info(pid).is_none());
+    }
     #[test]
     fn wire_state_ignores_bookkeeping_subagents_and_resolved_approval() {
         let at = 1_789_140_953_652;

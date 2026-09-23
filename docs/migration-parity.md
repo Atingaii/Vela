@@ -63,3 +63,5 @@
 2026-09-23 后续整合检查点：Rust 319 + helper 1、Node 15、Chromium 51、WebKit 51 通过，五页脚本语法通过。已接 Grok/Gemini API/Kimi 活动、本地模型独立活动与详情、LM Studio WS/日志/账本、Ollama relay、三类提醒状态机、账户生命周期、原生菜单/材质和设置保留状态。另单独执行本机已登录 Codex 的只读额度集成测试并通过；其结果不代表其他真实账号已验收。Grok/Kimi Windows 进程适配、跳回会话、部分供应商授权/字段、签名更新链路仍有剩余工作。锁屏期间隔离原生安装 smoke 未完成 WebView/IPC 握手，保留为失败待解锁复测，不能据此宣称安装可用或视觉 1:1 完成。
 
 2026-09-23 启动与聚焦修复：Rust 321 + helper 1、Chromium/WebKit 各 52 通过。调用栈证明此前原生启动失败来自 `ui_flags` 重复锁定相同 mutex，已修复并移除缩放/显隐/材质路径跨原生调用持锁；隔离 app 的真实 WebView/IPC smoke 现已通过，正常退出且未启动供应商采集。Claude/Grok/Kimi 会话使用来源 PID 与出生时间校验跳回；固定 Swift 源的 Codex/Cursor/Antigravity/Gemini API 会话未提供 processID，保留不可跳转。Grok macOS 临时文件真实持有/关闭测试已通过。Windows 活动、完整账户操作与鉴权、签名更新链路、最终安装包和逐屏视觉对照继续进行，不将此阶段标为完整迁移。
+
+2026-09-23 平台适配检查点：`882093e` 的浏览器、macOS、Windows [CI 35816546847](https://github.com/Atingaii/Velo/actions/runs/35816546847) 已全部通过。随后本机 Rust 331 + helper 1、Node 18 与五页脚本语法检查通过，新增 Antigravity 凭据/配额解析、Windows Grok/Kimi 进程和文件占用适配、跨平台安装 watchdog、账户目的地及应用入口基础接线。该本机结果不证明新的 Windows Restart Manager 路径已通过目标系统检查；声音桥接尚需实际坏文件测试，账户 Windows 目的地、AG 主轮询旧 CLI 优先路径、Kiro/Gemini API/Devin 输出和签名更新仍在修复。

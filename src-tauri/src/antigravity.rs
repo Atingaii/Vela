@@ -35,6 +35,7 @@
 
 use crate::usage::{LimitWindow, UsageSnapshot};
 use crate::AppState;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -42,30 +43,57 @@ use tauri::{AppHandle, Emitter, Manager};
 
 const POLL_SECS: u64 = 300;
 const CLI_TTL: Duration = Duration::from_secs(300);
-const LOAD_CODE_ASSIST: &str = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
 const QUOTA_SUMMARY: &str =
-    "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary";
+    "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary";
 const LS_SERVICE: &str = "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary";
 const CSRF_HEADER: &str = "x-codeium-csrf-token";
+const MAX_QUOTA_BODY: u64 = 2 * 1024 * 1024;
+
+mod quota;
+
+fn bounded_json(response: ureq::Response) -> Option<serde_json::Value> {
+    let mut body = Vec::new();
+    response
+        .into_reader()
+        .take(MAX_QUOTA_BODY + 1)
+        .read_to_end(&mut body)
+        .ok()?;
+    (body.len() as u64 <= MAX_QUOTA_BODY)
+        .then(|| serde_json::from_slice(&body).ok())
+        .flatten()
+}
 
 static REFRESH_CLI: Mutex<Option<std::sync::mpsc::SyncSender<()>>> = Mutex::new(None);
 static REFRESH_LEGACY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-static KEYCHAIN_PROMPT: OnceLock<Mutex<Option<u64>>> = OnceLock::new();
+#[derive(Default)]
+struct PromptPermission {
+    owed_until: Option<u64>,
+}
 
-fn keychain_prompt() -> &'static Mutex<Option<u64>> {
-    KEYCHAIN_PROMPT.get_or_init(|| Mutex::new(None))
+impl PromptPermission {
+    fn grant(&mut self, now: u64) {
+        self.owed_until = Some(now.saturating_add(60_000));
+    }
+
+    fn take(&mut self, now: u64) -> bool {
+        self.owed_until
+            .take()
+            .is_some_and(|deadline| now < deadline)
+    }
+}
+
+static KEYCHAIN_PROMPT: OnceLock<Mutex<PromptPermission>> = OnceLock::new();
+
+fn keychain_prompt() -> &'static Mutex<PromptPermission> {
+    KEYCHAIN_PROMPT.get_or_init(|| Mutex::new(PromptPermission::default()))
 }
 
 fn grant_keychain_prompt(now: u64) {
-    *keychain_prompt().lock().unwrap() = Some(now.saturating_add(60_000));
+    keychain_prompt().lock().unwrap().grant(now);
 }
 
 fn take_keychain_prompt(now: u64) -> bool {
-    keychain_prompt()
-        .lock()
-        .unwrap()
-        .take()
-        .is_some_and(|deadline| now < deadline)
+    keychain_prompt().lock().unwrap().take(now)
 }
 
 pub fn request_refresh() {
@@ -81,6 +109,16 @@ pub fn request_hover_refresh() {
     if let Some(sender) = REFRESH_CLI.lock().unwrap().as_ref() {
         let _ = sender.try_send(());
     }
+}
+
+#[tauri::command]
+pub fn allow_antigravity_keychain_access(app: AppHandle, id: String) -> Result<(), String> {
+    if id != "gemini" || !crate::providers::enabled(&app, &id) {
+        return Err("Antigravity Keychain account is unavailable".into());
+    }
+    grant_keychain_prompt(now_ms());
+    request_refresh();
+    Ok(())
 }
 
 #[cfg(test)]
@@ -296,6 +334,7 @@ fn local_agent() -> Option<ureq::Agent> {
         ureq::AgentBuilder::new()
             .tls_connector(Arc::new(tls))
             .timeout(Duration::from_secs(10))
+            .redirects(0)
             .build(),
     )
 }
@@ -311,15 +350,15 @@ fn bridge_quota(ep: &Endpoint) -> Result<Vec<LimitWindow>, String> {
             .set(CSRF_HEADER, &ep.csrf)
             .send_string(r#"{"forceRefresh":true}"#)
         {
-            Ok(r) => match r.into_json::<serde_json::Value>() {
-                Ok(v) => {
+            Ok(r) => match bounded_json(r) {
+                Some(v) => {
                     let w = windows_from_bridge(&v);
                     if !w.is_empty() {
                         return Ok(w);
                     }
                     last = format!("port {port}: no recognisable groups");
                 }
-                Err(e) => last = format!("port {port}: {e}"),
+                None => last = format!("port {port}: invalid response"),
             },
             Err(ureq::Error::Status(code, _)) => last = format!("port {port}: HTTP {code}"),
             Err(e) => last = format!("port {port}: {e}"),
@@ -328,92 +367,8 @@ fn bridge_quota(ep: &Endpoint) -> Result<Vec<LimitWindow>, String> {
     Err(last)
 }
 
-fn parse_iso(v: Option<&serde_json::Value>) -> Option<u64> {
-    v.and_then(|x| x.as_str())
-        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-        .map(|d| d.timestamp_millis().max(0) as u64)
-}
-
-/// The server reports what remains and the notch shows what is used: flip it here so the view never learns about provider differences
-// Same recognized cadences as AntigravityQuotaParser; unknown models have no pace.
-fn bucket_duration(bucket: &serde_json::Value) -> Option<f64> {
-    let values: Vec<_> = ["window", "bucketId", "displayName"]
-        .iter()
-        .filter_map(|key| bucket[*key].as_str())
-        .map(|s| {
-            s.trim()
-                .to_ascii_lowercase()
-                .trim_end_matches(" limit")
-                .to_string()
-        })
-        .collect();
-    if values
-        .iter()
-        .any(|s| s == "weekly" || s.ends_with("-weekly") || s.ends_with(" weekly"))
-    {
-        return Some(7. * 86400.);
-    }
-    if values.iter().any(|s| {
-        [
-            "session",
-            "5h",
-            "5-hour",
-            "five hour",
-            "five-hour",
-            "hourly",
-        ]
-        .contains(&s.as_str())
-            || ["-session", "-5h", "-5-hour", "-five-hour", "-hourly"]
-                .iter()
-                .any(|suffix| s.ends_with(suffix))
-    }) {
-        return Some(5. * 3600.);
-    }
-    None
-}
-
 pub fn windows_from_bridge(v: &serde_json::Value) -> Vec<LimitWindow> {
-    let mut out = Vec::new();
-    let Some(groups) = v.pointer("/response/groups").and_then(|g| g.as_array()) else {
-        return out;
-    };
-    for g in groups {
-        let gname = g.get("displayName").and_then(|x| x.as_str());
-        let Some(buckets) = g.get("buckets").and_then(|b| b.as_array()) else {
-            continue;
-        };
-        for b in buckets {
-            let Some(rem) = b.get("remainingFraction").and_then(|x| x.as_f64()) else {
-                continue;
-            };
-            if !(0.0..=1.0).contains(&rem) {
-                continue;
-            }
-            let bname = b.get("displayName").and_then(|x| x.as_str());
-            let id = b
-                .get("bucketId")
-                .and_then(|x| x.as_str())
-                .or(gname)
-                .unwrap_or("quota")
-                .to_string();
-            out.push(LimitWindow {
-                label: lane_name(&id)
-                    .or(gname)
-                    .or(bname)
-                    .unwrap_or("Usage")
-                    .to_string(),
-                group: gname.map(String::from),
-                id,
-                used: (1.0 - rem).clamp(0.0, 1.0),
-                has_fraction: Some(true),
-                resets_at: parse_iso(b.get("resetTime")),
-                duration: bucket_duration(b),
-                ..Default::default()
-            });
-        }
-    }
-    order_lanes(&mut out);
-    out
+    quota::parse(v, now_ms())
 }
 
 /// "5-hour Limit" or "Weekly Limit", as the Mac card names Antigravity's lanes, from the language
@@ -592,6 +547,87 @@ fn read_omp_credentials(path: &Path) -> Option<Creds> {
     (raw.len() <= 64 * 1024).then(|| decode_file_credential(raw.as_bytes(), true))?
 }
 
+fn omp_usage_windows(path: &Path, email: Option<&str>) -> Vec<LimitWindow> {
+    use rusqlite::{params, OpenFlags};
+    let Ok(db) = rusqlite::Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+    else {
+        return Vec::new();
+    };
+    let _ = db.busy_timeout(Duration::from_millis(100));
+    let _ = db.execute_batch("PRAGMA query_only=ON;");
+    let latest_email = email.map(str::to_owned).or_else(|| {
+        db.query_row(
+            "SELECT email FROM usage_history WHERE provider = 'google-antigravity' AND email IS NOT NULL AND email != '' ORDER BY recorded_at DESC, id DESC LIMIT 1",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .ok()
+    });
+    let sql = if latest_email
+        .as_deref()
+        .is_some_and(|email| !email.is_empty())
+    {
+        "SELECT limit_id, label, window_label, used_fraction, resets_at FROM usage_history WHERE provider = 'google-antigravity' AND email = ?1 ORDER BY recorded_at DESC, id DESC LIMIT 10"
+    } else {
+        "SELECT limit_id, label, window_label, used_fraction, resets_at FROM usage_history WHERE provider = 'google-antigravity' ORDER BY recorded_at DESC, id DESC LIMIT 10"
+    };
+    let Ok(mut statement) = db.prepare(sql) else {
+        return Vec::new();
+    };
+    let mut newest = std::collections::HashMap::new();
+    let collect =
+        |row: &rusqlite::Row<'_>| -> rusqlite::Result<(String, String, String, f64, Option<f64>)> {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+            ))
+        };
+    let rows = if let Some(email) = latest_email.as_deref().filter(|email| !email.is_empty()) {
+        statement.query_map(params![email], collect)
+    } else {
+        statement.query_map([], collect)
+    };
+    let Ok(rows) = rows else { return Vec::new() };
+    for row in rows.flatten() {
+        let (limit_id, raw_label, window_label, used, reset) = row;
+        let gemini = limit_id.contains(":google:") || raw_label.contains("Google");
+        let weekly = window_label.to_lowercase().contains("weekly");
+        let id = match (gemini, weekly) {
+            (true, true) => "gemini-weekly",
+            (true, false) => "gemini-hourly",
+            (false, true) => "3p-weekly",
+            (false, false) => "3p-hourly",
+        };
+        newest
+            .entry(id)
+            .or_insert((used, reset.filter(|ms| *ms > 0.).map(|ms| ms as u64)));
+    }
+    [
+        ("gemini-hourly", "Gemini Models", "5-hour Limit", false),
+        ("gemini-weekly", "Gemini Models", "Weekly Limit", true),
+        ("3p-hourly", "Claude and GPT models", "5-hour Limit", false),
+        ("3p-weekly", "Claude and GPT models", "Weekly Limit", true),
+    ]
+    .into_iter()
+    .map(|(id, group, label, weekly)| {
+        let (used, reset) = newest.get(id).copied().unwrap_or((0., None));
+        LimitWindow {
+            id: id.into(),
+            group: Some(group.into()),
+            label: label.into(),
+            used,
+            has_fraction: Some(true),
+            resets_at: reset,
+            duration: weekly.then_some(7. * 86400.),
+            ..Default::default()
+        }
+    })
+    .collect()
+}
+
 /// Dependency-free base64 (standard alphabet, tolerant of URL-safe characters and missing padding)
 pub(crate) fn b64_decode(s: &str) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(s.len() * 3 / 4);
@@ -618,131 +654,77 @@ pub(crate) fn b64_decode(s: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 
-fn read_credentials(interactive: bool) -> Option<Creds> {
+#[derive(Clone, Copy)]
+enum CredentialSource {
+    Keychain,
+    Omp,
+    Json,
+}
+
+fn choose_default_credentials(
+    mut read: impl FnMut(CredentialSource) -> Option<Creds>,
+) -> Option<Creds> {
     let mut expired = None;
-    if let Some(keychain) = read_credential_raw(interactive).and_then(|raw| decode_credential(&raw))
-    {
-        if !keychain.expired {
-            return Some(keychain);
-        }
-        expired = Some(keychain);
-    }
-    let home = dirs::home_dir()?;
-    if let Some(omp) = read_omp_credentials(&home.join(".omp/agent/agent.db")) {
-        if !omp.expired {
-            return Some(omp);
-        }
-        if expired.is_none() {
-            expired = Some(omp);
-        }
-    }
-    if let Some(json) = read_json_credentials(&home.join(".gemini/oauth_creds.json")) {
-        if !json.expired {
-            return Some(json);
-        }
-        if expired.is_none() {
-            expired = Some(json);
+    for source in [
+        CredentialSource::Keychain,
+        CredentialSource::Omp,
+        CredentialSource::Json,
+    ] {
+        if let Some(credentials) = read(source) {
+            if !credentials.expired {
+                return Some(credentials);
+            }
+            if expired.is_none() {
+                expired = Some(credentials);
+            }
         }
     }
     expired
 }
 
-/// Tier name ("Personal"/"Pro"…); 401/403 → NeedsAuth
-fn load_tier(token: &str) -> Result<String, String> {
-    let agent = ureq::AgentBuilder::new()
-        .timeout(Duration::from_secs(15))
-        .build();
-    match agent
-        .post(LOAD_CODE_ASSIST)
-        .set("Authorization", &format!("Bearer {token}"))
-        .set("Content-Type", "application/json")
-        .send_string(r#"{"metadata":{"pluginType":"GEMINI"}}"#)
-    {
-        Ok(r) => {
-            let v: serde_json::Value = r.into_json().map_err(|e| e.to_string())?;
-            let tier = v
-                .get("currentTier")
-                .or_else(|| {
-                    v.get("allowedTiers")
-                        .and_then(|a| a.as_array())
-                        .and_then(|a| {
-                            a.iter()
-                                .find(|t| {
-                                    t.get("isDefault").and_then(|x| x.as_bool()) == Some(true)
-                                })
-                                .or(a.first())
-                        })
-                })
-                .and_then(|t| t.get("name"))
-                .and_then(|x| x.as_str())
-                .unwrap_or("Gemini");
-            Ok(tier.to_string())
+fn read_credentials(interactive: bool) -> Option<Creds> {
+    let home = dirs::home_dir().unwrap_or_default();
+    choose_default_credentials(|source| match source {
+        CredentialSource::Keychain => {
+            read_credential_raw(interactive).and_then(|raw| decode_credential(&raw))
         }
-        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => {
-            Err("needsAuth".into())
-        }
-        Err(ureq::Error::Status(code, _)) => Err(format!("HTTP {code}")),
-        Err(e) => Err(e.to_string()),
-    }
+        CredentialSource::Omp => read_omp_credentials(&home.join(".omp/agent/agent.db")),
+        CredentialSource::Json => read_json_credentials(&home.join(".gemini/oauth_creds.json")),
+    })
 }
 
-/// Direct quota for licensed accounts; a personal account gets 403 → None (not an error)
-fn direct_quota(token: &str) -> Option<Vec<LimitWindow>> {
+/// A personal account may answer 403; that is an honest missing quota, not
+/// a signed-out claim. Credentials never follow a redirect to another host.
+fn direct_quota_at(endpoint: &str, token: &str, project: Option<&str>) -> Option<Vec<LimitWindow>> {
     let agent = ureq::AgentBuilder::new()
         .timeout(Duration::from_secs(15))
+        .redirects(0)
         .build();
+    let body = project.filter(|project| !project.is_empty()).map_or_else(
+        || serde_json::json!({}),
+        |project| serde_json::json!({"project": project}),
+    );
     let r = agent
-        .post(QUOTA_SUMMARY)
+        .post(endpoint)
         .set("Authorization", &format!("Bearer {token}"))
         .set("Content-Type", "application/json")
-        .send_string("{}")
+        .set(
+            "User-Agent",
+            "antigravity/hub/2.8.0 (aidev_client; os_type=darwin; arch=arm64; cl=963137146)",
+        )
+        .set(
+            "Client-Metadata",
+            "ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI",
+        )
+        .send_json(body)
         .ok()?;
-    let v: serde_json::Value = r.into_json().ok()?;
-    let mut buckets: Vec<serde_json::Value> = Vec::new();
-    if let Some(groups) = v.get("quotaGroups").and_then(|g| g.as_array()) {
-        for g in groups {
-            if let Some(bs) = g.get("buckets").and_then(|b| b.as_array()) {
-                buckets.extend(bs.iter().cloned());
-            }
-        }
-    }
-    if let Some(bs) = v.get("buckets").and_then(|b| b.as_array()) {
-        buckets.extend(bs.iter().cloned());
-    }
-    let out: Vec<LimitWindow> = buckets
-        .iter()
-        .filter_map(|b| {
-            let limit = b.get("limit").and_then(|x| x.as_f64())?;
-            let used = b.get("used").and_then(|x| x.as_f64())?;
-            if limit <= 0.0 || used < 0.0 || used > limit * 1.5 {
-                return None; // defensive: a reply of the wrong shape draws no ring
-            }
-            let label = b
-                .get("displayName")
-                .or_else(|| b.get("name"))
-                .and_then(|x| x.as_str())
-                .unwrap_or("Usage")
-                .to_string();
-            Some(LimitWindow {
-                id: b
-                    .get("name")
-                    .and_then(|x| x.as_str())
-                    .unwrap_or(&label)
-                    .to_string(),
-                label,
-                used: (used / limit).clamp(0.0, 1.0),
-                has_fraction: Some(true),
-                resets_at: parse_iso(b.get("resetTime")),
-                duration: bucket_duration(b),
-                ..Default::default()
-            })
-        })
-        .collect();
-    if out.is_empty() {
-        None
-    } else {
-        Some(out)
-    }
+    let v = bounded_json(r)?;
+    let windows = quota::parse(&v, now_ms());
+    (!windows.is_empty()).then_some(windows)
+}
+
+fn direct_quota(token: &str, project: Option<&str>) -> Option<Vec<LimitWindow>> {
+    direct_quota_at(QUOTA_SUMMARY, token, project)
 }
 
 // ---------------- 4. Fallback count ----------------
@@ -845,47 +827,46 @@ fn read_once(rt: &mut Runtime, prev: &UsageSnapshot) -> UsageSnapshot {
     if tried && !bridge_err.is_empty() {
         crate::applog(&format!("antigravity: local bridge failed ({bridge_err})"));
     }
-    // 2. The bridge worked before: keep the last percentage marked stale instead of degrading to a count (8% → 31 looks broken)
+    // A valid borrowed credential can still answer while the IDE is closed.
+    let mut tier: Option<String> = None;
+    let credentials = read_credentials(take_keychain_prompt(now_ms()));
+    if let Some(c) = &credentials {
+        tier = Some(if c.auth_method == "consumer" {
+            "Personal".into()
+        } else {
+            c.auth_method.clone()
+        });
+        if !c.expired {
+            if let Some(windows) = direct_quota(&c.access_token, c.project_id.as_deref()) {
+                snap.status = "ok".into();
+                snap.windows = windows;
+                snap.fetched_at = now_ms();
+                snap.note = "via Google".into();
+                return snap;
+            }
+        }
+    }
+    let home = dirs::home_dir().unwrap_or_default();
+    let omp = omp_usage_windows(
+        &home.join(".omp/agent/agent.db"),
+        credentials.as_ref().and_then(|cred| cred.email.as_deref()),
+    );
+    if !omp.is_empty() {
+        snap.status = "ok".into();
+        snap.windows = omp;
+        snap.fetched_at = now_ms();
+        snap.note = "via OMP".into();
+        return snap;
+    }
+    // Once a bridge supplied a percentage, a failed refresh cannot replace it
+    // with an unrelated request count.
     if rt.ever_bridged && !prev.windows.is_empty() {
         snap = prev.clone();
         snap.status = "stale".into();
         snap.note = "Antigravity is closed — last reading kept".into();
         return snap;
     }
-    // 3. Credential path
-    let mut tier: Option<String> = None;
-    match read_credentials(take_keychain_prompt(now_ms())) {
-        Some(c) if !c.expired => match load_tier(&c.access_token) {
-            Ok(t) => {
-                tier = Some(t);
-                if let Some(w) = direct_quota(&c.access_token) {
-                    snap.status = "ok".into();
-                    snap.windows = w;
-                    snap.fetched_at = now_ms();
-                    snap.note = format!("{} · via Google", tier.clone().unwrap_or_default());
-                    return snap;
-                }
-            }
-            Err(e) if e == "needsAuth" => {
-                snap.status = "needsAuth".into();
-                snap.note =
-                    "Antigravity's Google session was rejected — sign in again in Antigravity"
-                        .into();
-                return snap;
-            }
-            Err(e) => crate::applog(&format!("antigravity: loadCodeAssist {e}")),
-        },
-        Some(c) => {
-            // Expired ≠ signed out: Antigravity refreshes it on its next run; auth_method stands in for the tier
-            tier = Some(if c.auth_method == "consumer" {
-                "Personal".into()
-            } else {
-                c.auth_method.clone()
-            });
-        }
-        None => {}
-    }
-    // 4. Count fallback (derived: the card gets a ~ prefix and the ring draws only its track)
+    // Count fallback (derived: the card gets a ~ prefix and no percentage arc).
     let (n, latest) = requests_today();
     snap.status = "ok".into();
     snap.fetched_at = latest.unwrap_or_else(now_ms);
@@ -1093,8 +1074,134 @@ fn legacy_probe() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{requests_in, state_roots_in};
+    use super::{
+        choose_default_credentials, decode_file_credential, read_json_credentials,
+        read_omp_credentials, requests_in, state_roots_in, CredentialSource, Creds,
+        PromptPermission,
+    };
     use std::path::{Path, PathBuf};
+
+    #[test]
+    fn keychain_prompt_is_single_use_and_expires() {
+        let mut permission = PromptPermission::default();
+        permission.grant(100);
+        assert!(permission.take(60_099));
+        assert!(!permission.take(101));
+        permission.grant(100);
+        assert!(!permission.take(60_100));
+    }
+
+    #[test]
+    fn default_credentials_try_keychain_then_omp_then_json_without_reading_later_sources() {
+        let credential = |name: &str, expired| Creds {
+            access_token: name.into(),
+            expired,
+            auth_method: "consumer".into(),
+            project_id: None,
+            email: None,
+        };
+        let mut visited = Vec::new();
+        let chosen = choose_default_credentials(|source| {
+            visited.push(match source {
+                CredentialSource::Keychain => "keychain",
+                CredentialSource::Omp => "omp",
+                CredentialSource::Json => "json",
+            });
+            match source {
+                CredentialSource::Keychain => Some(credential("old-keychain", true)),
+                CredentialSource::Omp => Some(credential("live-omp", false)),
+                CredentialSource::Json => panic!("a valid OMP credential must stop reads"),
+            }
+        })
+        .unwrap();
+        assert_eq!(chosen.access_token, "live-omp");
+        assert_eq!(visited, ["keychain", "omp"]);
+        let expired = choose_default_credentials(|source| match source {
+            CredentialSource::Keychain => Some(credential("first-expired", true)),
+            CredentialSource::Omp => Some(credential("second-expired", true)),
+            CredentialSource::Json => None,
+        })
+        .unwrap();
+        assert_eq!(expired.access_token, "first-expired");
+    }
+
+    #[test]
+    fn named_file_credentials_use_json_before_agent_db_and_never_default_keychain() {
+        let temp = tempfile::tempdir().unwrap();
+        let json = temp.path().join("oauth_creds.json");
+        let db_path = temp.path().join("agent.db");
+        let db = rusqlite::Connection::open(&db_path).unwrap();
+        db.execute_batch(
+            "CREATE TABLE auth_credentials(provider TEXT, data TEXT, updated_at INTEGER);",
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO auth_credentials VALUES ('google-antigravity', ?1, 1)",
+            [r#"{"access":"omp-fixture","projectId":"project","email":"omp@example.test"}"#],
+        )
+        .unwrap();
+        drop(db);
+        std::fs::write(
+            &json,
+            br#"{"access_token":"json-fixture","project_id":"project","email":"json@example.test"}"#,
+        )
+        .unwrap();
+        let chosen = read_json_credentials(&json)
+            .or_else(|| read_omp_credentials(&db_path))
+            .unwrap();
+        assert_eq!(chosen.access_token, "json-fixture");
+        std::fs::remove_file(&json).unwrap();
+        let omp = read_json_credentials(&json)
+            .or_else(|| read_omp_credentials(&db_path))
+            .unwrap();
+        assert_eq!(omp.access_token, "omp-fixture");
+        assert_eq!(omp.email.as_deref(), Some("omp@example.test"));
+        assert!(decode_file_credential(br#"{"access":""}"#, true).is_none());
+    }
+
+    #[test]
+    fn borrowed_quota_request_never_redirects_a_token() {
+        use tiny_http::{Header, Response, Server};
+        let first = Server::http("127.0.0.1:0").unwrap();
+        let target = Server::http("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/quota", first.server_addr());
+        let target_url = format!("http://{}/borrowed", target.server_addr());
+        let worker = std::thread::spawn(move || {
+            let request = first.recv().unwrap();
+            assert!(request.headers().iter().any(|header| {
+                header.field.equiv("Authorization")
+                    && header.value.as_str() == "Bearer fixture-secret"
+            }));
+            let header = Header::from_bytes("Location", target_url.as_bytes()).unwrap();
+            request
+                .respond(Response::empty(302).with_header(header))
+                .unwrap();
+        });
+        assert!(super::direct_quota_at(&url, "fixture-secret", Some("fixture-project")).is_none());
+        worker.join().unwrap();
+        assert!(target
+            .recv_timeout(std::time::Duration::from_millis(300))
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn borrowed_quota_response_is_bounded_before_json_parse() {
+        use tiny_http::{Response, Server};
+        let server = Server::http("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/quota", server.server_addr());
+        let worker = std::thread::spawn(move || {
+            let request = server.recv().unwrap();
+            request
+                .respond(Response::from_data(vec![
+                    b' ';
+                    super::MAX_QUOTA_BODY as usize + 1
+                ]))
+                .unwrap();
+        });
+        assert!(super::direct_quota_at(&url, "fixture-secret", None).is_none());
+        worker.join().unwrap();
+    }
 
     struct Home(PathBuf);
     impl Home {
@@ -1228,11 +1335,11 @@ mod tests {
         // The shape the language server answered with on a real machine
         let reply = serde_json::json!({ "response": { "groups": [
             { "displayName": "Gemini Models", "buckets": [
-                { "bucketId": "gemini-weekly", "remainingFraction": 0.97 },
-                { "bucketId": "gemini-5h", "remainingFraction": 1.0 } ] },
+                { "bucketId": "gemini-weekly", "displayName": "Weekly Limit Remaining", "remainingFraction": 0.97 },
+                { "bucketId": "gemini-5h", "displayName": "5-hour Limit Remaining", "remainingFraction": 1.0 } ] },
             { "displayName": "Claude and GPT models", "buckets": [
-                { "bucketId": "3p-weekly", "remainingFraction": 1.0 },
-                { "bucketId": "3p-5h", "remainingFraction": 1.0 } ] } ] } });
+                { "bucketId": "3p-weekly", "displayName": "Weekly Limit Remaining", "remainingFraction": 1.0 },
+                { "bucketId": "3p-5h", "displayName": "5-hour Limit Remaining", "remainingFraction": 1.0 } ] } ] } });
         let lanes: Vec<String> = super::windows_from_bridge(&reply)
             .into_iter()
             .map(|w| format!("{} › {} ({})", w.group.unwrap_or_default(), w.label, w.id))
@@ -1249,29 +1356,34 @@ mod tests {
     }
 }
 
-pub fn read_profile(home: &std::path::Path, mut previous: UsageSnapshot) -> UsageSnapshot {
+pub fn read_profile(home: &std::path::Path, _previous: UsageSnapshot) -> UsageSnapshot {
     let cred = read_json_credentials(&home.join("oauth_creds.json"))
         .or_else(|| read_omp_credentials(&home.join("agent.db")));
-    let Some(cred) = cred else {
-        previous.status = "needsAuth".into();
-        return previous;
-    };
-    if cred.expired {
-        previous.status = "needsAuth".into();
-        previous.note = "此账户凭据已过期，请在对应 Antigravity 配置中重新登录".into();
-        return previous;
+    if let Some(cred) = cred {
+        if let Some(windows) = direct_quota(&cred.access_token, cred.project_id.as_deref()) {
+            return UsageSnapshot {
+                status: "ok".into(),
+                windows,
+                fetched_at: now_ms(),
+                note: "via Google".into(),
+                ..Default::default()
+            };
+        }
     }
-    if let Some(windows) = direct_quota(&cred.access_token) {
-        return UsageSnapshot {
-            plan: None,
-            status: "ok".into(),
-            windows,
-            fetched_at: now_ms(),
-            note: "via Google".into(),
-            backoff_until: 0,
+    let (count, latest) = requests_in(&[home.to_path_buf()], chrono::Local::now().date_naive());
+    UsageSnapshot {
+        status: "ok".into(),
+        windows: vec![LimitWindow {
+            id: "requests".into(),
+            label: "Requests today · no limit published".into(),
+            count: Some(count as i64),
+            has_fraction: Some(false),
+            derived: true,
             ..Default::default()
-        };
+        }],
+        fidelity: crate::usage::Fidelity::Derived,
+        fetched_at: latest.unwrap_or_else(now_ms),
+        note: "Open Antigravity to read its quota".into(),
+        ..Default::default()
     }
-    previous.status = "stale".into();
-    previous
 }

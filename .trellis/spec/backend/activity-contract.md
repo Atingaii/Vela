@@ -6,14 +6,16 @@
 
 ## 2. 签名
 
-- `Activity { id, provider, state, name, detail, waiting_for: Option<String>, since: u64 }`；`since` 是 epoch 毫秒。
+- `Activity { id, provider, state, name, detail, waiting_for: Option<String>, since: u64, queued: u32, focusable: bool }`；`since` 是 epoch 毫秒，新增字段保留默认值。
 - `profile_activity(&Profile, &mut BTreeMap<String, Ctx>) -> Vec<Activity>`。
 - `activity::antigravity::read(roots: &[PathBuf], now: u64) -> Vec<Activity>`，roots 是账户主目录（其下有 brain / conversations）。
 - `phone_link::activity_json(&Activity) -> Value`。
 
 ## 3. 契约
 
-Codex profile 的 turns、names 和 rollout 全部从自己的 home 读取，Ctx 按 profile ID 分开。Antigravity profile 只读取自己的 brain；默认账户沿用 Swift 聚合多个安装目录。独立账户活动 ID 加 profile 前缀，不用数组下标。轮询仍为一个线程，每 2 秒采样；每分钟重发现 profile。停用的账户不采样，移除/停用账户释放专用数据库连接。
+Codex profile 的 turns、names 和 rollout 全部从自己的 home 读取，Ctx 按 profile ID 分开。Antigravity profile 只读取自己的 brain；默认账户沿用 Swift 聚合多个安装目录。独立账户活动 ID 加 profile 前缀，不用数组下标。轮询仍为一个线程，每 2 秒采样；profile registry 按固定 Swift AppDelegate 在启动时发现，不新增周期发现。停用的账户不采样，移除/停用账户释放专用数据库连接。
+
+跳回会话时 WebView 只发送稳定会话 ID。后端按当前活动解析 PID，并严格复核采集时的进程出生时间和账户启用状态。`focusable` 只来自实际可定位的来源；固定 Swift 的 Codex/Cursor/Antigravity/Gemini API 不提供 processID，不增加猜测定位。Claude/Grok/Kimi 分别采用自己的来源证据，Windows 进程出生时间以 GetProcessTimes 的毫秒值为准。
 
 Antigravity 每个 root 选最新 transcript，解析后从有效会话中取最新一条；不是先跨 root 选文件。只读最多 64 KiB 尾部，倒序判定 USER_INPUT / PLANNER_RESPONSE / tool response，忽略 bookkeeping。busy 时只读 `conversations/<id>.db` 最新 `steps.status`，2 表示权限等待，不创建或修改第三方 DB。
 
@@ -47,4 +49,4 @@ Bad：从默认 ~/.codex 读取所有账户，或仅凭 transcript mtime 将等�
 Wrong：`waitingFor:null` 固定输出；将桌面 success 原样作为手机 v3 状态。
 Correct：手机通过专用投影保留等待原因并映射 success → idle。
 
-仍待迁移：Claude profile 活动隔离、Codex/Cursor 完整生命周期采集、真实客户端与双平台体验验收。本契约不表示全量会话迁移完成。
+Claude profile 隔离与 Codex/Cursor 生命周期已有实现及阶段测试；Windows Grok/Kimi 适配、真实客户端与双平台体验仍需按当前检查点验收。本契约不表示全量会话迁移完成。

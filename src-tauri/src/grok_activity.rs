@@ -44,7 +44,7 @@ fn focus_map() -> &'static Mutex<HashMap<String, (u32, u64)>> {
 }
 pub fn focus_target(id: &str) -> Option<u32> {
     let (pid, start) = *focus_map().lock().ok()?.get(id)?;
-    (grok_identity(pid) && alive(pid, Some(start))).then_some(pid)
+    (grok_identity(pid) && process_start(pid) == Some(start)).then_some(pid)
 }
 
 pub fn read(now_ms: u64) -> Vec<Activity> {
@@ -55,6 +55,9 @@ pub fn read(now_ms: u64) -> Vec<Activity> {
         return Vec::new();
     }
     let Some(home) = dirs::home_dir() else {
+        if let Ok(mut held) = focus_map().lock() {
+            held.clear();
+        }
         return Vec::new();
     };
     let root = home.join(".grok/sessions");
@@ -156,7 +159,7 @@ fn tui(row: &Value, root: &Path, now_ms: u64) -> Option<Activity> {
     }
     if let Some(pid) = row.get("pid").and_then(Value::as_u64) {
         let opened = row.get("opened_at").and_then(date_ms);
-        if !alive(pid as u32, opened) {
+        if !u32::try_from(pid).is_ok_and(|pid| alive(pid, opened)) {
             return None;
         }
     }
@@ -328,7 +331,11 @@ fn grok_identity(pid: u32) -> bool {
         .to_string_lossy()
         .contains("/.grok/downloads/grok-")
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+fn grok_identity(pid: u32) -> bool {
+    windows_process(pid).is_some()
+}
+#[cfg(all(not(target_os = "macos"), not(windows)))]
 fn grok_identity(_: u32) -> bool {
     false
 }
@@ -349,7 +356,14 @@ fn alive(pid: u32, opened: Option<u64>) -> bool {
     }
     true
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+fn alive(pid: u32, opened: Option<u64>) -> bool {
+    let Some(actual) = crate::claude_session_monitor::process_start_ms(pid) else {
+        return false;
+    };
+    opened.is_none_or(|expected| actual.abs_diff(expected) < 2_000)
+}
+#[cfg(all(not(target_os = "macos"), not(windows)))]
 fn alive(_: u32, _: Option<u64>) -> bool {
     false
 }
@@ -418,7 +432,70 @@ fn processes(root: &Path) -> Vec<Process> {
         })
         .collect()
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+fn windows_process_info(pid: u32) -> Option<(PathBuf, String, u64)> {
+    use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+    let mut system = System::new();
+    system.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[Pid::from_u32(pid)]),
+        true,
+        ProcessRefreshKind::nothing()
+            .with_exe(UpdateKind::Always)
+            .with_cwd(UpdateKind::Always),
+    );
+    let process = system.process(Pid::from_u32(pid))?;
+    let exe = process.exe()?.to_path_buf();
+    let cwd = process.cwd()?.to_string_lossy().into_owned();
+    let start = crate::claude_session_monitor::process_start_ms(pid)?;
+    if cwd.is_empty() || !windows_grok_exe(&exe) {
+        return None;
+    }
+    Some((exe, cwd, start))
+}
+#[cfg(windows)]
+fn windows_grok_exe(exe: &Path) -> bool {
+    let stem = exe
+        .file_stem()
+        .map(|part| part.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    if !stem.starts_with("grok") && stem != "agent" {
+        return false;
+    }
+    exe.to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase()
+        .contains("/.grok/downloads/grok-")
+}
+#[cfg(windows)]
+fn windows_process(pid: u32) -> Option<Process> {
+    let (_, cwd, started_at) = windows_process_info(pid)?;
+    Some(Process {
+        pid,
+        started_at,
+        cwd: Some(cwd),
+        open_sessions: Vec::new(),
+    })
+}
+#[cfg(windows)]
+fn processes(root: &Path) -> Vec<Process> {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+    let mut system = System::new();
+    system.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    system
+        .processes()
+        .iter()
+        .filter(|(_, process)| {
+            let name = process.name().to_string_lossy().to_ascii_lowercase();
+            name.starts_with("grok") || name == "agent.exe"
+        })
+        .filter_map(|(id, _)| {
+            let mut process = windows_process(id.as_u32())?;
+            process.open_sessions = windows_open_sessions(process.pid, root);
+            Some(process)
+        })
+        .collect()
+}
+#[cfg(all(not(target_os = "macos"), not(windows)))]
 fn processes(_: &Path) -> Vec<Process> {
     Vec::new()
 }
@@ -479,9 +556,219 @@ fn open_sessions(pid: i32, root: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
+#[cfg(windows)]
+fn windows_open_sessions(pid: u32, root: &Path) -> Vec<PathBuf> {
+    let Some(birth) = process_start(pid) else {
+        return Vec::new();
+    };
+    windows_session_candidates(root)
+        .into_iter()
+        .filter_map(|(dir, events)| {
+            windows_resource_users(&events)?
+                .into_iter()
+                .any(|(owner, started_at)| owner == pid && started_at == birth)
+                .then_some(dir)
+        })
+        .collect()
+}
+
+#[cfg(windows)]
+fn windows_session_candidates(root: &Path) -> Vec<(PathBuf, PathBuf)> {
+    const MAX_GROUPS: usize = 1024;
+    const MAX_DIRS: usize = 4096;
+    const MAX_QUERIES: usize = 128;
+    let Ok(real_root) = fs::canonicalize(root) else {
+        return Vec::new();
+    };
+    let mut entries = Vec::new();
+    let Ok(groups) = fs::read_dir(root) else {
+        return Vec::new();
+    };
+    for group in groups.flatten().take(MAX_GROUPS) {
+        let Ok(sessions) = fs::read_dir(group.path()) else {
+            continue;
+        };
+        for session in sessions.flatten() {
+            if entries.len() >= MAX_DIRS {
+                break;
+            }
+            let Ok(dir) = fs::canonicalize(session.path()) else {
+                continue;
+            };
+            if !dir.starts_with(&real_root) || kind(&dir).as_deref() != Some("headless") {
+                continue;
+            }
+            if !turn_open(&tail(&dir.join("updates.jsonl")).unwrap_or_default()) {
+                continue;
+            }
+            let events = dir.join("events.jsonl");
+            let Ok(events) = fs::canonicalize(events) else {
+                continue;
+            };
+            if events.parent() != Some(dir.as_path()) {
+                continue;
+            }
+            entries.push((modified_ms(&events).unwrap_or(0), dir, events));
+        }
+        if entries.len() >= MAX_DIRS {
+            break;
+        }
+    }
+    entries.sort_by(|a, b| b.0.cmp(&a.0));
+    entries.truncate(MAX_QUERIES);
+    entries
+        .into_iter()
+        .map(|(_, dir, events)| (dir, events))
+        .collect()
+}
+
+/// Restart Manager reports the processes actually using a file. This is read-only:
+/// never call RmShutdown or RmRestart, and fail closed on any API error.
+#[cfg(windows)]
+fn windows_resource_users(path: &Path) -> Option<Vec<(u32, u64)>> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::core::{PCWSTR, PWSTR};
+    use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS};
+    use windows::Win32::System::RestartManager::{
+        RmEndSession, RmGetList, RmRegisterResources, RmStartSession, CCH_RM_SESSION_KEY,
+        RM_PROCESS_INFO,
+    };
+
+    struct Session(u32);
+    impl Drop for Session {
+        fn drop(&mut self) {
+            unsafe { RmEndSession(self.0) };
+        }
+    }
+    let path = fs::canonicalize(path).ok()?;
+    let wide = path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let mut handle = 0u32;
+    let mut key = vec![0u16; CCH_RM_SESSION_KEY as usize + 1];
+    if unsafe { RmStartSession(&mut handle, 0, PWSTR(key.as_mut_ptr())) } != ERROR_SUCCESS {
+        return None;
+    }
+    let session = Session(handle);
+    if unsafe { RmRegisterResources(session.0, Some(&[PCWSTR(wide.as_ptr())]), None, None) }
+        != ERROR_SUCCESS
+    {
+        return None;
+    }
+    let mut needed = 0u32;
+    let mut count = 0u32;
+    let mut reasons = 0u32;
+    let result = unsafe { RmGetList(session.0, &mut needed, &mut count, None, &mut reasons) };
+    if result == ERROR_SUCCESS {
+        return Some(Vec::new());
+    }
+    if result != ERROR_MORE_DATA || needed > 1024 {
+        return None;
+    }
+    let mut rows = vec![RM_PROCESS_INFO::default(); needed as usize];
+    count = rows.len() as u32;
+    if unsafe {
+        RmGetList(
+            session.0,
+            &mut needed,
+            &mut count,
+            Some(rows.as_mut_ptr()),
+            &mut reasons,
+        )
+    } != ERROR_SUCCESS
+    {
+        return None;
+    }
+    Some(
+        rows.into_iter()
+            .take(count as usize)
+            .map(|row| {
+                let time = row.Process.ProcessStartTime;
+                let ticks = ((time.dwHighDateTime as u64) << 32) | time.dwLowDateTime as u64;
+                (
+                    row.Process.dwProcessId,
+                    ticks.saturating_sub(116_444_736_000_000_000) / 10_000,
+                )
+            })
+            .collect(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "run only as the child of windows_restart_manager_tracks_a_shared_open_file"]
+    fn windows_file_holder_child() {
+        let Some(events) = std::env::var_os("VELO_TEST_HELD_EVENTS") else {
+            return;
+        };
+        let ready = std::env::var_os("VELO_TEST_HELD_READY").unwrap();
+        let _held = File::open(events).unwrap();
+        fs::write(ready, b"ready").unwrap();
+        let mut byte = [0u8; 1];
+        let _ = std::io::stdin().read(&mut byte);
+    }
+    #[cfg(windows)]
+    #[test]
+    fn windows_restart_manager_tracks_a_shared_open_file() {
+        use std::process::{Child, Command, Stdio};
+        use std::time::Duration;
+        struct ChildGuard(Child);
+        impl Drop for ChildGuard {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let temp = tempfile::tempdir().unwrap();
+        let events = temp.path().join("events.jsonl");
+        let ready = temp.path().join("ready");
+        fs::write(&events, b"").unwrap();
+        let child = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "grok_activity::tests::windows_file_holder_child",
+                "--ignored",
+                "--nocapture",
+            ])
+            .env("VELO_TEST_HELD_EVENTS", &events)
+            .env("VELO_TEST_HELD_READY", &ready)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let mut guard = ChildGuard(child);
+        let pid = guard.0.id();
+        for _ in 0..50 {
+            if ready.exists() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(ready.exists(), "own child did not open fixture file");
+        let birth = crate::claude_session_monitor::process_start_ms(pid).unwrap();
+        let mut owners = Vec::new();
+        for _ in 0..20 {
+            owners = windows_resource_users(&events).expect("read-only Restart Manager query");
+            if owners.contains(&(pid, birth)) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(
+            owners.contains(&(pid, birth)),
+            "shared open must be attributed to child PID and exact birth: {owners:?}"
+        );
+        drop(guard.0.stdin.take());
+        guard.0.wait().unwrap();
+        let owners = windows_resource_users(&events).unwrap();
+        assert!(!owners.iter().any(|(owner, _)| *owner == pid));
+    }
     #[cfg(target_os = "macos")]
     #[test]
     fn kernel_vnode_path_abi_and_live_held_file() {

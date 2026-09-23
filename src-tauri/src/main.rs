@@ -1,6 +1,7 @@
 #![cfg_attr(all(not(debug_assertions), windows), windows_subsystem = "windows")]
 
 mod activity;
+mod account_destination;
 mod agy_cli;
 mod antigravity;
 mod appearance;
@@ -1877,11 +1878,7 @@ fn ui_flags(c: &config::Config) -> UiFlags {
     UiFlags {
         notch_visible: c.notch_visible,
         notch_on_hover: c.notch_on_hover,
-        tray_visible: if cfg!(target_os = "macos") {
-            c.appearance.app_presence == "menuBar"
-        } else {
-            c.tray_visible
-        },
+        tray_visible: c.appearance.app_presence == "menuBar",
         fullscreen,
         pinned,
     }
@@ -1901,9 +1898,8 @@ fn get_ui_flags(app: AppHandle, window: tauri::WebviewWindow) -> UiFlags {
     flags
 }
 
-/// Hiding both would leave the app running with nothing to click, so the tray icon is kept
-/// whenever the notch is off. The answer says what was actually stored, so the settings window can
-/// show the corrected state rather than a lie. Show on hover is not "off": the pill stays on screen.
+/// The separate App icon preference owns Dock/Taskbar vs menu bar/tray visibility. When both
+/// controls are hidden, launching Velo again opens Settings via the single-instance callback.
 #[tauri::command]
 fn set_ui_flags(
     app: AppHandle,
@@ -1928,7 +1924,7 @@ fn set_ui_flags(
         if let Some(on_hover) = notch_on_hover {
             c.notch_on_hover = on_hover;
         }
-        c.tray_visible = if notch_visible { tray_visible } else { true };
+        c.tray_visible = tray_visible;
         config::save(&c);
         ui_flags(&c)
     };
@@ -1967,7 +1963,7 @@ pub fn apply_visibility(app: &AppHandle) {
     let (notch, tray_on, flags) = {
         let st = app.state::<AppState>();
         let c = st.cfg.lock().unwrap();
-        (c.notch_visible, c.tray_visible, ui_flags(&c))
+        (c.notch_visible, c.appearance.app_presence == "menuBar", ui_flags(&c))
     };
     // Visibility is shared; a temporary pin belongs to one panel only.
     let _ = app.emit_to("settings", "ui_flags", &flags);
@@ -2442,6 +2438,9 @@ fn main() {
             get_usage,
             claude_sign_in,
             usage::allow_claude_keychain_access,
+            antigravity::allow_antigravity_keychain_access,
+            account_destination::get_account_destination,
+            account_destination::open_account_destination,
             get_claude_auth,
             updater::get_update_state,
             updater::check_for_update,

@@ -67,6 +67,7 @@ objc2-quartz-core = { version = "0.3", default-features = false, features = ["st
 plist = "1.10"
 
 [target.'cfg(windows)'.dependencies]
+sysinfo = { version = "=0.39.6", default-features = false, features = ["system"] }
 windows = { version = "0.58", features = [
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",
@@ -78,6 +79,7 @@ windows = { version = "0.58", features = [
   "Win32_System_Threading",
   "Win32_System_JobObjects",
   "Win32_System_Pipes",
+  "Win32_System_RestartManager",
   "Win32_Globalization",
   "Win32_System_Console",
   "Win32_System_Registry",

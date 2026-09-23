@@ -79,9 +79,13 @@ fn open_now(app: &AppHandle) {
         if offscreen(&w) { let _ = w.center(); }
         #[cfg(target_os = "macos")]
         let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+        #[cfg(windows)]
+        let _ = w.set_skip_taskbar(false);
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
+        #[cfg(windows)]
+        apply_windows_presence_on_main_thread(app);
         return;
     }
     // SettingsWindowController: a titled, transparent, dark NSWindow, with content under the
@@ -124,6 +128,8 @@ fn open_now(app: &AppHandle) {
                     let _ = crate::phone_link::phone_pairing(false);
                     #[cfg(target_os = "macos")]
                     apply_macos_presence(&handle, false);
+                    #[cfg(windows)]
+                    apply_windows_presence_on_main_thread(&handle);
                 }
                 #[cfg(target_os = "macos")]
                 if matches!(event, tauri::WindowEvent::Destroyed) {
@@ -138,6 +144,8 @@ fn open_now(app: &AppHandle) {
                 }
             });
             let _ = w.set_focus();
+            #[cfg(windows)]
+            apply_windows_presence_on_main_thread(app);
         }
         Err(e) => crate::applog(&format!("settings window: {e}")),
     }
@@ -149,8 +157,89 @@ pub fn apply_presence(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     apply_macos_presence(app, app.get_webview_window(LABEL)
         .is_some_and(|window| window.is_visible().unwrap_or(false)));
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(windows)]
+    {
+        // Window creation and taskbar changes must run on the UI thread, after setup returns.
+        let handle = app.clone();
+        std::thread::spawn(move || {
+            let app = handle.clone();
+            let _ = handle.run_on_main_thread(move || apply_windows_presence_on_main_thread(&app));
+        });
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
     let _ = app;
+}
+
+#[cfg(windows)]
+const TASKBAR_LABEL: &str = "taskbar-presence";
+#[cfg(windows)]
+static TASKBAR_ARMED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(windows)]
+fn app_presence_mode(app: &AppHandle) -> String {
+    app.state::<crate::AppState>().cfg.lock().unwrap().appearance.app_presence.clone()
+}
+
+/// Windows has no Dock. A tiny native window supplies the Taskbar entry while Settings is
+/// closed; selecting it opens Settings. It contains no WebView, IPC capability, or account data.
+#[cfg(windows)]
+fn taskbar_window(app: &AppHandle) -> Option<tauri::Window> {
+    if let Some(window) = app.get_window(TASKBAR_LABEL) { return Some(window); }
+    let window = tauri::WindowBuilder::new(app, TASKBAR_LABEL)
+        .title("Velo")
+        .inner_size(1.0, 1.0)
+        .resizable(false)
+        .maximizable(false)
+        .minimizable(true)
+        .focused(false)
+        .visible(false)
+        .skip_taskbar(false)
+        .build()
+        .ok()?;
+    let handle = app.clone();
+    let proxy = window.clone();
+    window.on_window_event(move |event| match event {
+        tauri::WindowEvent::Focused(true)
+            if TASKBAR_ARMED.load(std::sync::atomic::Ordering::Acquire)
+                && !proxy.is_minimized().unwrap_or(true) => open(&handle),
+        tauri::WindowEvent::CloseRequested { api, .. } => {
+            api.prevent_close();
+            open(&handle);
+        }
+        _ => {}
+    });
+    Some(window)
+}
+
+#[cfg(windows)]
+fn apply_windows_presence_on_main_thread(app: &AppHandle) {
+    if crate::smoke::root().is_some() { return; }
+    let mode = app_presence_mode(app);
+    let settings = app.get_webview_window(LABEL);
+    let settings_open = settings.as_ref().is_some_and(|window| window.is_visible().unwrap_or(false));
+    if let Some(window) = settings.as_ref() {
+        // Settings is a normal taskbar window while visible in every mode, just as opening
+        // Settings temporarily gives the original macOS app a Dock icon.
+        let _ = window.set_skip_taskbar(!settings_open);
+    }
+    if let Some(tray) = app.tray_by_id("main") {
+        let _ = tray.set_visible(mode == "menuBar");
+    }
+    if mode == "dock" && !settings_open {
+        if let Some(proxy) = taskbar_window(app) {
+            let _ = proxy.set_skip_taskbar(false);
+            if !proxy.is_minimized().unwrap_or(false) {
+                TASKBAR_ARMED.store(false, std::sync::atomic::Ordering::Release);
+                let _ = proxy.show();
+                let _ = proxy.minimize();
+                TASKBAR_ARMED.store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
+    } else if let Some(proxy) = app.get_window(TASKBAR_LABEL) {
+        TASKBAR_ARMED.store(false, std::sync::atomic::Ordering::Release);
+        let _ = proxy.hide();
+        let _ = proxy.set_skip_taskbar(true);
+    }
 }
 
 #[cfg(target_os = "macos")]
