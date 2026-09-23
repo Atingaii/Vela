@@ -143,7 +143,7 @@ jobs:
           retention-days: 7
   publish:
     needs: [browser, package]
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -176,5 +176,6 @@ jobs:
           node -e 'for(const name of ["macos-arm64","macos-x64","windows-x64"]){const r=require("./smoke-"+name+".json");if(!r.success)throw new Error(name)}'
           sha256sum Velo-* > SHA256SUMS.txt
           cd ..
+          node scripts/preview-update-feed.mjs release-assets "$RELEASE_TAG" --check
           gh release create "$RELEASE_TAG" release-assets/* --verify-tag --prerelease --title "Velo $RELEASE_TAG" --notes-file docs/releases/preview.md
           node scripts/preview-update-feed.mjs release-assets "$RELEASE_TAG" --publish

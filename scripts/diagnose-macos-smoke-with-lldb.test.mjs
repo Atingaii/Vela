@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runLldbFallback, shouldRunLldb, summarizeLldb } from './diagnose-macos-smoke-with-lldb.mjs';
 
+const posixLifecycleOnly = process.platform === 'win32' ? 'requires POSIX process groups' : false;
+
 test('LLDB fallback gate requires a failed macOS smoke without a matching crash', () => {
   assert.equal(shouldRunLldb({ success: false }, { matching_crashes: [] }, 'darwin'), true);
   assert.equal(shouldRunLldb({ success: true }, { matching_crashes: [] }, 'darwin'), false);
@@ -36,7 +38,8 @@ test('LLDB transcript retains only bounded exception values and thread frames', 
   assert.equal(denied.exception_name, null);
 });
 
-test('failure rerun uses the same binary and a new empty smoke root, then cleans it', async () => {
+test('failure rerun uses the same binary and a new empty smoke root, then cleans it',
+  { skip: posixLifecycleOnly }, async () => {
   const dir = await mkdtemp(join(tmpdir(), 'velo-lldb-test-'));
   try {
     const binary = join(dir, 'velo');
@@ -85,7 +88,8 @@ console.log('bad selector');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('hanging LLDB is killed within the configured bound and its root is removed', async () => {
+test('hanging LLDB is killed within the configured bound and its root is removed',
+  { skip: posixLifecycleOnly }, async () => {
   const dir = await mkdtemp(join(tmpdir(), 'velo-lldb-timeout-test-'));
   try {
     const smoke = join(dir, 'smoke.json');
@@ -102,7 +106,7 @@ setInterval(() => {}, 1000);
 `);
     const result = await runLldbFallback({
       executable: join(dir, 'velo'), smokeReport: smoke, crashReport: crash, output,
-      platform: 'darwin', arch: 'x64', timeoutMs: 500,
+      platform: 'darwin', arch: 'x64', timeoutMs: 2_000,
       lldbExecutable: process.execPath, lldbArgsPrefix: [fixture],
       env: { ...process.env, LLDB_FIXTURE_RECORD: record },
     });

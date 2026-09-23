@@ -130,6 +130,9 @@ export async function publishFeed(repository, token, feed) {
 async function main() {
   const [directory, tag] = process.argv.slice(2);
   if (!directory || !tag) throw new Error('Usage: preview-update-feed.mjs <assets-dir> <tag>');
+  const checkOnly = process.argv.includes('--check');
+  const publish = process.argv.includes('--publish');
+  if (checkOnly && publish) throw new Error('--check and --publish cannot be combined');
   const root = fileURLToPath(new URL('..', import.meta.url));
   const [pkg, tauri, cargo] = await Promise.all([
     readFile(join(root, 'package.json'), 'utf8').then(JSON.parse),
@@ -140,8 +143,12 @@ async function main() {
   const repository = process.env.GITHUB_REPOSITORY;
   const feed = await buildFeed(directory, tag,
     {package: pkg.version, tauri: tauri.version, rust: rustVersion}, repository);
+  if (checkOnly) {
+    process.stdout.write(`Verified preview feed inputs for ${feed.version}\n`);
+    return;
+  }
   await writeFile(join(directory, 'latest.json'), `${JSON.stringify(feed, null, 2)}\n`);
-  if (process.argv.includes('--publish')) {
+  if (publish) {
     const sha = await publishFeed(repository, process.env.GITHUB_TOKEN, feed);
     process.stdout.write(`Published preview feed ${feed.version} at ${sha}\n`);
   }

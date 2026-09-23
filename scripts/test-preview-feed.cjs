@@ -1,6 +1,7 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {mkdtemp, writeFile, rm, unlink} = require('node:fs/promises');
+const {mkdtemp, writeFile, rm, unlink, stat} = require('node:fs/promises');
+const {spawnSync} = require('node:child_process');
 const {tmpdir} = require('node:os');
 const {join} = require('node:path');
 
@@ -44,4 +45,28 @@ test('feed version must match every package and never regress below an installed
   assert.equal(comparePreviewVersions('0.1.0-preview.5', '0.1.0'), -1);
   assert.equal(comparePreviewVersions('0.1.1-preview.1', '0.1.0'), 1);
   assert.equal(comparePreviewVersions('0.1.1-preview.2', '0.1.1-preview.1'), 1);
+});
+
+test('release preflight rejects wrong tags and missing signatures before writing a feed', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'velo-feed-preflight-test-'));
+  t.after(() => rm(directory, {recursive:true, force:true}));
+  const script = join(__dirname, 'preview-update-feed.mjs');
+  const currentVersion = require('../package.json').version;
+  const currentTag = `v${currentVersion}`;
+  const wrongTag = currentVersion === '0.0.0-preview.0'
+    ? 'v0.0.0-preview.1' : 'v0.0.0-preview.0';
+  const preflight = tag => spawnSync(process.execPath, [script, directory, tag, '--check'], {
+    encoding: 'utf8', timeout: 5_000,
+    env: {...process.env, GITHUB_REPOSITORY: 'Atingaii/Velo'},
+  });
+  for (const filename of files) {
+    await writeFile(join(directory, filename), 'bundle-bytes');
+    await writeFile(join(directory, `${filename}.sig`), `signature-${filename}`);
+  }
+  assert.equal(preflight(currentTag).status, 0);
+  await assert.rejects(stat(join(directory, 'latest.json')), {code: 'ENOENT'});
+  assert.notEqual(preflight(wrongTag).status, 0);
+  await unlink(join(directory, `${files[2]}.sig`));
+  assert.notEqual(preflight(currentTag).status, 0);
+  await assert.rejects(stat(join(directory, 'latest.json')), {code: 'ENOENT'});
 });
