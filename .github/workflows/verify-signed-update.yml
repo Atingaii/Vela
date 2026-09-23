@@ -1,0 +1,87 @@
+name: Verify installed signed preview update
+
+# Run after the target preview has been published and updates-preview/latest.json points to it.
+# The verification source is built as 0.1.1-preview.0 with the same updater key/feed, so this
+# exercises a real .0 -> .1 update without inventing a .2 release or touching a local Velo app.
+on:
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Published preview version offered by the signed feed
+        required: true
+        default: 0.1.1-preview.1
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - os: macos-latest
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+          - os: windows-latest
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    env:
+      CARGO_BUILD_JOBS: 1
+      RUST_TEST_THREADS: 1
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      EXPECTED_VERSION: ${{ inputs.expected_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - name: Build isolated older macOS app and verify real update
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p update-reports
+          node scripts/prepare-old-update-verification.mjs > update-reports/prepared-source.json
+          old=$(node -p "JSON.parse(require('fs').readFileSync('update-reports/prepared-source.json')).prepared_root")
+          (cd "$old" && node scripts/desktop.mjs build --bundles app)
+          app=$(find "$old/target/release/bundle/macos" -name Velo.app -type d -print -quit)
+          test -n "$app"
+          node scripts/verify-installed-update.mjs "$app" "$EXPECTED_VERSION" update-reports/signed-update-macos-${{ matrix.arch }}.json
+      - name: Build isolated older NSIS installer and verify real update
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force update-reports | Out-Null
+          node scripts/prepare-old-update-verification.mjs > update-reports/prepared-source.json
+          if ($LASTEXITCODE -ne 0) { throw 'Could not prepare isolated old source' }
+          $old = (Get-Content update-reports/prepared-source.json -Raw | ConvertFrom-Json).prepared_root
+          Push-Location $old
+          try {
+            node scripts/desktop.mjs build --bundles nsis
+            if ($LASTEXITCODE -ne 0) { throw 'Old signed NSIS build failed' }
+          } finally { Pop-Location }
+          $installer = Get-ChildItem "$old/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          if (-not $installer) { throw 'Old signed NSIS installer is missing' }
+          node scripts/verify-installed-update.mjs $installer.FullName $env:EXPECTED_VERSION update-reports/signed-update-windows-${{ matrix.arch }}.json
+          if ($LASTEXITCODE -ne 0) { throw 'Isolated NSIS update verification failed' }
+      - name: Remove only this job's disposable old source
+        if: always()
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'),os=require('os'),p=require('path');const f='update-reports/prepared-source.json';if(fs.existsSync(f)){const dir=p.resolve(JSON.parse(fs.readFileSync(f,'utf8')).prepared_root),temp=p.resolve(os.tmpdir());if(!dir.startsWith(temp+p.sep)||!p.basename(dir).startsWith('velo-old-update-source-'))throw Error('Unexpected cleanup target');fs.rmSync(dir,{recursive:true,force:true});}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: signed-update-${{ runner.os }}-${{ matrix.arch }}
+          path: update-reports/
+          if-no-files-found: ignore
+          retention-days: 14

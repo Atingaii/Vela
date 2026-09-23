@@ -1,4 +1,4 @@
-// Parses the inline <script> of every page in vela/ui without running it.
+// Parses inline page scripts and the two page-owned external scripts without running them.
 //
 // A syntax error anywhere in a page's script stops all of it, and the window
 // opens empty with nothing in the log to say why. cargo never reads these
@@ -29,6 +29,17 @@ for (const name of readdirSync(ui).filter(f => f.endsWith('.html'))) {
     }
   });
   console.log(`${name}: ${blocks.length} inline script(s) checked`);
+}
+
+for (const name of ['source-localizations.js', 'notch-motion.js']) {
+  try {
+    new vm.Script(readFileSync(join(ui, name), 'utf8'), {filename: name});
+    console.log(`${name}: external script checked`);
+  } catch (error) {
+    failed = true;
+    console.error(`${name}: ${error.message}`);
+    if (error.stack) console.error(error.stack.split('\n').slice(0, 3).join('\n'));
+  }
 }
 
 process.exit(failed ? 1 : 0);

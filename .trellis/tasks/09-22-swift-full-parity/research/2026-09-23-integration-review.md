@@ -28,7 +28,7 @@
 4. 原生侧栏：真实 NSGlassEffectView 使用同源完整 path mask，验证四边、卡片尾部、设置按钮、透明度辅助功能和收放动画；面板预算采用 Swift 完整 cardHeight 语义，不能调整固定像素掩盖 DOM 高度误差。
 5. Claude 用量：同账户 Desktop cache、CLI `/usage`、Keychain OAuth 及拒绝授权后允许重试逻辑仍需完整对照。
 6. Cursor：恢复子代理过滤、编辑器进程启动时间、15 分钟失效、9 秒完成和 6 秒空闲；即使 DB 未写入也重新计算时间状态。Codex 同步复核固定源监控语义。
-7. 本地运行时：Ollama relay/速度/活动/日 token、LM Studio 授权与日志/流状态；只有模型发现不算完成。
+7. 本地运行时：Ollama relay/速度/活动、LM Studio 授权与日志/流状态及日 token；只有模型发现不算完成。固定源 AppDelegate 223–235 的 Ollama relay 仅输出 thinking/performance，LocalTokenLedger 属于 LM Studio，不向 Ollama 添加源没有的日账本。
 8. DeepSeek：价格时段开关、schedule 持久化和卡片渲染，不以没有后端字段的默认值冒充。
 9. 应用入口：调整尺寸时 1.2 秒预览，系统 accent 更新，菜单栏信息，macOS ServiceManagement 启动项状态及失败提示，对照源实际行为。
 10. 自定义端点：保存前探测、本地端口扫描、自定义图片和完整错误回退；剩余项由实现者逐一补齐。
@@ -71,3 +71,14 @@
 实现按用户要求由 GPT-6-Sol High 执行；根代理负责源代码核对、集成审查及最终验证。工作区尚未达到全量迁移完成条件。
 
 后续 Kiro 完整 CLI/API enrichment 批次通过 Cargo 340 + helper 1（3 ignored，`/tmp/velo-migration-kiro-feature-tests.log`）、Node 18/18 与 UI 脚本检查。Chromium/WebKit 各 55/55 通过。CI 35817407268 的 Windows 在 Tauri native WindowBuilder 的 unstable feature gate 处编译失败，尚未执行活动测试；本检查点补 Windows-only feature，并将实际 native startup smoke 加入普通双平台 CI。新 updater 模块仍在实现，不包含在此验证结论中。
+
+33. 语言与时间：固定 `AppLanguage.swift` 包括法语、德语、乌兹别克语，必须连同源 `Localizable.xcstrings` 和 picker/system locale 路径迁移；原版未翻译项按源回退英文。macOS 的系统 24 小时制不能因为当前 `time_format` 只有 Windows 实现而恒定回落到 12 小时。
+34. 更新启动路径：网络检查必须有启动短 deadline，失败继续正常启动；macOS 安装包目录替换后必须真正重启，而不是继续旧进程。Tauri Mac 提权分支会派发到主线程并同步等待，不得在 setup 主线程直接执行安装；自动更新交接前不能先启动账号采集。过期检查/下载完成回调不可覆盖新操作状态或清理新暂存包。
+
+`a4a80dc` 的 CI `35818721637` 已确认 macOS Cargo、debug app 构建和原生 WebView/IPC smoke 全通过，browser 全通过；Windows 正在执行，尚不提前给出结论。Gemini/Devin/Copilot/CommandCode 新批次源码经根代理对照固定源读取与标签结构；尚待整体 Rust 冻结后的集成检查。
+
+35. 动效不是截图的附属项：固定 ProviderRing 的 working arc 为 1.1 秒连续旋转，等待/完成脉冲为 0.9 秒 easeInOut 往返（减少透明度最低 0.65，否则 0.3）。NotchMotion 的 reading/contents/glide 参数需迁移，不能保留旧 steps 降帧或每次事件重建 DOM 导致从零旋转。
+36. 默认账户 Reading 与旧 getter 合并须以稳定 provider ID 保证一个账户一个圆环；补 metadata 后不能先添加旧 snapshot 再添加相同 Reading。Claude Registry/Hook 导出的 state 是 `ST_RUNNING=running`，调度不得继续匹配 `busy`；需通过真实 Store 快照走到 due 的回归而非仅测试布尔 helper。
+37. 原生验证隔离还包括设置 metadata 读取。普通 smoke/visual/update verification 不能在 `get_providers` 中调用真实 CLI account getter；固定 Swift fixture 使用自有 Reading，其余 smoke 返回无真实 metadata 的数据。
+
+Cargo 355 + helper 1、3 ignored 通过；公开签名 fixture 正向、改字节和错版本拒绝已纳入。设置页 Chromium/WebKit 各23通过，包括三种新语言和降低动态效果的 0.12 秒淡入。语言源字典全部原条和品牌别名逐项比对成功。Windows CI 35818721637 的 Grok Restart Manager 与 Kimi ownchild 实际测试成功，唯一平台路径测试已提交242b3dd，CI35819584842仍在执行。

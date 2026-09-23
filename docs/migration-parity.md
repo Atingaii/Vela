@@ -65,3 +65,7 @@
 2026-09-23 启动与聚焦修复：Rust 321 + helper 1、Chromium/WebKit 各 52 通过。调用栈证明此前原生启动失败来自 `ui_flags` 重复锁定相同 mutex，已修复并移除缩放/显隐/材质路径跨原生调用持锁；隔离 app 的真实 WebView/IPC smoke 现已通过，正常退出且未启动供应商采集。Claude/Grok/Kimi 会话使用来源 PID 与出生时间校验跳回；固定 Swift 源的 Codex/Cursor/Antigravity/Gemini API 会话未提供 processID，保留不可跳转。Grok macOS 临时文件真实持有/关闭测试已通过。Windows 活动、完整账户操作与鉴权、签名更新链路、最终安装包和逐屏视觉对照继续进行，不将此阶段标为完整迁移。
 
 2026-09-23 平台适配检查点：`882093e` 的浏览器、macOS、Windows [CI 35816546847](https://github.com/Atingaii/Velo/actions/runs/35816546847) 已全部通过。随后本机 Rust 331 + helper 1、Node 18 与五页脚本语法检查通过，新增 Antigravity 凭据/配额解析、Windows Grok/Kimi 进程和文件占用适配、跨平台安装 watchdog、账户目的地及应用入口基础接线。该本机结果不证明新的 Windows Restart Manager 路径已通过目标系统检查；声音桥接尚需实际坏文件测试，账户 Windows 目的地、AG 主轮询旧 CLI 优先路径、Kiro/Gemini API/Devin 输出和签名更新仍在修复。
+
+2026-09-23 后续整合检查点：Rust 362 + helper 1、Node 25、Chromium / WebKit 各 63 通过。已闭合 Kiro enrichment、Gemini/Devin/Copilot/CommandCode 输出、默认供应商活跃调度、重复圆环、稳定 ID 节点、原版弹簧/数字/卡片/手柄动画、状态透明度、完整语言选项与菜单、连续设置保存和真实版本号。真实 Ollama loopback 验证原文转发、thinking 起止及速度；按固定源仅 LM Studio 使用日账本。更新公钥、带签名版本校验的暂存、下次启动交接与三平台隔离升级验证脚本已实现，实际发布包升级尚未执行。
+
+`ae7ee93` 的 [CI 35820700594](https://github.com/Atingaii/Velo/actions/runs/35820700594) 已通过 Windows 测试/原生构建/Taskbar proxy/Settings WebView/IPC/helper 检查，见 [Windows 实际报告](verification/native-parity-2026-09-23/windows-smoke-ae7ee93.json)。当前工作树重新构建后，在本次专用 macOS app 中实际启动也成功，报告 [0.1.1-preview.1 原生启动](verification/native-parity-2026-09-23/installation-smoke-0.1.1-preview.1.json) 的两处版本号一致、IPC/helper 成功、未启动账户采集、正常退出且无超时。Mac 仍锁屏，同场景原生视觉/材质/逐交互、真实账户和新三平台 DMG/NSIS/更新包的验收仍不能由上述测试替代。完整迁移任务保持进行中，边缘插件验收尚未开始。

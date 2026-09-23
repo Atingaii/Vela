@@ -465,33 +465,81 @@ pub(super) fn commandcode_account() -> Option<Option<String>> {
             .map(str::to_owned),
     )
 }
-fn devin_token() -> Option<String> {
+struct DevinAuth {
+    api_key: String,
+    email: Option<String>,
+    source: &'static str,
+}
+fn devin_paths() -> (PathBuf, PathBuf) {
     let root = if cfg!(target_os = "macos") {
         home().join("Library/Application Support")
     } else {
         dirs::config_dir().unwrap_or_default()
     };
-    let path = root.join("Devin/User/globalStorage/state.vscdb");
-    if let Ok(db) = rusqlite::Connection::open_with_flags(
+    (
+        root.join("Devin/User/globalStorage/state.vscdb"),
+        home().join(".local/share/devin/credentials.toml"),
+    )
+}
+fn devin_desktop(path: &Path) -> Option<(String, Option<String>)> {
+    let db = rusqlite::Connection::open_with_flags(
         path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    ) {
-        let _ = db.busy_timeout(Duration::from_millis(100));
-        if let Ok(text) = db.query_row(
+    )
+    .ok()?;
+    let _ = db.busy_timeout(Duration::from_millis(100));
+    let text: String = db
+        .query_row(
             "SELECT value FROM ItemTable WHERE key = 'windsurfAuthStatus' LIMIT 1",
             [],
-            |r| r.get::<_, String>(0),
-        ) {
-            if let Ok(v) = serde_json::from_str::<Value>(&text) {
-                if let Some(k) = key(&v, &["apiKey"]) {
-                    return Some(k);
-                }
-            }
-        }
+            |r| r.get(0),
+        )
+        .ok()?;
+    let root: Value = serde_json::from_str(&text).ok()?;
+    let api_key = root["apiKey"].as_str()?.trim();
+    if api_key.is_empty() {
+        return None;
     }
-    let text = read(home().join(".local/share/devin/credentials.toml"))?;
+    let email = root["email"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned);
+    Some((api_key.to_owned(), email))
+}
+fn devin_auth_at(desktop: &Path, cli: &Path) -> Option<DevinAuth> {
+    let source = if desktop.is_file() {
+        "Devin Desktop"
+    } else {
+        "Devin CLI"
+    };
+    if let Some((api_key, email)) = devin_desktop(desktop) {
+        return Some(DevinAuth {
+            api_key,
+            email,
+            source,
+        });
+    }
+    let text = read(cli)?;
     let doc = text.parse::<toml_edit::DocumentMut>().ok()?;
-    doc.get("windsurf_api_key")?.as_str().map(str::to_owned)
+    let api_key = doc.get("windsurf_api_key")?.as_str()?.trim();
+    (!api_key.is_empty()).then(|| DevinAuth {
+        api_key: api_key.to_owned(),
+        email: None,
+        source,
+    })
+}
+fn devin_auth() -> Option<DevinAuth> {
+    let (desktop, cli) = devin_paths();
+    devin_auth_at(&desktop, &cli)
+}
+pub(super) fn devin_account() -> Option<super::AccountSummary> {
+    let auth = devin_auth()?;
+    Some(super::AccountSummary {
+        label: auth.email,
+        plan: None,
+        source: auth.source.into(),
+        manage_url: Some("https://app.devin.ai".into()),
+    })
 }
 pub(super) fn fetch(id: &str, china: bool) -> Result<UsageSnapshot, Failure> {
     match id {
@@ -542,7 +590,7 @@ pub(super) fn fetch(id: &str, china: bool) -> Result<UsageSnapshot, Failure> {
             )
         }
         "devin" => {
-            let token = devin_token().ok_or(Failure::Absent)?;
+            let token = devin_auth().ok_or(Failure::Absent)?.api_key;
             parse::reading(id, &request("https://server.self-serve.windsurf.com/exa.seat_management_pb.SeatManagementService/GetUserStatus",None,Some(json!({"metadata":{"apiKey":token,"ideName":"windsurf","ideVersion":"1.108.2","extensionName":"windsurf","extensionVersion":"1.108.2","locale":"en"}})))?)
         }
         "commandcode" => {
@@ -643,6 +691,52 @@ pub(super) fn fetch(id: &str, china: bool) -> Result<UsageSnapshot, Failure> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn devin_desktop_identity_precedes_cli_and_blank_cli_key_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let desktop = dir.path().join("state.vscdb");
+        let cli = dir.path().join("credentials.toml");
+        std::fs::write(&cli, "windsurf_api_key = \"  cli-fixture  \"\n").unwrap();
+        let cli_auth = devin_auth_at(&desktop, &cli).unwrap();
+        assert_eq!(cli_auth.api_key, "cli-fixture");
+        assert_eq!(cli_auth.email, None);
+        assert_eq!(cli_auth.source, "Devin CLI");
+        {
+            let db = rusqlite::Connection::open(&desktop).unwrap();
+            db.execute_batch("CREATE TABLE ItemTable(key TEXT,value TEXT); INSERT INTO ItemTable VALUES('windsurfAuthStatus','{\"apiKey\":\"desktop-fixture\",\"email\":\"devin@example.test\"}');").unwrap();
+        }
+        let auth = devin_auth_at(&desktop, &cli).unwrap();
+        assert_eq!(auth.api_key, "desktop-fixture");
+        assert_eq!(auth.email.as_deref(), Some("devin@example.test"));
+        assert_eq!(auth.source, "Devin Desktop");
+        std::fs::write(&cli, "windsurf_api_key = \"  \"\n").unwrap();
+        std::fs::remove_file(&desktop).unwrap();
+        assert!(devin_auth_at(&desktop, &cli).is_none());
+    }
+
+    #[test]
+    fn devin_request_keeps_access_denied_and_minute_floor() {
+        let (url, server) = serve_once(403, "");
+        assert!(matches!(
+            request_for(RequestPolicy::Standard, &url, None, None),
+            Err(Failure::Denied)
+        ));
+        let headers = server.join().unwrap().to_ascii_lowercase();
+        assert!(headers.contains("connect-protocol-version: 1\r\n"));
+        let (url, server) = serve_once(429, "Retry-After: 5\r\n");
+        assert!(matches!(
+            request_for(RequestPolicy::Standard, &url, None, None),
+            Err(Failure::Throttle(5))
+        ));
+        server.join().unwrap();
+        // The shared publisher enforces Swift's 60-second minimum.
+        assert_eq!(
+            super::super::failure(UsageSnapshot::default(), Failure::Throttle(5), 1_000)
+                .backoff_until,
+            61_000
+        );
+    }
 
     fn serve_once(status: u16, extra: &str) -> (String, std::thread::JoinHandle<String>) {
         use std::io::{Read, Write};

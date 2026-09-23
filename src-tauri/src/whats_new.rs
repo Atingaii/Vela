@@ -144,7 +144,8 @@ fn title_for_lang(lang: &str) -> &'static str {
     match lang {
         "zh" => "新变化", "zh-Hant" => "新變化", "ja" => "新機能",
         "ko" => "새로운 기능", "pt-BR" => "Novidades", "ru" => "Что нового",
-        "uk" => "Що нового", _ => "What's New",
+        "uk" => "Що нового", "fr" => "Nouveautés", "de" => "Neuheiten",
+        "uz" => "Yangiliklar", _ => "What's New",
     }
 }
 
@@ -157,5 +158,11 @@ mod tests {
         assert_eq!(decide(Some("0.0.9"), "0.1.0", true), Decision::Show);
         assert_eq!(decide(Some("0.1.0"), "0.1.0", true), Decision::AlreadySeen);
         assert_eq!(decide(None, "0.2.0", false), Decision::RecordWithoutWindow);
+    }
+    #[test]
+    fn source_locale_window_titles() {
+        assert_eq!(title_for_lang("fr"), "Nouveautés");
+        assert_eq!(title_for_lang("de"), "Neuheiten");
+        assert_eq!(title_for_lang("uz"), "Yangiliklar");
     }
 }

@@ -1,6 +1,17 @@
 //! Rust-side (tray menu) strings. The page has its own dictionary; keys are kept identical on both sides.
 
 pub fn resolve_auto() -> &'static str {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_foundation::NSLocale;
+        // Swift uses Locale.current + the bundle's preferred localization.
+        // Pick the first supported preferred language, not the WebView locale.
+        for locale in NSLocale::preferredLanguages().iter() {
+            if let Some(lang) = language_from_windows_locale(&locale.to_string()) {
+                return lang;
+            }
+        }
+    }
     #[cfg(windows)]
     unsafe {
         use windows::Win32::Globalization::GetUserDefaultLocaleName;
@@ -27,6 +38,18 @@ pub fn resolve_auto() -> &'static str {
 /// `starts_with("zh")` used to send zh-TW/zh-HK to Simplified.
 fn language_from_windows_locale(name: &str) -> Option<&'static str> {
     let name = name.to_ascii_lowercase();
+    if name.starts_with("en") {
+        return Some("en");
+    }
+    if name.starts_with("fr") {
+        return Some("fr");
+    }
+    if name.starts_with("de") {
+        return Some("de");
+    }
+    if name.starts_with("uz") {
+        return Some("uz");
+    }
     if name.starts_with("zh-tw")
         || name.starts_with("zh-hant")
         || name.starts_with("zh-hk")
@@ -66,6 +89,14 @@ pub fn clock_24h() -> bool {
 }
 
 fn time_format() -> Option<String> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_foundation::{NSDateFormatter, NSLocale, NSString};
+        let template = NSString::from_str("j");
+        let locale = NSLocale::currentLocale();
+        return NSDateFormatter::dateFormatFromTemplate_options_locale(&template, 0, Some(&locale))
+            .map(|format| format.to_string());
+    }
     #[cfg(windows)]
     unsafe {
         use windows::core::PCWSTR;
@@ -109,15 +140,55 @@ fn taskbar_shows_seconds() -> bool {
 
 /// "HH:mm" against "hh:mm tt"; text between single quotes is literal.
 fn is_24h_pattern(pattern: &str) -> bool {
-    pattern
-        .split('\'')
-        .step_by(2)
-        .any(|part| part.contains('H'))
+    let mut quoted = false;
+    let mut chars = pattern.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\'' {
+            if chars.peek() == Some(&'\'') {
+                chars.next();
+            } else {
+                quoted = !quoted;
+            }
+        } else if !quoted && ch == 'H' {
+            return true;
+        }
+    }
+    false
 }
 
 pub fn tr(lang: &str, key: &str) -> &'static str {
     let l = if lang == "auto" { resolve_auto() } else { lang };
+    let l = if l == "zh-Hans" { "zh" } else { l };
     match (l, key) {
+        // Exact fixed Swift Localizable.xcstrings values. Velo replaces only
+        // the old product name in the catalog's Quit Codenotch entry.
+        ("fr", "language") => "Langue",
+        ("de", "language") => "Sprache",
+        ("uz", "language") => "Til",
+        ("fr", "lang_auto") => "Suivre le système",
+        ("de", "lang_auto") => "System folgen",
+        ("uz", "lang_auto") => "Tizimga ergashish",
+        ("fr", "refresh_all") => "Tout actualiser",
+        ("de", "refresh_all") => "Alle aktualisieren",
+        ("uz", "refresh_all") => "Hammasini yangilash",
+        ("fr", "waiting") => "En attente du premier relevé…",
+        ("de", "waiting") => "Wartet auf den ersten Messwert…",
+        ("uz", "waiting") => "Birinchi maʼlumot kutilmoqda…",
+        ("fr", "quit_app") => "Quitter Velo",
+        ("de", "quit_app") => "Velo beenden",
+        ("uz", "quit_app") => "Veloʼni yopish",
+        ("fr", "settings") => "Réglages…",
+        ("de", "settings") => "Einstellungen…",
+        ("uz", "settings") => "Sozlamalar…",
+        ("fr", "refresh_now") => "Actualiser maintenant",
+        ("de", "refresh_now") => "Jetzt aktualisieren",
+        ("uz", "refresh_now") => "Hozir yangilash",
+        ("fr", "open_host") => "Ouvrir %@",
+        ("de", "open_host") => "%@ öffnen",
+        ("uz", "open_host") => "%@ ni ochish",
+        ("fr", "keep_open") => "Garder ouverte",
+        ("de", "keep_open") => "Offen halten",
+        ("uz", "keep_open") => "Ochiq qoldirish",
         ("pt-BR", "open_data") => "Abrir pasta de dados (logs / ícones)",
         ("pt-BR", "install") => "Instalar hooks do Claude Code",
         ("pt-BR", "uninstall") => "Desinstalar hooks",
@@ -442,5 +513,22 @@ mod tests {
         assert!(!super::is_24h_pattern("hh:mm tt"));
         assert!(!super::is_24h_pattern("tt hh:mm"));
         assert!(!super::is_24h_pattern("h:mm 'Hrs'"));
+        assert!(!super::is_24h_pattern("h 'o''clock H' mm"));
+        assert!(super::is_24h_pattern("'quoted H' HH:mm"));
+    }
+
+    #[test]
+    fn pinned_extra_languages_resolve_and_translate_menu_copy() {
+        for (locale, language, settings, refresh) in [
+            ("fr-FR", "fr", "Réglages…", "Tout actualiser"),
+            ("de-DE", "de", "Einstellungen…", "Alle aktualisieren"),
+            ("uz-UZ", "uz", "Sozlamalar…", "Hammasini yangilash"),
+        ] {
+            assert_eq!(super::language_from_windows_locale(locale), Some(language));
+            assert_eq!(tr(language, "settings"), settings);
+            assert_eq!(tr(language, "refresh_all"), refresh);
+            assert_ne!(tr(language, "open_host"), "Open %@");
+        }
+        assert_eq!(tr("zh-Hans", "settings"), tr("zh", "settings"));
     }
 }

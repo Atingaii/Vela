@@ -31,7 +31,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
 const ENDPOINT: &str = "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
-const POLL_SECS: u64 = 300;
 
 /// Only a session minted by xAI itself (see the module doc).
 const TRUSTED_ISSUER: &str = "https://auth.x.ai";
@@ -150,6 +149,11 @@ fn read_credentials() -> Option<Creds> {
     let text = std::fs::read_to_string(path).ok()?;
     let root: serde_json::Value = serde_json::from_str(&text).ok()?;
     pick(&root)
+}
+
+/// The trusted CLI entry supplies an optional email; the token stays private.
+pub(crate) fn account_label() -> Option<Option<String>> {
+    read_credentials().map(|creds| creds.email)
 }
 
 /// For doctor: contains no secret values
@@ -368,13 +372,16 @@ fn read_once(prev: &UsageSnapshot) -> UsageSnapshot {
 }
 
 fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot) {
-    crate::providers::with_current(app, "grok", epoch, || {
+    let accepted = crate::providers::with_current(app, "grok", epoch, || {
         let st = app.state::<AppState>();
         *st.grok.lock().unwrap() = snap.clone();
         persist(&snap);
         let _ = app.emit("grok", &snap);
         crate::refresh::complete("grok");
     });
+    if accepted {
+        crate::providers::emit_metadata(app);
+    }
 }
 
 pub(crate) fn forget(app: &AppHandle) {
@@ -382,15 +389,6 @@ pub(crate) fn forget(app: &AppHandle) {
     *app.state::<AppState>().grok.lock().unwrap() = UsageSnapshot::default();
     let _ = std::fs::remove_file(store_path());
     let _ = app.emit("grok", UsageSnapshot::default());
-}
-
-fn sleep_interruptible(secs: u64) {
-    for _ in 0..secs {
-        if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
-            return;
-        }
-        std::thread::sleep(Duration::from_secs(1));
-    }
 }
 
 pub fn start(app: AppHandle) {
@@ -414,7 +412,7 @@ pub fn start(app: AppHandle) {
                     std::thread::sleep(Duration::from_secs(1));
                     continue;
                 }
-                sleep_interruptible(600); // Grok CLI is not installed: look again every 10 minutes
+                crate::providers::wait_remote_due(&app, &REFRESH, now_ms());
                 if present() {
                     break;
                 }
@@ -431,12 +429,13 @@ pub fn start(app: AppHandle) {
                 s
             };
             let epoch = crate::providers::generation("grok");
+            let attempted_at = now_ms();
             let snap = read_once(&prev);
             if snap.status == "error" || snap.status == "stale" {
                 crate::applog(&format!("grok: {}", snap.note));
             }
             broadcast(&app, epoch, snap);
-            sleep_interruptible(POLL_SECS);
+            crate::providers::wait_remote_due(&app, &REFRESH, attempted_at);
         }
     });
 }

@@ -24,7 +24,6 @@ use crate::AppState;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
-const POLL_SECS: u64 = 300;
 const BACKOFF_BASE_SECS: u64 = 60;
 const BACKOFF_CAP_SECS: u64 = 900;
 
@@ -290,6 +289,17 @@ fn load_credential() -> Option<Credential> {
         .or_else(opencode_key)
 }
 
+/// Account metadata mirrors the selected read-only key source, never its key.
+pub(crate) fn account_source() -> Option<(String, &'static str)> {
+    let credential = load_credential()?;
+    let manage = if credential.base.contains("bigmodel.cn") {
+        "https://open.bigmodel.cn/usage"
+    } else {
+        "https://z.ai/manage-apikey/apikey-list"
+    };
+    Some((credential.source, manage))
+}
+
 /// Is any GLM key source present on this machine? If not, no cell is shown.
 pub fn present() -> bool {
     let mut any = key_file().is_file();
@@ -532,7 +542,7 @@ fn read_once(next_consecutive: &mut Option<u32>) -> UsageSnapshot {
 }
 
 fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot, next_consecutive: Option<u32>) {
-    crate::providers::with_current(app, "glm", epoch, || {
+    let accepted = crate::providers::with_current(app, "glm", epoch, || {
         BACKOFF_UNTIL.store(snap.backoff_until, std::sync::atomic::Ordering::Relaxed);
         if let Some(n) = next_consecutive {
             CONSECUTIVE_429.store(n, std::sync::atomic::Ordering::Relaxed);
@@ -543,6 +553,9 @@ fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot, next_consecutive:
         let _ = app.emit("glm", &snap);
         crate::refresh::complete("glm");
     });
+    if accepted {
+        crate::providers::emit_metadata(app);
+    }
 }
 
 pub(crate) fn forget(app: &AppHandle) {
@@ -576,12 +589,7 @@ pub fn start(app: AppHandle) {
                     std::thread::sleep(Duration::from_secs(1));
                     continue;
                 }
-                for _ in 0..600 {
-                    if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
-                        break;
-                    }
-                    std::thread::sleep(Duration::from_secs(1));
-                }
+                crate::providers::wait_remote_due(&app, &REFRESH, now_ms());
                 if present() {
                     break;
                 }
@@ -593,16 +601,11 @@ pub fn start(app: AppHandle) {
                 continue;
             }
             let epoch = crate::providers::generation("glm");
+            let attempted_at = now_ms();
             let mut next_consecutive = None;
             let snap = read_once(&mut next_consecutive);
-            let hold = snap.backoff_until.saturating_sub(now_ms()) / 1000;
             broadcast(&app, epoch, snap, next_consecutive);
-            for _ in 0..POLL_SECS.max(hold) {
-                if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
-                    break;
-                }
-                std::thread::sleep(Duration::from_secs(1));
-            }
+            crate::providers::wait_remote_due(&app, &REFRESH, attempted_at);
         }
     });
 }

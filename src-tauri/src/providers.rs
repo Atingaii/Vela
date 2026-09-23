@@ -441,6 +441,12 @@ pub fn get_providers(app: AppHandle) -> Vec<Reading> {
     if let Some(rows) = crate::smoke::swift_rows() {
         return rows;
     }
+    // Every other isolated smoke/visual/update mode has synthetic built-in
+    // snapshots from its own fixture. Account metadata must not inspect the
+    // real user's CLI homes, keychains or local runtime inventory there.
+    if crate::smoke::root().is_some() {
+        return Vec::new();
+    }
     purge_disabled(&app);
     let mut result: Vec<Reading> = CATALOG
         .iter()
@@ -466,6 +472,11 @@ pub fn get_providers(app: AppHandle) -> Vec<Reading> {
                     manage_url: Some("https://commandcode.ai".into()),
                 }),
                 "kiro" => kiro::account(snapshot("kiro").plan),
+                "devin" => transport::devin_account(),
+                "gemini-api" => gemini_logs::account(
+                    &dirs::home_dir().unwrap_or_default(),
+                    &snapshot("gemini-api"),
+                ),
                 _ => None,
             },
             snap: if enabled(&app, p.id) {
@@ -475,6 +486,47 @@ pub fn get_providers(app: AppHandle) -> Vec<Reading> {
             },
         })
         .collect();
+    for (id, name, headline, guidance) in [
+        ("codex", "Codex", "primary", "在 Codex 中登录。"),
+        (
+            "cursor",
+            "Cursor",
+            "included",
+            "在 Cursor 或 cursor-agent 中登录。",
+        ),
+        ("grok", "Grok", "credits", "运行 grok login 登录。"),
+        (
+            "gemini",
+            "Antigravity",
+            "session",
+            "在 Antigravity 中登录。",
+        ),
+        (
+            "glm",
+            "z.ai",
+            "session",
+            "在使用 GLM Coding Plan 的工具中配置密钥。",
+        ),
+    ] {
+        let active = enabled(&app, id);
+        let snap = if active {
+            crate::snapshot_of(&app, id)
+        } else {
+            UsageSnapshot::default()
+        };
+        let account = active.then(|| builtin_account(id, &snap)).flatten();
+        result.push(Reading {
+            id: id.into(),
+            name: name.into(),
+            headline: headline.into(),
+            guidance: guidance.into(),
+            enabled: active,
+            was_refused_access: false,
+            needs_sign_in_renewal: false,
+            account,
+            snap,
+        });
+    }
     for runtime in ["ollama-local", "lmstudio"] {
         if !enabled(&app, runtime) {
             continue;
@@ -550,11 +602,71 @@ pub fn get_providers(app: AppHandle) -> Vec<Reading> {
     result.extend(crate::custom_endpoint::readings(&app));
     result
 }
+pub(crate) fn emit_metadata(app: &AppHandle) {
+    let _ = app.emit("providers", get_providers(app.clone()));
+}
+fn builtin_account(id: &str, snap: &UsageSnapshot) -> Option<AccountSummary> {
+    match id {
+        "codex" => {
+            let home = dirs::home_dir()?.join(".codex");
+            let (label, plan) = crate::codex::account_identity(&home)?;
+            Some(AccountSummary {
+                label,
+                plan,
+                source: "Codex".into(),
+                manage_url: Some("https://chatgpt.com/#settings/Account".into()),
+            })
+        }
+        "cursor" => {
+            let (label, plan, source) = crate::cursor::account_identity()?;
+            Some(AccountSummary {
+                label,
+                plan,
+                source: source.into(),
+                manage_url: Some("https://cursor.com/dashboard".into()),
+            })
+        }
+        "grok" => Some(AccountSummary {
+            label: crate::grok::account_label()?,
+            plan: None,
+            source: "Grok".into(),
+            manage_url: Some("https://grok.com/?_s=usage".into()),
+        }),
+        "gemini" => crate::antigravity::account_summary(),
+        "glm" => {
+            let (source, manage) = crate::glm::account_source()?;
+            Some(AccountSummary {
+                label: None,
+                plan: snap.plan.clone(),
+                source,
+                manage_url: Some(manage.into()),
+            })
+        }
+        _ => None,
+    }
+}
 fn profile_list() -> Vec<profiles::Profile> {
     if crate::smoke::root().is_some() {
         return Vec::new();
     }
     profiles::at_launch(&dirs::home_dir().unwrap_or_default())
+}
+
+/// Only the Codex family is needed when its extra usage display changes.
+/// Use the captured launch registry so changing Appearance does not refresh
+/// unrelated provider metadata or request credentials.
+pub(crate) fn codex_profile_ids() -> Vec<String> {
+    if crate::smoke::root().is_some() {
+        return Vec::new();
+    }
+    let mut ids = vec!["codex".to_string()];
+    ids.extend(
+        profile_list()
+            .into_iter()
+            .filter(|profile| profile.kind == "codex")
+            .map(|profile| profile.id),
+    );
+    ids
 }
 
 pub(crate) fn claude_named_profiles() -> Vec<(String, std::path::PathBuf)> {
@@ -901,26 +1013,7 @@ pub fn start(app: AppHandle) {
                     });
                 }
             }
-            let busy = {
-                let state = app.state::<crate::AppState>();
-                let activity_busy = state
-                    .activity
-                    .lock()
-                    .unwrap()
-                    .iter()
-                    .any(|row| row.state == "busy");
-                let disabled = state.cfg.lock().unwrap().providers.disabled.clone();
-                let renew_pid = crate::usage::renewal_pid();
-                let claude_busy = state
-                    .store
-                    .lock()
-                    .unwrap()
-                    .snapshot_filtered("en", "en", false, false, &disabled)
-                    .sessions
-                    .iter()
-                    .any(|session| session.state == "busy" && Some(session.ppid) != renew_pid);
-                activity_busy || claude_busy || crate::lmstudio_metrics::is_busy()
-            };
+            let busy = remote_busy(&app);
             for descriptor in CATALOG {
                 let id = descriptor.id;
                 if !enabled(&app, id) {
@@ -1029,6 +1122,106 @@ fn should_collect(
         })
 }
 
+/// Swift UsageStore ticks every 60 seconds, refreshing all remote providers
+/// while an enabled session is busy, on a quota rollover, or after 300 idle
+/// seconds. Built-in collectors keep their own serial worker and epoch gate;
+/// this shared wait supplies the same due decision without another poller.
+fn remote_busy(app: &AppHandle) -> bool {
+    let state = app.state::<crate::AppState>();
+    let disabled = state.cfg.lock().unwrap().providers.disabled.clone();
+    let activities = state.activity.lock().unwrap().clone();
+    let renew_pid = crate::usage::renewal_pid();
+    let sessions = state
+        .store
+        .lock()
+        .unwrap()
+        .snapshot_filtered("en", "en", false, false, &disabled)
+        .sessions;
+    busy_from_rows(&activities, &sessions, &disabled, renew_pid)
+        || (enabled(app, "lmstudio") && crate::lmstudio_metrics::is_busy())
+}
+
+fn busy_from_rows(
+    activities: &[crate::activity::Activity],
+    sessions: &[crate::state::Session],
+    disabled: &BTreeSet<String>,
+    renew_pid: Option<u32>,
+) -> bool {
+    let activity_busy = activities.iter().any(|row| {
+        let parent_disabled = row
+            .provider
+            .split_once(":model:")
+            .is_some_and(|(parent, _)| disabled.contains(parent));
+        row.state == "busy" && !disabled.contains(&row.provider) && !parent_disabled
+    });
+    let claude_busy = sessions.iter().any(|session| {
+        session.state == crate::state::ST_RUNNING
+            && !disabled.contains(&session.provider)
+            && Some(session.ppid) != renew_pid
+    });
+    activity_busy || claude_busy
+}
+
+fn remote_reset_due(app: &AppHandle, last: u64, now: u64) -> bool {
+    let rolled = |snap: &UsageSnapshot| {
+        snap.windows.iter().any(|window| {
+            window
+                .resets_at
+                .is_some_and(|reset| reset > last && reset <= now)
+        })
+    };
+    let snapshots = store().lock().unwrap().snapshots.clone();
+    if snapshots
+        .iter()
+        .any(|(id, snap)| enabled(app, id) && rolled(snap))
+    {
+        return true;
+    }
+    let state = app.state::<crate::AppState>();
+    let reset_due = [
+        ("claude", &state.usage),
+        ("codex", &state.codex),
+        ("cursor", &state.cursor),
+        ("grok", &state.grok),
+        ("gemini", &state.antigravity),
+        ("glm", &state.glm),
+    ]
+    .into_iter()
+    .any(|(id, snapshot)| enabled(app, id) && rolled(&snapshot.lock().unwrap()));
+    reset_due
+}
+
+fn remote_due(last: u64, now: u64, busy: bool, reset_due: bool) -> bool {
+    busy || reset_due || now.saturating_sub(last) >= 300_000
+}
+
+pub(crate) fn wait_remote_due(
+    app: &AppHandle,
+    requested: &std::sync::atomic::AtomicBool,
+    last: u64,
+) {
+    use std::sync::atomic::Ordering;
+    let mut tick = last.saturating_add(60_000);
+    loop {
+        if requested.swap(false, Ordering::Relaxed) {
+            return;
+        }
+        let now = crate::now_ms();
+        if now >= tick {
+            if remote_due(
+                last,
+                now,
+                remote_busy(app),
+                remote_reset_due(app, last, now),
+            ) {
+                return;
+            }
+            tick = tick.saturating_add(((now - tick) / 60_000 + 1) * 60_000);
+        }
+        std::thread::sleep(Duration::from_secs(1));
+    }
+}
+
 fn timed_out(mut old: UsageSnapshot, now: u64) -> UsageSnapshot {
     if old.windows.is_empty() {
         old.status = "error".into();
@@ -1065,19 +1258,10 @@ fn collect_catalog(app: &AppHandle, id: &'static str, epoch: u64, old: UsageSnap
             .unwrap()
             .providers
             .gemini_token_budget;
-        Some(
-            gemini_logs::read(&dirs::home_dir().unwrap_or_default(), budget).map(|windows| {
-                UsageSnapshot {
-                    windows,
-                    fidelity: if budget.is_some() {
-                        crate::usage::Fidelity::Manual
-                    } else {
-                        crate::usage::Fidelity::Derived
-                    },
-                    ..Default::default()
-                }
-            }),
-        )
+        Some(gemini_logs::read(
+            &dirs::home_dir().unwrap_or_default(),
+            budget,
+        ))
     } else if matches!(id, "ollama-local" | "lmstudio") {
         let prefs = app
             .state::<crate::AppState>()
@@ -1223,6 +1407,75 @@ mod tests {
         assert!(!should_collect(89_999, Some(60_000), 300_000, false, &old));
         assert!(should_collect(90_000, Some(60_000), 300_000, false, &old));
         assert!(!should_collect(91_000, Some(90_000), 300_000, false, &old));
+    }
+
+    #[test]
+    fn builtin_due_rule_matches_sixty_second_ticks() {
+        assert!(!remote_due(100_000, 160_000, false, false));
+        assert!(remote_due(100_000, 160_000, true, false));
+        assert!(remote_due(100_000, 160_000, false, true));
+        assert!(!remote_due(100_000, 399_999, false, false));
+        assert!(remote_due(100_000, 400_000, false, false));
+    }
+
+    #[test]
+    fn live_claude_registry_makes_builtin_due_at_sixty_seconds() {
+        let mut store = crate::state::Store::default();
+        store.replace_registry(vec![crate::claude_session_monitor::LiveSession {
+            id: "claude.42".into(),
+            session_id: Some("session-a".into()),
+            provider: "claude".into(),
+            name: "work".into(),
+            detail: "working".into(),
+            state: "busy",
+            waiting_for: None,
+            since: 100_000,
+            pid: 42,
+            process_started_at: Some(1),
+            cwd: "/tmp/work".into(),
+        }]);
+        let disabled = BTreeSet::new();
+        let sessions = store
+            .snapshot_filtered("en", "en", false, false, &disabled)
+            .sessions;
+        assert_eq!(sessions[0].state, crate::state::ST_RUNNING);
+        assert!(remote_due(
+            100_000,
+            160_000,
+            busy_from_rows(&[], &sessions, &disabled, None),
+            false
+        ));
+        assert!(!busy_from_rows(&[], &sessions, &disabled, Some(42)));
+        let disabled = BTreeSet::from(["claude".to_string()]);
+        assert!(!busy_from_rows(&[], &sessions, &disabled, None));
+    }
+
+    #[test]
+    fn disabled_activity_cannot_hold_remote_collectors_in_busy_cadence() {
+        let rows = vec![crate::activity::Activity {
+            id: "model-task".into(),
+            provider: "lmstudio:model:instance-a".into(),
+            state: "busy".into(),
+            name: "generating".into(),
+            detail: String::new(),
+            waiting_for: None,
+            since: 100_000,
+            queued: 0,
+            focusable: false,
+        }];
+        assert!(busy_from_rows(&rows, &[], &BTreeSet::new(), None));
+        assert!(!busy_from_rows(
+            &rows,
+            &[],
+            &BTreeSet::from(["lmstudio".to_string()]),
+            None
+        ));
+        assert!(!busy_from_rows(
+            &rows,
+            &[],
+            &BTreeSet::from(["lmstudio:model:instance-a".to_string()]),
+            None
+        ));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 import {test, expect} from '@playwright/test';
 
-async function settingsBridge(page, connectedSlots = []) {
-  await page.addInitScript((initialSlots) => {
+async function settingsBridge(page, connectedSlots = [], version = '1.16.0', initialSound = 'Glass') {
+  await page.addInitScript(({initialSlots,version,initialSound}) => {
     const listeners = {};
     let appearance = {
       accent_color:'system', app_presence:'dock', reset_time:'automatic',
@@ -12,7 +12,7 @@ async function settingsBridge(page, connectedSlots = []) {
     };
     let notifications = {
       announce_session_end:true, peek_seconds:5, session_sound:true,
-      finished_sound:'Glass', blocked_sound:'Funk', announce_session_limit:true,
+      finished_sound:initialSound, blocked_sound:'Funk', announce_session_limit:true,
       announce_weekly_limit:true, limit_sound:true, limit_sound_name:'Funk',
       announce_reset:true, reset_sound:true, reset_sound_name:'Glass', muted_providers:[]
     };
@@ -24,7 +24,9 @@ async function settingsBridge(page, connectedSlots = []) {
     let slots = initialSlots.map(provider => ({provider}));
     const webStates = Object.fromEntries(['deepseek','qianwenai','minimax'].map(id=>[id,{id,supported:true,signed_in:false,sign_in_open:false,reason:null}]));
     window.settingsFixture = {
-      calls:[], failAppearance:false, failNotifications:false, failCustom:false, failLocal:false,
+      calls:[], failAppearance:false, holdAppearance:false, releaseAppearance:null,
+      appearanceInFlight:0, maxAppearanceInFlight:0,
+      failNotifications:false, failCustom:false, failLocal:false,
       failWeb:false,showWebProviders:false,webStates,autostartProblem:null,failKeychain:false,
       providerPrefs:{minimax_china:false,gemini_token_budget:null},failProviderPrefs:false,lmTokenPresent:false,failLMToken:false,
       localActivity:{relay:{ready:true,status:'Listening',address:'http://127.0.0.1:11435',thinking_models:{},performances:{'llama3':{output_tokens:100,generation_seconds:2,measured_at:0,approximate:false}}}},
@@ -33,15 +35,22 @@ async function settingsBridge(page, connectedSlots = []) {
       surfaceCap:{supported:false,glass_available:false,reduce_transparency:false,effective_surface_style:'solid'},
       localPresets:[{name:'Local vLLM (:8000)',url:'http://localhost:8000/v1',header:'Authorization',model:'',icon:'ollama',color:'#10B981'}],
       emit(name, payload) { for (const cb of listeners[name] || []) cb({payload}); },
-      update(state) { updates = {...updates, ...state}; this.emit('update_state', updates); }
+      update(state) { updates = {...updates, ...state}; this.emit('update_state', updates); },
+      setNotifications(patch) { notifications={...notifications,...patch}; this.emit('notifications',notifications); }
     };
     window.__TAURI__ = {
       core:{invoke:async (cmd, args) => {
         window.settingsFixture.calls.push({cmd, args});
         if (cmd === 'get_appearance') return {...appearance};
         if (cmd === 'set_appearance') {
-          if (window.settingsFixture.failAppearance) throw Error('fixture appearance save refused');
-          appearance = {...args.prefs}; return {...appearance};
+          const fixture=window.settingsFixture;
+          fixture.appearanceInFlight++;
+          fixture.maxAppearanceInFlight=Math.max(fixture.maxAppearanceInFlight,fixture.appearanceInFlight);
+          try {
+            if(fixture.holdAppearance)await new Promise(resolve=>{fixture.releaseAppearance=resolve;});
+            if (fixture.failAppearance) throw Error('fixture appearance save refused');
+            appearance = {...args.prefs}; return {...appearance};
+          } finally { fixture.appearanceInFlight--; }
         }
         if (cmd === 'get_notifications') return {...notifications};
         if (cmd === 'get_custom_endpoints') return customEndpoints.map(p => ({...p}));
@@ -123,15 +132,16 @@ async function settingsBridge(page, connectedSlots = []) {
         if (cmd === 'get_lang_resolved') return 'en';
         if (cmd === 'get_monitors') return [];
         if (cmd === 'get_notch_slots') return slots.map(slot=>({...slot}));
-        if (cmd === 'get_tray_options' || cmd === 'get_alert_sounds') return [];
+        if (cmd === 'get_tray_options') return [];
+        if (cmd === 'get_alert_sounds') return ['Glass','Funk'];
         if (cmd === 'get_autostart' || cmd === 'get_hooks_installed') return false;
         return null;
       }},
       event:{listen:async (name, cb) => { (listeners[name] ||= []).push(cb); return () => {}; }},
-      app:{getVersion:async () => '1.16.0'},
+      app:{getVersion:async () => version},
       window:{getCurrentWindow:() => ({close:async () => {}, startDragging:async () => {}})}
     };
-  }, connectedSlots);
+  }, {initialSlots:connectedSlots,version,initialSound});
 }
 
 test('外观版式遵循原版分组、顺序与控件类型', async ({page}) => {
@@ -539,6 +549,9 @@ test('通知持续时间分段保存失败回滚，更新消息优先于可安�
   await expect(page.locator('#pane-notifications .sound-preview')).toHaveCount(4);
   await expect(page.locator('#pane-notifications .cap.tertiary')).toContainText('The sound plays on the ordinary output');
   await expect(page.locator('#pane-notifications .group').first()).toContainText('Velo already knows the moment an agent stops working');
+  await expect(page.locator('#pane-notifications .group').nth(1)).toContainText("Displays a notification card from the side of the notch when a provider's session or weekly usage limit is reached.");
+  await expect(page.locator('#pane-notifications .group').nth(2)).toContainText("Displays a notification card from the side of the notch when a provider's usage limit resets.");
+  await expect(page.locator('#pane-notifications .group').nth(3)).toContainText("again only after the window rolls over");
   const picker = await page.locator('#notification-finished_sound').boundingBox();
   const preview = await page.locator('[data-preview-sound="finished_sound"]').boundingBox();
   expect(picker.x).toBeGreaterThan(680);
@@ -563,6 +576,21 @@ test('通知持续时间分段保存失败回滚，更新消息优先于可安�
   await page.evaluate(() => settingsFixture.update({available:null,message:'Update installed; restart the app to finish'}));
   await expect(page.locator('#update-status')).toHaveText('Update installed; restart the app to finish');
   await expect(page.locator('#btn-update')).toHaveText('Check now');
+  await page.evaluate(() => settingsFixture.update({available:'1.18.0',staged:'1.18.0',message:'This copy cannot be updated silently. Install Velo in a writable Applications folder or choose Install.'}));
+  await expect(page.locator('#update-status')).toHaveText('This copy cannot be updated silently. Install Velo in a writable Applications folder or choose Install.');
+  await page.evaluate(() => settingsFixture.update({message:'Update downloaded and will install when Velo next launches.'}));
+  await expect(page.locator('#update-status')).toHaveText('Version 1.18.0. Updates install in the background and apply next time Velo starts.');
+  await expect(page.locator('#btn-update')).toHaveText('Update');
+  await page.evaluate(() => settingsFixture.update({message:null}));
+  await expect(page.locator('#update-status')).toHaveText('Version 1.18.0. Updates install in the background and apply next time Velo starts.');
+  await page.evaluate(() => settingsFixture.update({available:null,staged:null,up_to_date:true,last_checked_ms:Date.UTC(2026,8,23,12,34)}));
+  const checked=await page.evaluate(()=>new Intl.DateTimeFormat('en-US',{dateStyle:'short',timeStyle:'short'}).format(new Date(Date.UTC(2026,8,23,12,34))));
+  await expect(page.locator('#update-status')).toHaveText('Velo is up to date. · '+checked);
+  await page.locator('#tab-appearance').click();
+  await page.locator('#lang').selectOption('fr');
+  await page.locator('#tab-general').click();
+  await page.evaluate(() => settingsFixture.update({up_to_date:false,staged:'1.18.0',message:'Update downloaded and will install when Velo next launches.'}));
+  await expect(page.locator('#update-status')).toHaveText("Version 1.18.0. Les mises à jour s'installent en arrière-plan et s'appliquent au prochain démarrage de Velo.");
 });
 
 test('有无滚动条时分组右缘均保持 20pt 内边距', async ({page}) => {
@@ -589,4 +617,78 @@ test('有无滚动条时分组右缘均保持 20pt 内边距', async ({page}) =>
   await expect.poll(async () => { const {gutter,applied}=await layout(); return applied===gutter; }).toBe(true);
   await page.locator('#tab-general').click();
   await expect.poll(async () => (await layout()).gap).toBeCloseTo(20, 0);
+});
+
+test('原版完整语言选项保存 raw value 并使用固定 catalog 翻译', async ({page}) => {
+  await settingsBridge(page);
+  await page.goto('/settings.html');
+  await page.locator('#tab-appearance').click();
+  await expect(page.locator('#lang option')).toHaveCount(12);
+  for(const [raw,title,caption] of [
+    ['fr','Langue','Codenotch utilise cette langue même si le Mac ne le fait pas.'],
+    ['de','Sprache','Codenotch verwendet diese Sprache, auch wenn der Mac es nicht tut.'],
+    ['uz','Til','Mac boshqa tilda boʻlsa ham, Codenotch shu tildan foydalanadi.']
+  ]){
+    await page.locator('#lang').selectOption(raw);
+    await expect(page.locator('#lang')).toHaveValue(raw);
+    await expect(page.locator('#pane-appearance')).toContainText(title);
+    await expect(page.locator('#language-explanation')).toHaveText(caption.replaceAll('Codenotch','Velo'));
+    expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='set_lang').at(-1)?.args.lang)).toBe(raw);
+  }
+  await page.locator('#lang').selectOption('zh-Hans');
+  await expect(page.locator('html')).toHaveAttribute('lang','zh-Hans');
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='set_lang').at(-1)?.args.lang)).toBe('zh-Hans');
+});
+
+test('设置切页在减少动态效果下仍按原版纯透明度 0.12 秒过渡', async ({page}) => {
+  await settingsBridge(page);
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.goto('/settings.html');
+  await page.locator('#tab-appearance').click();
+  const animation=await page.locator('#pane-appearance').evaluate(el=>{
+    const style=getComputedStyle(el);
+    return {name:style.animationName,duration:style.animationDuration};
+  });
+  expect(animation).toEqual({name:'pane-fade-in',duration:'0.12s'});
+});
+
+test('原版连续尺寸与阈值滑杆串行保存最新值，失败回滚到最近成功值', async ({page}) => {
+  await settingsBridge(page);
+  await page.goto('/settings.html');
+  await page.locator('#tab-appearance').click();
+  await page.locator('#seg-size-mode [data-v="custom"]').click();
+  await expect(page.locator('#appearance-custom_scale')).toBeEnabled();
+  await page.evaluate(() => { settingsFixture.holdAppearance=true; });
+  for(const value of ['1.05','1.10','1.15']) {
+    await page.locator('#appearance-custom_scale').evaluate((el,value) => {
+      el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}));
+    },value);
+  }
+  await expect(page.locator('#appearance-scale_value')).toHaveText('115%');
+  await expect.poll(() => page.evaluate(() => settingsFixture.appearanceInFlight)).toBe(1);
+  await page.evaluate(() => { settingsFixture.holdAppearance=false;settingsFixture.releaseAppearance(); });
+  await expect.poll(() => page.evaluate(() => settingsFixture.calls.filter(c=>c.cmd==='set_appearance').at(-1)?.args.prefs.custom_scale)).toBe(1.15);
+  await expect.poll(() => page.evaluate(() => settingsFixture.appearanceInFlight)).toBe(0);
+  expect(await page.evaluate(() => settingsFixture.maxAppearanceInFlight)).toBe(1);
+  await expect(page.locator('#appearance-custom_scale')).toHaveValue('1.15');
+  await page.evaluate(() => { settingsFixture.failAppearance=true; });
+  await page.locator('#appearance-custom_scale').evaluate(el => {el.value='1.25';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await expect(page.locator('#strip')).toContainText('fixture appearance save refused');
+  await expect(page.locator('#appearance-custom_scale')).toHaveValue('1.15');
+  await page.evaluate(() => { settingsFixture.failAppearance=false; });
+  await page.locator('#appearance-watch').evaluate(el => {el.value='60';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await expect.poll(() => page.evaluate(() => settingsFixture.calls.filter(c=>c.cmd==='set_appearance').at(-1)?.args.prefs.watch)).toBe(.6);
+  await page.locator('#appearance-critical').evaluate(el => {el.value='80';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await expect.poll(() => page.evaluate(() => settingsFixture.calls.filter(c=>c.cmd==='set_appearance').at(-1)?.args.prefs.critical)).toBe(.8);
+});
+
+test('原生版本 API 同步侧栏与通用页，失踪的已选音效保留标记', async ({page}) => {
+  await settingsBridge(page, [], '1.1.0-preview.1', 'Removed Bell');
+  await page.goto('/settings.html');
+  await expect(page.locator('#side-version')).toHaveText('1.1.0-preview.1');
+  await page.locator('#tab-general').click();
+  await expect(page.locator('#about-version-copy')).toHaveText('Version 1.1.0-preview.1. Updates install in the background and apply next time Velo starts.');
+  await page.locator('#tab-notifications').click();
+  await expect(page.locator('#notification-finished_sound option:checked')).toHaveText('Removed Bell (missing)');
+  await expect(page.locator('#notification-finished_sound')).toHaveValue('Removed Bell');
 });

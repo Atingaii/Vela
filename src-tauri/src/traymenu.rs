@@ -10,6 +10,107 @@
 
 use crate::usage::{LimitWindow, UsageSnapshot};
 
+// The additional Swift localizations use these exact translated stringUnits from the pinned
+// Localizable.xcstrings. A missing stringUnit falls back to the English key, as L10n.t does.
+fn source_copy(lang: &str, key: &str, args: &[&str]) -> Option<String> {
+    let translated = match (lang, key) {
+        ("fr", "%@%% Used · %@%% left") => "%@%% utilisés · %@%% restants",
+        ("de", "%@%% Used · %@%% left") => "%@%% verwendet · %@%% übrig",
+        ("uz", "%@%% Used · %@%% left") => "%@%% ishlatilgan · %@%% qoldi",
+        ("fr", "Resetting…") => "Réinitialisation…",
+        ("de", "Resetting…") => "Wird zurückgesetzt…",
+        ("uz", "Resetting…") => "Yangilanmoqda…",
+        ("fr", "Resets in %lld min") => "Réinit. dans %lld min",
+        ("de", "Resets in %lld min") => "Zurücksetzung in %lld Min.",
+        ("uz", "Resets in %lld min") => "%lld daqiqadan soʻng yangilanadi",
+        ("fr", "Resets in %lldh %lldm") => "Réinit. dans %lldh %lldm",
+        ("de", "Resets in %lldh %lldm") => "Zurücksetzung in %lld Std. %lld Min.",
+        ("uz", "Resets in %lldh %lldm") => "%lld soat %lld daqiqadan soʻng yangilanadi",
+        ("fr", "Resets in %lld Day %lldh" | "Resets in %lld Days %lldh") => {
+            "Réinit. dans %lld j %lldh"
+        }
+        ("de", "Resets in %lld Day %lldh") => "Zurücksetzung in %lld Tag %lld Std.",
+        ("de", "Resets in %lld Days %lldh") => "Zurücksetzung in %lld Tagen %lld Std.",
+        ("uz", "Resets in %lld Day %lldh" | "Resets in %lld Days %lldh") => {
+            "%lld kun %lld soatdan soʻng yangilanadi"
+        }
+        ("fr", "Resets %@") => "Réinit. %@",
+        ("de", "Resets %@") => "Zurücksetzung %@",
+        ("uz", "Resets %@") => "%@ yangilanadi",
+        ("fr", "%@ ago") => "il y a %@",
+        ("de", "%@ ago") => "vor %@",
+        ("uz", "%@ ago") => "%@ oldin",
+        ("fr", "just now") => "à l'instant",
+        ("de", "just now") => "gerade eben",
+        ("uz", "just now") => "hozirgina",
+        ("fr", "%lld min") => "%lld min",
+        ("de", "%lld min") => "%lld Min",
+        ("uz", "%lld min") => "%lld daqiqa",
+        ("fr", "%lld hr") => "%lld h",
+        ("de", "%lld hr") => "%lld Std",
+        ("uz", "%lld hr") => "%lld soat",
+        ("fr", "%lld hr %lld min") => "%lld h %lld min",
+        ("de", "%lld hr %lld min") => "%lld Std %lld Min",
+        ("uz", "%lld hr %lld min") => "%lld soat %lld daqiqa",
+        ("fr", "Current session") => "Session en cours",
+        ("de", "Current session") => "Aktuelle Sitzung",
+        ("uz", "Current session") => "Hozirgi sessiya",
+        ("fr", "Weekly limit") => "Limite hebdomadaire",
+        ("de", "Weekly limit" | "Weekly Limit") => "Wochenlimit",
+        ("uz", "Weekly limit" | "Weekly Limit") => "Haftalik limit",
+        ("fr", "Monthly limit") => "Limite mensuelle",
+        ("de", "Monthly limit") => "Monatslimit",
+        ("uz", "Monthly limit") => "Oylik limit",
+        ("de", "5-hour Limit" | "5-Hour Limit") => "5-Stunden-Limit",
+        ("uz", "5-hour Limit" | "5-Hour Limit") => "5 soatlik limit",
+        ("fr", "Included usage") => "Consommation incluse",
+        ("de", "Included usage") => "Enthaltene Nutzung",
+        ("uz", "Included usage") => "Kiritilgan foydalanish",
+        ("fr", "API usage") => "Consommation API",
+        ("de", "API usage") => "API-Nutzung",
+        ("uz", "API usage") => "API foydalanishi",
+        ("fr", "%@ left") => "%@ restants",
+        ("de", "%@ left") => "%@ übrig",
+        ("uz", "%@ left") => "%@ qoldi",
+        ("fr", "%lld used") => "%lld utilisés",
+        ("de", "%lld used") => "%lld verwendet",
+        ("uz", "%lld used") => "%lld ishlatilgan",
+        ("fr", "No reading") => "Aucun relevé",
+        ("de", "No reading") => "Kein Messwert",
+        ("uz", "No reading") => "Maʼlumot yoʻq",
+        _ => return None,
+    };
+    Some(format_source_copy(translated, args))
+}
+
+fn format_source_copy(template: &str, args: &[&str]) -> String {
+    let mut result = String::new();
+    let mut remaining = template;
+    let mut arg = 0;
+    while let Some(pos) = remaining.find('%') {
+        result.push_str(&remaining[..pos]);
+        remaining = &remaining[pos..];
+        if let Some(rest) = remaining.strip_prefix("%%") {
+            result.push('%');
+            remaining = rest;
+        } else if let Some(rest) = remaining
+            .strip_prefix("%lld")
+            .or_else(|| remaining.strip_prefix("%@"))
+        {
+            if let Some(value) = args.get(arg) {
+                result.push_str(value);
+            }
+            arg += 1;
+            remaining = rest;
+        } else {
+            result.push('%');
+            remaining = &remaining[1..];
+        }
+    }
+    result.push_str(remaining);
+    result
+}
+
 /// A reading as the card prints it: whole percents, except where rounding would claim nothing is
 /// used or nothing is left.
 pub fn pct(fraction: f64) -> String {
@@ -43,7 +144,9 @@ pub fn used_left(w: &LimitWindow, lang: &str) -> String {
         let u = v.round() as u32;
         (u.to_string(), (100 - u.min(100)).to_string())
     };
-    let used = if w.derived { format!("~{used}") } else { used };
+    if let Some(copy) = source_copy(lang, "%@%% Used · %@%% left", &[&used, &left]) {
+        return copy;
+    }
     match lang {
         "pt-BR" => format!("{used}% usado · {left}% restante"),
         "ru" => format!("Использовано {used}% · осталось {left}%"),
@@ -60,6 +163,9 @@ pub fn used_left(w: &LimitWindow, lang: &str) -> String {
 /// far enough out that a duration stops meaning anything.
 pub fn reset_text(resets_at: u64, now: u64, lang: &str) -> String {
     if resets_at <= now {
+        if let Some(copy) = source_copy(lang, "Resetting…", &[]) {
+            return copy;
+        }
         return match lang {
             "pt-BR" => "Renovando…",
             "ru" => "Сброс…",
@@ -76,6 +182,9 @@ pub fn reset_text(resets_at: u64, now: u64, lang: &str) -> String {
     let (hours, days) = (minutes / 60, minutes / 1440);
     if minutes < 60 {
         let m = minutes.max(1);
+        if let Some(copy) = source_copy(lang, "Resets in %lld min", &[&m.to_string()]) {
+            return copy;
+        }
         return match lang {
             "pt-BR" => format!("Renova em {m} min"),
             "ru" => format!("Сброс через {m} мин"),
@@ -89,6 +198,13 @@ pub fn reset_text(resets_at: u64, now: u64, lang: &str) -> String {
     }
     if hours < 24 {
         let (h, m) = (hours, minutes % 60);
+        if let Some(copy) = source_copy(
+            lang,
+            "Resets in %lldh %lldm",
+            &[&h.to_string(), &m.to_string()],
+        ) {
+            return copy;
+        }
         return match lang {
             "pt-BR" => format!("Renova em {h}h {m}m"),
             "ru" => format!("Сброс через {h} ч {m} мин"),
@@ -102,6 +218,14 @@ pub fn reset_text(resets_at: u64, now: u64, lang: &str) -> String {
     }
     if days < 7 {
         let (d, h) = (days, hours % 24);
+        let key = if d == 1 {
+            "Resets in %lld Day %lldh"
+        } else {
+            "Resets in %lld Days %lldh"
+        };
+        if let Some(copy) = source_copy(lang, key, &[&d.to_string(), &h.to_string()]) {
+            return copy;
+        }
         return match lang {
             "pt-BR" => {
                 if d == 1 {
@@ -121,6 +245,9 @@ pub fn reset_text(resets_at: u64, now: u64, lang: &str) -> String {
         };
     }
     let when = system_datetime(resets_at);
+    if let Some(copy) = source_copy(lang, "Resets %@", &[&when]) {
+        return copy;
+    }
     match lang {
         "pt-BR" => format!("Renova {when}"),
         "ru" => format!("Сброс: {when}"),
@@ -135,6 +262,29 @@ pub fn reset_text(resets_at: u64, now: u64, lang: &str) -> String {
 
 /// "20 min ago", for a reading that has gone stale.
 pub fn ago(since: u64, now: u64, lang: &str) -> String {
+    if matches!(lang, "fr" | "de" | "uz") {
+        let elapsed = now.saturating_sub(since);
+        if elapsed < 45_000 {
+            return source_copy(lang, "just now", &[]).expect("translated recent phrase");
+        }
+        let minutes = (elapsed as f64 / 60_000.0).round() as u64;
+        let span = if minutes < 60 {
+            source_copy(lang, "%lld min", &[&minutes.max(1).to_string()])
+        } else {
+            let (hours, rest) = (minutes / 60, minutes % 60);
+            if rest == 0 {
+                source_copy(lang, "%lld hr", &[&hours.to_string()])
+            } else {
+                source_copy(
+                    lang,
+                    "%lld hr %lld min",
+                    &[&hours.to_string(), &rest.to_string()],
+                )
+            }
+        };
+        let span = span.expect("translated elapsed unit");
+        return source_copy(lang, "%@ ago", &[&span]).expect("translated elapsed phrase");
+    }
     let minutes = now.saturating_sub(since) / 60_000;
     let span = if minutes < 60 {
         match lang {
@@ -175,6 +325,9 @@ pub fn ago(since: u64, now: u64, lang: &str) -> String {
 /// The window names the providers publish. English is the key on both sides, so a provider that
 /// starts sending a name nobody has translated prints that name rather than nothing.
 pub fn label(name: &str, lang: &str) -> String {
+    if let Some(copy) = source_copy(lang, name, &[]) {
+        return copy;
+    }
     let translated = match (lang, name) {
         ("pt-BR", "Current session") => "Sessão atual",
         ("pt-BR", "Weekly (all models)") => "Semanal (todos os modelos)",
@@ -262,7 +415,13 @@ pub fn header(
 }
 
 /// The source cell can lead with a formatted amount even when a denominator exists.
-pub fn header_value(provider: &str, value: &str, stale_since: Option<u64>, now: u64, lang: &str) -> String {
+pub fn header_value(
+    provider: &str,
+    value: &str,
+    stale_since: Option<u64>,
+    now: u64,
+    lang: &str,
+) -> String {
     // Under a minute is not worth saying. A provider that re-reads while still flagged stale would
     // otherwise head every line with "0m ago", which reads as a fault rather than as an age.
     match stale_since.filter(|since| now.saturating_sub(*since) >= 60_000) {
@@ -274,20 +433,34 @@ pub fn header_value(provider: &str, value: &str, stale_since: Option<u64>, now: 
 pub fn headline_value(w: Option<&LimitWindow>) -> String {
     let Some(w) = w else { return "—".into() };
     if w.prefers_used_text {
-        if let Some(text) = &w.used_text { return text.clone(); }
+        if let Some(text) = &w.used_text {
+            return text.clone();
+        }
     }
-    if let Some(fraction) = w.fraction() { return format!("{}%", pct(fraction)); }
-    if let Some(remaining) = w.remaining { return compact(remaining); }
-    if let Some(text) = &w.used_text { return text.clone(); }
-    if let Some(used) = w.used_count.or(w.count) { return compact(used); }
+    if let Some(fraction) = w.fraction() {
+        return format!("{}%", pct(fraction));
+    }
+    if let Some(remaining) = w.remaining {
+        return compact(remaining);
+    }
+    if let Some(text) = &w.used_text {
+        return text.clone();
+    }
+    if let Some(used) = w.used_count.or(w.count) {
+        return compact(used);
+    }
     "—".into()
 }
 
 fn compact(value: i64) -> String {
     let magnitude = value.unsigned_abs();
-    if magnitude < 10_000 { value.to_string() }
-    else if magnitude < 1_000_000 { format!("{}k", value / 1_000) }
-    else { format!("{:.1}M", value as f64 / 1_000_000.) }
+    if magnitude < 10_000 {
+        value.to_string()
+    } else if magnitude < 1_000_000 {
+        format!("{}k", value / 1_000)
+    } else {
+        format!("{:.1}M", value as f64 / 1_000_000.)
+    }
 }
 
 /// "Current session: 61% Used · 39% left · Resets in 59 min". A window with no denominator says how
@@ -304,26 +477,52 @@ pub fn window_line(w: &LimitWindow, now: u64, lang: &str) -> String {
 }
 
 pub fn window_summary(w: &LimitWindow, lang: &str) -> String {
-    if w.fraction().is_some() { return used_left(w, lang); }
+    if w.fraction().is_some() {
+        return used_left(w, lang);
+    }
     if let Some(remaining) = w.remaining {
         let number = compact(remaining);
+        if let Some(copy) = source_copy(lang, "%@ left", &[&number]) {
+            return copy;
+        }
         return match lang {
-            "zh" => format!("剩余 {number}"), "zh-Hant" => format!("剩餘 {number}"),
-            "ja" => format!("残り {number}"), "ko" => format!("{number} 남음"),
+            "zh" => format!("剩余 {number}"),
+            "zh-Hant" => format!("剩餘 {number}"),
+            "ja" => format!("残り {number}"),
+            "ko" => format!("{number} 남음"),
             _ => format!("{number} left"),
         };
     }
-    if let Some(text) = &w.used_text { return text.clone(); }
+    if let Some(text) = &w.used_text {
+        return text.clone();
+    }
     if let Some(used) = w.used_count {
         let number = compact(used);
+        if let Some(copy) = source_copy(lang, "%lld used", &[&number]) {
+            return copy;
+        }
         return match lang {
-            "zh" => format!("已用 {number}"), "zh-Hant" => format!("已用 {number}"),
-            "ja" => format!("{number} 使用"), "ko" => format!("{number} 사용"),
+            "zh" => format!("已用 {number}"),
+            "zh-Hant" => format!("已用 {number}"),
+            "ja" => format!("{number} 使用"),
+            "ko" => format!("{number} 사용"),
             _ => format!("{number} used"),
         };
     }
-    if let Some(count) = w.count { return format!("~{count}"); }
-    match lang { "zh" => "无读数", "zh-Hant" => "無讀數", "ja" => "読取値なし", "ko" => "측정값 없음", _ => "No reading" }.into()
+    if let Some(count) = w.count {
+        return format!("~{count}");
+    }
+    if let Some(copy) = source_copy(lang, "No reading", &[]) {
+        return copy;
+    }
+    match lang {
+        "zh" => "无读数",
+        "zh-Hant" => "無讀數",
+        "ja" => "読取値なし",
+        "ko" => "측정값 없음",
+        _ => "No reading",
+    }
+    .into()
 }
 
 /// Every line one provider contributes: its header, then a line per window it publishes.
@@ -435,6 +634,14 @@ mod tests {
         assert_eq!(pct(0.615), "62");
         assert_eq!(pct(0.9995), ">99.9");
         assert_eq!(pct(1.0), "100");
+    }
+
+    #[test]
+    fn a_derived_fraction_keeps_the_sources_plain_summary() {
+        let mut w = window("Current session", 0.615, None);
+        w.derived = true;
+        assert_eq!(used_left(&w, "en"), "62% Used · 38% left");
+        assert_eq!(used_left(&w, "de"), "62% verwendet · 38% übrig");
     }
 
     #[test]
@@ -568,6 +775,59 @@ mod tests {
             "0.6% 사용 · 99.4% 남음"
         );
         assert_eq!(label("A future limit", "ko"), "A future limit");
+    }
+
+    #[test]
+    fn pinned_french_german_uzbek_menu_copy_uses_translated_string_units() {
+        let w = window("Current session", 0.61, Some(60 * MIN));
+        let mut empty = window("", 0.0, None);
+        empty.has_fraction = Some(false);
+        for (lang, expected, elapsed, hourly, daily, age, unknown) in [
+            (
+                "fr",
+                "Session en cours: 61% utilisés · 39% restants · Réinit. dans 59 min",
+                "Réinitialisation…",
+                "Réinit. dans 2h 15m",
+                "Réinit. dans 3 j 4h",
+                "il y a 20 min",
+                "Aucun relevé",
+            ),
+            (
+                "de",
+                "Aktuelle Sitzung: 61% verwendet · 39% übrig · Zurücksetzung in 59 Min.",
+                "Wird zurückgesetzt…",
+                "Zurücksetzung in 2 Std. 15 Min.",
+                "Zurücksetzung in 3 Tagen 4 Std.",
+                "vor 20 Min",
+                "Kein Messwert",
+            ),
+            (
+                "uz",
+                "Hozirgi sessiya: 61% ishlatilgan · 39% qoldi · 59 daqiqadan soʻng yangilanadi",
+                "Yangilanmoqda…",
+                "2 soat 15 daqiqadan soʻng yangilanadi",
+                "3 kun 4 soatdan soʻng yangilanadi",
+                "20 daqiqa oldin",
+                "Maʼlumot yoʻq",
+            ),
+        ] {
+            assert_eq!(window_line(&w, MIN, lang), expected);
+            assert_eq!(reset_text(0, MIN, lang), elapsed);
+            assert_eq!(reset_text(135 * MIN, 0, lang), hourly);
+            assert_eq!(reset_text((3 * 1440 + 4 * 60) * MIN, 0, lang), daily);
+            assert_eq!(ago(0, 20 * MIN, lang), age);
+            assert_eq!(window_summary(&empty, lang), unknown);
+            assert_eq!(
+                label("Unknown provider quota", lang),
+                "Unknown provider quota"
+            );
+        }
+        // The pinned French catalog has no translation for this exact capitalization.
+        assert_eq!(label("Weekly Limit", "fr"), "Weekly Limit");
+        assert_eq!(label("Weekly Limit", "de"), "Wochenlimit");
+        assert_eq!(ago(0, 30_000, "fr"), "à l'instant");
+        assert_eq!(ago(0, 61 * MIN, "de"), "vor 1 Std 1 Min");
+        assert_eq!(ago(0, 61 * MIN, "uz"), "1 soat 1 daqiqa oldin");
     }
 
     #[test]

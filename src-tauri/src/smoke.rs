@@ -7,6 +7,32 @@ static ROOT: OnceLock<PathBuf> = OnceLock::new();
 static VISUAL: OnceLock<bool> = OnceLock::new();
 static SWIFT_FIXTURE: OnceLock<bool> = OnceLock::new();
 static SWIFT_ROWS: OnceLock<Vec<crate::providers::Reading>> = OnceLock::new();
+static UPDATE_EXPECTED: OnceLock<String> = OnceLock::new();
+
+pub fn update_verification() -> bool {
+    UPDATE_EXPECTED.get().is_some()
+}
+
+pub fn update_expected() -> Option<&'static str> {
+    UPDATE_EXPECTED.get().map(String::as_str)
+}
+
+pub fn update_marker() -> bool {
+    root().is_some_and(|root| root.join("update-staged.json").is_file())
+}
+
+pub fn update_report(app: &tauri::AppHandle, success: bool, phase: &str, detail: &str) {
+    if let Some(root) = root() {
+        let report = serde_json::json!({
+            "success":success,"phase":phase,"detail":detail,
+            "version":env!("CARGO_PKG_VERSION"),"expected":update_expected(),
+            "package_version":app.package_info().version.to_string(),
+            "executable":std::env::current_exe().ok().map(|p| p.display().to_string()),
+        });
+        let _ = std::fs::write(root.join("update-verification-result.json"), report.to_string());
+    }
+    app.exit(if success { 0 } else { 1 });
+}
 
 pub fn visual() -> bool {
     VISUAL.get().copied().unwrap_or(false)
@@ -18,10 +44,20 @@ pub fn swift_fixture() -> bool {
 
 pub fn configure(args: &[String]) -> Result<(), String> {
     let mode = args.get(1).map(String::as_str);
-    if !matches!(mode, Some("--smoke-test" | "--visual-test")) {
+    if !matches!(mode, Some("--smoke-test" | "--visual-test" | "--verify-update")) {
         return Ok(());
     }
-    let swift = match args.get(3..).unwrap_or(&[]) {
+    let verification = mode == Some("--verify-update");
+    if verification {
+        if args.len() != 5 || args[3] != "--expect" || semver::Version::parse(&args[4]).is_err() {
+            return Err("expected --verify-update <isolated-temp-root> --expect <version>".into());
+        }
+        #[cfg(windows)]
+        if std::env::var("CI").ok().as_deref() != Some("true") {
+            return Err("Windows update verification is only allowed on an isolated CI runner".into());
+        }
+    }
+    let swift = match if verification { &[][..] } else { args.get(3..).unwrap_or(&[]) } {
         [] => false,
         [flag, name] if mode == Some("--visual-test") && flag == "--fixture" && name == "swift" => {
             true
@@ -33,14 +69,31 @@ pub fn configure(args: &[String]) -> Result<(), String> {
         .ok_or("--smoke-test requires an empty output directory")?;
     let path = Path::new(dir);
     std::fs::create_dir_all(path).map_err(|e| e.to_string())?;
-    if std::fs::read_dir(path)
+    if !verification && std::fs::read_dir(path)
         .map_err(|e| e.to_string())?
         .next()
         .is_some()
     {
         return Err("smoke output directory must be empty".into());
     }
-    ROOT.set(path.canonicalize().map_err(|e| e.to_string())?)
+    let root = path.canonicalize().map_err(|e| e.to_string())?;
+    if verification {
+        let temp = std::env::temp_dir().canonicalize().map_err(|e| e.to_string())?;
+        let executable = std::env::current_exe()
+            .and_then(|path| path.canonicalize()).map_err(|e| e.to_string())?;
+        if !root.starts_with(&temp) || !executable.starts_with(&root) {
+            return Err("update verification requires an executable inside its isolated temp root".into());
+        }
+        if std::fs::read_dir(&root).map_err(|e| e.to_string())?
+            .filter_map(Result::ok)
+            .any(|entry| entry.file_name() == "config.json")
+            && !root.join("update-staged.json").is_file()
+        {
+            return Err("update verification root contains an unrelated configuration".into());
+        }
+        let _ = UPDATE_EXPECTED.set(args[4].clone());
+    }
+    ROOT.set(root)
         .map_err(|_| "smoke already configured".to_string())?;
     let _ = VISUAL.set(mode == Some("--visual-test"));
     let _ = SWIFT_FIXTURE.set(swift);
@@ -246,9 +299,13 @@ fn finish(app: &tauri::AppHandle, page_ready: bool, helper_present: bool, presen
     let success = page_ready && helper_present && presence_ok;
     let report = serde_json::json!({
         "success":success,"version":env!("CARGO_PKG_VERSION"),
+        "package_version":app.package_info().version.to_string(),
         "os":std::env::consts::OS,"arch":std::env::consts::ARCH,
         "settings_webview_and_ipc":page_ready,"bundled_helper":helper_present,
         "windows_taskbar_proxy": if cfg!(windows) { Some(presence_ok) } else { None },
+        "update_verification_executable": if update_verification() {
+            std::env::current_exe().ok().map(|path| path.display().to_string())
+        } else { None },
         "providers_started":false
     });
     let written = std::fs::write(root.join("smoke-result.json"), report.to_string()).is_ok();

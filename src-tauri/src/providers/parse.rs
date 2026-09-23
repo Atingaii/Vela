@@ -215,18 +215,19 @@ pub(super) fn copilot(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
             ]
             .into_iter()
             .find_map(date);
+            let label = copilot_label(id);
             let mut w = if let Some(cap) = cap.filter(|n| *n > 0.) {
                 let used = number(&x["used"])
                     .unwrap_or_else(|| (cap - number(&x["remaining"]).unwrap_or(cap)).max(0.));
-                meter(id, id, used / cap, reset)
+                meter(id, &label, used / cap, reset)
             } else {
                 let used = number(&x["used"]);
                 let remaining = number(&x["remaining"]);
                 if let Some(n) = used.filter(|n| *n >= 0.) {
-                    count(id, id, n.round())
+                    count(id, &label, n.round())
                 } else if used.is_none() {
                     let n = remaining.filter(|n| *n >= 0.)?.round();
-                    let mut w = count(id, id, n);
+                    let mut w = count(id, &label, n);
                     w.remaining = Some(n.min(i64::MAX as f64) as i64);
                     w
                 } else {
@@ -246,7 +247,30 @@ pub(super) fn copilot(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
             "GitHub Copilot reported no metered quotas",
         ))
 }
+
+fn copilot_label(id: &str) -> String {
+    match id {
+        "premium_interactions" => "Premium requests".into(),
+        "chat" => "Chat requests".into(),
+        "completions" => "Completions".into(),
+        _ => id
+            .replace('_', " ")
+            .split_whitespace()
+            .map(|part| {
+                let mut chars = part.chars();
+                chars
+                    .next()
+                    .map(|first| first.to_uppercase().to_string() + &chars.as_str().to_lowercase())
+                    .unwrap_or_default()
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
+    }
+}
 pub(super) fn devin(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
+    if !v["userStatus"]["planStatus"].is_object() {
+        return Err(Failure::Invalid);
+    }
     let p = &v["userStatus"]["planStatus"];
     let mut out = Vec::new();
     for (id, label, hide) in [
@@ -260,15 +284,19 @@ pub(super) fn devin(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
         let remain =
             number(&p[format!("{id}QuotaRemainingPercent")]).filter(|n| (0.0..=100.0).contains(n));
         if remain.is_some() || reset.is_some() {
-            out.push(meter(id, label, 1. - remain.unwrap_or(0.) / 100., reset));
+            let mut window = meter(id, label, 1. - remain.unwrap_or(0.) / 100., reset);
+            window.group = Some("Usage".into());
+            out.push(window);
         }
     }
     if let Some(n) = number(&p["overageBalanceMicros"]).filter(|n| *n >= 0.) {
-        out.push(count(
-            "overage",
-            &format!("Extra usage balance · ${:.2}", n / 1e6),
-            (n / 10000.).round(),
-        ));
+        let cents = (n / 10_000.).round();
+        if cents < 9_223_372_036_854_775_808.0 {
+            let mut window = count("overage", "Extra usage balance", cents);
+            window.group = Some("Extra usage".into());
+            window.used_text = Some(format!("${:.2}", cents / 100.));
+            out.push(window);
+        }
     }
     nonempty(out)
 }
@@ -277,11 +305,16 @@ pub(super) fn commandcode(
     credits: &Value,
     sub: &Value,
 ) -> Result<Vec<LimitWindow>, Failure> {
+    if !summary.is_object() || !credits.is_object() {
+        return Err(Failure::Invalid);
+    }
     let used = number(&summary["totalCost"]).unwrap_or(0.);
     let remaining = number(&credits["credits"]["monthlyCredits"]).unwrap_or(0.);
     let cap = used + remaining;
     if cap <= 0. {
-        return Err(Failure::Invalid);
+        return Err(Failure::Unsupported(
+            "Command Code has nothing metered on this account yet",
+        ));
     }
     let sub = sub.get("data").unwrap_or(sub);
     let mut out = vec![meter(
@@ -290,7 +323,7 @@ pub(super) fn commandcode(
         used / cap,
         date(&sub["currentPeriodEnd"]),
     )];
-    for (id, label) in [("fiveHour", "5-hour limit"), ("weekly", "Weekly limit")] {
+    for (id, label) in [("fiveHour", "5h limit"), ("weekly", "Weekly limit")] {
         let x = &credits["windowLimits"][id];
         if let Some(cap) = number(&x["cap"]).filter(|n| *n > 0.) {
             out.push(meter(
@@ -534,13 +567,57 @@ mod tests {
         let w=copilot(&json!({"quota_snapshots":{"chat":{"unlimited":true},"premium_interactions":{"entitlement":300,"remaining":225}}})).unwrap();
         assert_eq!(w.len(), 1);
         assert_eq!(w[0].used, 0.25);
+        assert_eq!(w[0].label, "Premium requests");
         assert!(copilot(&json!({"quota_snapshots":{"chat":{"entitlement":0}}})).is_err());
+    }
+    #[test]
+    fn copilot_labels_and_devin_groups_and_balance_match_swift() {
+        let copilot = copilot(&json!({"quota_snapshots":{
+            "chat":{"remaining":30}, "completions":{"used":5},
+            "future_meter":{"used":4}
+        }}))
+        .unwrap();
+        assert_eq!(
+            copilot.iter().map(|w| w.label.as_str()).collect::<Vec<_>>(),
+            ["Chat requests", "Completions", "Future Meter"]
+        );
+        let d = devin(&json!({"userStatus":{"planStatus":{
+            "dailyQuotaRemainingPercent":99, "weeklyQuotaRemainingPercent":50,
+            "dailyQuotaResetAtUnix":"1789113600", "overageBalanceMicros":"14277951"
+        }}}))
+        .unwrap();
+        assert_eq!(
+            d.iter().map(|w| w.id.as_str()).collect::<Vec<_>>(),
+            ["daily", "weekly", "overage"]
+        );
+        assert_eq!(d[0].group.as_deref(), Some("Usage"));
+        assert_eq!(d[2].group.as_deref(), Some("Extra usage"));
+        assert_eq!(d[2].label, "Extra usage balance");
+        assert_eq!(d[2].count, Some(1428));
+        assert_eq!(d[2].used_text.as_deref(), Some("$14.28"));
+        let only_balance =
+            devin(&json!({"userStatus":{"planStatus":{"overageBalanceMicros":"0"}}})).unwrap();
+        assert_eq!(only_balance.len(), 1);
+        assert_eq!(only_balance[0].used_text.as_deref(), Some("$0.00"));
     }
     #[test]
     fn commandcode_cap_includes_remaining_credit() {
         let w=commandcode(&json!({"totalCost":5}),&json!({"credits":{"monthlyCredits":15},"windowLimits":{"weekly":{"cap":10,"used":3,"resetAt":0}}}),&json!({"data":{}})).unwrap();
         assert_eq!(w[0].used, 0.25);
         assert_eq!(w[1].resets_at, None);
+        assert_eq!(w[0].label, "Monthly limit");
+        let five = commandcode(&json!({"totalCost":1}),
+            &json!({"credits":{"monthlyCredits":9},"windowLimits":{"fiveHour":{"cap":10,"used":2}}}),
+            &json!({})).unwrap();
+        assert_eq!(five[1].label, "5h limit");
+        assert!(matches!(
+            commandcode(&json!({}), &json!({"credits":{}}), &json!({})),
+            Err(Failure::Unsupported(_))
+        ));
+        assert!(matches!(
+            commandcode(&json!(null), &json!({}), &json!({})),
+            Err(Failure::Invalid)
+        ));
     }
     #[test]
     fn kimi_only_recognizes_real_windows_and_never_divides_by_zero() {

@@ -48,7 +48,10 @@
       ko: ['새로운 기능','Velo의 새로운 기능','버전 ','계속'],
       'pt-BR': ['Novidades','Novidades do Velo','Versão ','Continuar'],
       ru: ['Что нового','Что нового в Velo','Версия ','Продолжить'],
-      uk: ['Що нового','Що нового у Velo','Версія ','Продовжити']
+      uk: ['Що нового','Що нового у Velo','Версія ','Продовжити'],
+      fr: ['Nouveautés','Les nouveautés de Velo','Version %@','Continuer'],
+      de: ['Neuheiten','Neuheiten in Velo','Version %@','Fortfahren'],
+      uz: ['Yangiliklar','Veloʼdagi yangiliklar','%@ versiyasi','Davom etish']
     };
     const ZH_NOTE = {
       headline: '初识 Velo 的屏幕边缘助手。',
@@ -80,7 +83,7 @@
       document.getElementById('heading').textContent = copy[1];
       document.getElementById('continue').textContent = copy[3];
       document.getElementById('app-icon').src = note.icon;
-      document.getElementById('version').textContent = copy[2] + note.version;
+      document.getElementById('version').textContent = copy[2].includes('%@') ? copy[2].replace('%@',note.version) : copy[2] + note.version;
       const translated = lang === 'zh' && note.version === '0.1.0' ? ZH_NOTE : null;
       document.getElementById('headline').textContent = translated?.headline || note.headline;
       const changes = document.getElementById('changes');

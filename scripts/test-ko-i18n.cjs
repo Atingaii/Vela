@@ -6,9 +6,13 @@ const {test} = require('node:test');
 
 // Exercise the page's actual lookup and formatters without a WebView or Tauri.
 const html = readFileSync(path.join(__dirname, '../src-tauri/ui/notch.html'), 'utf8');
+const sourceLocalizations = readFileSync(path.join(__dirname, '../src-tauri/ui/source-localizations.js'), 'utf8');
 const source = html.slice(html.indexOf("let uiLang='en';"), html.indexOf('function setUiLanguage'));
 function card(lang) {
-  return vm.runInNewContext(source + `; uiLang=${JSON.stringify(lang)}; ({textCopy, ui:ui()})`);
+  const context = vm.createContext({window: {}});
+  // Match the page's script order: its source catalog exists before the inline card code runs.
+  vm.runInContext(sourceLocalizations, context);
+  return vm.runInContext(source + `; uiLang=${JSON.stringify(lang)}; ({textCopy, ui:ui()})`, context);
 }
 
 test('Korean card keeps numbers, plan names and unknown vendor messages', () => {
@@ -36,4 +40,20 @@ test('an unsupported card language still uses English', () => {
   assert.equal(textCopy('Current session'), 'Current session');
   assert.equal(ui.resetsIn(51), 'Resets in 51 min');
   assert.equal(ui.updated('20m ago'), 'Updated 20m ago');
+});
+
+test('French, German and Uzbek cards use the pinned Swift translations and fall back for missing copy', () => {
+  for (const [lang, session, title, resets, usedLeft] of [
+    ['fr', 'Session en cours', 'Consommation Gemini', 'Réinit. dans 51 min', '0.6% utilisés · 99.4% restants'],
+    ['de', 'Aktuelle Sitzung', 'Gemini-Nutzung', 'Zurücksetzung in 51 Min.', '0.6% verwendet · 99.4% übrig'],
+    ['uz', 'Hozirgi sessiya', 'Gemini foydalanishi', '51 daqiqadan soʻng yangilanadi', '0.6% ishlatilgan · 99.4% qoldi'],
+  ]) {
+    const {textCopy, ui} = card(lang);
+    assert.equal(textCopy('Current session'), session);
+    assert.equal(ui.title('Gemini'), title);
+    assert.equal(ui.resetsIn(51), resets);
+    assert.equal(ui.usedLeft('0.6', '99.4'), usedLeft);
+    assert.equal(textCopy('New vendor message'), 'New vendor message');
+    assert.equal(textCopy('Sign in'), 'Sign in'); // No translated stringUnit in the pinned catalog.
+  }
 });

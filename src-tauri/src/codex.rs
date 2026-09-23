@@ -39,7 +39,6 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
-const POLL_SECS: u64 = 300; // Preserve the upstream cadence; a tray refresh interrupts it.
 const TAIL_BYTES: u64 = 256 * 1024;
 const CURRENT_FOR_MS: u64 = 5 * 60 * 1000;
 const ENDPOINT: &str = "https://chatgpt.com/backend-api/wham/usage";
@@ -1032,7 +1031,7 @@ fn cap(s: &str) -> String {
 }
 
 fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot, native_retry_after: Option<u64>) {
-    crate::providers::with_current(app, "codex", epoch, || {
+    let accepted = crate::providers::with_current(app, "codex", epoch, || {
         BACKOFF_UNTIL.store(snap.backoff_until, std::sync::atomic::Ordering::Relaxed);
         if let Some(deadline) = native_retry_after {
             NATIVE_RETRY_AFTER.store(deadline, std::sync::atomic::Ordering::Relaxed);
@@ -1043,6 +1042,9 @@ fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot, native_retry_afte
         let _ = app.emit("codex", &snap);
         crate::refresh::complete("codex");
     });
+    if accepted {
+        crate::providers::emit_metadata(app);
+    }
 }
 
 pub(crate) fn forget(app: &AppHandle) {
@@ -1071,18 +1073,15 @@ pub fn start(app: AppHandle) {
                 },
                 None,
             );
-            // Codex is not installed: look again every 10 minutes
+            // Keep discovery on the same remote cadence as a connected row.
+            let mut last_attempt = now_ms();
             loop {
                 if !crate::providers::enabled(&app, "codex") {
                     std::thread::sleep(Duration::from_secs(1));
                     continue;
                 }
-                for _ in 0..600 {
-                    if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
-                        break;
-                    }
-                    std::thread::sleep(Duration::from_secs(1));
-                }
+                crate::providers::wait_remote_due(&app, &REFRESH, last_attempt);
+                last_attempt = now_ms();
                 if present() {
                     break;
                 }
@@ -1094,16 +1093,11 @@ pub fn start(app: AppHandle) {
                 continue;
             }
             let epoch = crate::providers::generation("codex");
+            let attempted_at = now_ms();
             let mut native_retry_after = None;
             let snap = read_once(&mut native_retry_after);
-            let hold = snap.backoff_until.saturating_sub(now_ms()) / 1000;
             broadcast(&app, epoch, snap, native_retry_after);
-            for _ in 0..POLL_SECS.max(hold) {
-                if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
-                    break;
-                }
-                std::thread::sleep(Duration::from_secs(1));
-            }
+            crate::providers::wait_remote_due(&app, &REFRESH, attempted_at);
         }
     });
 }

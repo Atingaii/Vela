@@ -162,7 +162,8 @@ test('每日份额替代 Claude 主圆环，会话移到细环，关闭后恢复
  await expect(page.locator('.cell .pct')).toHaveText('70%');await expect(page.locator('#card .w-label').first()).toHaveText('Daily pace');
  await expect(page.locator('.w-pace')).toHaveCount(2);await expect(page.locator('.w-pace').first()).toHaveText(' · 30% deficit');
  await expect(page.locator('.w-pace').first()).toHaveCSS('color','rgb(255, 149, 0)');await expect(page.locator('.w-used .w-pace')).toHaveCount(2);
- const arc=page.locator('svg.ring circle[opacity="0.85"]');const dash=await arc.getAttribute('stroke-dasharray');expect(Number(dash.split(' ')[0])/Number(dash.split(' ')[1])).toBeCloseTo(.8,2);
+ const arc=page.locator('svg.ring circle[opacity="0.85"]');
+ await expect.poll(async()=>{const dash=await arc.getAttribute('stroke-dasharray');return Number(dash.split(' ')[0])/Number(dash.split(' ')[1]);}).toBeCloseTo(.8,2);
  await page.evaluate(()=>emitFixture('appearance',{show_usage_pace:false,claude_daily_pace:false}));await expect(page.locator('.cell .pct')).toHaveText('80%');await expect(page.locator('#card .w-label')).toHaveCount(2);await expect(page.locator('.w-pace')).toHaveCount(0);expect(errors).toEqual([]);
 });
 

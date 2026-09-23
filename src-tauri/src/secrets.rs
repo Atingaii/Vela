@@ -105,6 +105,11 @@ pub struct LMStudioTokenState {
 /// token data or triggers a recurring permission prompt just to show its state.
 #[tauri::command]
 pub fn get_lmstudio_token_state() -> Result<LMStudioTokenState, String> {
+    // Native smoke and signed-update verification never inspect the user's environment
+    // or Keychain, even for an attribute-only presence check.
+    if crate::smoke::root().is_some() {
+        return Ok(LMStudioTokenState { present: false });
+    }
     if std::env::var("LM_API_TOKEN").ok().is_some_and(|value| !value.trim().is_empty()) {
         return Ok(LMStudioTokenState { present: true });
     }

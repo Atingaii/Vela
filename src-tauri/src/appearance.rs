@@ -195,12 +195,18 @@ pub fn set_appearance(app: AppHandle, mut prefs: Preferences) -> Result<Preferen
     let st = app.state::<crate::AppState>();
     let mut cfg = st.cfg.lock().unwrap();
     let previous_scale = cfg.appearance.effective_scale(cfg.scale);
+    let codex_extra_changed = cfg.appearance.show_codex_extra != prefs.show_codex_extra;
     let mut next = cfg.clone();
     next.appearance = prefs.clone();
     let scale_changed = (next.appearance.effective_scale(next.scale) - previous_scale).abs() > f64::EPSILON;
     crate::config::save_checked(&next)?;
     *cfg = next;
     drop(cfg);
+    if codex_extra_changed {
+        for id in crate::providers::codex_profile_ids() {
+            let _ = crate::refresh_provider(&app, &id);
+        }
+    }
     crate::place_notch(&app);
     if scale_changed { crate::peek_notch_for_size(&app); }
     crate::native_notch::apply_preferences(&app);

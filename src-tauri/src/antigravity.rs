@@ -37,11 +37,11 @@ use crate::usage::{LimitWindow, UsageSnapshot};
 use crate::AppState;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
-const POLL_SECS: u64 = 300;
 const QUOTA_SUMMARY: &str =
     "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary";
 const LS_SERVICE: &str = "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary";
@@ -49,6 +49,46 @@ const CSRF_HEADER: &str = "x-codeium-csrf-token";
 const MAX_QUOTA_BODY: u64 = 2 * 1024 * 1024;
 
 mod quota;
+
+static HELD_ACCOUNT: OnceLock<Mutex<Option<(Option<String>, String)>>> = OnceLock::new();
+static EVER_BRIDGED: OnceLock<AtomicBool> = OnceLock::new();
+fn held_account() -> &'static Mutex<Option<(Option<String>, String)>> {
+    HELD_ACCOUNT.get_or_init(|| Mutex::new(None))
+}
+fn bridged_marker() -> PathBuf {
+    crate::config::config_path().with_file_name("antigravity-bridged.flag")
+}
+fn ever_bridged() -> &'static AtomicBool {
+    EVER_BRIDGED.get_or_init(|| AtomicBool::new(bridged_marker().is_file()))
+}
+pub(crate) fn account_summary() -> Option<crate::providers::AccountSummary> {
+    if present() {
+        if let Some((email, method)) = held_account().lock().unwrap().clone() {
+            return Some(crate::providers::AccountSummary {
+                label: email,
+                plan: Some(if method == "consumer" {
+                    "Personal".into()
+                } else {
+                    method
+                }),
+                source: "Antigravity".into(),
+                manage_url: Some("https://antigravity.google".into()),
+            });
+        }
+    }
+    ever_bridged()
+        .load(Ordering::Relaxed)
+        .then(|| crate::providers::AccountSummary {
+            label: Some("Local Session".into()),
+            plan: Some("Active".into()),
+            source: "Antigravity IDE".into(),
+            manage_url: None,
+        })
+}
+fn mark_bridged() {
+    ever_bridged().store(true, Ordering::Relaxed);
+    let _ = std::fs::write(bridged_marker(), b"1");
+}
 
 fn bounded_json(response: ureq::Response) -> Option<serde_json::Value> {
     let mut body = Vec::new();
@@ -755,9 +795,12 @@ fn requests_in(roots: &[PathBuf], today: chrono::NaiveDate) -> (u64, Option<u64>
 struct Runtime {
     endpoint: Option<Endpoint>,
     ever_bridged: bool,
+    bridged_this_pass: bool,
+    account: Option<(Option<String>, String)>,
 }
 
 fn read_once(rt: &mut Runtime, prev: &UsageSnapshot) -> UsageSnapshot {
+    rt.bridged_this_pass = false;
     let mut snap = UsageSnapshot::default();
     // 1. Local bridge (the cached endpoint first; the port changes on every launch, so a miss is normal)
     let mut bridge_err = String::new();
@@ -767,6 +810,7 @@ fn read_once(rt: &mut Runtime, prev: &UsageSnapshot) -> UsageSnapshot {
         match bridge_quota(&ep) {
             Ok(w) => {
                 rt.ever_bridged = true;
+                rt.bridged_this_pass = true;
                 snap.status = "ok".into();
                 snap.windows = w;
                 snap.fetched_at = now_ms();
@@ -785,6 +829,7 @@ fn read_once(rt: &mut Runtime, prev: &UsageSnapshot) -> UsageSnapshot {
             Ok(w) => {
                 rt.endpoint = Some(ep);
                 rt.ever_bridged = true;
+                rt.bridged_this_pass = true;
                 snap.status = "ok".into();
                 snap.windows = w;
                 snap.fetched_at = now_ms();
@@ -800,6 +845,9 @@ fn read_once(rt: &mut Runtime, prev: &UsageSnapshot) -> UsageSnapshot {
     // A valid borrowed credential can still answer while the IDE is closed.
     let mut tier: Option<String> = None;
     let credentials = read_credentials(take_keychain_prompt(now_ms()));
+    rt.account = credentials
+        .as_ref()
+        .map(|c| (c.email.clone(), c.auth_method.clone()));
     if let Some(c) = &credentials {
         tier = Some(if c.auth_method == "consumer" {
             "Personal".into()
@@ -858,30 +906,29 @@ fn read_once(rt: &mut Runtime, prev: &UsageSnapshot) -> UsageSnapshot {
     snap
 }
 
-fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot) {
-    crate::providers::with_current(app, "gemini", epoch, || {
+fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot, rt: &Runtime) {
+    let accepted = crate::providers::with_current(app, "gemini", epoch, || {
+        *held_account().lock().unwrap() = rt.account.clone();
+        if rt.bridged_this_pass {
+            mark_bridged();
+        }
         let st = app.state::<AppState>();
         *st.antigravity.lock().unwrap() = snap.clone();
         persist(&snap);
         let _ = app.emit("antigravity", &snap);
         crate::refresh::complete("gemini");
     });
+    if accepted {
+        crate::providers::emit_metadata(app);
+    }
 }
 
 pub(crate) fn forget(app: &AppHandle) {
     REFRESH_LEGACY.store(false, std::sync::atomic::Ordering::Relaxed);
+    *held_account().lock().unwrap() = None;
     *app.state::<AppState>().antigravity.lock().unwrap() = UsageSnapshot::default();
     let _ = std::fs::remove_file(store_path());
     let _ = app.emit("antigravity", UsageSnapshot::default());
-}
-
-fn sleep_interruptible(secs: u64) {
-    for _ in 0..secs {
-        if REFRESH_LEGACY.swap(false, std::sync::atomic::Ordering::Relaxed) {
-            return;
-        }
-        std::thread::sleep(Duration::from_secs(1));
-    }
 }
 
 pub fn start(app: AppHandle) {
@@ -895,6 +942,12 @@ fn start_source(app: AppHandle) {
             let snap = st.antigravity.lock().unwrap().clone();
             let _ = app.emit("antigravity", &snap);
         }
+        let mut rt = Runtime {
+            endpoint: None,
+            ever_bridged: false,
+            bridged_this_pass: false,
+            account: None,
+        };
         if !legacy_present() {
             broadcast(
                 &app,
@@ -903,24 +956,23 @@ fn start_source(app: AppHandle) {
                     status: "absent".into(),
                     ..Default::default()
                 },
+                &rt,
             );
             loop {
                 if !crate::providers::enabled(&app, "gemini") {
                     std::thread::sleep(Duration::from_secs(1));
                     continue;
                 }
-                sleep_interruptible(600);
+                crate::providers::wait_remote_due(&app, &REFRESH_LEGACY, now_ms());
                 if legacy_present() {
                     break;
                 }
             }
         }
-        let mut rt = Runtime {
-            endpoint: None,
-            ever_bridged: false,
-        };
         loop {
             if !crate::providers::enabled(&app, "gemini") {
+                rt.account = None;
+                rt.endpoint = None;
                 std::thread::sleep(Duration::from_secs(1));
                 continue;
             }
@@ -930,9 +982,10 @@ fn start_source(app: AppHandle) {
                 s
             };
             let epoch = crate::providers::generation("gemini");
+            let attempted_at = now_ms();
             let snap = read_once(&mut rt, &prev);
-            broadcast(&app, epoch, snap);
-            sleep_interruptible(POLL_SECS);
+            broadcast(&app, epoch, snap, &rt);
+            crate::providers::wait_remote_due(&app, &REFRESH_LEGACY, attempted_at);
         }
     });
 }

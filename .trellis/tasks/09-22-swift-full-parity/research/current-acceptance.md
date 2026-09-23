@@ -6,11 +6,13 @@
 
 | 范围 | 当前明确剩余 | 负责人 |
 | --- | --- | --- |
-| 默认供应商调度 | 内置默认账户补活跃 60 秒 / 空闲 300 秒、额度 reset 边界；保留独立在途请求、关闭代次和原版 Claude 续期边界 | notch_parity |
-| Devin 凭据 | Devin Desktop 优先身份、CLI 空白和请求契约 | notch_parity |
-| 用量展示 | Gemini API 总月 / 总日 / 来源月窗口、预算和账户元数据；Devin 金额分组与 cents；Copilot 标签；CommandCode 无计费状态 | settings_parity；共享调用层由 notch_parity 接线 |
-| 原生 Windows 入口 | App Paths 所属应用解析；任务栏代理与设置显隐原生 smoke；Grok / Kimi 进程与真实文件持有检查 | update_flow / settings_parity，root 验收 CI |
+| 默认供应商调度 | 活跃 60 秒 / 空闲 300 秒、reset 和 Claude running/busy 边界已接，真实 Store 快照回归通过；实际账户边界按总表独立报告 | notch_parity |
+| Devin 凭据 | Desktop 优先身份、CLI 空白、请求契约已实现，355 项 Cargo 批次通过 | notch_parity |
+| 用量展示 | Gemini/Devin/Copilot/CommandCode 新输出、默认 Reading 去重、稳定 ID DOM 和 Codex extra 即时刷新已通过整合检查 | settings_parity / notch_parity |
+| 原生 Windows 入口 | ae7ee93 的原生 Taskbar/Settings/IPC/helper smoke 成功；Grok / Kimi 进程与文件持有在 Windows CI 通过；新整合提交仍需对应 CI | update_flow / settings_parity，root 验收 CI |
+| 语言与时间格式 | fr/de/uz、完整语言选择、原译文、macOS 系统时钟和原生菜单/What's New 已补；连续滑块、缺失音效、两处版本号、0.12 秒纯淡入已通过双引擎 | settings_parity |
 | 自动更新与发行 | 真公钥和独立 feed；自动下载、下次启动安装；开关/代次取消；三平台签名产物与原子 feed 发布 | update_flow；root 密钥、发行与隔离升级验证 |
+| 侧栏动效 | 源 spin/pulse、reading/contents/glide、数字变化、卡片进出、手柄 merge、keyed cell 和 native 降低透明度已补并通过双引擎；原生同场景视觉待解锁 | notch_parity |
 | 最终视觉 / 官网 | 解锁后的固定 fixture 四边、设置逐页、材质与菜单交互；据真实软件截图同步官网、README 与下载说明 | root 复核；实现交 GPT-6-Sol High |
 
 以上只列已定位的剩余差异，不豁免全量 `docs/migration-parity.md` 的最终检查。新发现必须按具体源文件和可复现场景加入，而不是仅因缺少同名函数而重写。
@@ -18,6 +20,7 @@
 ## 已完成的本轮检查边界
 
 - `882093e` 的 macOS / Windows / browser CI 全通过。
+- 新检查点 `a4a80dc` 的 CI `35818721637`：macOS 测试、debug app 构建、原生 WebView/IPC smoke 及 browser 已通过；Windows Grok Restart Manager / Kimi ownchild 通过；失败仅平台路径 fixture，已以 `242b3dd` 修正并重新运行 CI `35819584842`。
 - `d132ff1` 对应 CI `35817407268` 的 macOS / browser 通过，Windows 在 Tauri 原生窗口 API 的 feature gate 处编译失败，尚未执行新的活动测试。已补 Windows 限定的 feature，待新提交 CI；不复用旧 CI。
 - 后续本机 Cargo 340 + helper 1 通过，3 ignored；Chromium / WebKit 各 55 通过。
 - 新 debug binary 在本次隔离 `com.atingaii.velo.parity` app 中实际 WebView/IPC smoke 成功，未覆盖正式应用，未启动账户采集。
@@ -32,3 +35,19 @@
 3. macOS 签名完整性与 Gatekeeper / Apple 公证分别报告。用户没有 Apple Developer 账号，发行明确标为未公证预览，并给出系统设置中单独允许该应用的步骤，不关闭系统保护。
 4. 验证真实包签名、篡改拒绝、隔离旧版本到新版本的更新路径。旧公开包没有有效 updater 公钥，需要用户重新安装，不能宣称它会自动更新。
 5. 视觉与交互对照未通过前，不宣称“完全一致”或开始边缘插件验收。
+
+后续整体 Cargo 355 + helper 1、3 ignored 通过（`/tmp/velo-migration-language-update-tests.log`）。设置单独 Chromium/WebKit 各23/23通过；源语言字典逐条比对成功（含品牌别名 fr415/de540/uz628）。此结果尚不包含后续motion、菜单语言、Claude调度与隔离更新验证模式的新改动。
+
+最新整合：Node 23/23 通过（`/tmp/velo-migration-current-node-tests.log`）；更新状态设置专测 Chromium 23/23 通过。全 UI Chromium 59 通过、1 失败：每日份额测试在新增 spring 尚未结束时读取最终比例，正在保留最终语义断言并等待收敛。原版卡片进入/离开、手柄缩放及状态透明度的后续差异尚在闭合，不能把这次结果当作最终视觉验收。
+
+`242b3dd` 的 CI `35819584842`：macOS 原生测试/构建/WebView+IPC smoke、browser 成功；Windows 329 通过、1 失败、4 ignored，唯一失败为 Claude auth 子进程测试使用 PowerShell 启动导致超时。已以 `ae7ee93` 改成真实自有测试进程，保留成功/失败退出码、超时和回收检查，并重新推送；新 Windows 结果待获取。
+
+新隔离更新模式进入 Cargo 后遇到 `updater.rs` 将已有 `semver::Version` 当作字符串再解析的编译错误，已发回实现者定点修复。实际升级验收尚未执行。Windows 更新还需 NSIS 临时安装目录与注册表位置证明，在该边界建立前 runner 明确拒绝执行，不能用复制 exe 冒充隔离安装。
+
+上述类型错误及新增 loopback 测试污染旧共享 fixture 的问题修复后，Cargo 361 + helper 1 全通过、3 ignored（`/tmp/velo-migration-motion-update-rust-tests-final.log`）。包含 Claude 活跃调度、原生菜单语言初批、更新暂存/签名/隔离入口以及真实 Ollama loopback 原文与活动/速度闭环。尚不含后续设置开关立即刷新、连续滑块及剩余 tray/What's New 语言补齐。Windows auth 修复对应 CI 为 `35820700594`，截至本记录浏览器成功、macOS 进行中、Windows 排队。
+
+随后 `35820700594` 的 Windows Cargo、debug 构建、原生启动检查均成功。已下载并保留 `docs/verification/native-parity-2026-09-23/windows-smoke-ae7ee93.json`：真实 Windows taskbar proxy、Settings WebView/IPC、bundled helper 均为 true，providers_started=false，exit 0，无超时。该提交内部版本仍为 0.1.0，不混同当前工作树的 0.1.1-preview.1，也不代表新 signed updater/最终 NSIS 已验收。
+
+最新冻结整合检查：Cargo 362 + helper 1 通过、3 ignored（`/tmp/velo-migration-settings-final-rust.log`）；Node 25/25（`/tmp/velo-migration-integrated-final-node.log`）；Chromium / WebKit 各 63/63（`/tmp/velo-migration-integrated-final-chromium.log`、`/tmp/velo-migration-integrated-final-webkit.log`）。包括连续设置保存、版本及缺失音效、卡片/手柄动画、数字变化、稳定 ID 与降低透明度。当前正在重新构建原生 app，以上仍不能替代原生截图、真实账户或新安装包/签名升级验收。
+
+本批原生 build 已完成，专用 macOS `Velo Parity.app` 的实际启动 smoke 通过：version 与 package_version 均 0.1.1-preview.1，WebView/IPC/helper 成功、未启动采集、exit 0，无超时。报告已入库。桌面工具再次明确返回锁屏，已异步请求手动解锁；继续提交 CI 与安装包检查，不能在解锁前改写视觉验收结果。

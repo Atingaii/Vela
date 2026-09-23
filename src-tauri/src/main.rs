@@ -57,6 +57,7 @@ mod trayicon;
 mod traymenu;
 mod terminal_tab_focus;
 mod updater;
+mod updater_stage;
 mod usage;
 mod usage_alerts;
 mod watcher;
@@ -103,6 +104,10 @@ pub struct AppState {
 fn resolved_lang(raw: &str) -> String {
     if raw == "auto" {
         i18n::resolve_auto().to_string()
+    } else if raw == "zh-Hans" {
+        // Persist the Swift-facing locale name, but existing Rust tray and What’s New
+        // translations use `zh` as their Simplified Chinese key.
+        "zh".into()
     } else {
         raw.to_string()
     }
@@ -2274,6 +2279,85 @@ fn report(r: Result<String, String>) {
 /// The subcommands that print to the parent console; only those may attach to it.
 const CONSOLE_CMDS: [&str; 4] = ["install-hooks", "uninstall-hooks", "autostart", "doctor"];
 
+fn finish_setup(handle: AppHandle, port: u16, first_launch: bool) -> tauri::Result<()> {
+    place_notch(&handle);
+    if let Some(w) = handle.get_webview_window("notch") {
+        notch_window::configure(&w);
+        let _ = w.show();
+    }
+    native_notch::apply_preferences(&handle);
+    tray::setup(&handle)?;
+    settings_window::install_app_menu(&handle)?;
+    settings_window::apply_presence(&handle);
+    notchmenu::setup(&handle);
+    if smoke::root().is_some() {
+        if smoke::visual() {
+            smoke::seed_visual(&handle);
+            reload_glyphs(&handle);
+            start_pointer_watchdog(handle.clone(), "notch".into());
+        }
+        smoke::start(&handle);
+        return Ok(());
+    }
+    start_menu_updater(handle.clone());
+    local_runtime::reconcile(&handle);
+    #[cfg(target_os = "macos")]
+    settings_window::start_system_look_watch(handle.clone());
+    updater::check_on_launch(&handle);
+
+    // Honours the saved switches: a notch hidden last time stays hidden.
+    apply_visibility(&handle);
+    server::start(handle.clone(), port);
+    watcher::start(handle.clone());
+    usage::start(handle.clone());
+    codex::start(handle.clone());
+    cursor::start(handle.clone());
+    grok::start(handle.clone());
+    antigravity::start(handle.clone());
+    glm::start(handle.clone());
+    notifications::start(handle.clone());
+    phone_link::start(handle.clone());
+    providers::start(handle.clone());
+    activity::start(handle.clone());
+    // Collecting glyphs may read icon resources out of a few executables; do it off the main thread and push when done
+    let gh = handle.clone();
+    std::thread::spawn(move || reload_glyphs(&gh));
+    start_pointer_watchdog(handle.clone(), "notch".into());
+    start_work_area_watch(handle.clone());
+    // Seen-clears-it scan
+    let acker = handle.clone();
+    std::thread::spawn(move || {
+        activity::lower_thread_priority();
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(1500));
+            if ack_scan(&acker) {
+                broadcast(&acker);
+            }
+        }
+    });
+    // Stale session cleanup
+    let sweeper = handle.clone();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(30));
+        let changed = {
+            let st = sweeper.state::<AppState>();
+            let mut s = st.store.lock().unwrap();
+            s.sweep()
+        };
+        if changed {
+            broadcast(&sweeper);
+        }
+    });
+    // Persist the config (vela-hook reads the port from it)
+    {
+        let st = handle.state::<AppState>();
+        let c = st.cfg.lock().unwrap();
+        config::save(&c);
+    }
+    whats_new::show_if_needed(&handle, first_launch);
+    Ok(())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if let Err(error) = smoke::configure(&args) {
@@ -2526,81 +2610,25 @@ fn main() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let handle = app.handle().clone();
-            place_notch(&handle);
-            if let Some(w) = handle.get_webview_window("notch") {
-                notch_window::configure(&w);
-                let _ = w.show();
-            }
-            native_notch::apply_preferences(&handle);
-            tray::setup(&handle)?;
-            settings_window::install_app_menu(&handle)?;
-            settings_window::apply_presence(&handle);
-            notchmenu::setup(&handle);
-            if smoke::root().is_some() {
-                if smoke::visual() {
-                    smoke::seed_visual(&handle);
-                    reload_glyphs(&handle);
-                    start_pointer_watchdog(handle.clone(), "notch".into());
+            if smoke::update_verification() {
+                if !smoke::update_marker() {
+                    updater::start_update_verification(&handle);
+                    return Ok(());
                 }
-                smoke::start(&handle);
+                if smoke::update_expected() == Some(env!("CARGO_PKG_VERSION")) {
+                    finish_setup(handle, port, first_launch)?;
+                    return Ok(());
+                }
+                if updater::apply_staged_on_launch(&handle, port, first_launch) {
+                    return Ok(());
+                }
+                smoke::update_report(&handle, false, "handoff", "Staged installer was not accepted");
                 return Ok(());
             }
-            start_menu_updater(handle.clone());
-            local_runtime::reconcile(&handle);
-            #[cfg(target_os = "macos")]
-            settings_window::start_system_look_watch(handle.clone());
-            updater::check_on_launch(&handle);
-
-            // Honours the saved switches: a notch hidden last time stays hidden.
-            apply_visibility(&handle);
-            server::start(handle.clone(), port);
-            watcher::start(handle.clone());
-            usage::start(handle.clone());
-            codex::start(handle.clone());
-            cursor::start(handle.clone());
-            grok::start(handle.clone());
-            antigravity::start(handle.clone());
-            glm::start(handle.clone());
-            notifications::start(handle.clone());
-            phone_link::start(handle.clone());
-            providers::start(handle.clone());
-            activity::start(handle.clone());
-            // Collecting glyphs may read icon resources out of a few executables; do it off the main thread and push when done
-            let gh = handle.clone();
-            std::thread::spawn(move || reload_glyphs(&gh));
-            start_pointer_watchdog(handle.clone(), "notch".into());
-            start_work_area_watch(handle.clone());
-            // Seen-clears-it scan
-            let acker = handle.clone();
-            std::thread::spawn(move || {
-                activity::lower_thread_priority();
-                loop {
-                    std::thread::sleep(std::time::Duration::from_millis(1500));
-                    if ack_scan(&acker) {
-                        broadcast(&acker);
-                    }
-                }
-            });
-            // Stale session cleanup
-            let sweeper = handle.clone();
-            std::thread::spawn(move || loop {
-                std::thread::sleep(std::time::Duration::from_secs(30));
-                let changed = {
-                    let st = sweeper.state::<AppState>();
-                    let mut s = st.store.lock().unwrap();
-                    s.sweep()
-                };
-                if changed {
-                    broadcast(&sweeper);
-                }
-            });
-            // Persist the config (vela-hook reads the port from it)
-            {
-                let st = handle.state::<AppState>();
-                let c = st.cfg.lock().unwrap();
-                config::save(&c);
+            if smoke::root().is_none() && updater::apply_staged_on_launch(&handle, port, first_launch) {
+                return Ok(());
             }
-            whats_new::show_if_needed(&handle, first_launch);
+            finish_setup(handle, port, first_launch)?;
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -2620,6 +2648,12 @@ mod tests {
         NOTCH_W, TRAY_PROVIDER_IDS,
     };
     use crate::usage::LimitWindow;
+
+    #[test]
+    fn explicit_simplified_chinese_alias_reaches_native_translations() {
+        assert_eq!(super::resolved_lang("zh-Hans"), "zh");
+        assert_eq!(super::resolved_lang("zh-Hant"), "zh-Hant");
+    }
 
     #[test]
     fn reorder_keeps_absent_model_and_profile_ids_but_explicit_empty_wins() {

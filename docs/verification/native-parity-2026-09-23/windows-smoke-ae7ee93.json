@@ -1,0 +1,18 @@
+{
+  "arch": "x86_64",
+  "bundled_helper": true,
+  "os": "windows",
+  "providers_started": false,
+  "settings_webview_and_ipc": true,
+  "success": true,
+  "version": "0.1.0",
+  "windows_taskbar_proxy": true,
+  "smoke_runner": {
+    "exit_code": 0,
+    "exit_signal": null,
+    "timed_out": false,
+    "interrupted_by": null,
+    "error": null,
+    "cleanup_error": null
+  }
+}

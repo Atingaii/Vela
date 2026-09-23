@@ -100,6 +100,9 @@ fn url_for_in(name: &str, directories: &[PathBuf]) -> Option<PathBuf> {
 
 #[tauri::command]
 pub fn get_alert_sounds() -> Vec<String> {
+    if crate::smoke::root().is_some() {
+        return Vec::new();
+    }
     available_in(&directories())
 }
 

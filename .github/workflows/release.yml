@@ -44,6 +44,8 @@ jobs:
     env:
       CARGO_BUILD_JOBS: 1
       RUST_TEST_THREADS: 1
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -72,6 +74,11 @@ jobs:
           test -x "$RUNNER_TEMP/velo-installed/Velo.app/Contents/MacOS/vela-hook"
           node scripts/smoke-installed.mjs "$RUNNER_TEMP/velo-installed/Velo.app/Contents/MacOS/velo" "release-assets/smoke-macos-${{ matrix.arch }}.json"
           cp "$dmg" "release-assets/Velo-macos-${{ matrix.arch }}.dmg"
+          updater=$(find target/release/bundle/macos -maxdepth 1 -name '*.app.tar.gz' -type f -print -quit)
+          test -n "$updater"
+          test -s "$updater.sig"
+          cp "$updater" "release-assets/Velo-macos-${{ matrix.arch }}.app.tar.gz"
+          cp "$updater.sig" "release-assets/Velo-macos-${{ matrix.arch }}.app.tar.gz.sig"
       - name: Install NSIS package and launch installed app
         if: runner.os == 'Windows'
         shell: pwsh
@@ -86,6 +93,9 @@ jobs:
           node scripts/smoke-installed.mjs "$destination/velo.exe" release-assets/smoke-windows-x64.json
           if ($LASTEXITCODE -ne 0) { throw 'Installed app failed smoke test' }
           Copy-Item $installer.FullName release-assets/Velo-windows-x64-setup.exe
+          $signature = "$($installer.FullName).sig"
+          if (-not (Test-Path $signature) -or (Get-Item $signature).Length -eq 0) { throw 'Missing signed NSIS updater artifact' }
+          Copy-Item $signature release-assets/Velo-windows-x64-setup.exe.sig
       - uses: actions/upload-artifact@v4
         with:
           name: package-${{ runner.os }}-${{ matrix.arch }}
@@ -108,6 +118,7 @@ jobs:
       - name: Verify complete artifact set and publish preview
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         shell: bash
         run: |
@@ -116,9 +127,15 @@ jobs:
           test -s Velo-macos-arm64.dmg
           test -s Velo-macos-x64.dmg
           test -s Velo-windows-x64-setup.exe
+          test -s Velo-macos-arm64.app.tar.gz
+          test -s Velo-macos-arm64.app.tar.gz.sig
+          test -s Velo-macos-x64.app.tar.gz
+          test -s Velo-macos-x64.app.tar.gz.sig
+          test -s Velo-windows-x64-setup.exe.sig
           test -s trust-macos-arm64.json
           test -s trust-macos-x64.json
           node -e 'for(const name of ["macos-arm64","macos-x64","windows-x64"]){const r=require("./smoke-"+name+".json");if(!r.success)throw new Error(name)}'
           sha256sum Velo-* > SHA256SUMS.txt
           cd ..
           gh release create "$RELEASE_TAG" release-assets/* --verify-tag --prerelease --title "Velo $RELEASE_TAG" --notes-file docs/releases/preview.md
+          node scripts/preview-update-feed.mjs release-assets "$RELEASE_TAG" --publish

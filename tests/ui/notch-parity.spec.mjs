@@ -167,6 +167,17 @@ test('固定 Swift 三服务示例的旧窗口 ID 与本地化仍可绘制',asyn
   expect(result).toEqual({headline:'claude.session',all:'全部模型',daily:'每日额度'});
 });
 
+test('Devin 余额卡片使用原版金额文本和独立分组，不显示原始美分',async({page})=>{
+  await notchBridge(page);await page.goto('/notch.html');
+  const html=await page.evaluate(()=>cardHtml({id:'devin',base:'devin',name:'Devin',snap:{status:'ok',fidelity:'official',windows:[
+    {id:'daily',label:'Daily quota',used:.01,has_fraction:true,group:'Usage'},
+    {id:'overage',label:'Extra usage balance',used:0,has_fraction:false,count:1428,used_text:'$14.28',group:'Extra usage'}
+  ]}},0));
+  expect(html).toContain('Extra usage balance');
+  expect(html).toContain('$14.28');
+  expect(html).not.toContain('1428');
+});
+
 test('原版示例的 ring 不显示 fidelity 近似符，OpenAI 复用原版 knot，关闭移动手柄仍保留设置弧',async({page})=>{
   await notchBridge(page);await page.goto('/notch.html');
   const result=await page.evaluate(()=>{

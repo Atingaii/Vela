@@ -31,7 +31,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
 const ENDPOINT: &str = "https://cursor.com/api/usage-summary";
-const POLL_SECS: u64 = 300;
 
 static REFRESH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
@@ -81,6 +80,50 @@ fn persist(s: &UsageSnapshot) {
 
 pub fn present() -> bool {
     store_url().map(|p| p.is_file()).unwrap_or(false)
+}
+
+/// Only the editor's cached identity or cursor-agent's non-secret config.
+/// Never borrow a JWT merely to draw the Settings account row.
+pub(crate) fn account_identity() -> Option<(Option<String>, Option<String>, &'static str)> {
+    let home = dirs::home_dir()?;
+    let editor = store_url().unwrap_or_else(|| home.join(".missing-cursor-store"));
+    account_identity_at(&editor, &home.join(".cursor/cli-config.json"))
+}
+fn account_identity_at(
+    store: &std::path::Path,
+    agent: &std::path::Path,
+) -> Option<(Option<String>, Option<String>, &'static str)> {
+    if let Some(conn) = open_ro(store) {
+        if let Some(email) = item(&conn, "cursorAuth/cachedEmail").filter(|s| !s.is_empty()) {
+            return Some((
+                Some(email),
+                item(&conn, "cursorAuth/stripeMembershipType"),
+                "Cursor",
+            ));
+        }
+    }
+    use std::io::Read;
+    let file = std::fs::File::open(agent).ok()?;
+    if file.metadata().ok()?.len() > 64 * 1024 {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    file.take(64 * 1024 + 1).read_to_end(&mut bytes).ok()?;
+    let root: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    let info = root.get("authInfo")?;
+    let email = info
+        .get("email")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned);
+    let auth_id = info
+        .get("authId")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty());
+    if email.is_none() && auth_id.is_none() {
+        return None;
+    }
+    Some((email, None, "cursor-agent"))
 }
 
 // ---------------- SQLite, read only ----------------
@@ -338,13 +381,16 @@ fn read_once(prev: &UsageSnapshot) -> UsageSnapshot {
 }
 
 fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot) {
-    crate::providers::with_current(app, "cursor", epoch, || {
+    let accepted = crate::providers::with_current(app, "cursor", epoch, || {
         let st = app.state::<AppState>();
         *st.cursor.lock().unwrap() = snap.clone();
         persist(&snap);
         let _ = app.emit("cursor", &snap);
         crate::refresh::complete("cursor");
     });
+    if accepted {
+        crate::providers::emit_metadata(app);
+    }
 }
 
 pub(crate) fn forget(app: &AppHandle) {
@@ -352,15 +398,6 @@ pub(crate) fn forget(app: &AppHandle) {
     *app.state::<AppState>().cursor.lock().unwrap() = UsageSnapshot::default();
     let _ = std::fs::remove_file(store_path());
     let _ = app.emit("cursor", UsageSnapshot::default());
-}
-
-fn sleep_interruptible(secs: u64) {
-    for _ in 0..secs {
-        if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
-            return;
-        }
-        std::thread::sleep(Duration::from_secs(1));
-    }
 }
 
 pub fn start(app: AppHandle) {
@@ -384,7 +421,7 @@ pub fn start(app: AppHandle) {
                     std::thread::sleep(Duration::from_secs(1));
                     continue;
                 }
-                sleep_interruptible(600); // Cursor is not installed: look again every 10 minutes
+                crate::providers::wait_remote_due(&app, &REFRESH, now_ms());
                 if present() {
                     break;
                 }
@@ -401,12 +438,41 @@ pub fn start(app: AppHandle) {
                 s
             };
             let epoch = crate::providers::generation("cursor");
+            let attempted_at = now_ms();
             let snap = read_once(&prev);
             if snap.status == "error" || snap.status == "stale" {
                 crate::applog(&format!("cursor: {}", snap.note));
             }
             broadcast(&app, epoch, snap);
-            sleep_interruptible(POLL_SECS);
+            crate::providers::wait_remote_due(&app, &REFRESH, attempted_at);
         }
     });
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::*;
+
+    #[test]
+    fn editor_identity_precedes_cli_and_cli_auth_id_is_not_a_secret_label() {
+        let dir = tempfile::tempdir().unwrap();
+        let editor = dir.path().join("state.vscdb");
+        let cli = dir.path().join("cli-config.json");
+        std::fs::write(&cli, r#"{"authInfo":{"email":"agent@example.test","authId":"subject-only"},"token":"never-read"}"#).unwrap();
+        assert_eq!(
+            account_identity_at(&editor, &cli),
+            Some((Some("agent@example.test".into()), None, "cursor-agent"))
+        );
+        let db = rusqlite::Connection::open(&editor).unwrap();
+        db.execute_batch("CREATE TABLE ItemTable(key TEXT,value TEXT); INSERT INTO ItemTable VALUES('cursorAuth/cachedEmail','editor@example.test'); INSERT INTO ItemTable VALUES('cursorAuth/stripeMembershipType','pro');").unwrap();
+        drop(db);
+        assert_eq!(
+            account_identity_at(&editor, &cli),
+            Some((
+                Some("editor@example.test".into()),
+                Some("pro".into()),
+                "Cursor"
+            ))
+        );
+    }
 }

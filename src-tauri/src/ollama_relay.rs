@@ -377,6 +377,7 @@ fn record(model: &str, measurement: Performance, generation: u64) {
 mod tests {
     use super::*;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::sync::oneshot;
     fn headers(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
         pairs.iter().map(|(k, v)| ((*k).into(), (*v).into())).collect()
     }
@@ -404,13 +405,85 @@ mod tests {
     #[test]
     fn previous_generation_cannot_resurrect_metrics_or_thinking() {
         disallow();
-        let current = { let _guard = state().lock().unwrap(); GENERATION.fetch_add(1, Ordering::AcqRel) + 1 };
+        let current = {
+            let mut activity = state().lock().unwrap();
+            let generation = GENERATION.fetch_add(1, Ordering::AcqRel) + 1;
+            *activity = Activity::default();
+            generation
+        };
         ALLOWED.store(true, Ordering::Release);
         record("m", Performance {output_tokens:2, generation_seconds:1., measured_at:1, approximate:false}, current - 1);
         observe(1, Transition {model:"m".into(), thinking:true}, current - 1);
         assert!(status().performances.is_empty());
         assert!(status().thinking_models.is_empty());
         disallow();
+    }
+
+    #[test]
+    fn loopback_ndjson_preserves_body_and_observes_thinking_then_performance() {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        runtime.block_on(async {
+            let generation = {
+                let mut activity = state().lock().unwrap();
+                let generation = GENERATION.fetch_add(1, Ordering::AcqRel) + 1;
+                *activity = Activity::default();
+                ALLOWED.store(true, Ordering::Release);
+                generation
+            };
+            let upstream = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let upstream_address = upstream.local_addr().unwrap();
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let relay_address = listener.local_addr().unwrap();
+            let relay = tokio::spawn(serve(listener, format!("http://{upstream_address}/"), generation));
+            let first = b"{\"model\":\"qwen\",\"message\":{\"thinking\":\"private reasoning\"},\"done\":false}\n";
+            let rest = b"{\"model\":\"qwen\",\"message\":{\"content\":\"private answer\"},\"done\":false}\n{\"model\":\"qwen\",\"done\":true,\"eval_count\":20,\"eval_duration\":1000000000}\n";
+            let (release_tx, release_rx) = oneshot::channel::<()>();
+            let source = tokio::spawn(async move {
+                let (mut connection, _) = upstream.accept().await.unwrap();
+                let mut request = Vec::new();
+                let mut buffer = [0u8; 1024];
+                while !request.windows(4).any(|part| part == b"\r\n\r\n") {
+                    let read = connection.read(&mut buffer).await.unwrap();
+                    assert!(read > 0);
+                    request.extend_from_slice(&buffer[..read]);
+                }
+                assert!(String::from_utf8_lossy(&request).starts_with("POST /api/chat HTTP/1.1"));
+                let length = first.len() + rest.len();
+                connection.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nContent-Length: {length}\r\n\r\n").as_bytes()).await.unwrap();
+                connection.write_all(first).await.unwrap();
+                release_rx.await.unwrap();
+                connection.write_all(rest).await.unwrap();
+            });
+            let socket = tokio::net::TcpStream::connect(relay_address).await.unwrap();
+            let (mut sender, driver) = hyper::client::conn::http1::handshake(TokioIo::new(socket)).await.unwrap();
+            let client = tokio::spawn(async move { let _ = driver.await; });
+            let request = Request::builder().method("POST").uri("/api/chat")
+                .header(header::HOST, "127.0.0.1:11435")
+                .body(Full::new(Bytes::from_static(br#"{"model":"qwen","messages":[]}"#))).unwrap();
+            let mut response = timeout(Duration::from_secs(2), sender.send_request(request)).await.unwrap().unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let mut body = Vec::new();
+            let first_frame = timeout(Duration::from_secs(2), response.body_mut().frame()).await.unwrap().unwrap().unwrap();
+            body.extend_from_slice(&first_frame.into_data().unwrap());
+            assert_eq!(body, first);
+            assert!(status().thinking_models.contains_key("qwen:latest"));
+            release_tx.send(()).unwrap();
+            while let Some(frame) = timeout(Duration::from_secs(2), response.body_mut().frame()).await.unwrap() {
+                body.extend_from_slice(&frame.unwrap().into_data().unwrap());
+            }
+            assert_eq!(body, [first.as_slice(), rest.as_slice()].concat());
+            let latest = status();
+            assert!(latest.thinking_models.is_empty());
+            let speed = latest.performances.get("qwen:latest").unwrap();
+            assert_eq!(speed.output_tokens, 20);
+            assert_eq!(speed.tokens_per_second(), 20.0);
+            source.await.unwrap();
+            relay.abort();
+            let _ = relay.await;
+            client.abort();
+            disallow();
+            *state().lock().unwrap() = Activity::default();
+        });
     }
 
     #[test]

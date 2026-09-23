@@ -133,18 +133,20 @@ fn countdown(reset: u64, now: u64, lang: &str) -> Option<String> {
     Some(if minutes == 0 { match lang {
         "zh" => "<1分钟".into(), "zh-Hant" => "<1分鐘".into(), "ja" => "<1分".into(),
         "ko" => "1분 미만".into(), "ru" => "<1 мин".into(), "uk" => "<1 хв".into(),
-        "pt-BR" => "<1 min".into(), _ => "<1m".into(),
+        "pt-BR" | "fr" | "de" => "<1 min".into(), "uz" => "<1 daq".into(), _ => "<1m".into(),
     }} else if minutes < 60 { match lang {
         "zh" => format!("{minutes}分钟"), "zh-Hant" => format!("{minutes}分鐘"),
         "ja" => format!("{minutes}分"), "ko" => format!("{minutes}분"),
         "ru" => format!("{minutes} мин"), "uk" => format!("{minutes} хв"),
-        "pt-BR" => format!("{minutes} min"), _ => format!("{minutes}m"),
+        "pt-BR" | "fr" | "de" => format!("{minutes} min"), "uz" => format!("{minutes} daqiqa"), _ => format!("{minutes}m"),
     }} else {
         let h = minutes / 60; let m = minutes % 60;
         match lang {
             "zh" => format!("{h}小时{m:02}分"), "zh-Hant" => format!("{h}小時{m:02}分"),
             "ja" => format!("{h}時間{m:02}分"), "ko" => format!("{h}시간 {m:02}분"),
             "ru" => format!("{h} ч {m:02} мин"), "uk" => format!("{h} год {m:02} хв"),
+            "fr" => format!("{h}h {m:02}m"), "de" => format!("{h} h {m:02} min"),
+            "uz" => format!("{h} soat {m:02} daqiqa"),
             "pt-BR" => format!("{h}h {m:02}m"), _ => format!("{h}h {m:02}m"),
         }
     })
@@ -359,11 +361,7 @@ fn build_menu_from(
 pub(crate) fn language(app: &AppHandle) -> String {
     let st = app.state::<crate::AppState>();
     let raw = st.cfg.lock().unwrap().lang.clone();
-    if raw == "auto" {
-        crate::i18n::resolve_auto().to_string()
-    } else {
-        raw
-    }
+    crate::resolved_lang(&raw)
 }
 
 /// The hover text: the same figures the menu opens with, for when the menu is not open.
@@ -410,6 +408,9 @@ fn menu_bar_toggle_label(lang: &str) -> &'static str {
         "ja" => "メニューバーに上限の情報を表示", "ko" => "메뉴 막대에 한도 정보 표시",
         "ru" => "Показывать лимиты в строке меню", "uk" => "Показувати ліміти в рядку меню",
         "pt-BR" => "Exibir limites na barra de menus",
+        "fr" => "Afficher les limites dans la barre des menus",
+        "de" => "Limits in der Menüleiste anzeigen",
+        "uz" => "Menyu panelida limit maʼlumotini koʻrsatish",
         _ => "Show limit information in menu bar",
     }
 }
@@ -418,6 +419,7 @@ fn resetting_label(lang: &str) -> &'static str {
     match lang {
         "zh" | "zh-Hant" => "正在重置…", "ja" => "リセット中…", "ko" => "재설정 중…",
         "ru" => "Сброс…", "uk" => "Скидання…", "pt-BR" => "Renovando…",
+        "fr" => "Réinitialisation…", "de" => "Wird zurückgesetzt…", "uz" => "Yangilanmoqda…",
         _ => "Resetting…",
     }
 }
@@ -426,7 +428,8 @@ fn no_reading_label(lang: &str) -> &'static str {
     match lang {
         "zh" => "暂无读数", "zh-Hant" => "暫無讀數", "ja" => "読み取りなし",
         "ko" => "읽은 값 없음", "ru" => "Нет данных", "uk" => "Немає даних",
-        "pt-BR" => "Sem leitura", _ => "No reading",
+        "pt-BR" => "Sem leitura", "fr" => "Aucun relevé", "de" => "Kein Messwert",
+        "uz" => "Maʼlumot yoʻq", _ => "No reading",
     }
 }
 
@@ -584,6 +587,12 @@ mod tests {
         assert!(five_hour_window("claude", &snap).is_some());
         assert_eq!(countdown(7_200_000, 0, "zh"), Some("2小时00分".into()));
         assert_eq!(countdown(59_000, 0, "ja"), Some("<1分".into()));
+        assert_eq!(countdown(59_000, 0, "fr"), Some("<1 min".into()));
+        assert_eq!(countdown(65 * 60_000, 0, "de"), Some("1 h 05 min".into()));
+        assert_eq!(countdown(65 * 60_000, 0, "uz"), Some("1 soat 05 daqiqa".into()));
+        assert_eq!(menu_bar_toggle_label("fr"), "Afficher les limites dans la barre des menus");
+        assert_eq!(resetting_label("de"), "Wird zurückgesetzt…");
+        assert_eq!(no_reading_label("uz"), "Maʼlumot yoʻq");
     }
 
     #[test]
