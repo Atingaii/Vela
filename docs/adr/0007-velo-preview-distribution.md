@@ -2,6 +2,8 @@
 
 状态：Accepted
 
+2026-09-23：本记录的三平台同步发行条件由 [ADR 0009](0009-macos-first-delivery.md) 取代，当前仅发布两种 Mac 架构；品牌、数据兼容与系统信任约束继续适用。
+
 ## 决策
 
 用户指定官网 velo.codes，并授权仓库与产品更名 Velo、发布安装包及重写 Cloudflare 官网。

@@ -1,5 +1,7 @@
 # Codenotch 全量迁移核对表
 
+**当前阶段只推进 macOS（Apple Silicon / Intel）。** Windows、Linux 仅保留[后续规划](platform-roadmap.md)，收到用户明确指示后才恢复；历史记录中的跨端待验不再是本阶段任务。Mac 的全量功能、UI、视觉和交互一致性标准不变，见 [ADR 0009](adr/0009-macos-first-delivery.md)。
+
 基准：`vinzdg/codenotch@117a38b8edae2ebd0944bc86b8760c6381685345`，以 `Sources/App/AppDelegate.swift` 实际注册的能力、Swift 设置与交互为准。Windows 分支仅作为可复用代码来源，不再作为功能范围。
 
 顺序：恢复基准全部功能、UI 和效果 → 验证一致性 → 完成第 1 项边缘插件机制 → 暂停。设置精简及新增第 2–4 项延后。源代码迁移完成与真实账号、操作系统实机验收分别记录；不能以入口存在代替实现。

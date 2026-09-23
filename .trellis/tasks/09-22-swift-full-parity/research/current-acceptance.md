@@ -1,6 +1,8 @@
 # 当前验收门槛（持续更新，不是完成证明）
 
-最新补审：网页登录入口已前移系统能力检查，阻止 macOS 14 以下在创建窗口之前进入持久 profile 清理；保留 ADR 0006 的隔离策略。Rust 383 + helper 1 / 3 ignored 通过，详见 [WebKit 复核](2026-09-23-webkit-profile-capability.md)。该补丁尚待新提交 CI；`ca25fff` 的旧检查仍在运行，不能混用 SHA。Mac 仍锁屏，原生视觉、真实账号与最终安装包/升级验收继续待完成。
+**2026-09-23 最新范围优先：当前只推进 macOS（Apple Silicon / Intel）。Windows、Linux 暂缓，等待用户明确启动。** 下方旧记录中的 Windows / 三平台待验项保留为历史，不再驱动当前实施。两类 Mac 原生 CI、实际 DMG 安装与签名升级以及 Swift 原生 UI/交互对照仍为门槛；详见 [ADR 0009](../../../../docs/adr/0009-macos-first-delivery.md)。
+
+最新补审：网页登录入口已前移系统能力检查，阻止 macOS 14 以下在创建窗口之前进入持久 profile 清理；保留 ADR 0006 的隔离策略。Rust 383 + helper 1 / 3 ignored 通过，详见 [WebKit 复核](2026-09-23-webkit-profile-capability.md)。该补丁 `6d4f408` 尚待新提交 CI；`ca25fff` 的两种 Mac 原生与 browser 检查已通过，不能混用 SHA。Mac 仍锁屏，原生视觉、真实账号与最终安装包/升级验收继续待完成。
 
 固定基准：`vinzdg/codenotch@117a38b8edae2ebd0944bc86b8760c6381685345`。用户要求首先完整迁移，再验收，再完成第 1 项边缘插件；不改变 UI 设计和业务语义。
 

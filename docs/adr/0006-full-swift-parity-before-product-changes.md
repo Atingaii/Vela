@@ -2,6 +2,8 @@
 
 状态：采纳（实现进行中）
 
+2026-09-23：当前跨端实施范围由 [ADR 0009](0009-macos-first-delivery.md) 取代，先完成 macOS；下文保留原决定背景，其余迁移与技术约束继续适用。
+
 ## 背景
 
 Codenotch 的 Tauri 分支只有部分供应商和桌面交互。仅复用该分支不能满足“保留全部现有逻辑”的要求。基准固定为 `vinzdg/codenotch@117a38b8edae2ebd0944bc86b8760c6381685345` 的 Swift 主线；具体差异见 [迁移清单](../migration-parity.md)。

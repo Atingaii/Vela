@@ -7,7 +7,6 @@ import {fileURLToPath} from 'node:url';
 const ARTIFACTS = [
   ['darwin-aarch64', 'Velo-macos-arm64.app.tar.gz'],
   ['darwin-x86_64', 'Velo-macos-x64.app.tar.gz'],
-  ['windows-x86_64', 'Velo-windows-x64-setup.exe'],
 ];
 
 export function releaseVersion(tag, versions) {

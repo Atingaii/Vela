@@ -25,8 +25,6 @@ jobs:
             arch: arm64
           - os: macos-15-intel
             arch: x64
-          - os: windows-latest
-            arch: x64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     env:
@@ -56,23 +54,6 @@ jobs:
           app=$(find "$old/target/release/bundle/macos" -name Velo.app -type d -print -quit)
           test -n "$app"
           node scripts/verify-installed-update.mjs "$app" "$EXPECTED_VERSION" update-reports/signed-update-macos-${{ matrix.arch }}.json
-      - name: Build isolated older NSIS installer and verify real update
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force update-reports | Out-Null
-          node scripts/prepare-old-update-verification.mjs > update-reports/prepared-source.json
-          if ($LASTEXITCODE -ne 0) { throw 'Could not prepare isolated old source' }
-          $old = (Get-Content update-reports/prepared-source.json -Raw | ConvertFrom-Json).prepared_root
-          Push-Location $old
-          try {
-            node scripts/desktop.mjs build --bundles nsis
-            if ($LASTEXITCODE -ne 0) { throw 'Old signed NSIS build failed' }
-          } finally { Pop-Location }
-          $installer = Get-ChildItem "$old/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
-          if (-not $installer) { throw 'Old signed NSIS installer is missing' }
-          node scripts/verify-installed-update.mjs $installer.FullName $env:EXPECTED_VERSION update-reports/signed-update-windows-${{ matrix.arch }}.json
-          if ($LASTEXITCODE -ne 0) { throw 'Isolated NSIS update verification failed' }
       - name: Remove only this job's disposable old source
         if: always()
         shell: bash

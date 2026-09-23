@@ -14,3 +14,6 @@
 
 7. [ADR-0007：Velo 品牌与可验证的预览发行](0007-velo-preview-distribution.md)
 8. [ADR-0008：独立预览更新索引与应用包签名](0008-signed-preview-updates.md)
+9. [ADR-0009：先完成 macOS，其他平台等待明确启动](0009-macos-first-delivery.md)
+
+当前平台实施和发行范围由 ADR-0009 收敛为 macOS；ADR-0006 的完整迁移标准继续适用。

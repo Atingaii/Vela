@@ -36,9 +36,6 @@ jobs:
           - os: macos-15-intel
             arch: x64
             bundles: app,dmg
-          - os: windows-latest
-            arch: x64
-            bundles: nsis
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
@@ -84,23 +81,6 @@ jobs:
           test -s "$updater.sig"
           cp "$updater" "release-assets/Velo-macos-${{ matrix.arch }}.app.tar.gz"
           cp "$updater.sig" "release-assets/Velo-macos-${{ matrix.arch }}.app.tar.gz.sig"
-      - name: Install NSIS package and launch installed app
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force release-assets | Out-Null
-          $installer = Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
-          if (-not $installer) { throw 'Missing NSIS installer' }
-          $destination = Join-Path $env:RUNNER_TEMP 'Velo-installed'
-          $process = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$destination") -Wait -PassThru
-          if ($process.ExitCode -ne 0) { throw "Installer exit: $($process.ExitCode)" }
-          if (-not (Test-Path "$destination/vela-hook.exe")) { throw 'Bundled helper missing' }
-          node scripts/smoke-installed.mjs "$destination/velo.exe" release-assets/smoke-windows-x64.json
-          if ($LASTEXITCODE -ne 0) { throw 'Installed app failed smoke test' }
-          Copy-Item $installer.FullName release-assets/Velo-windows-x64-setup.exe
-          $signature = "$($installer.FullName).sig"
-          if (-not (Test-Path $signature) -or (Get-Item $signature).Length -eq 0) { throw 'Missing signed NSIS updater artifact' }
-          Copy-Item $signature release-assets/Velo-windows-x64-setup.exe.sig
       - name: Capture only this macOS smoke process crash
         if: ${{ always() && runner.os == 'macOS' }}
         shell: bash
@@ -165,15 +145,13 @@ jobs:
           cd release-assets
           test -s Velo-macos-arm64.dmg
           test -s Velo-macos-x64.dmg
-          test -s Velo-windows-x64-setup.exe
           test -s Velo-macos-arm64.app.tar.gz
           test -s Velo-macos-arm64.app.tar.gz.sig
           test -s Velo-macos-x64.app.tar.gz
           test -s Velo-macos-x64.app.tar.gz.sig
-          test -s Velo-windows-x64-setup.exe.sig
           test -s trust-macos-arm64.json
           test -s trust-macos-x64.json
-          node -e 'for(const name of ["macos-arm64","macos-x64","windows-x64"]){const r=require("./smoke-"+name+".json");if(!r.success)throw new Error(name)}'
+          node -e 'for(const name of ["macos-arm64","macos-x64"]){const r=require("./smoke-"+name+".json");if(!r.success)throw new Error(name)}'
           sha256sum Velo-* > SHA256SUMS.txt
           cd ..
           node scripts/preview-update-feed.mjs release-assets "$RELEASE_TAG" --check

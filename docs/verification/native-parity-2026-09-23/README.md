@@ -94,3 +94,9 @@ Velo 最终三页截图来自最新源码原生构建的独立 `--visual-test` r
 后续 Rust 检查点为主程序 321、helper 1 通过、3 忽略，包括 Grok 自有临时文件的真实内核打开/关闭检测。内核返回的 `/private/var` 与临时目录 `/var` 拼写必须解析后比较，不能把别名差异当成未持有文件。
 
 本节结果不代表最终 DMG/NSIS 已构建或验收，不代表 Gatekeeper 默认信任，也不代表所有设置与侧栏已达到视觉 1:1。
+
+## 第五批：macOS 双架构 CI（ca25fff）
+
+[CI 35836915542](https://github.com/Atingaii/Velo/actions/runs/35836915542) 的 browser、Intel macOS 15.7.9 和 macOS-latest 原生 job 均通过。隔离原生报告分别为 [Intel x86_64](macos-smoke-ca25fff-intel.json) 与 [Apple Silicon arm64](macos-smoke-ca25fff-arm64.json)：版本与包版本均为 `0.1.1-preview.1`，WebView/IPC、helper、wake subscription 成功，`providers_started=false`，exit 0 且未超时；两份诊断报告的 `matching_crashes` 均为空（[Intel](macos-diagnostic-ca25fff-intel.json)、[Apple Silicon](macos-diagnostic-ca25fff-arm64.json)）。
+
+这些报告只证明对应 macOS runner 上的隔离启动 smoke，不覆盖 GUI 视觉、真实账号、发行安装或 Gatekeeper 验收。本节只记录 browser 与两项 macOS 结果；此前 Windows 报告保留为各自 SHA 的历史证据，不代表此提交的 Windows 验收。

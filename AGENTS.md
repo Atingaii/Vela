@@ -24,6 +24,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 - 中文沟通；复杂开发先应用 `~/.codex/.agents/vibe-coding.md`（若环境有此文件）。最终回复带 Recap。
 - 先按 `docs/migration-parity.md` 全量迁移 Codenotch Swift 主线，首版仅转换技术实现，保持 UI、视觉效果和全部交互一致；验收后实现新增第 1 项边缘插件机制，然后暂停。设置精简和新增第 2–4 项本轮不推进。遵循 `docs/adr/0006-full-swift-parity-before-product-changes.md`。
+- 当前阶段仅推进 macOS（Apple Silicon / Intel）的完整迁移与验收；Windows、Linux 仅列入 `docs/platform-roadmap.md`，等用户明确要求后才恢复实施、平台测试和发布。遵循 `docs/adr/0009-macos-first-delivery.md`，不降低 Mac 的 UI/交互一致性和真实安装验收标准。
 - 原 Antigravity CLI / Gemini 强制实现限制已由用户取消。沿用 Tauri 2 + Rust + HTML/JavaScript，不另换技术栈。
 - 已明确授权的实现、修复、初始化和验证直接继续，Trellis 模板中的重复确认步骤不重新阻断现有授权；有新的不可逆操作才依据当前授权判断。
 - Trellis 保持 `codex.dispatch_mode: inline`，不启动常驻 worker；Root 可按 [`docs/agents/model-delegation.md`](docs/agents/model-delegation.md) 显式分派最多 3 个子代理。Cargo jobs=1、Rust test threads=1、Playwright workers=1，重型构建与测试由唯一执行者串行运行。

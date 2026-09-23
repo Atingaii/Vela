@@ -1,0 +1,19 @@
+{
+  "executable": "/Users/runner/work/Velo/Velo/target/debug/bundle/macos/Velo.app/Contents/MacOS/velo",
+  "arch": "arm64",
+  "os": "darwin",
+  "macos_version": "26.6.2",
+  "started_ms": 1790153004842,
+  "smoke": {
+    "success": true,
+    "runner": {
+      "exit_code": 0,
+      "exit_signal": null,
+      "timed_out": false,
+      "interrupted_by": null,
+      "error": null,
+      "cleanup_error": null
+    }
+  },
+  "matching_crashes": []
+}
