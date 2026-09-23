@@ -7,3 +7,6 @@
 # picking either side (task state lives in task.json, not index.md). See
 # .trellis/spec/cli/backend/directory-structure.md for details.
 .trellis/workspace/*/journal-*.md merge=union
+
+# This seemingly textual fixture is signed byte-for-byte. Windows autocrlf must not rewrite LF.
+tests/fixtures/updater/*.bin -text

@@ -241,6 +241,7 @@ mod tests {
 
     #[test]
     fn real_signed_fixture_accepts_only_original_bytes_and_signed_version() {
+        assert_eq!(FIXTURE_BYTES, b"VELO signed updater integration fixture\n");
         let signature = FIXTURE_SIGNATURE.trim();
         let key = FIXTURE_PUBLIC_KEY.trim();
         verify_signature(FIXTURE_BYTES, signature, key, "0.1.1-preview.1").unwrap();
