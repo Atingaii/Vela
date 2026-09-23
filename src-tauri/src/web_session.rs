@@ -223,6 +223,15 @@ pub fn state(id: &str) -> Result<WebSessionState, WebSessionError> {
     })
 }
 
+#[cfg(any(test, target_os = "macos"))]
+fn macos_version_supports_private_profiles(version: &str) -> bool {
+    version
+        .split('.')
+        .next()
+        .and_then(|major| major.parse::<u32>().ok())
+        .is_some_and(|major| major >= 14)
+}
+
 #[cfg(target_os = "macos")]
 fn private_profiles_supported() -> bool {
     static AVAILABLE: OnceLock<bool> = OnceLock::new();
@@ -233,8 +242,7 @@ fn private_profiles_supported() -> bool {
             .ok()
             .filter(|out| out.status.success())
             .and_then(|out| String::from_utf8(out.stdout).ok())
-            .and_then(|text| text.split('.').next()?.parse::<u32>().ok())
-            .is_some_and(|major| major >= 14)
+            .is_some_and(|text| macos_version_supports_private_profiles(text.trim()))
     })
 }
 
@@ -706,6 +714,22 @@ fn open_sign_in_sync(
     Ok(result)
 }
 
+fn preflight_open(
+    id: &str,
+    minimax_china: bool,
+    profile_supported: bool,
+) -> Result<Option<u64>, WebSessionError> {
+    web_sites::site(id, minimax_china).ok_or(WebSessionError::Invalid)?;
+    if !profile_supported {
+        return Err(WebSessionError::Unavailable);
+    }
+    let all = sessions().lock().unwrap();
+    Ok(all
+        .get(id)
+        .filter(|session| session.cleaning && !session.cleanup_started)
+        .map(|session| session.epoch))
+}
+
 #[tauri::command]
 pub async fn open_web_session(
     app: AppHandle,
@@ -713,13 +737,10 @@ pub async fn open_web_session(
     switching: bool,
     minimax_china: bool,
 ) -> Result<WebSessionState, String> {
-    web_sites::site(&id, minimax_china).ok_or(WebSessionError::Invalid.to_string())?;
-    let retry_cleanup = {
-        let all = sessions().lock().unwrap();
-        all.get(&id)
-            .filter(|session| session.cleaning && !session.cleanup_started)
-            .map(|session| session.epoch)
-    };
+    // Reject unsupported WebKit versions before retrying profile cleanup or
+    // querying a persistent data store; window_for's guard is too late here.
+    let retry_cleanup = preflight_open(&id, minimax_china, private_profiles_supported())
+        .map_err(|error| error.to_string())?;
     if let Some(epoch) = retry_cleanup {
         sign_out_revoked(&app, &id, epoch)
             .await
@@ -1118,6 +1139,42 @@ mod tests {
         assert_eq!(data_store_id("deepseek"), data_store_id("deepseek"));
         assert_ne!(data_store_id("deepseek"), data_store_id("qianwenai"));
         assert_eq!(data_store_id("deepseek")[6] & 0xf0, 0x40);
+    }
+
+    #[test]
+    fn private_profile_capability_requires_macos_fourteen() {
+        assert!(!macos_version_supports_private_profiles("13.7.9"));
+        assert!(macos_version_supports_private_profiles("14.0"));
+        assert!(macos_version_supports_private_profiles("15.7.9"));
+        assert!(!macos_version_supports_private_profiles("unknown"));
+    }
+
+    #[test]
+    fn unsupported_profile_stops_before_pending_cleanup() {
+        let id = "deepseek";
+        let previous = sessions().lock().unwrap().insert(
+            id.into(),
+            Session {
+                cleaning: true,
+                epoch: 41,
+                ..Session::default()
+            },
+        );
+        assert_eq!(
+            preflight_open(id, false, false),
+            Err(WebSessionError::Unavailable)
+        );
+        assert_eq!(preflight_open(id, false, true), Ok(Some(41)));
+        assert_eq!(
+            preflight_open("invalid-site", false, false),
+            Err(WebSessionError::Invalid)
+        );
+        let mut all = sessions().lock().unwrap();
+        if let Some(previous) = previous {
+            all.insert(id.into(), previous);
+        } else {
+            all.remove(id);
+        }
     }
 
     #[test]
