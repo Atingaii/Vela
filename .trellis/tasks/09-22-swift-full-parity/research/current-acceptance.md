@@ -1,5 +1,7 @@
 # 当前验收门槛（持续更新，不是完成证明）
 
+用户已取消固定模型分级与协作交付协议。下方历史批次的模型、强度和代理名称仅记录当时的执行情况，不约束后续分派。
+
 **2026-09-23 最新范围优先：当前只推进 macOS（Apple Silicon / Intel）。Windows、Linux 暂缓，等待用户明确启动。** 下方旧记录中的 Windows / 三平台待验项保留为历史，不再驱动当前实施。两类 Mac 原生 CI、实际 DMG 安装与签名升级以及 Swift 原生 UI/交互对照仍为门槛；详见 [ADR 0009](../../../../docs/adr/0009-macos-first-delivery.md)。
 
 当前源码 `eeb5335` 已推送，仅 Mac 的 [CI 35840331022](https://github.com/Atingaii/Velo/actions/runs/35840331022) 的 Intel、Apple Silicon 和 browser 均已通过。报告 `macos-smoke-eeb5335-{intel,arm64}.json` 已核对并入库。文案提交 `6859771` 未改变客户端源码；本机已用该工作树重新构建 debug `.app`（`/tmp/velo-macos-current-visual-build.log`），复制到本次独立 bundle ID `com.atingaii.velo.parity.eeb5335` 后执行真实隔离启动。`macos-smoke-eeb5335-local.json` 记录版本/包版本 0.1.1-preview.1、WebView/IPC/helper/wake=true、providers_started=false、exit 0、无超时。此报告不代表 DMG、系统信任或视觉验收。Mac 仍锁屏，已请求用户手动解锁。
@@ -24,7 +26,7 @@
 | 唤醒与实例生命周期 | macOS NSWorkspace、Windows suspend/resume 真 API 订阅及 macOS 旧实例退休源码与单测已补；本批 macOS debug app 实测仅证明订阅注册/注销与 WebView/IPC 启动，实际睡眠恢复和 Windows 新批次 CI 尚待验 | update_flow / settings_parity；root 平台验收 |
 | 自动更新与发行 | 真公钥和独立 feed；自动下载、下次启动安装；开关/代次取消；三平台签名产物与原子 feed 发布 | update_flow；root 密钥、发行与隔离升级验证 |
 | 侧栏动效 | 源 spin/pulse、reading/contents/glide、数字变化、卡片进出、手柄 merge、keyed cell 和 native 降低透明度已补并通过双引擎；原生同场景视觉待解锁 | notch_parity |
-| 最终视觉 / 官网 | 解锁后的固定 fixture 四边、设置逐页、材质与菜单交互；据真实软件截图同步官网、README 与下载说明 | root 复核；实现交 GPT-6-Sol max |
+| 最终视觉 / 官网 | 解锁后的固定 fixture 四边、设置逐页、材质与菜单交互；据真实软件截图同步官网、README 与下载说明 | 当前主代理负责实现与最终复核 |
 
 以上只列已定位的剩余差异，不豁免全量 `docs/migration-parity.md` 的最终检查。新发现必须按具体源文件和可复现场景加入，而不是仅因缺少同名函数而重写。
 
@@ -69,7 +71,7 @@
 
 最终实例接管源码对应的标准 Tauri debug app 重建成功（`/tmp/velo-migration-instance-final-native-build.log`），重新执行的隔离 smoke 成功（`/tmp/velo-migration-instance-final-native-smoke.json`），已更新上述入库 macOS 报告。唤醒订阅、WebView/IPC、helper 均通过，版本 0.1.1-preview.1，未启动供应商、exit 0、无超时。此 smoke 主动跳过实例接管，不能冒充新旧实例接管的桌面实测。自动更新默认值亦与固定 Swift Info.plist 核对为开启，保留用户显式关闭，无需额外修改。
 
-5176a88 的 CI 35826483051：macOS 原生与浏览器通过，Windows Cargo 360 通过、1 失败、4 ignored。失败为自定义 localhost 扫描测试返回空（日志 `/tmp/velo-ci-5176a88-failed.log`），已在下一批工作树补双栈解析与真实 IPv4/IPv6 回归，Windows 复验尚待新提交。该 SHA 的发行包验证 35826536749 已通过 Apple Silicon DMG 挂载/复制/签名完整性/原生启动；报告 `smoke-package-macos-arm64-5176a88.json` 与 `trust-package-macos-arm64-5176a88.json` 已入库，明确未通过 Developer ID/Gatekeeper/公证，不代表当前未提交的界面修复。新工作树 Rust 376 + helper 1、3 ignored 已通过，日志 `/tmp/velo-parity-controls-geometry-rust.log`。用户新增分级协作采用 `docs/agents/model-delegation.md`，后续 Sol/Luna max；本批旧 Sol High 会话无法原地重配且新 Luna 因环境线程上限未创建，未冒称新模型运行。
+5176a88 的 CI 35826483051：macOS 原生与浏览器通过，Windows Cargo 360 通过、1 失败、4 ignored。失败为自定义 localhost 扫描测试返回空（日志 `/tmp/velo-ci-5176a88-failed.log`），已在下一批工作树补双栈解析与真实 IPv4/IPv6 回归，Windows 复验尚待新提交。该 SHA 的发行包验证 35826536749 已通过 Apple Silicon DMG 挂载/复制/签名完整性/原生启动；报告 `smoke-package-macos-arm64-5176a88.json` 与 `trust-package-macos-arm64-5176a88.json` 已入库，明确未通过 Developer ID/Gatekeeper/公证，不代表当前未提交的界面修复。新工作树 Rust 376 + helper 1、3 ignored 已通过，日志 `/tmp/velo-parity-controls-geometry-rust.log`。该历史批次曾采用 `docs/agents/model-delegation.md`，当时约定后续 Sol/Luna max（现已取消）；本批旧 Sol High 会话无法原地重配且新 Luna 因环境线程上限未创建，未冒称新模型运行。
 
 
 最新换边与设置检查点：Rust379+helper1/3ignored，Node27，Chromium/WebKit各84通过。LM Studio断开状态初次失败已修复并保留断言；accounts数量、连续阈值和新页面初始页复核完成。原生包重建中，源审计见2026-09-23-edge-crossing-review.md。Mac仍锁屏，最终视觉/真实账号/新Windows/安装包与签名更新继续待验。

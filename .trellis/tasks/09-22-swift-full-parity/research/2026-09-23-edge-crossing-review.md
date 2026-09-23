@@ -1,6 +1,6 @@
 # 换边与折叠热区复核
 
-固定源：`vinzdg/codenotch@117a38b8edae2ebd0944bc86b8760c6381685345`。Root 负责此批跨原生窗口/WebView 的实现；此前 Sol High 代理提供只读 API 和遗漏审计。新分级协议要求后续 Sol/Luna max，本次既有会话不能原地重配。
+固定源：`vinzdg/codenotch@117a38b8edae2ebd0944bc86b8760c6381685345`。Root 负责此批跨原生窗口/WebView 的实现；此前 Sol High 代理提供只读 API 和遗漏审计。当时的分级协议要求后续 Sol/Luna max，本批既有会话不能原地重配；该分级协议现已按用户要求取消。
 
 ## 发现与修复
 
