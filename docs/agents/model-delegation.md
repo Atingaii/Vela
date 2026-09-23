@@ -52,6 +52,8 @@ next: Root 可以直接执行的下一步
 
 投递成功仅表示请求被接受，**不等于执行完成**。Root 应区分已接收、运行中、已完成、明确失败和状态不明；只有可核对的终态结果才可并入验收。超过 `time_budget` 或工具等待超时先记为“待检查”，查看代理状态、当前改动与日志；超时本身不是失败，也不自动重发任务。
 
+`time_budget` 是投入上限，不是必须用满的时长。定向测试通过后，只有新改动、失败或未解决的具体疑点才追加测试；时序回归需重复时先限定次数，不为填满预算反复跑相同套件。
+
 重试前核对 `task_id`、最新 `request_id`、`base_sha`、工作树和代理实际进度。已有上下文与改动时向同一任务发送续做说明；从未进入执行上下文且没有副作用时才重投原请求。新的尝试保留同一 `task_id`，分配新 `request_id` 并记录新的基线。不得盲目重复会安装、发布、写凭据、提交或更改外部状态的步骤；明确失败或阻塞须连同证据交给 Root 决定恢复方式。
 
 以上是从固定版本上游的[超时与重试契约](https://github.com/SeemSeam/claude_codex_bridge/blob/2cc7341ee27a4362a0f63d5e52d8a29c6140a780/docs/agent-message-timeout-retry-contract.md)及[通信章节](https://github.com/SeemSeam/claude_codex_bridge/blob/2cc7341ee27a4362a0f63d5e52d8a29c6140a780/docs/manuals/developer-guide/chapters/04-communication.tex)提炼的项目协作原则；不引入其 CLI、daemon、消息账本或自动重试实现。

@@ -19,7 +19,7 @@ if(process.env.SMOKE_FIXTURE_MODE==='pass') {
 } else if(process.env.SMOKE_FIXTURE_MODE==='fail') {
   process.exit(9);
 } else {
-  const grandchild=spawn(process.execPath,['-e',"setInterval(()=>require('fs').writeFileSync(process.env.SMOKE_HEARTBEAT,String(Date.now())),30)"],{stdio:'ignore'});
+  const grandchild=spawn(process.execPath,['-e',"const fs=require('fs');let beat=0;const write=()=>fs.writeFileSync(process.env.SMOKE_HEARTBEAT,String(++beat));write();setInterval(write,30)"],{stdio:'ignore'});
   writeFileSync(process.env.SMOKE_CHILD_PID,String(grandchild.pid));
   setInterval(()=>{},1000);
 }
@@ -69,11 +69,13 @@ test('installed smoke runner times out and terminates its process tree', async (
   try {
     const report = await run(script, join(dir, 'timeout.json'), {
       SMOKE_FIXTURE_MODE: 'hang', SMOKE_HEARTBEAT: heartbeat, SMOKE_CHILD_PID: pidPath,
-    }, process.platform === 'win32' ? 2_500 : 500);
+    }, 5_000);
     assert.equal(report.success, false);
     assert.equal(report.smoke_runner.timed_out, true);
     grandchildPid = Number(await readFile(pidPath, 'utf8'));
+    assert.ok(Number.isSafeInteger(grandchildPid) && grandchildPid > 0, 'fixture must spawn a grandchild');
     const before = await readFile(heartbeat, 'utf8');
+    assert.ok(Number(before) > 0, 'grandchild must write its heartbeat before timeout cleanup');
     await new Promise((resolve) => setTimeout(resolve, 250));
     const after = await readFile(heartbeat, 'utf8');
     assert.equal(after, before, 'grandchild must not keep writing after the timeout');
