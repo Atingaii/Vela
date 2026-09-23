@@ -101,11 +101,7 @@ fn resolve(path: &str) -> String {
     #[cfg(windows)]
     {
         let resolved = fs::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path));
-        return resolved
-            .to_string_lossy()
-            .replace('\\', "/")
-            .trim_end_matches('/')
-            .to_lowercase();
+        return windows_text_path(&resolved.to_string_lossy());
     }
     #[cfg(not(windows))]
     {
@@ -124,6 +120,11 @@ fn resolve(path: &str) -> String {
         }
         value
     }
+}
+
+#[cfg(windows)]
+fn windows_text_path(path: &str) -> String {
+    path.replace('\\', "/").trim_end_matches('/').to_lowercase()
 }
 
 fn tail(path: &Path, max: u64) -> Option<Vec<u8>> {
@@ -528,9 +529,23 @@ mod tests {
             matches!(turn(waiting.as_bytes(),at),Some(Turn::Waiting(_,Some(tool))) if tool=="Bash")
         );
     }
+    #[cfg(not(windows))]
     #[test]
     fn path_normalization_is_text_only() {
         assert_eq!(resolve("/private/var//tmp/"), "/var/tmp");
         assert_eq!(resolve("/Users//me/project/"), "/Users/me/project");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_path_normalization_keeps_drive_and_unc_identity() {
+        assert_eq!(
+            windows_text_path("C:\\Users\\ME\\project\\"),
+            "c:/users/me/project"
+        );
+        assert_eq!(
+            windows_text_path("\\\\server\\share\\Kimi\\"),
+            "//server/share/kimi"
+        );
     }
 }
