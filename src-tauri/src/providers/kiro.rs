@@ -269,30 +269,39 @@ fn executable() -> Option<PathBuf> {
         std::env::var_os("KIRO_CLI_PATH").as_deref(),
     )
 }
+#[cfg(unix)]
+fn run_cli_unix(exe: &Path, timeout: Duration) -> Result<String, Failure> {
+    use std::os::unix::process::CommandExt;
+
+    let mut command = std::process::Command::new(exe);
+    command
+        .args(["chat", "--no-interactive", "/usage"])
+        .env("TERM", "dumb")
+        .env("KIRO_CHAT_UI", "classic")
+        .current_dir(std::env::temp_dir());
+    // Kiro 2.21 prints its usage card to stderr. Merge it before exec so one
+    // bounded pipe captures either stream without exposing the card in logs.
+    unsafe {
+        command.pre_exec(|| {
+            if libc::dup2(1, 2) < 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+    let (status, bytes) =
+        crate::usage::process_output::output_with_status(command, 256 * 1024, timeout)
+            .ok_or(Failure::Network)?;
+    if !status.success() {
+        return Err(Failure::Auth);
+    }
+    String::from_utf8(bytes).map_err(|_| Failure::Invalid)
+}
+
 fn run_cli(exe: &Path) -> Result<String, Failure> {
     #[cfg(unix)]
     {
-        use std::os::unix::process::CommandExt;
-        let mut command = std::process::Command::new(exe);
-        command
-            .args(["chat", "--no-interactive", "/usage"])
-            .env("TERM", "dumb")
-            .env("KIRO_CHAT_UI", "classic")
-            .current_dir(std::env::temp_dir());
-        // The CLI can print the entire card to stderr; merge both bounded
-        // pipes before the shared process-group runner starts reading.
-        unsafe {
-            command.pre_exec(|| {
-                if libc::dup2(1, 2) < 0 {
-                    return Err(std::io::Error::last_os_error());
-                }
-                Ok(())
-            });
-        }
-        let bytes =
-            crate::usage::process_output::output(command, 256 * 1024, Duration::from_secs(20))
-                .ok_or(Failure::Network)?;
-        return String::from_utf8(bytes).map_err(|_| Failure::Invalid);
+        return run_cli_unix(exe, Duration::from_secs(20));
     }
     #[cfg(windows)]
     {
@@ -783,5 +792,39 @@ mod tests {
             parse_cli(&output).unwrap().plan.as_deref(),
             Some("Kiro Pro")
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cli_nonzero_exit_needs_auth_even_when_output_looks_like_usage() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("kiro-cli");
+        std::fs::write(&bin, "#!/bin/sh\nprintf 'Plan: KIRO PRO\\n' >&2\nexit 7\n").unwrap();
+        std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(matches!(
+            run_cli_unix(&bin, Duration::from_secs(2)),
+            Err(Failure::Auth)
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cli_spawn_failure_and_timeout_remain_transient() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        assert!(matches!(
+            run_cli_unix(&dir.path().join("missing"), Duration::from_millis(100)),
+            Err(Failure::Network)
+        ));
+        let bin = dir.path().join("kiro-cli");
+        std::fs::write(&bin, "#!/bin/sh\nsleep 5 &\nwait\n").unwrap();
+        std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let started = std::time::Instant::now();
+        assert!(matches!(
+            run_cli_unix(&bin, Duration::from_millis(100)),
+            Err(Failure::Network)
+        ));
+        assert!(started.elapsed() < Duration::from_secs(2));
     }
 }

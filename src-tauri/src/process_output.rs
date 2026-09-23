@@ -100,49 +100,76 @@ impl Drop for OwnedJob {
     }
 }
 
-pub(crate) fn output(mut command: Command, max: usize, timeout: Duration) -> Option<Vec<u8>> {
+/// Kiro needs the exit status to distinguish a CLI sign-out from a transient
+/// process failure. Bytes from a failed process may be partial; Kiro ignores
+/// them. Other callers keep output()'s existing success-only API.
+#[cfg(unix)]
+pub(crate) fn output_with_status(
+    mut command: Command,
+    max: usize,
+    timeout: Duration,
+) -> Option<(std::process::ExitStatus, Vec<u8>)> {
+    use std::os::unix::process::CommandExt;
     command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null());
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.process_group(0);
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        // Stop the main thread before it executes user code. Assign its
-        // process to our Job Object, then resume only that child's thread.
-        command.creation_flags(0x0800_0000 | 0x0000_0200 | 0x0000_0004);
-    }
+        .stderr(Stdio::null())
+        .process_group(0);
     let mut child = command.spawn().ok()?;
     let Some(stdout) = child.stdout.take() else {
         terminate_tree(&mut child);
         return None;
     };
-    #[cfg(windows)]
-    let Some(job) = OwnedJob::attach(&child) else {
-        terminate_tree(&mut child);
-        return None;
-    };
-    #[cfg(windows)]
-    if resume_suspended_child(&child).is_none() {
-        drop(job);
-        terminate_tree(&mut child);
-        return None;
-    }
-    #[cfg(unix)]
     let outcome = read_unix(&mut child, stdout, max, timeout);
-    #[cfg(windows)]
-    let outcome = read_windows(&mut child, stdout, max, timeout);
-    #[cfg(not(any(unix, windows)))]
-    let outcome: Option<Vec<u8>> = None;
-    #[cfg(windows)]
-    drop(job);
     terminate_tree(&mut child);
     outcome
+}
+
+pub(crate) fn output(command: Command, max: usize, timeout: Duration) -> Option<Vec<u8>> {
+    #[cfg(unix)]
+    {
+        return output_with_status(command, max, timeout)
+            .and_then(|(status, bytes)| status.success().then_some(bytes));
+    }
+    #[cfg(not(unix))]
+    {
+        let mut command = command;
+        command
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            // Stop the main thread before it executes user code. Assign its
+            // process to our Job Object, then resume only that child's thread.
+            command.creation_flags(0x0800_0000 | 0x0000_0200 | 0x0000_0004);
+        }
+        let mut child = command.spawn().ok()?;
+        let Some(stdout) = child.stdout.take() else {
+            terminate_tree(&mut child);
+            return None;
+        };
+        #[cfg(windows)]
+        let Some(job) = OwnedJob::attach(&child) else {
+            terminate_tree(&mut child);
+            return None;
+        };
+        #[cfg(windows)]
+        if resume_suspended_child(&child).is_none() {
+            drop(job);
+            terminate_tree(&mut child);
+            return None;
+        }
+        #[cfg(windows)]
+        let outcome = read_windows(&mut child, stdout, max, timeout);
+        #[cfg(not(windows))]
+        let outcome: Option<Vec<u8>> = None;
+        #[cfg(windows)]
+        drop(job);
+        terminate_tree(&mut child);
+        outcome
+    }
 }
 
 #[cfg(unix)]
@@ -151,7 +178,7 @@ fn read_unix(
     mut stdout: std::process::ChildStdout,
     max: usize,
     timeout: Duration,
-) -> Option<Vec<u8>> {
+) -> Option<(std::process::ExitStatus, Vec<u8>)> {
     use std::os::fd::AsRawFd;
     let fd = stdout.as_raw_fd();
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
@@ -176,9 +203,11 @@ fn read_unix(
             Err(_) => return None,
         }
         let status = child.try_wait().ok()?;
-        if eof {
-            if let Some(status) = status {
-                return status.success().then_some(bytes);
+        if let Some(status) = status {
+            // A failed CLI does not need to wait for a descendant that still
+            // holds stdout; its status is already authoritative.
+            if !status.success() || eof {
+                return Some((status, bytes));
             }
         }
         if Instant::now() >= deadline {
@@ -246,6 +275,22 @@ mod tests {
         let started = Instant::now();
         assert!(output(Command::new(&script), 1024, Duration::from_millis(250)).is_none());
         assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn status_interface_preserves_exit_failure_without_changing_output_contract() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let script = temp.path().join("helper");
+        std::fs::write(&script, b"#!/bin/sh\nprintf 'not signed in\\n'\nexit 7\n").unwrap();
+        let mut permissions = std::fs::metadata(&script).unwrap().permissions();
+        permissions.set_mode(0o700);
+        std::fs::set_permissions(&script, permissions).unwrap();
+        let (status, _bytes) =
+            output_with_status(Command::new(&script), 1024, Duration::from_secs(2)).unwrap();
+        assert_eq!(status.code(), Some(7));
+        assert!(output(Command::new(&script), 1024, Duration::from_secs(2)).is_none());
     }
 
     #[cfg(windows)]

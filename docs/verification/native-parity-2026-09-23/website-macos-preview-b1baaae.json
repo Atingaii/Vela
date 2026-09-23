@@ -1,0 +1,36 @@
+{
+  "deployment": "https://6198467a.velo-5i0.pages.dev",
+  "source_sha": "b1baaae",
+  "pages": [
+    {
+      "url": "https://velo.codes/",
+      "status": 200,
+      "sha256": "0f3055b5382031ab399aa8288c0de521928d3919c91a7d9fb4d87331575fb2e1",
+      "matches_source": true
+    },
+    {
+      "url": "https://velo.codes/download/",
+      "status": 200,
+      "sha256": "6e5177a1372a95c2a15a77171b16197a221b8cbb1aeb062709286cd0a313add6",
+      "matches_source": true
+    },
+    {
+      "url": "https://velo.codes/guide/",
+      "status": 200,
+      "sha256": "3d772f45815198f18a860b6389c1ef1a6246d6bb84e32526fc901b324c58ba91",
+      "matches_source": true
+    },
+    {
+      "url": "https://velo.codes/product/",
+      "status": 200,
+      "sha256": "c3455720acc3695a268d5219be66da619a45367f2c9084b213ae3be2e506ad47",
+      "matches_source": true
+    }
+  ],
+  "local_browser_checks": {
+    "download_desktop_visual": true,
+    "download_and_product_390px_no_horizontal_overflow": true,
+    "first_launch_guide_navigation": true,
+    "screenshots": "existing development previews with demo data"
+  }
+}

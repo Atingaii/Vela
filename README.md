@@ -84,7 +84,7 @@ Velo 是面向 **macOS 的 AI 编程桌面伴侣**。它把不同工具的额度
 
 下载后打开 DMG，将 Velo 拖入「应用程序」。Mac 预览版没有 Developer ID 签名、尚未公证，Gatekeeper 不会默认信任；首次打开时按[安装说明](docs/releases/preview.md)仅对 Velo 单独允许，不需要关闭系统保护。校验安装包请使用 [SHA-256 文件](https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/SHA256SUMS.txt)。旧的 `v0.1.0-preview.4` 不支持应用内升级到新版；请手动下载并安装 `v0.1.1-preview.1`。历史 `.4` 说明仍见[原发布页](https://github.com/Atingaii/Velo/releases/tag/v0.1.0-preview.4)。
 
-`v0.1.1-preview.1` 已接入签名自动更新；完整原生界面、功能对齐与真实账户仍在验收，实际升级的跨架构验证也在进行中。
+`v0.1.1-preview.1` 已接入签名自动更新；Apple Silicon 与 Intel 的隔离真实升级检查均通过。完整原生界面、功能对齐与真实账户仍在验收。
 
 ### 环境准备
 

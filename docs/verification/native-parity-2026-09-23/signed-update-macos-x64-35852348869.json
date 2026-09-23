@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "expected": "0.1.1-preview.1",
+  "source": "/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/velo-old-update-source-y1Q5ur/target/release/bundle/macos/Velo.app",
+  "isolated_root": "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/velo-update-verify-Qlcfws",
+  "isolated_executable": "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/velo-update-verify-Qlcfws/Velo.app/Contents/MacOS/velo",
+  "staging": {
+    "detail": "0.1.1-preview.1",
+    "executable": "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/velo-update-verify-Qlcfws/Velo.app/Contents/MacOS/velo",
+    "expected": "0.1.1-preview.1",
+    "package_version": "0.1.1-preview.0",
+    "phase": "staged",
+    "success": true,
+    "version": "0.1.1-preview.0"
+  },
+  "installed": {
+    "arch": "x86_64",
+    "bundled_helper": true,
+    "os": "macos",
+    "package_version": "0.1.1-preview.1",
+    "providers_started": false,
+    "settings_webview_and_ipc": true,
+    "success": true,
+    "update_verification_executable": "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/velo-update-verify-Qlcfws/Velo.app/Contents/MacOS/velo",
+    "version": "0.1.1-preview.1",
+    "wake_subscription": true,
+    "windows_taskbar_proxy": null
+  }
+}
