@@ -41,6 +41,8 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: 'true'
       - run: npm ci
       - name: Build isolated older macOS app and verify real update
         if: runner.os == 'macOS'

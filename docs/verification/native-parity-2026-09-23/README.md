@@ -106,3 +106,15 @@ Velo 最终三页截图来自最新源码原生构建的独立 `--visual-test` r
 [CI 35840331022](https://github.com/Atingaii/Velo/actions/runs/35840331022) 的两项 Mac 原生作业与 browser 均通过。当前流水线不再运行 Windows 客户端检查，其他平台等待明确启动。新的 [Intel 报告](macos-smoke-eeb5335-intel.json)、[Apple Silicon 报告](macos-smoke-eeb5335-arm64.json)和[本机隔离应用报告](macos-smoke-eeb5335-local.json)均为 0.1.1-preview.1，WebView/IPC/helper/wake=true、providers_started=false、exit 0、无超时。
 
 本机还通过 Rust 383 + helper 1 / 3 ignored、Node 33 及 UI 脚本检查；最新 debug app 已为原生视觉对照准备独立副本。Mac 仍锁屏，以上不能替代真实侧栏、材质、设置逐交互、真实账号及 DMG/Gatekeeper/签名升级验收。Mac 平台范围见 [ADR 0009](../../adr/0009-macos-first-delivery.md)。
+
+## 第七批：实际发行 DMG（6859771，进行中）
+
+标签 `v0.1.1-preview.1` 固定于 `6859771f851ec28a21973f59146314b1d5a364a0`；[发行流水线 35842708336](https://github.com/Atingaii/Velo/actions/runs/35842708336) 的 browser 和 Apple Silicon 包作业已通过。Intel 通过 Rust 检查、主程序 release 构建和 `.app` 签名后，在 `bundle_dmg.sh` 约 22 秒处失败；日志只有通用打包错误，尚未执行 Intel 安装 smoke。发布 job 正确跳过，Release/feed 没有公开。该失败与此前已修复的 Intel 原生启动 SIGABRT 分开记录。
+
+Apple Silicon runner 已挂载 DMG、复制 `.app`、校验签名完整性并执行[安装启动 smoke](smoke-macos-arm64-6859771.json)。Root 将该次流水线的同一个 DMG 下载至本机，验证磁盘映像、挂载并复制到独立临时目录，再次通过[本机 DMG 安装启动检查](smoke-macos-arm64-local-dmg-6859771.json)。两份报告均为 `0.1.1-preview.1`，WebView/IPC/helper/wake=true、providers_started=false、exit 0、无超时；未覆盖 `/Applications/Velo.app`。
+
+[发行信任报告](trust-macos-arm64-6859771.json)明确区分：签名完整性通过；Developer ID、Gatekeeper 默认接受和公证票据均未通过。安装 smoke 不是首次系统允许打开的验证。
+
+从同一 DMG 另建独立 bundle ID 的原生对照副本，仅修改包标识后临时签名；后续必须使用隔离 `--visual-test ... --fixture swift` 模式。Mac 仍锁屏，尚未操作或拍摄本次发行版原生界面。Sol/max 的有界只读终审未发现新的、可确认的高影响 macOS 实现遗漏；这一源码结论不替代视觉、真实账户或真实签名升级验收。
+
+失败日志还确认 `CACHE_ON_FAILURE=false`，没有执行缓存保存。固定 Swatinem action 的 `post-if` 为 `success() || env.CACHE_ON_FAILURE == 'true'`，`save-if: true` 单独不足以在失败后保存缓存；后续 CI 配置需显式启用 `cache-on-failure: true`。这只减少重编译，不改变任何安装或签名门槛。

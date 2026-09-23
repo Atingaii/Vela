@@ -4,7 +4,7 @@
 
 当前源码 `eeb5335` 已推送，仅 Mac 的 [CI 35840331022](https://github.com/Atingaii/Velo/actions/runs/35840331022) 的 Intel、Apple Silicon 和 browser 均已通过。报告 `macos-smoke-eeb5335-{intel,arm64}.json` 已核对并入库。文案提交 `6859771` 未改变客户端源码；本机已用该工作树重新构建 debug `.app`（`/tmp/velo-macos-current-visual-build.log`），复制到本次独立 bundle ID `com.atingaii.velo.parity.eeb5335` 后执行真实隔离启动。`macos-smoke-eeb5335-local.json` 记录版本/包版本 0.1.1-preview.1、WebView/IPC/helper/wake=true、providers_started=false、exit 0、无超时。此报告不代表 DMG、系统信任或视觉验收。Mac 仍锁屏，已请求用户手动解锁。
 
-已将 `v0.1.1-preview.1` 标签固定到 `6859771`，触发 [发行检查 35842708336](https://github.com/Atingaii/Velo/actions/runs/35842708336)。发布 job 仍由两类 Mac DMG 安装和启动检查门控；标签存在不代表 Release 或 feed 已发布。官网 `6859771` 平台文案已部署至 Cloudflare（部署 `7d242192`），首页、下载、产品、指南和样式均与本地字节一致；下载仍指向确实存在的旧 `.4`，新链接待资产成功发布后更新。
+已将 `v0.1.1-preview.1` 标签固定到 `6859771`，触发 [发行检查 35842708336](https://github.com/Atingaii/Velo/actions/runs/35842708336)。该次 browser 与 Apple Silicon DMG 安装检查通过，但 Intel 在 Rust tests、release 主程序构建和 .app 签名成功后，bundle_dmg.sh 约 22 秒失败，尚未执行 Intel 安装 smoke。publish 已跳过，Release/feed 未发布。Root 已验证同一 ARM DMG 在本机独立安装后成功启动；报告已入库。后续使用固定源码验证入口补充 verbose 打包日志，并启用真正的 cache-on-failure；不移动现有标签、不放宽安装门槛。官网 `6859771` 平台文案已部署至 Cloudflare（部署 `7d242192`），首页、下载、产品、指南和样式均与本地字节一致；下载仍指向确实存在的旧 `.4`，新链接待资产成功发布后更新。
 
 最新补审：网页登录入口已前移系统能力检查，阻止 macOS 14 以下在创建窗口之前进入持久 profile 清理；保留 ADR 0006 的隔离策略。Rust 383 + helper 1 / 3 ignored 通过，详见 [WebKit 复核](2026-09-23-webkit-profile-capability.md)。该补丁 `6d4f408` 已纳入通过 Mac CI 的 `eeb5335`；`ca25fff` 保留为前一检查点，不混用 SHA。macOS 12/13 的真实网页登录能力门控仍未实机验证。Mac 仍锁屏，原生视觉、真实账号与最终安装包/升级验收继续待完成。
 

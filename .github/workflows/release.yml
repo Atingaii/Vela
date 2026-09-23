@@ -3,6 +3,11 @@ on:
   push:
     tags: ['v*-preview.*']
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Optional fixed tag or commit to validate; manual runs never publish automatically
+        type: string
+        required: false
 permissions:
   contents: read
 concurrency:
@@ -14,6 +19,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -45,6 +52,13 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.ref }}
+      - name: Record the exact application source
+        shell: bash
+        run: |
+          mkdir -p release-diagnostics
+          node -e 'const fs=require("fs"),cp=require("child_process");fs.writeFileSync("release-diagnostics/source.json",JSON.stringify({source_sha:cp.execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),workflow_sha:process.env.GITHUB_SHA,run_id:process.env.GITHUB_RUN_ID},null,2)+"\n")'
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -54,9 +68,10 @@ jobs:
         with:
           # Preserve completed compilation even when a later native smoke fails.
           save-if: 'true'
+          cache-on-failure: 'true'
       - run: npm ci
       - run: cargo test --locked --workspace -- --test-threads=1
-      - run: npm run build -- --bundles ${{ matrix.bundles }}
+      - run: npm run build -- --bundles ${{ matrix.bundles }} --verbose
       - name: Mount DMG, copy application, verify signature and launch
         if: runner.os == 'macOS'
         shell: bash

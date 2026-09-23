@@ -32,6 +32,7 @@ jobs:
         with:
           # Preserve completed compilation even when a later native smoke fails.
           save-if: 'true'
+          cache-on-failure: 'true'
       - run: npm ci
       - run: npm run check:ui
       - run: npm test
