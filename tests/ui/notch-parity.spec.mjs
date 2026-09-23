@@ -10,6 +10,10 @@ async function notchBridge(page){
     const slots=['claude','codex','cursor','gemini','glm','grok'].map(provider=>({provider}));
     window.__TAURI__={core:{invoke:async(cmd,args)=>{
       window.notchCalls.push({cmd,args});
+      if(cmd==='get_deepseek_pricing_state'&&window.notchPricingFixture){
+        const fixture=window.notchPricingFixture;fixture.reads++;
+        return fixture.reads===1?{phase:'peak',next_phase:'offPeak',next_at:Date.now()+60000}:{phase:'offPeak',next_phase:'peak',next_at:Date.now()+3600000};
+      }
       if(cmd==='get_notch_slots')return slots;
       if(cmd==='get_usage')return usage;
       if(cmd==='get_state')return {sessions,agg:'running',lang_resolved:'en'};
@@ -24,6 +28,62 @@ async function notchBridge(page){
     }},event:{listen:async(name,callback)=>{(listeners[name]??=[]).push(callback);return ()=>{};}}};
   });
 }
+
+test('刘海齿轮点击切换设置窗口，保留独立打开命令给菜单',async({page})=>{
+  await notchBridge(page);await page.setViewportSize({width:360,height:1000});await page.goto('/notch.html');
+  await expect(page.locator('.cell')).toHaveCount(6);
+  await expect.poll(()=>page.evaluate(()=>!!orbAt&&document.getElementById('orb').classList.contains('placed'))).toBe(true);
+  const hit=await page.evaluate(()=>{
+    const {x,y}=orbAt,element=document.elementFromPoint(x,y);
+    return {x,y,inside:near(orbAt,x,y),target:element?.closest('#orb')?.id||null};
+  });
+  expect(hit.inside).toBe(true);
+  expect(hit.target).toBe('orb');
+  await page.mouse.click(hit.x,hit.y);
+  await expect.poll(()=>page.evaluate(()=>notchCalls.filter(call=>call.cmd==='toggle_settings').length)).toBe(1);
+  expect(await page.evaluate(()=>notchCalls.filter(call=>call.cmd==='open_settings').length)).toBe(0);
+});
+
+test('本地运行时展开为每模型独立环和原版详情，隐藏模型不留聚合环',async({page})=>{
+  await notchBridge(page);await page.setViewportSize({width:360,height:1050});await page.goto('/notch.html');
+  const model={id:'qwen3:8b',name:'qwen3:8b',key:'qwen3:8b',size:8*1024**3,size_kind:'memory',gpu_size:4*1024**3,context:32768,quantization:'Q4',expires_at:null,brand:'qwen'};
+  const performance={output_tokens:100,generation_seconds:2,measured_at:Date.now(),approximate:false,speed_text:'50 tok/s',headline_text:'50 tok/s',band:'veryFast'};
+  await page.evaluate(({model,performance})=>emitNotch('providers',[
+    {id:'ollama-local',name:'Ollama',enabled:true,snap:{status:'ok',windows:[],local_model:null}},
+    {id:'ollama-local:model:qwen3:8b',name:'qwen3:8b',enabled:true,snap:{status:'ok',windows:[],local_model:model,source_provider_id:'ollama-local',shows_local_performance:true,local_context_fraction:.25,local_performance:performance}}
+  ]),{model,performance});
+  await expect(page.locator('.cell[data-p="ollama-local"]')).toHaveCount(0);
+  await expect(page.locator('.cell[data-p="ollama-local:model:qwen3:8b"] .pct')).toHaveText('50 tok/s');
+  await page.locator('.cell[data-p="ollama-local:model:qwen3:8b"]').hover();
+  await expect(page.locator('#card')).toContainText('Qwen · Local');
+  await expect(page.locator('#card')).toContainText('Last speed (derived)');
+  await expect(page.locator('#card')).toContainText('VRAM');
+  await expect(page.locator('#card')).toContainText('Context limit');
+  await page.evaluate(({model,performance})=>emitNotch('providers',[
+    {id:'ollama-local',name:'Ollama',enabled:true,snap:{status:'ok',windows:[]}},
+    {id:'ollama-local:model:qwen3:8b',name:'qwen3:8b',enabled:false,snap:{status:'ok',windows:[],local_model:model,source_provider_id:'ollama-local',shows_local_performance:true,local_performance:performance}}
+  ]),{model,performance});
+  await expect(page.locator('.cell[data-p="ollama-local:model:qwen3:8b"]')).toHaveCount(0);
+});
+
+test('本地模型特殊字符 ID 不破坏 DOM，活动仅驱动自身圆环',async({page})=>{
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await notchBridge(page);await page.goto('/notch.html');
+  const ids=['ollama-local:model:quote"[a]','ollama-local:model:second'];
+  await page.evaluate(ids=>{
+    emitNotch('providers',[{id:'ollama-local',name:'Ollama',enabled:true,snap:{status:'ok',windows:[]}},
+      ...ids.map(id=>({id,name:id.split(':').at(-1),enabled:true,snap:{status:'ok',windows:[],
+        local_model:{id,name:id,key:id,size:1024,size_kind:'memory',gpu_size:null,context:null,quantization:null,expires_at:null},
+        source_provider_id:'ollama-local'}}))]);
+    emitNotch('activity',[{id:'only-first',provider:ids[0],state:'busy',name:'Thinking',detail:'Thinking',since:Date.now(),queued:0}]);
+  },ids);
+  await expect.poll(()=>page.evaluate(ids=>ids.map(id=>cellById(id)?.dataset.p||null),ids)).toEqual(ids);
+  const arcs=await page.evaluate(ids=>ids.map(id=>cellById(id)?.querySelector('svg.activity')?.innerHTML.includes('arc-spin')),ids);
+  expect(arcs).toEqual([true,false]);
+  await page.evaluate(id=>{hoverId=id;showCard();},ids[0]);
+  await expect(page.locator('#card')).toContainText('Thinking');
+  expect(errors).toEqual([]);
+});
 
 test('六账户提交稳定的会话预算，屏幕 cap 控制可见行和隐藏行',async({page})=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
@@ -71,4 +131,103 @@ test('四边卡片与刘海之间的空隙保持可命中，外侧透明区域�
     expect(hit.hot).toHaveLength(5); // pill, tail, card, gap, settings orb
   }
   expect(errors).toEqual([]);
+});
+
+test('固定 Swift 三服务示例的旧窗口 ID 与本地化仍可绘制',async({page})=>{
+  await notchBridge(page);await page.goto('/notch.html');
+  const result=await page.evaluate(()=>{
+    const snap={headline:'claude.session',windows:[{id:'claude.session',label:'Current session',used:.73},{id:'claude.all',label:'All models',used:.07}]};
+    setUiLanguage('zh');
+    return {headline:headlineOf(snap,'claude')?.id,all:textCopy('All models'),daily:textCopy('Daily quota')};
+  });
+  expect(result).toEqual({headline:'claude.session',all:'全部模型',daily:'每日额度'});
+});
+
+test('原版示例的 ring 不显示 fidelity 近似符，OpenAI 复用原版 knot，关闭移动手柄仍保留设置弧',async({page})=>{
+  await notchBridge(page);await page.goto('/notch.html');
+  const result=await page.evaluate(()=>{
+    glyphs.codex={kind:'svg',svg:'<svg data-test-openai-knot="true"></svg>',scale:.94};
+    notchSlots=[{provider:'openai'}];
+    extraProviders=[{id:'openai',name:'OpenAI',headline:'openai.session',enabled:true,
+      snap:{status:'ok',fidelity:'manual',fetched_at:Date.now(),windows:[{id:'openai.session',label:'Current session',used:.21,derived:true}]}}];
+    glyphEpoch++;showMove=false;renderRing();placeHandles();
+    return {reading:pill.querySelector('.pct')?.textContent,
+      knot:!!pill.querySelector('[data-test-openai-knot]'),
+      move:moveHandle.classList.contains('placed'),orb:orb.classList.contains('placed')};
+  });
+  expect(result).toEqual({reading:'21%',knot:true,move:false,orb:true});
+});
+
+test('卡片使用真实元数据绘制金额、阻断、重置次数、Codex tokens 与 DeepSeek 明细',async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await notchBridge(page);await page.goto('/notch.html');
+  const result=await page.evaluate(()=>{
+    deepSeekPricingState={phase:'peak',next_phase:'offPeak',next_at:Date.now()+3600000};
+    appearance.deepseek_pricing_enabled=true;
+    const now=Date.now();
+    const detail={time_zone_seconds:28800,currency:'CNY',groups:[
+      {api_key_id:'secret-key-join-id',days:[{date:now,cache_hit_tokens:100,cache_miss_tokens:200,output_tokens:300,requests:3,cost:1.25}]}
+    ]};
+    const snap={status:'ok',fetched_at:now,fidelity:'manual',windows:[
+      {id:'spend',label:'Spend',used:.2,money:{currency:'CNY',spent:20,remaining:80}}
+    ],block:{reason:'Rate limit reached',resets_at:now+3600000},
+    reset_credits:{available_count:2,credits:[{id:'a',status:'available',expires_at:now+86400000}]},
+    token_usage:{summary:{lifetime_tokens:1500000,peak_daily_tokens:12000,longest_running_turn_seconds:3600,current_streak_days:2,longest_streak_days:5},daily_usage_buckets:[{start_date:localDayKey(new Date()),tokens:1000}]},
+    usage_detail:detail};
+    return cardHtml({id:'deepseek',base:'deepseek',name:'DeepSeek',snap},0);
+  });
+  expect(result).toContain('~20% used');
+  expect(result).toContain('¥100.00');
+  expect(result).toContain('Rate limit reached');
+  expect(result).toContain('2 unused resets');
+  expect(result).toContain('1.5M');
+  expect(result).toContain('UTC+8');
+  expect(result).toContain('Peak pricing');
+  expect(result).toContain('Daily cost');
+  expect(result).not.toContain('secret-key-join-id');
+  expect(errors).toEqual([]);
+});
+
+test('DeepSeek 卡片跨定价边界时重新读取原生 UTC 相位，隐藏后停止定时器',async({page})=>{
+  await page.clock.install();await notchBridge(page);await page.goto('/notch.html');
+  await page.evaluate(()=>{
+    window.notchPricingFixture={reads:0};
+    const now=Date.now();
+    extraProviders=[{id:'deepseek',name:'DeepSeek',enabled:true,headline:'spend',snap:{status:'ok',fidelity:'official',windows:[{id:'spend',label:'Spend',used:.1}],usage_detail:{time_zone_seconds:28800,currency:'CNY',groups:[{api_key_id:'private',days:[{date:now,cache_hit_tokens:1,cache_miss_tokens:0,output_tokens:0,requests:1,cost:.1}]}]}}}];
+    notchSlots=[{provider:'deepseek'}];renderRing();hoverId='deepseek';showCard();
+  });
+  await expect(page.locator('#card')).toContainText('Peak pricing');
+  await page.clock.fastForward(60020);
+  await expect.poll(()=>page.evaluate(()=>notchPricingFixture.reads)).toBe(2);
+  await expect(page.locator('#card')).toContainText('Off-peak pricing');
+  await page.evaluate(()=>hideCard());
+  expect(await page.evaluate(()=>deepSeekPricingTimer)).toBe(0);
+});
+
+test('尺寸改变的原生 peek 只短暂展开，不生成通知卡且遵守 pinned 状态',async({page})=>{
+  await page.clock.install();await notchBridge(page);await page.goto('/notch.html');
+  await page.evaluate(()=>{onHover=true;pinned=false;pointerIn=false;setFolded(true);emitNotch('notch_peek',{seconds:1.2});});
+  await expect(page.locator('body')).not.toHaveClass(/folded/);
+  expect(await page.evaluate(()=>notchAlert)).toBeNull();
+  await page.clock.fastForward(1201);
+  await page.clock.fastForward(500);
+  await expect(page.locator('body')).toHaveClass(/folded/);
+  await page.evaluate(()=>{pinned=true;emitNotch('notch_peek',{seconds:1.2});});
+  await page.clock.fastForward(1201);
+  await page.clock.fastForward(500);
+  await expect(page.locator('body')).not.toHaveClass(/folded/);
+});
+
+test('边框越界 2pt 仅移动 notch 内容，外侧设置弧保持原锚点',async({page})=>{
+  await notchBridge(page);await page.setViewportSize({width:360,height:800});await page.goto('/notch.html');
+  const result=await page.evaluate(()=>{
+    notchEdge='left';document.body.dataset.edge='left';
+    acceptNotchLayout({edge:'left',width:360,height:800,spacing:31.4017,depth:69.9487,scale:.8,session_cap:0});
+    const p=pill.getBoundingClientRect(),o=orb.getBoundingClientRect();
+    return {bleed:getComputedStyle(document.documentElement).getPropertyValue('--bezel-bleed').trim(),
+      pillLeft:p.left,orbX:o.left+o.width/2,pillBottom:p.bottom};
+  });
+  expect(result.bleed).toBe('2.5px');
+  expect(result.pillLeft).toBeCloseTo(-2.5,1);
+  expect(result.orbX).toBeCloseTo(38.7,0);
 });

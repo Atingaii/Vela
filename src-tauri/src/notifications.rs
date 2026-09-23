@@ -77,7 +77,7 @@ impl Transitions {
             .iter()
             .map(|s| {
                 (
-                    "claude",
+                    s.provider.as_str(),
                     s.id.as_str(),
                     match s.state.as_str() {
                         "running" => "busy",
@@ -135,14 +135,13 @@ pub fn observe(app: &AppHandle) {
         let st = app.state::<crate::AppState>();
         let cfg = st.cfg.lock().unwrap().clone();
         let lang = crate::resolved_lang(&cfg.lang);
-        let mut snap = st
-            .store
-            .lock()
-            .unwrap()
-            .snapshot(&cfg.lang, &lang, true, false);
-        if cfg.providers.disabled.contains("claude") {
-            snap.sessions.clear();
-        }
+        let snap = st.store.lock().unwrap().snapshot_filtered(
+            &cfg.lang,
+            &lang,
+            true,
+            false,
+            &cfg.providers.disabled,
+        );
         let activities: Vec<_> = st
             .activity
             .lock()
@@ -369,6 +368,66 @@ pub fn preview_notch_alert(app: AppHandle, kind: String) -> Result<(), String> {
     );
     Ok(())
 }
+/// The Swift snapshot declares a weekly ID per provider. Keep that contract
+/// here instead of guessing from generic names such as `weekly_all`.
+fn weekly_window<'a>(
+    provider: &str,
+    windows: &'a [crate::usage::LimitWindow],
+    headline: Option<&crate::usage::LimitWindow>,
+    antigravity_model: &str,
+) -> Option<&'a crate::usage::LimitWindow> {
+    let id = if crate::pace::claude(provider) {
+        if headline.is_some_and(|head| head.id == crate::pace::DAILY_ID) {
+            "session"
+        } else {
+            "weekly_all"
+        }
+    } else if provider == "codex" || provider.starts_with("codex-") {
+        "secondary"
+    } else if provider == "gemini" || provider.starts_with("antigravity-") {
+        let candidates: Vec<_> = windows
+            .iter()
+            .filter(|window| window.id.starts_with(antigravity_model))
+            .collect();
+        let candidates: Vec<_> = if candidates.is_empty() {
+            windows.iter().collect()
+        } else {
+            candidates
+        };
+        let selected = candidates
+            .into_iter()
+            .filter(|window| {
+                window.duration == Some(7.0 * 86400.0)
+                    || window.id.to_ascii_lowercase().ends_with("-weekly")
+                    || window.label.to_ascii_lowercase().contains("weekly")
+            })
+            .max_by(|left, right| {
+                left.fraction()
+                    .unwrap_or(0.0)
+                    .partial_cmp(&right.fraction().unwrap_or(0.0))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| right.id.cmp(&left.id))
+            })?;
+        return if headline.is_some_and(|head| head.id == selected.id) {
+            None
+        } else {
+            Some(selected)
+        };
+    } else {
+        match provider {
+            "glm" | "minimax" | "commandcode" | "kimi" | "opencode" | "devin" | "ollama-cloud" => {
+                "weekly"
+            }
+            "qianwenai" => "week",
+            "grok" => "credits",
+            _ => return None,
+        }
+    };
+    windows
+        .iter()
+        .find(|window| window.id == id && headline.is_none_or(|head| head.id != id))
+}
+
 pub fn start(app: AppHandle) {
     // Events only wake one coalescing worker; snapshots stay cached and never force HTTP.
     let (tx, rx) = std::sync::mpsc::sync_channel::<()>(1);
@@ -411,29 +470,16 @@ pub fn start(app: AppHandle) {
                     &cfg.antigravity_limit,
                     &cfg.antigravity_model,
                 );
-                let weekly = snap
-                    .windows
-                    .iter()
-                    .find(|w| match option.id.as_str() {
-                        id if crate::pace::claude(id) => {
-                            if head.is_some_and(|h| h.id == crate::pace::DAILY_ID) {
-                                w.id == "session"
-                            } else {
-                                matches!(w.id.as_str(), "weekly_all" | "seven_day" | "weekly")
-                            }
-                        }
-                        "codex" => w.id == "secondary",
-                        _ => w.id == "weekly_all" || w.id == "weekly" || w.id == "secondary",
-                    })
-                    .filter(|w| head.is_none_or(|h| h.id != w.id));
+                let weekly = weekly_window(&option.id, &snap.windows, head, &cfg.antigravity_model);
                 for (window, is_weekly) in [(head, false), (weekly, true)] {
                     let Some(window) = window else { continue };
-                    for e in watcher.observe(
+                    for e in watcher.observe_with_block(
                         &option.id,
                         window,
                         is_weekly,
                         crate::now_ms(),
                         cfg.notifications.muted_providers.contains(&option.id),
+                        !is_weekly && snap.block.is_some(),
                     ) {
                         use crate::usage_alerts::Kind;
                         let p = &cfg.notifications;
@@ -502,6 +548,35 @@ pub fn start(app: AppHandle) {
 mod tests {
     use super::*;
     #[test]
+    fn weekly_selection_uses_provider_declared_id_and_never_duplicates_headline() {
+        let window = |id: &str| crate::usage::LimitWindow {
+            id: id.into(),
+            label: id.into(),
+            used: 0.5,
+            has_fraction: Some(true),
+            ..Default::default()
+        };
+        let windows = vec![window("gemini-five-hour"), window("gemini-weekly")];
+        assert_eq!(
+            weekly_window("gemini", &windows, Some(&windows[0]), "gemini")
+                .map(|window| window.id.as_str()),
+            Some("gemini-weekly")
+        );
+        assert!(weekly_window("gemini", &windows, Some(&windows[1]), "gemini").is_none());
+        let qianwen = vec![window("week")];
+        assert!(weekly_window("qianwenai", &qianwen, Some(&qianwen[0]), "gemini").is_none());
+        let claude = vec![
+            window(crate::pace::DAILY_ID),
+            window("session"),
+            window("weekly_all"),
+        ];
+        assert_eq!(
+            weekly_window("claude", &claude, Some(&claude[0]), "gemini")
+                .map(|window| window.id.as_str()),
+            Some("session")
+        );
+    }
+    #[test]
     fn providers_share_transition_rules_without_sharing_session_identity() {
         let mut store = crate::state::Store::default();
         let snap = store.snapshot("en", "en", true, false);
@@ -519,6 +594,7 @@ mod tests {
             detail: String::new(),
             waiting_for: None,
             since,
+            queued: 0,
         };
         // Startup is quiet even when a provider is already waiting or finished.
         assert!(watcher
@@ -591,6 +667,7 @@ mod tests {
         // Test transitions with a serialized session shape built explicitly in fixtures below.
         let session = crate::state::Session {
             id: "test".into(),
+            provider: "claude".into(),
             title: "private".into(),
             state: "done".into(),
             started: 0,
@@ -678,6 +755,7 @@ mod tests {
         for (id, at) in [("older", 10), ("newer", 20)] {
             snap.sessions.push(crate::state::Session {
                 id: id.into(),
+                provider: "claude".into(),
                 title: String::new(),
                 state: "running".into(),
                 started: 1,
@@ -710,5 +788,46 @@ mod tests {
             vec!["newer", "older"]
         );
         assert!(watcher.update(&snap, &[], &prefs).is_empty());
+    }
+
+    #[test]
+    fn disabled_default_claude_does_not_hide_or_notify_for_named_profile() {
+        let mut store = crate::state::Store::default();
+        let row = |provider: &str, state| crate::claude_session_monitor::LiveSession {
+            id: format!("{provider}.42"),
+            session_id: Some(format!("{provider}-session")),
+            provider: provider.into(),
+            name: provider.into(),
+            detail: String::new(),
+            state,
+            waiting_for: None,
+            since: 100,
+            pid: 42,
+            cwd: "/tmp".into(),
+        };
+        let disabled = ["claude".to_string()].into_iter().collect();
+        let prefs = Preferences {
+            attention: true,
+            ..Default::default()
+        };
+        let mut transitions = Transitions::default();
+        store.replace_registry(vec![row("claude", "busy"), row("claude-work", "busy")]);
+        let first = store.snapshot_filtered("en", "en", true, false, &disabled);
+        assert_eq!(first.sessions.len(), 1);
+        assert_eq!(first.sessions[0].provider, "claude-work");
+        assert!(transitions.update(&first, &[], &prefs).is_empty());
+        store.replace_registry(vec![
+            row("claude", "waiting"),
+            row("claude-work", "waiting"),
+        ]);
+        let second = store.snapshot_filtered("en", "en", true, false, &disabled);
+        assert_eq!(
+            transitions.update(&second, &[], &prefs),
+            vec![Transition {
+                kind: "attention",
+                session_id: "claude-work.42".into(),
+                provider: "claude-work".into()
+            }]
+        );
     }
 }

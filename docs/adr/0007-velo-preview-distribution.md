@@ -12,6 +12,8 @@ GitHub tag 驱动预览发布。浏览器 gate 后串行构建 Apple Silicon、I
 
 当前没有 Developer ID 或 Windows 代码签名证书；macOS 采用 ad-hoc、Windows 未签名，只发布标注系统首启要求的预览版。不启用占位公钥的自动更新。正式发行需要签名、公证和完整验收后另行推进。
 
+2026-09-23 补充：上述占位公钥期间关闭自动更新的临时措施由 [ADR 0008](0008-signed-preview-updates.md) 替代（实现进行中）。其余发行与系统信任决策保持有效。
+
 官网使用无框架的静态 HTML/CSS/JS，部署既有 Cloudflare Pages `velo`，保持域名。安装包由 GitHub Releases 托管，下载页使用明确的预览 tag。此轮不引入后端服务、账户系统或收费依赖。
 
 ## 后果

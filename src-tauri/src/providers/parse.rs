@@ -79,11 +79,13 @@ fn meter(id: &str, label: &str, used: f64, reset: Option<u64>) -> LimitWindow {
         id: id.into(),
         label: label.into(),
         used: used.max(0.),
+        has_fraction: Some(true),
         resets_at: reset,
         count: None,
         derived: false,
         group: None,
         duration: None,
+        ..Default::default()
     }
 }
 // OpenCode uses the preceding Gregorian month; Copilot only declares a monthly
@@ -103,6 +105,7 @@ fn timed(mut window: LimitWindow, duration: Option<f64>) -> LimitWindow {
 fn count(id: &str, label: &str, n: f64) -> LimitWindow {
     let mut w = meter(id, label, 0., None);
     w.count = Some(n.max(0.).min(i64::MAX as f64) as i64);
+    w.has_fraction = Some(false);
     w
 }
 fn nonempty(w: Vec<LimitWindow>) -> Result<Vec<LimitWindow>, Failure> {
@@ -193,51 +196,55 @@ pub(super) fn copilot(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
             k.as_str(),
         )
     });
-    nonempty(
-        keys.into_iter()
-            .filter_map(|id| {
-                let x = &quotas[id];
-                if x["unlimited"] == true {
-                    return None;
-                }
-                let cap = number(&x["entitlement"]);
-                if cap == Some(0.) {
-                    return None;
-                }
-                let reset = [
-                    &x["reset_date"],
-                    &x["reset_at"],
-                    &x["resets_at"],
-                    &v["quota_reset_date"],
-                ]
-                .into_iter()
-                .find_map(date);
-                let mut w = if let Some(cap) = cap.filter(|n| *n > 0.) {
-                    let used = number(&x["used"])
-                        .unwrap_or_else(|| (cap - number(&x["remaining"]).unwrap_or(cap)).max(0.));
-                    meter(id, id, used / cap, reset)
+    let windows = keys
+        .into_iter()
+        .filter_map(|id| {
+            let x = &quotas[id];
+            if x["unlimited"] == true {
+                return None;
+            }
+            let cap = number(&x["entitlement"]);
+            if cap == Some(0.) {
+                return None;
+            }
+            let reset = [
+                &x["reset_date"],
+                &x["reset_at"],
+                &x["resets_at"],
+                &v["quota_reset_date"],
+            ]
+            .into_iter()
+            .find_map(date);
+            let mut w = if let Some(cap) = cap.filter(|n| *n > 0.) {
+                let used = number(&x["used"])
+                    .unwrap_or_else(|| (cap - number(&x["remaining"]).unwrap_or(cap)).max(0.));
+                meter(id, id, used / cap, reset)
+            } else {
+                let used = number(&x["used"]);
+                let remaining = number(&x["remaining"]);
+                if let Some(n) = used.filter(|n| *n >= 0.) {
+                    count(id, id, n.round())
+                } else if used.is_none() {
+                    let n = remaining.filter(|n| *n >= 0.)?.round();
+                    let mut w = count(id, id, n);
+                    w.remaining = Some(n.min(i64::MAX as f64) as i64);
+                    w
                 } else {
-                    let used = number(&x["used"]);
-                    let remaining = number(&x["remaining"]);
-                    if let Some(n) = used.filter(|n| *n >= 0.) {
-                        count(id, id, n.round())
-                    } else if used.is_none() {
-                        let n = remaining.filter(|n| *n >= 0.)?.round();
-                        let mut w = count(id, id, n);
-                        w.remaining = Some(n.min(i64::MAX as f64) as i64);
-                        w
-                    } else {
-                        return None;
-                    }
-                };
-                w.resets_at = reset;
-                if w.count.is_none() {
-                    w.duration = monthly_duration(reset, true);
+                    return None;
                 }
-                Some(w)
-            })
-            .collect(),
-    )
+            };
+            w.resets_at = reset;
+            if w.count.is_none() {
+                w.duration = monthly_duration(reset, true);
+            }
+            Some(w)
+        })
+        .collect::<Vec<_>>();
+    (!windows.is_empty())
+        .then_some(windows)
+        .ok_or(Failure::Unsupported(
+            "GitHub Copilot reported no metered quotas",
+        ))
 }
 pub(super) fn devin(v: &Value) -> Result<Vec<LimitWindow>, Failure> {
     let p = &v["userStatus"]["planStatus"];

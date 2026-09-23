@@ -11,18 +11,25 @@ const PREFIX: &str = "notch:";
 
 pub fn setup(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("notch") {
-        w.on_menu_event(|w, ev| handle(w.app_handle(), ev.id().as_ref()));
+        attach(&w);
     }
+}
+
+pub fn attach(window: &tauri::WebviewWindow) {
+    window.on_menu_event(|w, ev| handle(w.app_handle(), w.label(), ev.id().as_ref()));
 }
 
 #[tauri::command]
 pub fn show_notch_menu(window: Window, provider: Option<String>) -> Result<(), String> {
+    if !crate::native_notch::is_notch_label(window.label()) {
+        return Err("not a notch window".into());
+    }
     let app = window.app_handle();
     let lang = crate::tray::language(app);
     let err = |e: tauri::Error| e.to_string();
     let keep_open =
         CheckMenuItemBuilder::with_id(format!("{PREFIX}keep_open"), tr(&lang, "keep_open"))
-            .checked(crate::keeps_open(app))
+            .checked(crate::keeps_open_for(window.label()))
             .build(app)
             .map_err(err)?;
     let mut menu = MenuBuilder::new(app).item(&keep_open).separator().item(
@@ -78,7 +85,7 @@ fn give_back(before: isize, notch: isize) {
     }
 }
 
-fn handle(app: &AppHandle, id: &str) {
+fn handle(app: &AppHandle, label: &str, id: &str) {
     let Some(item) = id.strip_prefix(PREFIX) else {
         return;
     };
@@ -88,7 +95,7 @@ fn handle(app: &AppHandle, id: &str) {
     }
     match item {
         "refresh" => crate::refresh_all(app),
-        "keep_open" => crate::toggle_keep_open(app),
+        "keep_open" => crate::toggle_keep_open_for(app, label),
         "quit" => app.exit(0),
         _ => {}
     }

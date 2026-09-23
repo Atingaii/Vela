@@ -47,6 +47,19 @@ struct Runtime {
 }
 static RUNTIME: Mutex<Option<Runtime>> = Mutex::new(None);
 static START_STOP: Mutex<()> = Mutex::new(());
+/// The pinned Swift release keeps PhoneLink unavailable. The implementation remains reachable
+/// only from an explicitly isolated visual run for migration tests, never from a normal launch.
+pub fn is_available() -> bool {
+    crate::smoke::visual()
+}
+
+fn require_available() -> Result<(), String> {
+    if is_available() {
+        Ok(())
+    } else {
+        Err("当前版本未提供手机连接".into())
+    }
+}
 fn now() -> u64 {
     crate::now_ms() / 1000
 }
@@ -103,6 +116,7 @@ pub struct View {
 }
 #[tauri::command]
 pub fn get_phone_link(app: AppHandle, pairing: Option<bool>) -> Result<View, String> {
+    require_available()?;
     let p = app
         .state::<crate::AppState>()
         .cfg
@@ -150,6 +164,7 @@ pub fn get_phone_link(app: AppHandle, pairing: Option<bool>) -> Result<View, Str
 }
 #[tauri::command]
 pub fn set_phone_link(app: AppHandle, enabled: bool) -> Result<(), String> {
+    require_available()?;
     let _gate = START_STOP.lock().unwrap();
     if enabled && !cfg!(any(windows, target_os = "macos")) {
         return Err("手机配对需要 macOS 或 Windows 的系统凭据库".into());
@@ -224,6 +239,9 @@ pub fn set_phone_link(app: AppHandle, enabled: bool) -> Result<(), String> {
     Ok(())
 }
 pub fn start(app: AppHandle) {
+    if !is_available() {
+        return;
+    }
     let enabled = app
         .state::<crate::AppState>()
         .cfg
@@ -239,6 +257,7 @@ pub fn start(app: AppHandle) {
 }
 #[tauri::command]
 pub fn remove_phone(app: AppHandle, device_id: String) -> Result<(), String> {
+    require_available()?;
     if !auth::valid_device(&device_id) {
         return Err("设备 ID 无效".into());
     }
@@ -301,6 +320,7 @@ fn encrypted(request: tiny_http::Request, body: Value, key: &[u8; 32], aad: &str
 }
 #[tauri::command]
 pub fn phone_pairing(open: bool) -> Result<(), String> {
+    require_available()?;
     let mut runtime = RUNTIME.lock().unwrap();
     if let Some(r) = runtime.as_mut() {
         if open {
@@ -588,10 +608,23 @@ fn snapshot(app: &AppHandle) -> Value {
         .store
         .lock()
         .unwrap()
-        .snapshot(&cfg.lang, &crate::resolved_lang(&cfg.lang), true, false)
+        .snapshot_filtered(
+            &cfg.lang,
+            &crate::resolved_lang(&cfg.lang),
+            true,
+            false,
+            &cfg.providers.disabled,
+        )
         .sessions;
     let mut sessions:Vec<_>=sessions.into_iter().map(|s|json!({"id":s.id,"name":s.title,"detail":s.last,"state":match s.state.as_str(){"running"=>"busy","attention"=>"waiting",_=>"idle"},"waitingFor":if s.attn.is_empty(){None}else{Some(s.attn)},"since":iso(s.started)})).collect();
-    sessions.extend(st.activity.lock().unwrap().iter().map(activity_json));
+    sessions.extend(
+        st.activity
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|row| !cfg.providers.disabled.contains(&row.provider))
+            .map(activity_json),
+    );
     json!({"server":{"name":name(),"version":crate::BUILD,"generatedAt":iso(crate::now_ms()),"demo":false},"providers":providers,"sessions":sessions})
 }
 
@@ -621,20 +654,35 @@ fn provider_json(
         "unsupported" => json!({"kind":"unsupported","why":s.note}),
         _ => json!({"kind":"error","why":s.note}),
     };
-    let windows: Vec<_> = s.windows.iter().map(|w| json!({
-        "id": w.id, "label": w.label,
-        "usedFraction": if w.count.is_none() && w.used.is_finite() { Some(w.used) } else { None },
-        "remaining": w.remaining,
-        "used": w.used_count.or_else(|| if w.remaining.is_none() { w.count } else { None }),
-        "resetsAt": w.resets_at.and_then(iso)
-    })).collect();
+    let windows: Vec<_> = s
+        .windows
+        .iter()
+        .map(|w| {
+            json!({
+                "id": w.id, "label": w.label,
+                "usedFraction": w.fraction(),
+                "remaining": w.remaining,
+                "used": w.used_count.or_else(|| if w.remaining.is_none() { w.count } else { None }),
+                "resetsAt": w.resets_at.and_then(iso)
+            })
+        })
+        .collect();
     let account = s
         .plan
         .as_deref()
         .map(str::trim)
         .filter(|p| !p.is_empty())
         .map(|plan| json!({"plan":plan,"source":"Velo"}));
-    json!({"id":id,"displayName":label,"fidelity":if s.windows.iter().any(|w|w.derived){"derived"}else{"official"},"status":status,"windows":windows,"headlineId":head,"block":null,"account":account})
+    let fidelity = match s.fidelity {
+        crate::usage::Fidelity::Official => "official",
+        crate::usage::Fidelity::Derived => "derived",
+        crate::usage::Fidelity::Manual => "manual",
+    };
+    let block = s
+        .block
+        .as_ref()
+        .map(|b| json!({"reason":b.reason,"resetsAt":b.resets_at.and_then(iso)}));
+    json!({"id":id,"displayName":label,"fidelity":fidelity,"status":status,"windows":windows,"headlineId":head,"block":block,"account":account})
 }
 
 #[cfg(test)]
@@ -665,6 +713,13 @@ mod snapshot_tests {
                     remaining: Some(75),
                     ..Default::default()
                 },
+                LimitWindow {
+                    id: "count-and-zero-fraction".into(),
+                    used: 0.0,
+                    count: Some(10),
+                    has_fraction: Some(true),
+                    ..Default::default()
+                },
             ],
             ..Default::default()
         };
@@ -678,6 +733,7 @@ mod snapshot_tests {
         assert_eq!(v["windows"][2]["usedFraction"], 0.25);
         assert_eq!(v["windows"][2]["used"], 25);
         assert!(v["windows"][2]["resetsAt"].is_null());
+        assert_eq!(v["windows"][3]["usedFraction"], 0.0);
     }
     #[test]
     fn cached_backoff_uses_original_time_and_old_cache_remains_readable() {
@@ -698,6 +754,27 @@ mod snapshot_tests {
             "error"
         );
     }
+    #[test]
+    fn direct_block_and_manual_fidelity_survive_wire_projection() {
+        let s = UsageSnapshot {
+            fidelity: crate::usage::Fidelity::Manual,
+            block: Some(crate::usage::UsageBlock {
+                reason: "limit reached".into(),
+                resets_at: Some(1_000),
+            }),
+            windows: vec![LimitWindow {
+                derived: false,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let wire = provider_json("example", "Example", &s, None);
+        assert_eq!(wire["fidelity"], "manual");
+        assert_eq!(
+            wire["block"],
+            json!({"reason":"limit reached","resetsAt":"1970-01-01T00:00:01Z"})
+        );
+    }
 }
 
 #[cfg(test)]
@@ -713,6 +790,7 @@ mod activity_wire_tests {
             detail: "Permission".into(),
             waiting_for: Some("Permission".into()),
             since: 1000,
+            queued: 0,
         };
         let v = activity_json(&s);
         assert_eq!(v["waitingFor"], "Permission");

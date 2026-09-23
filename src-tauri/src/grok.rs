@@ -225,6 +225,7 @@ pub fn parse_credits(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
             id: "credits".into(),
             label: headline_label.unwrap_or_else(|| "Grok Build".into()),
             used,
+            has_fraction: Some(true),
             resets_at,
             duration,
             ..Default::default()
@@ -247,6 +248,7 @@ pub fn parse_credits(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
                 id,
                 label,
                 used,
+                has_fraction: Some(true),
                 resets_at,
                 duration,
                 ..Default::default()
@@ -269,6 +271,7 @@ pub fn parse_credits(v: &serde_json::Value) -> (Vec<LimitWindow>, String) {
                 id: "credits".into(),
                 label: "Weekly limit".into(),
                 used: 0.0,
+                has_fraction: Some(true),
                 resets_at,
                 duration,
                 ..Default::default()
@@ -364,12 +367,21 @@ fn read_once(prev: &UsageSnapshot) -> UsageSnapshot {
     snap
 }
 
-fn broadcast(app: &AppHandle, snap: UsageSnapshot) {
-    let st = app.state::<AppState>();
-    *st.grok.lock().unwrap() = snap.clone();
-    persist(&snap);
-    let _ = app.emit("grok", &snap);
-    crate::refresh::complete("grok");
+fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot) {
+    crate::providers::with_current(app, "grok", epoch, || {
+        let st = app.state::<AppState>();
+        *st.grok.lock().unwrap() = snap.clone();
+        persist(&snap);
+        let _ = app.emit("grok", &snap);
+        crate::refresh::complete("grok");
+    });
+}
+
+pub(crate) fn forget(app: &AppHandle) {
+    REFRESH.store(false, std::sync::atomic::Ordering::Relaxed);
+    *app.state::<AppState>().grok.lock().unwrap() = UsageSnapshot::default();
+    let _ = std::fs::remove_file(store_path());
+    let _ = app.emit("grok", UsageSnapshot::default());
 }
 
 fn sleep_interruptible(secs: u64) {
@@ -391,6 +403,7 @@ pub fn start(app: AppHandle) {
         if !present() {
             broadcast(
                 &app,
+                crate::providers::generation("grok"),
                 UsageSnapshot {
                     status: "absent".into(),
                     ..Default::default()
@@ -417,11 +430,12 @@ pub fn start(app: AppHandle) {
                 let s = st.grok.lock().unwrap().clone();
                 s
             };
+            let epoch = crate::providers::generation("grok");
             let snap = read_once(&prev);
             if snap.status == "error" || snap.status == "stale" {
                 crate::applog(&format!("grok: {}", snap.note));
             }
-            broadcast(&app, snap);
+            broadcast(&app, epoch, snap);
             sleep_interruptible(POLL_SECS);
         }
     });

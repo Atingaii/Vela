@@ -7,6 +7,7 @@ mod appearance;
 mod autostart;
 mod chime;
 mod claude_auth;
+mod claude_session_monitor;
 mod cli_sync;
 mod codex;
 mod config;
@@ -20,11 +21,21 @@ mod focus;
 mod front_window;
 mod glm;
 mod glyphs;
+mod gemini_api_activity;
 mod grok;
+mod grok_activity;
 mod hooks_install;
 mod i18n;
 mod ledger;
+mod kimi_activity;
 mod local_runtime;
+mod local_metrics;
+mod lmstudio_log;
+mod lmstudio_link;
+mod lmstudio_metrics;
+mod ollama_relay;
+mod ollama_stream;
+mod native_notch;
 mod notch_layout;
 mod notch_window;
 mod notchmenu;
@@ -39,14 +50,20 @@ mod server;
 mod settings_window;
 mod smoke;
 mod state;
+mod status_item_artwork;
 mod tray;
 mod trayicon;
 mod traymenu;
+mod terminal_tab_focus;
 mod updater;
 mod usage;
 mod usage_alerts;
 mod watcher;
+mod web_sites;
+mod web_usage_detail;
+mod web_session;
 mod workbench;
+mod whats_new;
 
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
@@ -102,11 +119,12 @@ pub fn broadcast(app: &AppHandle) {
     let snap = {
         let store = st.store.lock().unwrap();
         let cfg = st.cfg.lock().unwrap();
-        store.snapshot(
+        store.snapshot_filtered(
             &cfg.lang,
             &resolved_lang(&cfg.lang),
             i18n::clock_24h(),
             false,
+            &cfg.providers.disabled,
         )
     };
     notifications::observe(app);
@@ -118,6 +136,8 @@ pub fn broadcast(app: &AppHandle) {
 #[derive(Clone, Debug)]
 pub struct Screen {
     pub name: Option<String>,
+    /// macOS ColorSync display UUID, independent of resolution and arrangement.
+    pub stable_id: Option<String>,
     pub x: i32,
     pub y: i32,
     pub w: i32,
@@ -132,6 +152,7 @@ impl Screen {
         let wa = m.work_area();
         Self {
             name: m.name().cloned(),
+            stable_id: None,
             x: m.position().x,
             y: m.position().y,
             w: m.size().width as i32,
@@ -173,6 +194,9 @@ pub fn screens(app: &AppHandle) -> Vec<Screen> {
             }
         }
     }
+    for screen in &mut out {
+        screen.stable_id = native_notch::cached_display_id(screen);
+    }
     out
 }
 
@@ -185,10 +209,9 @@ fn target_screen(app: &AppHandle) -> Option<Screen> {
     };
     let list = screens(app);
     if let Some(name) = want {
-        if let Some(s) = list
-            .iter()
-            .find(|s| s.name.as_deref() == Some(name.as_str()))
-        {
+        if let Some(s) = list.iter().find(|s| {
+            screen_id_matches(s, &name)
+        }) {
             return Some(s.clone());
         }
     }
@@ -206,6 +229,10 @@ fn target_screen(app: &AppHandle) -> Option<Screen> {
         }
     }
     list.into_iter().next()
+}
+
+fn screen_id_matches(screen: &Screen, id: &str) -> bool {
+    screen.stable_id.as_deref() == Some(id) || screen.name.as_deref() == Some(id)
 }
 
 /// The window's top-left corner for an edge, a position ratio along it and a measured window size.
@@ -230,10 +257,6 @@ fn edge_origin(s: &Screen, edge: &str, ww: i32, wh: i32, ratio: f64) -> (i32, i3
 
 /// The landing whose pill is being kept out of sight, or 0. Numbered so a fallback timer from one
 /// landing can never reveal the next one early.
-static LANDING: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-static LANDING_SEQ: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-/// The landing the page has confirmed it has painted empty for.
-static LANDING_HIDDEN: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 /// Longest a landing stays out of sight if the page never reports a settled layout.
 const LANDING_FALLBACK_MS: u64 = 700;
 
@@ -253,13 +276,17 @@ fn land_on_another_screen(app: &AppHandle, from_scale: f64, to_scale: f64) {
     if (from_scale - to_scale).abs() < 0.01 {
         return place_notch(app);
     }
-    use std::sync::atomic::Ordering::SeqCst;
-    let gen = LANDING_SEQ.fetch_add(1, SeqCst) + 1;
-    LANDING.store(gen, SeqCst);
+    let runtime = native_notch::runtime("notch");
+    let gen = {
+        let mut rt = runtime.lock().unwrap();
+        rt.landing_seq = rt.landing_seq.wrapping_add(1).max(1);
+        rt.landing = rt.landing_seq;
+        rt.landing
+    };
     let _ = app.emit_to("notch", "notch_landing", ());
     // Moved before the page has painted itself empty, the jump would show after all
     for _ in 0..40 {
-        if LANDING_HIDDEN.load(SeqCst) == gen {
+        if runtime.lock().unwrap().landing_hidden == gen {
             break;
         }
         std::thread::sleep(std::time::Duration::from_millis(5));
@@ -268,7 +295,13 @@ fn land_on_another_screen(app: &AppHandle, from_scale: f64, to_scale: f64) {
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(LANDING_FALLBACK_MS));
-        if LANDING.compare_exchange(gen, 0, SeqCst, SeqCst).is_ok() {
+        let mut rt = runtime.lock().unwrap();
+        let reveal = rt.landing == gen;
+        if reveal {
+            rt.landing = 0;
+        }
+        drop(rt);
+        if reveal {
             applog("notch landing: no settled layout reported, shown anyway");
             let _ = app.emit_to("notch", "notch_reveal", ());
         }
@@ -277,9 +310,10 @@ fn land_on_another_screen(app: &AppHandle, from_scale: f64, to_scale: f64) {
 
 /// The page has painted itself empty for the landing in progress.
 #[tauri::command]
-fn notch_hidden() {
-    use std::sync::atomic::Ordering::SeqCst;
-    LANDING_HIDDEN.store(LANDING.load(SeqCst), SeqCst);
+fn notch_hidden(window: tauri::WebviewWindow) {
+    let runtime = native_notch::runtime(window.label());
+    let mut rt = runtime.lock().unwrap();
+    rt.landing_hidden = rt.landing;
 }
 
 /// The screen the pointer is over, for a carry that can cross between them. None in the gap a
@@ -317,8 +351,6 @@ fn work_insets(s: &Screen, x: i32, y: i32, ww: i32, wh: i32) -> [i32; 4] {
 }
 
 /// The last insets pushed to the page, in its CSS px, for a page that asks before it was listening.
-static NOTCH_INSETS: Mutex<[f64; 4]> = Mutex::new([0.0; 4]);
-
 /// Pins the notch to the configured edge of the configured monitor.
 /// The notch window's logical size for an edge.
 ///
@@ -368,20 +400,30 @@ fn content_edge_origin(
 
 /// Content measurement is accepted only from the notch, never from a settings/web login window.
 #[tauri::command]
-fn set_notch_content(
+async fn set_notch_content(
     app: AppHandle,
     window: tauri::WebviewWindow,
-    content: notch_layout::Content,
+    mut content: notch_layout::Content,
 ) -> Result<(), String> {
-    if window.label() != "notch" || !content.valid() {
+    if !native_notch::is_notch_label(window.label()) || !content.valid() {
         return Err("invalid notch content measurement".into());
     }
+    #[cfg(target_os = "macos")]
+    {
+        let (tx, mut rx) = tauri::async_runtime::channel(1);
+        app.run_on_main_thread(move || {
+            notch_layout::measure_card_text_on_main_thread(&mut content);
+            let _ = tx.try_send(content);
+        }).map_err(|e| e.to_string())?;
+        content = rx.recv().await.ok_or_else(|| "Could not measure notch card text".to_string())?;
+    }
     let changed = {
-        let mut current = notch_layout::CONTENT.lock().unwrap();
-        if *current == Some(content) {
+        let runtime = native_notch::runtime(window.label());
+        let mut current = runtime.lock().unwrap();
+        if current.content.as_ref() == Some(&content) {
             false
         } else {
-            *current = Some(content);
+            current.content = Some(content);
             true
         }
     };
@@ -392,83 +434,97 @@ fn set_notch_content(
 }
 
 pub fn place_notch(app: &AppHandle) {
-    let Some(w) = app.get_webview_window("notch") else {
-        return;
-    };
+    let target = target_screen(app);
+    for w in app
+        .webview_windows()
+        .values()
+        .filter(|w| native_notch::is_notch_label(w.label()))
+    {
+        let mon = native_notch::runtime(w.label())
+            .lock()
+            .unwrap()
+            .screen
+            .clone()
+            .or_else(|| target.clone());
+        if let Some(mon) = mon {
+            place_notch_on(app, w, &mon);
+        }
+    }
+}
+
+fn place_notch_on(app: &AppHandle, w: &tauri::WebviewWindow, mon: &Screen) {
     let scale = w.scale_factor().unwrap_or(1.0);
-    if let Some(mon) = target_screen(app) {
-        // Two monitors at different scales (150 % and 200 % in practice): the physical size can
-        // end up converted with the *other* monitor's scale factor depending on where the window
-        // is created and then moved, leaving the WebView ~256 logical px wide instead of 340.
-        // So the physical size is pinned straight from mon.scale_factor() before placing the
-        // window; if it still reports a different scale afterwards, it is pinned once more.
-        let ms = mon.scale;
-        let size = ui_scale(app);
-        // Read here, not with the ratio below, because the window's shape depends on it.
-        let edge = {
-            let st = app.state::<AppState>();
-            let c = st.cfg.lock().unwrap();
-            config::edge_or_right(&c.notch_edge)
-        };
-        let content = *notch_layout::CONTENT.lock().unwrap();
-        let layout = content.map(|c| notch_layout::calculate(&edge, c, mon.h as f64 / ms, size));
-        let (width, height) = layout
-            .map(|l| (l.width, l.height))
-            .unwrap_or_else(|| notch_window_size(&edge));
-        if let Some(layout) = layout {
-            let _ = w.emit("notch_layout", layout);
-        }
-        // Never taller or wider than the screen: Large on a small, highly scaled display can ask for more
-        let target = tauri::PhysicalSize::new(
-            (width * ms * size).ceil() as u32,
-            (height * ms * size).ceil() as u32,
-        );
+    // Two monitors at different scales (150 % and 200 % in practice): the physical size can
+    // end up converted with the *other* monitor's scale factor depending on where the window
+    // is created and then moved, leaving the WebView ~256 logical px wide instead of 340.
+    // So the physical size is pinned straight from mon.scale_factor() before placing the
+    // window; if it still reports a different scale afterwards, it is pinned once more.
+    let ms = mon.scale;
+    let size = ui_scale(app);
+    // Read here, not with the ratio below, because the window's shape depends on it.
+    let edge = {
+        let st = app.state::<AppState>();
+        let c = st.cfg.lock().unwrap();
+        config::edge_or_right(&c.notch_edge)
+    };
+    let content = native_notch::runtime(w.label()).lock().unwrap().content.clone();
+    let layout = content.map(|c| notch_layout::calculate(&edge, c, mon.h as f64 / ms, size));
+    let (width, height) = layout
+        .map(|l| (l.width, l.height))
+        .unwrap_or_else(|| notch_window_size(&edge));
+    if let Some(layout) = layout {
+        let _ = app.emit_to(w.label(), "notch_layout", layout);
+    }
+    // Never taller or wider than the screen: Large on a small, highly scaled display can ask for more
+    let target = tauri::PhysicalSize::new(
+        (width * ms * size).ceil() as u32,
+        (height * ms * size).ceil() as u32,
+    );
+    let _ = w.set_size(target);
+    zoom_notch(&w, ms, size);
+    // Position from the window's measured physical size — deriving it from the scale factor
+    // pushed the window past the right edge at 125 % / 150 % (the ring's right side was clipped).
+    let (ww, wh) = w
+        .outer_size()
+        .map(|s| (s.width as i32, s.height as i32))
+        .unwrap_or((target.width as i32, target.height as i32));
+    let ratio = {
+        let st = app.state::<AppState>();
+        let c = st.cfg.lock().unwrap();
+        c.along(&edge)
+    };
+    let shape = layout.map(|l| l.shape_length * ms * size);
+    let (x, y) = content_edge_origin(&mon, &edge, ww, wh, ratio, shape);
+    let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
+    let mut placed = (x, y, ww, wh);
+    if w.outer_size()
+        .map(|s| s.width != target.width)
+        .unwrap_or(false)
+    {
         let _ = w.set_size(target);
-        zoom_notch(&w, ms, size);
-        // Position from the window's measured physical size — deriving it from the scale factor
-        // pushed the window past the right edge at 125 % / 150 % (the ring's right side was clipped).
-        let (ww, wh) = w
-            .outer_size()
-            .map(|s| (s.width as i32, s.height as i32))
-            .unwrap_or((target.width as i32, target.height as i32));
-        let ratio = {
-            let st = app.state::<AppState>();
-            let c = st.cfg.lock().unwrap();
-            c.along(&edge)
-        };
-        let shape = layout.map(|l| l.shape_length * ms * size);
-        let (x, y) = content_edge_origin(&mon, &edge, ww, wh, ratio, shape);
+        let (x, y) = content_edge_origin(
+            &mon,
+            &edge,
+            target.width as i32,
+            target.height as i32,
+            ratio,
+            shape,
+        );
         let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
-        let mut placed = (x, y, ww, wh);
-        if w.outer_size()
-            .map(|s| s.width != target.width)
-            .unwrap_or(false)
-        {
-            let _ = w.set_size(target);
-            let (x, y) = content_edge_origin(
-                &mon,
-                &edge,
-                target.width as i32,
-                target.height as i32,
-                ratio,
-                shape,
-            );
-            let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
-            placed = (x, y, target.width as i32, target.height as i32);
-        }
-        // The page mirrors itself for the edge it is on; it cannot know that on its own.
-        let _ = w.emit("notch_edge", &edge);
-        // Nor can it see the taskbar: a card opened near the bottom of a side edge slid under it.
-        // The page is `size` × the monitor scale smaller than the window in CSS px.
-        let css = (ms * size).max(0.01);
-        let insets =
-            work_insets(&mon, placed.0, placed.1, placed.2, placed.3).map(|v| v as f64 / css);
-        *NOTCH_INSETS.lock().unwrap() = insets;
-        let _ = w.emit("notch_insets", insets);
-        // Placement log line: the first thing to check when the notch is not visible. Appended, not
-        // overwritten (#240) — place_notch runs after every drag as well as at startup, and a
-        // truncating write wiped the rest of the session's diagnostic trail on every drag.
-        applog(&format!(
+        placed = (x, y, target.width as i32, target.height as i32);
+    }
+    // The page mirrors itself for the edge it is on; it cannot know that on its own.
+    let _ = app.emit_to(w.label(), "notch_edge", &edge);
+    // Nor can it see the taskbar: a card opened near the bottom of a side edge slid under it.
+    // The page is `size` × the monitor scale smaller than the window in CSS px.
+    let css = (ms * size).max(0.01);
+    let insets = work_insets(&mon, placed.0, placed.1, placed.2, placed.3).map(|v| v as f64 / css);
+    native_notch::runtime(w.label()).lock().unwrap().insets = insets;
+    let _ = app.emit_to(w.label(), "notch_insets", insets);
+    // Placement log line: the first thing to check when the notch is not visible. Appended, not
+    // overwritten (#240) — place_notch runs after every drag as well as at startup, and a
+    // truncating write wiped the rest of the session's diagnostic trail on every drag.
+    applog(&format!(
             "notch placed build={BUILD}: edge={edge} pos=({x},{y}) size=({ww}x{wh}) inner={:?} win_scale={scale} mon_scale={ms} notch_size={size} monitor={:?}=({},{} {}x{}) work={:?} card_insets_css={insets:?}",
             w.inner_size().map(|s| (s.width, s.height)).unwrap_or((0, 0)),
             mon.name,
@@ -478,7 +534,7 @@ pub fn place_notch(app: &AppHandle) {
             mon.h,
             mon.work
         ));
-    }
+    native_notch::notify_geometry(app, w.label());
 }
 
 /// How often the work area is re-read. It only changes by hand — the taskbar moved to another edge,
@@ -496,6 +552,7 @@ fn start_work_area_watch(app: AppHandle) {
     std::thread::spawn(move || {
         let geometry = |s: Screen| (s.x, s.y, s.w, s.h, s.scale.to_bits(), s.work);
         let mut last = target_screen(&app).map(geometry);
+        let mut last_all: Vec<_> = screens(&app).into_iter().map(geometry).collect();
         loop {
             std::thread::sleep(std::time::Duration::from_millis(WORK_AREA_POLL_MS));
             if DRAGGING.load(std::sync::atomic::Ordering::SeqCst) {
@@ -508,10 +565,37 @@ fn start_work_area_watch(app: AppHandle) {
                     .iter()
                     .any(|w| w.covers(front_window::screen_rect(s), cfg!(target_os = "macos")))
             });
-            if front_window::set_fullscreen(fullscreen) {
-                let _ = app.emit("fullscreen", fullscreen);
+            let _ = front_window::set_fullscreen(fullscreen);
+            for panel in app
+                .webview_windows()
+                .values()
+                .filter(|w| native_notch::is_notch_label(w.label()))
+            {
+                let panel_screen = native_notch::runtime(panel.label())
+                    .lock()
+                    .unwrap()
+                    .screen
+                    .clone()
+                    .or_else(|| screen.clone());
+                let local_fullscreen = panel_screen.as_ref().is_some_and(|s| {
+                    windows
+                        .iter()
+                        .any(|w| w.covers(front_window::screen_rect(s), cfg!(target_os = "macos")))
+                });
+                let runtime = native_notch::runtime(panel.label());
+                let mut rt = runtime.lock().unwrap();
+                if rt.fullscreen != local_fullscreen {
+                    rt.fullscreen = local_fullscreen;
+                    drop(rt);
+                    let _ = app.emit_to(panel.label(), "fullscreen", local_fullscreen);
+                }
             }
             let now = screen.map(geometry);
+            let all_now: Vec<_> = screens(&app).into_iter().map(geometry).collect();
+            if all_now != last_all {
+                last_all = all_now;
+                native_notch::schedule_reconcile(&app);
+            }
             if now != last {
                 last = now;
                 place_notch(&app);
@@ -530,7 +614,7 @@ pub fn reset_bar(app: &AppHandle) {
         want.is_some_and(|name| {
             !screens(app)
                 .iter()
-                .any(|s| s.name.as_deref() == Some(name.as_str()))
+                .any(|s| screen_id_matches(s, &name))
         })
     };
     {
@@ -588,17 +672,27 @@ pub(crate) fn edge_at(x: f64, y: f64, w: f64, h: f64) -> &'static str {
 ///
 /// `depth` and `length` are the pill's own measurements standing upright, in the notch page's CSS px.
 #[tauri::command]
-fn begin_move(app: AppHandle, depth: f64, length: f64) {
+fn begin_move(app: AppHandle, window: tauri::WebviewWindow, depth: f64, length: f64) {
+    if !native_notch::is_notch_label(window.label()) {
+        return;
+    }
     if DRAGGING.swap(true, std::sync::atomic::Ordering::SeqCst) {
         return;
     }
     std::thread::spawn(move || {
+        let label = window.label().to_string();
         let done = |app: &AppHandle| {
             dropzones::hide(app);
             DRAGGING.store(false, std::sync::atomic::Ordering::SeqCst);
-            let _ = app.emit("move_end", ());
+            let _ = app.emit_to(&label, "move_end", ());
         };
-        let Some(start) = target_screen(&app) else {
+        let Some(start) = native_notch::runtime(&label)
+            .lock()
+            .unwrap()
+            .screen
+            .clone()
+            .or_else(|| target_screen(&app))
+        else {
             done(&app);
             return;
         };
@@ -644,7 +738,7 @@ fn begin_move(app: AppHandle, depth: f64, length: f64) {
                     target = next.to_string();
                     zones.target = target.clone();
                     dropzones::retarget(&app, &zones);
-                    let _ = app.emit("move_target", &target);
+                    let _ = app.emit_to(&label, "move_target", &target);
                 }
             }
             std::thread::sleep(std::time::Duration::from_millis(16));
@@ -656,7 +750,7 @@ fn begin_move(app: AppHandle, depth: f64, length: f64) {
         // means "the primary", so the notch would jump off it at the next placement. Take the edge
         // the carry chose and leave it on the screen it came from rather than record a move that
         // will not survive.
-        let unnameable = crossed && mon.name.is_none();
+        let unnameable = crossed && mon.stable_id.is_none() && mon.name.is_none();
         if unnameable {
             crossed = false;
         }
@@ -676,12 +770,12 @@ fn begin_move(app: AppHandle, depth: f64, length: f64) {
                 // It lands where it was last left on that edge — centred, like the zone it was
                 // offered, on an edge it has never been slid along
                 c.notch_edge = target.clone();
-                if !unnameable {
-                    c.notch_monitor = mon.name.clone();
+                if c.appearance.notch_scope == "mainDisplay" && !unnameable {
+                    c.notch_monitor = mon.stable_id.clone().or_else(|| mon.name.clone());
                 }
                 config::save(&c);
             }
-            if crossed {
+            if crossed && label == "notch" {
                 land_on_another_screen(&app, start.scale, mon.scale);
             } else {
                 place_notch(&app);
@@ -692,22 +786,27 @@ fn begin_move(app: AppHandle, depth: f64, length: f64) {
 }
 
 #[tauri::command]
-fn drag_begin(app: AppHandle) {
+fn drag_begin(app: AppHandle, w: tauri::WebviewWindow) {
+    if !native_notch::is_notch_label(w.label()) {
+        return;
+    }
     if DRAGGING.swap(true, std::sync::atomic::Ordering::SeqCst) {
         return;
     }
     std::thread::spawn(move || {
-        let Some(w) = app.get_webview_window("notch") else {
-            DRAGGING.store(false, std::sync::atomic::Ordering::SeqCst);
-            return;
-        };
         let (Ok(start_cur), Ok(start_pos), Ok(size)) =
             (app.cursor_position(), w.outer_position(), w.outer_size())
         else {
             DRAGGING.store(false, std::sync::atomic::Ordering::SeqCst);
             return;
         };
-        let Some(mon) = target_screen(&app) else {
+        let Some(mon) = native_notch::runtime(w.label())
+            .lock()
+            .unwrap()
+            .screen
+            .clone()
+            .or_else(|| target_screen(&app))
+        else {
             DRAGGING.store(false, std::sync::atomic::Ordering::SeqCst);
             return;
         };
@@ -759,7 +858,7 @@ fn drag_begin(app: AppHandle) {
             place_notch(&app);
         }
         DRAGGING.store(false, std::sync::atomic::Ordering::SeqCst);
-        let _ = app.emit("drag_end", moved);
+        let _ = app.emit_to(w.label(), "drag_end", moved);
     });
 }
 pub fn place_bar(app: &AppHandle) {
@@ -789,22 +888,23 @@ pub fn apply_lang(app: &AppHandle, lang: &str) {
 fn get_state(state: tauri::State<AppState>) -> state::Snapshot {
     let store = state.store.lock().unwrap();
     let cfg = state.cfg.lock().unwrap();
-    store.snapshot(
+    store.snapshot_filtered(
         &cfg.lang,
         &resolved_lang(&cfg.lang),
         i18n::clock_24h(),
         false,
+        &cfg.providers.disabled,
     )
 }
 
 #[tauri::command]
-fn get_usage(state: tauri::State<AppState>) -> usage::UsageSnapshot {
-    state.usage.lock().unwrap().clone()
+fn get_usage(app: AppHandle) -> usage::UsageSnapshot {
+    snapshot_of(&app, "claude")
 }
 
 #[tauri::command]
-fn claude_sign_in() -> Result<(), String> {
-    claude_auth::start_login()
+fn claude_sign_in(id: Option<String>) -> Result<(), String> {
+    claude_auth::start_login_for(id.as_deref())
 }
 
 #[tauri::command]
@@ -819,7 +919,7 @@ pub(crate) fn refresh_provider(app: &AppHandle, provider: &str) -> bool {
         return false;
     }
     match provider {
-        "claude" => usage::request_refresh(),
+        "claude" => usage::request_profile_refresh("claude"),
         "codex" => codex::request_refresh(),
         "cursor" => cursor::request_refresh(),
         "grok" => grok::request_refresh(),
@@ -872,13 +972,13 @@ fn refresh_ring(app: AppHandle, provider: String) -> bool {
 }
 
 #[tauri::command]
-fn get_antigravity(state: tauri::State<AppState>) -> usage::UsageSnapshot {
-    state.antigravity.lock().unwrap().clone()
+fn get_antigravity(app: AppHandle) -> usage::UsageSnapshot {
+    snapshot_of(&app, "gemini")
 }
 
 #[tauri::command]
-fn get_glm(state: tauri::State<AppState>) -> usage::UsageSnapshot {
-    state.glm.lock().unwrap().clone()
+fn get_glm(app: AppHandle) -> usage::UsageSnapshot {
+    snapshot_of(&app, "glm")
 }
 
 #[tauri::command]
@@ -893,8 +993,10 @@ fn get_glyphs(state: tauri::State<AppState>) -> std::collections::HashMap<String
 
 /// Collects the glyphs again and pushes them to the page (tray refresh, or the user just dropped in an override)
 pub fn reload_glyphs(app: &AppHandle) {
-    let m = glyphs::collect();
     let st = app.state::<AppState>();
+    let endpoints = st.cfg.lock().unwrap().custom_endpoints.clone();
+    let mut m = glyphs::collect();
+    glyphs::collect_custom(&endpoints, &mut m);
     *st.glyphs.lock().unwrap() = m.clone();
     let _ = app.emit("glyphs", &m);
 }
@@ -910,18 +1012,18 @@ fn open_data_dir() {
 }
 
 #[tauri::command]
-fn get_grok(state: tauri::State<AppState>) -> usage::UsageSnapshot {
-    state.grok.lock().unwrap().clone()
+fn get_grok(app: AppHandle) -> usage::UsageSnapshot {
+    snapshot_of(&app, "grok")
 }
 
 #[tauri::command]
-fn get_cursor(state: tauri::State<AppState>) -> usage::UsageSnapshot {
-    state.cursor.lock().unwrap().clone()
+fn get_cursor(app: AppHandle) -> usage::UsageSnapshot {
+    snapshot_of(&app, "cursor")
 }
 
 #[tauri::command]
-fn get_codex(state: tauri::State<AppState>) -> usage::UsageSnapshot {
-    state.codex.lock().unwrap().clone()
+fn get_codex(app: AppHandle) -> usage::UsageSnapshot {
+    snapshot_of(&app, "codex")
 }
 
 /// A provider's usage page, and the host the notch menu names it by.
@@ -951,16 +1053,13 @@ pub(crate) fn open_provider_page(provider: &str) {
 ///
 /// Empty means click-through: before the page has reported, one lost click on the notch beats
 /// eating every click aimed at the window behind it.
-static HOT: Mutex<Vec<[f64; 4]>> = Mutex::new(Vec::new());
-
-/// Read only by the collapse timer — the click gate goes by the rectangles, since the pill is
-/// clickable whether or not the card is up.
-static EXPANDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
 #[tauri::command]
-fn set_hot(rects: Vec<[f64; 4]>, expanded: bool) {
-    *HOT.lock().unwrap() = rects;
-    EXPANDED.store(expanded, std::sync::atomic::Ordering::Relaxed);
+fn set_hot(window: tauri::WebviewWindow, rects: Vec<[f64; 4]>, expanded: bool) {
+    let runtime = native_notch::runtime(window.label());
+    let mut rt = runtime.lock().unwrap();
+    rt.hot = rects;
+    rt.expanded = expanded;
+    drop(rt);
     if expanded {
         antigravity::request_hover_refresh();
     }
@@ -971,31 +1070,25 @@ fn set_hot(rects: Vec<[f64; 4]>, expanded: bool) {
 /// never get the bit. `WS_EX_LAYERED` is what makes the window answer as one surface, so the helper
 /// that sets both is the only route. Clearing it again is safe — the notch is not otherwise layered
 /// (its transparency is DWM composition), so the window returns to the styles it had.
-fn set_click_through(app: &AppHandle, on: bool) {
-    let Some(w) = app.get_webview_window("notch") else {
-        return;
-    };
+fn set_click_through(w: &tauri::WebviewWindow, on: bool) {
     let _ = w.set_ignore_cursor_events(on);
 }
 
 /// The WebView zoom currently applied (1.0 = uncorrected)
-static ZOOM: Mutex<f64> = Mutex::new(1.0);
-/// The page's devicePixelRatio without that zoom, as last reported; 0 until the page first reports
-static BASE_DPR: Mutex<f64> = Mutex::new(0.0);
-
 /// Keeps the notch page at its designed 360 × 520 CSS px in a window `size` times larger: the
 /// WebView zooms by `size` on top of whatever brings its DPR back to the monitor's scale, so the
 /// rings, text and hover card scale together, as the Mac's size does.
 fn zoom_notch(w: &tauri::WebviewWindow, monitor_scale: f64, size: f64) {
-    let base = match *BASE_DPR.lock().unwrap() {
+    let runtime = native_notch::runtime(w.label());
+    let mut rt = runtime.lock().unwrap();
+    let base = match rt.base_dpr {
         b if b > 0.0 => b,
         _ => monitor_scale,
     };
     let target = monitor_scale * size / base;
-    let mut z = ZOOM.lock().unwrap();
-    if (target - *z).abs() > 0.001 {
+    if (target - rt.zoom).abs() > 0.001 {
         match w.set_zoom(target) {
-            Ok(()) => *z = target,
+            Ok(()) => rt.zoom = target,
             Err(e) => applog(&format!("notch zoom failed: {e}")),
         }
     }
@@ -1034,33 +1127,43 @@ pub fn applog(line: &str) {
 /// `settled` is true when the report comes at the end of a burst of resizes rather than partway
 /// through one, which is what a landing on another screen waits for before it shows the notch.
 #[tauri::command]
-fn report_dpr(app: AppHandle, dpr: f64, w: f64, h: f64, settled: Option<bool>) {
-    let Some(win) = app.get_webview_window("notch") else {
-        return;
-    };
-    let want = target_screen(&app)
+fn report_dpr(
+    app: AppHandle,
+    win: tauri::WebviewWindow,
+    dpr: f64,
+    w: f64,
+    h: f64,
+    settled: Option<bool>,
+) {
+    let runtime = native_notch::runtime(win.label());
+    let want = runtime
+        .lock()
+        .unwrap()
+        .screen
+        .clone()
+        .or_else(|| target_screen(&app))
         .map(|s| s.scale)
         .unwrap_or_else(|| win.scale_factor().unwrap_or(1.0))
         * ui_scale(&app);
-    let mut z = ZOOM.lock().unwrap();
-    let base = if *z > 0.0 { dpr / *z } else { dpr };
-    *BASE_DPR.lock().unwrap() = base;
+    let mut rt = runtime.lock().unwrap();
+    let base = if rt.zoom > 0.0 { dpr / rt.zoom } else { dpr };
+    rt.base_dpr = base;
     let target = if base > 0.0 { want / base } else { 1.0 };
     applog(&format!(
         "dpr report: dpr={dpr:.3} viewport={w:.0}x{h:.0} want_dpr={want:.3} zoom_applied={:.3} -> target_zoom={target:.3}",
-        *z
+        rt.zoom
     ));
     // Oscillation guard: at most three corrections per process (if the DPR does not follow the zoom, stop chasing it)
-    static APPLIED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     let mut corrected = false;
     if (dpr - want).abs() > 0.02
-        && (target - *z).abs() > 0.01
+        && (target - rt.zoom).abs() > 0.01
         && (0.25..=4.0).contains(&target)
-        && APPLIED.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 3
+        && rt.dpr_corrections < 3
     {
+        rt.dpr_corrections += 1;
         match win.set_zoom(target) {
             Ok(()) => {
-                *z = target;
+                rt.zoom = target;
                 corrected = true;
                 applog(&format!("dpr correction: set_zoom({target:.3}) ok"));
             }
@@ -1069,11 +1172,10 @@ fn report_dpr(app: AppHandle, dpr: f64, w: f64, h: f64, settled: Option<bool>) {
     }
     // A correction resizes the page once more, and its own settled report follows; the landing is
     // shown on the first settled report that needed none
-    if settled == Some(true)
-        && !corrected
-        && LANDING.swap(0, std::sync::atomic::Ordering::SeqCst) != 0
-    {
-        let _ = app.emit_to("notch", "notch_reveal", ());
+    if settled == Some(true) && !corrected && rt.landing != 0 {
+        rt.landing = 0;
+        drop(rt);
+        let _ = app.emit_to(win.label(), "notch_reveal", ());
     }
 }
 
@@ -1131,21 +1233,25 @@ const LEAVE_MS: u64 = 300;
 /// ordering is load-bearing: the window ignores the cursor while it is click-through, so the page
 /// gets no mousemove out there and cannot see the pointer arriving. This loop does, and hands the
 /// window its input back in time for the page to open the card.
-fn start_pointer_watchdog(app: AppHandle) {
+pub(crate) fn start_pointer_watchdog(app: AppHandle, label: String) {
     std::thread::spawn(move || {
+        let runtime = native_notch::runtime(&label);
         let need = (LEAVE_MS / WATCHDOG_MS).max(1) as u8;
         let mut miss = 0u8;
         // Last value pushed: this changes only when the cursor crosses an edge
         let mut click_through: Option<bool> = None;
         loop {
             std::thread::sleep(std::time::Duration::from_millis(WATCHDOG_MS));
-            let Some(w) = app.get_webview_window("notch") else {
-                continue;
+            let Some(w) = app.get_webview_window(&label) else {
+                break;
             };
             let (Ok(pos), Ok(cur)) = (w.outer_position(), app.cursor_position()) else {
                 continue;
             };
-            let rects = HOT.lock().unwrap().clone();
+            let (rects, expanded) = {
+                let rt = runtime.lock().unwrap();
+                (rt.hot.clone(), rt.expanded)
+            };
             // Cursor position relative to the window's top-left, in physical pixels; the hot rectangles are physical too, so no scale conversion
             let lx = cur.x - pos.x as f64;
             let ly = cur.y - pos.y as f64;
@@ -1156,11 +1262,11 @@ fn start_pointer_watchdog(app: AppHandle) {
             let inside = cursor_in_hot(&rects, lx, ly, size);
 
             if click_through != Some(!inside) {
-                set_click_through(&app, !inside);
+                set_click_through(&w, !inside);
                 click_through = Some(!inside);
                 // Show on hover opens on this and folds a moment after it goes false. The page cannot
                 // tell on its own: once click-through is back on, it is sent nothing at all.
-                let _ = app.emit_to("notch", "notch_pointer", inside);
+                let _ = app.emit_to(&label, "notch_pointer", inside);
                 applog(&format!(
                     "click-through {} at cursor_rel=({lx:.0},{ly:.0}) rects={rects:?}",
                     if inside {
@@ -1179,7 +1285,7 @@ fn start_pointer_watchdog(app: AppHandle) {
                 ));
             }
 
-            if !EXPANDED.load(std::sync::atomic::Ordering::Relaxed) {
+            if !expanded {
                 miss = 0;
                 continue;
             }
@@ -1189,8 +1295,8 @@ fn start_pointer_watchdog(app: AppHandle) {
                 miss += 1;
                 if miss >= need {
                     miss = 0;
-                    EXPANDED.store(false, std::sync::atomic::Ordering::Relaxed);
-                    let _ = app.emit("pointer_left", ());
+                    runtime.lock().unwrap().expanded = false;
+                    let _ = app.emit_to(&label, "pointer_left", ());
                 }
             }
         }
@@ -1207,16 +1313,44 @@ fn log_js(msg: String) {
 }
 
 #[tauri::command]
-fn focus_session(app: AppHandle, id: String) -> bool {
+async fn focus_session(app: AppHandle, id: String) -> bool {
     let ppid = {
         let st = app.state::<AppState>();
         let store = st.store.lock().unwrap();
         store.ppid_of(&id)
     };
-    match ppid {
-        Some(p) => focus::focus_terminal(p),
-        None if id == "claude-desktop-network" => focus::focus_claude_desktop(),
-        None => false,
+    #[cfg(target_os = "macos")]
+    {
+        let owner = if let Some(pid) = ppid {
+            let (tx, mut rx) = tauri::async_runtime::channel(1);
+            if app.run_on_main_thread(move || { let _ = tx.try_send(focus::owner_of(pid)); }).is_err() {
+                return false;
+            }
+            let Some((owner_pid, bundle)) = rx.recv().await.flatten() else { return false };
+            let _ = tauri::async_runtime::spawn_blocking(move || {
+                let tty = focus::tty_of(pid);
+                let cwd = focus::cwd_of(pid);
+                terminal_tab_focus::select_tab(&bundle, pid, tty.as_deref(), cwd.as_deref())
+            }).await;
+            Some(owner_pid)
+        } else if id == "claude-desktop-network" {
+            tauri::async_runtime::spawn_blocking(focus::claude_desktop_pid).await.ok().flatten()
+        } else { None };
+        let Some(owner) = owner else { return false };
+        let (tx, mut rx) = tauri::async_runtime::channel(1);
+        if app.run_on_main_thread(move || { let _ = tx.try_send(focus::activate(owner)); }).is_err() {
+            return false;
+        }
+        return rx.recv().await.unwrap_or(false);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        tauri::async_runtime::spawn_blocking(move || match ppid {
+            Some(p) => focus::focus_terminal(p),
+            None if id == "claude-desktop-network" => focus::focus_claude_desktop(),
+            None => false,
+        }).await.unwrap_or(false)
     }
 }
 
@@ -1245,16 +1379,36 @@ fn get_scale(app: AppHandle) -> f64 {
 /// Settings' Small, Medium or Large. The notch window is resized and zoomed around its centre.
 #[tauri::command]
 fn set_scale(app: AppHandle, scale: f64) -> f64 {
-    let value = {
+    let (value, changed) = {
         let st = app.state::<AppState>();
         let mut c = st.cfg.lock().unwrap();
-        c.appearance.custom_scale = None;
-        c.scale = config::snap_scale(scale);
-        config::save(&c);
-        c.scale
+        let previous = c.appearance.effective_scale(c.scale);
+        let mut next = c.clone();
+        next.appearance.custom_scale = None;
+        next.scale = config::snap_scale(scale);
+        let value = next.scale;
+        if let Err(error) = config::save_checked(&next) {
+            applog(&format!("notch scale: {error}"));
+            return previous;
+        }
+        *c = next;
+        (value, (value - previous).abs() > f64::EPSILON)
     };
     place_notch(&app);
+    if changed { peek_notch_for_size(&app); }
     value
+}
+
+/// Swift shows the resized notch for 1.2 seconds while a preset or custom slider is adjusted.
+/// A standing Hide choice wins; the page owns the fold timer and pointer/pin arbitration.
+pub(crate) fn peek_notch_for_size(app: &AppHandle) {
+    let visible = app.state::<AppState>().cfg.lock().unwrap().notch_visible;
+    if !visible { return; }
+    for window in app.webview_windows().values()
+        .filter(|window| native_notch::is_notch_label(window.label())) {
+        let _ = window.show();
+        let _ = app.emit_to(window.label(), "notch_peek", serde_json::json!({"seconds":1.2}));
+    }
 }
 
 /// Where the weekly limit's ring sits, if it is drawn at all.
@@ -1389,6 +1543,21 @@ fn lane_is(w: &usage::LimitWindow, limit: &str) -> bool {
 
 /// Ids match the ones the page uses, so the tray, the settings window and the notch all agree.
 pub(crate) fn snapshot_of(app: &AppHandle, id: &str) -> usage::UsageSnapshot {
+    if let Some(snapshot) = smoke::swift_snapshot(id) {
+        return snapshot;
+    }
+    if let Some((runtime, _)) = id.split_once(":model:") {
+        if matches!(runtime, "ollama-local" | "lmstudio") {
+            if !providers::enabled(app, id) { return usage::UsageSnapshot::default(); }
+            let parent = snapshot_of(app, runtime);
+            return local_runtime::all_cell_snapshots(runtime, &parent)
+                .into_iter().find(|(cell_id, _)| cell_id == id)
+                .map(|(_, snapshot)| snapshot).unwrap_or_default();
+        }
+    }
+    if !providers::enabled(app, id) {
+        return usage::UsageSnapshot::default();
+    }
     let st = app.state::<AppState>();
     let snapshot = match id {
         "codex" => st.codex.lock().unwrap().clone(),
@@ -1427,8 +1596,8 @@ pub(crate) fn ring_fraction(app: &AppHandle, provider: &str) -> Option<f64> {
         (c.antigravity_limit.clone(), c.antigravity_model.clone())
     };
     ring_window(provider, &snap.windows, &limit, &model)
-        .filter(|w| w.count.is_none())
-        .map(|w| w.used.clamp(0.0, 1.0))
+        .and_then(usage::LimitWindow::fraction)
+        .map(|fraction| fraction.clamp(0.0, 1.0))
 }
 
 pub(crate) fn ring_pct(app: &AppHandle, provider: &str) -> Option<u32> {
@@ -1442,8 +1611,8 @@ pub(crate) fn ring_pct(app: &AppHandle, provider: &str) -> Option<u32> {
         (c.antigravity_limit.clone(), c.antigravity_model.clone())
     };
     ring_window(provider, &snap.windows, &limit, &model)
-        .filter(|w| w.count.is_none())
-        .map(|w| (w.used * 100.0).round().clamp(0.0, 100.0) as u32)
+        .and_then(usage::LimitWindow::fraction)
+        .map(|fraction| (fraction * 100.0).round().clamp(0.0, 100.0) as u32)
 }
 
 /// One provider and its ring's current number, for the settings window's picker.
@@ -1453,10 +1622,33 @@ struct TrayOption {
     label: String,
     status: String,
     used: Option<u32>,
+    text: String,
 }
 
 #[tauri::command]
 fn get_tray_options(app: AppHandle) -> Vec<TrayOption> {
+    if let Some(rows) = smoke::swift_rows() {
+        return rows
+            .into_iter()
+            .map(|row| {
+                let used = row
+                    .snap
+                    .windows
+                    .iter()
+                    .find(|window| window.id == row.headline)
+                    .and_then(usage::LimitWindow::fraction)
+                    .map(|fraction| (fraction * 100.0).round().clamp(0.0, 100.0) as u32);
+                let text = traymenu::headline_value(row.snap.windows.iter().find(|window| window.id == row.headline));
+                TrayOption {
+                    id: row.id,
+                    label: row.name,
+                    status: row.snap.status,
+                    used,
+                    text,
+                }
+            })
+            .collect();
+    }
     let extra = providers::get_providers(app.clone());
     TRAY_PROVIDER_IDS
         .iter()
@@ -1464,7 +1656,7 @@ fn get_tray_options(app: AppHandle) -> Vec<TrayOption> {
         .chain(
             extra
                 .iter()
-                .filter(|p| p.id != "claude")
+                .filter(|p| !TRAY_PROVIDER_IDS.contains(&p.id.as_str()))
                 .map(|p| p.id.as_str()),
         )
         .map(|id| TrayOption {
@@ -1476,6 +1668,19 @@ fn get_tray_options(app: AppHandle) -> Vec<TrayOption> {
                 .unwrap_or_else(|| provider_label(id).to_string()),
             status: snapshot_of(&app, id).status,
             used: ring_pct(&app, id),
+            text: {
+                let snap = snapshot_of(&app, id);
+                let (limit, model) = {
+                    let c = app.state::<AppState>();
+                    let c = c.cfg.lock().unwrap();
+                    (c.antigravity_limit.clone(), c.antigravity_model.clone())
+                };
+                if let Some(local) = snap.local_model.as_ref() {
+                    local_runtime::memory_text(local)
+                } else {
+                    traymenu::headline_value(ring_window(id, &snap.windows, &limit, &model))
+                }
+            },
         })
         .collect()
 }
@@ -1523,9 +1728,48 @@ fn set_antigravity_prefs(app: AppHandle, limit: String, model: String) -> Antigr
 /// None preserves legacy automatic selection; Some([]) is an intentional empty notch.
 #[tauri::command]
 fn get_notch_slots(app: AppHandle) -> Option<Vec<config::TraySlot>> {
+    if smoke::swift_rows().is_some() {
+        return Some(
+            ["claude", "openai", "third"]
+                .into_iter()
+                .map(|provider| config::TraySlot {
+                    provider: provider.into(),
+                })
+                .collect(),
+        );
+    }
     let st = app.state::<AppState>();
     let c = st.cfg.lock().unwrap();
-    (c.notch_selection_explicit || !c.notch_slots.is_empty()).then(|| c.notch_slots.clone())
+    let selected = c.notch_selection_explicit || !c.notch_slots.is_empty();
+    let mut slots = c.notch_slots.clone();
+    drop(c);
+    if !selected { return None; }
+    if slots.is_empty() { return Some(slots); }
+    let mut seen: std::collections::HashSet<String> = slots.iter().map(|slot| slot.provider.clone()).collect();
+    for row in get_tray_options(app.clone()) {
+        if row.status != "absent" && providers::enabled(&app, &row.id) && seen.insert(row.id.clone()) {
+            slots.push(config::TraySlot { provider: row.id });
+        }
+    }
+    Some(slots)
+}
+
+/// Keep temporarily missing profile/model ids at the tail when a visible cell is reordered.
+/// An explicit empty selection remains empty; removing a currently present id remains removal.
+fn remember_notch_slots(
+    requested: Vec<config::TraySlot>,
+    previous: &[config::TraySlot],
+    present: &std::collections::HashSet<String>,
+) -> Vec<config::TraySlot> {
+    if requested.is_empty() { return requested; }
+    let mut result = requested;
+    let mut seen: std::collections::HashSet<String> = result.iter().map(|slot| slot.provider.clone()).collect();
+    for slot in previous {
+        if !present.contains(&slot.provider) && seen.insert(slot.provider.clone()) {
+            result.push(slot.clone());
+        }
+    }
+    result
 }
 
 #[tauri::command]
@@ -1538,9 +1782,14 @@ fn set_notch_slots(app: AppHandle, slots: Vec<config::TraySlot>) -> Result<(), S
     {
         return Err("无效或重复的账户选择".into());
     }
+    let present: std::collections::HashSet<String> = get_tray_options(app.clone())
+        .into_iter().filter(|row| row.status != "absent")
+        .map(|row| row.id).collect();
     let st = app.state::<AppState>();
     let mut cfg = st.cfg.lock().unwrap();
     let mut next = cfg.clone();
+    let slots = remember_notch_slots(slots, &cfg.notch_slots, &present);
+    if slots.len() > 256 { return Err("账户选择过多".into()); }
     next.notch_selection_explicit = true;
     next.notch_slots = slots.clone();
     next.notch_providers = slots.iter().map(|s| s.provider.clone()).collect();
@@ -1557,9 +1806,14 @@ fn get_app_icon() -> Option<String> {
     trayicon::app_mark_data_url()
 }
 
-// ---------------- what is on screen at all ----------------
+/// The pinned Swift release does not offer Phone Link. The visual harness may expose its
+/// isolated controls, but a production WebView cannot turn the listener on through IPC.
+#[tauri::command]
+fn get_phone_availability() -> bool {
+    phone_link::is_available()
+}
 
-static NOTCH_PINNED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+// ---------------- what is on screen at all ----------------
 
 #[derive(serde::Serialize, Clone)]
 struct UiFlags {
@@ -1579,16 +1833,23 @@ fn ui_flags(c: &config::Config) -> UiFlags {
         } else {
             c.tray_visible
         },
-        fullscreen: front_window::fullscreen(),
-        pinned: NOTCH_PINNED.load(std::sync::atomic::Ordering::Relaxed),
+        fullscreen: native_notch::runtime("notch").lock().unwrap().fullscreen,
+        pinned: native_notch::runtime("notch").lock().unwrap().pinned,
     }
 }
 
 #[tauri::command]
-fn get_ui_flags(app: AppHandle) -> UiFlags {
+fn get_ui_flags(app: AppHandle, window: tauri::WebviewWindow) -> UiFlags {
     let st = app.state::<AppState>();
     let c = st.cfg.lock().unwrap();
-    ui_flags(&c)
+    let mut flags = ui_flags(&c);
+    if native_notch::is_notch_label(window.label()) {
+        let runtime = native_notch::runtime(window.label());
+        let rt = runtime.lock().unwrap();
+        flags.pinned = rt.pinned;
+        flags.fullscreen = rt.fullscreen;
+    }
+    flags
 }
 
 /// Hiding both would leave the app running with nothing to click, so the tray icon is kept
@@ -1606,7 +1867,13 @@ fn set_ui_flags(
         let mut c = st.cfg.lock().unwrap();
         if c.notch_visible != notch_visible || notch_on_hover.is_some_and(|v| v != c.notch_on_hover)
         {
-            NOTCH_PINNED.store(false, std::sync::atomic::Ordering::Relaxed);
+            for window in app
+                .webview_windows()
+                .values()
+                .filter(|w| native_notch::is_notch_label(w.label()))
+            {
+                native_notch::runtime(window.label()).lock().unwrap().pinned = false;
+            }
         }
         c.notch_visible = notch_visible;
         if let Some(on_hover) = notch_on_hover {
@@ -1622,16 +1889,28 @@ fn set_ui_flags(
 
 /// Swift's temporary pin is independent of the persistent Show setting.
 pub fn toggle_keep_open(app: &AppHandle) {
-    let pinned = !NOTCH_PINNED.fetch_xor(true, std::sync::atomic::Ordering::Relaxed);
-    let _ = app.emit("notch_pinned", pinned);
+    toggle_keep_open_for(app, "notch");
+}
+pub fn toggle_keep_open_for(app: &AppHandle, label: &str) {
+    let runtime = native_notch::runtime(label);
+    let mut rt = runtime.lock().unwrap();
+    rt.pinned = !rt.pinned;
+    let pinned = rt.pinned;
+    drop(rt);
+    let _ = app.emit_to(label, "notch_pinned", pinned);
 }
 #[tauri::command]
-fn toggle_notch_pin(app: AppHandle) {
-    toggle_keep_open(&app);
+fn toggle_notch_pin(app: AppHandle, window: tauri::WebviewWindow) {
+    if native_notch::is_notch_label(window.label()) {
+        toggle_keep_open_for(&app, window.label());
+    }
 }
 
 pub fn keeps_open(_app: &AppHandle) -> bool {
-    NOTCH_PINNED.load(std::sync::atomic::Ordering::Relaxed)
+    keeps_open_for("notch")
+}
+pub fn keeps_open_for(label: &str) -> bool {
+    native_notch::runtime(label).lock().unwrap().pinned
 }
 
 /// Puts the two switches into effect.
@@ -1641,15 +1920,27 @@ pub fn apply_visibility(app: &AppHandle) {
         let c = st.cfg.lock().unwrap();
         (c.notch_visible, c.tray_visible, ui_flags(&c))
     };
-    // Pages share the persistent visibility choice and the independent temporary pin.
-    let _ = app.emit("ui_flags", flags);
-    if let Some(w) = app.get_webview_window("notch") {
+    // Visibility is shared; a temporary pin belongs to one panel only.
+    let _ = app.emit_to("settings", "ui_flags", &flags);
+    for w in app
+        .webview_windows()
+        .values()
+        .filter(|w| native_notch::is_notch_label(w.label()))
+    {
+        let mut local = flags.clone();
+        let runtime = native_notch::runtime(w.label());
+        let rt = runtime.lock().unwrap();
+        local.pinned = rt.pinned;
+        local.fullscreen = rt.fullscreen;
+        let _ = app.emit_to(w.label(), "ui_flags", local);
         if notch {
             let _ = w.show();
-            place_notch(app);
         } else {
             let _ = w.hide();
         }
+    }
+    if notch {
+        place_notch(app);
     }
     if let Some(t) = app.tray_by_id("main") {
         let _ = t.set_visible(tray_on);
@@ -1684,7 +1975,16 @@ fn get_autostart() -> bool {
 }
 
 #[tauri::command]
+fn get_autostart_problem() -> Option<String> {
+    if smoke::root().is_some() { return None; }
+    autostart::problem()
+}
+
+#[tauri::command]
 fn set_autostart(on: bool) -> Result<String, String> {
+    if smoke::root().is_some() {
+        return Err("Start at login is unavailable in visual-test mode".into());
+    }
     if on {
         autostart::enable()
     } else {
@@ -1716,8 +2016,8 @@ fn reset_notch_position(app: AppHandle) {
 
 /// How much of the notch window the taskbar covers, in the page's CSS px: top, right, bottom, left.
 #[tauri::command]
-fn get_notch_insets() -> [f64; 4] {
-    *NOTCH_INSETS.lock().unwrap()
+fn get_notch_insets(window: tauri::WebviewWindow) -> [f64; 4] {
+    native_notch::runtime(window.label()).lock().unwrap().insets
 }
 
 /// Which screen edge the notch is pinned to.
@@ -1783,15 +2083,15 @@ fn get_monitors(app: AppHandle) -> Vec<MonitorInfo> {
         c.notch_monitor.clone()
     };
     let list = screens(&app);
-    let chosen = target_screen(&app).and_then(|s| s.name);
+    let chosen = target_screen(&app).and_then(|s| s.stable_id.or(s.name));
     list.iter()
         .enumerate()
         .map(|(i, s)| MonitorInfo {
-            id: s.name.clone(),
+            id: s.stable_id.clone().or_else(|| s.name.clone()),
             label: format!("{}  {} × {}", i + 1, s.w, s.h),
             primary: i == 0,
-            current: s.name == chosen,
-            pinned: want.is_some() && s.name == want,
+            current: s.stable_id.as_ref().or(s.name.as_ref()) == chosen.as_ref(),
+            pinned: want.as_deref().is_some_and(|id| screen_id_matches(s, id)),
         })
         .collect()
 }
@@ -1811,6 +2111,11 @@ fn set_notch_monitor(app: AppHandle, id: Option<String>) {
 #[tauri::command]
 fn open_settings(app: AppHandle) {
     settings_window::open(&app);
+}
+
+#[tauri::command]
+fn toggle_settings(app: AppHandle) {
+    settings_window::toggle(&app);
 }
 
 /// Epoch milliseconds. Every polling module keeps its own copy of this; the tray menu's wording
@@ -1851,6 +2156,7 @@ fn start_menu_updater(app: AppHandle) {
                 .collect();
             let changed = last.as_ref() != Some(&values);
             if !changed && ticked.elapsed() < std::time::Duration::from_secs(60) {
+                tray::refresh_summary(&app);
                 continue;
             }
             if changed {
@@ -1967,12 +2273,21 @@ fn main() {
         }
     }
 
-    let cfg = if smoke::root().is_some() {
+    let first_launch = smoke::root().is_none() && !config::config_path().exists();
+    let mut cfg = if smoke::root().is_some() {
         config::Config::default()
     } else {
         config::load()
     };
+    if smoke::root().is_none() && providers::reconcile_connections(&mut cfg, !first_launch) {
+        if let Err(error) = config::save_checked(&cfg) {
+            applog(&format!("provider connection migration: {error}"));
+        }
+    }
     let port = cfg.port;
+    // A disabled provider must not flash its last persisted quota before the first refresh.
+    // Keep this decision tied to the already-loaded configuration; no credential or config reread.
+    let disabled_at_launch = cfg.providers.disabled.clone();
 
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -1993,36 +2308,48 @@ fn main() {
         .manage(AppState {
             store: Mutex::new(Default::default()),
             cfg: Mutex::new(cfg),
-            usage: Mutex::new(if smoke::root().is_some() {
-                Default::default()
-            } else {
-                usage::load_persisted()
-            }),
-            codex: Mutex::new(if smoke::root().is_some() {
-                Default::default()
-            } else {
-                codex::load_persisted()
-            }),
-            cursor: Mutex::new(if smoke::root().is_some() {
-                Default::default()
-            } else {
-                cursor::load_persisted()
-            }),
-            grok: Mutex::new(if smoke::root().is_some() {
-                Default::default()
-            } else {
-                grok::load_persisted()
-            }),
-            antigravity: Mutex::new(if smoke::root().is_some() {
-                Default::default()
-            } else {
-                antigravity::load_persisted()
-            }),
-            glm: Mutex::new(if smoke::root().is_some() {
-                Default::default()
-            } else {
-                glm::load_persisted()
-            }),
+            usage: Mutex::new(
+                if smoke::root().is_some() || disabled_at_launch.contains("claude") {
+                    Default::default()
+                } else {
+                    usage::load_persisted()
+                },
+            ),
+            codex: Mutex::new(
+                if smoke::root().is_some() || disabled_at_launch.contains("codex") {
+                    Default::default()
+                } else {
+                    codex::load_persisted()
+                },
+            ),
+            cursor: Mutex::new(
+                if smoke::root().is_some() || disabled_at_launch.contains("cursor") {
+                    Default::default()
+                } else {
+                    cursor::load_persisted()
+                },
+            ),
+            grok: Mutex::new(
+                if smoke::root().is_some() || disabled_at_launch.contains("grok") {
+                    Default::default()
+                } else {
+                    grok::load_persisted()
+                },
+            ),
+            antigravity: Mutex::new(
+                if smoke::root().is_some() || disabled_at_launch.contains("antigravity") {
+                    Default::default()
+                } else {
+                    antigravity::load_persisted()
+                },
+            ),
+            glm: Mutex::new(
+                if smoke::root().is_some() || disabled_at_launch.contains("glm") {
+                    Default::default()
+                } else {
+                    glm::load_persisted()
+                },
+            ),
             glyphs: Mutex::new(Default::default()),
             activity: Mutex::new(Vec::new()),
         })
@@ -2032,7 +2359,13 @@ fn main() {
             custom_endpoint::save_custom_endpoint,
             custom_endpoint::delete_custom_endpoint,
             custom_endpoint::probe_custom_endpoint,
+            custom_endpoint::save_custom_icon,
+            custom_endpoint::get_custom_icon,
+            custom_endpoint::discard_custom_icon,
+            custom_endpoint::test_custom_endpoint_draft,
+            custom_endpoint::scan_local_engines,
             local_runtime::get_local_runtime_settings,
+            local_runtime::get_local_runtime_activity,
             local_runtime::get_local_models,
             local_runtime::set_local_runtime_settings,
             providers::get_providers,
@@ -2041,6 +2374,7 @@ fn main() {
             providers::set_provider_enabled,
             providers::get_disabled_providers,
             secrets::save_provider_secret,
+            secrets::get_lmstudio_token_state,
             workbench::open_workbench,
             edge_plugins::list_edge_plugins,
             edge_plugins::set_edge_plugin,
@@ -2055,6 +2389,7 @@ fn main() {
             get_state,
             get_usage,
             claude_sign_in,
+            usage::allow_claude_keychain_access,
             get_claude_auth,
             updater::get_update_state,
             updater::check_for_update,
@@ -2062,13 +2397,22 @@ fn main() {
             updater::install_update,
             chime::get_alert_sounds,
             phone_link::get_phone_link,
+            get_phone_availability,
             phone_link::phone_pairing,
             phone_link::set_phone_link,
             phone_link::remove_phone,
             chime::preview_alert_sound,
             notifications::preview_notch_alert,
             appearance::get_appearance,
+            appearance::get_deepseek_pricing_state,
             appearance::set_appearance,
+            tray::get_menu_bar_choices,
+            native_notch::get_native_notch_geometry,
+            native_notch::get_surface_capability,
+            native_notch::report_native_surface,
+            web_session::get_web_session_state,
+            web_session::open_web_session,
+            web_session::sign_out_web_session,
             notifications::get_notifications,
             notifications::set_notifications,
             get_codex,
@@ -2106,6 +2450,7 @@ fn main() {
             get_lang,
             get_lang_resolved,
             get_autostart,
+            get_autostart_problem,
             set_autostart,
             get_hooks_installed,
             set_hooks_installed,
@@ -2116,11 +2461,13 @@ fn main() {
             get_monitors,
             set_notch_monitor,
             open_settings,
+            toggle_settings,
             begin_move,
             get_move_handle,
             set_move_handle,
             dropzones::get_zones,
             settings_window::get_system_look,
+            whats_new::get_whats_new_info,
             settings_window::quit_app,
             settings_window::open_author_page
         ])
@@ -2133,6 +2480,7 @@ fn main() {
                 notch_window::configure(&w);
                 let _ = w.show();
             }
+            native_notch::apply_preferences(&handle);
             tray::setup(&handle)?;
             settings_window::install_app_menu(&handle)?;
             settings_window::apply_presence(&handle);
@@ -2141,12 +2489,15 @@ fn main() {
                 if smoke::visual() {
                     smoke::seed_visual(&handle);
                     reload_glyphs(&handle);
-                    start_pointer_watchdog(handle.clone());
+                    start_pointer_watchdog(handle.clone(), "notch".into());
                 }
                 smoke::start(&handle);
                 return Ok(());
             }
             start_menu_updater(handle.clone());
+            local_runtime::reconcile(&handle);
+            #[cfg(target_os = "macos")]
+            settings_window::start_system_look_watch(handle.clone());
             updater::check_on_launch(&handle);
 
             // Honours the saved switches: a notch hidden last time stays hidden.
@@ -2166,7 +2517,7 @@ fn main() {
             // Collecting glyphs may read icon resources out of a few executables; do it off the main thread and push when done
             let gh = handle.clone();
             std::thread::spawn(move || reload_glyphs(&gh));
-            start_pointer_watchdog(handle.clone());
+            start_pointer_watchdog(handle.clone(), "notch".into());
             start_work_area_watch(handle.clone());
             // Seen-clears-it scan
             let acker = handle.clone();
@@ -2198,6 +2549,7 @@ fn main() {
                 let c = st.cfg.lock().unwrap();
                 config::save(&c);
             }
+            whats_new::show_if_needed(&handle, first_launch);
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -2213,10 +2565,20 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        cursor_in_hot, notch_window_size, provider_page, ring_window, work_insets, Screen, HOT_PAD,
+        cursor_in_hot, notch_window_size, provider_page, remember_notch_slots, ring_window, work_insets, Screen, HOT_PAD,
         NOTCH_W, TRAY_PROVIDER_IDS,
     };
     use crate::usage::LimitWindow;
+
+    #[test]
+    fn reorder_keeps_absent_model_and_profile_ids_but_explicit_empty_wins() {
+        let slot = |id: &str| crate::config::TraySlot { provider: id.into() };
+        let previous = [slot("claude"), slot("ollama-local:model:qwen"), slot("claude-work")];
+        let present = std::collections::HashSet::from(["claude".into(), "codex".into()]);
+        let next = remember_notch_slots(vec![slot("codex"), slot("claude")], &previous, &present);
+        assert_eq!(next, vec![slot("codex"), slot("claude"), slot("ollama-local:model:qwen"), slot("claude-work")]);
+        assert!(remember_notch_slots(Vec::new(), &previous, &present).is_empty());
+    }
 
     /// A provider added without a page of its own used to fall through to Claude's
     #[test]
@@ -2240,6 +2602,7 @@ mod tests {
         // 3200 × 2000 with a 72 px taskbar along the bottom
         let s = Screen {
             name: None,
+            stable_id: None,
             x: 0,
             y: 0,
             w: 3200,
@@ -2276,6 +2639,7 @@ mod tests {
     fn a_slid_notch_lands_where_it_was_let_go() {
         let s = Screen {
             name: None,
+            stable_id: None,
             x: 0,
             y: 0,
             w: 3200,
@@ -2307,6 +2671,7 @@ mod tests {
     fn dock_and_taskbar_do_not_move_the_physical_edge() {
         let s = Screen {
             name: None,
+            stable_id: None,
             x: 0,
             y: 0,
             w: 3200,
@@ -2373,6 +2738,7 @@ mod tests {
     fn a_carry_crosses_onto_whichever_screen_the_pointer_is_over() {
         let main = Screen {
             name: Some("1".into()),
+            stable_id: None,
             x: 0,
             y: 0,
             w: 2560,
@@ -2383,6 +2749,7 @@ mod tests {
         // An older monitor to the right, shorter, and sitting 200 px lower
         let old = Screen {
             name: Some("2".into()),
+            stable_id: None,
             x: 2560,
             y: 200,
             w: 1920,

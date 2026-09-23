@@ -374,6 +374,7 @@ pub fn windows_from_bridge(v: &serde_json::Value) -> Vec<LimitWindow> {
                 group: gname.map(String::from),
                 id,
                 used: (1.0 - rem).clamp(0.0, 1.0),
+                has_fraction: Some(true),
                 resets_at: parse_iso(b.get("resetTime")),
                 duration: bucket_duration(b),
                 ..Default::default()
@@ -630,6 +631,7 @@ fn direct_quota(token: &str) -> Option<Vec<LimitWindow>> {
                     .to_string(),
                 label,
                 used: (used / limit).clamp(0.0, 1.0),
+                has_fraction: Some(true),
                 resets_at: parse_iso(b.get("resetTime")),
                 duration: bucket_duration(b),
                 ..Default::default()
@@ -793,9 +795,11 @@ fn read_once(rt: &mut Runtime, prev: &UsageSnapshot) -> UsageSnapshot {
         used: 0.0,
         resets_at: None,
         count: Some(n as i64),
+        has_fraction: Some(false),
         derived: true,
         ..Default::default()
     }];
+    snap.fidelity = crate::usage::Fidelity::Derived;
     snap.note = match tier {
         Some(t) => format!("{t} · Google publishes no quota for this account"),
         None => "Open Antigravity to read its quota".into(),
@@ -803,12 +807,21 @@ fn read_once(rt: &mut Runtime, prev: &UsageSnapshot) -> UsageSnapshot {
     snap
 }
 
-fn broadcast(app: &AppHandle, snap: UsageSnapshot) {
-    let st = app.state::<AppState>();
-    *st.antigravity.lock().unwrap() = snap.clone();
-    persist(&snap);
-    let _ = app.emit("antigravity", &snap);
-    crate::refresh::complete("gemini");
+fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot) {
+    crate::providers::with_current(app, "gemini", epoch, || {
+        let st = app.state::<AppState>();
+        *st.antigravity.lock().unwrap() = snap.clone();
+        persist(&snap);
+        let _ = app.emit("antigravity", &snap);
+        crate::refresh::complete("gemini");
+    });
+}
+
+pub(crate) fn forget(app: &AppHandle) {
+    REFRESH_LEGACY.store(false, std::sync::atomic::Ordering::Relaxed);
+    *app.state::<AppState>().antigravity.lock().unwrap() = UsageSnapshot::default();
+    let _ = std::fs::remove_file(store_path());
+    let _ = app.emit("antigravity", UsageSnapshot::default());
 }
 
 fn sleep_interruptible(secs: u64) {
@@ -840,10 +853,16 @@ fn start_cli(app: AppHandle) {
         }
 
         let mut last_attempt: Option<Instant> = None;
+        let mut last_epoch = crate::providers::generation("gemini");
 
         while receiver.recv().is_ok() {
             if !crate::providers::enabled(&app, "gemini") {
                 continue;
+            }
+            let epoch = crate::providers::generation("gemini");
+            if epoch != last_epoch {
+                last_attempt = None;
+                last_epoch = epoch;
             }
             if last_attempt.is_some_and(|last| last.elapsed() < CLI_TTL) {
                 crate::refresh::complete("gemini");
@@ -885,10 +904,7 @@ fn start_cli(app: AppHandle) {
                 },
             };
 
-            *st.antigravity.lock().unwrap() = snap.clone();
-            persist(&snap);
-            let _ = app.emit("antigravity", &snap);
-            crate::refresh::complete("gemini");
+            broadcast(&app, epoch, snap);
         }
     });
 
@@ -905,6 +921,7 @@ fn start_legacy(app: AppHandle) {
         if !legacy_present() {
             broadcast(
                 &app,
+                crate::providers::generation("gemini"),
                 UsageSnapshot {
                     status: "absent".into(),
                     ..Default::default()
@@ -935,8 +952,9 @@ fn start_legacy(app: AppHandle) {
                 let s = st.antigravity.lock().unwrap().clone();
                 s
             };
+            let epoch = crate::providers::generation("gemini");
             let snap = read_once(&mut rt, &prev);
-            broadcast(&app, snap);
+            broadcast(&app, epoch, snap);
             sleep_interruptible(POLL_SECS);
         }
     });
@@ -1152,6 +1170,7 @@ pub fn read_profile(home: &std::path::Path, mut previous: UsageSnapshot) -> Usag
             fetched_at: now_ms(),
             note: "via Google".into(),
             backoff_until: 0,
+            ..Default::default()
         };
     }
     previous.status = "stale".into();

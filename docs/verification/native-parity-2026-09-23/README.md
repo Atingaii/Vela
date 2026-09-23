@@ -67,3 +67,18 @@ Velo 最终三页截图来自最新源码原生构建的独立 `--visual-test` r
 本批本地自动化单独计数：Rust 主程序 **204 通过、3 忽略**，helper **1 通过**（`/tmp/velo-final-parity-rust.log`）；Node **13 通过**；Chromium **28/28 通过**，包括通知页右对齐、两段说明、试听 IPC 与跨页 gutter 边距断言；WebKit **28/28 通过**。这些是本次修复后的结果，上文的 Rust 197 / Chromium 22 / WebKit 22 是上一批历史结果，未被本批重算或替换。最新源码原生构建通过，root10 三页截图已现场查看并保存。此处记录本地结果；本提交的远端 CI 结果按 GitHub Actions 对应 SHA 核对。macOS 原生操作与本地浏览器测试也不能代替 Windows 实机验收。
 
 全量迁移仍未完成：Liquid Glass、硬件刘海与多屏；完整 sign-out、缓存清理与在途请求取消；网页登录；token/reset 卡片 UI；Sparkle 周期调度与可验证签名发布/真实安装；Windows 实机。设置页对照的技术发现及后续检查见[研究记录](../../../.trellis/tasks/09-22-swift-full-parity/research/settings-native-followup.md)，全量任务继续保持进行中。
+
+## 第三批：同数据原生对照与生命周期（进行中）
+
+`31b2457c870e7641e9e8e4ca86ab87cfbb7a8337` 的 browser、macOS、Windows CI 均通过（[run 35803774765](https://github.com/Atingaii/Velo/actions/runs/35803774765)）。本节后续工作树改动不包含在该 CI 结论中。
+
+新增显式隔离参数 `--visual-test <empty-directory> --fixture swift`，使用固定源 `Fixtures.swift` 的 Claude / OpenAI / Perplexity 顺序及 73% / 21% / 52% 读数。root11 的原生构建已启动，不运行真实账户采集。参考副本重新以 `CODENOTCH_DEMO=1` 启动，通过原生右键菜单「保持展开」固定画面；截图须等展开动画稳定，不能将过渡帧误判为控件缺失。
+
+- [Swift 稳定展开截图](swift-notch-left-fixture.jpg)：321×947 px。
+- [Velo 修正前截图](velo-notch-left-fixture-before-review.jpg)：321×954 px。两者均为左侧、小尺寸；Velo 通过实际设置 IPC 保存外侧周圆环、用量节奏、关闭移动手柄和全屏收起。
+- 只读像素测量（前 75 px、RGB 最大值小于 50）：Swift 主体最大宽度 54 px，Velo 为 56 px。Velo 还显示了错误的 OpenAI 文字占位和多余 `~`。这些差异已交回实现，截图是发现问题的证据，**不是一致性验收通过**。
+- [Swift 自定义端点编辑表单](swift-settings-custom-editor.jpg)：正常模式下新建但未保存的空表单，无真实凭据。
+
+阶段自动化：设置专项 6 项通过；Rust 主程序 209 项通过、3 项忽略，helper 1 项通过。新增生产门控竞态测试覆盖旧读取在关闭再开启后返回，无法写回 snapshot、archive 或完成事件，其他账户仍可提交。多窗实现仍在复核定向事件、拖动与显示器身份；本次通过不等于多屏原生验收。
+
+另核实固定主线 `PhoneLink.isAvailable == false`：原版隐藏手机页并阻止服务器启动。迁移版保留协议代码与隔离测试能力，生产入口应遵循相同 gate；不能把主线尚未开放的手机端体验列为已交付。

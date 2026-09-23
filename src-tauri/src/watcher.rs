@@ -33,13 +33,19 @@ const TAIL_BYTES: u64 = 256 * 1024;
 
 /// Run log: %APPDATA%\vela\watch.log (cleared at startup to keep troubleshooting simple)
 pub fn wlog(msg: &str) {
-    let Some(dir) = dirs::config_dir() else { return };
+    let Some(dir) = dirs::config_dir() else {
+        return;
+    };
     let p = dir.join("vela").join("watch.log");
     if let Some(parent) = p.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
     use std::io::Write;
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&p) {
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&p)
+    {
         let _ = writeln!(f, "[{}] {}", now_ms(), msg);
     }
 }
@@ -110,7 +116,10 @@ pub fn is_session_jsonl(p: &Path) -> bool {
     if !p.extension().map(|e| e == "jsonl").unwrap_or(false) {
         return false;
     }
-    let name = p.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    let name = p
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
     if name == "audit.jsonl" {
         return false;
     }
@@ -120,14 +129,35 @@ pub fn is_session_jsonl(p: &Path) -> bool {
         if s == "subagents" {
             return false;
         }
-        if s == ".claude" {
+        if s == ".claude" || s.starts_with(".claude-") && s.len() > ".claude-".len() {
             in_claude = true;
         }
     }
     in_claude
 }
 
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+    #[test]
+    fn named_claude_accounts_are_watched_without_accepting_subagents() {
+        assert!(is_session_jsonl(Path::new(
+            "/tmp/.claude-work/projects/p/s.jsonl"
+        )));
+        assert!(is_session_jsonl(Path::new(
+            "/tmp/.claude/projects/p/s.jsonl"
+        )));
+        assert!(!is_session_jsonl(Path::new(
+            "/tmp/.claude-work/projects/p/subagents/s.jsonl"
+        )));
+        assert!(!is_session_jsonl(Path::new(
+            "/tmp/.claude-work/projects/p/audit.jsonl"
+        )));
+    }
+}
+
 pub fn start(app: AppHandle) {
+    crate::claude_session_monitor::start(app.clone());
     std::thread::spawn(move || {
         crate::activity::lower_thread_priority();
         let (tx, rx) = channel();
@@ -150,7 +180,10 @@ pub fn start(app: AppHandle) {
                 wlog(&format!("watching: {}", r.display()));
                 false
             } else {
-                wlog(&format!("not available yet (retrying every 60 s): {}", r.display()));
+                wlog(&format!(
+                    "not available yet (retrying every 60 s): {}",
+                    r.display()
+                ));
                 true
             }
         });
@@ -215,9 +248,7 @@ pub fn start(app: AppHandle) {
             // Roots that do not exist yet are retried every 60 s (e.g. the CLI has never run)
             if !pending.is_empty() && last_retry.elapsed() > Duration::from_secs(60) {
                 last_retry = std::time::Instant::now();
-                pending.retain(|r| {
-                    !(r.exists() && w.watch(r, RecursiveMode::Recursive).is_ok())
-                });
+                pending.retain(|r| !(r.exists() && w.watch(r, RecursiveMode::Recursive).is_ok()));
             }
             let _ = watching; // keep the thread alive even if everything failed, and wait for the retry
         }
@@ -400,7 +431,9 @@ fn walk(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
     if depth > 10 {
         return;
     }
-    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
     for e in rd.flatten() {
         let p = e.path();
         if p.is_dir() {
@@ -480,7 +513,7 @@ static PUSH_LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32:
 fn push(app: &AppHandle, e: &str, t: &Trk) {
     // The first 30 pushes go to the log for doctor/troubleshooting (then silence, to keep the log small)
     if PUSH_LOGGED.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 30 {
-        wlog(&format!("push {} session={} cwd={}", e, t.session, t.cwd));
+        wlog(&format!("push {}", e));
     }
     let ev = HookEvent {
         e: e.to_string(),

@@ -14,7 +14,9 @@ pub fn resolve_auto() -> &'static str {
         }
     }
     if let Some(locale) = sys_locale::get_locale() {
-        if let Some(lang) = language_from_windows_locale(&locale.replace('_', "-")) { return lang; }
+        if let Some(lang) = language_from_windows_locale(&locale.replace('_', "-")) {
+            return lang;
+        }
     }
     "en"
 }
@@ -67,9 +69,15 @@ fn time_format() -> Option<String> {
     #[cfg(windows)]
     unsafe {
         use windows::core::PCWSTR;
-        use windows::Win32::Globalization::{GetLocaleInfoEx, LOCALE_SSHORTTIME, LOCALE_STIMEFORMAT};
+        use windows::Win32::Globalization::{
+            GetLocaleInfoEx, LOCALE_SSHORTTIME, LOCALE_STIMEFORMAT,
+        };
         // The taskbar clock shows the short time, or the long time once it shows seconds; the two are set separately
-        let kind = if taskbar_shows_seconds() { LOCALE_STIMEFORMAT } else { LOCALE_SSHORTTIME };
+        let kind = if taskbar_shows_seconds() {
+            LOCALE_STIMEFORMAT
+        } else {
+            LOCALE_SSHORTTIME
+        };
         let mut buf = [0u16; 80];
         let n = GetLocaleInfoEx(PCWSTR::null(), kind, Some(&mut buf));
         if n > 0 {
@@ -101,7 +109,10 @@ fn taskbar_shows_seconds() -> bool {
 
 /// "HH:mm" against "hh:mm tt"; text between single quotes is literal.
 fn is_24h_pattern(pattern: &str) -> bool {
-    pattern.split('\'').step_by(2).any(|part| part.contains('H'))
+    pattern
+        .split('\'')
+        .step_by(2)
+        .any(|part| part.contains('H'))
 }
 
 pub fn tr(lang: &str, key: &str) -> &'static str {
@@ -320,7 +331,10 @@ mod tests {
         ("language", "語言"),
         ("lang_auto", "跟隨系統"),
         ("reset_pos", "重置懸浮列位置"),
-        ("hooks_missing", "鉤子未安裝：在系統匣圖示按右鍵 → 安裝 Claude Code 鉤子（桌面版無需，已自動後援）"),
+        (
+            "hooks_missing",
+            "鉤子未安裝：在系統匣圖示按右鍵 → 安裝 Claude Code 鉤子（桌面版無需，已自動後援）",
+        ),
         ("autostart", "開機自動啟動（靜默待命）"),
         ("open_data", "開啟資料資料夾（日誌 / 圖示）"),
     ];
@@ -333,7 +347,11 @@ mod tests {
                 *value,
                 "missing Traditional Chinese translation for {key}"
             );
-            assert_ne!(tr("zh-Hant", key), "?", "unknown Traditional Chinese key {key}");
+            assert_ne!(
+                tr("zh-Hant", key),
+                "?",
+                "unknown Traditional Chinese key {key}"
+            );
         }
     }
 
@@ -373,8 +391,16 @@ mod tests {
     #[test]
     fn brazilian_portuguese_translates_every_known_key() {
         for (key, value) in BRAZILIAN_PORTUGUESE_KEYS {
-            assert_eq!(tr("pt-BR", key), *value, "missing Brazilian Portuguese translation for {key}");
-            assert_ne!(tr("pt-BR", key), "?", "unknown Brazilian Portuguese key {key}");
+            assert_eq!(
+                tr("pt-BR", key),
+                *value,
+                "missing Brazilian Portuguese translation for {key}"
+            );
+            assert_ne!(
+                tr("pt-BR", key),
+                "?",
+                "unknown Brazilian Portuguese key {key}"
+            );
         }
     }
 

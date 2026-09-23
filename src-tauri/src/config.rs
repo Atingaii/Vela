@@ -25,6 +25,10 @@ pub struct TraySlot {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// The last Velo release note actually dismissed. A release without a note is recorded at
+    /// launch; one with a note is recorded only after its window closes.
+    #[serde(default)]
+    pub last_seen_version: Option<String>,
     #[serde(default)]
     pub phone_link: crate::phone_link::Preferences,
     #[serde(default)]
@@ -216,6 +220,7 @@ fn default_lang() -> String {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            last_seen_version: None,
             phone_link: Default::default(),
             appearance: Default::default(),
             notifications: Default::default(),
@@ -266,6 +271,15 @@ pub fn load() -> Config {
         .as_deref()
         .and_then(|t| serde_json::from_str(t).ok())
         .unwrap_or_default();
+    cfg.appearance.deepseek_pricing_schedule.normalize();
+    migrate_saved_custom_scale(&mut cfg, raw.as_deref());
+    cfg.local_runtime.normalize_disabled_models();
+    if !raw.as_deref().and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
+        .is_some_and(|value| value.pointer("/local_runtime/lmstudio").is_some()) {
+        if let Some(address) = crate::local_runtime::configured_lmstudio_address() {
+            cfg.local_runtime.lmstudio = address;
+        }
+    }
     keep_open_on_upgrade(&mut cfg, raw.as_deref());
     #[cfg(target_os = "macos")]
     preserve_app_presence(&mut cfg, raw.as_deref());
@@ -295,6 +309,16 @@ pub fn load() -> Config {
     cfg.scale = snap_scale(cfg.scale);
     cfg.weekly_ring = weekly_ring_or_off(&cfg.weekly_ring);
     cfg
+}
+
+fn migrate_saved_custom_scale(cfg: &mut Config, raw: Option<&str>) {
+    let has_saved = raw.and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
+        .is_some_and(|value| value.pointer("/appearance/saved_custom_scale").is_some());
+    if !has_saved {
+        if let Some(scale) = cfg.appearance.custom_scale {
+            cfg.appearance.saved_custom_scale = scale;
+        }
+    }
 }
 
 /// Existing macOS builds were accessory apps with an optional status item. Preserve an explicit
@@ -350,6 +374,17 @@ pub fn save(cfg: &Config) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn old_active_custom_size_becomes_remembered_slider_without_overwriting_new_value() {
+        let mut cfg = super::Config::default();
+        cfg.appearance.custom_scale = Some(1.17);
+        super::migrate_saved_custom_scale(&mut cfg, Some(r#"{"appearance":{"custom_scale":1.17}}"#));
+        assert_eq!(cfg.appearance.saved_custom_scale, 1.17);
+        cfg.appearance.saved_custom_scale = 0.95;
+        super::migrate_saved_custom_scale(&mut cfg,
+            Some(r#"{"appearance":{"custom_scale":1.17,"saved_custom_scale":0.95}}"#));
+        assert_eq!(cfg.appearance.saved_custom_scale, 0.95);
+    }
     #[test]
     fn automatic_updates_are_opt_in_and_survive_config_round_trip() {
         let old: super::Config = serde_json::from_str(r#"{"lang":"en"}"#).unwrap();

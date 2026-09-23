@@ -429,6 +429,7 @@ fn windows_from(v: &serde_json::Value) -> Vec<LimitWindow> {
                 _ => None,
             }),
             used: (pct / 100.0).clamp(0.0, 1.0),
+            has_fraction: Some(true),
             resets_at,
             id,
             ..Default::default()
@@ -448,7 +449,7 @@ fn cap(s: &str) -> String {
     }
 }
 
-fn read_once() -> UsageSnapshot {
+fn read_once(next_consecutive: &mut Option<u32>) -> UsageSnapshot {
     let mut snap = UsageSnapshot::default();
     let held_until = BACKOFF_UNTIL.load(std::sync::atomic::Ordering::Relaxed);
     let now = now_ms();
@@ -503,18 +504,20 @@ fn read_once() -> UsageSnapshot {
             } else {
                 format!("{level} · via {}", cred.source)
             };
-            CONSECUTIVE_429.store(0, std::sync::atomic::Ordering::Relaxed);
+            *next_consecutive = Some(0);
         }
         Err(FetchErr::NeedsAuth) => {
             snap.status = "needsAuth".into();
             snap.note = "Z.ai rejected the key — renew it in the tool that holds it".into();
         }
         Err(FetchErr::RateLimited(ra)) => {
-            let n = CONSECUTIVE_429.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            let n = CONSECUTIVE_429
+                .load(std::sync::atomic::Ordering::Relaxed)
+                .saturating_add(1);
             let exp = BACKOFF_BASE_SECS.saturating_mul(1u64 << (n - 1).min(4));
             let wait = exp.clamp(BACKOFF_BASE_SECS, BACKOFF_CAP_SECS).max(ra);
             let until = now_ms() + wait * 1000;
-            BACKOFF_UNTIL.store(until, std::sync::atomic::Ordering::Relaxed);
+            *next_consecutive = Some(n);
             snap.backoff_until = until;
             snap.note = format!("Rate limited — retrying in {wait}s");
             crate::applog(&format!("glm: 429 (x{n}), retrying in {wait}s"));
@@ -528,12 +531,27 @@ fn read_once() -> UsageSnapshot {
     snap
 }
 
-fn broadcast(app: &AppHandle, snap: UsageSnapshot) {
-    let st = app.state::<AppState>();
-    *st.glm.lock().unwrap() = snap.clone();
-    persist(&snap);
-    let _ = app.emit("glm", &snap);
-    crate::refresh::complete("glm");
+fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot, next_consecutive: Option<u32>) {
+    crate::providers::with_current(app, "glm", epoch, || {
+        BACKOFF_UNTIL.store(snap.backoff_until, std::sync::atomic::Ordering::Relaxed);
+        if let Some(n) = next_consecutive {
+            CONSECUTIVE_429.store(n, std::sync::atomic::Ordering::Relaxed);
+        }
+        let st = app.state::<AppState>();
+        *st.glm.lock().unwrap() = snap.clone();
+        persist(&snap);
+        let _ = app.emit("glm", &snap);
+        crate::refresh::complete("glm");
+    });
+}
+
+pub(crate) fn forget(app: &AppHandle) {
+    REFRESH.store(false, std::sync::atomic::Ordering::Relaxed);
+    BACKOFF_UNTIL.store(0, std::sync::atomic::Ordering::Relaxed);
+    CONSECUTIVE_429.store(0, std::sync::atomic::Ordering::Relaxed);
+    *app.state::<AppState>().glm.lock().unwrap() = UsageSnapshot::default();
+    let _ = std::fs::remove_file(store_path());
+    let _ = app.emit("glm", UsageSnapshot::default());
 }
 
 pub fn start(app: AppHandle) {
@@ -546,10 +564,12 @@ pub fn start(app: AppHandle) {
         if !present() {
             broadcast(
                 &app,
+                crate::providers::generation("glm"),
                 UsageSnapshot {
                     status: "absent".into(),
                     ..Default::default()
                 },
+                None,
             );
             loop {
                 if !crate::providers::enabled(&app, "glm") {
@@ -572,9 +592,11 @@ pub fn start(app: AppHandle) {
                 std::thread::sleep(Duration::from_secs(1));
                 continue;
             }
-            let snap = read_once();
+            let epoch = crate::providers::generation("glm");
+            let mut next_consecutive = None;
+            let snap = read_once(&mut next_consecutive);
             let hold = snap.backoff_until.saturating_sub(now_ms()) / 1000;
-            broadcast(&app, snap);
+            broadcast(&app, epoch, snap, next_consecutive);
             for _ in 0..POLL_SECS.max(hold) {
                 if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
                     break;

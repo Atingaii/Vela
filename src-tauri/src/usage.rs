@@ -20,10 +20,19 @@
 //! Reply (snake_case): { limits:[{kind,percent,resets_at}], five_hour:{utilization,resets_at}, seven_day:{...} }
 //! limits is the forward-compatible main shape; five_hour/seven_day are merged in as a fallback (a window that just rolled over disappears from limits).
 
+#[path = "claude_keychain.rs"]
+mod claude_keychain;
+#[path = "claude_sources.rs"]
+mod claude_sources;
+#[path = "process_output.rs"]
+pub(crate) mod process_output;
+
 use crate::AppState;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -36,24 +45,85 @@ const BACKOFF_CAP_SECS: u64 = 900;
 /// only when now + 300 s >= expiresAt, so launching any earlier is a no-op that would be judged a failure
 const RENEW_MARGIN_MS: u64 = 4 * 60 * 1000;
 const RENEW_COOLDOWN_MS: u64 = 10 * 60 * 1000;
-/// A token that did not renew is tried again, each wait twice the last, never more than an hour apart
-const RENEW_RETRY_CAP_MS: u64 = 60 * 60 * 1000;
 const RENEW_TIMEOUT_SECS: u64 = 30;
 const EXPIRED_NOTE: &str = "Credential expired — run claude once in a terminal to renew it";
+static RENEW_PID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
-static REFRESH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+#[derive(Default)]
+struct DefaultRenewalState {
+    epoch: u64,
+    expiry: Option<u64>,
+    needs_sign_in: bool,
+}
+static DEFAULT_RENEWAL: OnceLock<Mutex<DefaultRenewalState>> = OnceLock::new();
+fn default_renewal() -> &'static Mutex<DefaultRenewalState> {
+    DEFAULT_RENEWAL.get_or_init(|| Mutex::new(DefaultRenewalState::default()))
+}
+
+pub(crate) fn needs_sign_in_renewal(id: &str) -> bool {
+    id == "claude" && default_renewal().lock().unwrap().needs_sign_in
+}
+
+pub(crate) fn renewal_pid() -> Option<u32> {
+    match RENEW_PID.load(std::sync::atomic::Ordering::Acquire) {
+        0 => None,
+        pid => Some(pid),
+    }
+}
+
+#[derive(Default)]
+struct RefreshRequests {
+    all: bool,
+    profiles: BTreeSet<String>,
+}
+impl RefreshRequests {
+    fn take_targets(&mut self) -> Option<BTreeSet<String>> {
+        if self.all {
+            self.all = false;
+            self.profiles.clear();
+            None
+        } else if self.profiles.is_empty() {
+            None
+        } else {
+            Some(std::mem::take(&mut self.profiles))
+        }
+    }
+}
+static REFRESH: OnceLock<Mutex<RefreshRequests>> = OnceLock::new();
+fn refresh_requests() -> &'static Mutex<RefreshRequests> {
+    REFRESH.get_or_init(|| Mutex::new(RefreshRequests::default()))
+}
 
 /// Immediate refresh from the tray or a command
 pub fn request_refresh() {
-    REFRESH.store(true, std::sync::atomic::Ordering::Relaxed);
+    refresh_requests().lock().unwrap().all = true;
+}
+
+pub fn request_profile_refresh(id: &str) {
+    refresh_requests()
+        .lock()
+        .unwrap()
+        .profiles
+        .insert(id.into());
+}
+
+pub(crate) fn cancel_profile_refresh(id: &str) {
+    refresh_requests().lock().unwrap().profiles.remove(id);
+}
+
+/// None means the normal timer (or Refresh All); a set means one or more rings.
+fn take_refresh_targets() -> Option<BTreeSet<String>> {
+    refresh_requests().lock().unwrap().take_targets()
 }
 
 /// Sleep in slices so request_refresh can interrupt it
 fn sleep_interruptible(total_secs: u64) {
     for _ in 0..total_secs {
-        if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
+        let requests = refresh_requests().lock().unwrap();
+        if requests.all || !requests.profiles.is_empty() {
             return;
         }
+        drop(requests);
         std::thread::sleep(Duration::from_secs(1));
     }
 }
@@ -90,13 +160,8 @@ impl Profile {
     }
 }
 
-fn has_credential(dir: &Path) -> bool {
-    CRED_NAMES.iter().any(|n| dir.join(n).is_file())
-}
-
 /// Every account on the machine: the default first, then ~/.claude-<slug> in name order. A secondary
-/// directory counts only once it holds a credential, so a half-made one never shows up on the card as
-/// an account waiting to be signed in.
+/// directory must carry a Claude first-run marker and its own credential.
 fn profiles() -> Vec<Profile> {
     let Some(home) = dirs::home_dir() else {
         return Vec::new();
@@ -105,31 +170,96 @@ fn profiles() -> Vec<Profile> {
         dir: home.join(".claude"),
         slug: None,
     }];
-    let mut extra: Vec<Profile> = Vec::new();
-    if let Ok(rd) = std::fs::read_dir(&home) {
-        for e in rd.flatten() {
-            let name = e.file_name().to_string_lossy().to_string();
-            let Some(slug) = name.strip_prefix(".claude-") else {
-                continue;
-            };
-            let dir = e.path();
-            if slug.is_empty() || !dir.is_dir() || !has_credential(&dir) {
-                continue;
-            }
-            extra.push(Profile {
+    out.extend(
+        crate::providers::claude_named_profiles()
+            .into_iter()
+            .map(|(slug, dir)| Profile {
                 dir,
-                slug: Some(slug.to_string()),
-            });
-        }
-    }
-    extra.sort_by(|a, b| a.slug.cmp(&b.slug));
-    out.append(&mut extra);
+                slug: Some(slug),
+            }),
+    );
     out
+}
+
+fn claude_marker(dir: &Path) -> bool {
+    [
+        "sessions",
+        "projects",
+        "settings.json",
+        "history.jsonl",
+        ".claude.json",
+    ]
+    .into_iter()
+    .any(|name| dir.join(name).exists())
+}
+
+pub(crate) fn discover_named_profiles(home: &Path) -> Vec<(String, PathBuf)> {
+    discover_named_profiles_with(home, |slug, dir| {
+        let profile = Profile {
+            dir: dir.to_owned(),
+            slug: Some(slug.into()),
+        };
+        claude_keychain::has_credential(&profile)
+    })
+}
+
+fn discover_named_profiles_with(
+    home: &Path,
+    has_credential: impl Fn(&str, &Path) -> bool,
+) -> Vec<(String, PathBuf)> {
+    let mut profiles: Vec<_> = std::fs::read_dir(home)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let slug = name.strip_prefix(".claude-")?.to_string();
+            if slug.is_empty() || !entry.file_type().ok()?.is_dir() {
+                return None;
+            }
+            let dir = entry.path();
+            if !claude_marker(&dir) {
+                // Windows also retained file-only credential profiles in
+                // older Velo builds; keep those readable during migration.
+                #[cfg(not(target_os = "windows"))]
+                return None;
+                #[cfg(target_os = "windows")]
+                if !CRED_NAMES.iter().any(|name| dir.join(name).is_file()) {
+                    return None;
+                }
+            }
+            has_credential(&slug, &dir).then_some((slug, dir))
+        })
+        .collect();
+    profiles.sort_by(|a, b| a.0.cmp(&b.0));
+    profiles
 }
 
 /// Every account directory, for anything that watches a profile's files (the session watcher)
 pub fn profile_dirs() -> Vec<PathBuf> {
     profiles().into_iter().map(|p| p.dir).collect()
+}
+
+/// Resolve only a Claude Code profile identifier, never a caller-supplied path.
+/// A named profile may not have a credential yet when Sign in is clicked.
+pub(crate) fn profile_directory_for_id(id: &str) -> Option<Option<PathBuf>> {
+    if id == "claude" {
+        return Some(None);
+    }
+    let slug = id.strip_prefix("claude-")?;
+    if slug.is_empty() || slug.contains(['/', '\\', '\0']) {
+        return None;
+    }
+    Some(Some(dirs::home_dir()?.join(format!(".claude-{slug}"))))
+}
+
+pub(crate) fn account_label(id: &str) -> Option<String> {
+    let dir = match profile_directory_for_id(id)? {
+        Some(dir) => dir,
+        None => dirs::home_dir()?.join(".claude"),
+    };
+    let slug = id.strip_prefix("claude-").map(str::to_owned);
+    claude_sources::account_address(&Profile { dir, slug })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -138,6 +268,10 @@ pub struct LimitWindow {
     pub label: String,
     /// 0.0–1.0 (fraction used)
     pub used: f64,
+    /// `false` distinguishes an unmetered count/detail from a measured 0%.
+    /// None keeps archived readings compatible with older versions.
+    #[serde(default)]
+    pub has_fraction: Option<bool>,
     /// Reset time, ms epoch (None = unknown)
     pub resets_at: Option<u64>,
     /// Reported quota duration in seconds; absent means pace cannot be inferred.
@@ -158,6 +292,127 @@ pub struct LimitWindow {
     /// for several things (Antigravity: a 5-hour and a weekly lane per model family). None = ungrouped
     #[serde(default)]
     pub group: Option<String>,
+    /// Provider-reported balance components; the fraction remains a separate field.
+    #[serde(default)]
+    pub money: Option<MoneyBreakdown>,
+    /// Detail-only text for a window with no ring fraction.
+    #[serde(default)]
+    pub detail: Option<String>,
+    /// Provider's formatted unit, used by custom endpoints for money/tokens.
+    #[serde(default)]
+    pub used_text: Option<String>,
+    #[serde(default)]
+    pub prefers_used_text: bool,
+    #[serde(default)]
+    pub band_override: Option<UsageBand>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum UsageBand {
+    Ample,
+    Watch,
+    Critical,
+    Exhausted,
+}
+
+impl UsageBand {
+    pub fn from_used_fraction(fraction: f64) -> Self {
+        if fraction < 0.5 {
+            Self::Ample
+        } else if fraction < 0.7 {
+            Self::Watch
+        } else if fraction < 1.0 {
+            Self::Critical
+        } else {
+            Self::Exhausted
+        }
+    }
+}
+
+impl LimitWindow {
+    /// A count or a remaining balance alone does not establish a denominator.
+    /// Older archives lack `has_fraction`; preserve their measured positive
+    /// readings while keeping new explicit zero and pure-count rows distinct.
+    pub fn fraction(&self) -> Option<f64> {
+        let legacy = self.used > 0.0
+            || (self.count.is_none()
+                && self.remaining.is_none()
+                && self.used_count.is_none()
+                && self.detail.is_none());
+        (self.has_fraction.unwrap_or(legacy) && self.used.is_finite() && self.used >= 0.0)
+            .then_some(self.used)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MoneyBreakdown {
+    pub currency: String,
+    pub spent: f64,
+    pub remaining: f64,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Fidelity {
+    #[default]
+    Official,
+    Derived,
+    Manual,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UsageBlock {
+    pub reason: String,
+    #[serde(default)]
+    pub resets_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CodexTokenSummary {
+    pub lifetime_tokens: Option<i64>,
+    pub peak_daily_tokens: Option<i64>,
+    pub longest_running_turn_seconds: Option<f64>,
+    pub current_streak_days: Option<i64>,
+    pub longest_streak_days: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CodexDailyBucket {
+    pub start_date: String,
+    pub tokens: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CodexTokenUsage {
+    pub summary: Option<CodexTokenSummary>,
+    #[serde(default)]
+    pub daily_usage_buckets: Vec<CodexDailyBucket>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CodexResetCredit {
+    pub id: String,
+    pub status: String,
+    #[serde(default)]
+    pub expires_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CodexResetCredits {
+    pub available_count: i64,
+    #[serde(default)]
+    pub credits: Vec<CodexResetCredit>,
+}
+
+impl CodexResetCredits {
+    pub fn next_expiry(&self) -> Option<u64> {
+        self.credits
+            .iter()
+            .filter(|credit| credit.status == "available")
+            .filter_map(|credit| credit.expires_at)
+            .min()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -171,6 +426,30 @@ pub struct UsageSnapshot {
     pub backoff_until: u64,
     #[serde(default)]
     pub plan: Option<String>,
+    #[serde(default)]
+    pub fidelity: Fidelity,
+    #[serde(default)]
+    pub block: Option<UsageBlock>,
+    #[serde(default)]
+    pub token_usage: Option<CodexTokenUsage>,
+    #[serde(default)]
+    pub reset_credits: Option<CodexResetCredits>,
+    #[serde(default)]
+    pub usage_detail: Option<crate::web_usage_detail::ProviderUsageDetail>,
+    #[serde(default)]
+    pub local_model: Option<crate::local_runtime::Model>,
+    #[serde(default)]
+    pub source_provider_id: Option<String>,
+    #[serde(default)]
+    pub local_runtime_measures_speed: bool,
+    #[serde(default)]
+    pub local_performance: Option<crate::local_metrics::Performance>,
+    #[serde(default)]
+    pub local_ledger: Option<crate::local_metrics::LedgerSummary>,
+    #[serde(default)]
+    pub local_context_fraction: Option<f64>,
+    #[serde(default)]
+    pub shows_local_performance: bool,
 }
 
 fn store_path() -> std::path::PathBuf {
@@ -181,10 +460,15 @@ pub fn load_persisted() -> UsageSnapshot {
     std::fs::read_to_string(store_path())
         .ok()
         .and_then(|t| serde_json::from_str::<UsageSnapshot>(&t).ok())
-        // The status it was saved with is the status it comes back with: a reading persisted a
-        // minute before a restart is a minute old, not stale, and `fetched_at` came back with it,
-        // so whatever reads this can tell the difference on its own.
+        .map(rehydrate_archive)
         .unwrap_or_default()
+}
+
+fn rehydrate_archive(mut snapshot: UsageSnapshot) -> UsageSnapshot {
+    // An archive is remembered evidence, not a fresh response from this
+    // process. Keep the original timestamp so the UI reports its real age.
+    snapshot.status = "stale".into();
+    snapshot
 }
 
 fn persist(s: &UsageSnapshot) {
@@ -193,7 +477,7 @@ fn persist(s: &UsageSnapshot) {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Credential {
     token: String,
     /// ms epoch (None = the file names no expiry)
@@ -315,7 +599,32 @@ pub(crate) fn find_cli() -> Option<std::path::PathBuf> {
     {
         if let Some(h) = dirs::home_dir() {
             v.push(h.join(".local/bin/claude"));
+            v.push(h.join(".claude/local/claude"));
+            v.push(h.join(".bun/bin/claude"));
             v.push(h.join(".volta/bin/claude"));
+            v.push(h.join("Library/pnpm/claude"));
+            v.push(h.join(".npm-global/bin/claude"));
+            if let Ok(entries) = std::fs::read_dir(h.join(".nvm/versions/node")) {
+                let mut node_versions: Vec<_> =
+                    entries.flatten().map(|entry| entry.path()).collect();
+                node_versions.sort_by(|a, b| {
+                    let parts = |path: &PathBuf| {
+                        path.file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .trim_start_matches('v')
+                            .split('.')
+                            .filter_map(|part| part.parse::<u32>().ok())
+                            .collect::<Vec<_>>()
+                    };
+                    parts(b).cmp(&parts(a))
+                });
+                v.extend(
+                    node_versions
+                        .into_iter()
+                        .map(|path| path.join("bin/claude")),
+                );
+            }
         }
         v.push("/opt/homebrew/bin/claude".into());
         v.push("/usr/local/bin/claude".into());
@@ -342,7 +651,21 @@ pub(crate) fn find_cli() -> Option<std::path::PathBuf> {
             v.push(dir.join("claude.cmd"));
         }
     }
-    v.into_iter().find(|p| p.is_file() && !is_desktop_owned(p))
+    v.into_iter().find(|p| {
+        if !p.is_file() || is_desktop_owned(p) {
+            return false;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            p.metadata()
+                .is_ok_and(|m| m.permissions().mode() & 0o111 != 0)
+        }
+        #[cfg(not(unix))]
+        {
+            true
+        }
+    })
 }
 
 /// Whether a launch is worth making. Pure, so every branch is testable without a clock or a subprocess
@@ -351,30 +674,19 @@ fn should_renew(
     now: u64,
     attempted_for: Option<u64>,
     last_attempt: Option<u64>,
-    failures: u32,
 ) -> bool {
     // Nothing read yet: never launch on a guess
     let Some(exp) = expires_at else { return false };
     // Plenty of time left — also where launching would do nothing, because the CLI's own gate has not opened
-    if exp > now + RENEW_MARGIN_MS {
+    if exp >= now.saturating_add(RENEW_MARGIN_MS) {
         return false;
     }
-    let Some(t) = last_attempt else { return true };
-    // A launch that failed to move the expiry leaves the same value here. One failed launch — asleep, offline, a
-    // busy CLI — must not freeze the ring until someone opens a terminal, so the same token is tried again, but
-    // on a doubling wait, so a token that cannot renew does not become a launch every tick
-    let wait = if attempted_for == Some(exp) {
-        retry_wait_ms(failures)
-    } else {
-        RENEW_COOLDOWN_MS
-    };
-    now.saturating_sub(t) >= wait
-}
-
-fn retry_wait_ms(failures: u32) -> u64 {
-    RENEW_COOLDOWN_MS
-        .saturating_mul(1u64 << failures.min(16))
-        .min(RENEW_RETRY_CAP_MS)
+    // Swift spends exactly one attempt on an expiry; a failed CLI startup must
+    // not launch repeatedly against the same saved token.
+    if attempted_for == Some(exp) {
+        return false;
+    }
+    last_attempt.is_none_or(|at| now.saturating_sub(at) >= RENEW_COOLDOWN_MS)
 }
 
 /// `claude -p` with a null stdin starts up (which is where it renews an aged token), then exits non-zero for want
@@ -403,6 +715,14 @@ fn run_renewal(cli: &std::path::Path, dir: &Path) -> std::io::Result<()> {
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     }
     let mut child = cmd.spawn()?;
+    struct RenewalPidGuard;
+    impl Drop for RenewalPidGuard {
+        fn drop(&mut self) {
+            RENEW_PID.store(0, std::sync::atomic::Ordering::Release);
+        }
+    }
+    RENEW_PID.store(child.id(), std::sync::atomic::Ordering::Release);
+    let _pid_guard = RenewalPidGuard;
     let deadline = std::time::Instant::now() + Duration::from_secs(RENEW_TIMEOUT_SECS);
     while child.try_wait()?.is_none() {
         if std::time::Instant::now() >= deadline {
@@ -419,51 +739,50 @@ fn run_renewal(cli: &std::path::Path, dir: &Path) -> std::io::Result<()> {
 struct Renewer {
     attempted_for: Option<u64>,
     last_attempt: Option<u64>,
-    /// Launches in a row that left `attempted_for` where it was
-    failures: u32,
 }
 
 impl Renewer {
-    /// Renews if the token is about to expire. Some(true) = the expiry moved; judged on the outcome, never on the
-    /// exit status, because refusing the empty prompt is a non-zero exit and a successful renewal at the same time
-    fn maybe_renew(&mut self, cred: &Credential, dir: &Path, who: &str) -> Option<bool> {
-        let _auth = crate::claude_auth::try_acquire()?;
-        let now = now_ms();
-        if !should_renew(
-            cred.expires_at,
-            now,
-            self.attempted_for,
-            self.last_attempt,
-            self.failures,
-        ) {
+    /// Some(true) means the expiry moved, regardless of the CLI exit status.
+    fn maybe_renew_with(
+        &mut self,
+        profile: &Profile,
+        expiry: Option<u64>,
+        cli: Option<&Path>,
+        launch: impl FnOnce(&Path, &Path) -> std::io::Result<()>,
+        reload_expiry: impl FnOnce() -> Option<u64>,
+    ) -> Option<bool> {
+        // The upstream AppDelegate installs one refresher for the default
+        // Claude profile only. Named profiles age until their own CLI runs.
+        if profile.slug.is_some() {
             return None;
         }
-        if self.attempted_for != cred.expires_at {
-            self.failures = 0;
+        let _auth = crate::claude_auth::try_acquire()?;
+        let now = now_ms();
+        if !should_renew(expiry, now, self.attempted_for, self.last_attempt) {
+            return None;
         }
         self.last_attempt = Some(now);
-        self.attempted_for = cred.expires_at;
-        self.failures = self.failures.saturating_add(1);
-        let Some(cli) = find_cli() else {
+        self.attempted_for = expiry;
+        let Some(cli) = cli else {
             crate::applog(&format!(
-                "claude[{who}]: token about to expire and no standalone claude CLI found to renew it"
+                "claude[default]: token about to expire and no standalone claude CLI found to renew it"
             ));
             return Some(false);
         };
-        if let Err(e) = run_renewal(&cli, dir) {
+        if let Err(e) = launch(cli, &profile.dir) {
             crate::applog(&format!(
-                "claude[{who}]: token renewal could not start ({}): {e}",
+                "claude[default]: token renewal could not start ({}): {e}",
                 cli.display()
             ));
             return Some(false);
         }
-        let after = read_credentials(dir).and_then(|c| c.expires_at);
-        let renewed = matches!((after, cred.expires_at), (Some(a), Some(b)) if a > b);
+        let after = reload_expiry();
+        let renewed = matches!((after, expiry), (Some(a), Some(b)) if a > b);
         crate::applog(&if renewed {
-            format!("claude[{who}]: token renewed via {}", cli.display())
+            format!("claude[default]: token renewed via {}", cli.display())
         } else {
             format!(
-                "claude[{who}]: ran {} but the token expiry did not move",
+                "claude[default]: ran {} but the token expiry did not move",
                 cli.display()
             )
         });
@@ -512,6 +831,7 @@ fn parse_response(v: &serde_json::Value) -> Vec<LimitWindow> {
                 id: kind.to_string(),
                 label: label_for(kind),
                 used: (pct / 100.0).clamp(0.0, 1.0),
+                has_fraction: Some(true),
                 resets_at: resets,
                 duration: claude_duration(kind),
                 ..Default::default()
@@ -552,6 +872,7 @@ fn parse_response(v: &serde_json::Value) -> Vec<LimitWindow> {
             id: id.into(),
             label,
             used,
+            has_fraction: Some(true),
             resets_at,
             duration: claude_duration(id),
             ..Default::default()
@@ -579,21 +900,37 @@ enum FetchErr {
 }
 
 fn fetch_once(token: &str) -> Result<Vec<LimitWindow>, FetchErr> {
-    let resp = ureq::get(ENDPOINT)
+    let agent = ureq::AgentBuilder::new()
+        .timeout(Duration::from_secs(15))
+        .redirects(0)
+        .build();
+    let resp = agent
+        .get(ENDPOINT)
         .set("Authorization", &format!("Bearer {token}"))
         .set("anthropic-beta", "oauth-2025-04-20")
-        .timeout(Duration::from_secs(15))
         .call();
     match resp {
         Ok(r) => {
-            let v: serde_json::Value = r
-                .into_json()
-                .map_err(|e| FetchErr::Other(format!("parse: {e}")))?;
-            Ok(parse_response(&v))
+            let mut body = Vec::new();
+            r.into_reader()
+                .take(2 * 1024 * 1024 + 1)
+                .read_to_end(&mut body)
+                .map_err(|_| FetchErr::Other("Claude response read failed".into()))?;
+            if body.len() > 2 * 1024 * 1024 {
+                return Err(FetchErr::Other("Claude response exceeded limit".into()));
+            }
+            let v: serde_json::Value = serde_json::from_slice(&body)
+                .map_err(|_| FetchErr::Other("Claude response was invalid JSON".into()))?;
+            let windows = parse_response(&v);
+            if windows.is_empty() {
+                return Err(FetchErr::Other(
+                    "Claude answered, but listed no usage limits for this account".into(),
+                ));
+            }
+            Ok(windows)
         }
         Err(ureq::Error::Status(401, _)) => Err(FetchErr::NeedsAuth),
-        Err(ureq::Error::Status(403, _)) => Err(FetchErr::Other(
-            "Claude HTTP 403: access denied. Check network or account access; sign-in may still be valid.".into())),
+        Err(ureq::Error::Status(403, _)) => Err(FetchErr::NeedsAuth),
         Err(ureq::Error::Status(429, r)) => {
             let ra = r
                 .header("retry-after")
@@ -630,17 +967,97 @@ fn set_and_broadcast(app: &AppHandle, mutate: impl FnOnce(&mut UsageSnapshot)) {
 /// one account keeps showing that account's last good windows, and never blanks the other one.
 #[derive(Default)]
 struct Account {
-    renewer: Renewer,
+    generation: u64,
+    credential_expiry: Option<u64>,
     consecutive_429: u32,
     backoff_until: u64,
     windows: Vec<LimitWindow>,
     status: String,
     note: String,
     fetched_at: u64,
+    plan: Option<String>,
+    last_desktop_miss: Option<u64>,
+    last_cli_attempt: Option<u64>,
+    cli_cache: Option<(Vec<LimitWindow>, u64, Option<String>)>,
 }
 
 fn key(p: &Profile) -> String {
     p.dir.to_string_lossy().to_string()
+}
+
+fn profile_id(p: &Profile) -> String {
+    p.slug
+        .as_ref()
+        .map(|slug| format!("claude-{slug}"))
+        .unwrap_or_else(|| "claude".into())
+}
+
+pub(crate) fn was_refused_claude_access(id: &str) -> bool {
+    profile_directory_for_id(id).is_some() && claude_keychain::was_refused(id)
+}
+
+#[tauri::command]
+pub fn allow_claude_keychain_access(app: AppHandle, id: String) -> Result<(), String> {
+    if profile_directory_for_id(&id).is_none() || !crate::providers::enabled(&app, &id) {
+        return Err("Claude profile is unavailable".into());
+    }
+    claude_keychain::grant(&id);
+    request_profile_refresh(&id);
+    Ok(())
+}
+
+fn credential_for(
+    p: &Profile,
+    interactive: bool,
+) -> Result<Credential, claude_keychain::ReadError> {
+    #[cfg(target_os = "macos")]
+    {
+        claude_keychain::read(p, interactive)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = interactive;
+        read_credentials(&p.dir).ok_or(claude_keychain::ReadError::NeedsAuth)
+    }
+}
+
+/// Called while the connection gate is held. Rebuild the shared legacy reading
+/// from the still-connected profile snapshots, not from a removed account's
+/// in-memory aggregate or credential.
+pub(crate) fn forget_profile(app: &AppHandle, id: &str) {
+    cancel_profile_refresh(id);
+    if id == "claude" {
+        let mut renewal = default_renewal().lock().unwrap();
+        renewal.expiry = None;
+        renewal.needs_sign_in = false;
+    }
+    let active: Vec<Profile> = profiles()
+        .into_iter()
+        .filter(|p| crate::providers::enabled(app, &profile_id(p)))
+        .collect();
+    let accounts: HashMap<String, Account> = active
+        .iter()
+        .filter_map(|p| {
+            let snap = crate::providers::snapshot(&profile_id(p));
+            (snap.status != "absent").then(|| {
+                (
+                    key(p),
+                    Account {
+                        windows: decorate(snap.windows, p, None),
+                        status: snap.status,
+                        note: snap.note,
+                        fetched_at: snap.fetched_at,
+                        backoff_until: snap.backoff_until,
+                        ..Default::default()
+                    },
+                )
+            })
+        })
+        .collect();
+    let snap = aggregate(&active, &accounts);
+    *app.state::<AppState>().usage.lock().unwrap() = snap.clone();
+    persist(&snap);
+    let _ = app.emit("usage", &snap);
 }
 
 /// The account's windows as they go on the card: its name in `group`, and for a secondary account an
@@ -677,6 +1094,9 @@ fn split_persisted(snap: &UsageSnapshot, order: &[Profile]) -> HashMap<String, V
 /// One reading out of every account's, in profile order. The status is the best news any account has:
 /// a second account that needs signing in must not dim a first one that just answered.
 fn aggregate(order: &[Profile], accounts: &HashMap<String, Account>) -> UsageSnapshot {
+    if order.is_empty() {
+        return UsageSnapshot::default();
+    }
     let rank = |s: &str| match s {
         "ok" => 0,
         "stale" => 1,
@@ -717,27 +1137,111 @@ fn aggregate(order: &[Profile], accounts: &HashMap<String, Account>) -> UsageSna
     snap
 }
 
-/// One account's turn: renew if the token is aging, then read it, exactly as the single-account loop did.
-fn poll_account(p: &Profile, acc: &mut Account, group: Option<&str>) {
-    let who = p.name();
-    // Ahead of the back-off: renewing never touches the usage endpoint, and a fresh token deserves a fresh try
-    if let Some(cred) = read_credentials(&p.dir) {
-        if acc.renewer.maybe_renew(&cred, &p.dir, &who) == Some(true) {
-            acc.consecutive_429 = 0;
-            acc.backoff_until = 0;
+/// One account's reading; the default account's token renewal has its own timer.
+fn accepted_windows(
+    p: &Profile,
+    acc: &mut Account,
+    windows: Vec<LimitWindow>,
+    plan: Option<String>,
+    multi: bool,
+) {
+    let group = multi.then(|| p.group(plan.as_deref()));
+    acc.windows = decorate(windows, p, group.as_deref());
+    acc.plan = plan;
+    acc.status = "ok".into();
+    acc.fetched_at = now_ms();
+    acc.note.clear();
+    acc.backoff_until = 0;
+}
+
+fn poll_account(p: &Profile, acc: &mut Account, multi: bool) {
+    let id = profile_id(p);
+    let now = now_ms();
+    if claude_keychain::was_refused(&id) {
+        acc.status = "accessDenied".into();
+        acc.note = "Claude Keychain access was denied".into();
+        acc.windows.clear();
+        return;
+    }
+    let asking_again = claude_keychain::asking_again(&id);
+    // An organization ID is mandatory: Desktop is signed into one account,
+    // while Claude Code may have several profile rings.
+    if !asking_again
+        && acc
+            .last_desktop_miss
+            .is_none_or(|at| now.saturating_sub(at) >= 300_000)
+    {
+        if let Some(windows) = claude_sources::desktop_windows(p, now) {
+            acc.last_desktop_miss = None;
+            accepted_windows(p, acc, windows, None, multi);
+            return;
+        }
+        acc.last_desktop_miss = Some(now);
+    }
+    let reusable_cli = acc
+        .cli_cache
+        .as_ref()
+        .filter(|(windows, at, _)| {
+            now.saturating_sub(*at) < 300_000
+                && !windows
+                    .iter()
+                    .any(|w| w.resets_at.is_some_and(|reset| reset <= now))
+        })
+        .map(|(windows, _, plan)| (windows.clone(), plan.clone()));
+    if !asking_again {
+        if let Some((windows, plan)) = reusable_cli {
+            accepted_windows(p, acc, windows, plan, multi);
+            return;
+        }
+    }
+    if !asking_again
+        && acc
+            .last_cli_attempt
+            .is_none_or(|at| now.saturating_sub(at) >= 300_000)
+    {
+        acc.last_cli_attempt = Some(now);
+        if let Some(reading) = find_cli().and_then(|cli| claude_sources::run_cli(&cli, p, now)) {
+            acc.cli_cache = Some((reading.0.clone(), now, reading.1.clone()));
+            accepted_windows(p, acc, reading.0, reading.1, multi);
+            return;
         }
     }
     // No requests inside this account's back-off window
-    if acc.backoff_until > now_ms() {
+    if acc.backoff_until > now_ms() && !asking_again {
         return;
     }
-    match read_credentials(&p.dir) {
-        None => {
+    let credential = credential_for(p, asking_again);
+    if p.slug.is_none() {
+        if let Ok(ref credential) = credential {
+            acc.credential_expiry = credential.expires_at;
+        }
+    }
+    match credential {
+        Err(claude_keychain::ReadError::NeedsAuth) => {
             acc.status = "needsAuth".into();
             acc.note = "No Claude Code credential found".into();
         }
+        Err(claude_keychain::ReadError::SignedOut) => {
+            acc.status = "signedOutByOwner".into();
+            acc.windows.clear();
+            acc.note = "Claude Code signed out".into();
+        }
+        Err(claude_keychain::ReadError::Denied) => {
+            acc.status = "accessDenied".into();
+            acc.windows.clear();
+            acc.note = "Claude Keychain access denied".into();
+        }
+        Err(claude_keychain::ReadError::Transient) => {
+            acc.status = if acc.windows.is_empty() {
+                "needsAuth"
+            } else {
+                "stale"
+            }
+            .into();
+            acc.note = "Claude Keychain temporarily unavailable".into();
+        }
         // Expired is not signed out: keep the last reading, dimmed and dated, and send nothing
-        Some(cred) if cred.expired(now_ms()) => {
+        Ok(cred) if cred.expired(now_ms()) => {
             acc.status = if acc.windows.is_empty() {
                 "needsAuth"
             } else {
@@ -746,25 +1250,24 @@ fn poll_account(p: &Profile, acc: &mut Account, group: Option<&str>) {
             .into();
             acc.note = EXPIRED_NOTE.into();
         }
-        Some(cred) => {
+        Ok(cred) => {
             let token = cred.token;
             // On 401 re-read the credential and retry once (Claude Code may have just refreshed it)
             let result = match fetch_once(&token) {
-                Err(FetchErr::NeedsAuth) => match read_credentials(&p.dir) {
-                    Some(c2) if c2.token != token => fetch_once(&c2.token),
-                    _ => Err(FetchErr::NeedsAuth),
-                },
+                Err(FetchErr::NeedsAuth) => {
+                    claude_keychain::forget_cached(&id);
+                    match credential_for(p, false) {
+                        Ok(c2) if c2.token != token => fetch_once(&c2.token),
+                        _ => Err(FetchErr::NeedsAuth),
+                    }
+                }
                 other => other,
             };
             match result {
                 Ok(windows) => {
                     crate::claude_auth::usage_succeeded();
                     acc.consecutive_429 = 0;
-                    acc.status = "ok".into();
-                    acc.windows = decorate(windows, p, group);
-                    acc.fetched_at = now_ms();
-                    acc.note.clear();
-                    acc.backoff_until = 0;
+                    accepted_windows(p, acc, windows, cred.plan, multi);
                 }
                 Err(FetchErr::NeedsAuth) => {
                     acc.status = "needsAuth".into();
@@ -794,44 +1297,135 @@ fn poll_account(p: &Profile, acc: &mut Account, group: Option<&str>) {
     }
 }
 
-pub fn start(app: AppHandle) {
+fn start_default_renewer(app: AppHandle) {
     std::thread::spawn(move || {
-        // Broadcast the persisted old reading at startup (stale beats blank)
-        let persisted = {
+        crate::activity::lower_thread_priority();
+        let Some(home) = dirs::home_dir() else { return };
+        let profile = Profile {
+            dir: home.join(".claude"),
+            slug: None,
+        };
+        let cli = find_cli();
+        let mut renewer = Renewer::default();
+        loop {
+            // Swift starts the refresher's 60-second timer without an eager
+            // launch. It only runs after this process has learned an expiry.
+            std::thread::sleep(Duration::from_secs(60));
+            if !crate::providers::enabled(&app, "claude") {
+                continue;
+            }
+            let epoch = crate::providers::generation("claude");
+            let expiry = {
+                let state = default_renewal().lock().unwrap();
+                (state.epoch == epoch).then_some(state.expiry).flatten()
+            };
+            if expiry.is_none() {
+                continue;
+            }
+            let mut after = None;
+            let result =
+                renewer.maybe_renew_with(&profile, expiry, cli.as_deref(), run_renewal, || {
+                    #[cfg(target_os = "macos")]
+                    {
+                        claude_keychain::forget_cached("claude");
+                        after = credential_for(&profile, false)
+                            .ok()
+                            .and_then(|fresh| fresh.expires_at);
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    {
+                        after = read_credentials(&profile.dir).and_then(|fresh| fresh.expires_at);
+                    }
+                    after
+                });
+            if let Some(succeeded) = result {
+                crate::providers::with_current(&app, "claude", epoch, || {
+                    let mut state = default_renewal().lock().unwrap();
+                    if succeeded {
+                        state.expiry = after;
+                    } else {
+                        state.needs_sign_in = true;
+                    }
+                });
+                if succeeded {
+                    request_profile_refresh("claude");
+                }
+                let _ = app.emit("providers", crate::providers::get_providers(app.clone()));
+            }
+        }
+    });
+}
+
+pub fn start(app: AppHandle) {
+    start_default_renewer(app.clone());
+    std::thread::spawn(move || {
+        // The aggregate cache predates per-profile switches. Filter it before
+        // the first event, so a disabled secondary account never flashes back.
+        let discovered = profiles();
+        let persisted = crate::providers::with_lifecycle(|_| {
             let st = app.state::<AppState>();
-            let snap = st.usage.lock().unwrap().clone();
+            let mut snap = st.usage.lock().unwrap().clone();
+            let active: Vec<Profile> = discovered
+                .iter()
+                .filter(|p| crate::providers::enabled(&app, &profile_id(p)))
+                .cloned()
+                .collect();
+            let original_windows = snap.windows.len();
+            snap.windows.retain(|w| {
+                active.iter().any(|p| match &p.slug {
+                    Some(slug) => w.id.ends_with(&format!("@{slug}")),
+                    None => !w.id.contains('@'),
+                })
+            });
+            if snap.windows.is_empty() {
+                snap = UsageSnapshot::default();
+            } else if snap.windows.len() != original_windows {
+                snap.status = "stale".into();
+                snap.note.clear();
+                snap.plan = None;
+                snap.fetched_at = active
+                    .iter()
+                    .map(|p| crate::providers::snapshot(&profile_id(p)).fetched_at)
+                    .max()
+                    .unwrap_or(0);
+                snap.backoff_until = 0;
+            }
+            *st.usage.lock().unwrap() = snap.clone();
+            persist(&snap);
             let _ = app.emit("usage", &snap);
             snap
-        };
+        });
         let mut accounts: HashMap<String, Account> = HashMap::new();
-        for (k, windows) in split_persisted(&persisted, &profiles()) {
+        for (k, windows) in split_persisted(&persisted, &discovered) {
             accounts.entry(k).or_default().windows = windows;
         }
         loop {
             // A sign-in the user started owns the credential until it finishes. Polling through it
             // reads a file being rewritten and reports a signed-out account mid-login.
             if crate::claude_auth::state().busy {
-                sleep_interruptible(2);
+                std::thread::sleep(Duration::from_secs(2));
                 continue;
             }
+            let targeted = take_refresh_targets();
             // Re-read the list each tick: an account signed into or removed while this runs needs no restart
             let order = profiles();
             let multi = order.len() > 1;
             for p in &order {
-                let id = p
-                    .slug
-                    .as_ref()
-                    .map(|slug| format!("claude-{slug}"))
-                    .unwrap_or_else(|| "claude".into());
+                let id = profile_id(p);
                 if !crate::providers::enabled(&app, &id) {
                     continue;
                 }
-                let group = if multi {
-                    Some(p.group(read_credentials(&p.dir).and_then(|c| c.plan).as_deref()))
-                } else {
-                    None
-                };
+                if targeted.as_ref().is_some_and(|ids| !ids.contains(&id)) {
+                    continue;
+                }
+                let epoch = crate::providers::generation(&id);
                 let acc = accounts.entry(key(p)).or_default();
+                if acc.generation != epoch {
+                    *acc = Account {
+                        generation: epoch,
+                        ..Default::default()
+                    };
+                }
                 if acc.fetched_at == 0 {
                     let old = crate::providers::snapshot(&id);
                     if old.fetched_at > 0 {
@@ -840,30 +1434,60 @@ pub fn start(app: AppHandle) {
                         acc.status = "stale".into();
                     }
                 }
-                poll_account(p, acc, group.as_deref());
+                poll_account(p, acc, multi);
+                if id == "claude" {
+                    crate::providers::with_current(&app, &id, epoch, || {
+                        let mut renewal = default_renewal().lock().unwrap();
+                        if renewal.epoch != epoch {
+                            renewal.expiry = None;
+                        }
+                        renewal.epoch = epoch;
+                        if let Some(expiry) = acc.credential_expiry {
+                            renewal.expiry = Some(expiry);
+                        }
+                        if acc.status == "ok" {
+                            renewal.needs_sign_in = false;
+                        }
+                    });
+                }
                 if crate::providers::enabled(&app, &id) {
                     let mut windows = acc.windows.clone();
                     for w in &mut windows {
                         w.id = w.id.split('@').next().unwrap_or(&w.id).to_string();
                     }
-                    crate::providers::publish_profile(
+                    crate::providers::publish_profile_if_current(
                         &app,
                         &id,
+                        epoch,
                         UsageSnapshot {
-                            plan: read_credentials(&p.dir).and_then(|c| c.plan),
+                            plan: acc.plan.clone(),
                             status: acc.status.clone(),
                             windows,
                             fetched_at: acc.fetched_at,
                             note: acc.note.clone(),
                             backoff_until: acc.backoff_until,
+                            ..Default::default()
                         },
                     );
                 }
             }
-            accounts.retain(|k, _| order.iter().any(|p| key(p) == *k));
-            let snap = aggregate(&order, &accounts);
-            let backoff_until = snap.backoff_until;
-            set_and_broadcast(&app, |u| *u = snap);
+            let backoff_until = crate::providers::with_lifecycle(|epochs| {
+                let active: Vec<Profile> = order
+                    .iter()
+                    .filter(|p| crate::providers::enabled(&app, &profile_id(p)))
+                    .cloned()
+                    .collect();
+                accounts.retain(|k, a| {
+                    active.iter().any(|p| {
+                        key(p) == *k
+                            && a.generation == epochs.get(&profile_id(p)).copied().unwrap_or(0)
+                    })
+                });
+                let snap = aggregate(&active, &accounts);
+                let backoff_until = snap.backoff_until;
+                set_and_broadcast(&app, |u| *u = snap);
+                backoff_until
+            });
             // 60 s while a session is active, 300 s otherwise (upstream throttling discipline)
             let active = {
                 let st = app.state::<AppState>();
@@ -896,24 +1520,82 @@ mod tests {
     const EXP: u64 = 1_000_000_000;
 
     #[test]
+    fn archived_claude_reading_is_stale_without_changing_its_age() {
+        let old = UsageSnapshot {
+            status: "ok".into(),
+            fetched_at: 1234,
+            windows: vec![LimitWindow {
+                id: "session".into(),
+                used: 0.42,
+                has_fraction: Some(true),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let restored = rehydrate_archive(old);
+        assert_eq!(restored.status, "stale");
+        assert_eq!(restored.fetched_at, 1234);
+        assert_eq!(restored.windows[0].fraction(), Some(0.42));
+    }
+
+    #[test]
+    fn named_profile_discovery_requires_marker_and_own_credential() {
+        let home = tempfile::tempdir().unwrap();
+        for (name, marker) in [
+            (".claude-work", "sessions"),
+            (".claude-expired", "history.jsonl"),
+            (".claude-日本語", "projects"),
+            (".claude-mem", "settings.json"),
+            (".claude-unused", ""),
+        ] {
+            let dir = home.path().join(name);
+            std::fs::create_dir_all(&dir).unwrap();
+            match marker {
+                "sessions" | "projects" => std::fs::create_dir_all(dir.join(marker)).unwrap(),
+                "" => (),
+                _ => std::fs::write(dir.join(marker), "{}").unwrap(),
+            }
+        }
+        let rows = discover_named_profiles_with(home.path(), |slug, _| slug != "mem");
+        let slugs: Vec<_> = rows.iter().map(|(slug, _)| slug.as_str()).collect();
+        assert_eq!(slugs, ["expired", "work", "日本語"]);
+    }
+
+    #[test]
+    fn one_claude_ring_does_not_turn_into_an_all_account_refresh() {
+        let mut requests = RefreshRequests::default();
+        requests.profiles.insert("claude-work".into());
+        let targets = requests.take_targets().expect("one targeted refresh");
+        assert!(targets.contains("claude-work"));
+        assert!(!targets.contains("claude"));
+        assert!(!targets.contains("claude-personal"));
+        requests.profiles.insert("claude-work".into());
+        requests.all = true;
+        assert!(
+            requests.take_targets().is_none(),
+            "Refresh All overrides rings"
+        );
+        assert!(requests.profiles.is_empty());
+    }
+
+    #[test]
     fn renews_only_inside_the_margin() {
         assert!(
-            !should_renew(None, EXP, None, None, 0),
+            !should_renew(None, EXP, None, None),
             "never launch on a guess"
         );
         assert!(
-            !should_renew(Some(EXP), EXP - RENEW_MARGIN_MS - 1, None, None, 0),
+            !should_renew(Some(EXP), EXP - RENEW_MARGIN_MS - 1, None, None),
             "plenty of time left"
         );
         assert!(should_renew(
             Some(EXP),
-            EXP - RENEW_MARGIN_MS,
+            EXP - RENEW_MARGIN_MS + 1,
             None,
-            None,
-            0
+            None
         ));
         assert!(
-            should_renew(Some(EXP), EXP + 3_600_000, None, None, 0),
+            should_renew(Some(EXP), EXP + 3_600_000, None, None),
             "already expired still renews"
         );
     }
@@ -922,72 +1604,64 @@ mod tests {
     fn a_new_token_waits_out_the_cooldown() {
         let now = EXP + 1;
         assert!(
-            !should_renew(Some(EXP + 5), now, Some(EXP), Some(now - 1000), 1),
+            !should_renew(Some(EXP + 5), now, Some(EXP), Some(now - 1000)),
             "cooldown holds a new token back"
         );
         assert!(should_renew(
             Some(EXP + 5),
             now,
             Some(EXP),
-            Some(now - RENEW_COOLDOWN_MS),
-            1
+            Some(now - RENEW_COOLDOWN_MS)
         ));
     }
 
     #[test]
-    fn a_failed_token_is_retried_on_a_doubling_wait() {
+    fn one_failed_expiry_is_never_relaunched_until_the_token_changes() {
         let now = EXP + 1;
-        assert!(
-            !should_renew(Some(EXP), now, Some(EXP), Some(now - RENEW_COOLDOWN_MS), 1),
-            "no retry at the plain cooldown"
-        );
-        assert!(
-            should_renew(
-                Some(EXP),
-                now,
-                Some(EXP),
-                Some(now - 2 * RENEW_COOLDOWN_MS),
-                1
-            ),
-            "retried after twice the cooldown"
-        );
-        assert!(
-            !should_renew(
-                Some(EXP),
-                now,
-                Some(EXP),
-                Some(now - 2 * RENEW_COOLDOWN_MS),
-                2
-            ),
-            "the wait doubles"
-        );
-        assert!(should_renew(
+        assert!(!should_renew(
             Some(EXP),
             now,
             Some(EXP),
-            Some(now - 4 * RENEW_COOLDOWN_MS),
-            2
+            Some(now - 24 * 60 * 60 * 1000)
         ));
-        assert!(
-            !should_renew(
-                Some(EXP),
-                now,
-                Some(EXP),
-                Some(now - RENEW_RETRY_CAP_MS + 1),
-                30
-            ),
-            "never a tight loop"
+        assert!(should_renew(
+            Some(EXP + 1),
+            now,
+            Some(EXP),
+            Some(now - RENEW_COOLDOWN_MS)
+        ));
+    }
+
+    #[test]
+    fn refresher_launches_only_for_default_profile_with_fake_cli() {
+        let expiry = now_ms().saturating_add(1_000);
+        let mut launches = 0;
+        let cli = Path::new("/fixture/claude");
+        let mut renewer = Renewer::default();
+        let result = renewer.maybe_renew_with(
+            &prof(Some("work")),
+            Some(expiry),
+            Some(cli),
+            |_, _| {
+                launches += 1;
+                Ok(())
+            },
+            || Some(expiry + 60_000),
         );
-        assert!(
-            should_renew(
-                Some(EXP),
-                now,
-                Some(EXP),
-                Some(now - RENEW_RETRY_CAP_MS),
-                30
-            ),
-            "but never more than an hour apart"
+        assert_eq!(result, None);
+        assert_eq!(launches, 0);
+        let result = renewer.maybe_renew_with(
+            &prof(None),
+            Some(expiry),
+            Some(cli),
+            |_, _| {
+                launches += 1;
+                Ok(())
+            },
+            || Some(expiry + 60_000),
         );
+        assert_eq!(result, Some(true));
+        assert_eq!(launches, 1);
     }
 
     #[test]

@@ -1,13 +1,14 @@
 import {test, expect} from '@playwright/test';
 
-async function settingsBridge(page) {
-  await page.addInitScript(() => {
+async function settingsBridge(page, connectedSlots = []) {
+  await page.addInitScript((initialSlots) => {
     const listeners = {};
     let appearance = {
       accent_color:'system', app_presence:'dock', reset_time:'automatic',
       show_codex_extra:true, show_usage_pace:false, claude_daily_pace:false,
       folds_for_fullscreen:true, weekly_dashed:false, custom_scale:null,
-      watch:.5, critical:.7
+      watch:.5, critical:.7, deepseek_pricing_enabled:true,
+      deepseek_pricing_schedule:{peak_weekdays:[2,3,4,5,6],windows:[{start_minute:60,end_minute:240},{start_minute:360,end_minute:600}]}
     };
     let notifications = {
       announce_session_end:true, peek_seconds:5, session_sound:true,
@@ -17,8 +18,19 @@ async function settingsBridge(page) {
     };
     let updates = {configured:true, automatic:true, available:null, checking:false, installing:false, message:null};
     let weekly = 'off';
+    let customEndpoints = [];
+    let local = {ollama:'http://127.0.0.1:11434',lmstudio:'http://127.0.0.1:1234',disabled_models:[],ollama_metrics_enabled:false};
+    let disabled = ['ollama-local'];
+    let slots = initialSlots.map(provider => ({provider}));
+    const webStates = Object.fromEntries(['deepseek','qianwenai','minimax'].map(id=>[id,{id,supported:true,signed_in:false,sign_in_open:false,reason:null}]));
     window.settingsFixture = {
-      calls:[], failAppearance:false, failNotifications:false,
+      calls:[], failAppearance:false, failNotifications:false, failCustom:false, failLocal:false,
+      failWeb:false,showWebProviders:false,webStates,autostartProblem:null,failKeychain:false,
+      providerPrefs:{minimax_china:false,gemini_token_budget:null},failProviderPrefs:false,lmTokenPresent:false,failLMToken:false,
+      localActivity:{relay:{ready:true,status:'Listening',address:'http://127.0.0.1:11435',thinking_models:{},performances:{'llama3':{output_tokens:100,generation_seconds:2,measured_at:0,approximate:false}}}},
+      trayOptions:null,providerRows:null,
+      surfaceCap:{supported:false,glass_available:false,reduce_transparency:false,effective_surface_style:'solid'},
+      localPresets:[{name:'Local vLLM (:8000)',url:'http://localhost:8000/v1',header:'Authorization',model:'',icon:'ollama',color:'#10B981'}],
       emit(name, payload) { for (const cb of listeners[name] || []) cb({payload}); },
       update(state) { updates = {...updates, ...state}; this.emit('update_state', updates); }
     };
@@ -31,11 +43,67 @@ async function settingsBridge(page) {
           appearance = {...args.prefs}; return {...appearance};
         }
         if (cmd === 'get_notifications') return {...notifications};
+        if (cmd === 'get_custom_endpoints') return customEndpoints.map(p => ({...p}));
+        if (cmd === 'scan_local_engines') return window.settingsFixture.localPresets;
+        if (cmd === 'test_custom_endpoint_draft') return {health:'online',latency_ms:12,models:['local-a','local-b'],error:null};
+        if (cmd === 'save_custom_icon') return args.id+'-0123456789abcdef.png';
+        if (cmd === 'get_custom_icon') return null;
+        if (cmd === 'discard_custom_icon') return null;
+        if (cmd === 'get_local_runtime_settings') return {...local};
+        if (cmd === 'set_local_runtime_settings') {
+          if (window.settingsFixture.failLocal) throw Error('fixture local settings save refused');
+          local={...args.prefs}; return null;
+        }
+        if (cmd === 'get_local_models') return {};
+        if (cmd === 'get_local_runtime_activity') return window.settingsFixture.localActivity;
+        if (cmd === 'get_providers') return window.settingsFixture.providerRows||[
+          {id:'ollama-local',name:'Ollama',guidance:'',snap:{status:'absent',note:'Connecting to Ollama…'}},
+          {id:'lmstudio',name:'LM Studio',guidance:'',snap:{status:'absent',note:'Connecting to LM Studio…'}}
+        ];
+        if (cmd === 'get_web_session_state') return {...webStates[args.id]};
+        if (cmd === 'get_provider_settings') return {...window.settingsFixture.providerPrefs};
+        if (cmd === 'set_provider_settings') {
+          if(window.settingsFixture.failProviderPrefs)throw Error('fixture provider settings refused');
+          window.settingsFixture.providerPrefs={minimax_china:args.minimaxChina,gemini_token_budget:args.geminiTokenBudget};return null;
+        }
+        if (cmd === 'allow_claude_keychain_access') {if(window.settingsFixture.failKeychain)throw Error('fixture keychain request refused');return null;}
+        if (cmd === 'open_web_session') {
+          if(window.settingsFixture.failWeb)throw Error('fixture login refused');
+          webStates[args.id]={...webStates[args.id],sign_in_open:true};
+          return {...webStates[args.id]};
+        }
+        if (cmd === 'get_tray_options'&&window.settingsFixture.trayOptions)return window.settingsFixture.trayOptions;
+        if (cmd === 'get_tray_options'&&window.settingsFixture.showWebProviders)
+          return ['deepseek','qianwenai','minimax'].map(id=>({id,label:{deepseek:'DeepSeek',qianwenai:'QianwenAI',minimax:'MiniMax'}[id],status:'needsAuth'}));
+        if (cmd === 'set_provider_enabled') {
+          if (window.settingsFixture.failLocal) throw Error('fixture monitor save refused');
+          disabled=disabled.filter(id=>id!==args.id);if(!args.value)disabled.push(args.id);
+          slots=slots.filter(slot=>slot.provider!==args.id);if(args.value)slots.push({provider:args.id});
+          if(window.settingsFixture.providerRows){
+            window.settingsFixture.providerRows=window.settingsFixture.providerRows.map(row=>row.id===args.id?{...row,enabled:args.value}:row);
+            window.settingsFixture.emit('providers',window.settingsFixture.providerRows);
+          }
+          return null;
+        }
+        if (cmd === 'get_disabled_providers') return [...disabled];
+        if (cmd === 'save_custom_endpoint') {
+          if (window.settingsFixture.failCustom) throw Error('fixture endpoint save refused');
+          const index=customEndpoints.findIndex(p => p.id===args.endpoint.id);
+          if (index<0) customEndpoints.push({...args.endpoint}); else customEndpoints[index]={...args.endpoint};
+          return null;
+        }
+        if (cmd === 'delete_custom_endpoint') {customEndpoints=customEndpoints.filter(p=>p.id!==args.id);return null;}
+        if (cmd === 'probe_custom_endpoint') return customEndpoints.find(p=>p.id===args.id);
+        if (cmd === 'get_lmstudio_token_state') return {present:window.settingsFixture.lmTokenPresent};
+        if (cmd === 'save_provider_secret') {if(args.id==='lmstudio-api-token'){if(window.settingsFixture.failLMToken)throw Error('fixture token vault refused');window.settingsFixture.lmTokenPresent=!!args.secret;}return null;}
         if (cmd === 'set_notifications') {
           if (window.settingsFixture.failNotifications) throw Error('fixture notification save refused');
           notifications = {...args.prefs}; return {...notifications};
         }
         if (cmd === 'get_system_look') return {mica:false, accent:[], symbols:{}};
+        if (cmd === 'get_menu_bar_choices') return [{id:'claude',name:'Claude'},{id:'codex',name:'Codex'},{id:'deepseek',name:'DeepSeek'}];
+        if (cmd === 'get_surface_capability') return {...window.settingsFixture.surfaceCap};
+        if (cmd === 'get_autostart_problem') return window.settingsFixture.autostartProblem;
         if (cmd === 'get_update_state') return {...updates};
         if (cmd === 'set_automatic_updates') { updates.automatic = args.on; return {...updates}; }
         if (cmd === 'get_weekly_ring') return weekly;
@@ -48,7 +116,8 @@ async function settingsBridge(page) {
         if (cmd === 'get_lang') return 'en';
         if (cmd === 'get_lang_resolved') return 'en';
         if (cmd === 'get_monitors') return [];
-        if (cmd === 'get_notch_slots' || cmd === 'get_tray_options' || cmd === 'get_disabled_providers' || cmd === 'get_alert_sounds') return [];
+        if (cmd === 'get_notch_slots') return slots.map(slot=>({...slot}));
+        if (cmd === 'get_tray_options' || cmd === 'get_alert_sounds') return [];
         if (cmd === 'get_autostart' || cmd === 'get_hooks_installed') return false;
         return null;
       }},
@@ -56,13 +125,14 @@ async function settingsBridge(page) {
       app:{getVersion:async () => '1.16.0'},
       window:{getCurrentWindow:() => ({close:async () => {}, startDragging:async () => {}})}
     };
-  });
+  }, connectedSlots);
 }
 
 test('外观版式遵循原版分组、顺序与控件类型', async ({page}) => {
   await settingsBridge(page);
   await page.setViewportSize({width:860, height:600});
   await page.goto('/settings.html');
+  await expect(page.locator('#tab-phone')).toBeHidden(); // pinned Swift PhoneLink.isAvailable=false
   await page.locator('#tab-appearance').click();
   await expect(page.locator('#pane-appearance > .sec')).toHaveText(['Notch','Usage Limits','App']);
   await expect(page.locator('#seg-reset_time button')).toHaveCount(2);
@@ -81,6 +151,291 @@ test('外观版式遵循原版分组、顺序与控件类型', async ({page}) =>
   expect(head).toBeLessThanOrEqual(82);
   await expect(page.locator('#tab-appearance .badge svg')).toHaveCount(1); // no native symbol payload
   await expect(page.locator('#tab-appearance .system-symbol')).toHaveCount(0);
+});
+
+test('DeepSeek UTC 定价规则按 Swift 分组读写，保存失败回滚',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-deepseek').click();
+  await expect(page.locator('#pane-deepseek > .sec')).toHaveText(['Peak/off-peak pricing','Peak rule']);
+  await expect(page.locator('#deepseek-pricing-enabled')).toHaveAttribute('aria-checked','true');
+  await expect(page.locator('[data-pricing-day]')).toHaveCount(7);
+  await expect(page.locator('[data-pricing-window]')).toHaveCount(2);
+  await page.evaluate(()=>{settingsFixture.failAppearance=true;});
+  await page.locator('[data-pricing-day="7"]').click();
+  await expect(page.locator('#strip')).toContainText('fixture appearance save refused');
+  await expect(page.locator('[data-pricing-day="7"]')).not.toBeChecked();
+  await page.evaluate(()=>{settingsFixture.failAppearance=false;});
+  await page.locator('[data-pricing-day="7"]').check();
+  await expect(page.locator('[data-pricing-day="7"]')).toBeChecked();
+  await page.locator('#deepseek-add-window').click();
+  await expect(page.locator('[data-pricing-window]')).toHaveCount(3);
+  const saved=await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='set_appearance').at(-1).args.prefs.deepseek_pricing_schedule);
+  expect(saved.peak_weekdays).toEqual([2,3,4,5,6,7]);
+  expect(saved.windows.at(-1)).toEqual({start_minute:0,end_minute:60});
+  await page.locator('#deepseek-pricing-enabled').click();
+  await expect(page.locator('#deepseek-peak-rule [data-pricing-day="2"]')).toBeDisabled();
+  await page.locator('#deepseek-restore').click();
+  await expect(page.locator('[data-pricing-window]')).toHaveCount(2);
+});
+
+test('菜单栏限额仅在菜单栏模式出现，账户选择保存但不改变采集开关',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-appearance').click();
+  await page.evaluate(()=>{document.documentElement.dataset.platform='macos';renderAppearance();});
+  await expect(page.locator('#menu-bar-controls')).toBeHidden();
+  await page.locator('#seg-presence [data-v="menuBar"]').click();
+  await expect(page.locator('#menu-bar-controls')).toBeVisible();
+  await page.locator('#appearance-shows_limits_in_menu_bar').click();
+  await expect(page.locator('#menu-bar-choices [data-menu-bar-id]')).toHaveCount(3);
+  await expect(page.locator('[data-menu-bar-id="claude"]')).toHaveAttribute('aria-checked','true');
+  await expect(page.locator('[data-menu-bar-id="codex"]')).toHaveAttribute('aria-checked','true');
+  await page.locator('[data-menu-bar-id="deepseek"]').click();
+  const saved=await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='set_appearance').at(-1).args.prefs.menu_bar_providers);
+  expect(saved).toEqual(['claude','codex','deepseek']);
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='set_provider_enabled'))).toHaveLength(0);
+  await expect(page.locator('#menu-bar-overflow')).toBeVisible();
+});
+
+test('系统强调色变化事件即时更新系统色选项，非法颜色忽略',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-appearance').click();
+  await page.evaluate(()=>settingsFixture.emit('system_accent_changed','#123abc'));
+  await expect.poll(()=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())).toBe('#123abc');
+  await page.evaluate(()=>settingsFixture.emit('system_accent_changed','javascript:bad'));
+  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())).toBe('#123abc');
+});
+
+test('多屏范围写入持久偏好，Surface 只在 macOS 26 支持时出现并反映降低透明度',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-appearance').click();
+  await expect(page.locator('#surface-controls')).toBeHidden();
+  await page.locator('#seg-scope [data-v="allDisplays"]').click();
+  await expect(page.locator('#seg-scope [aria-pressed="true"]')).toHaveAttribute('data-v','allDisplays');
+  await expect(page.locator('#row-screen')).toBeHidden();
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='set_appearance').at(-1).args.prefs.notch_scope)).toBe('allDisplays');
+  await page.evaluate(()=>{settingsFixture.surfaceCap={supported:true,glass_available:false,reduce_transparency:true,effective_surface_style:'solid'};refreshSurfaceCapability();});
+  await expect(page.locator('#surface-controls')).toBeVisible();
+  await expect(page.locator('#cap-surface')).toContainText('Reduce Transparency is on');
+  await page.locator('#seg-surface [data-v="darkGlass"]').click();
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='set_appearance').at(-1).args.prefs.surface_style)).toBe('darkGlass');
+  await page.evaluate(()=>{settingsFixture.failAppearance=true;});
+  await page.locator('#seg-scope [data-v="mainDisplay"]').click();
+  await expect(page.locator('#strip')).toContainText('fixture appearance save refused');
+  await expect(page.locator('#seg-scope [aria-pressed="true"]')).toHaveAttribute('data-v','allDisplays');
+});
+
+test('Claude Keychain 被拒后仅该账户显示 Allow access，调用定向授权并保留失败态',async({page})=>{
+  await settingsBridge(page,['claude','codex']);await page.goto('/settings.html');
+  await page.waitForFunction(()=>providerMetadata.length===2);
+  await page.evaluate(()=>settingsFixture.emit('providers',[{id:'claude',was_refused_access:true},{id:'codex',was_refused_access:false}]));
+  await expect(page.locator('[data-account="claude"] [data-allow-keychain]')).toBeVisible();
+  await expect(page.locator('[data-account="codex"] [data-allow-keychain]')).toHaveCount(0);
+  await page.locator('[data-account="claude"] [data-np="claude"]').click();
+  await expect(page.locator('[data-account="claude"] [data-allow-keychain]')).toHaveCount(0);
+  await page.locator('[data-account="claude"] [data-np="claude"]').click();
+  await expect(page.locator('[data-account="claude"] [data-allow-keychain]')).toBeVisible();
+  await page.evaluate(()=>{settingsFixture.failKeychain=true;});
+  await page.locator('[data-account="claude"] [data-allow-keychain]').click();
+  await expect(page.locator('#strip')).toContainText('fixture keychain request refused');
+  await expect(page.locator('[data-account="claude"] [data-allow-keychain]')).toBeVisible();
+  await page.evaluate(()=>{settingsFixture.failKeychain=false;});
+  await page.locator('[data-account="claude"] [data-allow-keychain]').click();
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='allow_claude_keychain_access').at(-1).args)).toEqual({id:'claude'});
+});
+
+test('账户摘要优先于状态，拒绝访问与续签独立显示，关闭后只显示退出说明',async({page})=>{
+  await settingsBridge(page,['claude','codex']);await page.goto('/settings.html');
+  await page.evaluate(()=>settingsFixture.emit('providers',[
+    {id:'claude',was_refused_access:true,needs_sign_in_renewal:true,account:{label:'user@example.com',plan:'pro',source:'Claude Code',manage_url:'https://claude.ai/settings/usage'}},
+    {id:'codex',was_refused_access:false,needs_sign_in_renewal:false,account:{label:'second@example.com',plan:'plus',source:'Codex',manage_url:'https://chatgpt.com/#settings/Account'}}
+  ]));
+  await expect(page.locator('[data-account="claude"] .account-summary')).toContainText('user@example.com · Pro · via Claude Code');
+  await expect(page.locator('[data-account="claude"] [data-allow-keychain]')).toBeVisible();
+  await expect(page.locator('[data-account="claude"] .renewal')).toContainText('sign-in renewed');
+  await expect(page.locator('[data-account="codex"] .renewal')).toHaveCount(0);
+  await page.locator('[data-account="claude"] [data-np]').click();
+  await expect(page.locator('[data-account="claude"] .acct-detail')).toContainText('Signed out — nothing is read');
+  await expect(page.locator('[data-account="claude"] [data-allow-keychain]')).toHaveCount(0);
+  await expect(page.locator('[data-account="claude"] .renewal')).toHaveCount(0);
+});
+
+test('MiniMax 区域与 Gemini API 月预算属于各自账户行，失败按原值回滚',async({page})=>{
+  await settingsBridge(page,['minimax','gemini-api']);await page.goto('/settings.html');
+  await page.evaluate(()=>{options=[{id:'minimax',label:'MiniMax',status:'ok'},{id:'gemini-api',label:'Gemini API',status:'ok'}];renderAccounts();});
+  await expect(page.locator('#provider-config')).toHaveCount(0);
+  await expect(page.locator('[data-account="minimax"] [data-minimax-region]')).toBeVisible();
+  await expect(page.locator('[data-account="gemini-api"] [data-gemini-budget]')).toBeVisible();
+  await page.evaluate(()=>{settingsFixture.failProviderPrefs=true;});
+  await page.locator('[data-account="minimax"] [data-minimax-region]').selectOption('china');
+  await expect(page.locator('#strip')).toContainText('fixture provider settings refused');
+  await expect(page.locator('[data-account="minimax"] [data-minimax-region]')).toHaveValue('global');
+  await page.evaluate(()=>{settingsFixture.failProviderPrefs=false;});
+  await page.locator('[data-account="gemini-api"] [data-gemini-budget]').fill('120000');
+  await page.locator('[data-account="gemini-api"] [data-gemini-budget]').press('Tab');
+  await expect.poll(()=>page.evaluate(()=>settingsFixture.providerPrefs.gemini_token_budget)).toBe(120000);
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='set_provider_settings').at(-1).args)).toEqual({minimaxChina:false,geminiTokenBudget:120000});
+});
+
+test('应用内网页登录只在可隔离平台展示，真实调用登录并保留失败状态',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');
+  await page.evaluate(()=>{settingsFixture.showWebProviders=true;notchSlots=null;refreshOptions();});
+  await expect(page.locator('[data-account="deepseek"] [data-web-sign-in]')).toBeVisible();
+  await page.locator('[data-account="deepseek"] [data-web-sign-in]').click();
+  await expect.poll(()=>page.evaluate(()=>settingsFixture.calls.findLast(call=>call.cmd==='open_web_session')?.args))
+    .toEqual({id:'deepseek',switching:false,minimaxChina:false});
+  await page.evaluate(()=>{settingsFixture.webStates.deepseek={...settingsFixture.webStates.deepseek,signed_in:true,sign_in_open:false};settingsFixture.emit('web_session_state',settingsFixture.webStates.deepseek);});
+  await expect(page.locator('[data-account="deepseek"] [data-switch="true"]')).toBeVisible();
+  await page.evaluate(()=>{settingsFixture.webStates.qianwenai={...settingsFixture.webStates.qianwenai,supported:false,reason:'Private profile unavailable'};settingsFixture.emit('web_session_state',settingsFixture.webStates.qianwenai);});
+  await expect(page.locator('[data-account="qianwenai"] [data-web-sign-in]')).toHaveCount(0);
+  await expect(page.locator('[data-account="qianwenai"]')).toContainText('Private profile unavailable');
+  await page.evaluate(()=>{settingsFixture.failWeb=true;});
+  await page.locator('[data-account="minimax"] [data-web-sign-in]').click();
+  await expect(page.locator('#strip')).toContainText('fixture login refused');
+  expect(await page.evaluate(()=>settingsFixture.webStates.minimax.signed_in)).toBe(false);
+});
+
+test('自定义端点预设只填表，完整字段写入且启停失败回滚', async ({page}) => {
+  await settingsBridge(page);
+  await page.goto('/settings.html');
+  await page.locator('#tab-custom').click();
+  await expect(page.locator('#custom-list')).toContainText('No custom endpoints yet');
+  await page.locator('#custom-templates-toggle').click();
+  await expect(page.locator('#custom-templates [data-custom-template]')).toHaveCount(8);
+  await page.locator('#custom-templates [data-custom-template="0"]').click();
+  await expect(page.locator('#custom-name')).toHaveValue('OpenRouter');
+  await expect(page.locator('#custom-url')).toHaveValue('https://openrouter.ai/api/v1');
+  expect(await page.evaluate(() => settingsFixture.calls.filter(c => c.cmd==='save_custom_endpoint'))).toHaveLength(0);
+  await page.locator('#seg-custom-unit [data-v="tokens"]').click();
+  await expect(page.locator('#custom-budget-label')).toContainText('M tokens');
+  await page.locator('#custom-budget').fill('10');
+  await page.locator('#custom-used').fill('2.5');
+  await page.locator('#custom-currency').check();
+  await page.locator('#custom-remaining').check();
+  await page.locator('[data-custom-icon="claude"]').click();
+  await page.locator('[data-custom-color="#10B981"]').click();
+  await page.locator('#custom-form [type="submit"]').click();
+  await expect(page.locator('#custom-editor-wrap')).toBeHidden();
+  const saved = await page.evaluate(() => settingsFixture.calls.find(c => c.cmd==='save_custom_endpoint').args.endpoint);
+  expect(saved).toMatchObject({name:'OpenRouter',url:'https://openrouter.ai/api/v1',model:'openai/gpt-4o',unit:'tokens',budget:10,used:2.5,icon:'claude',color:'#10b981',display_remaining:true,show_currency:true,enabled:true});
+  await expect(page.locator('#custom-list')).toContainText('OpenRouter');
+  await page.evaluate(() => {settingsFixture.failCustom=true;});
+  await page.locator('[data-custom-toggle]').click();
+  await expect(page.locator('#strip')).toContainText('fixture endpoint save refused');
+  await expect(page.locator('[data-custom-toggle]')).toHaveAttribute('aria-checked','true');
+  await page.evaluate(() => {settingsFixture.failCustom=false;});
+  await page.locator('[data-custom-toggle]').click();
+  await expect(page.locator('[data-custom-toggle]')).toHaveAttribute('aria-checked','false');
+});
+
+test('自定义端点本地扫描、草稿探测、双预算、重置与自有图片经过真实交互保存',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-custom').click();
+  await page.locator('#custom-scan').click();
+  await expect(page.locator('#custom-discovered [data-discovered]')).toHaveCount(1);
+  expect(await page.evaluate(()=>settingsFixture.calls.some(call=>call.cmd==='scan_local_engines'))).toBe(true);
+  await page.locator('#custom-discovered [data-discovered]').click();
+  await expect(page.locator('#custom-url')).toHaveValue('http://localhost:8000/v1');
+  await page.locator('#custom-draft-probe').click();
+  await expect(page.locator('#custom-draft-result')).toContainText('online (12 ms)');
+  await expect(page.locator('#custom-model')).toHaveValue('local-a');
+  await page.locator('#custom-budget').fill('20');await page.locator('#custom-used').fill('4.25');
+  await page.locator('#seg-custom-unit [data-v="tokens"]').click();
+  await page.locator('#custom-budget').fill('10');await page.locator('#custom-used').fill('2.5');
+  await page.locator('#seg-custom-unit [data-v="currency"]').click();
+  await expect(page.locator('#custom-budget')).toHaveValue('20');await expect(page.locator('#custom-used')).toHaveValue('4.25');
+  await page.locator('#custom-reset-used').click();await expect(page.locator('#custom-used')).toHaveValue('0');
+  await page.locator('#seg-custom-unit [data-v="tokens"]').click();await expect(page.locator('#custom-used')).toHaveValue('2.5');
+  const base64=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=2;canvas.height=2;canvas.getContext('2d').fillRect(0,0,2,2);return canvas.toDataURL('image/png').split(',')[1];});
+  await page.locator('#custom-image-file').setInputFiles({name:'icon.png',mimeType:'image/png',buffer:Buffer.from(base64,'base64')});
+  await expect(page.locator('#custom-image-preview')).toBeVisible();
+  await page.locator('#custom-url').fill('ftp://example.com/v1');await page.locator('#custom-form [type="submit"]').click();
+  await expect(page.locator('#custom-url-error')).toBeVisible();
+  await page.locator('#custom-url').fill('http://localhost:8000/v1');
+  await page.locator('#custom-form [type="submit"]').click();
+  await expect(page.locator('#custom-list .endpoint-row')).toHaveCount(1);
+  const payload=await page.evaluate(()=>settingsFixture.calls.filter(call=>call.cmd==='save_custom_endpoint').at(-1).args.endpoint);
+  expect(payload).toMatchObject({unit:'tokens',monthly_budget_usd:20,current_spend_usd:0,monthly_budget_tokens_m:10,current_tokens_used_m:2.5,model:'local-a'});
+  expect(payload.custom_icon_filename).toMatch(/\.png$/);
+  expect(await page.evaluate(()=>settingsFixture.calls.some(call=>call.cmd==='test_custom_endpoint_draft'&&call.args.baseUrl==='http://localhost:8000/v1'))).toBe(true);
+});
+
+test('本地运行时监控与地址检查走真实命令，失败保留原设置', async ({page}) => {
+  await settingsBridge(page);
+  await page.goto('/settings.html');
+  await page.locator('#tab-ollama').click();
+  await expect(page.locator('#ollama-monitor')).toHaveAttribute('aria-checked','false');
+  await expect(page.locator('#ollama-status')).toHaveText('Monitoring off.');
+  await page.evaluate(() => {settingsFixture.failLocal=true;});
+  await page.locator('#ollama-monitor').click();
+  await expect(page.locator('#strip')).toContainText('fixture monitor save refused');
+  await expect(page.locator('#ollama-monitor')).toHaveAttribute('aria-checked','false');
+  await page.evaluate(() => {settingsFixture.failLocal=false;});
+  await page.locator('#ollama-monitor').click();
+  await expect(page.locator('#ollama-monitor')).toHaveAttribute('aria-checked','true');
+  await page.locator('#ollama-apply').click();
+  await expect.poll(() => page.evaluate(() => settingsFixture.calls.filter(c=>c.cmd==='refresh_ring').at(-1)?.args.provider)).toBe('ollama-local');
+  await page.locator('#ollama-url').fill('http://127.0.0.1:11435');
+  await expect(page.locator('#ollama-apply')).toHaveText('Apply');
+  await page.evaluate(() => {settingsFixture.failLocal=true;});
+  await page.locator('#ollama-apply').click();
+  await expect(page.locator('#strip')).toContainText('fixture local settings save refused');
+  await expect(page.locator('#ollama-url')).toHaveValue('http://127.0.0.1:11435');
+  await page.evaluate(() => {settingsFixture.failLocal=false;});
+  await page.locator('#ollama-apply').click();
+  await expect(page.locator('#ollama-apply')).toHaveText('Check connection');
+  expect(await page.evaluate(() => settingsFixture.calls.filter(c=>c.cmd==='set_local_runtime_settings').at(-1).args.prefs.ollama)).toBe('http://127.0.0.1:11435');
+});
+
+test('已加载本地模型只在 Accounts 有独立行，关闭模型不关闭父运行时',async({page})=>{
+  // A nonempty saved selection appends newly loaded models. An explicit [] must stay empty.
+  await settingsBridge(page,['ollama-local']);await page.goto('/settings.html');
+  await page.locator('#tab-ollama').click();
+  await expect(page.locator('#pane-ollama .sec')).toHaveText(['Connection']);
+  await page.locator('#ollama-monitor').click();
+  const model={id:'qwen3:8b',name:'qwen3:8b',key:'qwen3:8b',size:8*1024**3,size_kind:'memory',gpu_size:4*1024**3,context:32768,quantization:'Q4',expires_at:null,brand:'qwen'};
+  await page.evaluate(model=>{
+    settingsFixture.trayOptions=[{id:'ollama-local',label:'Ollama',status:'ok'},{id:'ollama-local:model:qwen3:8b',label:'qwen3:8b',status:'ok'}];
+    settingsFixture.providerRows=[{id:'ollama-local',name:'Ollama',enabled:true,snap:{status:'ok'}},{id:'ollama-local:model:qwen3:8b',name:'qwen3:8b',enabled:true,snap:{status:'ok',local_model:model,source_provider_id:'ollama-local'}}];
+    settingsFixture.emit('providers',settingsFixture.providerRows);
+  },model);
+  await page.locator('#tab-accounts').click();
+  await expect(page.locator('[data-account="ollama-local:model:qwen3:8b"]')).toContainText('4 GB VRAM · via Ollama');
+  await page.locator('[data-account="ollama-local:model:qwen3:8b"] [data-np]').click();
+  await expect(page.locator('[data-account="ollama-local:model:qwen3:8b"]')).toContainText('Hidden from the notch · Loaded in Ollama');
+  await expect(page.locator('[data-account="ollama-local"] [data-np]')).toHaveAttribute('aria-checked','true');
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(call=>call.cmd==='set_provider_enabled').at(-1).args)).toEqual({id:'ollama-local:model:qwen3:8b',value:false});
+});
+
+test('Ollama 速度与思考开关只在连接后可用，持久化失败回滚并显示真实 relay 状态',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-ollama').click();
+  await expect(page.locator('#ollama-metrics')).toBeDisabled();
+  await page.locator('#ollama-monitor').click();
+  await expect(page.locator('#ollama-metrics')).toBeEnabled();
+  await page.evaluate(()=>{settingsFixture.failLocal=true;});
+  await page.locator('#ollama-metrics').click();
+  await expect(page.locator('#strip')).toContainText('fixture local settings save refused');
+  await expect(page.locator('#ollama-metrics')).toHaveAttribute('aria-checked','false');
+  await page.evaluate(()=>{settingsFixture.failLocal=false;});
+  await page.locator('#ollama-metrics').click();
+  await expect(page.locator('#ollama-metrics')).toHaveAttribute('aria-checked','true');
+  await expect(page.locator('#ollama-relay')).toContainText('Listening at http://127.0.0.1:11435');
+  await expect(page.locator('#ollama-relay')).toContainText('1 model(s)');
+  await expect(page.locator('#ollama-relay code')).toHaveText('OLLAMA_HOST=http://127.0.0.1:11435 ollama');
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='set_local_runtime_settings').at(-1).args.prefs.ollama_metrics_enabled)).toBe(true);
+});
+
+test('LM Studio token 只通过自有凭据库保存移除，失败保留输入与旧状态',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-lmstudio').click();
+  await expect(page.locator('#lmstudio-token-hint')).toContainText('Only needed when LM Studio');
+  await expect(page.locator('#lmstudio-token-remove')).toBeHidden();
+  await page.locator('#lmstudio-token').fill('fixture-token');
+  await page.evaluate(()=>{settingsFixture.failLMToken=true;});
+  await page.locator('#lmstudio-token-save').click();
+  await expect(page.locator('#strip')).toContainText('fixture token vault refused');
+  await expect(page.locator('#lmstudio-token')).toHaveValue('fixture-token');
+  await page.evaluate(()=>{settingsFixture.failLMToken=false;});
+  await page.locator('#lmstudio-token-save').click();
+  await expect(page.locator('#lmstudio-token')).toHaveValue('');
+  await expect(page.locator('#lmstudio-token-remove')).toBeVisible();
+  await expect(page.locator('#lmstudio-token-hint')).toContainText('A token is stored');
+  await page.locator('#lmstudio-token-remove').click();
+  await expect(page.locator('#lmstudio-token-remove')).toBeHidden();
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(call=>call.cmd==='save_provider_secret'&&call.args.id==='lmstudio-api-token').map(call=>call.args.secret))).toEqual(['fixture-token','fixture-token','']);
 });
 
 test('外观设置真实调用保存，失败时显示原持久值', async ({page}) => {

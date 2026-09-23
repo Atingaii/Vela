@@ -42,6 +42,8 @@ pub struct Activity {
     pub waiting_for: Option<String>,
     /// ms epoch
     pub since: u64,
+    #[serde(default)]
+    pub queued: u32,
 }
 
 fn now_ms() -> u64 {
@@ -166,46 +168,210 @@ fn open_ro(path: &std::path::Path) -> Option<rusqlite::Connection> {
     .ok()
 }
 
-fn cursor_activity(ctx: &mut Ctx) -> Vec<Activity> {
-    ctx.cursor.refresh(|conn| {
-        let mut stmt = conn.prepare("SELECT value FROM composerHeaders WHERE isArchived = 0 ORDER BY recency DESC LIMIT 40").ok()?;
-        let rows = stmt.query_map([], |r| r.get::<_, String>(0)).ok()?;
-        let mut out = Vec::new();
-        for json in rows.flatten() {
-            let Ok(v) = serde_json::from_str::<serde_json::Value>(&json) else { continue };
-            let Some(composer_id) = v.get("composerId").and_then(|x| x.as_str()) else { continue; };
-            let blocked = v.get("hasBlockingPendingActions").and_then(|x| x.as_bool()) == Some(true)
-                || v.get("hasPendingPlan").and_then(|x| x.as_bool()) == Some(true);
-            let running = v.get("unfinishedRunAt").and_then(|x| x.as_f64());
-            let state = if blocked {
-                "waiting"
-            } else if running.is_some() {
-                "busy"
-            } else {
-                continue; // forty idle past conversations are not forty things happening now
-            };
-            let since = running
-                .or_else(|| v.get("lastUpdatedAt").and_then(|x| x.as_f64()))
-                .or_else(|| v.get("createdAt").and_then(|x| x.as_f64()))
-                .map(|ms| ms as u64)
-                .unwrap_or_else(now_ms);
-            out.push(Activity {
-                id: format!("cursor-{composer_id}"),
-                provider: "cursor".into(),
-                state: state.into(),
-                name: v.get("name").and_then(|x| x.as_str()).unwrap_or("Untitled chat").to_string(),
-                detail: if blocked {
-                    "needs your input".into()
-                } else {
-                    v.get("subtitle").and_then(|x| x.as_str()).unwrap_or("Working").to_string()
-                },
-                waiting_for: blocked.then(|| "needs your input".into()),
-                since,
-            });
+const CURSOR_STALE_MS: u64 = 15 * 60_000;
+
+#[cfg(target_os = "macos")]
+fn cursor_launch_ms() -> Option<u64> {
+    use objc2_app_kit::NSWorkspace;
+    let apps = NSWorkspace::sharedWorkspace().runningApplications();
+    let cursor = apps
+        .iter()
+        .find(|app| {
+            app.bundleIdentifier()
+                .is_some_and(|bundle| bundle.to_string() == "com.todesktop.230313mzl4w4u92")
+        })
+        .or_else(|| {
+            apps.iter().find(|app| {
+                app.bundleURL()
+                    .and_then(|url| url.lastPathComponent())
+                    .is_some_and(|name| name.to_string() == "Cursor.app")
+            })
+        })?;
+    // NSRunningApplication often has no launchDate. Swift uses distantPast
+    // in that case, preserving only the 15-minute staleness gate.
+    Some(
+        cursor
+            .launchDate()
+            .map(|date| (date.timeIntervalSince1970() * 1000.0).max(0.0) as u64)
+            .unwrap_or(0),
+    )
+}
+
+#[cfg(windows)]
+fn cursor_launch_ms() -> Option<u64> {
+    use windows::Win32::{
+        Foundation::CloseHandle,
+        System::Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+            TH32CS_SNAPPROCESS,
+        },
+    };
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).ok()? };
+    let mut entry = PROCESSENTRY32W::default();
+    entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+    let mut launched = None;
+    let mut current = unsafe { Process32FirstW(snapshot, &mut entry).is_ok() };
+    while current {
+        let len = entry
+            .szExeFile
+            .iter()
+            .position(|character| *character == 0)
+            .unwrap_or(entry.szExeFile.len());
+        if String::from_utf16_lossy(&entry.szExeFile[..len]).eq_ignore_ascii_case("Cursor.exe") {
+            launched =
+                crate::claude_session_monitor::process_start_ms(entry.th32ProcessID).or(Some(0));
+            break;
         }
-        out.sort_by_key(|a| std::cmp::Reverse(a.since));
-        Some(out)
+        current = unsafe { Process32NextW(snapshot, &mut entry).is_ok() };
+    }
+    let _ = unsafe { CloseHandle(snapshot) };
+    launched
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
+fn cursor_launch_ms() -> Option<u64> {
+    None
+}
+
+fn cursor_flag(value: Option<&serde_json::Value>) -> bool {
+    match value {
+        Some(serde_json::Value::Bool(value)) => *value,
+        Some(serde_json::Value::Number(value)) => value.as_i64().is_some_and(|number| number != 0),
+        Some(serde_json::Value::String(value)) => {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes"
+            )
+        }
+        _ => false,
+    }
+}
+
+fn cursor_date(value: Option<&serde_json::Value>) -> Option<u64> {
+    value?
+        .as_f64()
+        .filter(|date| date.is_finite() && *date >= 0.0)
+        .map(|date| date as u64)
+}
+
+fn cursor_session(
+    json: &str,
+    is_subagent: bool,
+    launched_at: Option<u64>,
+    now: u64,
+) -> Option<Activity> {
+    let head: serde_json::Value = serde_json::from_str(json).ok()?;
+    let id = head.get("composerId")?.as_str()?;
+    if is_subagent || cursor_flag(head.get("isSubagent")) {
+        return None;
+    }
+    let blocked = cursor_flag(head.get("hasBlockingPendingActions"))
+        || cursor_flag(head.get("hasPendingPlan"));
+    let run_start = cursor_date(head.get("unfinishedRunAt"));
+    let last_write = cursor_date(head.get("conversationCheckpointLastUpdatedAt"))
+        .or_else(|| cursor_date(head.get("lastUpdatedAt")));
+    let created = cursor_date(head.get("createdAt"));
+    let touched = last_write.or(run_start).or(created);
+    let stamp = last_write.or(run_start);
+    let current_run = match (run_start, launched_at, stamp) {
+        (Some(_), Some(launched), Some(stamp)) => stamp >= launched,
+        _ => false,
+    };
+    let age = stamp.map(|stamp| now.saturating_sub(stamp));
+    let running = current_run && age.is_some_and(|age| age <= CURSOR_STALE_MS);
+    let success = current_run
+        && age.is_some_and(|age| age > CURSOR_STALE_MS && age <= CURSOR_STALE_MS + 9_000);
+    let finished = current_run
+        && age.is_some_and(|age| age > CURSOR_STALE_MS + 9_000 && age <= CURSOR_STALE_MS + 15_000);
+    let current_wait = if !blocked {
+        false
+    } else {
+        let recently_touched =
+            touched.is_some_and(|touched| now.saturating_sub(touched) <= CURSOR_STALE_MS);
+        match (launched_at, touched) {
+            (Some(launched), Some(touched)) => touched >= launched || recently_touched,
+            (Some(_), None) => true,
+            (None, _) => recently_touched,
+        }
+    };
+    let state = if current_wait {
+        "waiting"
+    } else if running {
+        "busy"
+    } else if success {
+        "success"
+    } else if finished {
+        "idle"
+    } else {
+        return None;
+    };
+    Some(Activity {
+        id: format!("cursor.{id}"),
+        provider: "cursor".into(),
+        state: state.into(),
+        name: head
+            .get("name")
+            .and_then(|value| value.as_str())
+            .unwrap_or("Untitled chat")
+            .into(),
+        detail: head
+            .get("subtitle")
+            .and_then(|value| value.as_str())
+            .unwrap_or("Cursor")
+            .into(),
+        waiting_for: current_wait.then(|| "needs your input".into()),
+        since: (if running { run_start } else { None })
+            .or(last_write)
+            .or(created)
+            .unwrap_or(now),
+        queued: 0,
     })
+}
+
+fn cursor_activity(ctx: &mut Ctx) -> Vec<Activity> {
+    // The connection remains open; the query and state conversion run on each
+    // tick because an unchanged row crosses the stale/success/idle boundaries.
+    if ctx.cursor.conn.is_none() {
+        ctx.cursor.conn = open_ro(&ctx.cursor.path);
+    }
+    let Some(conn) = ctx.cursor.conn.as_ref() else {
+        return Vec::new();
+    };
+    let launched = cursor_launch_ms();
+    let now = now_ms();
+    let rows = (|| {
+        let mut stmt = conn.prepare("SELECT value, isSubagent FROM composerHeaders WHERE isArchived = 0 ORDER BY recency DESC LIMIT 40").ok()?;
+        let rows = stmt
+            .query_map([], |row| {
+                let json: String = row.get(0)?;
+                let flag: rusqlite::types::Value = row.get(1)?;
+                Ok((json, flag))
+            })
+            .ok()?;
+        let mut out = Vec::new();
+        for row in rows.flatten() {
+            let subagent = match row.1 {
+                rusqlite::types::Value::Integer(value) => value != 0,
+                rusqlite::types::Value::Text(value) => matches!(
+                    value.trim().to_ascii_lowercase().as_str(),
+                    "1" | "true" | "yes"
+                ),
+                _ => false,
+            };
+            if let Some(activity) = cursor_session(&row.0, subagent, launched, now) {
+                out.push(activity);
+            }
+        }
+        out.sort_by_key(|activity| std::cmp::Reverse(activity.since));
+        Some(out)
+    })();
+    match rows {
+        Some(rows) => rows,
+        None => {
+            ctx.cursor.conn = None;
+            Vec::new()
+        }
+    }
 }
 
 // ---------------- Codex ----------------
@@ -341,6 +507,7 @@ fn codex_turns_in_progress(ctx: &mut Ctx) -> Vec<Activity> {
                 detail: if waiting { "needs your input".into() } else { "Working".into() },
                 waiting_for: waiting.then(|| "needs your input".into()),
                 since: started_ms,
+                queued: 0,
             });
         }
         Some(out)
@@ -396,6 +563,7 @@ fn codex_activity(ctx: &mut Ctx) -> Vec<Activity> {
                     detail: "Working".into(),
                     waiting_for: None,
                     since: at,
+                    queued: 0,
                 }];
             }
         }
@@ -566,6 +734,7 @@ fn claude_activity() -> Vec<Activity> {
             detail: "Streaming (network)".into(),
             waiting_for: None,
             since: last,
+            queued: 0,
         }]
     } else {
         vec![]
@@ -585,14 +754,12 @@ fn antigravity_activity_in(roots: &[std::path::PathBuf]) -> Vec<Activity> {
 
 #[derive(Clone, Copy, Default)]
 pub struct Presence {
-    cursor: bool,
     codex: bool,
     gemini: bool,
 }
 
 fn presence() -> Presence {
     Presence {
-        cursor: crate::cursor::present(),
         codex: crate::codex::present(),
         gemini: crate::antigravity::present(),
     }
@@ -679,31 +846,58 @@ pub fn start(app: AppHandle) {
         let mut ctx = Ctx::new();
         let mut last: Vec<Activity> = Vec::new();
         let mut pres = presence();
-        let mut profiles = Vec::new();
+        let profiles = crate::providers::profiles::at_launch(&dirs::home_dir().unwrap_or_default());
         let mut contexts = std::collections::BTreeMap::new();
         let mut tick: u32 = 0;
         loop {
             // Presence checks (finding the exe, reading credentials) once a minute are plenty; the 2 s tick does only stats and a query
             if tick.is_multiple_of(30) {
                 pres = presence();
-                profiles =
-                    crate::providers::profiles::discover(&dirs::home_dir().unwrap_or_default());
-                contexts.retain(|id, _| profiles.iter().any(|p| &p.id == id));
             }
             tick = tick.wrapping_add(1);
-            let disabled = app
-                .state::<AppState>()
-                .cfg
-                .lock()
-                .unwrap()
-                .providers
-                .disabled
-                .clone();
+            let (disabled, disabled_models) = {
+                let state = app.state::<AppState>();
+                let cfg = state.cfg.lock().unwrap();
+                (
+                    cfg.providers.disabled.clone(),
+                    cfg.local_runtime.disabled_models.clone(),
+                )
+            };
+            let local_rows = if disabled.contains("ollama-local") && disabled.contains("lmstudio") {
+                Vec::new()
+            } else {
+                crate::local_runtime::activity_rows(&disabled_models)
+                    .into_iter()
+                    .filter(|row| {
+                        row.provider
+                            .split_once(":model:")
+                            .is_some_and(|(runtime, _)| !disabled.contains(runtime))
+                    })
+                    .collect::<Vec<_>>()
+            };
+            let generations: std::collections::BTreeMap<String, u64> = [
+                "claude",
+                "cursor",
+                "codex",
+                "gemini",
+                "grok",
+                "gemini-api",
+                "kimi",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .chain(profiles.iter().map(|p| p.id.clone()))
+            .chain(local_rows.iter().map(|row| row.provider.clone()))
+            .map(|id| {
+                let generation = crate::providers::generation(&id);
+                (id, generation)
+            })
+            .collect();
             let mut found = Vec::new();
             if !disabled.contains("claude") {
                 found.extend(claude_activity());
             }
-            if pres.cursor && !disabled.contains("cursor") {
+            if !disabled.contains("cursor") {
                 found.extend(cursor_activity(&mut ctx));
             }
             if pres.codex && !disabled.contains("codex") {
@@ -712,31 +906,63 @@ pub fn start(app: AppHandle) {
             if pres.gemini && !disabled.contains("gemini") {
                 found.extend(antigravity_activity());
             }
+            let now = now_ms();
+            if !disabled.contains("grok") {
+                found.extend(crate::grok_activity::read(now));
+            }
+            if !disabled.contains("gemini-api") {
+                found.extend(crate::gemini_api_activity::read(now));
+            }
+            if !disabled.contains("kimi") {
+                found.extend(crate::kimi_activity::read(now));
+            }
+            found.extend(local_rows);
             for profile in profiles.iter().filter(|p| !disabled.contains(&p.id)) {
                 found.extend(profile_activity(profile, &mut contexts));
             }
             contexts.retain(|id, _| !disabled.contains(id));
-            if found != last {
-                // Log the first 20 state changes (with the Codex raw material) so thresholds can be calibrated
-                static LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-                if LOGGED.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 20 {
-                    crate::applog(&format!(
-                        "activity: {:?} | {}",
-                        found
-                            .iter()
-                            .map(|a| format!("{}:{}", a.provider, a.state))
-                            .collect::<Vec<_>>(),
-                        probe()
-                    ));
+            crate::providers::with_lifecycle(|current| {
+                let (disabled, disabled_models) = {
+                    let state = app.state::<AppState>();
+                    let cfg = state.cfg.lock().unwrap();
+                    (
+                        cfg.providers.disabled.clone(),
+                        cfg.local_runtime.disabled_models.clone(),
+                    )
+                };
+                found.retain(|row| {
+                    !disabled.contains(&row.provider)
+                        && !disabled_models.contains(&row.provider)
+                        && row
+                            .provider
+                            .split_once(":model:")
+                            .map_or(true, |(runtime, _)| !disabled.contains(runtime))
+                        && generations.get(&row.provider).copied()
+                            == Some(current.get(&row.provider).copied().unwrap_or(0))
+                });
+                if found != last {
+                    // Log the first 20 state changes (with the Codex raw material) so thresholds can be calibrated
+                    static LOGGED: std::sync::atomic::AtomicU32 =
+                        std::sync::atomic::AtomicU32::new(0);
+                    if LOGGED.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 20 {
+                        crate::applog(&format!(
+                            "activity: {:?} | {}",
+                            found
+                                .iter()
+                                .map(|a| format!("{}:{}", a.provider, a.state))
+                                .collect::<Vec<_>>(),
+                            probe()
+                        ));
+                    }
+                    last = found.clone();
+                    {
+                        let st = app.state::<AppState>();
+                        *st.activity.lock().unwrap() = found.clone();
+                    }
+                    crate::notifications::observe(&app);
+                    let _ = app.emit("activity", &found);
                 }
-                last = found.clone();
-                {
-                    let st = app.state::<AppState>();
-                    *st.activity.lock().unwrap() = found.clone();
-                }
-                crate::notifications::observe(&app);
-                let _ = app.emit("activity", &found);
-            }
+            });
             std::thread::sleep(INTERVAL);
         }
     });
@@ -745,6 +971,50 @@ pub fn start(app: AppHandle) {
 #[cfg(test)]
 mod account_tests {
     use super::*;
+
+    #[test]
+    fn cursor_run_retires_through_success_and_idle_without_a_database_write() {
+        let start = 1_000_000u64;
+        let header = serde_json::json!({
+            "composerId":"one", "unfinishedRunAt":start,
+            "conversationCheckpointLastUpdatedAt":start,
+            "name":"A task"
+        })
+        .to_string();
+        let state = |now| cursor_session(&header, false, Some(start - 1), now).map(|row| row.state);
+        assert_eq!(state(start + 1).as_deref(), Some("busy"));
+        assert_eq!(
+            state(start + CURSOR_STALE_MS + 1).as_deref(),
+            Some("success")
+        );
+        assert_eq!(
+            state(start + CURSOR_STALE_MS + 10_000).as_deref(),
+            Some("idle")
+        );
+        assert_eq!(state(start + CURSOR_STALE_MS + 16_000), None);
+        assert_eq!(cursor_session(&header, false, None, start + 1), None);
+        assert_eq!(
+            cursor_session(&header, false, Some(start + 1), start + 2),
+            None
+        );
+    }
+
+    #[test]
+    fn cursor_wait_survives_same_launch_but_subagents_never_appear() {
+        let start = 1_000_000u64;
+        let header = serde_json::json!({
+            "composerId":"approval", "hasPendingPlan":true,
+            "createdAt":start, "lastUpdatedAt":start
+        })
+        .to_string();
+        assert_eq!(
+            cursor_session(&header, false, Some(start - 1), start + 8 * 60 * 60_000)
+                .map(|row| row.state),
+            Some("waiting".into())
+        );
+        assert!(cursor_session(&header, false, None, start + 8 * 60 * 60_000).is_none());
+        assert!(cursor_session(&header, true, Some(0), start + 1).is_none());
+    }
     fn codex_fixture(home: &std::path::Path, title: &str) {
         std::fs::create_dir_all(home).unwrap();
         let conn = rusqlite::Connection::open(home.join("thread_history_1.sqlite")).unwrap();

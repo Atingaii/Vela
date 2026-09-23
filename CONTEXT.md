@@ -19,3 +19,5 @@ Velo 在桌面边缘呈现 AI 工具的用量与会话状态，并提供跨 CLI 
 ## 发行与身份
 
 公开品牌和仓库为 Velo，官网 https://velo.codes。配置、凭据库与 hook 继续使用既有内部标识以兼容已有数据；见 [ADR 0007](docs/adr/0007-velo-preview-distribution.md)。安装包通过 GitHub Actions 的安装启动 gate 后发布预览版；官网使用 Cloudflare Pages 的静态站点。
+
+自动更新当前仍处于占位公钥阶段。正在按 [ADR 0008](docs/adr/0008-signed-preview-updates.md) 接入签名更新包与独立预览索引；完成前不把更新入口视为可用能力。

@@ -31,12 +31,21 @@ tauri-plugin-updater = { version = "2", default-features = false, features = ["n
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tiny_http = "0.12"
+hyper = { version = "1", features = ["server", "client", "http1"] }
+hyper-util = { version = "0.1", features = ["client", "client-legacy", "http1", "tokio"] }
+http-body-util = "0.1"
+tokio = { version = "1", features = ["net", "time", "io-util", "rt", "sync", "macros"] }
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+bytes = "1"
 dirs = "5"
 notify = "6"
 ureq = { version = "2", features = ["json", "native-tls"] } # native-tls: the Antigravity local bridge's self-signed certificate is accepted for 127.0.0.1 only
 native-tls = "0.2"
 png = "0.17" # application icon → PNG (provider marks taken from the installed app's resources)
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+chrono-tz = "0.10"
+zstd = "0.13"
 # Cursor's credential lives in state.vscdb (SQLite); bundled = compile the SQLite C sources with the crate, which adds 1–2 minutes to the first build
 rusqlite = { version = "0.32", features = ["bundled"] }
 
@@ -48,14 +57,21 @@ libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3"
+security-framework-sys = "2"
+core-foundation = "0.10"
+objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSRunningApplication", "NSWorkspace"] }
 objc2-foundation = "0.3"
+objc2-core-graphics = { version = "0.3", default-features = false, features = ["std", "CGPath", "CGContext"] }
+objc2-quartz-core = { version = "0.3", default-features = false, features = ["std", "CALayer", "CAShapeLayer", "objc2-core-foundation", "objc2-core-graphics"] }
+plist = "1.10"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",
   "Win32_System_Diagnostics_ToolHelp",
+  "Win32_Security",
   "Win32_Security_Credentials",
   "Win32_Graphics_Gdi",
   "Win32_UI_Input_KeyboardAndMouse",

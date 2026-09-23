@@ -103,7 +103,13 @@ pub fn reset_text(resets_at: u64, now: u64, lang: &str) -> String {
     if days < 7 {
         let (d, h) = (days, hours % 24);
         return match lang {
-            "pt-BR" => if d == 1 { format!("Renova em {d} dia {h}h") } else { format!("Renova em {d} dias {h}h") },
+            "pt-BR" => {
+                if d == 1 {
+                    format!("Renova em {d} dia {h}h")
+                } else {
+                    format!("Renova em {d} dias {h}h")
+                }
+            }
             "ru" => format!("Сброс через {d} дн. {h} ч"),
             "zh" => format!("{d} 天 {h} 小时后重置"),
             "zh-Hant" => format!("{d} 天 {h} 小時後重置"),
@@ -242,8 +248,21 @@ pub fn label(name: &str, lang: &str) -> String {
 ///
 /// The fraction rather than a rounded percentage: Antigravity publishes lanes like 0.5 %, and a
 /// header reading 1 % above a line reading 0.5 % is the app contradicting itself.
-pub fn header(provider: &str, reading: Option<f64>, stale_since: Option<u64>, now: u64, lang: &str) -> String {
-    let value = reading.map(|f| format!("{}%", pct(f))).unwrap_or_else(|| "—".into());
+pub fn header(
+    provider: &str,
+    reading: Option<f64>,
+    stale_since: Option<u64>,
+    now: u64,
+    lang: &str,
+) -> String {
+    let value = reading
+        .map(|f| format!("{}%", pct(f)))
+        .unwrap_or_else(|| "—".into());
+    header_value(provider, &value, stale_since, now, lang)
+}
+
+/// The source cell can lead with a formatted amount even when a denominator exists.
+pub fn header_value(provider: &str, value: &str, stale_since: Option<u64>, now: u64, lang: &str) -> String {
     // Under a minute is not worth saying. A provider that re-reads while still flagged stale would
     // otherwise head every line with "0m ago", which reads as a fault rather than as an age.
     match stale_since.filter(|since| now.saturating_sub(*since) >= 60_000) {
@@ -252,19 +271,59 @@ pub fn header(provider: &str, reading: Option<f64>, stale_since: Option<u64>, no
     }
 }
 
+pub fn headline_value(w: Option<&LimitWindow>) -> String {
+    let Some(w) = w else { return "—".into() };
+    if w.prefers_used_text {
+        if let Some(text) = &w.used_text { return text.clone(); }
+    }
+    if let Some(fraction) = w.fraction() { return format!("{}%", pct(fraction)); }
+    if let Some(remaining) = w.remaining { return compact(remaining); }
+    if let Some(text) = &w.used_text { return text.clone(); }
+    if let Some(used) = w.used_count.or(w.count) { return compact(used); }
+    "—".into()
+}
+
+fn compact(value: i64) -> String {
+    let magnitude = value.unsigned_abs();
+    if magnitude < 10_000 { value.to_string() }
+    else if magnitude < 1_000_000 { format!("{}k", value / 1_000) }
+    else { format!("{:.1}M", value as f64 / 1_000_000.) }
+}
+
 /// "Current session: 61% Used · 39% left · Resets in 59 min". A window with no denominator says how
 /// many requests there were instead, because a percentage of an unpublished limit is a guess.
 pub fn window_line(w: &LimitWindow, now: u64, lang: &str) -> String {
     let name = label(&w.label, lang);
-    if let Some(count) = w.count {
-        return format!("{name}: ~{count}");
-    }
-    let mut line = format!("{name}: {}", used_left(w, lang));
+    let summary = window_summary(w, lang);
+    let mut line = format!("{name}: {summary}");
     if let Some(at) = w.resets_at {
         line.push_str(" · ");
         line.push_str(&reset_text(at, now, lang));
     }
     line
+}
+
+pub fn window_summary(w: &LimitWindow, lang: &str) -> String {
+    if w.fraction().is_some() { return used_left(w, lang); }
+    if let Some(remaining) = w.remaining {
+        let number = compact(remaining);
+        return match lang {
+            "zh" => format!("剩余 {number}"), "zh-Hant" => format!("剩餘 {number}"),
+            "ja" => format!("残り {number}"), "ko" => format!("{number} 남음"),
+            _ => format!("{number} left"),
+        };
+    }
+    if let Some(text) = &w.used_text { return text.clone(); }
+    if let Some(used) = w.used_count {
+        let number = compact(used);
+        return match lang {
+            "zh" => format!("已用 {number}"), "zh-Hant" => format!("已用 {number}"),
+            "ja" => format!("{number} 使用"), "ko" => format!("{number} 사용"),
+            _ => format!("{number} used"),
+        };
+    }
+    if let Some(count) = w.count { return format!("~{count}"); }
+    match lang { "zh" => "无读数", "zh-Hant" => "無讀數", "ja" => "読取値なし", "ko" => "측정값 없음", _ => "No reading" }.into()
 }
 
 /// Every line one provider contributes: its header, then a line per window it publishes.
@@ -275,14 +334,19 @@ pub fn provider_lines(snap: &UsageSnapshot, now: u64, lang: &str) -> Vec<String>
             false => vec![snap.note.clone()],
         };
     }
-    snap.windows.iter().map(|w| window_line(w, now, lang)).collect()
+    snap.windows
+        .iter()
+        .map(|w| window_line(w, now, lang))
+        .collect()
 }
 
 /// When the reading is old enough to say so: the page draws the same cell dimmed on the same rule.
 /// Fifteen minutes, matching `staleOf` in notch.html and the Mac's `UsageStore.staleAfter`.
 pub fn stale_since(snap: &UsageSnapshot, now: u64) -> Option<u64> {
     let old = snap.fetched_at > 0 && now.saturating_sub(snap.fetched_at) > 15 * 60 * 1000;
-    (snap.status == "stale" || old).then_some(snap.fetched_at).filter(|t| *t > 0)
+    (snap.status == "stale" || old)
+        .then_some(snap.fetched_at)
+        .filter(|t| *t > 0)
 }
 
 /// The date and time as this machine writes them, so "Resets Thu, 4:59 AM" follows the same region
@@ -293,13 +357,28 @@ fn system_datetime(ms: u64) -> String {
     use windows::Win32::Globalization::{
         GetDateFormatEx, GetTimeFormatEx, DATE_SHORTDATE, TIME_NOSECONDS,
     };
-    let Some(st) = local_systemtime(ms) else { return String::new() };
+    let Some(st) = local_systemtime(ms) else {
+        return String::new();
+    };
     let mut date = [0u16; 80];
     let mut time = [0u16; 80];
     let (d, t) = unsafe {
         (
-            GetDateFormatEx(PCWSTR::null(), DATE_SHORTDATE, Some(&st), PCWSTR::null(), Some(&mut date), PCWSTR::null()),
-            GetTimeFormatEx(PCWSTR::null(), TIME_NOSECONDS, Some(&st), PCWSTR::null(), Some(&mut time)),
+            GetDateFormatEx(
+                PCWSTR::null(),
+                DATE_SHORTDATE,
+                Some(&st),
+                PCWSTR::null(),
+                Some(&mut date),
+                PCWSTR::null(),
+            ),
+            GetTimeFormatEx(
+                PCWSTR::null(),
+                TIME_NOSECONDS,
+                Some(&st),
+                PCWSTR::null(),
+                Some(&mut time),
+            ),
         )
     };
     if d <= 0 || t <= 0 {
@@ -337,7 +416,13 @@ mod tests {
     use super::*;
 
     fn window(label: &str, used: f64, resets_at: Option<u64>) -> LimitWindow {
-        LimitWindow { id: "w".into(), label: label.into(), used, resets_at, ..Default::default() }
+        LimitWindow {
+            id: "w".into(),
+            label: label.into(),
+            used,
+            resets_at,
+            ..Default::default()
+        }
     }
 
     const MIN: u64 = 60 * 1000;
@@ -383,8 +468,14 @@ mod tests {
     fn a_reset_is_minutes_then_hours_then_days() {
         assert_eq!(reset_text(59 * MIN, 0, "en"), "Resets in 59 min");
         assert_eq!(reset_text(135 * MIN, 0, "en"), "Resets in 2h 15m");
-        assert_eq!(reset_text(3 * 1440 * MIN + 4 * 60 * MIN, 0, "en"), "Resets in 3 Days 4h");
-        assert_eq!(reset_text(1440 * MIN + 60 * MIN, 0, "en"), "Resets in 1 Day 1h");
+        assert_eq!(
+            reset_text(3 * 1440 * MIN + 4 * 60 * MIN, 0, "en"),
+            "Resets in 3 Days 4h"
+        );
+        assert_eq!(
+            reset_text(1440 * MIN + 60 * MIN, 0, "en"),
+            "Resets in 1 Day 1h"
+        );
         assert_eq!(reset_text(0, MIN, "en"), "Resetting…");
     }
 
@@ -396,49 +487,105 @@ mod tests {
     }
 
     #[test]
+    fn custom_amounts_keep_their_units_without_a_denominator() {
+        let mut w = window("API usage", 0.0, None);
+        w.has_fraction = Some(false);
+        w.used_text = Some("$7.25".into());
+        w.prefers_used_text = true;
+        assert_eq!(headline_value(Some(&w)), "$7.25");
+        assert_eq!(window_line(&w, 0, "en"), "API usage: $7.25");
+        w.used_text = Some("2.5M tokens".into());
+        assert_eq!(headline_value(Some(&w)), "2.5M tokens");
+    }
+
+    #[test]
+    fn formatted_amount_can_lead_a_metered_window_without_losing_its_summary() {
+        let mut w = window("API usage", 0.75, None);
+        w.has_fraction = Some(true);
+        w.used_text = Some("$7.25".into());
+        w.prefers_used_text = true;
+        assert_eq!(headline_value(Some(&w)), "$7.25");
+        assert_eq!(window_summary(&w, "en"), "75% Used · 25% left");
+        w.prefers_used_text = false;
+        assert_eq!(headline_value(Some(&w)), "75%");
+    }
+
+    #[test]
     fn a_header_carries_the_age_only_once_the_reading_is_old() {
         assert_eq!(header("Claude", Some(0.61), None, 0, "en"), "Claude — 61%");
-        assert_eq!(header("Claude", Some(0.61), Some(0), 20 * MIN, "en"), "Claude — 61% · 20m ago");
+        assert_eq!(
+            header("Claude", Some(0.61), Some(0), 20 * MIN, "en"),
+            "Claude — 61% · 20m ago"
+        );
         assert_eq!(header("Cursor", None, None, 0, "en"), "Cursor — —");
     }
 
     /// A reading taken seconds ago says nothing about its age, however it is flagged.
     #[test]
     fn an_age_under_a_minute_is_left_unsaid() {
-        assert_eq!(header("Claude", Some(0.07), Some(0), 30_000, "en"), "Claude — 7%");
-        assert_eq!(header("Claude", Some(0.07), Some(0), 90_000, "en"), "Claude — 7% · 1m ago");
+        assert_eq!(
+            header("Claude", Some(0.07), Some(0), 30_000, "en"),
+            "Claude — 7%"
+        );
+        assert_eq!(
+            header("Claude", Some(0.07), Some(0), 90_000, "en"),
+            "Claude — 7% · 1m ago"
+        );
     }
 
     /// Antigravity reports lanes below one percent; rounding the header to 1 % while the line under
     /// it says 0.5 % has the menu disagreeing with itself.
     #[test]
     fn a_header_under_one_percent_keeps_its_tenth() {
-        assert_eq!(header("Antigravity", Some(0.005), None, 0, "en"), "Antigravity — 0.5%");
+        assert_eq!(
+            header("Antigravity", Some(0.005), None, 0, "en"),
+            "Antigravity — 0.5%"
+        );
         let w = window("Weekly Limit", 0.005, None);
-        assert_eq!(window_line(&w, 0, "en"), "Weekly Limit: 0.5% Used · 99.5% left");
+        assert_eq!(
+            window_line(&w, 0, "en"),
+            "Weekly Limit: 0.5% Used · 99.5% left"
+        );
     }
 
     #[test]
     fn korean_readings_include_usage_and_reset_times() {
         let w = window("Current session", 0.61, Some(60 * MIN));
-        assert_eq!(window_line(&w, MIN, "ko"), "현재 세션: 61% 사용 · 39% 남음 · 59분 후 재설정");
+        assert_eq!(
+            window_line(&w, MIN, "ko"),
+            "현재 세션: 61% 사용 · 39% 남음 · 59분 후 재설정"
+        );
         assert_eq!(reset_text(MIN, MIN, "ko"), "재설정 중…");
         assert_eq!(reset_text(136 * MIN, MIN, "ko"), "2시간 15분 후 재설정");
-        assert_eq!(reset_text((3 * 1440 + 4 * 60 + 1) * MIN, MIN, "ko"), "3일 4시간 후 재설정");
+        assert_eq!(
+            reset_text((3 * 1440 + 4 * 60 + 1) * MIN, MIN, "ko"),
+            "3일 4시간 후 재설정"
+        );
         assert_eq!(ago(MIN, 21 * MIN, "ko"), "20분 전");
         assert_eq!(ago(MIN, 121 * MIN, "ko"), "2시간 전");
-        assert_eq!(used_left(&window("", 0.006, None), "ko"), "0.6% 사용 · 99.4% 남음");
+        assert_eq!(
+            used_left(&window("", 0.006, None), "ko"),
+            "0.6% 사용 · 99.4% 남음"
+        );
         assert_eq!(label("A future limit", "ko"), "A future limit");
     }
 
     #[test]
     fn a_fresh_reading_is_not_called_stale() {
-        let fresh = UsageSnapshot { status: "ok".into(), fetched_at: 1, ..Default::default() };
+        let fresh = UsageSnapshot {
+            status: "ok".into(),
+            fetched_at: 1,
+            ..Default::default()
+        };
         assert_eq!(stale_since(&fresh, 2 * MIN), None);
         // Ten minutes is inside the Mac's fifteen: a provider polled at 1 and 5 is not stale here
         assert_eq!(stale_since(&fresh, 10 * MIN), None);
         assert_eq!(stale_since(&fresh, 20 * MIN), Some(1));
-        let flagged = UsageSnapshot { status: "stale".into(), fetched_at: 1, ..Default::default() };
+        let flagged = UsageSnapshot {
+            status: "stale".into(),
+            fetched_at: 1,
+            ..Default::default()
+        };
         assert_eq!(stale_since(&flagged, 2), Some(1));
     }
 
@@ -447,13 +594,27 @@ mod tests {
     #[test]
     fn the_card_and_the_menu_agree_on_window_names() {
         let page = include_str!("../ui/notch.html");
-        for name in ["Current session", "Weekly (all models)", "Weekly (Opus)", "Weekly (model-scoped)",
-                     "Weekly limit", "Monthly limit", "Included usage", "API usage"] {
-            assert!(page.contains(&format!("'{name}'")), "notch.html no longer names {name:?}");
+        for name in [
+            "Current session",
+            "Weekly (all models)",
+            "Weekly (Opus)",
+            "Weekly (model-scoped)",
+            "Weekly limit",
+            "Monthly limit",
+            "Included usage",
+            "API usage",
+        ] {
+            assert!(
+                page.contains(&format!("'{name}'")),
+                "notch.html no longer names {name:?}"
+            );
             assert_ne!(label(name, "ru"), name, "{name:?} lost its Russian here");
             let korean = label(name, "ko");
             assert_ne!(korean, name, "{name:?} lost its Korean here");
-            assert!(page.contains(&format!("'{name}':'{korean}'")), "Korean card and tray disagree on {name:?}");
+            assert!(
+                page.contains(&format!("'{name}':'{korean}'")),
+                "Korean card and tray disagree on {name:?}"
+            );
         }
     }
 }

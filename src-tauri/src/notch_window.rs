@@ -18,5 +18,25 @@ pub fn configure(window: &tauri::WebviewWindow) {
     native.setHasShadow(false);
 }
 
+/// Match Swift NotchSurfaceStyle.panelAppearance. An opaque black surface is always dark;
+/// regular native glass (once its shapes are backed) should inherit the Mac's appearance.
+#[cfg(target_os = "macos")]
+pub fn apply_appearance(window: &tauri::WebviewWindow, inherit_system: bool) {
+    use objc2_app_kit::{
+        NSAppearance, NSAppearanceCustomization, NSAppearanceNameDarkAqua, NSWindow,
+    };
+    let Ok(ptr) = window.ns_window() else { return };
+    let native = unsafe { &*ptr.cast::<NSWindow>() };
+    let appearance = if inherit_system {
+        None
+    } else {
+        NSAppearance::appearanceNamed(unsafe { NSAppearanceNameDarkAqua })
+    };
+    native.setAppearance(appearance.as_deref());
+}
+
 #[cfg(not(target_os = "macos"))]
 pub fn configure(_: &tauri::WebviewWindow) {}
+
+#[cfg(not(target_os = "macos"))]
+pub fn apply_appearance(_: &tauri::WebviewWindow, _: bool) {}

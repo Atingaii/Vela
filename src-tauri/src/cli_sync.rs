@@ -655,7 +655,9 @@ mod tests {
         let alias = t.path().join("alias");
         std::os::unix::fs::symlink(&root, &alias).unwrap();
         let request = Request {
-            kind: "skill".into(), id: "review".into(), targets: vec!["claude".into()],
+            kind: "skill".into(),
+            id: "review".into(),
+            targets: vec!["claude".into()],
         };
         assert!(build(&alias, &library(), &request, |_| panic!()).is_ok());
         let outside = t.path().join("outside");

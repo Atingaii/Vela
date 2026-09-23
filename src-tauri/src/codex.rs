@@ -29,7 +29,10 @@
 //! Credentials are borrowed, never managed: the numbers come from Codex's own sign-in and Codex's
 //! own endpoint. No sign-in and no session history at all means absent (no cell is shown).
 
-use crate::usage::{LimitWindow, UsageSnapshot};
+use crate::usage::{
+    CodexDailyBucket, CodexResetCredit, CodexResetCredits, CodexTokenSummary, CodexTokenUsage,
+    LimitWindow, UsageSnapshot,
+};
 use crate::AppState;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -40,6 +43,10 @@ const POLL_SECS: u64 = 300; // Preserve the upstream cadence; a tray refresh int
 const TAIL_BYTES: u64 = 256 * 1024;
 const CURRENT_FOR_MS: u64 = 5 * 60 * 1000;
 const ENDPOINT: &str = "https://chatgpt.com/backend-api/wham/usage";
+const PROFILE_ENDPOINT: &str = "https://chatgpt.com/backend-api/wham/profiles/me";
+const RESET_CREDITS_ENDPOINT: &str =
+    "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits";
+const MAX_RESPONSE_BYTES: u64 = 2 * 1024 * 1024;
 const BACKOFF_MIN_SECS: u64 = 60; // wait at least this long after a 429; Retry-After only raises it
 
 static REFRESH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -181,6 +188,30 @@ fn jwt_claims(token: &str) -> Option<serde_json::Value> {
     serde_json::from_slice(&raw).ok()
 }
 
+/// Identity labels from Codex's local auth file; no network or credential
+/// prompt, and the bearer token is neither returned nor logged.
+pub(crate) fn account_identity(home: &std::path::Path) -> Option<(Option<String>, Option<String>)> {
+    use std::io::Read;
+    let file = std::fs::File::open(home.join("auth.json")).ok()?;
+    if file.metadata().ok()?.len() > 512 * 1024 {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    file.take(512 * 1024 + 1).read_to_end(&mut bytes).ok()?;
+    let root: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    let token = root.pointer("/tokens/id_token")?.as_str()?;
+    let claims = jwt_claims(token)?;
+    let email = claims
+        .get("email")
+        .and_then(|value| value.as_str())
+        .map(str::to_owned);
+    let plan = claims
+        .pointer("/https:~1~1api.openai.com~1auth/chatgpt_plan_type")
+        .and_then(|value| value.as_str())
+        .map(str::to_owned);
+    Some((email, plan))
+}
+
 /// Reads Codex's sign-in state; a missing file or missing field both mean "not signed in"
 fn load_credential() -> Option<Credential> {
     load_credential_at(&auth_path()?)
@@ -224,31 +255,12 @@ enum LiveErr {
 }
 
 fn fetch_usage(cred: &Credential) -> Result<serde_json::Value, LiveErr> {
-    let resp = ureq::get(ENDPOINT)
-        .set("Authorization", &format!("Bearer {}", cred.access_token))
-        .set("ChatGPT-Account-Id", &cred.account_id)
-        .set("Accept", "application/json")
-        .set("Cache-Control", "no-cache, no-store")
-        .set(
-            "User-Agent",
-            concat!("vela/", env!("CARGO_PKG_VERSION"), " (Windows)"),
-        )
-        .timeout(Duration::from_secs(15))
-        .call();
+    let resp = codex_request(cred, ENDPOINT, false);
     match resp {
-        Ok(r) => r
-            .into_json()
-            .map_err(|e| LiveErr::Other(format!("parse: {e}"))),
-        Err(ureq::Error::Status(code @ (401 | 403), r)) => {
-            // 401 is about the token; 403 can also be an edge node rejecting the user agent — record the status and the start of the body rather than folding both into "please sign in"
-            let head: String = r
-                .into_string()
-                .unwrap_or_default()
-                .chars()
-                .filter(|c| !c.is_control())
-                .take(160)
-                .collect();
-            crate::applog(&format!("codex: usage endpoint HTTP {code}: {head}"));
+        Ok(r) => bounded_json(r.into_reader()),
+        Err(ureq::Error::Status(code @ (401 | 403), _)) => {
+            // Error bodies may contain account details; the status alone is diagnostic.
+            crate::applog(&format!("codex: usage endpoint HTTP {code}"));
             Err(LiveErr::NeedsAuth)
         }
         Err(ureq::Error::Status(429, r)) => {
@@ -261,6 +273,137 @@ fn fetch_usage(cred: &Credential) -> Result<serde_json::Value, LiveErr> {
         Err(ureq::Error::Status(code, _)) => Err(LiveErr::Other(format!("HTTP {code}"))),
         Err(e) => Err(LiveErr::Other(format!("{e}"))),
     }
+}
+
+fn codex_request(cred: &Credential, url: &str, beta: bool) -> Result<ureq::Response, ureq::Error> {
+    let agent = ureq::AgentBuilder::new()
+        .timeout(Duration::from_secs(15))
+        .redirects(0)
+        .build();
+    let mut request = agent
+        .get(url)
+        .set("Authorization", &format!("Bearer {}", cred.access_token))
+        .set("ChatGPT-Account-Id", &cred.account_id)
+        .set("Accept", "application/json")
+        .set("Cache-Control", "no-cache, no-store")
+        .set("User-Agent", concat!("vela/", env!("CARGO_PKG_VERSION")));
+    if beta {
+        request = request.set("OpenAI-Beta", "codex-1");
+    }
+    let response = request.call()?;
+    if !(200..300).contains(&response.status()) {
+        return Err(ureq::Error::Status(response.status(), response));
+    }
+    Ok(response)
+}
+
+fn bounded_json(mut reader: impl Read) -> Result<serde_json::Value, LiveErr> {
+    let mut bytes = Vec::new();
+    reader
+        .by_ref()
+        .take(MAX_RESPONSE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| LiveErr::Other("response read failed".into()))?;
+    if bytes.len() as u64 > MAX_RESPONSE_BYTES {
+        return Err(LiveErr::Other("response too large".into()));
+    }
+    serde_json::from_slice(&bytes).map_err(|_| LiveErr::Other("invalid JSON".into()))
+}
+
+fn parse_profile_usage(v: &serde_json::Value) -> Result<CodexTokenUsage, serde_json::Error> {
+    #[derive(serde::Deserialize)]
+    struct Bucket {
+        start_date: String,
+        tokens: i64,
+    }
+    #[derive(serde::Deserialize)]
+    struct Stats {
+        lifetime_tokens: Option<i64>,
+        peak_daily_tokens: Option<i64>,
+        longest_running_turn_sec: Option<f64>,
+        current_streak_days: Option<i64>,
+        longest_streak_days: Option<i64>,
+        daily_usage_buckets: Option<Vec<Bucket>>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Response {
+        stats: Option<Stats>,
+    }
+    let response: Response = serde_json::from_value(v.clone())?;
+    let summary = response.stats.as_ref().map(|s| CodexTokenSummary {
+        lifetime_tokens: s.lifetime_tokens,
+        peak_daily_tokens: s.peak_daily_tokens,
+        longest_running_turn_seconds: s.longest_running_turn_sec,
+        current_streak_days: s.current_streak_days,
+        longest_streak_days: s.longest_streak_days,
+    });
+    let daily_usage_buckets = response
+        .stats
+        .and_then(|s| s.daily_usage_buckets)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|b| CodexDailyBucket {
+            start_date: b.start_date,
+            tokens: b.tokens,
+        })
+        .collect();
+    Ok(CodexTokenUsage {
+        summary,
+        daily_usage_buckets,
+    })
+}
+
+fn parse_reset_credits(v: &serde_json::Value) -> CodexResetCredits {
+    let credits: Vec<CodexResetCredit> = v
+        .get("credits")
+        .and_then(|v| v.as_array())
+        .map(|credits| {
+            credits
+                .iter()
+                .filter_map(|credit| {
+                    let item = credit.as_object()?;
+                    let expiry = item
+                        .get("expires_at")
+                        .and_then(|v| v.as_str())
+                        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                        .and_then(|d| u64::try_from(d.timestamp_millis()).ok());
+                    Some(CodexResetCredit {
+                        id: item.get("id").and_then(|v| v.as_str()).unwrap_or("").into(),
+                        status: item
+                            .get("status")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .into(),
+                        expires_at: expiry,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let available_count = v
+        .get("available_count")
+        .and_then(|n| n.as_i64())
+        .unwrap_or_else(|| credits.iter().filter(|c| c.status == "available").count() as i64);
+    CodexResetCredits {
+        available_count,
+        credits,
+    }
+}
+
+fn fetch_account_metadata(
+    cred: &Credential,
+) -> (Option<CodexTokenUsage>, Option<CodexResetCredits>) {
+    fn fetch(cred: &Credential, url: &str, beta: bool) -> Option<serde_json::Value> {
+        bounded_json(codex_request(cred, url, beta).ok()?.into_reader()).ok()
+    }
+    std::thread::scope(|scope| {
+        let reset = scope
+            .spawn(|| fetch(cred, RESET_CREDITS_ENDPOINT, true).map(|v| parse_reset_credits(&v)));
+        let profile = scope.spawn(|| {
+            fetch(cred, PROFILE_ENDPOINT, false).and_then(|v| parse_profile_usage(&v).ok())
+        });
+        (profile.join().ok().flatten(), reset.join().ok().flatten())
+    })
 }
 
 /// Upstream's label rule: Codex names windows only by length, and "5h limit" says more than "primary"
@@ -331,6 +474,7 @@ fn window_from(
             fallback,
         ),
         used: (pct / 100.0).clamp(0.0, 1.0),
+        has_fraction: Some(true),
         resets_at: reset_at_ms(w, now, "reset_at", "reset_after_seconds"),
         duration: num(w.get("limit_window_seconds")),
         group: group.map(str::to_string),
@@ -578,6 +722,7 @@ pub fn snapshot_from_rollout(
                 id: id.into(),
                 label: label_for(num(w.get("window_minutes")), id),
                 used: (pct / 100.0).clamp(0.0, 1.0),
+                has_fraction: Some(true),
                 resets_at: reset_at_ms(w, now, "resets_at", "resets_in_seconds"),
                 duration: num(w.get("window_minutes")).map(|n| n * 60.0),
                 ..Default::default()
@@ -661,6 +806,7 @@ fn app_server_snapshot(result: &serde_json::Value) -> Option<UsageSnapshot> {
             label: label_for(w.get("windowDurationMins").and_then(|x| x.as_f64()), id),
             duration: num(w.get("windowDurationMins")).map(|n| n * 60.0),
             used: (used / 100.0).clamp(0.0, 1.0),
+            has_fraction: Some(true),
             resets_at: w
                 .get("resetsAt")
                 .and_then(|x| x.as_u64())
@@ -754,7 +900,7 @@ pub fn present() -> bool {
             .unwrap_or(false)
 }
 
-fn read_once() -> UsageSnapshot {
+fn read_once(native_retry_after: &mut Option<u64>) -> UsageSnapshot {
     let mut snap = UsageSnapshot::default();
     // Note attached to the fallback reading when the live read failed; needs_auth picks the empty state when there is no fallback either
     let mut live_note: Option<String> = None;
@@ -776,13 +922,15 @@ fn read_once() -> UsageSnapshot {
             }
             Some(cred) => match fetch_usage(&cred) {
                 Ok(v) => {
+                    // Swift starts both optional account reads before it parses extra limits.
+                    let (token_usage, reset_credits) = fetch_account_metadata(&cred);
                     let windows = windows_from_usage(&v);
                     if !windows.is_empty() {
                         let plan = v
                             .get("plan_type")
                             .and_then(|x| x.as_str())
                             .map(String::from)
-                            .or(cred.plan);
+                            .or_else(|| cred.plan.clone());
                         snap.status = "ok".into();
                         snap.windows = windows;
                         snap.fetched_at = now_ms();
@@ -790,6 +938,8 @@ fn read_once() -> UsageSnapshot {
                         snap.note = plan
                             .map(|p| format!("{} · via Codex", cap(&p)))
                             .unwrap_or_default();
+                        snap.token_usage = token_usage;
+                        snap.reset_credits = reset_credits;
                         return snap;
                     }
                     let keys: Vec<String> = v
@@ -809,7 +959,6 @@ fn read_once() -> UsageSnapshot {
                 }
                 Err(LiveErr::RateLimited(secs)) => {
                     let until = now_ms() + secs * 1000;
-                    BACKOFF_UNTIL.store(until, std::sync::atomic::Ordering::Relaxed);
                     snap.backoff_until = until;
                     live_note = Some(format!("Rate limited — retrying in {secs}s"));
                     crate::applog(&format!(
@@ -832,10 +981,7 @@ fn read_once() -> UsageSnapshot {
     {
         match read_app_server() {
             Some(native) => return native,
-            None => NATIVE_RETRY_AFTER.store(
-                now_ms() + NATIVE_STAND_DOWN_MS,
-                std::sync::atomic::Ordering::Relaxed,
-            ),
+            None => *native_retry_after = Some(now_ms() + NATIVE_STAND_DOWN_MS),
         }
     }
     // Fallback: rollout
@@ -885,12 +1031,27 @@ fn cap(s: &str) -> String {
     }
 }
 
-fn broadcast(app: &AppHandle, snap: UsageSnapshot) {
-    let st = app.state::<AppState>();
-    *st.codex.lock().unwrap() = snap.clone();
-    persist(&snap);
-    let _ = app.emit("codex", &snap);
-    crate::refresh::complete("codex");
+fn broadcast(app: &AppHandle, epoch: u64, snap: UsageSnapshot, native_retry_after: Option<u64>) {
+    crate::providers::with_current(app, "codex", epoch, || {
+        BACKOFF_UNTIL.store(snap.backoff_until, std::sync::atomic::Ordering::Relaxed);
+        if let Some(deadline) = native_retry_after {
+            NATIVE_RETRY_AFTER.store(deadline, std::sync::atomic::Ordering::Relaxed);
+        }
+        let st = app.state::<AppState>();
+        *st.codex.lock().unwrap() = snap.clone();
+        persist(&snap);
+        let _ = app.emit("codex", &snap);
+        crate::refresh::complete("codex");
+    });
+}
+
+pub(crate) fn forget(app: &AppHandle) {
+    REFRESH.store(false, std::sync::atomic::Ordering::Relaxed);
+    BACKOFF_UNTIL.store(0, std::sync::atomic::Ordering::Relaxed);
+    NATIVE_RETRY_AFTER.store(0, std::sync::atomic::Ordering::Relaxed);
+    *app.state::<AppState>().codex.lock().unwrap() = UsageSnapshot::default();
+    let _ = std::fs::remove_file(store_path());
+    let _ = app.emit("codex", UsageSnapshot::default());
 }
 
 pub fn start(app: AppHandle) {
@@ -903,10 +1064,12 @@ pub fn start(app: AppHandle) {
         if !present() {
             broadcast(
                 &app,
+                crate::providers::generation("codex"),
                 UsageSnapshot {
                     status: "absent".into(),
                     ..Default::default()
                 },
+                None,
             );
             // Codex is not installed: look again every 10 minutes
             loop {
@@ -930,9 +1093,11 @@ pub fn start(app: AppHandle) {
                 std::thread::sleep(Duration::from_secs(1));
                 continue;
             }
-            let snap = read_once();
+            let epoch = crate::providers::generation("codex");
+            let mut native_retry_after = None;
+            let snap = read_once(&mut native_retry_after);
             let hold = snap.backoff_until.saturating_sub(now_ms()) / 1000;
-            broadcast(&app, snap);
+            broadcast(&app, epoch, snap, native_retry_after);
             for _ in 0..POLL_SECS.max(hold) {
                 if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
                     break;
@@ -1397,6 +1562,85 @@ mod tests {
         assert_eq!(ws[0].label, "Monthly limit");
         assert!((ws[0].used - 0.16).abs() < 1e-4);
     }
+
+    #[test]
+    fn profile_usage_preserves_summary_and_sparse_daily_buckets() {
+        let source = serde_json::json!({"stats":{
+            "lifetime_tokens":1200,"peak_daily_tokens":300,
+            "longest_running_turn_sec":4020,"current_streak_days":2,"longest_streak_days":11,
+            "daily_usage_buckets":[{"start_date":"2026-08-12","tokens":100},
+                                   {"start_date":"2026-09-03","tokens":200}]
+        }});
+        let parsed = parse_profile_usage(&source).unwrap();
+        assert_eq!(parsed.summary.unwrap().lifetime_tokens, Some(1200));
+        assert_eq!(parsed.daily_usage_buckets.len(), 2);
+        assert_eq!(parsed.daily_usage_buckets[1].tokens, 200);
+        assert!(parse_profile_usage(&serde_json::json!({}))
+            .unwrap()
+            .summary
+            .is_none());
+        assert!(parse_profile_usage(&serde_json::json!({"stats":{"daily_usage_buckets":[{"start_date":"2026-09-03","tokens":"bad"}]}})).is_err());
+    }
+
+    #[test]
+    fn reset_credit_count_is_independent_of_truncated_or_malformed_rows() {
+        let source = serde_json::json!({"available_count":3,"credits":[
+            {"id":"later","status":"available","expires_at":"2026-09-20T12:00:00.250Z"},
+            "bad row",
+            {"id":"sooner","status":"available","expires_at":"2026-09-15T08:00:00Z"}
+        ]});
+        let parsed = parse_reset_credits(&source);
+        assert_eq!(parsed.available_count, 3);
+        assert_eq!(parsed.credits.len(), 2);
+        assert_eq!(parsed.next_expiry(), Some(1_789_459_200_000));
+        let count = parse_reset_credits(&serde_json::json!({"credits":[
+            {"id":"one","status":"available"},{"id":"used","status":"redeemed"}]}));
+        assert_eq!(count.available_count, 1);
+    }
+
+    #[test]
+    fn oversized_codex_body_is_rejected_before_json_parse() {
+        let oversized = vec![b' '; MAX_RESPONSE_BYTES as usize + 1];
+        assert!(matches!(bounded_json(std::io::Cursor::new(oversized)),
+            Err(LiveErr::Other(message)) if message == "response too large"));
+    }
+
+    #[test]
+    fn codex_request_does_not_follow_redirects_with_borrowed_credentials() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let redirect = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        redirect.set_nonblocking(true).unwrap();
+        let redirect_address = redirect.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                .unwrap();
+            let mut header = Vec::new();
+            let mut byte = [0u8; 1];
+            while header.len() < 8192 && !header.ends_with(b"\r\n\r\n") {
+                stream.read_exact(&mut byte).unwrap();
+                header.push(byte[0]);
+            }
+            assert!(header.ends_with(b"\r\n\r\n"));
+            let response = format!("HTTP/1.1 302 Found\r\nLocation: http://{redirect_address}/steal\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+            stream.write_all(response.as_bytes()).unwrap();
+        });
+        let cred = Credential {
+            access_token: "fixture-token".into(),
+            account_id: "fixture-account".into(),
+            plan: None,
+            expired: false,
+        };
+        let result = codex_request(&cred, &format!("http://{address}/usage"), false);
+        assert!(matches!(result, Err(ureq::Error::Status(302, _))));
+        server.join().unwrap();
+        assert!(
+            matches!(redirect.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+        );
+    }
 }
 
 /// An independent CLI account: never borrow the default profile's auth or rate-limit state.
@@ -1407,6 +1651,7 @@ pub fn read_profile(home: &std::path::Path, mut previous: UsageSnapshot) -> Usag
     match load_credential_at(&home.join("auth.json")) {
         Some(cred) if !cred.expired => match fetch_usage(&cred) {
             Ok(v) => {
+                let (token_usage, reset_credits) = fetch_account_metadata(&cred);
                 let windows = windows_from_usage(&v);
                 if !windows.is_empty() {
                     return UsageSnapshot {
@@ -1419,6 +1664,9 @@ pub fn read_profile(home: &std::path::Path, mut previous: UsageSnapshot) -> Usag
                         fetched_at: now_ms(),
                         note: cred.plan.unwrap_or_default(),
                         backoff_until: 0,
+                        token_usage,
+                        reset_credits,
+                        ..Default::default()
                     };
                 }
             }
@@ -1454,6 +1702,7 @@ pub fn read_profile(home: &std::path::Path, mut previous: UsageSnapshot) -> Usag
             fetched_at: recorded.unwrap_or(0),
             note: plan.unwrap_or_else(|| "from last Codex run".into()),
             backoff_until: 0,
+            ..Default::default()
         };
     }
     previous.status = "stale".into();

@@ -309,7 +309,7 @@ pub fn fg_pid() -> u32 {
     }
 }
 #[cfg(target_os = "macos")]
-fn activate(pid: u32) -> bool {
+pub(crate) fn activate(pid: u32) -> bool {
     use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication};
     unsafe {
         NSRunningApplication::runningApplicationWithProcessIdentifier(pid as i32).is_some_and(
@@ -320,19 +320,64 @@ fn activate(pid: u32) -> bool {
     }
 }
 #[cfg(target_os = "macos")]
-pub fn focus_terminal(pid: u32) -> bool {
-    let maps = proc_maps();
-    for ancestor in chain_of(pid, &maps.ppid) {
-        if ancestor > 1 && activate(ancestor) {
-            return true;
+fn bsd_info(pid: u32) -> Option<libc::proc_bsdinfo> {
+    if pid <= 1 { return None; }
+    let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
+    let read = unsafe { libc::proc_pidinfo(pid as i32, libc::PROC_PIDTBSDINFO, 0,
+        (&mut info as *mut libc::proc_bsdinfo).cast(), size) };
+    (read == size).then_some(info)
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn ancestry(pid: u32) -> Vec<u32> {
+    let mut chain = Vec::new();
+    let mut current = pid;
+    while chain.len() < 8 && current > 1 && !chain.contains(&current) {
+        chain.push(current);
+        let Some(parent) = bsd_info(current).map(|info| info.pbi_ppid) else { break };
+        current = parent;
+    }
+    chain
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn owner_of(pid: u32) -> Option<(u32, String)> {
+    use objc2_app_kit::NSRunningApplication;
+    for candidate in ancestry(pid) {
+        let app = unsafe { NSRunningApplication::runningApplicationWithProcessIdentifier(candidate as i32) };
+        if let Some(bundle) = app.and_then(|app| app.bundleIdentifier()) {
+            return Some((candidate, bundle.to_string()));
         }
     }
-    false
+    None
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn tty_of(pid: u32) -> Option<String> {
+    let dev = bsd_info(pid)?.e_tdev;
+    if dev == u32::MAX { return None; }
+    extern "C" { fn devname(dev: libc::dev_t, mode: libc::mode_t) -> *const libc::c_char; }
+    let name = unsafe { devname(dev as libc::dev_t, libc::S_IFCHR as libc::mode_t) };
+    if name.is_null() { None } else { unsafe { std::ffi::CStr::from_ptr(name).to_str().ok().map(str::to_owned) } }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn cwd_of(pid: u32) -> Option<String> {
+    let mut info: libc::proc_vnodepathinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_vnodepathinfo>() as i32;
+    let read = unsafe { libc::proc_pidinfo(pid as i32, libc::PROC_PIDVNODEPATHINFO, 0,
+        (&mut info as *mut libc::proc_vnodepathinfo).cast(), size) };
+    if read != size { return None; }
+    let path = info.pvi_cdir.vip_path.as_ptr().cast::<libc::c_char>();
+    let bytes = unsafe { std::slice::from_raw_parts(path.cast::<u8>(), libc::MAXPATHLEN as usize) };
+    let end = bytes.iter().position(|byte| *byte == 0)?;
+    std::str::from_utf8(&bytes[..end]).ok().filter(|s| !s.is_empty()).map(str::to_owned)
 }
 #[cfg(target_os = "macos")]
-pub fn focus_claude_desktop() -> bool {
+pub(crate) fn claude_desktop_pid() -> Option<u32> {
     proc_maps()
         .name
         .iter()
-        .any(|(pid, name)| name.ends_with("/claude.app/contents/macos/claude") && activate(*pid))
+        .find_map(|(pid, name)| name.ends_with("/claude.app/contents/macos/claude").then_some(*pid))
 }

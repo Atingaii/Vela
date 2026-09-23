@@ -22,7 +22,8 @@ pub fn start(app: AppHandle, port: u16) {
                 // Origin header at all (an image tag), so nothing but POST is taken (#165).
                 if *req.method() != tiny_http::Method::Post {
                     let _ = req.respond(
-                        tiny_http::Response::from_string("method not allowed").with_status_code(405),
+                        tiny_http::Response::from_string("method not allowed")
+                            .with_status_code(405),
                     );
                     continue;
                 }
@@ -78,7 +79,11 @@ fn parse(url: &str, body: &str) -> HookEvent {
         e: query_param(url, "e"),
         session_id: {
             let id = s("session_id");
-            if id.is_empty() { "unknown".into() } else { id }
+            if id.is_empty() {
+                "unknown".into()
+            } else {
+                id
+            }
         },
         ppid: query_param(url, "ppid").parse().unwrap_or(0),
         cwd: s("cwd"),

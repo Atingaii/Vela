@@ -1,8 +1,7 @@
-//! The settings window. Created when it is opened and destroyed when it is closed, so no second
-//! WebView sits hidden for the life of the app. The Swift baseline uses a solid dark
-//! surface on both platforms; wallpaper and system light mode must not alter it.
+//! The settings window stays allocated after close, like Swift's
+//! `isReleasedWhenClosed = false`, preserving its selected pane and draft edits.
 
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const LABEL: &str = "settings";
 
@@ -43,8 +42,41 @@ pub fn open(app: &AppHandle) {
     });
 }
 
+/// Only the notch gear toggles. Menu items and first-launch introduction always show Settings.
+pub fn toggle(app: &AppHandle) {
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        let app = handle.clone();
+        let _ = handle.run_on_main_thread(move || {
+            if let Some(window) = app.get_webview_window(LABEL) {
+                if window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false) {
+                    let _ = window.close();
+                    return;
+                }
+            }
+            open_now(&app);
+        });
+    });
+}
+
+fn offscreen(window: &tauri::WebviewWindow) -> bool {
+    let (Ok(position), Ok(size), Ok(monitors)) = (
+        window.outer_position(), window.outer_size(), window.available_monitors(),
+    ) else { return false; };
+    !monitors.iter().any(|monitor| {
+        let p = monitor.position();
+        let s = monitor.size();
+        let (ax, ay, bx, by) = (position.x as i64, position.y as i64,
+            position.x as i64 + size.width as i64, position.y as i64 + size.height as i64);
+        let (cx, cy, dx, dy) = (p.x as i64, p.y as i64,
+            p.x as i64 + s.width as i64, p.y as i64 + s.height as i64);
+        ax < dx && cx < bx && ay < dy && cy < by
+    })
+}
+
 fn open_now(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(LABEL) {
+        if offscreen(&w) { let _ = w.center(); }
         #[cfg(target_os = "macos")]
         let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
         let _ = w.unminimize();
@@ -63,6 +95,7 @@ fn open_now(app: &AppHandle) {
         .inner_size(860.0, 600.0)
         .resizable(false)
         .maximizable(false)
+        .minimizable(false)
         .decorations(cfg!(target_os = "macos"))
         .transparent(true)
         .theme(Some(tauri::Theme::Dark))
@@ -83,12 +116,14 @@ fn open_now(app: &AppHandle) {
             }
             let handle = app.clone();
             w.on_window_event(move |event| {
-                if matches!(
-                    event,
-                    tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed
-                ) {
-                    // A closing WebView cannot reliably finish a pagehide IPC request.
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    if let Some(window) = handle.get_webview_window(LABEL) {
+                        let _ = window.hide();
+                    }
                     let _ = crate::phone_link::phone_pairing(false);
+                    #[cfg(target_os = "macos")]
+                    apply_macos_presence(&handle, false);
                 }
                 #[cfg(target_os = "macos")]
                 if matches!(event, tauri::WindowEvent::Destroyed) {
@@ -112,7 +147,8 @@ fn open_now(app: &AppHandle) {
 /// promotes an accessory app until it closes. Reopening the application remains a way back.
 pub fn apply_presence(app: &AppHandle) {
     #[cfg(target_os = "macos")]
-    apply_macos_presence(app, app.get_webview_window(LABEL).is_some());
+    apply_macos_presence(app, app.get_webview_window(LABEL)
+        .is_some_and(|window| window.is_visible().unwrap_or(false)));
     #[cfg(not(target_os = "macos"))]
     let _ = app;
 }
@@ -281,6 +317,58 @@ fn render_system_look() -> SystemLook {
         accent,
         symbols: settings_symbols(),
     }
+}
+
+#[cfg(target_os = "macos")]
+fn current_system_accent() -> Option<String> {
+    use objc2_app_kit::{NSColor, NSColorSpace};
+    let color = NSColor::controlAccentColor()
+        .colorUsingColorSpace(&NSColorSpace::sRGBColorSpace())?;
+    let byte = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+    Some(format!("#{:02x}{:02x}{:02x}",
+        byte(color.redComponent()), byte(color.greenComponent()), byte(color.blueComponent())))
+}
+
+#[cfg(target_os = "macos")]
+fn system_appearance_state() -> Option<(String, bool, bool)> {
+    use objc2_app_kit::{NSAppearanceNameAqua, NSAppearanceNameDarkAqua, NSApplication, NSWorkspace};
+    let marker = objc2::MainThreadMarker::new()?;
+    let names = objc2_foundation::NSArray::from_slice(&[
+        unsafe { NSAppearanceNameDarkAqua }, unsafe { NSAppearanceNameAqua },
+    ]);
+    let dark = NSApplication::sharedApplication(marker).effectiveAppearance()
+        .bestMatchFromAppearancesWithNames(&names)
+        .is_some_and(|name| name.to_string() == unsafe { NSAppearanceNameDarkAqua }.to_string());
+    let reduce = NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceTransparency();
+    Some((current_system_accent()?, dark, reduce))
+}
+
+/// WKWebView does not inherit SwiftUI's dynamic NSColor updates. Poll the tiny native colour
+/// state on the AppKit thread and notify only our own UI windows when it changes. System dark
+/// mode or Reduce Transparency also re-evaluates native glass-card dimming and material choice.
+#[cfg(target_os = "macos")]
+pub fn start_system_look_watch(app: AppHandle) {
+    static LAST: std::sync::Mutex<Option<(String, bool, bool)>> = std::sync::Mutex::new(None);
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            let Some(current) = system_appearance_state() else { return; };
+            let previous = LAST.lock().unwrap().replace(current.clone());
+            let Some(previous) = previous else { return; };
+            if previous.0 != current.0 {
+                for window in handle.webview_windows().values().filter(|window| {
+                    crate::native_notch::is_notch_label(window.label())
+                        || matches!(window.label(), "settings" | "whats-new")
+                }) {
+                    let _ = handle.emit_to(window.label(), "system_accent_changed", &current.0);
+                }
+            }
+            if previous.1 != current.1 || previous.2 != current.2 {
+                crate::native_notch::apply_preferences(&handle);
+            }
+        });
+    });
 }
 
 /// AppKit's symbol rasterization and accent colour lookup run on the UI thread. The async

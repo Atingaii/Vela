@@ -87,7 +87,61 @@ pub fn save_provider_secret(id: String, secret: String) -> Result<(), String> {
     return Err("此平台未启用凭据保管库，请通过环境变量配置".into());
     #[cfg(any(windows, target_os = "macos"))]
     {
-        crate::providers::request(&id);
+        crate::providers::request(match id.as_str() {
+            "minimax-cookie" => "minimax",
+            "lmstudio-api-token" => "lmstudio",
+            _ => &id,
+        });
         Ok(())
     }
+}
+
+#[derive(serde::Serialize)]
+pub struct LMStudioTokenState {
+    pub present: bool,
+}
+
+/// An attribute-only Keychain query on macOS: opening Settings never reads the
+/// token data or triggers a recurring permission prompt just to show its state.
+#[tauri::command]
+pub fn get_lmstudio_token_state() -> Result<LMStudioTokenState, String> {
+    if std::env::var("LM_API_TOKEN").ok().is_some_and(|value| !value.trim().is_empty()) {
+        return Ok(LMStudioTokenState { present: true });
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use security_framework::item::{ItemClass, ItemSearchOptions};
+        use security_framework_sys::base::errSecItemNotFound;
+        let result = ItemSearchOptions::new()
+            .class(ItemClass::generic_password())
+            .service("Vela")
+            .account("lmstudio-api-token")
+            .load_attributes(true)
+            .skip_authenticated_items(true)
+            .search();
+        return match result {
+            Ok(rows) => Ok(LMStudioTokenState { present: !rows.is_empty() }),
+            Err(error) if error.code() == errSecItemNotFound => Ok(LMStudioTokenState { present: false }),
+            Err(_) => Err("无法检查 LM Studio 密钥状态".into()),
+        };
+    }
+    #[cfg(not(target_os = "macos"))]
+    Ok(LMStudioTokenState { present: read("lmstudio-api-token").is_ok() })
+}
+
+/// Only used for an explicitly connected LM Studio runtime, never serialized
+/// into config, snapshots or log messages.
+pub fn lmstudio_token() -> Option<String> {
+    std::env::var("LM_API_TOKEN").ok()
+        .filter(|value| !value.trim().is_empty() && !value.contains(['\r', '\n']))
+        .or_else(|| read("lmstudio-api-token").ok())
+}
+
+/// A disconnected account may only erase credentials written by Vela itself.
+/// In particular, never pass a borrowed CLI account ID through this path.
+pub(crate) fn delete_owned_provider_secret(id: &str) -> Result<(), String> {
+    if !matches!(id, "minimax" | "minimax-cookie" | "ollama-cloud") {
+        return Err("不是 Vela 自有密钥".into());
+    }
+    save_provider_secret(id.to_owned(), String::new())
 }

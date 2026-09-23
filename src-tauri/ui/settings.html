@@ -81,6 +81,10 @@
   .group > .item + .item::before,.acct + .acct::before{content:"";position:absolute;top:0;left:10px;right:10px;height:1px;background:var(--sep)}
   .item{padding:10px;min-height:36px;display:flex;align-items:center;justify-content:space-between;gap:10px}
   .item.cap{min-height:0;padding:10px;font-size:11px;line-height:13px;color:var(--text2);display:block}
+  .local-activity{padding:10px;font-size:11px;line-height:13px;color:var(--text2)}
+  .local-activity > * + *{margin-top:6px}.local-activity strong{display:block;font-size:13px;line-height:16px;font-weight:600;color:var(--text)}
+  .local-activity .problem{color:var(--danger)}.local-activity code{font:11px/13px ui-monospace,SFMono-Regular,Menlo,monospace;user-select:text}
+  .local-token-row{display:flex;align-items:center;gap:8px;padding:0 10px 6px}.local-token-row input{width:260px;max-width:60%;min-width:0;padding:6px}.local-token-row span{color:#69d89e;font-size:11px}
   .item .hint{font-size:12px;color:var(--text2)}
   .value{color:var(--text2)}
   #pane-appearance .sec{margin-top:20px}
@@ -115,8 +119,33 @@
   .acct.off .acct-name{color:var(--text2)}
   .acct.off .glyph{opacity:.5}
   .acct-detail{margin:6px 0 0 48px;font-size:12px;color:var(--text2)}
+  .acct-detail.warning{color:#f0a84d}.acct-detail.renewal{margin-top:6px}
+  .acct-detail .account-summary{display:flex;align-items:center;gap:8px}
+  .acct-detail .account-source{margin-top:2px;color:var(--text3)}
   .provider-config{padding:14px;margin-top:14px}.provider-config summary{cursor:pointer;font-weight:600}.provider-config form{display:grid;gap:10px;margin-top:14px}.provider-config form[hidden]{display:none}.provider-config label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}.provider-config input:not([type=checkbox]):not([type=color]),.provider-config select{min-width:0;width:55%;padding:6px}.provider-config .endpoint-row{padding:10px 0;border-bottom:1px solid var(--line,#ddd);display:flex;gap:8px;align-items:center;flex-wrap:wrap}.provider-config .endpoint-row span{flex:1;overflow-wrap:anywhere}.acct-sub input{min-width:0;width:60%}
   .acct-sub{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 0 48px;font-size:12px}
+  .endpoint-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 12px}
+  .endpoint-intro strong{font-size:16px;line-height:20px}.endpoint-intro p{font-size:12px;line-height:16px;color:var(--text2);margin:3px 0 0}
+  .endpoint-actions{display:flex;gap:8px;padding:0 12px 14px}.endpoint-templates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 12px 14px}
+  .endpoint-template{display:flex;align-items:center;gap:8px;min-width:0;text-align:left;border:0;border-radius:8px;padding:8px;background:var(--hover);font-size:12px}
+  .endpoint-template:hover{background:var(--sel-soft)}.endpoint-template small{display:block;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .endpoint-template-dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--dot)}
+  .endpoint-row{display:flex;align-items:center;gap:12px;padding:12px}.endpoint-row + .endpoint-row{border-top:1px solid var(--sep)}
+  .endpoint-row-main{flex:1;min-width:0}.endpoint-row-name{font-weight:600}.endpoint-row-url,.endpoint-row-usage{font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .endpoint-row-usage{display:flex;align-items:center;gap:8px;margin-top:8px}.endpoint-progress{width:100%;height:4px;accent-color:var(--bar);flex:1}
+  .endpoint-editor{padding:12px}.endpoint-editor form{display:grid;gap:10px}.endpoint-editor label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}
+  .endpoint-editor label input:not([type=checkbox]):not([type=color]),.endpoint-editor label select{width:65%;min-width:0;padding:6px}
+  .endpoint-editor .checkbox-row{justify-content:flex-start}.endpoint-editor .editor-buttons{display:flex;justify-content:space-between;margin-top:4px}
+  .endpoint-color-swatches,.endpoint-icons{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.endpoint-color-swatches button{width:22px;height:22px;padding:0;border:2px solid transparent;border-radius:50%;background:var(--swatch)}
+  .endpoint-color-swatches button[aria-pressed=true]{border-color:#fff}.endpoint-icons button{min-width:28px;height:28px;border:0;border-radius:6px;background:var(--hover);padding:3px}
+  .endpoint-icons button[aria-pressed=true]{background:var(--sel-soft);outline:1px solid var(--accent)}
+  .endpoint-discovered{padding:0 12px 14px;font-size:11px;color:var(--text2)}.endpoint-discovered strong{display:block;margin-bottom:6px}
+  .endpoint-discovered-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:var(--hover);margin-top:6px}
+  .endpoint-discovered-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .endpoint-key-control{display:flex;align-items:center;gap:6px;width:65%;min-width:0}.endpoint-editor .endpoint-key-control input{width:auto;flex:1}
+  .endpoint-probe,.endpoint-image,.endpoint-reset{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2)}
+  .endpoint-image{padding-left:120px}.endpoint-image img{width:24px;height:24px;object-fit:contain;border-radius:50%}
+  .endpoint-reset{justify-content:flex-end}.editor-error{color:var(--danger);font-size:11px;padding-left:120px}
   .glyph{width:16px;height:16px;display:inline-grid;place-items:center;flex:none;color:var(--text)}
   .glyph svg{width:16px;height:16px;fill:currentColor}
   .glyph img{width:16px;height:16px;border-radius:4px;display:block}
@@ -139,6 +168,18 @@
   select option{color:#000}
   .link{border:0;background:none;padding:0;color:var(--accent);cursor:pointer;font-size:12px}
   .link:hover{text-decoration:underline}
+  .pricing-days{align-items:flex-start!important;flex-direction:column;gap:8px}
+  .pricing-days>span{color:var(--text2)}
+  .pricing-weekdays{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 8px;width:100%}
+  .pricing-weekdays label{display:flex;align-items:center;gap:5px;font-size:13px}
+  .pricing-window{display:flex;align-items:center;gap:6px;min-height:38px;padding:8px 10px}
+  .pricing-window>span:first-child{margin-right:auto}
+  .pricing-window label{display:flex;align-items:center;gap:5px;color:var(--text2);font-size:12px}
+  .pricing-window input[type=time]{width:87px;min-width:0;color:var(--text);background:#262628;border:1px solid var(--line);border-radius:6px;padding:3px}
+  .pricing-window .link{font-size:18px;color:var(--text2)}
+  #deepseek-peak-rule:has(:disabled){opacity:.55}
+  .menu-bar-choice .glyph{position:static;display:inline-flex;width:16px;height:16px;vertical-align:middle;margin-right:10px}
+  .menu-bar-choice .glyph img,.menu-bar-choice .glyph svg{width:16px;height:16px}
 
   #toast{position:fixed;right:18px;bottom:14px;background:var(--side);border:1px solid var(--line);border-radius:8px;
     padding:5px 10px;font-size:12px;color:var(--text2);opacity:0;transition:opacity .3s;pointer-events:none}
@@ -159,11 +200,12 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
       <button id="accounts-disclosure" aria-expanded="true" aria-controls="provider-tabs" aria-label="Show or hide provider settings"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m2 3.5 3 3 3-3"/></svg></button>
     </div>
     <div id="provider-tabs">
+    <button class="row provider-tab" id="tab-deepseek" role="tab" aria-controls="pane-deepseek" aria-selected="false" tabindex="-1"><span class="badge b-orange"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M2 14 6 9l3 2 6-7M12 4h3v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>DeepSeek</span></button>
     <button class="row provider-tab" id="tab-ollama" role="tab" aria-controls="pane-ollama" aria-selected="false" tabindex="-1"><span class="badge"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="2" y="3" width="14" height="10" rx="2" stroke="currentColor" fill="none"/><path d="M6 16h6M9 13v3" stroke="currentColor"/></svg></span><span>Ollama</span></button>
     <button class="row provider-tab" id="tab-lmstudio" role="tab" aria-controls="pane-lmstudio" aria-selected="false" tabindex="-1"><span class="badge"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="2" y="3" width="14" height="10" rx="2" stroke="currentColor" fill="none"/><path d="M6 16h6M9 13v3" stroke="currentColor"/></svg></span><span>LM Studio</span></button>
     <button class="row provider-tab" id="tab-custom" role="tab" aria-controls="pane-custom" aria-selected="false" tabindex="-1"><span class="badge"><svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="2" y="3" width="14" height="10" rx="2" stroke="currentColor" fill="none"/><path d="M6 16h6M9 13v3" stroke="currentColor"/></svg></span><span>Custom Endpoints</span></button>
     </div>
-    <button class="row" id="tab-phone" role="tab" aria-controls="pane-phone" aria-selected="false" tabindex="-1"><span class="badge"><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="5" y="1" width="8" height="16" rx="2" stroke="currentColor" fill="none"/><path d="M8 14h2" stroke="currentColor"/></svg></span><span>Phone</span></button>
+    <button class="row" id="tab-phone" role="tab" aria-controls="pane-phone" aria-selected="false" tabindex="-1" hidden><span class="badge"><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="5" y="1" width="8" height="16" rx="2" stroke="currentColor" fill="none"/><path d="M8 14h2" stroke="currentColor"/></svg></span><span>Phone</span></button>
     <button class="row" id="tab-appearance" role="tab" aria-controls="pane-appearance" aria-selected="false" tabindex="-1"><span class="badge b-indigo"><svg viewBox="0 0 12 12"><path d="M10 .9a.8.8 0 0 1 1.1 1.1L6.4 6.7 5.3 5.6zM4.6 6.3l1.1 1.1c.2 1.9-1.9 3.6-4.7 3.1.9-.4 1.2-1 1.3-1.8.1-1.3 1.1-2.3 2.3-2.4z"/></svg></span><span>Appearance</span></button>
     <button class="row" id="tab-notifications" role="tab" aria-controls="pane-notifications" aria-selected="false" tabindex="-1"><span class="badge b-red"><svg viewBox="0 0 12 12"><path d="M6 1a3 3 0 0 0-3 3v3L2 9h8L9 7V4a3 3 0 0 0-3-3M4.5 10h3a1.5 1.5 0 0 1-3 0"/></svg></span><span>Notifications</span></button>
     <button class="row" id="tab-general" role="tab" aria-controls="pane-general" aria-selected="false" tabindex="-1"><span class="badge b-gray"><svg viewBox="0 0 12 12"><path fill-rule="evenodd" d="M5.1.6h1.8l.3 1.5 1.1.5 1.3-.8 1.3 1.3-.8 1.3.5 1.1 1.5.3v1.8l-1.5.3-.5 1.1.8 1.3-1.3 1.3-1.3-.8-1.1.5-.3 1.5H5.1l-.3-1.5-1.1-.5-1.3.8-1.3-1.3.8-1.3-.5-1.1L.6 6.9V5.1l1.5-.3.5-1.1-.8-1.3 1.3-1.3 1.3.8 1.1-.5zM6 4.1a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8z"/></svg></span><span>General</span></button>
@@ -187,16 +229,6 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
           <div class="sec">Not connected</div>
           <div class="group" id="acc-off" data-dynamic></div>
         </div>
-        <details class="group provider-config" id="provider-config">
-          <summary>Provider configuration / 供应商配置</summary>
-          <form id="provider-preferences">
-            <label>MiniMax region / 区域<select id="minimax-region"><option value="global">Global</option><option value="china">China</option></select></label>
-            <label>Gemini monthly token budget / 月度预算<input id="gemini-budget" type="number" min="1" step="1" placeholder="未设置 / Not set"></label>
-            <button class="btn" type="submit">保存 / Save</button>
-          </form>
-
-        </details>
-
       </section>
 
       <section class="pane" id="pane-phone" role="tabpanel" aria-labelledby="tab-phone" hidden>
@@ -210,38 +242,69 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
         <dialog id="phone-pairing" aria-labelledby="phone-pairing-title"><h2 id="phone-pairing-title">Connect a Phone</h2><p>Scan with the Codenotch phone app on the same Wi-Fi network.</p><div id="phone-qr" data-dynamic></div><p id="phone-expires" data-dynamic></p><div class="item"><button class="btn" id="phone-copy">Copy Link</button><button class="btn" id="phone-close">Close</button></div></dialog>
         <dialog id="phone-remove" aria-labelledby="phone-remove-title"><h2 id="phone-remove-title">Remove phone?</h2><p id="phone-remove-name" data-dynamic></p><div class="item"><button class="btn" id="phone-remove-confirm">Remove</button><button class="btn" id="phone-remove-cancel">Cancel</button></div></dialog>
       </section>
+      <section class="pane" id="pane-deepseek" role="tabpanel" aria-labelledby="tab-deepseek" hidden>
+        <div class="sec">Peak/off-peak pricing</div><div class="group">
+          <div class="item"><span>Show DeepSeek pricing</span><button class="switch" id="deepseek-pricing-enabled" role="switch" aria-checked="true" aria-label="Show DeepSeek pricing"></button></div>
+          <div class="item cap">Shows the current billing phase and the next peak/off-peak change on the DeepSeek usage card.</div>
+        </div>
+        <div class="sec">Peak rule</div><div class="group" id="deepseek-peak-rule">
+          <div class="item cap">The schedule is maintained locally because it cannot be read reliably from an official API. Times below are UTC; the card converts the next change to your local time.</div>
+          <div class="item pricing-days"><span>Peak days</span><div id="deepseek-weekdays" class="pricing-weekdays" role="group" aria-label="Peak days"></div></div>
+          <div id="deepseek-windows"></div>
+          <div class="item"><button class="btn" id="deepseek-add-window">＋ Add peak window</button></div>
+        </div>
+        <div class="group"><div class="item"><button class="btn" id="deepseek-restore">Restore current default rule</button></div></div>
+      </section>
+
       <section class="pane" id="pane-ollama" role="tabpanel" aria-labelledby="tab-ollama" hidden>
-        <div class="sec">Connection</div><div class="group provider-config"><form id="ollama-preferences">
-        <label>Ollama URL<input id="ollama-url" type="url" required></label><button class="btn" type="submit">Save</button></form></div>
-        <div class="sec">Loaded models</div><div class="group" id="ollama-models" data-dynamic></div>
+        <div class="sec">Connection</div><div class="group provider-config"><div class="item"><span>Ollama</span><button class="switch" id="ollama-monitor" role="switch" aria-label="Monitor Ollama" aria-checked="false"></button></div>
+        <form id="ollama-preferences"><label>Server address<input id="ollama-url" type="url" required aria-label="Ollama server address"></label><button class="btn" type="submit" id="ollama-apply">Apply</button></form>
+        <div class="item cap" id="ollama-status" role="status" data-dynamic></div>
+        <div class="item cap">Detected models appear in Accounts → Connected. Model loading and unloading is checked every second.</div>
+        <div class="item"><span>Measure speed and thinking</span><button class="switch" id="ollama-metrics" role="switch" aria-label="Measure speed and thinking" aria-checked="false"></button></div>
+        <div class="item cap">To measure responses, point your chat client to http://127.0.0.1:11435 and keep Velo open.</div>
+        <div id="ollama-relay" class="local-activity" hidden data-dynamic></div></div>
       </section>
       <section class="pane" id="pane-lmstudio" role="tabpanel" aria-labelledby="tab-lmstudio" hidden>
-        <div class="sec">Connection</div><div class="group provider-config"><form id="lmstudio-preferences">
-        <label>LM Studio URL<input id="lmstudio-url" type="url" required></label><button class="btn" type="submit">Save</button></form></div>
-        <div class="sec">Loaded models</div><div class="group" id="lmstudio-models" data-dynamic></div>
+        <div class="sec">Connection</div><div class="group provider-config"><div class="item"><span>LM Studio</span><button class="switch" id="lmstudio-monitor" role="switch" aria-label="Monitor LM Studio" aria-checked="false"></button></div>
+        <form id="lmstudio-preferences"><label>Server address<input id="lmstudio-url" type="url" required aria-label="LM Studio server address"></label><button class="btn" type="submit" id="lmstudio-apply">Apply</button></form>
+        <div class="item cap" id="lmstudio-status" role="status" data-dynamic></div>
+        <div class="item cap">Loaded models appear in Accounts → Connected and are checked every second. Embedding models are not shown.</div>
+        <div class="item cap">API token</div><div class="local-token-row"><input id="lmstudio-token" type="password" autocomplete="off" placeholder="sk-lm-…" aria-label="LM Studio API token"><button class="btn compact" id="lmstudio-token-save" type="button">Save</button><button class="btn compact" id="lmstudio-token-remove" type="button" hidden>Remove</button><span id="lmstudio-token-saved" hidden>Saved</span></div>
+        <div class="item cap" id="lmstudio-token-hint" data-dynamic></div></div>
       </section>
       <section class="pane" id="pane-custom" role="tabpanel" aria-labelledby="tab-custom" hidden>
-        <div class="group provider-config" id="custom-config">
-
-          <div id="custom-list" data-dynamic></div>
-          <button class="btn" id="custom-add" type="button">添加端点 / Add endpoint</button>
-          <form id="custom-form" hidden>
-            <input id="custom-id" type="hidden">
-            <label>名称 / Name<input id="custom-name" required maxlength="120"></label>
-            <label>API URL<input id="custom-url" type="url" required placeholder="https://example.com/v1"></label>
-            <label>Credential header / 凭据请求头<input id="custom-header" value="Authorization" required pattern="[A-Za-z0-9-]+"></label>
-            <label>API key<input id="custom-key" type="password" autocomplete="off" placeholder="留空保留 / Leave blank to keep"></label>
-            <label>Model / 模型<input id="custom-model" list="custom-model-options" maxlength="200"><datalist id="custom-model-options"></datalist></label>
-            <label>Unit / 单位<select id="custom-unit"><option value="currency">USD</option><option value="tokens">Tokens</option></select></label>
-            <label>Budget / 预算<input id="custom-budget" type="number" min="0.000001" step="any" placeholder="Unknown / 未知"></label>
-            <label>Used / 已用<input id="custom-used" type="number" min="0" step="any" value="0" required></label>
-            <label>Color / 颜色<input id="custom-color" type="color" value="#6366f1"></label>
-            <label><input id="custom-remaining" type="checkbox">显示剩余额度 / Show remaining</label>
-            <p class="cap">预算和已用量手动维护；模型与连接状态通过 /models 检测。密钥保存到系统凭据库。</p>
-            <button class="btn" type="submit">保存 / Save</button>
-            <button class="btn" id="custom-cancel" type="button">取消 / Cancel</button>
-          </form>
+        <div class="group" id="custom-config">
+          <div class="endpoint-intro"><div><strong>Custom Endpoints</strong><p>Connect any OpenAI-compatible API, local inference runtime, or custom proxy.</p></div><button class="btn" id="custom-add" type="button">Add Endpoint</button></div>
+          <div class="endpoint-actions"><button class="btn compact" id="custom-templates-toggle" type="button" aria-expanded="false" aria-controls="custom-templates">Quick Templates</button><button class="btn compact" id="custom-scan" type="button">Scan Local Engines</button></div>
+          <div id="custom-discovered" class="endpoint-discovered" hidden data-dynamic></div>
+          <div class="endpoint-templates" id="custom-templates" hidden data-dynamic></div>
         </div>
+        <div id="custom-editor-wrap" hidden><div class="sec" id="custom-editor-title">New Custom Endpoint</div><div class="group endpoint-editor">
+          <form id="custom-form">
+            <input id="custom-id" type="hidden">
+            <label>Name<input id="custom-name" required maxlength="120" placeholder="e.g. My OpenRouter, Local vLLM"></label>
+            <label>Base URL<input id="custom-url" type="url" required placeholder="https://api.openai.com/v1"></label><div id="custom-url-error" class="editor-error" role="alert" hidden></div>
+            <label>API Key<span class="endpoint-key-control"><input id="custom-key" type="password" autocomplete="off" placeholder="sk-... (optional for local)"><button class="btn compact" id="custom-show-key" type="button" aria-label="Show API Key">Show</button></span></label>
+            <label>Auth Header<input id="custom-header" value="Authorization" required pattern="[A-Za-z0-9-]+"></label>
+            <div class="endpoint-probe"><button class="btn compact" id="custom-draft-probe" type="button">Test Connection &amp; Fetch Models</button><span id="custom-draft-result" role="status" data-dynamic></span></div>
+            <label>Model<input id="custom-model" list="custom-model-options" maxlength="200" placeholder="Model name (e.g. gpt-4o, llama-3.3)"><datalist id="custom-model-options"></datalist></label>
+            <div>Appearance &amp; Icon</div>
+            <label>Ring Accent<span class="endpoint-color-swatches" id="custom-colors" role="group" aria-label="Ring Accent" data-dynamic></span><input id="custom-color" type="color" value="#6366f1" aria-label="Custom ring accent"></label>
+            <label>Icon<span class="endpoint-icons" id="custom-icons" role="group" aria-label="Icon" data-dynamic></span></label>
+            <input id="custom-icon" type="hidden" value="openai">
+            <div class="endpoint-image"><button class="btn compact" id="custom-upload" type="button">Upload Custom Image...</button><input id="custom-image-file" type="file" accept="image/png,image/jpeg,image/svg+xml,image/*" hidden><img id="custom-image-preview" alt="" hidden><button class="btn compact" id="custom-remove-image" type="button" hidden>Remove</button></div>
+            <div>Monthly Budget &amp; Spend Tracking</div>
+            <label>Tracking Unit<span class="seg" id="seg-custom-unit"><button type="button" data-v="currency">USD ($)</button><button type="button" data-v="tokens">Tokens (Millions)</button></span><input id="custom-unit" type="hidden" value="currency"></label>
+            <label id="custom-budget-label">Monthly Budget ($)<input id="custom-budget" type="number" min="0.000001" step="any" placeholder="e.g. 20.00 (leave empty for unlimited)"></label>
+            <label id="custom-used-label">Current Spend ($)<input id="custom-used" type="number" min="0" step="any" placeholder="e.g. 4.25"></label>
+            <label class="checkbox-row"><input id="custom-currency" type="checkbox"><span id="custom-currency-label">Show dollar amount ($) instead of percentage (%)</span></label>
+            <label class="checkbox-row"><input id="custom-remaining" type="checkbox">Show remaining budget instead of spent</label>
+            <div class="endpoint-reset"><button class="btn compact" id="custom-reset-used" type="button">Reset Spend</button></div>
+            <div class="editor-buttons"><button class="btn" id="custom-cancel" type="button">Cancel</button><button class="btn" type="submit">Save Endpoint</button></div>
+          </form>
+        </div></div>
+        <div class="sec">Configured Endpoints</div><div class="group" id="custom-list" data-dynamic></div>
       </section>
       <section class="pane" id="pane-appearance" role="tabpanel" aria-labelledby="tab-appearance" hidden>
         <div class="sec">Notch</div>
@@ -263,6 +326,7 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
           <div class="item cap">The notch folds away while a full-screen app is frontmost, and returns when you leave it. Off keeps it in place over full-screen apps.</div>
           <div class="item"><span>Edge</span><span class="seg" id="seg-edge"><button data-v="right">Right</button><button data-v="left">Left</button><button data-v="top">Top</button><button data-v="bottom">Bottom</button></span></div>
           <div class="item cap" id="cap-edge" data-dynamic></div>
+          <div id="surface-controls" hidden><div class="item"><span>Surface</span><span class="seg" id="seg-surface"><button data-v="glass">Liquid Glass</button><button data-v="darkGlass">Dark glass</button><button data-v="solid">Solid black</button></span></div><div class="item cap" id="cap-surface" data-dynamic></div></div>
           <div class="item"><span>Size</span><span class="seg" id="seg-size-mode"><button data-v="preset">Preset</button><button data-v="custom">Custom</button></span></div>
           <div id="preset-size-controls">
             <div class="item"><span class="sr-only">Preset size</span><span class="seg" id="seg-size" aria-label="Preset size"><button data-v="0.8">Small</button><button data-v="1">Medium</button><button data-v="1.25">Large</button></span></div>
@@ -275,6 +339,8 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
           <div class="item"><span class="hint">Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it.</span><button class="btn" id="btn-recentre">Recentre</button></div>
           <div class="item"><span>Show move handle</span><button class="switch" id="sw-move" role="switch" aria-checked="true" aria-label="Show move handle"></button></div>
           <div class="item cap">The arc above the notch. Hold it to carry the notch to another edge — Edge above does the same.</div>
+          <div class="item"><span>Displays</span><span class="seg" id="seg-scope"><button data-v="mainDisplay">Main display</button><button data-v="allDisplays">All displays</button></span></div>
+          <div class="item cap" id="cap-scope" data-dynamic></div>
           <div class="item" id="row-screen" hidden><span>Display</span>
             <select id="screen" aria-label="Display"></select>
           </div>
@@ -291,6 +357,17 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
           <div id="app-presence-controls" hidden>
             <div class="item"><span>App icon</span><span class="seg" id="seg-presence"><button data-v="dock">Dock</button><button data-v="menuBar">Menu bar</button><button data-v="hidden">Neither</button></span></div>
             <div class="item cap" id="cap-presence" data-dynamic></div>
+            <div id="menu-bar-controls" hidden>
+              <div class="item"><span>Show limit information in menu bar</span><button class="switch" id="appearance-shows_limits_in_menu_bar" role="switch" aria-label="Show limit information in menu bar" aria-checked="false"></button></div>
+              <div class="item cap">Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets.</div>
+              <div id="menu-bar-limit-details" hidden>
+                <div class="item"><span>Show weekly limit in menu bar</span><button class="switch" id="appearance-shows_weekly_limit_in_menu_bar" role="switch" aria-label="Show weekly limit in menu bar" aria-checked="false"></button></div>
+                <div class="item cap">Adds a compact weekly-usage ring around each chosen provider that publishes it.</div>
+                <div id="menu-bar-choices"></div>
+                <div class="item cap" id="menu-bar-help"></div>
+                <div class="item cap" id="menu-bar-overflow" hidden>Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu.</div>
+              </div>
+            </div>
           </div>
           <div class="item"><span>Language</span>
             <select id="lang" aria-label="Language">
@@ -319,6 +396,7 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
       <section class="pane" id="pane-general" role="tabpanel" aria-labelledby="tab-general" hidden>
         <div class="group">
           <div class="item"><span>Open Velo at login</span><button class="switch" id="sw-autostart" role="switch" aria-checked="false" aria-label="Open Velo at login"></button></div>
+          <div class="item cap" id="autostart-problem" role="status" data-dynamic hidden></div>
           <div class="item"><span>Install updates automatically</span><button class="switch" id="sw-automatic-updates" role="switch" aria-checked="false" aria-label="Install updates automatically" disabled></button></div>
           <div class="item version-row"><span><span>Version</span> <span id="about-version" data-dynamic>0.1.0</span><span>. Updates are downloaded and verified before installation.</span></span><button class="btn compact" id="btn-update" data-dynamic>Check now</button></div>
           <div class="item cap" id="update-status" role="status" data-dynamic hidden></div>
@@ -353,6 +431,9 @@ function invoke(cmd, args){
   if(!BRIDGE) return Promise.reject(new Error('the app bridge is not available'));
   return BRIDGE(cmd, args);
 }
+// Swift PhoneLink.isAvailable is false at the pinned revision. Only an explicit
+// isolated test gate exposes the retained protocol flow.
+invoke('get_phone_availability').then(available=>{field('tab-phone').hidden=available!==true;}).catch(()=>{});
 function errText(e){ return (e && (e.message || e.toString())) || String(e); }
 function call(cmd, args, fallback){
   return invoke(cmd, args).catch(e => { strip(cmd + ' failed: ' + errText(e)); return fallback; });
@@ -994,6 +1075,14 @@ const STATUS_TEXT = {
   uk:{ ok:'', stale:'останній показник застарів', needsAuth:'не виконано вхід', absent:'не встановлено', none:'немає даних', error:'недоступний' }
 };
 let uiLang = 'en';
+// Exact translations for the migrated Swift controls at the pinned source revision.
++Object.assign(STATIC_TEXT["zh"], {"Peak/off-peak pricing":"峰谷计价","Show DeepSeek pricing":"显示 DeepSeek 计价","Shows the current billing phase and the next peak/off-peak change on the DeepSeek usage card.":"在 DeepSeek 用量卡片上显示当前计价阶段和下次峰谷切换时间。","Peak rule":"高峰规则","The schedule is maintained locally because it cannot be read reliably from an official API. Times below are UTC; the card converts the next change to your local time.":"由于无法可靠地从官方接口读取，这个规则由本地维护。以下时间为 UTC；卡片会将下次切换转换为你的本地时间。","Peak days":"高峰日","Mon":"周一","Tue":"周二","Wed":"周三","Thu":"周四","Fri":"周五","Sat":"周六","Sun":"周日","Window %lld":"时段 %lld","Start":"开始","End":"结束","to":"至","Remove peak window":"移除高峰时段","Add peak window":"添加高峰时段","Restore current default rule":"恢复当前默认规则","Show limit information in menu bar":"在菜单栏显示额度信息","Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets.":"用每个所选服务的 5 小时额度替换图标——已用多少，以及距重置还有多久。","Leaving a provider out keeps it off the menu bar only — Velo still reads it. With none chosen, the icon comes back.":"不选某个服务只会让它离开菜单栏——Velo 仍会读取它。一个都不选时，图标会回来。","Nothing Velo reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.":"Velo 读取的服务中还没有可显示的 5 小时额度。Claude 和 Codex 有——在“账号”中打开其中一个。","Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu.":"超过两个时，每个只显示用量比例，倒计时移到提示中。超过四个时，其余的在菜单里。","Surface":"表面","Liquid Glass":"液态玻璃","Dark glass":"深色玻璃","Solid black":"纯黑","System Liquid Glass. Follows this Mac's Appearance settings, including Clear or Tinted glass and light or dark mode.":"系统液态玻璃。跟随这台 Mac 的外观设置，包括通透或着色玻璃，以及浅色或深色模式。","Liquid Glass tinted black. Always dark, whatever the Mac's appearance.":"染成黑色的 Liquid Glass。无论 Mac 的外观设置如何，始终保持深色。","The original opaque black notch. Always dark, whatever the Mac's appearance.":"原来的不透明黑刘海。无论 Mac 外观如何，始终是深色。","Displays":"显示器","Main display":"主显示器","All displays":"所有显示器","The notch appears only on the display with the menu bar.":"刘海只出现在有菜单栏的显示器上。","Each display gets its own notch, and hovering one opens only that one.":"每个显示器各有一个刘海，悬停只会打开那一个。","Allow access…":"允许访问…","Monthly budget":"每月预算","None":"无","tokens":"token","Region":"地区","International":"国际","China mainland":"中国大陆","Usage details":"用量明细","Tokens":"Token","Cost":"费用","Requests":"请求","API keys":"API 密钥","Pricing":"计价","Peak pricing · 2× off-peak":"高峰计价 · 闲时 2 倍","Off-peak pricing · baseline":"闲时计价 · 基准价","Next peak":"下次高峰","Next off-peak":"下次闲时","Daily tokens":"每日 token","Daily cost":"每日费用","Unused resets":"未使用重置","1 unused reset":"1 次未使用重置","%lld unused resets":"%lld 次未使用重置","Next expires %@":"下次 %@ 到期","Expires %@":"%@ 到期","Lifetime tokens":"累计 token","Peak tokens":"峰值 token","Longest chat":"最长对话","Current streak":"当前连续","Longest streak":"最长连续","Today":"今日","30-day tokens":"30 天 token","Pending":"待出","Spent":"已花费","Remaining":"剩余","Funded":"已充值"});
+Object.assign(STATIC_TEXT["zh-Hant"], {"Peak/off-peak pricing":"峰谷計價","Show DeepSeek pricing":"顯示 DeepSeek 計價","Shows the current billing phase and the next peak/off-peak change on the DeepSeek usage card.":"在 DeepSeek 用量卡片上顯示目前計價階段和下次峰谷切換時間。","Peak rule":"高峰規則","The schedule is maintained locally because it cannot be read reliably from an official API. Times below are UTC; the card converts the next change to your local time.":"由於無法可靠地從官方端點讀取，這個規則由本機維護。以下時間為 UTC；卡片會將下次切換轉換為你的當地時間。","Peak days":"高峰日","Mon":"週一","Tue":"週二","Wed":"週三","Thu":"週四","Fri":"週五","Sat":"週六","Sun":"週日","Window %lld":"時段 %lld","Start":"開始","End":"結束","to":"至","Remove peak window":"移除高峰時段","Add peak window":"新增高峰時段","Restore current default rule":"還原目前預設規則","Show limit information in menu bar":"在選單列顯示額度資訊","Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets.":"用每個所選服務的 5 小時額度取代圖示——已用多少，以及距重置還有多久。","Leaving a provider out keeps it off the menu bar only — Velo still reads it. With none chosen, the icon comes back.":"不選某個服務只會讓它離開選單列——Velo 仍會讀取它。一個都不選時，圖示會回來。","Nothing Velo reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.":"Velo 讀取的服務中還沒有可顯示的 5 小時額度。Claude 和 Codex 有——在“帳號”中開啟其中一個。","Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu.":"超過兩個時，每個只顯示用量比例，倒數計時移到提示中。超過四個時，其餘的在選單裡。","Surface":"表面","Liquid Glass":"液態玻璃","Dark glass":"深色玻璃","Solid black":"純黑","System Liquid Glass. Follows this Mac's Appearance settings, including Clear or Tinted glass and light or dark mode.":"系統液態玻璃。跟隨這台 Mac 的外觀設定，包括通透或著色玻璃，以及淺色或深色模式。","Liquid Glass tinted black. Always dark, whatever the Mac's appearance.":"染成黑色的 Liquid Glass。無論 Mac 的外觀設定如何，始終保持深色。","The original opaque black notch. Always dark, whatever the Mac's appearance.":"原來的不透明黑瀏海。無論 Mac 外觀如何，始終是深色。","Displays":"顯示器","Main display":"主顯示器","All displays":"所有顯示器","The notch appears only on the display with the menu bar.":"瀏海只出現在有選單列的顯示器上。","Each display gets its own notch, and hovering one opens only that one.":"每個顯示器各有一個瀏海，懸停只會開啟那一個。","Allow access…":"允許取用…","Monthly budget":"每月預算","None":"無","tokens":"token","Region":"地區","International":"國際","China mainland":"中國大陸","Usage details":"用量明細","Tokens":"Token","Cost":"費用","Requests":"要求","API keys":"API 金鑰","Pricing":"計價","Peak pricing · 2× off-peak":"高峰計價 · 閒時 2 倍","Off-peak pricing · baseline":"閒時計價 · 基準價","Next peak":"下次高峰","Next off-peak":"下次閒時","Daily tokens":"每日 token","Daily cost":"每日費用","Unused resets":"未使用重置","1 unused reset":"1 次未使用重置","%lld unused resets":"%lld 次未使用重置","Next expires %@":"下次 %@ 到期","Expires %@":"%@ 到期","Lifetime tokens":"累計 token","Peak tokens":"峰值 token","Longest chat":"最長對話","Current streak":"目前連續","Longest streak":"最長連續","Today":"今日","30-day tokens":"30 天 token","Pending":"待出","Spent":"已花費","Remaining":"剩餘","Funded":"已充值"});
+Object.assign(STATIC_TEXT["ja"], {"Peak/off-peak pricing":"ピーク/オフピーク料金","Show DeepSeek pricing":"DeepSeek の料金を表示","Shows the current billing phase and the next peak/off-peak change on the DeepSeek usage card.":"DeepSeek の使用量カードに、現在の課金フェーズと、次のピーク/オフピークの切り替わりを表示します。","Peak rule":"ピークの規則","The schedule is maintained locally because it cannot be read reliably from an official API. Times below are UTC; the card converts the next change to your local time.":"公式 API から確実に読み取れないため、スケジュールはローカルで管理しています。以下の時刻は UTC です。カードでは次の切り替わりが現地時間に変換されます。","Peak days":"ピークの曜日","Mon":"月","Tue":"火","Wed":"水","Thu":"木","Fri":"金","Sat":"土","Sun":"日","Window %lld":"時間帯 %lld","Start":"開始","End":"終了","to":"〜","Remove peak window":"ピーク時間帯を削除","Add peak window":"ピーク時間帯を追加","Restore current default rule":"現在の既定の規則に戻す","Show limit information in menu bar":"メニューバーに上限の情報を表示","Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets.":"アイコンの代わりに、選んだ各プロバイダの5時間の上限を表示します。使用量と、リセットまでの残り時間です。","Leaving a provider out keeps it off the menu bar only — Velo still reads it. With none chosen, the icon comes back.":"オフにしたプロバイダはメニューバーに出なくなるだけで、Velo は読み取りを続けます。何も選ばないとアイコンに戻ります。","Nothing Velo reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.":"Velo が読み取っているものには、まだ表示できる5時間の上限がありません。Claude と Codex にはあります。「アカウント」でどちらかをオンにしてください。","Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu.":"3つ以上では使用率だけを表示し、残り時間はツールチップに移ります。5つ以上では、残りはメニューに表示されます。","Surface":"表面","Liquid Glass":"Liquid Glass","Dark glass":"ダークガラス","Solid black":"不透明な黒","System Liquid Glass. Follows this Mac's Appearance settings, including Clear or Tinted glass and light or dark mode.":"システムの Liquid Glass。クリアか色付きか、ライトかダークかを含め、この Mac の「外観」設定に従います。","Liquid Glass tinted black. Always dark, whatever the Mac's appearance.":"黒く色付けした Liquid Glass。Mac の外観設定にかかわらず、常にダークです。","The original opaque black notch. Always dark, whatever the Mac's appearance.":"従来の不透明な黒いノッチ。Mac の外観にかかわらず常にダークです。","Displays":"ディスプレイ","Main display":"メインディスプレイ","All displays":"すべてのディスプレイ","The notch appears only on the display with the menu bar.":"ノッチはメニューバーのあるディスプレイにだけ出ます。","Each display gets its own notch, and hovering one opens only that one.":"ディスプレイごとに独自のノッチが出ます。ホバーしたものだけが開きます。","Allow access…":"アクセスを許可…","Monthly budget":"月間の予算","None":"なし","tokens":"トークン","Region":"地域","International":"国際","China mainland":"中国本土","Usage details":"使用量の詳細","Tokens":"トークン","Cost":"料金","Requests":"リクエスト","API keys":"API キー","Pricing":"料金","Peak pricing · 2× off-peak":"ピーク料金 · オフピークの 2 倍","Off-peak pricing · baseline":"オフピーク料金 · 基準","Next peak":"次のピーク","Next off-peak":"次のオフピーク","Daily tokens":"1 日のトークン","Daily cost":"1 日の料金","Unused resets":"未使用のリセット","1 unused reset":"未使用のリセット 1 件","%lld unused resets":"未使用のリセット %lld 件","Next expires %@":"次は %@ に期限切れ","Expires %@":"%@ に期限切れ","Lifetime tokens":"累計トークン","Peak tokens":"最大トークン","Longest chat":"最長のチャット","Current streak":"現在の連続日数","Longest streak":"最長の連続日数","Today":"今日","30-day tokens":"30 日間のトークン","Pending":"保留中","Spent":"使用済み","Remaining":"残り","Funded":"入金済み"});
+Object.assign(STATIC_TEXT["ko"], {"Peak/off-peak pricing":"피크/오프피크 요금","Show DeepSeek pricing":"DeepSeek 요금 표시","Shows the current billing phase and the next peak/off-peak change on the DeepSeek usage card.":"DeepSeek 사용량 카드에 현재 요금 구간과 다음 피크/오프피크 전환 시점을 표시합니다.","Peak rule":"피크 규칙","The schedule is maintained locally because it cannot be read reliably from an official API. Times below are UTC; the card converts the next change to your local time.":"공식 API에서 안정적으로 읽을 수 없어 일정을 로컬에서 관리합니다. 아래 시간은 UTC 기준이며, 카드에는 다음 전환 시점을 현지 시간으로 표시합니다.","Peak days":"피크 요일","Mon":"월","Tue":"화","Wed":"수","Thu":"목","Fri":"금","Sat":"토","Sun":"일","Window %lld":"시간대 %lld","Start":"시작","End":"종료","to":"~","Remove peak window":"피크 시간대 제거","Add peak window":"피크 시간대 추가","Restore current default rule":"현재 기본 규칙 복원","Show limit information in menu bar":"메뉴 막대에 한도 정보 표시","Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets.":"아이콘 대신 선택한 각 제공자의 5시간 한도 사용량과 재설정까지 남은 시간을 표시합니다.","Leaving a provider out keeps it off the menu bar only — Velo still reads it. With none chosen, the icon comes back.":"선택하지 않은 제공자는 메뉴 막대에서만 숨기며 Velo는 계속 사용량을 읽습니다. 아무것도 선택하지 않으면 아이콘을 다시 표시합니다.","Nothing Velo reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.":"현재 Velo가 읽는 항목에는 표시할 5시간 한도가 없습니다. Claude와 Codex가 지원하므로 ‘계정’에서 하나를 켜십시오.","Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu.":"3개 이상이면 사용 비율만 표시하고 남은 시간은 툴팁으로 옮깁니다. 5개 이상이면 나머지는 메뉴에 표시합니다.","Surface":"표면","Liquid Glass":"Liquid Glass","Dark glass":"어두운 유리","Solid black":"불투명 검정","System Liquid Glass. Follows this Mac's Appearance settings, including Clear or Tinted glass and light or dark mode.":"시스템의 Liquid Glass를 사용합니다. 투명 또는 색조 유리와 라이트 또는 다크 모드 등 이 Mac의 모양 설정을 따릅니다.","Liquid Glass tinted black. Always dark, whatever the Mac's appearance.":"검은색으로 물들인 Liquid Glass입니다. Mac의 모양 설정과 관계없이 항상 어둡게 표시합니다.","The original opaque black notch. Always dark, whatever the Mac's appearance.":"기존의 불투명한 검은색 노치입니다. Mac의 모양 설정과 관계없이 항상 어둡게 표시합니다.","Displays":"디스플레이","Main display":"주 디스플레이","All displays":"모든 디스플레이","The notch appears only on the display with the menu bar.":"메뉴 막대가 있는 디스플레이에만 노치를 표시합니다.","Each display gets its own notch, and hovering one opens only that one.":"디스플레이마다 노치를 표시하며, 마우스를 올린 노치만 펼쳐집니다.","Allow access…":"접근 허용…","Monthly budget":"월간 예산","None":"없음","tokens":"토큰","Region":"지역","International":"국제","China mainland":"중국 본토","Usage details":"사용량 상세","Tokens":"토큰","Cost":"비용","Requests":"요청","API keys":"API 키","Pricing":"요금","Peak pricing · 2× off-peak":"피크 요금 · 오프피크의 2배","Off-peak pricing · baseline":"오프피크 요금 · 기준","Next peak":"다음 피크","Next off-peak":"다음 오프피크","Daily tokens":"일일 토큰","Daily cost":"일일 비용","Unused resets":"미사용 리셋","1 unused reset":"미사용 리셋 1개","%lld unused resets":"미사용 리셋 %lld개","Next expires %@":"다음 만료 %@","Expires %@":"%@에 만료","Lifetime tokens":"누적 토큰","Peak tokens":"최대 토큰","Longest chat":"가장 긴 채팅","Current streak":"현재 연속 사용 일수","Longest streak":"최장 연속 사용 일수","Today":"오늘","30-day tokens":"30일 토큰","Pending":"대기 중","Spent":"사용액","Remaining":"잔여액","Funded":"충전액"});
+Object.assign(STATIC_TEXT["pt-BR"], {"Show limit information in menu bar":"Exibir limites na barra de menus","Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets.":"Troca o ícone pelo limite de cinco horas de cada provedor escolhido — quanto foi usado e quanto falta para renovar.","Leaving a provider out keeps it off the menu bar only — Velo still reads it. With none chosen, the icon comes back.":"Deixar um provedor de fora só o tira da barra de menus — o Velo continua a lê-lo. Sem nenhum escolhido, o ícone volta.","Nothing Velo reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.":"Nada do que o Velo lê tem ainda um limite de cinco horas para mostrar. Claude e Codex têm — ative um deles em Contas.","Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu.":"Com mais de dois, cada um mostra só a sua parte e as contagens regressivas vão para a dica. Com mais de quatro, os demais ficam no menu.","Displays":"Telas","Main display":"Tela principal","All displays":"Todas as telas","The notch appears only on the display with the menu bar.":"O notch aparece apenas na tela que tem a barra de menus.","Each display gets its own notch, and hovering one opens only that one.":"Cada tela ganha o próprio notch, e passar o cursor sobre um abre somente aquele.","Allow access…":"Permitir acesso…","Monthly budget":"Orçamento mensal","None":"Nenhum","tokens":"tokens"});
+Object.assign(STATIC_TEXT["ru"], {"Show limit information in menu bar":"Показывать лимиты в строке меню","Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets.":"Заменяет значок пятичасовым лимитом каждого выбранного провайдера — сколько использовано и сколько осталось до сброса.","Leaving a provider out keeps it off the menu bar only — Velo still reads it. With none chosen, the icon comes back.":"Невыбранный провайдер лишь исчезает из строки меню — Velo продолжает его читать. Если не выбран ни один, возвращается значок.","Nothing Velo reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.":"Ни у одного провайдера, которого читает Velo, пока нет пятичасового лимита. У Claude и Codex он есть — включите одного из них в разделе «Аккаунты».","Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu.":"Если выбрано больше двух, каждый показывает только долю, а обратный отсчёт уходит во всплывающую подсказку. Если больше четырёх, остальные — в меню.","Surface":"Поверхность","Liquid Glass":"Жидкое стекло","Dark glass":"Тёмное стекло","Solid black":"Сплошной чёрный","System Liquid Glass. Follows this Mac's Appearance settings, including Clear or Tinted glass and light or dark mode.":"Системное жидкое стекло. Следует настройкам внешнего вида Mac, включая прозрачное или тонированное стекло и светлый или тёмный режим.","Liquid Glass tinted black. Always dark, whatever the Mac's appearance.":"Liquid Glass с чёрным оттенком. Всегда тёмное, независимо от оформления Mac.","The original opaque black notch. Always dark, whatever the Mac's appearance.":"Исходная непрозрачная чёрная панель. Всегда тёмная независимо от внешнего вида Mac.","Displays":"Дисплеи","Main display":"Основной дисплей","All displays":"Все дисплеи","The notch appears only on the display with the menu bar.":"Панель появляется только на дисплее со строкой меню.","Each display gets its own notch, and hovering one opens only that one.":"На каждом дисплее есть своя панель, и наведение открывает только её.","Allow access…":"Разрешить доступ…","Monthly budget":"Месячный бюджет","None":"Нет","tokens":"токенов","Unused resets":"Неиспользованные сбросы","1 unused reset":"1 неиспользованный сброс","%lld unused resets":"%lld неиспользованных сбросов","Next expires %@":"Следующий истекает %@","Expires %@":"Истекает %@"});
+Object.assign(STATIC_TEXT["uk"], {"Peak/off-peak pricing":"Ціни в пік і поза піком","Show DeepSeek pricing":"Показувати ціни DeepSeek","Shows the current billing phase and the next peak/off-peak change on the DeepSeek usage card.":"Показує поточну фазу тарифікації та найближчу зміну пікового чи непікового періоду на картці використання DeepSeek.","Peak rule":"Правило піку","The schedule is maintained locally because it cannot be read reliably from an official API. Times below are UTC; the card converts the next change to your local time.":"Розклад ведеться локально, бо його не можна надійно прочитати з офіційного API. Час нижче — за UTC; картка переводить наступну зміну у ваш місцевий час.","Peak days":"Пікові дні","Mon":"Пн","Tue":"Вт","Wed":"Ср","Thu":"Чт","Fri":"Пт","Sat":"Сб","Sun":"Нд","Window %lld":"Вікно %lld","Start":"Початок","End":"Кінець","to":"до","Remove peak window":"Видалити вікно піку","Add peak window":"Додати вікно піку","Restore current default rule":"Відновити типове правило","Show limit information in menu bar":"Показувати ліміти в рядку меню","Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets.":"Замінює значок п’ятигодинним лімітом кожного вибраного провайдера — скільки використано і скільки лишилося до скидання.","Leaving a provider out keeps it off the menu bar only — Velo still reads it. With none chosen, the icon comes back.":"Невибраний провайдер лише зникає з рядка меню — Velo і далі його читає. Якщо не вибрано жодного, повертається значок.","Nothing Velo reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.":"Жоден провайдер, якого читає Velo, поки не має п’ятигодинного ліміту. У Claude і Codex він є — увімкніть одного з них у розділі «Акаунти».","Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu.":"Якщо вибрано більше двох, кожен показує лише частку, а зворотний відлік переходить у підказку. Якщо більше чотирьох, решта — в меню.","Surface":"Поверхня","Liquid Glass":"Liquid Glass","Dark glass":"Темне скло","Solid black":"Суцільний чорний","System Liquid Glass. Follows this Mac's Appearance settings, including Clear or Tinted glass and light or dark mode.":"Системне Liquid Glass. Відповідає налаштуванням вигляду цього Mac, зокрема прозорому чи тонованому склу та світлому або темному режиму.","Liquid Glass tinted black. Always dark, whatever the Mac's appearance.":"Liquid Glass з чорним відтінком. Завжди темний, незалежно від вигляду Mac.","The original opaque black notch. Always dark, whatever the Mac's appearance.":"Початковий непрозорий чорний виріз. Завжди темний, незалежно від вигляду Mac.","Displays":"Дисплеї","Main display":"Основний дисплей","All displays":"Усі дисплеї","The notch appears only on the display with the menu bar.":"Виріз зʼявляється лише на дисплеї з рядком меню.","Each display gets its own notch, and hovering one opens only that one.":"Кожен дисплей отримує власний виріз, і наведення відкриває лише його.","Allow access…":"Дозволити доступ…","Monthly budget":"Місячний бюджет","None":"Немає","tokens":"токенів","Region":"Регіон","International":"Міжнародний","China mainland":"Материковий Китай","Usage details":"Деталі використання","Tokens":"Токени","Cost":"Витрати","Requests":"Запити","API keys":"Ключі API","Pricing":"Тарифікація","Peak pricing · 2× off-peak":"Пікова ціна · 2× від ціни поза піком","Off-peak pricing · baseline":"Ціна поза піком · базова","Next peak":"Наступний пік","Next off-peak":"Наступний непіковий час","Daily tokens":"Токени за день","Daily cost":"Витрати за день","Unused resets":"Невикористані скидання","1 unused reset":"1 невикористане скидання","%lld unused resets":"%lld невикористаних скидань","Next expires %@":"Наступне спливає %@","Expires %@":"Спливає %@","Lifetime tokens":"Токенів усього","Peak tokens":"Пік токенів за день","Longest chat":"Найдовший чат","Current streak":"Поточна серія","Longest streak":"Найдовша серія","Today":"Сьогодні","30-day tokens":"Токени за 30 днів","Pending":"Очікується","Spent":"Витрачено","Remaining":"Залишок","Funded":"Поповнено"});
 function ui(key, fallback=key){ const table = STATIC_TEXT[uiLang]; return (table && table[key]) || fallback; }
 /* Text the scripts draw is skipped here: renderers set it through ui() themselves. */
 function applyStaticUi(){
@@ -1075,7 +1164,7 @@ function renderSidebarGlyphs(){
     span.style.width=Math.min(18,Number(symbol.width)||13)+'px';span.style.height=Math.min(18,Number(symbol.height)||13)+'px';
     el.replaceChildren(span);
   }
-  for(const [tab,id] of [['ollama','ollama-local'],['lmstudio','lmstudio']]){
+  for(const [tab,id] of [['deepseek','deepseek'],['ollama','ollama-local'],['lmstudio','lmstudio']]){
     if(glyphs[id])document.querySelector('#tab-'+tab+' .badge').innerHTML=glyphHtml({id});
   }
 }
@@ -1094,6 +1183,12 @@ function loadLook(){
     applyAccent();renderAppearance();
   });
 }
+window.__TAURI__.event.listen('system_accent_changed',event=>{
+  const color=event.payload;
+  if(!/^#[0-9a-f]{6}$/i.test(color||''))return;
+  palette=Array.isArray(palette)?palette.slice():[null,null,null,null,null];
+  palette[3]=color;applyAccent();renderAppearance();
+}).catch(()=>{});
 dark.addEventListener('change', applyAccent);
 
 /* Phone Link: only an open pairing dialog asks for the in-memory code. */
@@ -1122,13 +1217,13 @@ document.getElementById('phone-remove-confirm').onclick=async()=>{try{await invo
 window.__TAURI__?.event.listen('phone_link',()=>readPhone()).catch(()=>{});
 window.addEventListener('pagehide',()=>{if(document.getElementById('phone-pairing').open)invoke('phone_pairing',{open:false}).catch(()=>{});});
 /* ---- the sidebar -------------------------------------------------------- */
-const TABS = ['accounts', 'ollama', 'lmstudio', 'custom', 'phone', 'appearance', 'notifications', 'general'];
-const TITLES = {phone:'Phone', ollama:'Ollama',lmstudio:'LM Studio',custom:'Custom Endpoints',accounts:'Accounts', appearance:'Appearance', notifications:'Notifications', general:'General' };
+const TABS = ['accounts', 'deepseek', 'ollama', 'lmstudio', 'custom', 'phone', 'appearance', 'notifications', 'general'];
+const TITLES = {phone:'Phone', deepseek:'DeepSeek',ollama:'Ollama',lmstudio:'LM Studio',custom:'Custom Endpoints',accounts:'Accounts', appearance:'Appearance', notifications:'Notifications', general:'General' };
 Object.assign(ZH_STATIC, {'Install updates automatically':'自动安装更新','Check now':'立即检查','App designed and developed by':'应用设计与开发','. Updates are downloaded and verified before installation.':'。更新下载后会先验证签名，再安装。','Automatic updates are not available in this preview. Download new versions from velo.codes.':'此预览版暂不支持自动更新，可从 velo.codes 下载新版。'});
-const SUBTITLES={phone:'See your usage on your phone.',ollama:'Models running in Ollama on this computer.',lmstudio:'Models loaded in LM Studio on this computer.',custom:'OpenAI-compatible APIs, local runtimes and custom proxies.',accounts:'Choose which providers the notch reads.',appearance:'How the notch looks and where it sits.',notifications:'What Velo tells you, and when.',general:'Startup, updates and everything else.'};
+const SUBTITLES={phone:'See your usage on your phone.',deepseek:'Peak and off-peak pricing for your DeepSeek spend.',ollama:'Models running in Ollama on this computer.',lmstudio:'Models loaded in LM Studio on this computer.',custom:'OpenAI-compatible APIs, local runtimes and custom proxies.',accounts:'Choose which providers the notch reads.',appearance:'How the notch looks and where it sits.',notifications:'What Velo tells you, and when.',general:'Startup, updates and everything else.'};
 const TAB_KEY = 'vela.settings.pane';
 let curTab = TABS[0];
-const PROVIDER_TABS=['ollama','lmstudio','custom'];
+const PROVIDER_TABS=['deepseek','ollama','lmstudio','custom'];
 function expandAccounts(expanded){
   document.getElementById('provider-tabs').hidden=!expanded;
   document.getElementById('accounts-disclosure').setAttribute('aria-expanded',String(expanded));
@@ -1157,6 +1252,7 @@ function showTab(id, moveFocus){
   document.getElementById('subtitle').textContent = ui(SUBTITLES[id],SUBTITLES[id]);
   document.getElementById('body').scrollTop = 0;
   syncBodyScrollbarGutter();
+  if(id==='ollama')refreshLocalActivity();
   try { localStorage.setItem(TAB_KEY, id); } catch(e) { /* not remembered, that is all */ }
   if(moveFocus) document.getElementById('tab-' + id).focus();
 }
@@ -1194,8 +1290,34 @@ const ORDER = ['claude', 'codex', 'glm', 'cursor', 'grok', 'gemini'];
 const FALLBACK_LABEL = { claude:'Claude', codex:'Codex', glm:'z.ai', cursor:'Cursor', grok:'Grok', gemini:'Antigravity' };
 let disabledProviders=[];
 let providerMetadata=[];
+let providerSettings={minimax_china:false,gemini_token_budget:null},providerSettingsBusy=false;
 let options = [];      // [{id,label,status,used}] from get_tray_options
 let glyphs = {};       // id -> {kind:'svg'|'png'|'appicon', svg, url}
+const keychainRetryBusy=new Set();
+const WEB_SESSION_IDS=['deepseek','qianwenai','minimax'];
+const webSessionStates={};
+async function refreshWebSessionStates(){
+  await Promise.all(WEB_SESSION_IDS.map(async id=>{
+    try{webSessionStates[id]=await invoke('get_web_session_state',{id});}
+    catch(_){delete webSessionStates[id];}
+  }));
+  renderAccounts();
+}
+async function openWebSession(id,switching=false){
+  if(!WEB_SESSION_IDS.includes(id)||!webSessionStates[id]?.supported)return;
+  try{
+    webSessionStates[id]=await invoke('open_web_session',{
+      id,switching,minimaxChina:providerSettings.minimax_china===true});
+    renderAccounts();
+  }catch(error){strip(errText(error));}
+}
+refreshWebSessionStates();
+window.__TAURI__.event.listen('web_session_state',e=>{
+  const value=e.payload;
+  if(value&&WEB_SESSION_IDS.includes(value.id)){
+    webSessionStates[value.id]=value;renderAccounts();refreshOptions();
+  }
+}).catch(()=>{});
 function providerList(){
   return options.length ? options : ORDER.map(id => ({ id, label:FALLBACK_LABEL[id], status:'' }));
 }
@@ -1205,14 +1327,16 @@ function statusText(p){
 }
 function glyphHtml(p){
   const base=p.id.startsWith('claude-')?'claude':p.id.startsWith('codex-')?'codex':p.id.startsWith('antigravity-')?'gemini':p.id;
-  const g = glyphs[p.id]||glyphs[base];
+  const brand=providerMetadata.find(row=>row.id===p.id)?.snap?.local_model?.brand;
+  const runtime=providerMetadata.find(row=>row.id===p.id)?.snap?.source_provider_id;
+  const g = glyphs[p.id]||glyphs[brand]||glyphs[runtime]||glyphs[base];
   const scale=Number(g?.scale)||1;
   if(g && g.kind === 'svg' && g.svg) return '<span class="glyph" style="transform:scale('+scale+')">' + g.svg + '</span>';
   if(g?.kind==='template' && /^data:image\/(svg\+xml|png);base64,[A-Za-z0-9+/=]+$/.test(g.url)) return '<span class="glyph" style="transform:scale('+scale+');background:currentColor;mask:url('+g.url+') center/contain no-repeat;mask-mode:alpha;-webkit-mask:url('+g.url+') center/contain no-repeat"></span>';
   if(g && g.url) return '<span class="glyph"><img src="' + esc(g.url) + '" alt=""></span>';
   return '<span class="glyph letter">' + esc((p.label || p.id).charAt(0)) + '</span>';
 }
-invoke('get_disabled_providers').then(v=>{disabledProviders=Array.isArray(v)?v:[];renderAccounts();}).catch(()=>{});
+invoke('get_disabled_providers').then(v=>{disabledProviders=Array.isArray(v)?v:[];renderAccounts();renderLocalConnections();}).catch(()=>{});
 function refreshOptions(){
   call('get_tray_options', undefined, null).then(opts => {
     if(Array.isArray(opts) && opts.length){ options = opts.filter(o => o && typeof o.id === 'string'); renderAccounts(); }
@@ -1250,6 +1374,13 @@ function drawSwitch(el, s){
 }
 const hooks = remote('get_hooks_installed', 'set_hooks_installed', 'The Claude Code messages', () => renderAccounts());
 const autostart = remote('get_autostart', 'set_autostart', 'Open Velo at login', () => drawSwitch(document.getElementById('sw-autostart'), autostart));
+const refreshAutostart=autostart.refresh;
+autostart.refresh=()=>refreshAutostart().then(value=>{
+  invoke('get_autostart_problem').then(problem=>{
+    const row=field('autostart-problem');row.textContent=typeof problem==='string'?problem:'';row.hidden=!row.textContent;
+  }).catch(error=>strip(errText(error)));
+  return value;
+});
 document.getElementById('sw-autostart').addEventListener('click', () => autostart.toggle());
 
 /* ---- Accounts: which providers get a ring --------------------------------
@@ -1263,8 +1394,13 @@ const NO_RING = 'These have no ring to place. Switch one on and it joins the end
 
 function notchOn(){
   const ids = providerList().map(p => p.id);
-  if(!Array.isArray(notchSlots)) return ids.filter(id=>!disabledProviders.includes(id)).map(id => ({ provider:id }));
-  const on = notchSlots.filter(sl => sl && ids.includes(sl.provider) && !disabledProviders.includes(sl.provider));
+  const enabled=id=>!disabledProviders.includes(id)&&providerMetadata.find(p=>p.id===id)?.enabled!==false;
+  if(!Array.isArray(notchSlots)) return ids.filter(enabled).map(id => ({ provider:id }));
+  const on = notchSlots.filter(sl => sl && ids.includes(sl.provider) && enabled(sl.provider));
+  // Swift ProviderOrder appends a newly loaded model after the saved order.
+  if(notchSlots.length)for(const id of ids){
+    if(providerMetadata.find(p=>p.id===id)?.snap?.local_model&&enabled(id)&&!on.some(sl=>sl.provider===id))on.push({provider:id});
+  }
   return on;
 }
 function agSelect(key, choices, value){
@@ -1272,25 +1408,55 @@ function agSelect(key, choices, value){
     + choices.map(([v, t]) => '<option value="' + v + '"' + (v === value ? ' selected' : '') + '>' + esc(ui(t, t)) + '</option>').join('')
     + '</select>';
 }
+function modelMemoryText(bytes){
+  const units=[['EB',1024**6],['PB',1024**5],['TB',1024**4],['GB',1024**3],['MB',1024**2],['KB',1024],['B',1]];
+  const [unit,divisor]=units.find(([,size])=>bytes>=size)||['B',1];
+  return new Intl.NumberFormat(uiLang,{maximumFractionDigits:1}).format(bytes/divisor)+' '+unit;
+}
 function accountBlock(p, isOn, locked){
   const st = statusText(p);
   const metadata=providerMetadata.find(x=>x.id===p.id);
+  const model=metadata?.snap?.local_model;
+  const web=webSessionStates[p.id],account=metadata?.account;
+  const webCanSignIn=!!(web?.supported&&WEB_SESSION_IDS.includes(p.id));
+  const accountSummary=account?[account.label,account.plan?.replace(/\b\p{L}/gu,c=>c.toUpperCase()),ui('via '+account.source)].filter(Boolean).join(' · '):'';
   let h = '<div class="acct' + (isOn ? '' : ' off') + '" data-account="'+esc(p.id)+'">'
     + '<div class="acct-line">'+(isOn?'<button class="account-handle" draggable="true" data-reorder="'+esc(p.id)+'" aria-label="'+esc(ui('Reorder')+' '+p.label)+'" title="'+esc(ui('Drag to reorder; use arrow keys'))+'">☰</button>':'')+'<span class="acct-name">' + glyphHtml(p) + '<span>' + esc(p.label || p.id) + '</span></span>'
     + (isOn?'<button class="account-alert" data-mute="'+esc(p.id)+'" aria-pressed="'+(notificationPrefs.muted_providers||[]).includes(p.id)+'" aria-label="'+esc(ui('Mute threshold alerts')+' '+p.label)+'" title="'+esc(ui('Mute threshold alerts')+' '+p.label)+'"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5a4 4 0 0 1 8 0v3l1 2H2l1-2Zm2.5 7h3"/>'+((notificationPrefs.muted_providers||[]).includes(p.id)?'<path d="m1 1 12 12"/>':'')+'</svg></button>':'')
+    + (isOn&&metadata?.was_refused_access?'<button class="btn compact" data-allow-keychain="'+esc(p.id)+'"'+(keychainRetryBusy.has(p.id)?' disabled':'')+'>'+esc(ui('Allow access…'))+'</button>':'')
     + '<button class="switch' + (isOn ? ' on' : '') + (locked || notchSaving ? ' locked' : '') + '" role="switch" aria-checked="' + isOn + '"'
     + (notchSaving ? ' disabled' : '') + ' data-np="' + esc(p.id) + '" aria-label="' + esc(p.label || p.id) + '"></button></div>';
-  if(st) h += '<div class="acct-detail">' + esc(st) + '</div>';
-  if(metadata?.guidance) h += '<div class="acct-detail">'+esc(metadata.guidance)+'</div>';
+  if(model){
+    const bytes=model.gpu_size>0?model.gpu_size:model.size;
+    const memory=bytes==null?'—':modelMemoryText(bytes);
+    const memoryLabel=model.size_kind==='modelSize'?'Model size':model.gpu_size==null?'Memory':model.gpu_size>0?'VRAM':'RAM';
+    const runtime=metadata.snap.source_provider_id==='lmstudio'?'LM Studio':'Ollama';
+    h+='<div class="acct-detail">'+esc(isOn?ui(memory+' '+memoryLabel+' · via '+runtime):ui('Hidden from the notch · Loaded in '+runtime))+'</div>';
+  }else if(!isOn)h+='<div class="acct-detail">'+esc(ui('Signed out — nothing is read, and no readings are kept.'))+'</div>';
+  else if(accountSummary){
+    h+='<div class="acct-detail"><div class="account-summary">'+esc(accountSummary)
+      +(webCanSignIn?'<button class="link" data-web-sign-in="'+esc(p.id)+'" data-switch="true">'+esc(ui('Switch…'))+'</button>':'')
+      +'</div><div class="account-source">'+esc(webCanSignIn?ui('Sign out in the '+p.label+' window to use another account.'):ui('Switch accounts in the tool that owns it; the notch follows.'))+'</div></div>';
+  }else if(metadata?.was_refused_access){
+    h+='<div class="acct-detail warning">'+esc(ui('Velo is not reading '+(p.label||p.id)+"'s saved login. Choose Allow access… above and answer Allow."))+'</div>';
+  }else if(web){
+    if(!web.supported)h+='<div class="acct-detail warning">'+esc(web.reason||'Private browser profiles are unavailable on this system.')+'</div>';
+    else if(web.signed_in)h+='<div class="acct-detail"><div class="account-summary">'+esc(ui('via '+(p.label||p.id)))+'<button class="link" data-web-sign-in="'+esc(p.id)+'" data-switch="true">'+esc(ui('Switch…'))+'</button></div><div class="account-source">'+esc(ui('Sign out in the '+p.label+' window to use another account.'))+'</div></div>';
+    else h+='<div class="acct-sub"><span>'+esc(ui('Sign in to '+(p.label||p.id)+' to read this account.'))+'</span><button class="btn" data-web-sign-in="'+esc(p.id)+'">'+esc(ui('Sign in to '+(p.label||p.id)))+'</button></div>';
+  }else h+='<div class="acct-detail'+(st&&st!=='ok'?' warning':'')+'">'+esc(metadata?.guidance||st||ui('Sign in with the tool that owns this account.'))+'</div>';
+  if(isOn&&metadata?.needs_sign_in_renewal)h+='<div class="acct-detail warning renewal">'+esc(ui((p.label||p.id)+' usage needs its sign-in renewed — run `claude` once in a terminal.'))+'</div>';
   if(p.id === 'gemini' && isOn){
     h += '<div class="acct-sub"><span>' + esc(ui('Notch reads', 'Notch reads')) + '</span>' + agSelect('limit', AG_LIMITS, agPrefs.limit) + '</div>'
       + '<div class="acct-sub"><span>' + esc(ui('Model data', 'Model data')) + '</span>' + agSelect('model', AG_MODELS, agPrefs.model) + '</div>';
   }
+  if(p.id==='gemini-api'&&isOn)h+='<div class="acct-sub"><label>'+esc(ui('Monthly budget'))+'<input type="number" min="1" step="1" data-gemini-budget value="'+esc(providerSettings.gemini_token_budget??'')+'" placeholder="'+esc(ui('None'))+'" '+(providerSettingsBusy?'disabled':'')+'></label><span>'+esc(ui('tokens'))+'</span></div>';
+  if(p.id==='minimax')h+='<div class="acct-sub"><label>'+esc(ui('Region'))+'<select data-minimax-region '+(providerSettingsBusy?'disabled':'')+'><option value="global"'+(!providerSettings.minimax_china?' selected':'')+'>'+esc(ui('International'))+'</option><option value="china"'+(providerSettings.minimax_china?' selected':'')+'>'+esc(ui('China mainland'))+'</option></select></label></div>';
   if(['minimax','ollama-cloud'].includes(p.id)) h += '<div class="acct-sub"><input type="password" autocomplete="off" data-key="'+esc(p.id)+'" placeholder="API key" aria-label="API key"><button class="btn" data-save-key="'+esc(p.id)+'">'+(uiLang.startsWith('zh')?'保存密钥':'Save key')+'</button></div>';
+  if(p.id==='minimax') h += '<div class="acct-sub"><span>'+esc(ui('Cookie header (optional)'))+'</span><input type="password" autocomplete="off" data-key="minimax-cookie" placeholder="Cookie: …" aria-label="Cookie header (optional)"><button class="btn" data-save-key="minimax-cookie">'+esc(ui('Save'))+'</button></div><div class="acct-detail">'+esc(ui("Sign in to MiniMax in Velo, or paste a Coding Plan key. A Cookie header is optional. Velo never reads a browser's cookies."))+'</div>';
   return h + '</div>';
 }
-function renderAccounts(){
-  if(document.activeElement?.matches('#acc-on input,#acc-off input'))return;
+function renderAccounts(force=false){
+  if(!force&&document.activeElement?.matches('#acc-on input,#acc-off input'))return;
   const list = providerList();
   const onIds = notchOn().map(sl => sl.provider);
   const connected = onIds.map(id=>list.find(p=>p.id===id)).filter(Boolean);
@@ -1322,6 +1488,8 @@ async function toggleNotch(id){
     await invoke('set_provider_enabled',{id,value});
     const [disabled,slots]=await Promise.all([invoke('get_disabled_providers'),invoke('get_notch_slots')]);
     disabledProviders=Array.isArray(disabled)?disabled:[];notchSlots=slots;
+    if(value&&WEB_SESSION_IDS.includes(id)&&webSessionStates[id]?.supported&&!webSessionStates[id].signed_in)
+      await openWebSession(id);
     toast();
   }catch(error){strip(errText(error));}
   finally{notchSaving=false;renderAccounts();}
@@ -1336,6 +1504,17 @@ accountsPane.addEventListener('drop',e=>{const row=e.target.closest('#acc-on [da
 accountsPane.addEventListener('keydown',e=>{const handle=e.target.closest('[data-reorder]');if(!handle||!['ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const on=notchOn(),index=on.findIndex(s=>s.provider===handle.dataset.reorder),target=on[index+(e.key==='ArrowUp'?-1:1)];if(target){moveAccount(handle.dataset.reorder,target.provider);Array.from(accountsPane.querySelectorAll('[data-reorder]')).find(el=>el.dataset.reorder===handle.dataset.reorder)?.focus();}});
 
 accountsPane.addEventListener('click', async e => {
+  const keychain=e.target.closest('[data-allow-keychain]');
+  if(keychain){
+    const id=keychain.dataset.allowKeychain;if(keychainRetryBusy.has(id))return;
+    keychainRetryBusy.add(id);renderAccounts();
+    try{await invoke('allow_claude_keychain_access',{id});toast();}
+    catch(error){strip(errText(error));}
+    finally{keychainRetryBusy.delete(id);renderAccounts();}
+    return;
+  }
+  const web=e.target.closest('[data-web-sign-in]');
+  if(web){await openWebSession(web.dataset.webSignIn,web.dataset.switch==='true');return;}
   const mute=e.target.closest('[data-mute]');
   if(mute){const muted=new Set(notificationPrefs.muted_providers||[]);if(muted.has(mute.dataset.mute))muted.delete(mute.dataset.mute);else muted.add(mute.dataset.mute);await saveNotification({muted_providers:[...muted]});return;}
   const save=e.target.closest('[data-save-key]');
@@ -1345,6 +1524,10 @@ accountsPane.addEventListener('click', async e => {
   if(e.target.closest('[data-remote="hooks"]')) hooks.toggle();
 });
 accountsPane.addEventListener('change', e => {
+  const region=e.target.closest('[data-minimax-region]');
+  if(region){saveProviderSettings({minimax_china:region.value==='china'});return;}
+  const budget=e.target.closest('[data-gemini-budget]');
+  if(budget){const value=budget.value.trim();saveProviderSettings({gemini_token_budget:value?Math.max(1,Math.floor(Number(value))):null});return;}
   const box = e.target.closest('[data-ag]');
   if(!box) return;
   const want = Object.assign({}, agPrefs, { [box.dataset.ag]: box.value });
@@ -1357,54 +1540,229 @@ accountsPane.addEventListener('change', e => {
 let localPreferences={ollama:'http://127.0.0.1:11434',lmstudio:'http://127.0.0.1:1234',disabled_models:[]};
 let customEndpoints=[];
 const field=id=>document.getElementById(id);
-invoke('get_providers').then(v=>{providerMetadata=Array.isArray(v)?v:[];renderAccounts();}).catch(()=>{});
-invoke('get_provider_settings').then(v=>{field('minimax-region').value=v.minimax_china?'china':'global';field('gemini-budget').value=v.gemini_token_budget??'';}).catch(()=>{});
-invoke('get_local_runtime_settings').then(v=>{if(!v)return;localPreferences=v;field('ollama-url').value=v.ollama;field('lmstudio-url').value=v.lmstudio;refreshLocalModels().catch(()=>{});}).catch(()=>{});
-async function saveForm(form,action){const button=form.querySelector('[type=submit]');button.disabled=true;try{await action();toast();}catch(error){strip(errText(error));}finally{button.disabled=false;}}
-field('provider-preferences').addEventListener('submit',e=>{e.preventDefault();saveForm(e.currentTarget,()=>invoke('set_provider_settings',{minimaxChina:field('minimax-region').value==='china',geminiTokenBudget:field('gemini-budget').value?Number(field('gemini-budget').value):null}));});
-for(const runtime of ['ollama','lmstudio'])field(runtime+'-preferences').addEventListener('submit',e=>{e.preventDefault();saveForm(e.currentTarget,async()=>{const prefs={...localPreferences,[runtime]:field(runtime+'-url').value};await invoke('set_local_runtime_settings',{prefs});localPreferences=prefs;await refreshLocalModels();});});
-async function refreshLocalModels(){
- const readings=await invoke('get_local_models')||{};
- for(const [runtime,id] of [['ollama','ollama-local'],['lmstudio','lmstudio']]){
-  const reading=readings[id],models=reading?.address===localPreferences[runtime]?reading.models:[];
-  field(runtime+'-models').innerHTML=(models||[]).length?models.map(m=>{
-   const key=id+'/'+m.id,enabled=!localPreferences.disabled_models.includes(key);
-   const size=m.size==null?'—':(m.size/1073741824).toFixed(1)+' GiB';
-   return '<div class="acct"><div class="acct-line"><span>'+esc(m.id)+'</span><button class="switch'+(enabled?' on':'')+'" role="switch" aria-checked="'+enabled+'" aria-label="'+esc(m.id)+'" data-local-model="'+esc(key)+'"></button></div><div class="acct-detail">'+esc(ui(m.size_kind==='memory'?'Memory':'Model size'))+': '+size+' · '+esc(ui('Context'))+': '+(m.context==null?'—':m.context.toLocaleString()+' tokens')+(m.quantization?' · '+esc(m.quantization):'')+'</div></div>';
-  }).join(''):'<div class="item cap">'+esc(ui(reading?.address===localPreferences[runtime]?'No models loaded.':'Waiting for a local runtime reading.'))+'</div>';
+const LOCAL_IDS={ollama:'ollama-local',lmstudio:'lmstudio'};
+let localBusy=false;
+function renderLocalConnections(){
+ for(const [runtime,id] of Object.entries(LOCAL_IDS)){
+  const on=!disabledProviders.includes(id),button=field(runtime+'-monitor'),address=field(runtime+'-url');
+  button.classList.toggle('on',on);button.setAttribute('aria-checked',on);button.disabled=localBusy;
+  field(runtime+'-apply').textContent=ui(address.value.trim()===localPreferences[runtime]?'Check connection':'Apply');
+  const meta=providerMetadata.find(p=>p.id===id);
+  field(runtime+'-status').textContent=ui(!on?'Monitoring off.':meta?.snap?.note||meta?.guidance||(runtime==='ollama'?'Connecting to Ollama…':'Connecting to LM Studio…'));
  }
+ const metrics=field('ollama-metrics'),enabled=localPreferences.ollama_metrics_enabled===true;
+ metrics.classList.toggle('on',enabled);metrics.setAttribute('aria-checked',String(enabled));
+ metrics.disabled=localBusy||disabledProviders.includes('ollama-local');
+ field('ollama-relay').hidden=!enabled||disabledProviders.includes('ollama-local');
 }
-for(const runtime of ['ollama','lmstudio'])field(runtime+'-models').addEventListener('click',async e=>{
- const b=e.target.closest('[data-local-model]');if(!b)return;b.disabled=true;
- const disabled=new Set(localPreferences.disabled_models);if(disabled.has(b.dataset.localModel))disabled.delete(b.dataset.localModel);else disabled.add(b.dataset.localModel);
- try{const prefs={...localPreferences,disabled_models:[...disabled]};await invoke('set_local_runtime_settings',{prefs});localPreferences=prefs;await refreshLocalModels();}catch(error){strip(errText(error));}finally{b.disabled=false;}
+let localActivity=null,localActivityReading=false;
+let lmTokenState={present:false},lmTokenBusy=false;
+function renderLMToken(){
+ const present=lmTokenState.present===true,token=field('lmstudio-token');
+ field('lmstudio-token-save').disabled=lmTokenBusy||!token.value.trim();
+ field('lmstudio-token-remove').hidden=!present;field('lmstudio-token-remove').disabled=lmTokenBusy;
+ field('lmstudio-token-hint').textContent=ui(present?'A token is stored and sent with every request.':"Only needed when LM Studio's server requires a token (Developer → Server Settings). Without one, requests are sent with no Authorization header.");
+}
+async function refreshLMToken(){try{lmTokenState=await invoke('get_lmstudio_token_state');renderLMToken();}catch(error){strip(errText(error));}}
+field('lmstudio-token').addEventListener('input',renderLMToken);
+for(const action of ['save','remove'])field('lmstudio-token-'+action).addEventListener('click',async()=>{
+ if(lmTokenBusy)return;const token=field('lmstudio-token'),secret=action==='remove'?'':token.value.trim();
+ if(action==='save'&&!secret)return;
+ lmTokenBusy=true;renderLMToken();
+ try{await invoke('save_provider_secret',{id:'lmstudio-api-token',secret});token.value='';await refreshLMToken();field('lmstudio-token-saved').hidden=action==='remove';toast();}
+ catch(error){strip(errText(error));}
+ finally{lmTokenBusy=false;renderLMToken();}
 });
-window.__TAURI__.event.listen('providers',()=>refreshLocalModels().catch(()=>{})).catch(()=>{});
+refreshLMToken();
+function renderOllamaRelay(){
+ const box=field('ollama-relay');
+ if(disabledProviders.includes('ollama-local')||localPreferences.ollama_metrics_enabled!==true){box.hidden=true;return;}
+ box.hidden=false;
+ const relay=localActivity?.relay;
+ const ready=relay?.ready===true,address=relay?.address||'http://127.0.0.1:11435';
+ const count=relay?.performances?Object.keys(relay.performances).length:0;
+ box.innerHTML='<strong>'+esc(ui('Speed and thinking'))+'</strong>'
+   +'<div'+(relay&&!ready?' class="problem"':'')+'>'+esc(ready?ui('Listening at ') +address:relay?.status||ui('Connecting…'))+'</div>'
+   +(ready?'<div>'+esc(count?ui('Generation speed received for ')+count+ui(' model(s).'):ui('Waiting for a completed response through this address.'))+'</div>'
+     +'<div>'+esc(ui("Set your chat client's Ollama address to the one above, or run this in Terminal:"))+'</div>'
+     +'<div><code>'+esc('OLLAMA_HOST='+address+' ollama')+'</code></div>'
+     +'<div>'+esc(ui('Keep Velo open. Speed appears after each completed native Ollama response. Requests sent directly to the server address only provide model detection here.'))+'</div>':'');
+}
+async function refreshLocalActivity(){
+ if(localActivityReading||curTab!=='ollama'||disabledProviders.includes('ollama-local')||localPreferences.ollama_metrics_enabled!==true)return;
+ localActivityReading=true;
+ try{localActivity=await invoke('get_local_runtime_activity');renderOllamaRelay();}
+ catch(error){localActivity={relay:{ready:false,status:errText(error)}};renderOllamaRelay();}
+ finally{localActivityReading=false;}
+}
+field('ollama-metrics').addEventListener('click',async()=>{
+ if(localBusy||disabledProviders.includes('ollama-local'))return;
+ localBusy=true;renderLocalConnections();
+ try{
+  const prefs={...localPreferences,ollama_metrics_enabled:localPreferences.ollama_metrics_enabled!==true};
+  await invoke('set_local_runtime_settings',{prefs});
+  localPreferences=await invoke('get_local_runtime_settings');toast();
+  if(localPreferences.ollama_metrics_enabled===true)refreshLocalActivity();
+ }catch(error){strip(errText(error));}
+ finally{localBusy=false;renderLocalConnections();renderOllamaRelay();}
+});
+setInterval(()=>{if(curTab==='ollama')refreshLocalActivity();},3000);
+invoke('get_providers').then(v=>{providerMetadata=Array.isArray(v)?v:[];renderAccounts();renderLocalConnections();}).catch(()=>{});
+invoke('get_provider_settings').then(v=>{if(v)providerSettings={...providerSettings,...v};renderAccounts();}).catch(()=>{});
+async function saveProviderSettings(patch){
+  if(providerSettingsBusy)return;
+  providerSettingsBusy=true;
+  const next={...providerSettings,...patch};renderAccounts();
+  try{
+    await invoke('set_provider_settings',{minimaxChina:next.minimax_china,geminiTokenBudget:next.gemini_token_budget});
+    providerSettings=next;toast();
+  }catch(error){strip(errText(error));}
+  finally{providerSettingsBusy=false;renderAccounts(true);}
+}
+invoke('get_local_runtime_settings').then(v=>{if(!v)return;localPreferences=v;field('ollama-url').value=v.ollama;field('lmstudio-url').value=v.lmstudio;renderLocalConnections();renderOllamaRelay();refreshLocalModels().catch(()=>{});refreshLocalActivity();}).catch(()=>{});
+async function saveForm(form,action){const button=form.querySelector('[type=submit]');button.disabled=true;try{await action();toast();}catch(error){strip(errText(error));}finally{button.disabled=false;}}
+for(const [runtime,id] of Object.entries(LOCAL_IDS)){
+ field(runtime+'-url').addEventListener('input',renderLocalConnections);
+ field(runtime+'-monitor').addEventListener('click',async()=>{
+  if(localBusy)return;localBusy=true;renderLocalConnections();
+  const on=disabledProviders.includes(id);
+  try{
+   await invoke('set_provider_enabled',{id,value:on});
+   const [disabled,slots]=await Promise.all([invoke('get_disabled_providers'),invoke('get_notch_slots')]);
+   disabledProviders=Array.isArray(disabled)?disabled:[];notchSlots=slots;
+   renderAccounts();toast();
+  }
+  catch(error){strip(errText(error));}
+  finally{localBusy=false;renderLocalConnections();renderOllamaRelay();refreshLocalActivity();}
+ });
+ field(runtime+'-preferences').addEventListener('submit',e=>{e.preventDefault();saveForm(e.currentTarget,async()=>{
+  const address=field(runtime+'-url').value.trim();
+  if(address!==localPreferences[runtime]){
+   const prefs={...localPreferences,[runtime]:address};await invoke('set_local_runtime_settings',{prefs});
+   localPreferences=await invoke('get_local_runtime_settings');field(runtime+'-url').value=localPreferences[runtime];
+   await refreshLocalModels();
+  }
+  await invoke('refresh_ring',{provider:id});renderLocalConnections();
+ });});
+}
+async function refreshLocalModels(){
+ // Loaded model rows live in Accounts, as in SettingsView.providerSummaries.
+ refreshOptions();
+}
+window.__TAURI__.event.listen('providers',e=>{providerMetadata=Array.isArray(e.payload)?e.payload:providerMetadata;renderAccounts();renderLocalConnections();refreshLocalModels().catch(()=>{});refreshMenuBarChoices();}).catch(()=>{});
 refreshLocalModels().catch(()=>{});
+const CUSTOM_COLORS=['#6366F1','#10B981','#F97316','#EC4899','#14B8A6','#8B5CF6','#3B82F6','#EAB308'];
+const CUSTOM_ICONS=['openai','claude','deepseek','grok','meta','mistral','ollama','lmstudio','qwen','gemini-spark'];
+// The fixed Swift CustomEndpointPreset.templates list; selecting one only fills the editor.
+const CUSTOM_TEMPLATES=[
+ ['OpenRouter','https://openrouter.ai/api/v1','openai/gpt-4o','openai','#6366F1'],
+ ['Groq','https://api.groq.com/openai/v1','llama-3.3-70b-versatile','grok','#F97316'],
+ ['Together AI','https://api.together.xyz/v1','meta-llama/Llama-3.3-70B-Instruct-Turbo','meta','#06B6D4'],
+ ['Mistral AI','https://api.mistral.ai/v1','mistral-large-latest','mistral','#F59E0B'],
+ ['DeepInfra','https://api.deepinfra.com/v1/openai','meta-llama/Meta-Llama-3.1-70B-Instruct','deepseek','#3B82F6'],
+ ['Local vLLM','http://localhost:8000/v1','','ollama','#10B981'],
+ ['Local llama.cpp','http://localhost:8080/v1','','lmstudio','#8B5CF6'],
+ ['Local Ollama Proxy','http://localhost:11434/v1','','ollama-local','#14B8A6']
+];
+let customBusy=false;
+let draftIconFilename=null,draftIconStaged=null,detectedCustomPresets=[],customDraftAmounts={currency:{budget:null,used:null},tokens:{budget:null,used:null}},customDraftUnit='currency';
+function captureCustomAmounts(){customDraftAmounts[customDraftUnit]={budget:field('custom-budget').value.trim()?Number(field('custom-budget').value):null,used:field('custom-used').value.trim()?Number(field('custom-used').value):null};}
+function customTokenMillions(n){n=Number(n)||0;if(n>=1000)return(n/1000).toFixed(1)+'B';if(n>=10)return Math.round(n)+'M';if(n>=1)return(Number((n*10).toFixed(0))/10)+'M';if(n>0)return(Number((n*10000).toFixed(0))/10)+'k';return '0M';}
+function customUrlValid(value){try{const parsed=new URL(value.trim());return ['http:','https:'].includes(parsed.protocol)&&!!parsed.hostname&&!parsed.username&&!parsed.password&&!parsed.search&&!parsed.hash;}catch(_){return false;}}
+function customUrlError(show){const error=field('custom-url-error');error.hidden=!show;error.textContent=show?ui('URL must start with http:// or https:// and have a valid host.'):'';}
+function discardStagedIcon(){if(!draftIconStaged)return;const filename=draftIconStaged;draftIconStaged=null;invoke('discard_custom_icon',{filename}).catch(()=>{});}
+function renderCustomIconPreview(src){const preview=field('custom-image-preview');preview.hidden=!src;preview.src=src||'';field('custom-remove-image').hidden=!src;}
+function customMoney(p,n){return p.unit==='tokens'?customTokenMillions(n):'$'+Number(n).toFixed(2);}
 function renderCustom(){
- field('custom-list').innerHTML=customEndpoints.map(p=>'<div class="endpoint-row"><span>'+esc(p.name)+' · '+esc(p.health)+(p.latency_ms!=null?' · '+p.latency_ms+' ms':'')+'</span><button class="btn" data-custom-edit="'+esc(p.id)+'">编辑 / Edit</button><button class="btn" data-custom-probe="'+esc(p.id)+'">检测 / Check</button><button class="btn" data-custom-delete="'+esc(p.id)+'">删除 / Delete</button></div>').join('');
+ field('custom-list').innerHTML=customEndpoints.length?customEndpoints.map(p=>{
+  const budget=Number(p.unit==='tokens'?(p.monthly_budget_tokens_m??p.budget):(p.monthly_budget_usd??p.budget)),used=Number(p.unit==='tokens'?(p.current_tokens_used_m??p.used):(p.current_spend_usd??p.used))||0,hasBudget=Number.isFinite(budget)&&budget>0;
+  const amount=hasBudget?(p.display_remaining?customMoney(p,Math.max(0,budget-used))+' / '+customMoney(p,budget)+' '+ui('left','left'):customMoney(p,used)+' / '+customMoney(p,budget)):(p.unit==='tokens'?ui('Tokens: ','Tokens: '):ui('Spend: ','Spend: '))+customMoney(p,used);
+  const progress=hasBudget?'<progress class="endpoint-progress" style="--bar:'+esc(p.color)+'" max="1" value="'+Math.min(1,Math.max(0,used/budget))+'"></progress>':'';
+  const providerID='custom-endpoint-'+p.id,glyph=glyphHtml({id:glyphs[providerID]?providerID:p.icon||'openai',label:p.name});
+  return '<div class="endpoint-row" data-custom-id="'+esc(p.id)+'"><button class="switch'+(p.enabled?' on':'')+'" role="switch" aria-checked="'+!!p.enabled+'" aria-label="'+esc(p.name)+'" data-custom-toggle="'+esc(p.id)+'"'+(customBusy?' disabled':'')+'></button>'+glyph+'<div class="endpoint-row-main"><div><span class="endpoint-row-name">'+esc(p.name)+'</span> <span class="hint">'+esc(p.latency_ms!=null?p.latency_ms+' ms':p.health||'')+'</span></div><div class="endpoint-row-url">'+esc(p.url)+'</div><div class="endpoint-row-usage">'+progress+'<span>'+esc(amount)+'</span>'+(p.model?'<span>'+esc(p.model)+'</span>':'')+'</div></div><button class="btn compact" data-custom-probe="'+esc(p.id)+'">'+esc(ui('Test','Test'))+'</button><button class="btn compact" data-custom-edit="'+esc(p.id)+'">'+esc(ui('Edit','Edit'))+'</button><button class="btn compact" data-custom-delete="'+esc(p.id)+'" aria-label="'+esc(ui('Delete','Delete')+' '+p.name)+'">⌫</button></div>';
+ }).join(''):'<div class="item cap">'+esc(ui("No custom endpoints yet. Click 'Add Endpoint' or pick a Quick Template to get started."))+ '</div>';
 }
 async function loadCustom(){const v=await invoke('get_custom_endpoints');customEndpoints=Array.isArray(v)?v:[];renderCustom();refreshOptions();}
 function editCustom(p={}){
- field('custom-form').hidden=false;
- for(const key of ['id','name','url','model'])field('custom-'+key).value=p[key]||'';
+ discardStagedIcon();
+ const creating=!p.id,id=p.id||crypto.randomUUID();
+ field('custom-editor-wrap').hidden=false;field('custom-editor-title').textContent=ui(creating?'New Custom Endpoint':'Edit Endpoint');
+ for(const key of ['name','model'])field('custom-'+key).value=p[key]||'';
+ field('custom-url').value=p.url||(creating?'https://':'');
+ field('custom-id').value=id;
  field('custom-header').value=p.header||'Authorization';field('custom-key').value='';field('custom-unit').value=p.unit||'currency';
- field('custom-budget').value=p.budget??'';field('custom-used').value=p.used??0;field('custom-color').value=p.color||'#6366f1';field('custom-remaining').checked=!!p.display_remaining;
- field('custom-model-options').innerHTML=(p.models||[]).map(m=>'<option value="'+esc(m)+'"></option>').join('');field('custom-name').focus();
+ customDraftAmounts={currency:{budget:p.monthly_budget_usd??(p.unit==='currency'?p.budget:null),used:p.current_spend_usd??(p.unit==='currency'?p.used:null)},tokens:{budget:p.monthly_budget_tokens_m??(p.unit==='tokens'?p.budget:null),used:p.current_tokens_used_m??(p.unit==='tokens'?p.used:null)}};
+ customDraftUnit=p.unit||'currency';field('custom-budget').value=customDraftAmounts[customDraftUnit].budget??'';field('custom-used').value=customDraftAmounts[customDraftUnit].used??'';field('custom-color').value=p.color||'#6366F1';field('custom-icon').value=p.icon||'openai';field('custom-remaining').checked=!!p.display_remaining;field('custom-currency').checked=!!p.show_currency;
+ draftIconFilename=p.custom_icon_filename||null;renderCustomIconPreview(null);customUrlError(false);
+ if(draftIconFilename)invoke('get_custom_icon',{id}).then(src=>{if(field('custom-id').value===id&&draftIconFilename===p.custom_icon_filename)renderCustomIconPreview(src);}).catch(()=>{});
+ field('custom-model-options').innerHTML=(p.models||[]).map(m=>'<option value="'+esc(m)+'"></option>').join('');field('custom-draft-result').textContent='';renderCustomEditor();field('custom-name').focus();
 }
-field('custom-add').addEventListener('click',()=>editCustom());field('custom-cancel').addEventListener('click',()=>{field('custom-key').value='';field('custom-form').hidden=true;});
-field('custom-form').addEventListener('submit',e=>{e.preventDefault();saveForm(e.currentTarget,async()=>{
+function renderCustomEditor(){
+ const tokens=field('custom-unit').value==='tokens';
+ field('custom-budget-label').firstChild.textContent=tokens?'Monthly Budget (M tokens)':'Monthly Budget ($)';
+ field('custom-used-label').firstChild.textContent=tokens?'Tokens Used (M tokens)':'Current Spend ($)';
+ field('custom-currency-label').textContent=tokens?'Show token count instead of percentage (%)':'Show dollar amount ($) instead of percentage (%)';
+ field('custom-reset-used').textContent=ui(tokens?'Reset Tokens':'Reset Spend');
+ for(const button of field('seg-custom-unit').querySelectorAll('button'))button.setAttribute('aria-pressed',String(button.dataset.v===field('custom-unit').value));
+ const color=field('custom-color').value.toLowerCase(),icon=field('custom-icon').value;
+ field('custom-colors').innerHTML=CUSTOM_COLORS.map(hex=>'<button type="button" data-custom-color="'+hex+'" style="--swatch:'+hex+'" aria-label="'+hex+'" aria-pressed="'+(hex.toLowerCase()===color)+'"></button>').join('');
+ field('custom-icons').innerHTML=CUSTOM_ICONS.map(id=>'<button type="button" data-custom-icon="'+id+'" aria-label="'+id+'" aria-pressed="'+(id===icon)+'">'+glyphHtml({id,label:id})+'</button>').join('');
+}
+field('seg-custom-unit').addEventListener('click',e=>{const button=e.target.closest('button[data-v]');if(!button||button.dataset.v===customDraftUnit)return;captureCustomAmounts();customDraftUnit=button.dataset.v;field('custom-unit').value=customDraftUnit;field('custom-budget').value=customDraftAmounts[customDraftUnit].budget??'';field('custom-used').value=customDraftAmounts[customDraftUnit].used??'';renderCustomEditor();});
+field('custom-color').addEventListener('input',renderCustomEditor);
+field('custom-colors').addEventListener('click',e=>{const b=e.target.closest('[data-custom-color]');if(b){field('custom-color').value=b.dataset.customColor;renderCustomEditor();}});
+field('custom-icons').addEventListener('click',e=>{const b=e.target.closest('[data-custom-icon]');if(b){discardStagedIcon();draftIconFilename=null;renderCustomIconPreview(null);field('custom-icon').value=b.dataset.customIcon;renderCustomEditor();}});
+field('custom-reset-used').addEventListener('click',()=>{field('custom-used').value='0';});
+field('custom-show-key').addEventListener('click',()=>{const key=field('custom-key'),show=key.type==='password';key.type=show?'text':'password';field('custom-show-key').textContent=ui(show?'Hide':'Show');field('custom-show-key').setAttribute('aria-label',ui(show?'Hide API Key':'Show API Key'));});
+field('custom-url').addEventListener('input',()=>{if(customUrlValid(field('custom-url').value))customUrlError(false);});
+field('custom-draft-probe').addEventListener('click',async()=>{
+ const button=field('custom-draft-probe'),result=field('custom-draft-result'),baseUrl=field('custom-url').value.trim();
+ if(!customUrlValid(baseUrl)){customUrlError(true);return;}
+ button.disabled=true;result.textContent='';
+ try{const probe=await invoke('test_custom_endpoint_draft',{baseUrl,apiKey:field('custom-key').value,headerKey:field('custom-header').value.trim()});
+  result.textContent=probe.error||ui(probe.health)+' ('+probe.latency_ms+' ms)';
+  if(Array.isArray(probe.models)&&probe.models.length){field('custom-model-options').innerHTML=probe.models.map(m=>'<option value="'+esc(m)+'"></option>').join('');if(!field('custom-model').value)field('custom-model').value=probe.models[0];}
+ }catch(error){result.textContent=errText(error);}finally{button.disabled=false;}
+});
+field('custom-upload').addEventListener('click',()=>field('custom-image-file').click());
+field('custom-image-file').addEventListener('change',async()=>{
+ const file=field('custom-image-file').files?.[0];if(!file)return;
+ try{
+  const bitmap=await createImageBitmap(file),scale=Math.min(1,512/Math.max(bitmap.width,bitmap.height));
+  const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+  canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
+  const data=canvas.toDataURL('image/png'),filename=await invoke('save_custom_icon',{id:field('custom-id').value,pngBase64:data.split(',')[1]});
+  discardStagedIcon();draftIconFilename=filename;draftIconStaged=filename;renderCustomIconPreview(data);
+ }catch(error){strip(errText(error));}finally{field('custom-image-file').value='';}
+});
+field('custom-remove-image').addEventListener('click',()=>{discardStagedIcon();draftIconFilename=null;renderCustomIconPreview(null);});
+field('custom-scan').addEventListener('click',async()=>{
+ const button=field('custom-scan');button.disabled=true;button.textContent=ui('Scanning…');
+ try{detectedCustomPresets=await invoke('scan_local_engines');const list=field('custom-discovered');list.hidden=!detectedCustomPresets.length;
+  list.innerHTML=detectedCustomPresets.length?'<strong>'+esc(ui('Discovered Local Services:'))+'</strong>'+detectedCustomPresets.map((p,i)=>'<div class="endpoint-discovered-row"><span>'+esc(p.name)+' · '+esc(p.url)+'</span><button class="btn compact" data-discovered="'+i+'">'+esc(ui('Add to Endpoints'))+'</button></div>').join(''):'';
+ }catch(error){strip(errText(error));}finally{button.disabled=false;button.textContent=ui('Scan Local Engines');}
+});
+field('custom-discovered').addEventListener('click',e=>{const button=e.target.closest('[data-discovered]');if(!button)return;const p=detectedCustomPresets[Number(button.dataset.discovered)];if(p)editCustom(p);});
+field('custom-templates').innerHTML=CUSTOM_TEMPLATES.map((p,i)=>'<button class="endpoint-template" type="button" data-custom-template="'+i+'"><span class="endpoint-template-dot" style="--dot:'+p[4]+'"></span><span><strong>'+esc(p[0])+'</strong><small>'+esc(p[1])+'</small></span></button>').join('');
+field('custom-templates-toggle').addEventListener('click',()=>{const expanded=field('custom-templates').hidden;field('custom-templates').hidden=!expanded;field('custom-templates-toggle').setAttribute('aria-expanded',expanded);field('custom-templates-toggle').textContent=ui(expanded?'Hide Templates':'Quick Templates');});
+field('custom-templates').addEventListener('click',e=>{const b=e.target.closest('[data-custom-template]');if(!b)return;const p=CUSTOM_TEMPLATES[Number(b.dataset.customTemplate)];editCustom({name:p[0],url:p[1],model:p[2],icon:p[3],color:p[4]});});
+field('custom-add').addEventListener('click',()=>editCustom());field('custom-cancel').addEventListener('click',()=>{discardStagedIcon();field('custom-key').value='';field('custom-editor-wrap').hidden=true;});
+field('custom-form').addEventListener('submit',e=>{e.preventDefault();if(!customUrlValid(field('custom-url').value)){customUrlError(true);return;}saveForm(e.currentTarget,async()=>{
  const id=field('custom-id').value||crypto.randomUUID();const old=customEndpoints.find(x=>x.id===id)||{};
- const endpoint={...old,id,name:field('custom-name').value,url:field('custom-url').value,header:field('custom-header').value,model:field('custom-model').value,unit:field('custom-unit').value,budget:field('custom-budget').value?Number(field('custom-budget').value):null,used:Number(field('custom-used').value),color:field('custom-color').value,display_remaining:field('custom-remaining').checked};
- await invoke('save_custom_endpoint',{endpoint});field('custom-id').value=id;
+ captureCustomAmounts();
+ const models=Array.from(field('custom-model-options').querySelectorAll('option')).map(option=>option.value);
+ const active=customDraftAmounts[customDraftUnit];
+ const endpoint={...old,id,name:field('custom-name').value,url:field('custom-url').value,header:field('custom-header').value,model:field('custom-model').value,models,unit:field('custom-unit').value,budget:active.budget,used:active.used??0,monthly_budget_usd:customDraftAmounts.currency.budget,current_spend_usd:customDraftAmounts.currency.used,monthly_budget_tokens_m:customDraftAmounts.tokens.budget,current_tokens_used_m:customDraftAmounts.tokens.used,color:field('custom-color').value,icon:field('custom-icon').value,custom_icon_filename:draftIconFilename,display_remaining:field('custom-remaining').checked,show_currency:field('custom-currency').checked,enabled:old.enabled??true};
+ await invoke('save_custom_endpoint',{endpoint});draftIconStaged=null;field('custom-id').value=id;
  if(field('custom-key').value){await invoke('save_provider_secret',{id:'endpoint-'+id,secret:field('custom-key').value});field('custom-key').value='';}
- field('custom-form').hidden=true;await loadCustom();
+ field('custom-editor-wrap').hidden=true;await loadCustom();
 });});
 field('custom-list').addEventListener('click',async e=>{
- const b=e.target.closest('button');if(!b)return;
- if(b.dataset.customEdit){editCustom(customEndpoints.find(x=>x.id===b.dataset.customEdit));return;}
- b.disabled=true;try{
-  if(b.dataset.customDelete){await invoke('delete_custom_endpoint',{id:b.dataset.customDelete});if(field('custom-id').value===b.dataset.customDelete){field('custom-key').value='';field('custom-form').hidden=true;}}
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.customEdit){editCustom(customEndpoints.find(x=>x.id===b.dataset.customEdit));return;}
+  if(b.dataset.customToggle){const old=customEndpoints.find(x=>x.id===b.dataset.customToggle);if(!old||customBusy)return;customBusy=true;renderCustom();try{await invoke('save_custom_endpoint',{endpoint:{...old,enabled:!old.enabled}});await loadCustom();toast();}catch(error){strip(errText(error));}finally{customBusy=false;renderCustom();}return;}
+  b.disabled=true;try{
+  if(b.dataset.customDelete){await invoke('delete_custom_endpoint',{id:b.dataset.customDelete});if(field('custom-id').value===b.dataset.customDelete){field('custom-key').value='';field('custom-editor-wrap').hidden=true;}}
   if(b.dataset.customProbe){await invoke('probe_custom_endpoint',{id:b.dataset.customProbe});}
   await loadCustom();
  }catch(error){strip(errText(error));}finally{b.disabled=false;}
@@ -1493,7 +1851,33 @@ document.getElementById('seg-weekly').addEventListener('click',e=>{const b=e.tar
 document.getElementById('sw-move').addEventListener('click',()=>saveRestoredAppearance('set_move_handle',{on:!moveHandle}));
 
 const ACCENTS=['system','ff33e1','eb4236','eb8436','ffd400','00ff88','00e5cc','36a8eb','6c5ce7','b026ff','f7f6f5'];
-let appearance={accent_color:'system',app_presence:'dock',reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,folds_for_fullscreen:true,weekly_dashed:false,custom_scale:null,watch:.5,critical:.7},appearanceSaving=false;
+let appearance={accent_color:'system',app_presence:'dock',reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,folds_for_fullscreen:true,weekly_dashed:false,custom_scale:null,saved_custom_scale:1,watch:.5,critical:.7},appearanceSaving=false;
+let surfaceCapability=null;
+function refreshSurfaceCapability(){return invoke('get_surface_capability').then(value=>{surfaceCapability=value;renderAppearance();}).catch(()=>{});}
+let menuBarChoices=[];
+function isInMenuBar(id){
+ const selected=appearance.menu_bar_providers;
+ return Array.isArray(selected)?selected.includes(id):id==='claude'||id.startsWith('claude-')||id==='codex'||id.startsWith('codex-');
+}
+function renderMenuBarControls(){
+ const mac=document.documentElement.dataset.platform==='macos',visible=mac&&appearance.app_presence==='menuBar';
+ field('menu-bar-controls').hidden=!visible;
+ if(!visible)return;
+ const enabled=appearance.shows_limits_in_menu_bar===true;
+ drawSwitch(field('appearance-shows_limits_in_menu_bar'),{value:enabled,busy:appearanceSaving});
+ field('menu-bar-limit-details').hidden=!enabled;
+ if(!enabled)return;
+ drawSwitch(field('appearance-shows_weekly_limit_in_menu_bar'),{value:appearance.shows_weekly_limit_in_menu_bar===true,busy:appearanceSaving});
+ field('menu-bar-choices').innerHTML=menuBarChoices.map(choice=>`<div class="item menu-bar-choice"><span>${glyphHtml({id:choice.id,label:choice.name})}${esc(choice.name)}</span><button class="switch" role="switch" data-menu-bar-id="${esc(choice.id)}" aria-label="${esc(choice.name)}" aria-checked="${isInMenuBar(choice.id)}" ${appearanceSaving?'disabled':''}></button></div>`).join('');
+ field('menu-bar-help').textContent=ui(menuBarChoices.length?'Leaving a provider out keeps it off the menu bar only — Velo still reads it. With none chosen, the icon comes back.':'Nothing Velo reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.');
+ field('menu-bar-overflow').hidden=menuBarChoices.filter(choice=>isInMenuBar(choice.id)).length<=2;
+}
+function refreshMenuBarChoices(){
+ return invoke('get_menu_bar_choices').then(rows=>{
+   if(Array.isArray(rows))menuBarChoices=rows.filter(row=>typeof row?.id==='string'&&typeof row?.name==='string');
+   renderMenuBarControls();
+ }).catch(()=>{});
+}
 function renderAppearance(){
  applyAccent();
  const selected=appearance.accent_color||'system';
@@ -1507,6 +1891,16 @@ function renderAppearance(){
  const presenceCopy={dock:'A normal app icon in the Dock while Velo is running.',menuBar:'A small icon in the menu bar instead, and nothing in the Dock.',hidden:'No icon anywhere. Open Velo again from Applications to bring these settings back.'};
  const presenceZh={dock:'Velo 运行时，在 Dock 中显示正常的应用图标。',menuBar:'仅在菜单栏显示小图标，Dock 中不显示。',hidden:'不显示应用图标。从“应用程序”再次打开 Velo，即可返回设置。'};
  field('cap-presence').textContent=(uiLang.startsWith('zh')?presenceZh:presenceCopy)[appearance.app_presence||'dock'];
+ renderMenuBarControls();
+ drawSeg('seg-scope',appearance.notch_scope||'mainDisplay',appearanceSaving);
+ field('cap-scope').textContent=ui(appearance.notch_scope==='allDisplays'?'Each display gets its own notch, and hovering one opens only that one.':'The notch appears only on the display with the menu bar.');
+ field('surface-controls').hidden=surfaceCapability?.supported!==true;
+ if(surfaceCapability?.supported===true){
+   drawSeg('seg-surface',appearance.surface_style||'glass',appearanceSaving);
+   const text={glass:"System Liquid Glass. Follows this Mac's Appearance settings, including Clear or Tinted glass and light or dark mode.",darkGlass:"Liquid Glass tinted black. Always dark, whatever the Mac's appearance.",solid:"The original opaque black notch. Always dark, whatever the Mac's appearance."};
+   field('cap-surface').textContent=ui(text[appearance.surface_style]||text.glass)+(surfaceCapability.reduce_transparency&&appearance.surface_style!=='solid'?' '+ui('Reduce Transparency is on; the notch is solid black.'):'');
+ }
+ renderScreens();
  drawSeg('seg-reset_time',appearance.reset_time,appearanceSaving);
  field('cap-reset_time').textContent=ui(appearance.reset_time==='remaining'?'Time until usage resets, such as 3 Days 3h or 3h 20m.':'Minutes under an hour; otherwise the reset date and time.');
  for(const key of ['show_codex_extra','weekly_dashed','show_usage_pace','claude_daily_pace','folds_for_fullscreen'])drawSwitch(field('appearance-'+key),{value:appearance[key],busy:appearanceSaving});
@@ -1515,23 +1909,77 @@ function renderAppearance(){
  field('preset-size-controls').hidden=custom;
  field('custom-size-controls').hidden=!custom;
  field('appearance-custom_scale').disabled=appearanceSaving||!custom;
- field('appearance-custom_scale').value=appearance.custom_scale??notchSize;
- field('appearance-scale_value').textContent=Math.round((appearance.custom_scale??notchSize)*100)+'%';
+ field('appearance-custom_scale').value=appearance.custom_scale??appearance.saved_custom_scale??1;
+ field('appearance-scale_value').textContent=Math.round((appearance.custom_scale??appearance.saved_custom_scale??1)*100)+'%';
  for(const key of ['watch','critical']){field('appearance-'+key).value=Math.round(appearance[key]*100);field('appearance-'+key).disabled=appearanceSaving;field('appearance-'+key+'_value').textContent=Math.round(appearance[key]*100)+'%';}
  field('appearance-reset_limits').disabled=appearanceSaving;
+ renderDeepSeekPricing();
 }
 field('accent-swatches').onclick=e=>{const b=e.target.closest('[data-accent]');if(b&&!b.disabled)saveAppearance({accent_color:b.dataset.accent});};
 field('seg-presence').onclick=e=>{const b=e.target.closest('button[data-v]');if(b&&!b.disabled)saveAppearance({app_presence:b.dataset.v});};
+field('seg-scope').onclick=e=>{const b=e.target.closest('button[data-v]');if(b&&!b.disabled&&b.dataset.v!==appearance.notch_scope)saveAppearance({notch_scope:b.dataset.v});};
+field('seg-surface').onclick=e=>{const b=e.target.closest('button[data-v]');if(b&&!b.disabled&&surfaceCapability?.supported===true&&b.dataset.v!==appearance.surface_style)saveAppearance({surface_style:b.dataset.v});};
+field('appearance-shows_limits_in_menu_bar').onclick=()=>saveAppearance({shows_limits_in_menu_bar:appearance.shows_limits_in_menu_bar!==true});
+field('appearance-shows_weekly_limit_in_menu_bar').onclick=()=>saveAppearance({shows_weekly_limit_in_menu_bar:appearance.shows_weekly_limit_in_menu_bar!==true});
+field('menu-bar-choices').onclick=e=>{
+ const button=e.target.closest('[data-menu-bar-id]');if(!button||appearanceSaving)return;
+ const id=button.dataset.menuBarId,chosen=new Set(menuBarChoices.filter(choice=>isInMenuBar(choice.id)).map(choice=>choice.id));
+ if(chosen.has(id))chosen.delete(id);else chosen.add(id);
+ saveAppearance({menu_bar_providers:[...chosen].sort()});
+};
 async function saveAppearance(patch){
  if(appearanceSaving)return;appearanceSaving=true;renderAppearance();
  try{appearance=await invoke('set_appearance',{prefs:{...appearance,...patch}});toast();}catch(error){strip(errText(error));}
  finally{appearanceSaving=false;renderAppearance();}
 }
+const DEFAULT_DEEPSEEK_SCHEDULE={peak_weekdays:[2,3,4,5,6],windows:[{start_minute:60,end_minute:240},{start_minute:360,end_minute:600}]};
+const DEEPSEEK_WEEKDAYS=[[2,'Mon'],[3,'Tue'],[4,'Wed'],[5,'Thu'],[6,'Fri'],[7,'Sat'],[1,'Sun']];
+function pricingSchedule(){return appearance.deepseek_pricing_schedule||DEFAULT_DEEPSEEK_SCHEDULE;}
+function pricingTime(minute){minute=minute===1440?0:minute;return String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');}
+function pricingMinute(value,end){const m=/^(\d{2}):(\d{2})$/.exec(value||'');if(!m)return null;const n=Number(m[1])*60+Number(m[2]);return end&&n===0?1440:n;}
+function renderDeepSeekPricing(){
+ const enabled=appearance.deepseek_pricing_enabled!==false,busy=appearanceSaving;
+ drawSwitch(field('deepseek-pricing-enabled'),{value:enabled,busy});
+ const schedule=pricingSchedule();
+ field('deepseek-weekdays').innerHTML=DEEPSEEK_WEEKDAYS.map(([value,label])=>`<label><input type="checkbox" data-pricing-day="${value}" ${schedule.peak_weekdays.includes(value)?'checked':''} ${!enabled||busy?'disabled':''}>${esc(ui(label))}</label>`).join('');
+ field('deepseek-windows').innerHTML=schedule.windows.map((w,i)=>`<div class="pricing-window" data-pricing-window="${i}"><span>${esc(ui('Window %lld').replace('%lld',String(i+1)))}</span><label>${esc(ui('Start'))}<input type="time" data-pricing-start="${i}" value="${pricingTime(w.start_minute)}" ${!enabled||busy?'disabled':''}></label><span>${esc(ui('to'))}</span><label>${esc(ui('End'))}<input type="time" data-pricing-end="${i}" value="${pricingTime(w.end_minute)}" title="UTC; 00:00 at the end means the next day" ${!enabled||busy?'disabled':''}></label>${schedule.windows.length>1?`<button class="link" data-pricing-remove="${i}" aria-label="${esc(ui('Remove peak window'))}" ${!enabled||busy?'disabled':''}>⊖</button>`:''}</div>`).join('');
+ field('deepseek-add-window').disabled=!enabled||busy;
+ field('deepseek-restore').disabled=busy;
+}
+field('deepseek-pricing-enabled').onclick=()=>saveAppearance({deepseek_pricing_enabled:!(appearance.deepseek_pricing_enabled!==false)});
+field('deepseek-weekdays').onchange=e=>{
+ const day=Number(e.target.dataset.pricingDay);if(!Number.isInteger(day))return;
+ const next=new Set(pricingSchedule().peak_weekdays);
+ if(e.target.checked)next.add(day);else next.delete(day);
+ saveAppearance({deepseek_pricing_schedule:{...pricingSchedule(),peak_weekdays:[...next].sort((a,b)=>a-b)}});
+};
+field('deepseek-windows').onchange=e=>{
+ const start=e.target.dataset.pricingStart,end=e.target.dataset.pricingEnd;
+ if(start===undefined&&end===undefined)return;
+ const i=Number(start??end),value=pricingMinute(e.target.value,end!==undefined);
+ if(!Number.isInteger(i)||value===null)return;
+ const windows=pricingSchedule().windows.map(w=>({...w})),w=windows[i];if(!w)return;
+ if(start!==undefined)w.start_minute=Math.min(Math.max(value,0),Math.max(0,w.end_minute-1));
+ else w.end_minute=Math.max(Math.min(value,1440),Math.min(1440,w.start_minute+1));
+ saveAppearance({deepseek_pricing_schedule:{...pricingSchedule(),windows}});
+};
+field('deepseek-windows').onclick=e=>{
+ const remove=e.target.closest('[data-pricing-remove]');if(!remove)return;
+ const windows=pricingSchedule().windows.filter((_,i)=>i!==Number(remove.dataset.pricingRemove));
+ if(windows.length)saveAppearance({deepseek_pricing_schedule:{...pricingSchedule(),windows}});
+};
+field('deepseek-add-window').onclick=()=>{
+ const windows=pricingSchedule().windows.map(w=>({...w})).sort((a,b)=>a.start_minute-b.start_minute);
+ let start=0;for(const w of windows){if(w.start_minute-start>=60)break;start=Math.max(start,w.end_minute);}
+ if(start+60>1440)start=1380;
+ saveAppearance({deepseek_pricing_schedule:{...pricingSchedule(),windows:[...pricingSchedule().windows,{start_minute:start,end_minute:start+60}]}});
+};
+field('deepseek-restore').onclick=()=>saveAppearance({deepseek_pricing_schedule:DEFAULT_DEEPSEEK_SCHEDULE});
 for(const key of ['show_codex_extra','weekly_dashed','show_usage_pace','claude_daily_pace','folds_for_fullscreen'])field('appearance-'+key).addEventListener('click',()=>saveAppearance({[key]:!appearance[key]}));
 field('seg-reset_time').addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(b&&!b.disabled&&b.dataset.v!==appearance.reset_time)saveAppearance({reset_time:b.dataset.v});});
-field('seg-size-mode').addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(b&&!b.disabled&&(b.dataset.v==='custom')!==(appearance.custom_scale!=null))saveAppearance({custom_scale:b.dataset.v==='custom'?notchSize:null});});
+field('seg-size-mode').addEventListener('click',e=>{const b=e.target.closest('button[data-v]');if(b&&!b.disabled&&(b.dataset.v==='custom')!==(appearance.custom_scale!=null))saveAppearance({custom_scale:b.dataset.v==='custom'?(appearance.saved_custom_scale??1):null});});
 field('appearance-custom_scale').addEventListener('input',e=>{field('appearance-scale_value').textContent=Math.round(Number(e.target.value)*100)+'%';});
-field('appearance-custom_scale').addEventListener('change',e=>saveAppearance({custom_scale:Number(e.target.value)}));
+field('appearance-custom_scale').addEventListener('change',e=>{const value=Number(e.target.value);saveAppearance({custom_scale:value,saved_custom_scale:value});});
 field('appearance-watch').addEventListener('change',e=>saveAppearance({watch:Math.min(Number(e.target.value)/100,appearance.critical-.01)}));
 field('appearance-critical').addEventListener('change',e=>saveAppearance({critical:Math.max(Number(e.target.value)/100,appearance.watch+.01)}));
 field('appearance-reset_limits').addEventListener('click',()=>saveAppearance({critical:.7,watch:.5}));
@@ -1612,7 +2060,7 @@ function renderScreens(){
   const row = document.getElementById('row-screen');
   const cap = document.getElementById('cap-screen');
   const sel = document.getElementById('screen');
-  const available = monitors.length > 0;
+  const available = appearance.notch_scope!=='allDisplays';
   row.hidden = !available;
   cap.hidden = !available;
   if(!available) return;
@@ -1806,13 +2254,15 @@ function boot(){
   setUiLanguage('auto');
   loadLook();
   refreshOptions();
+  refreshMenuBarChoices();
+  refreshSurfaceCapability();
   call('get_notch_slots', undefined, null).then(v => {
     notchSlots = Array.isArray(v) ? v.filter(x => x && typeof x.provider === 'string').map(x => ({ provider:x.provider })) : null;
     renderAccounts();
   });
   call('get_antigravity_prefs', undefined, null).then(v => { if(v && typeof v === 'object'){ agPrefs = v; renderAccounts(); } });
-  call('get_glyphs', undefined, null).then(g => { if(g && typeof g === 'object'){ glyphs = g; renderSidebarGlyphs(); renderAccounts(); } });
-  try { window.__TAURI__.event.listen('glyphs', e => { if(e.payload){ glyphs = e.payload; renderSidebarGlyphs(); renderAccounts(); } }); } catch(e) { /* the letters stay */ }
+  call('get_glyphs', undefined, null).then(g => { if(g && typeof g === 'object'){ glyphs = g; renderSidebarGlyphs(); renderAccounts(); renderCustom(); } });
+  try { window.__TAURI__.event.listen('glyphs', e => { if(e.payload){ glyphs = e.payload; renderSidebarGlyphs(); renderAccounts(); renderCustom(); } }); } catch(e) { /* the letters stay */ }
   call('get_scale', undefined, null).then(v => { if(typeof v === 'number') notchSize = v; renderSize(); });
   call('get_notch_edge', undefined, null).then(v => { if(typeof v === 'string') notchEdge = v; renderEdge(); });
   refreshScreens();
@@ -1835,6 +2285,8 @@ function boot(){
 window.addEventListener('focus', () => {
   loadLook();
   refreshOptions();
+  refreshMenuBarChoices();
+  refreshSurfaceCapability();
   // A screen can be plugged in, and the notch carried to another edge, while this window sits behind
   call('get_notch_edge', undefined, null).then(v => { if(typeof v === 'string') notchEdge = v; renderEdge(); });
   refreshScreens();

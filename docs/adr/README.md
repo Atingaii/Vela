@@ -13,3 +13,4 @@
 当前交付顺序以 ADR-0006 和用户最新范围为准；ADR-0002、0004、0005 的产品扩展暂缓。
 
 7. [ADR-0007：Velo 品牌与可验证的预览发行](0007-velo-preview-distribution.md)
+8. [ADR-0008：独立预览更新索引与应用包签名](0008-signed-preview-updates.md)

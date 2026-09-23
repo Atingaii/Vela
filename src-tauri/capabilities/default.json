@@ -3,7 +3,9 @@
   "description": "Velo windows: events, settings drag and close.",
   "windows": [
     "notch",
+    "notch-display-*",
     "settings",
+    "whats-new",
     "workbench"
   ],
   "permissions": [

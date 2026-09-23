@@ -14,7 +14,8 @@ test('pace uses the reported duration and keeps sub-tenth deficit/reserve signs'
  assert.equal(ctx.paceSummary(ctx.usagePace(window,now)),'23% reserved');
  window.used=.5004;assert.equal(ctx.paceSummary(ctx.usagePace(window,now)),'<0.1% deficit');
  window.used=.4996;assert.equal(ctx.paceSummary(ctx.usagePace(window,now)),'<0.1% reserved');
- for(const invalid of [{duration:null},{duration:0},{duration:Infinity},{used:null},{used:NaN},{used:-.1},{resets_at:null},{resets_at:now},{count:10}])assert.equal(ctx.usagePace({...window,...invalid},now),null);
+ for(const invalid of [{duration:null},{duration:0},{duration:Infinity},{used:null},{used:NaN},{used:-.1},{resets_at:null},{resets_at:now},{count:10,has_fraction:false}])assert.equal(ctx.usagePace({...window,...invalid},now),null);
+ assert.notEqual(ctx.usagePace({...window,count:10,has_fraction:true},now),null);
  assert.equal(ctx.usagePace({...window,used:.2,resets_at:now+604801000},now),20);
 });
 test('daily ring uses cumulative seventh shares and moves only Claude accounts',()=>{

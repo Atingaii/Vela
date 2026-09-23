@@ -22,6 +22,7 @@ async function bridge(page,{deny=false,accounts=false}={}){
     return;
    }
    if(cmd==='get_tray_options'&&accounts)return [{id:'claude',label:'Claude',status:'ok'},{id:'codex',label:'Codex',status:'ok'}];
+   if(cmd==='get_phone_availability')return true; // the explicit UI protocol fixture
    if(cmd==='get_phone_link')return {enabled:phoneEnabled,port:8788,hosts:['192.168.1.2'],devices,link:args.pairing&&pairing?'codenotch://pair?v=3&h=192.168.1.2&p=8788&c=fixture':null,qr:args.pairing&&pairing?'<svg xmlns="http://www.w3.org/2000/svg"/>':null};
    if(cmd==='set_phone_link'){phoneEnabled=args.enabled;return;}
    if(cmd==='phone_pairing'){pairing=args.open;return;}
@@ -354,8 +355,16 @@ test('四个边缘使用同一轮廓收缩，快速唤醒及减少动态效果�
   await expect.poll(async()=>{const b=await surface.boundingBox();return Math.abs((vertical?b.width:b.height)-26*44/117);}).toBeLessThan(.02);
   await page.evaluate(()=>emitFixture('notch_pointer',true));
   const expanded=await surface.boundingBox();
-  expect(expanded.x).toBeGreaterThanOrEqual(-.1);expect(expanded.y).toBeGreaterThanOrEqual(-.1);
-  expect(expanded.x+expanded.width).toBeLessThan(width+.1);expect(expanded.y+expanded.height).toBeLessThan(height+.1);
+  // NotchRootView.swift shifts the entire shape 2pt beyond its bezel after
+  // scaling. Only that edge may leave the panel; the other three stay inside.
+  if(edge==='left')expect(expanded.x).toBeCloseTo(-2,1);
+  else expect(expanded.x).toBeGreaterThanOrEqual(-.1);
+  if(edge==='right')expect(expanded.x+expanded.width).toBeCloseTo(width+2,1);
+  else expect(expanded.x+expanded.width).toBeLessThan(width+.1);
+  if(edge==='top')expect(expanded.y).toBeCloseTo(-2,1);
+  else expect(expanded.y).toBeGreaterThanOrEqual(-.1);
+  if(edge==='bottom')expect(expanded.y+expanded.height).toBeCloseTo(height+2,1);
+  else expect(expanded.y+expanded.height).toBeLessThan(height+.1);
   await page.emulateMedia({reducedMotion:'no-preference'});
  }
  expect(errors).toEqual([]);

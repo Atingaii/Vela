@@ -19,6 +19,9 @@ function markedSource(document, name) {
   return document.slice(start, stop);
 }
 const context = vm.createContext({});
+// WEEKLY now excludes nil-fraction rows using the same predicate as the
+// tooltip and pace projection. Keep its dependency in the isolated VM.
+vm.runInContext(html.split('// BEGIN TESTABLE PACE')[1].split('// END TESTABLE PACE')[0], context);
 vm.runInContext(markedSource(html, 'HEADLINE'), context);
 vm.runInContext(markedSource(html, 'WEEKLY'), context);
 const pick = (windows, provider = 'codex') => context.headlineOf({ windows }, provider)?.id ?? null;

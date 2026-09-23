@@ -11,7 +11,7 @@
   /* Swift NotchLayout at 117a38b8; design pixels scale by 44 / 117. */
   *{box-sizing:border-box} /* content-box padding once pushed the card past the window's left edge */
   html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;overflow:hidden;user-select:none}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#fff}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:var(--ink,#fff)}
   #root{position:relative;width:100%;height:100%}
 
   /* The pill on the right edge */
@@ -24,6 +24,14 @@
     box-shadow:none;
     display:flex;flex-direction:column;align-items:center;gap:31.4017px;cursor:pointer;
   }
+  /* NotchRootView applies bezelBleed=2pt after sizeScale to the complete
+     shape and cells.  The WebView uses zoom for sizeScale, so divide the CSS
+     displacement by that scale.  Orb/MoveHandle live outside that Swift view. */
+  :root{--bezel-bleed:2px}
+  body[data-edge="left"] #pill,body[data-edge="left"] .notch-surface{translate:calc(-1 * var(--bezel-bleed)) 0}
+  body[data-edge="right"] #pill,body[data-edge="right"] .notch-surface{translate:var(--bezel-bleed) 0}
+  body[data-edge="top"] #pill,body[data-edge="top"] .notch-surface{translate:0 calc(-1 * var(--bezel-bleed))}
+  body[data-edge="bottom"] #pill,body[data-edge="bottom"] .notch-surface{translate:0 var(--bezel-bleed)}
   /* Fillets: the concave arcs between the pill's top/bottom and the screen edge (the inverse rounded
      corner in the upstream design frame). An R×R black square hugs the edge and a radial gradient
      punches out the circle of radius R centred on its outer corner; what remains is the arc. A 1 px
@@ -53,18 +61,18 @@
   .ringwrap > svg.ring,.ringwrap > svg.reading,.ringwrap > svg.activity{position:absolute;inset:0;overflow:visible} /* pins only the ring itself; an inline logo svg must not match this or it ends up in the top-left corner */
   .glyph{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-size:calc(20px * var(--k));font-weight:700;color:#e8e8ea;letter-spacing:-.5px;
+    font-size:calc(20px * var(--k));font-weight:700;color:var(--ink,#fff);letter-spacing:-.5px;
   }
   .glyph.small{font-size:calc(15px * var(--k))}
   /* Glyphs: mark = the provider's own brand mark (monochrome, shown white); appicon = the installed app's icon (colour, rounded and shrunk) */
   .glyph img,.glyph svg{display:block;pointer-events:none;user-select:none}
-  .glyph .mark{display:block;width:17.2991px;height:17.2991px;color:#e8e8ea}
+  .glyph .mark{display:block;width:17.2991px;height:17.2991px;color:var(--ink,#fff)}
   .glyph .mark svg{width:17.2991px;height:17.2991px;fill:currentColor} /* inline SVG follows currentColor, so it dims together with the cell */
   .glyph img.png{width:17.2991px;height:17.2991px;object-fit:contain}
   .glyph img.appicon{width:calc(30px * var(--k));height:calc(30px * var(--k));border-radius:calc(8px * var(--k));object-fit:cover}
-  .c-head .mark{display:inline-block;width:16px;height:16px;color:#e8e8ea;margin-right:2px}
+  .c-head .mark{display:inline-block;width:16px;height:16px;color:var(--ink,#fff);margin-right:2px}
   .c-head .mark svg{width:16px;height:16px;fill:currentColor}
-  .pct{font-size:14.221073px;line-height:17px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums}
+  .pct{font-size:14.221073px;line-height:17px;font-weight:600;color:var(--ink,#fff);font-variant-numeric:tabular-nums}
   .dim{opacity:.55}
   /* A stale reading dims the reading only. The track, the week and the glyph are all saying the same
      old thing, but whether an agent is running right now is current either way, so the activity arc
@@ -93,6 +101,7 @@
     display:none;
   }
   #card.show{display:block}
+  #card,#card-measure{--secondary:var(--card-secondary,#808080)}
   #card-measure{display:block!important;position:fixed!important;visibility:hidden!important;
     top:0!important;left:0!important;right:auto!important;transform:none!important;
     width:225.641025641px!important;max-height:none!important;height:auto!important;overflow:visible!important;
@@ -101,6 +110,12 @@
   #pill{background:transparent!important;border:0!important}
   #pill::before,#pill::after{display:none}
   .notch-surface{position:absolute;pointer-events:none;fill:#000;overflow:visible}
+  body.native-glass:not(.folded) .notch-surface{fill:transparent}
+  body.native-glass:not(.folded) #card,body.native-glass:not(.folded) #tail,
+  body.native-glass:not(.folded) #orb.hover .h-disc{background:transparent}
+  #hardware-band{position:absolute;display:none;pointer-events:none;background:#000}
+  body[data-edge="top"].hardware-joined #hardware-band{display:block}
+  body[data-edge="top"].hardware-joined #pill{padding-top:calc(12.9744px + var(--hardware-inset,0px));min-width:var(--hardware-min-width,0px)}
   #pill{isolation:isolate}
 
   /* The tail, its point on the hovered ring: the Mac's curved wedge (TooltipTail), whose shoulders
@@ -113,40 +128,77 @@
   }
   #card.show + #tail{display:block}
   .c-head{display:flex;align-items:center;gap:6.3932px;margin-bottom:7.8974px}
-  .c-plan{font-size:9.4802px;color:#808080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .c-plan{font-size:9.4802px;color:var(--secondary,#808080);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .c-title{font-size:13.6944px;font-weight:600}
+  .c-title-line{display:flex;align-items:center;gap:7.5214px;min-width:0}
+  .c-title-line .c-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .c-note-inline{margin-left:auto;color:var(--secondary,#808080);font-size:9.4802px;line-height:12px;white-space:nowrap}
   #card.usage-alert{height:78.9744px;overflow:hidden}
   .usage-alert .c-head{margin-bottom:0}
   .alert-heading{flex:1;min-width:0}
   .alert-title-row{display:flex;align-items:center;gap:4.5128px}
   .alert-title-row .c-title{flex:1;white-space:nowrap}
-  .alert-dismiss{width:16px;height:16px;flex:none;border:0;padding:0;background:none;color:#808080;font:700 11px system-ui;cursor:pointer}
+  .alert-dismiss{width:16px;height:16px;flex:none;border:0;padding:0;background:none;color:var(--secondary,#808080);font:700 11px system-ui;cursor:pointer}
   .alert-subtitle,.alert-reset,.alert-status{font-size:9.4802px;white-space:nowrap}
-  .alert-subtitle,.alert-reset{color:#808080;overflow:hidden;text-overflow:ellipsis}
+  .alert-subtitle,.alert-reset{color:var(--secondary,#808080);overflow:hidden;text-overflow:ellipsis}
   .alert-status{display:flex;align-items:center;gap:4.5128px;margin-top:7.8974px}
   .alert-dot{width:6.0171px;height:6.0171px;border-radius:50%;background:currentColor;flex:none}
   .alert-reset{margin-top:3.0085px}
-  .c-sub{font-size:11px;color:#808080;margin-bottom:10px}
+  .c-sub{font-size:11px;color:var(--secondary,#808080);margin-bottom:10px}
   .win{margin-top:7.5214px}
   .w-row{display:flex;justify-content:space-between;align-items:baseline;font-size:9.4802px;flex-wrap:wrap;column-gap:8px}
-  .w-label{color:#fff;font-weight:400;white-space:nowrap}
-  .w-reset{color:#808080;font-size:9.4802px;white-space:nowrap;margin-left:auto} /* wrap as a whole when it does not fit; never break inside a word */
-  .w-track{height:3.9487px;border-radius:2px;background:#2d2d2d;margin:6.3179px 0 6.6940px;overflow:hidden}
+  .w-label{color:var(--ink,#fff);font-weight:400;white-space:nowrap}
+  .w-reset{color:var(--secondary,#808080);font-size:9.4802px;white-space:nowrap;margin-left:auto} /* wrap as a whole when it does not fit; never break inside a word */
+  .w-track{height:3.9487px;border-radius:2px;background:var(--bar-track,#2d2d2d);margin:6.3179px 0 6.6940px;overflow:hidden}
   .w-fill{height:100%;border-radius:2px}
-  .w-used{font-size:9.4802px;color:#fff;white-space:nowrap}
-  .w-pace{color:#808080}
+  .w-used{font-size:9.4802px;color:var(--ink,#fff);white-space:nowrap}
+  .w-pace{color:var(--secondary,#808080)}
   .w-pace.deficit{color:#ff9500}
-  .g-head{font-size:12px;font-weight:700;color:#e8e8ea;margin-top:12px}
-  .g-box{border:1px solid #242424;border-radius:10px;padding:0 10px 8px;margin-top:6px}
+  .g-head{font-size:12px;font-weight:700;color:var(--ink,#fff);margin-top:12px}
+  .g-box{border:1px solid var(--hairline,#242424);border-radius:10px;padding:0 10px 8px;margin-top:6px}
   .c-note{font-size:12px;color:#c8c8c8;line-height:1.5;margin-top:6px}
-  .c-sessions{margin-top:7.5214px;border-top:.9402px solid #1e1e1e}
-  .s-row{margin-top:7.5214px;font-size:9.4802px;line-height:12px;color:#b0b0b3}
+  .c-block{display:flex;align-items:flex-start;gap:4.135px;margin-top:7.8974px;color:#FF3F00;font-size:9.4802px;line-height:12px}
+  .c-block svg{width:9px;height:9px;flex:none;margin-top:1px;fill:currentColor}
+  .money-track{height:4.5128px;margin:6.3179px 0 5.265px;background:var(--bar-track,#2d2d2d);border-radius:100px;overflow:hidden}
+  .money-fill{height:100%;border-radius:100px}
+  .money-stats,.detail-stats{display:flex;gap:7.5214px;width:100%}
+  .money-stat,.detail-stat{flex:1;min-width:0;font-size:9.4802px;line-height:12px}
+  .money-stat .label,.detail-stat .label{display:block;color:var(--secondary,#808080);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .money-stat .value,.detail-stat .value{display:block;margin-top:1.5043px;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .detail-rule,.codex-rule{height:.9402px;background:var(--ring-track);margin-top:7.5214px}
+  .detail-split{display:flex;justify-content:space-between;gap:4px;font-size:9.4802px;line-height:12px;margin-top:7.5214px}
+  .detail-split .trailing{color:var(--secondary,#808080);white-space:nowrap;text-align:right}
+  .local-model-name{font-size:9.4802px;line-height:12px;margin-top:7.8974px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+  .local-model-details{margin-top:7.5214px}.local-model-details .detail-split{margin-top:7.5214px}
+  .detail-stats{margin-top:7.5214px}
+  .detail-chart{margin-top:7.5214px}
+  .detail-chart+.detail-chart{margin-top:6.7692px}
+  .detail-chart-title{display:flex;justify-content:space-between;gap:4px;font-size:9.4802px;line-height:12px}
+  .detail-chart-title span:last-child{color:var(--secondary,#808080);white-space:nowrap}
+  .detail-chart-bars{display:flex;align-items:flex-end;gap:1.8803px;height:36.1026px;border-bottom:.9402px solid var(--ring-track);margin-top:4.5128px}
+  .detail-chart-bars span{flex:1;min-width:1px;background:var(--secondary,#808080);border-radius:1.5043px 1.5043px 0 0}
+  .detail-chart-bars span:last-child{background:var(--ink,#fff)}
+  .codex-metric{display:flex;align-items:baseline;justify-content:space-between;gap:4px;min-height:15.0427px;margin-top:3.0085px;font-size:9.4802px;line-height:12px}
+  .codex-metric span:first-child{color:var(--secondary,#808080)}
+  .codex-reset{min-height:41.3675px}
+  .codex-reset .codex-title{font-weight:600}
+  .codex-reset .detail-split{justify-content:flex-start;margin-top:4.5128px}
+  .codex-chart .detail-chart-bars{height:43.2479px;gap:1.5043px}
+  .codex-chart .detail-chart-bars span,.codex-chart .detail-chart-bars span:last-child{background:var(--secondary,#808080);border-radius:1.1282px 1.1282px 0 0}
+  .c-sessions{margin-top:7.5214px;border-top:.9402px solid var(--hairline,#1e1e1e)}
+  .s-row{margin-top:7.5214px;font-size:9.4802px;line-height:12px;color:var(--ink,#fff)}
   .s-line{display:flex;align-items:center;gap:4.135px;min-height:12px}
   .s-line + .s-line{margin-top:3.7607px}
   .s-name,.s-detail{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .s-trailing{margin-left:auto;flex:none;color:#808080}
+  .s-trailing{margin-left:auto;flex:none;color:var(--secondary,#808080)}
   .s-dot{width:6px;height:6px;border-radius:3px;flex:0 0 auto}
-  .s-more{font-size:9.4802px;line-height:12px;color:#808080;margin-top:7.5214px}
+  .s-dot.working{background:transparent!important;border:1.3px solid var(--ink,#fff);border-left-color:transparent;animation:spin 1.4s linear infinite}
+  .s-dot.waiting{background:transparent!important;border:1.3px solid var(--watch,#f2ff00);border-left-color:transparent;border-bottom-color:transparent}
+  .s-row[data-session-id]{cursor:pointer}
+  .s-row[data-session-id]:hover .s-name{text-decoration:underline}
+  .s-time{margin-left:auto;flex:none;color:var(--secondary,#808080)}
+  @media (prefers-reduced-motion: reduce){.s-dot.working{animation:none}}
+  .s-more{font-size:9.4802px;line-height:12px;color:var(--secondary,#808080);margin-top:7.5214px}
 
   /* ---- The other three edges -------------------------------------------------
      The rules above draw the right-hand edge, the original layout and still the default. Each block
@@ -243,7 +295,7 @@
   .handle > *{position:absolute;left:50%;top:50%;pointer-events:none;transition:opacity .2s,transform .36s cubic-bezier(.34,1.3,.64,1)}
   .h-rest{width:72px;height:72px;margin:-36px 0 0 -36px;overflow:visible;transform:rotate(var(--arc)) scale(1)}
   .h-disc{width:46.6px;height:46.6px;margin:-23.3px 0 0 -23.3px;border-radius:50%;background:#000;border:1px solid #2e2e2e;opacity:0;transform:scale(1.1)}
-  .h-glyph{width:21px;height:21px;margin:-10.5px 0 0 -10.5px;fill:#e8e8ea;opacity:0;
+  .h-glyph{width:21px;height:21px;margin:-10.5px 0 0 -10.5px;fill:var(--ink,#fff);opacity:0;
     transform:rotate(calc(var(--spins,0) * 360deg - 60deg)) scale(.5);transition:opacity .2s,transform .55s cubic-bezier(.34,1.2,.64,1)}
   .handle.hover .h-rest{opacity:0;transform:rotate(var(--arc)) scale(.86)}
   .handle.hover .h-disc{opacity:1;transform:scale(1)}
@@ -263,6 +315,7 @@
 <body>
 <div id="root">
   <svg class="notch-surface" aria-hidden="true"><path/></svg>
+  <div id="hardware-band" aria-hidden="true"></div>
   <div id="card"></div>
   <div id="tail"></div>
   <div id="move" class="handle">
@@ -293,13 +346,32 @@ const invoke = window.__TAURI__.core.invoke;
 const listen = window.__TAURI__.event.listen;
 
 /* Colour ramp (upstream palette values) */
-const AMPLE='#00FF88', WATCH='#F2FF00', CRIT='#FF3F00';
+let AMPLE='#00FF88', WATCH='#F2FF00'; const CRIT='#FF3F00';
 // Working stays neutral; waiting and completion pulse with the corresponding Swift palette color.
-const TRACK='#303030', INK='#ffffff', DIM='#808080';
+let TRACK='rgba(255,255,255,.188)', INK='#ffffff', DIM='#808080';
+const surfaceScheme=matchMedia('(prefers-color-scheme: light)');
+function updatePalette(){
+  // Solid and Dark Glass pin darkAqua; regular Glass inherits NSAppearance.
+  const light=nativeSurfaceStyle==='glass'&&surfaceScheme.matches;
+  INK=light?'#000000':'#ffffff';DIM=light?'#6B6B6B':'#808080';
+  TRACK=light?'rgba(0,0,0,.16)':'rgba(255,255,255,.188)';
+  AMPLE=light?'#00A356':'#00FF88';WATCH=light?'#B08800':'#F2FF00';
+  const root=document.documentElement.style;
+  root.setProperty('--ink',INK);root.setProperty('--secondary',DIM);
+  root.setProperty('--card-secondary',light?'#6B6B6B':nativeSurfaceStyle==='glass'?'#C2C2C2':'#808080');
+  root.setProperty('--ring-track',TRACK);
+  root.setProperty('--bar-track',light?'rgba(0,0,0,.15)':'rgba(255,255,255,.176)');
+  root.setProperty('--hairline',light?'rgba(0,0,0,.16)':'rgba(255,255,255,.118)');
+  root.setProperty('--watch',WATCH);
+  renderRing();if(card.classList.contains('show'))renderCard();
+}
+surfaceScheme.addEventListener('change',updatePalette);
 let appearance={accent_color:'system',reset_time:'automatic',show_codex_extra:true,show_usage_pace:false,claude_daily_pace:false,folds_for_fullscreen:true,weekly_dashed:false,watch:.5,critical:.7};
 let systemAccent='#007aff';
 const accent=()=>/^[0-9a-f]{6}$/.test(appearance.accent_color||'')?'#'+appearance.accent_color:systemAccent;
 const tone=f=> f>=appearance.critical?CRIT : f>=appearance.watch?WATCH : accent();
+function windowBand(w){return w?.band_override|| (w?.used>=1?'exhausted':w?.used>=appearance.critical?'critical':w?.used>=appearance.watch?'watch':'ample');}
+function windowTone(w){const band=windowBand(w);return band==='watch'?WATCH:band==='critical'||band==='exhausted'?CRIT:accent();}
 // Whole percents, except where rounding would read as nothing used or nothing left, as the Mac's Percent does
 function smallPct(v){
   if(v<=0) return '0';
@@ -332,6 +404,17 @@ let activity=[]; // working state of the non-Claude providers: {provider,state:'
 /* Which screen edge the notch is pinned to. Rust owns it (it is what placed the window); the page is
    told so it can mirror or rotate itself to match. 'right' is the default and the pre-edge layout. */
 let notchEdge='right';
+let hardwareNotch=null;
+function applyHardwareNotch(payload){
+  const n=payload?.hardware_notch;
+  hardwareNotch=n&&Number(n.width)>0&&Number(n.height)>0?{width:Number(n.width),height:Number(n.height)}:null;
+  const joined=notchEdge==='top'&&!!hardwareNotch;
+  document.body.classList.toggle('hardware-joined',joined);
+  const scale=nativeLayout?.scale||1;
+  document.documentElement.style.setProperty('--hardware-inset',joined?`${hardwareNotch.height/scale}px`:'0px');
+  document.documentElement.style.setProperty('--hardware-min-width',joined?`${hardwareNotch.width/scale+2*78.8*44/117}px`:'0px');
+  drawNotchShape();reportHot();
+}
 // Show on hover — the logic is beside the move handle below; declared here, since reportHot reads `folded` from the first frame
 let fullscreen=false, pinned=false;
 let onHover=false, folded=false, pointerIn=false, menuOpen=false, foldTimer=null;
@@ -353,6 +436,10 @@ function applyEdge(e){
   if(next===notchEdge) return;
   notchEdge=next;
   document.body.dataset.edge=next;
+  document.body.classList.toggle('hardware-joined',next==='top'&&!!hardwareNotch);
+  const scale=nativeLayout?.scale||1;
+  document.documentElement.style.setProperty('--hardware-inset',next==='top'&&hardwareNotch?`${hardwareNotch.height/scale}px`:'0px');
+  document.documentElement.style.setProperty('--hardware-min-width',next==='top'&&hardwareNotch?`${hardwareNotch.width/scale+2*78.8*44/117}px`:'0px');
   // The window changes shape with the edge, and so does the width the zoom correction measures against
   reportDpr();
   // The pill changes shape, so both the hot rectangles and the card's anchor have to be measured again
@@ -640,6 +727,14 @@ const TEXT={
     'Working in':'工作於',
   },
 };
+// Labels used by the pinned Swift Fixtures.swift design snapshot.
+for(const [lang,all,daily] of [
+  ['ru','Все модели','Суточная квота'],['fr','Tous les modèles','Quota quotidien'],
+  ['ja','全モデル','1 日の割り当て'],['pt-BR','Todos os modelos','Cota diária'],
+  ['zh','全部模型','每日额度'],['zh-Hant','全部模型','每日額度'],
+  ['de','Alle Modelle','Tageskontingent'],['uk','Усі моделі','Денний ліміт'],
+  ['ko','모든 모델','일일 할당량'],['uz','Barcha modellar','Kunlik kvota']
+]) if(TEXT[lang]) Object.assign(TEXT[lang],{'All models':all,'Daily quota':daily});
 // Kept as patterns rather than exact keys: each one carries a number, a plan name or an error
 // the provider wrote, so the whole string can never be a dictionary key.
 const PATTERNS={
@@ -905,6 +1000,14 @@ const UI={
       usedLeft:(used,left)=>`已用 ${used}% · 剩餘 ${left}%`,andMore:n=>`另有 ${n} 個`,updated:a=>`更新於 ${a}`},
 };
 function ui(){return UI[uiLang]||UI.en;}
+// Fixed Swift account-card copy for usage detail and Codex activity.
+if(TEXT["zh"]) Object.assign(TEXT["zh"], {"Usage details":"用量明细","Tokens":"Token","Cost":"费用","Requests":"请求","API keys":"API 密钥","Pricing":"计价","Peak pricing · 2× off-peak":"高峰计价 · 闲时 2 倍","Off-peak pricing · baseline":"闲时计价 · 基准价","Next peak":"下次高峰","Next off-peak":"下次闲时","Daily tokens":"每日 token","Daily cost":"每日费用","Unused resets":"未使用重置","1 unused reset":"1 次未使用重置","%lld unused resets":"%lld 次未使用重置","Next expires %@":"下次 %@ 到期","Expires %@":"%@ 到期","Lifetime tokens":"累计 token","Peak tokens":"峰值 token","Longest chat":"最长对话","Current streak":"当前连续","Longest streak":"最长连续","Today":"今日","30-day tokens":"30 天 token","Pending":"待出","Spent":"已花费","Remaining":"剩余","Funded":"已充值","%@ until %@":"%@，直到 %@","peak %@":"峰值 %@"});
+if(TEXT["zh-Hant"]) Object.assign(TEXT["zh-Hant"], {"Usage details":"用量明細","Tokens":"Token","Cost":"費用","Requests":"要求","API keys":"API 金鑰","Pricing":"計價","Peak pricing · 2× off-peak":"高峰計價 · 閒時 2 倍","Off-peak pricing · baseline":"閒時計價 · 基準價","Next peak":"下次高峰","Next off-peak":"下次閒時","Daily tokens":"每日 token","Daily cost":"每日費用","Unused resets":"未使用重置","1 unused reset":"1 次未使用重置","%lld unused resets":"%lld 次未使用重置","Next expires %@":"下次 %@ 到期","Expires %@":"%@ 到期","Lifetime tokens":"累計 token","Peak tokens":"峰值 token","Longest chat":"最長對話","Current streak":"目前連續","Longest streak":"最長連續","Today":"今日","30-day tokens":"30 天 token","Pending":"待出","Spent":"已花費","Remaining":"剩餘","Funded":"已充值","%@ until %@":"%@，直到 %@","peak %@":"峰值 %@"});
+if(TEXT["ja"]) Object.assign(TEXT["ja"], {"Usage details":"使用量の詳細","Tokens":"トークン","Cost":"料金","Requests":"リクエスト","API keys":"API キー","Pricing":"料金","Peak pricing · 2× off-peak":"ピーク料金 · オフピークの 2 倍","Off-peak pricing · baseline":"オフピーク料金 · 基準","Next peak":"次のピーク","Next off-peak":"次のオフピーク","Daily tokens":"1 日のトークン","Daily cost":"1 日の料金","Unused resets":"未使用のリセット","1 unused reset":"未使用のリセット 1 件","%lld unused resets":"未使用のリセット %lld 件","Next expires %@":"次は %@ に期限切れ","Expires %@":"%@ に期限切れ","Lifetime tokens":"累計トークン","Peak tokens":"最大トークン","Longest chat":"最長のチャット","Current streak":"現在の連続日数","Longest streak":"最長の連続日数","Today":"今日","30-day tokens":"30 日間のトークン","Pending":"保留中","Spent":"使用済み","Remaining":"残り","Funded":"入金済み","%@ until %@":"%@（%@ まで）","peak %@":"最大 %@"});
+if(TEXT["ko"]) Object.assign(TEXT["ko"], {"Usage details":"사용량 상세","Tokens":"토큰","Cost":"비용","Requests":"요청","API keys":"API 키","Pricing":"요금","Peak pricing · 2× off-peak":"피크 요금 · 오프피크의 2배","Off-peak pricing · baseline":"오프피크 요금 · 기준","Next peak":"다음 피크","Next off-peak":"다음 오프피크","Daily tokens":"일일 토큰","Daily cost":"일일 비용","Unused resets":"미사용 리셋","1 unused reset":"미사용 리셋 1개","%lld unused resets":"미사용 리셋 %lld개","Next expires %@":"다음 만료 %@","Expires %@":"%@에 만료","Lifetime tokens":"누적 토큰","Peak tokens":"최대 토큰","Longest chat":"가장 긴 채팅","Current streak":"현재 연속 사용 일수","Longest streak":"최장 연속 사용 일수","Today":"오늘","30-day tokens":"30일 토큰","Pending":"대기 중","Spent":"사용액","Remaining":"잔여액","Funded":"충전액","%@ until %@":"%@ (%@까지)","peak %@":"최대 %@"});
+if(TEXT["pt-BR"]) Object.assign(TEXT["pt-BR"], {"%@ until %@":"%@ até %@"});
+if(TEXT["ru"]) Object.assign(TEXT["ru"], {"Unused resets":"Неиспользованные сбросы","1 unused reset":"1 неиспользованный сброс","%lld unused resets":"%lld неиспользованных сбросов","Next expires %@":"Следующий истекает %@","Expires %@":"Истекает %@","%@ until %@":"%@ до %@"});
+if(TEXT["uk"]) Object.assign(TEXT["uk"], {"Usage details":"Деталі використання","Tokens":"Токени","Cost":"Витрати","Requests":"Запити","API keys":"Ключі API","Pricing":"Тарифікація","Peak pricing · 2× off-peak":"Пікова ціна · 2× від ціни поза піком","Off-peak pricing · baseline":"Ціна поза піком · базова","Next peak":"Наступний пік","Next off-peak":"Наступний непіковий час","Daily tokens":"Токени за день","Daily cost":"Витрати за день","Unused resets":"Невикористані скидання","1 unused reset":"1 невикористане скидання","%lld unused resets":"%lld невикористаних скидань","Next expires %@":"Наступне спливає %@","Expires %@":"Спливає %@","Lifetime tokens":"Токенів усього","Peak tokens":"Пік токенів за день","Longest chat":"Найдовший чат","Current streak":"Поточна серія","Longest streak":"Найдовша серія","Today":"Сьогодні","30-day tokens":"Токени за 30 днів","Pending":"Очікується","Spent":"Витрачено","Remaining":"Залишок","Funded":"Поповнено","%@ until %@":"%@ до %@","peak %@":"пік %@"});
 // Fixed Swift Localizable.xcstrings: activity waiting reasons and completion.
 const ACTIVITY_COPY={"ja":{"Question":"質問","Approval":"承認","Permission":"許可","Complete":"完了"},"zh":{"Question":"提问","Approval":"批准","Permission":"权限","Complete":"已完成"},"zh-Hant":{"Question":"提問","Approval":"批准","Permission":"權限","Complete":"已完成"},"ru":{"Question":"Вопрос","Approval":"Подтверждение","Permission":"Разрешение","Complete":"Завершено"},"de":{"Question":"Frage","Approval":"Genehmigung","Permission":"Berechtigung","Complete":"Abgeschlossen"},"uk":{"Question":"Питання","Approval":"Підтвердження","Permission":"Дозвіл","Complete":"Завершено"},"ko":{"Question":"질문","Approval":"승인","Permission":"권한","Complete":"완료"},"uz":{"Question":"Savol","Approval":"Tasdiqlash","Permission":"Ruxsat","Complete":"Tugallangan"}};
 function textCopy(value){
@@ -926,11 +1029,13 @@ function setUiLanguage(lang){
 }
 // "Is it working?" per provider: Claude from the four-state engine, the others from the activity probe. Returns running | attention | idle
 function workState(id){
-  if(id==='claude'){
-    if(stateSnap.agg==='running') return 'running';
-    if(stateSnap.agg==='attention') return 'attention';
-    // The engine cannot see cloud sessions: fall back to the desktop app's network activity
-    if(activity.some(a=>a.provider==='claude'&&a.state==='busy')) return 'running';
+  if(id==='claude'||id.startsWith('claude-')){
+    const sessions=(stateSnap.sessions||[]).filter(s=>(s.provider||'claude')===id);
+    if(sessions.some(s=>s.state==='attention'||s.state==='waiting'))return 'attention';
+    if(sessions.some(s=>s.state==='running'||s.state==='busy'))return 'running';
+    if(sessions.some(s=>s.state==='done'||s.state==='success'))return 'done';
+    // Claude Desktop's network activity belongs only to the default account.
+    if(id==='claude'&&activity.some(a=>a.provider==='claude'&&a.state==='busy')) return 'running';
     return 'idle';
   }
   const acts=activity.filter(a=>a.provider===id);
@@ -939,13 +1044,17 @@ function workState(id){
   if(acts.some(a=>a.state==='success')) return 'done';
   return 'idle';
 }
+function activityKey(p){return p.snap.local_model?p.id:(p.account_provider||p.base);}
+function modelActivity(p){return p.snap.local_model?activity.find(row=>row.provider===p.id&&row.state==='busy')||null:null;}
 function glyphHtml(p,small){
-  const id=p.base||p.id,base=id.startsWith('claude-')?'claude':id.startsWith('codex-')?'codex':id.startsWith('antigravity-')?'gemini':id;
-  const g=glyphs[id]||glyphs[base],scale=Number(g?.scale)||1;
+  const id=p.glyph_key||p.base||p.id,base=id.startsWith('claude-')?'claude':id.startsWith('codex-')?'codex':id.startsWith('antigravity-')?'gemini':id;
+  // The Swift OpenAI provider and Codex share GlyphOutline.openai. The bundled
+  // codex.svg is mechanically traced from that outline (glyphs/NOTICE.md).
+  const g=glyphs[id]||glyphs[base]||(base==='openai'?glyphs.codex:null),scale=Number(g?.scale)||1;
   if(g&&g.kind==='svg'&&g.svg) return `<span class="mark" style="transform:scale(${scale})">${g.svg}</span>`;
   if(g?.kind==='template' && /^data:image\/(svg\+xml|png);base64,[A-Za-z0-9+/=]+$/.test(g.url)) return `<span class="mark" style="transform:scale(${scale});background:currentColor;mask:url(${g.url}) center/contain no-repeat;mask-mode:alpha;-webkit-mask:url(${g.url}) center/contain no-repeat"></span>`;
-  if(g&&g.url) return `<img class="${g.kind}" src="${g.url}" alt="${p.name}"${small?' style="width:16px;height:16px;border-radius:4px"':''}>`;
-  return small?'':p.glyph; // fallback letter
+  if(g&&g.url) return `<img class="${attr(g.kind)}" src="${attr(g.url)}" alt="${attr(p.name)}"${small?' style="width:16px;height:16px;border-radius:4px"':''}>`;
+  return small?'':esc(p.glyph); // fallback letter
 }
 // Provider table (order = top to bottom in the pill). `glyph` is the fallback letter used when no mark is available
 // Which providers get a ring: null means automatic; [] explicitly hides every ring.
@@ -967,10 +1076,11 @@ function claudeCells(){
     if(!accounts.some(a=>a.g===g)) accounts.push({g:g,slug:(String(w.id).split('@')[1]||'')});
   }
   // One account (or a reading with no headings yet) is the single cell it has always been
-  if(accounts.length<2) return [{id:'claude',base:'claude',name:'Claude',glyph:'C',snap:usage}];
+  if(accounts.length<2) return [{id:'claude',base:'claude',account_provider:accounts[0]?.slug?'claude-'+accounts[0].slug:'claude',name:'Claude',glyph:'C',snap:usage}];
   return accounts.map(a=>({
     id:a.slug?'claude@'+a.slug:'claude',
     base:'claude',
+    account_provider:a.slug?'claude-'+a.slug:'claude',
     name:a.g||'Claude',
     glyph:'C',
     snap:Object.assign({},usage,{windows:ws.filter(w=>(w.group||'')===a.g)
@@ -978,8 +1088,17 @@ function claudeCells(){
   }));
 }
 // BEGIN TESTABLE PACE
+function hasWindowFraction(w){
+  if(w.has_fraction===true)return true;
+  if(w.has_fraction===false)return false;
+  // Archived snapshots predate the explicit nil-fraction field. A bare count
+  // or detail had no denominator; a count plus measured fraction keeps its bar.
+  return w.count==null?!(w.detail!=null&&w.used===0&&w.remaining==null&&w.used_count==null)
+    :w.used>0;
+}
+function isCompactWindow(w){return !hasWindowFraction(w)&&(w.count!=null||w.detail!=null);}
 function usagePace(window,now){
-  if(window.count!=null||!Number.isFinite(window.used)||window.used<0||!Number.isFinite(window.duration)||window.duration<=0||!Number.isFinite(window.resets_at)||window.resets_at<=now)return null;
+  if(!hasWindowFraction(window)||!Number.isFinite(window.used)||window.used<0||!Number.isFinite(window.duration)||window.duration<=0||!Number.isFinite(window.resets_at)||window.resets_at<=now)return null;
   return (Math.min(window.used,1)-(1-Math.min((window.resets_at-now)/(window.duration*1000),1)))*100;
 }
 function paceSummary(points){
@@ -987,7 +1106,7 @@ function paceSummary(points){
   return (rounded===0&&magnitude>0?'<0.1':String(rounded))+'% '+(points>0?'deficit':'reserved');
 }
 function dailyPace(window,now){
-  if(window.count!=null||!Number.isFinite(window.used)||window.used<0||!Number.isFinite(window.resets_at))return null;
+  if(!hasWindowFraction(window)||!Number.isFinite(window.used)||window.used<0||!Number.isFinite(window.resets_at))return null;
   const day=86400000,start=window.resets_at-7*day,index=Math.min(6,Math.floor(Math.max(0,Math.min(now-start,7*day))/day));
   return {id:'daily_pace',label:'Daily pace',used:window.used/((index+1)/7),resets_at:index===6?window.resets_at:start+(index+1)*day,duration:null};
 }
@@ -1000,6 +1119,15 @@ function pacedProvider(p,enabled,now){
 // END TESTABLE PACE
 let extraProviders=[];
 let disabledProviders=[];
+function localMemoryText(model){
+  const bytes=model?.gpu_size>0?model.gpu_size:model?.size;
+  if(bytes==null)return '—';
+  for(const [unit,divisor] of [['EB',1024**6],['PB',1024**5],['TB',1024**4],['GB',1024**3],['MB',1024**2],['KB',1024],['B',1]]){
+    if(bytes>=divisor)return new Intl.NumberFormat(ui().locale,{maximumFractionDigits:1}).format(bytes/divisor)+' '+unit;
+  }
+  return '0 B';
+}
+function localSpeedColor(band){return ({veryFast:'#0A84FF',smooth:AMPLE,slow:WATCH,verySlow:'#FF453A'})[band]||DIM;}
 function providers(){
   const list=extraProviders.some(p=>p.id==='claude')?[]:claudeCells();
   if(codexSnap.status!=='absent') list.push({id:'codex',base:'codex',name:'Codex',glyph:'Cx',snap:codexSnap});
@@ -1007,9 +1135,22 @@ function providers(){
   if(cursorSnap.status!=='absent') list.push({id:'cursor',base:'cursor',name:'Cursor',glyph:'Cu',snap:cursorSnap});
   if(grokSnap.status!=='absent') list.push({id:'grok',base:'grok',name:'Grok',glyph:'Gk',snap:grokSnap});
   if(agSnap.status!=='absent') list.push({id:'gemini',base:'gemini',name:'Antigravity',glyph:'Ag',snap:agSnap});
-  for(const p of extraProviders) { if(p.enabled&&p.snap.status!=='absent') list.push({id:p.id,base:p.id,name:p.name,glyph:p.name.slice(0,2),snap:{...p.snap,headline:p.headline}}); }
+  const models=extraProviders.filter(p=>p.snap?.local_model);
+  for(const p of extraProviders) {
+    if(p.snap?.local_model)continue;
+    if(p.id==='ollama-local'||p.id==='lmstudio'){
+      for(const row of models.filter(row=>row.snap.source_provider_id===p.id)){
+        if(row.enabled&&row.snap.status!=='absent')list.push({id:row.id,base:row.id,account_provider:p.id,name:row.name,glyph:row.name.slice(0,2),glyph_key:row.snap.local_model.brand||p.id,snap:row.snap});
+      }
+      continue; // Swift expands a local runtime into model cells, never an aggregate ring.
+    }
+    if(p.enabled&&p.snap.status!=='absent') list.push({id:p.id,base:p.id,name:p.name,glyph:p.name.slice(0,2),snap:{...p.snap,headline:p.headline}});
+  }
   for(let i=list.length-1;i>=0;i--) if(disabledProviders.includes(list[i].base)) list.splice(i,1);
   const visible=Array.isArray(notchSlots)?notchSlots.flatMap(slot=>list.filter(p=>p.base===slot.provider)):list;
+  if(Array.isArray(notchSlots)&&notchSlots.length)for(const p of list){
+    if(p.snap.local_model&&!visible.some(row=>row.id===p.id))visible.push(p);
+  }
   return visible.map(p=>pacedProvider(p,appearance.claude_daily_pace,Date.now()));
 }
 // Antigravity's "Notch reads" and "Model data", as in the Mac app; chosen in settings
@@ -1018,7 +1159,7 @@ let agPrefs={limit:'automatic',model:'gemini'};
 let weeklyRing='off';
 // The tightest metered window, ties going to the lower id so the choice never flickers
 function tightestOf(ws){
-  return ws.filter(w=>w.count==null).reduce((a,b)=>!a||b.used>a.used||(b.used===a.used&&b.id<a.id)?b:a,null);
+  return ws.filter(hasWindowFraction).reduce((a,b)=>!a||b.used>a.used||(b.used===a.used&&b.id<a.id)?b:a,null);
 }
 function laneFamily(w){ const id=w.id.toLowerCase(); return id.startsWith('gemini')?'gemini':(id.startsWith('3p')||id.startsWith('claude'))?'3p':''; }
 function laneIs(w,limit){
@@ -1030,6 +1171,9 @@ function laneIs(w,limit){
 function headlineOf(snap,id){
   const ws=snap.windows; if(!ws.length) return null;
   const byId=x=>ws.find(w=>w.id===x)||null;
+  // Swift's early three-provider design fixture uses `claude.session`, while the
+  // production Claude adapter names the same primary window `session`.
+  if(snap.headline&&byId(snap.headline)) return byId(snap.headline);
   if(id==='claude'||id.startsWith('claude-')) return byId('daily_pace')||byId('session');
   if(id==='codex') return byId('primary');
   if(id==='cursor') return byId('included')||byId('api');
@@ -1047,7 +1191,7 @@ function headlineOf(snap,id){
 // Codex calls its second window secondary, and Antigravity has one per model family. Cursor has none.
 // BEGIN TESTABLE WEEKLY SELECTOR
 function weeklyOf(snap,id){
-  const ws=snap.windows.filter(w=>w.count==null); if(!ws.length) return null;
+  const ws=snap.windows.filter(hasWindowFraction); if(!ws.length) return null;
   const byId=x=>ws.find(w=>w.id===x)||null;
   if(id==='claude'||id.startsWith('claude-')) return byId('daily_pace')?byId('session'):byId('seven_day')||byId('weekly_all')||byId('weekly');
   if(id==='codex'||id.startsWith('codex-')) return byId('secondary');
@@ -1086,43 +1230,50 @@ function dashedArc(r,f,color){
 function renderRing(){
   const ps=providers();
   // Rebuild the DOM only when the structure changes (never swap the element under the cursor)
-  const want=glyphEpoch+':'+ps.map(p=>p.id).join(',');
+  const want=glyphEpoch+':'+JSON.stringify(ps.map(p=>p.id));
   if(pill.dataset.cells!==want){
-    pill.innerHTML=ps.map((p,i)=>`<div class="cell" data-p="${p.id}" style="--i:${i}">
+    pill.innerHTML=ps.map((p,i)=>`<div class="cell" data-p="${attr(p.id)}" style="--i:${i}">
       <div class="ringwrap"><svg class="ring" viewBox="0 0 56 56"></svg><svg class="reading" viewBox="0 0 56 56"></svg><svg class="activity" viewBox="0 0 56 56"></svg><div class="glyph ${(!glyphs[p.base]&&p.glyph.length>1)?'small':''}">${glyphHtml(p)}</div></div>
       <div class="pct">—</div></div>`).join('');
     pill.dataset.cells=want;
   }
   for(const p of ps){
-    const cell=pill.querySelector(`.cell[data-p="${p.id}"]`); if(!cell) continue;
+    const cell=cellById(p.id); if(!cell) continue;
     const svg=cell.querySelector('svg.ring'), reading=cell.querySelector('svg.reading'), activity=cell.querySelector('svg.activity'), pct=cell.querySelector('.pct'), glyph=cell.querySelector('.glyph'), wrap=cell.querySelector('.ringwrap');
     const h=headlineOf(p.snap,p.base);
+    const model=p.snap.local_model,performance=p.snap.local_performance;
     let inner=`<circle cx="28" cy="28" r="24.2906" fill="none" stroke="${TRACK}" stroke-width="7.4188"/>`;
     wrap.classList.toggle('pressed',!!refreshing[p.id]);
-    reading.innerHTML=h && h.count==null?svgArc(24.2906,Math.min(h.used,1),tone(h.used),3.8291):'';
-    if(weeklyRing!=='off'){ // the week, thinner and at its own radius, in its own colour: a session at 12% beside a week at 91% is the case this exists for
+    const localFraction=p.snap.local_context_fraction;
+    reading.innerHTML=model?(performance||localFraction!=null?svgArc(24.2906,localFraction==null?1:Math.max(.06,Math.min(1,localFraction)),localSpeedColor(performance?.band),3.8291):'')
+      :h&&hasWindowFraction(h)?svgArc(24.2906,Math.min(h.used,1),windowTone(h),3.8291):'';
+    if(!model&&weeklyRing!=='off'){ // the week, thinner and at its own radius, in its own colour: a session at 12% beside a week at 91% is the case this exists for
       const wk=weeklyOf(p.snap,p.base);
       // Inside, it shares the gap with the working indicator, so it stands down while that is showing
-      const taken=weeklyRing==='inside'&&workState(p.base)!=='idle';
+      const taken=weeklyRing==='inside'&&workState(activityKey(p))!=='idle';
       if(wk&&(!h||wk.id!==h.id)&&!taken){
         const r=weeklyRing==='inside'?13.4017:31.1111;
         inner+=`<circle cx="28" cy="28" r="${r}" fill="none" stroke="${TRACK}" stroke-width="2.4" opacity="0.7"/>`
-          +(appearance.weekly_dashed?dashedArc(r,Math.min(wk.used,1),tone(wk.used)):svgArc(r,Math.min(wk.used,1),tone(wk.used),2.4,'opacity="0.85"'));
+          +(appearance.weekly_dashed?dashedArc(r,Math.min(wk.used,1),windowTone(wk)):svgArc(r,Math.min(wk.used,1),windowTone(wk),2.4,'opacity="0.85"'));
       }
     }
     svg.innerHTML=inner;
     { // thin inner arc: spinning white = working, yellow pulse = waiting on you (one animation for all four, different sources)
       // Its own layer, so a stale reading can dim around it without dimming it: see `.ringwrap.stale`
-      const ws=workState(p.base);
-      if(ws==='running') activity.innerHTML=`<g class="arc-spin">${svgArc(17.2308,0.28,INK,2.6325)}</g>`;
+      const ws=workState(activityKey(p)),queued=modelActivity(p)?.queued||0;
+      if(ws==='running') activity.innerHTML=`<g class="arc-spin">${queued>0?dashedArc(17.2308,1,INK):svgArc(17.2308,0.28,INK,2.6325)}</g>`;
       else if(ws==='attention'||ws==='done') activity.innerHTML=`<g class="arc-pulse"><circle cx="28" cy="28" r="17.2308" fill="none" stroke="${ws==='done'?AMPLE:WATCH}" stroke-width="2.6325"/></g>`;
       else activity.innerHTML='';
     }
-    if(p.snap.status==='needsAuth'||p.snap.status==='none') pct.textContent='—';
-    else if(h && h.count!=null) pct.textContent=(h.derived?'~':'')+h.count;
-    else if(h) pct.textContent=(h.derived?'~':'')+pctText(h.used)+'%';
+    if(model)pct.textContent=p.snap.shows_local_performance?(performance?.headline_text||'— tok/s'):localMemoryText(model);
+    else if(p.snap.status==='needsAuth'||p.snap.status==='none') pct.textContent='—';
+    // ProviderRing reads ProviderSnapshot.headlineText; fidelity's qualifier
+    // belongs to TooltipCard's detail values, never to the cell reading.
+    else if(h?.prefers_used_text&&h.used_text) pct.textContent=h.used_text;
+    else if(h && !hasWindowFraction(h)) pct.textContent=String(h.count??h.used_text??h.detail??'—');
+    else if(h) pct.textContent=pctText(h.used)+'%';
     else pct.textContent=p.snap.windows.length?'—':'…'; // its declared window is missing: a dash, not a wait
-    glyph.classList.toggle('dim', !!(h && h.used>=1));
+    glyph.classList.toggle('dim', !!(h && windowBand(h)==='exhausted'));
     wrap.classList.toggle('stale', staleOf(p.snap));
   }
   drawNotchShape();
@@ -1178,24 +1329,36 @@ const SESSION_STATE_COPY={
   'uk':{working:'працює',waiting:'очікує',complete:'завершено',idle:'простій'},
   'uz':{working:'ishlamoqda',waiting:'kutmoqda',complete:'tugallandi',idle:'boʻsh'}
 };
-function sessionRow(name,detail,state){
+function elapsedCopy(since){
+  if(!Number.isFinite(since)||since<=0)return '';
+  const seconds=Math.max(0,(Date.now()-since)/1000);
+  if(seconds<45)return textCopy('just now');
+  const minutes=Math.round(seconds/60);
+  if(minutes<60)return textCopy(`${Math.max(1,minutes)} min`);
+  const hours=Math.floor(minutes/60),rest=minutes%60;
+  return textCopy(rest?`${hours} hr ${rest} min`:`${hours} hr`);
+}
+function sessionRow(name,detail,state,id=null,since=null){
   const word=state==='attention'||state==='waiting'?'waiting':state==='done'||state==='success'?'complete':state==='idle'?'idle':'working';
   const color=state==='attention'||state==='waiting'?WATCH:state==='done'||state==='success'?AMPLE:state==='idle'?TRACK:INK;
   const stateLabel=SESSION_STATE_COPY[uiLang]?.[word]||word;
-  return `<div class="s-row"><div class="s-line"><span class="s-dot" style="background:${color}"></span><span class="s-name">${esc(name)}</span><span class="s-trailing">${esc(stateLabel)}</span></div><div class="s-line"><span class="s-detail">${esc(textCopy(detail||''))}</span></div></div>`;
+  return `<div class="s-row"${id?' data-session-id="'+attr(id)+'"':''}><div class="s-line"><span class="s-dot ${word}" style="background:${color}"></span><span class="s-name">${esc(name)}</span><span class="s-trailing">${esc(stateLabel)}</span></div><div class="s-line"><span class="s-detail">${esc(textCopy(detail||''))}</span><span class="s-time">${esc(elapsedCopy(since))}</span></div></div>`;
 }
 function sessionRowsHtml(p,cap){
   let rows;
-  if(p.base==='claude'){
-    rows=stateSnap.sessions.filter(s=>s.state!=='idle').map(s=>({name:s.title,detail:s.state==='attention'?(s.attn||s.last):(s.prompt||s.last),state:s.state}));
+  if(p.base==='claude'||p.base.startsWith('claude-')){
+    const provider=p.account_provider||p.base,rank={attention:0,waiting:0,running:1,busy:1,done:2,success:2,idle:3};
+    rows=(stateSnap.sessions||[]).filter(s=>(s.provider||'claude')===provider&&s.state!=='idle')
+      .sort((a,b)=>(rank[a.state]??3)-(rank[b.state]??3)||(b.started||0)-(a.started||0))
+      .map(s=>({id:s.id,name:s.title,detail:s.state==='attention'?(s.attn||s.last):(s.prompt||s.last),state:s.state,since:s.started}));
   }else{
     const rank={waiting:0,busy:1,success:2,idle:3};
     rows=activity.filter(a=>a.provider===p.base).sort((a,b)=>(rank[a.state]??3)-(rank[b.state]??3)||b.since-a.since)
-      .map(a=>({name:a.name,detail:a.state==='waiting'?(a.waiting_for||a.detail):a.detail,state:a.state}));
+      .map(a=>({name:a.name,detail:a.state==='waiting'?(a.waiting_for||a.detail):a.detail,state:a.state,since:a.since}));
   }
   if(!rows.length)return '';
   const shown=rows.slice(0,Math.max(0,cap));
-  return `<div class="c-sessions">${shown.map(s=>sessionRow(s.name,s.detail,s.state)).join('')}${moreRow(rows.length-shown.length)}</div>`;
+  return `<div class="c-sessions">${shown.map(s=>sessionRow(s.name,s.detail,s.state,s.id,s.since)).join('')}${moreRow(rows.length-shown.length)}</div>`;
 }
 function budgetSessionHtml(cap){
   // A hidden (cap + 1)th row is present in Swift's budget even when the live
@@ -1247,7 +1410,7 @@ function renderUsageAlert(alert){
  const subtitle=textCopy(alert.label)+(zh?(reset?'额度已恢复':'额度已耗尽'):(reset?' limit refreshed':' limit is spent'));
  const status=reset?'Quota is available (0% used)':weekly?'Weekly limit reached (100% used)':'Session limit reached (100% used)';
  const next=alert.resets_at?`<div class="alert-reset">${esc(alertText(reset?'Next reset':'Resets at'))} ${esc(new Date(alert.resets_at).toLocaleTimeString(uiLang,{hour:'numeric',minute:'2-digit',hour12:!stateSnap.clock_24h}))}</div>`:'';
- card.innerHTML=`<div class="c-head">${glyphHtml(p,true)}<div class="alert-heading"><div class="alert-title-row"><span class="c-title">${esc(title)}</span><button class="alert-dismiss" aria-label="${esc(alertText('Close'))}">×</button></div><div class="alert-subtitle">${esc(subtitle)}</div></div></div><div class="alert-status" role="status" style="color:${reset?accent():CRIT}"><span class="alert-dot"></span>${esc(alertText(status))}</div>${next}`;
+ card.innerHTML=`<div class="c-head">${glyphHtml(p,true)}<div class="alert-heading"><div class="alert-title-row"><span class="c-title">${esc(title)}</span><button class="alert-dismiss" aria-label="${attr(alertText('Close'))}">×</button></div><div class="alert-subtitle">${esc(subtitle)}</div></div></div><div class="alert-status" role="status" style="color:${reset?accent():CRIT}"><span class="alert-dot"></span>${esc(alertText(status))}</div>${next}`;
  card.querySelector('.alert-dismiss').onclick=e=>{e.stopPropagation();notchAlert=null;card.classList.remove('usage-alert');hideCard();};
  placeCard();
 }
@@ -1258,18 +1421,167 @@ function renderCard(){
   const p=providers().find(x=>x.id===hoverId)||providers()[0];
   if(!p)return;
   c.innerHTML=cardHtml(p);
+  for(const row of c.querySelectorAll('.s-row[data-session-id]'))row.onclick=e=>{
+    e.stopPropagation();invoke('focus_session',{id:row.dataset.sessionId}).catch(()=>{});
+  };
   const signIn=c.querySelector('#claude-sign-in');
   if(signIn) signIn.onclick=e=>{e.stopPropagation();signInClaude();};
   placeCard();
 }
+function moneyText(value,currency){
+  const symbol=({CNY:'¥',RMB:'¥',JPY:'¥',USD:'$',EUR:'€'})[String(currency||'').toUpperCase()]||`${currency||''} `;
+  return symbol+Number(value||0).toFixed(2);
+}
+function moneyHtml(w,snap){
+  const money=w.money,spent=Number(money.spent)||0,remaining=Number(money.remaining)||0;
+  const funded=spent+remaining,fraction=funded>0?Math.min(1,Math.max(0,spent/funded)):0;
+  const qualifier=snap.fidelity==='official'?'':'~';
+  const stat=(label,value,color='')=>`<div class="money-stat"><span class="label">${esc(textCopy(label))}</span><span class="value"${color?` style="color:${color}"`:''}>${esc(value)}</span></div>`;
+  return `<div class="win money-window"><div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span><span class="w-reset">${esc(qualifier+pctText(fraction)+'% '+textCopy('used'))}</span></div><div class="money-track"><div class="money-fill" style="width:${fraction*100}%;background:${tone(fraction)}"></div></div><div class="money-stats">${stat('Spent',moneyText(spent,money.currency),accent())}${stat('Remaining',moneyText(remaining,money.currency))}${stat('Funded',moneyText(funded,money.currency),INK)}</div></div>`;
+}
+function blockHtml(block){
+  if(!block?.reason)return '';
+  const when=Number(block.resets_at),stamp=when>Date.now()?new Date(when).toLocaleString(uiLang,{weekday:daysApart(Date.now(),when)>=1?'short':undefined,hour:'numeric',minute:'2-digit',hour12:!stateSnap.clock_24h}):null;
+  const label=stamp?textCopy('%@ until %@').replace('%@',textCopy(block.reason)).replace('%@',stamp):textCopy(block.reason);
+  return `<div class="c-block"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.3a6.7 6.7 0 1 0 0 13.4A6.7 6.7 0 0 0 8 1.3Zm0 3.2a.8.8 0 0 1 .8.8v3.1a.8.8 0 0 1-1.6 0V5.3a.8.8 0 0 1 .8-.8Zm0 6a.9.9 0 1 1 0 1.8.9.9 0 0 1 0-1.8Z"/></svg><span>${esc(label)}</span></div>`;
+}
+function tokenText(value){
+  if(value==null)return '—';
+  const n=Number(value);
+  if(n>=1e9)return (n/1e9).toFixed(2)+'B';
+  if(n>=1e6)return (n/1e6).toFixed(1)+'M';
+  if(n>=1e3)return (n/1e3).toFixed(0)+'K';
+  return String(n);
+}
+function durationText(seconds){
+  if(!(Number(seconds)>0))return '—';
+  const minutes=Math.max(1,Math.round(Number(seconds)/60)),hours=Math.floor(minutes/60),remainder=minutes%60;
+  return hours?(remainder?`${hours}h ${remainder}m`:`${hours}h`):`${minutes}m`;
+}
+function codexResetCreditsHtml(credits){
+  const count=Number(credits?.available_count??credits?.availableCount??0);
+  if(!(count>0))return '';
+  const available=(credits.credits||[]).filter(c=>c.status==='available'&&(c.expires_at??c.expiresAt)!=null).map(c=>Number(c.expires_at??c.expiresAt)).filter(Number.isFinite);
+  const earliest=available.length?Math.min(...available):null,next=earliest>Date.now()?earliest:null;
+  const stamp=next?new Date(next).toLocaleString(uiLang,{weekday:daysApart(Date.now(),next)>=7?undefined:'short',month:daysApart(Date.now(),next)>=7?'short':undefined,day:daysApart(Date.now(),next)>=7?'numeric':undefined,hour:daysApart(Date.now(),next)>=7?undefined:'numeric',minute:daysApart(Date.now(),next)>=7?undefined:'2-digit',hour12:!stateSnap.clock_24h}):null;
+  const expiry=stamp?textCopy(count>1?'Next expires %@':'Expires %@').replace('%@',stamp):'';
+  return `<section class="codex-reset"><div class="codex-rule"></div><div class="detail-split"><span class="codex-title">${esc(textCopy('Unused resets'))}</span></div><div class="detail-split">${esc(count===1?textCopy('1 unused reset'):textCopy('%lld unused resets').replace('%lld',String(count)))}</div>${expiry?`<div class="detail-split"><span class="trailing">${esc(expiry)}</span></div>`:''}</section>`;
+}
+function localDayKey(date){const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,'0'),d=String(date.getDate()).padStart(2,'0');return `${y}-${m}-${d}`;}
+function chartBars(values,maxValue,kind='deepseek'){
+  const max=Math.max(1,maxValue??Math.max(...values,0)),height=kind==='codex'?43.2479:36.1026;
+  return `<div class="detail-chart-bars">${values.map(v=>`<span style="height:${v>0?(kind==='codex'?height*v/max:Math.max(1.5043,height*v/max)):0}px"></span>`).join('')}</div>`;
+}
+function codexTokenUsageHtml(usage){
+  if(!usage)return '';
+  const summary=usage.summary||{},raw=usage.daily_usage_buckets||usage.dailyUsageBuckets||[];
+  const byDate=new Map(raw.map(b=>[b.start_date??b.startDate,Number(b.tokens)||0]));
+  const today=new Date(),values=[];
+  for(let offset=-29;offset<=0;offset++){const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()+offset);values.push(byDate.get(localDayKey(d))||0);}
+  const metrics=[['Lifetime tokens',tokenText(summary.lifetime_tokens??summary.lifetimeTokens)],['Peak tokens',tokenText(summary.peak_daily_tokens??summary.peakDailyTokens)],['Longest chat',durationText(summary.longest_running_turn_seconds??summary.longestRunningTurnSeconds)],['Current streak',(summary.current_streak_days??summary.currentStreakDays)==null?'—':`${summary.current_streak_days??summary.currentStreakDays}d`],['Longest streak',(summary.longest_streak_days??summary.longestStreakDays)==null?'—':`${summary.longest_streak_days??summary.longestStreakDays}d`]];
+  const firstToday=raw.find(b=>(b.start_date??b.startDate)===localDayKey(today));
+  const current=firstToday?tokenText(firstToday.tokens):textCopy('Pending');
+  return `<section class="codex-usage"><div class="codex-rule"></div><div class="codex-metrics">${metrics.map(([label,value])=>`<div class="codex-metric"><span>${esc(textCopy(label))}</span><span>${esc(value)}</span></div>`).join('')}</div><div class="codex-rule"></div><div class="detail-split"><span>${esc(textCopy('Today'))}</span><span class="trailing">${esc(current)}</span></div><div class="detail-split"><span>${esc(textCopy('30-day tokens'))}</span><span class="trailing">${esc(tokenText(values.reduce((sum,n)=>sum+n,0)))}</span></div><div class="codex-chart">${chartBars(values,null,'codex')}</div></section>`;
+}
+let deepSeekPricingState=null,deepSeekPricingPending=false,deepSeekPricingTimer=0;
+function scheduleDeepSeekPricingRefresh(){
+  clearTimeout(deepSeekPricingTimer);deepSeekPricingTimer=0;
+  if(!card.classList.contains('show')||providers().find(p=>p.id===hoverId)?.base!=='deepseek')return;
+  const next=Number(deepSeekPricingState?.next_at);
+  if(Number.isFinite(next)&&next>Date.now())deepSeekPricingTimer=setTimeout(refreshDeepSeekPricing,Math.min(2147483647,Math.max(1,next-Date.now()+10)));
+}
+function refreshDeepSeekPricing(){
+  if(deepSeekPricingPending)return;
+  deepSeekPricingPending=true;
+  invoke('get_deepseek_pricing_state').then(state=>{
+    deepSeekPricingState=state;
+    if(card.classList.contains('show')&&(providers().find(p=>p.id===hoverId)?.base==='deepseek'))renderCard();
+    scheduleDeepSeekPricingRefresh();
+  }).catch(()=>{deepSeekPricingState=null;clearTimeout(deepSeekPricingTimer);deepSeekPricingTimer=0;}).finally(()=>{deepSeekPricingPending=false;});
+}
+function detailChart(title,values,format){
+  const max=Math.max(...values,0);
+  return `<div class="detail-chart"><div class="detail-chart-title"><span>${esc(textCopy(title))}</span><span>${esc(textCopy('peak %@').replace('%@',format(max)))}</span></div>${chartBars(values,Math.max(1,max))}</div>`;
+}
+function localModelCardHtml(snap){
+  const model=snap.local_model,performance=snap.local_performance,ledger=snap.local_ledger;
+  if(!model)return '';
+  const memory=model.gpu_size>0?model.gpu_size:model.size;
+  const memoryLabel=model.size_kind==='modelSize'?'Model size':model.gpu_size==null?'Memory':model.gpu_size>0?'VRAM':'RAM';
+  const context=model.context==null?textCopy('Unavailable'):new Intl.NumberFormat(ui().locale).format(model.context)+' '+textCopy('tokens');
+  const unloadAt=Date.parse(model.expires_at||'');
+  const unload=!Number.isFinite(unloadAt)?textCopy('Unavailable'):unloadAt<=Date.now()?textCopy('Pending'):
+    new Intl.RelativeTimeFormat(ui().locale,{numeric:'auto',style:'short'}).format(Math.max(1,Math.round((unloadAt-Date.now())/60000)),'minute');
+  const row=(label,value,color='')=>`<div class="detail-split"><span>${esc(textCopy(label))}</span><span class="trailing"${color?` style="color:${color}"`:''}>${esc(value)}</span></div>`;
+  let html=`<div class="local-model-name" title="${attr(model.name)}">${esc(model.name)}</div><div class="local-model-details">`;
+  if(snap.shows_local_performance){
+    html+=row('Last speed (derived)',performance?.speed_text||textCopy('Not measured'),performance?localSpeedColor(performance.band):'');
+    html+=row('Speed band',performance?textCopy(({veryFast:'Very fast',smooth:'Smooth',slow:'Slow',verySlow:'Very slow'})[performance.band]||'—'):'—');
+  }
+  html+=row(memoryLabel,memory==null?textCopy('Unavailable'):localMemoryText(model));
+  html+=row('Context limit',context)+row('Quantization',model.quantization||textCopy('Unavailable'))+row('Unloads',unload);
+  if(snap.shows_local_performance)html+=row('Measured',performance?.measured_at?elapsedCopy(performance.measured_at):'—');
+  if(ledger){
+    const today=ledger.today||{},last=ledger.last||{},input=last.input_tokens;
+    const contextFraction=input!=null&&model.context>0?Math.min(1,input/model.context):null;
+    html+=row('Context used',input==null?'—':contextFraction==null?`${tokenText(input)} ${textCopy('tokens')}`:`${pctText(contextFraction)}% · ${tokenText(input)}`);
+    html+=row('Tokens today',`${tokenText(today.input_tokens||0)} ${textCopy('in')} · ${tokenText(today.output_tokens||0)} ${textCopy('out')}`);
+    html+=row('Requests today',String(today.requests||0));
+    html+=row('Reasoning share',today.output_tokens>0?`${pctText((today.reasoning_tokens||0)/today.output_tokens)}%`:'—');
+    html+=row('Draft accepted',today.draft_tokens>0?`${pctText((today.accepted_draft_tokens||0)/today.draft_tokens)}%`:'—');
+  }
+  return html+'</div>';
+}
+function usageGroupHasUsage(group){
+  const days=Array.isArray(group.days)?group.days:[];
+  const tokens=days.reduce((n,d)=>n+Number(d.cache_hit_tokens||0)+Number(d.cache_miss_tokens||0)+Number(d.output_tokens||0),0);
+  const requests=days.reduce((n,d)=>n+Number(d.requests||0),0);
+  const cost=days.reduce((n,d)=>n+Number(d.cost||0),0);
+  return tokens>0||cost>0||requests>0;
+}
+function deepSeekUsageDetailHtml(detail){
+  if(!detail?.groups?.length)return '';
+  const groups=detail.groups.filter(usageGroupHasUsage);
+  if(!groups.length)return '';
+  const keyIds=new Set(groups.map(g=>g.api_key_id));
+  let totalTokens=0,totalRequests=0,totalCost=0;
+  const days=new Map();
+  for(const g of detail.groups)for(const d of g.days||[]){
+    const tokens=Number(d.cache_hit_tokens||0)+Number(d.cache_miss_tokens||0)+Number(d.output_tokens||0),cost=Number(d.cost||0);
+    totalTokens+=tokens;totalRequests+=Number(d.requests||0);totalCost+=cost;
+  }
+  for(const g of groups)for(const d of g.days||[]){
+    const date=Number(d.date),old=days.get(date)||{tokens:0,cost:0};
+    old.tokens+=Number(d.cache_hit_tokens||0)+Number(d.cache_miss_tokens||0)+Number(d.output_tokens||0);old.cost+=Number(d.cost||0);days.set(date,old);
+  }
+  const absolute=Math.abs(Number(detail.time_zone_seconds)||0),sign=Number(detail.time_zone_seconds)>=0?'+':'-';
+  const tz=`UTC${sign}${Math.floor(absolute/3600)}${absolute%3600?':'+String(Math.floor(absolute%3600/60)).padStart(2,'0'):''}`;
+  const stat=(label,value)=>`<div class="detail-stat"><span class="label">${esc(textCopy(label))}</span><span class="value">${esc(value)}</span></div>`;
+  let html=`<section class="deepseek-detail"><div class="detail-rule"></div><div class="detail-split"><span>${esc(textCopy('Usage details'))}</span><span class="trailing">${esc(tz)}</span></div><div class="detail-stats">${stat('Tokens',tokenText(totalTokens))}${stat('Cost',moneyText(totalCost,detail.currency))}${stat('Requests',String(totalRequests))}${stat('API keys',String(keyIds.size))}</div>`;
+  if(appearance.deepseek_pricing_enabled!==false&&deepSeekPricingState){
+    const peak=deepSeekPricingState.phase==='peak',nextPeak=deepSeekPricingState.next_phase==='peak';
+    const time=new Date(deepSeekPricingState.next_at).toLocaleString(uiLang,{weekday:'short',hour:'numeric',minute:'2-digit',hour12:!stateSnap.clock_24h});
+    html+=`<div class="detail-rule"></div><div class="detail-split"><span>${esc(textCopy('Pricing'))}</span><span class="trailing" style="color:${peak?WATCH:accent()}">${esc(textCopy(peak?'Peak pricing · 2× off-peak':'Off-peak pricing · baseline'))}</span></div><div class="detail-split"><span>${esc(textCopy(nextPeak?'Next peak':'Next off-peak'))}</span><span class="trailing">${esc(time)}</span></div>`;
+  }
+  const ordered=[...days].sort((a,b)=>a[0]-b[0]);
+  html+=`<div class="detail-rule"></div>${detailChart('Daily tokens',ordered.map(x=>x[1].tokens),tokenText)}${detailChart('Daily cost',ordered.map(x=>x[1].cost),n=>moneyText(n,detail.currency))}</section>`;
+  return html;
+}
 function cardHtml(p,cap=sessionCap){
   const snap=p.snap;
   const headIcon=glyphHtml(p,true);
+  const model=snap.local_model;
+  const localBrand=({deepseek:'DeepSeek',qwen:'Qwen',gemma:'Gemma',meta:'Llama',mistral:'Mistral'})[model?.brand];
+  const localNote=modelActivity(p)?.detail;
   // p.name is no longer a constant: for a second account it is built from the home
   // directory's slug and the subscriptionType read out of .credentials.json.
-  let html=`<div class="c-head">${headIcon}<div style="min-width:0"><span class="c-title">${esc(ui().title(p.name))}</span>${snap.plan?`<div class="c-plan">${esc(snap.plan)}</div>`:''}</div></div>`;
+  const localRuntimeName=p.account_provider==='lmstudio'?'LM Studio':'Ollama';
+  let html=`<div class="c-head">${headIcon}<div style="min-width:0;flex:1"><div class="c-title-line"><span class="c-title">${esc(model?textCopy((localBrand||localRuntimeName)+' · Local'):ui().title(p.name))}</span>${model?`<span class="c-note-inline">${esc(textCopy(localNote||(localBrand?localRuntimeName:'')))}</span>`:''}</div>${snap.plan?`<div class="c-plan">${esc(snap.plan)}</div>`:''}</div></div>`;
   if(staleOf(snap)&&snap.fetched_at) html+=`<div class="c-sub">${ui().updated(ago(snap.fetched_at))}</div>`;
-  if(snap.status==='needsAuth'){
+  html+=blockHtml(snap.block);
+  if(model){
+    html+=localModelCardHtml(snap);
+  }else if(snap.status==='needsAuth'){
     const who={claude:'Sign in to Claude Code to see usage.',cursor:'Sign in to Cursor to see usage.',codex:'Sign in to Codex to see usage.',grok:'Run grok login to see usage.',gemini:'Sign in to Antigravity to see usage.'}[p.base]||'';
     html+=`<div class="c-note">${textCopy(who)}<br>${esc(textCopy(snap.note||''))}</div>`;
   }else if(!snap.windows.length){
@@ -1284,8 +1596,9 @@ function cardHtml(p,cap=sessionCap){
         group=w.group||null;
         if(group) html+=`<div class="g-head">${esc(textCopy(group))}</div><div class="g-box">`;
       }
-      if(w.count!=null){
-        const n=(w.derived?'~':'')+w.count.toLocaleString();
+      if(w.money){html+=moneyHtml(w,snap);continue;}
+      if(isCompactWindow(w)){
+        const n=w.count!=null?(w.derived?'~':'')+w.count.toLocaleString():String(w.detail??w.used_text??'');
         if(w.remaining!=null){
           const left=({"ru":"Осталось {n}","fr":"{n} restants","ja":"残り {n}","pt-BR":"{n} restantes","zh":"剩余 {n}","zh-Hant":"剩餘 {n}","de":"{n} übrig","uk":"Лишилось {n}","ko":"{n}개 남음","uz":"{n} qoldi","en":"{n} left"})[uiLang]?.replace('{n}',n)||`${n} left`;
           html+=`<div class="win"><div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span><span class="w-reset">${resetCopy(w.resets_at)}</span></div><div class="w-used">${esc(left)}</div></div>`;
@@ -1296,22 +1609,25 @@ function cardHtml(p,cap=sessionCap){
       }
       html+=`<div class="win">
         <div class="w-row"><span class="w-label">${esc(w.id==='daily_pace'?paceCopy('Daily pace'):textCopy(w.label))}</span><span class="w-reset">${resetCopy(w.resets_at)}</span></div>
-        <div class="w-track"><div class="w-fill" style="width:${(Math.min(w.used,1)*100).toFixed(0)}%;background:${tone(w.used)}"></div></div>
-        <div class="w-used">${esc(usedCopy(w))}${paceHtml(w)}</div>
+        <div class="w-track"><div class="w-fill" style="width:${(Math.min(w.used,1)*100).toFixed(0)}%;background:${windowTone(w)}"></div></div>
+        <div class="w-used">${esc(w.detail||((snap.fidelity==='official'?'':'~')+usedCopy(w).replace(/^~/,'')))}${paceHtml(w)}</div>
       </div>`;
     }
     if(group) html+=`</div>`;
     if(snap.note) html+=`<div class="c-note">${esc(textCopy(snap.note))}</div>`;
   }
+  html+=codexResetCreditsHtml(snap.reset_credits||snap.resetCredits);
+  html+=codexTokenUsageHtml(snap.token_usage||snap.tokenUsage);
+  html+=deepSeekUsageDetailHtml(snap.usage_detail||snap.usageDetail);
   if(offersClaudeSignIn(p)) html+=claudeAuthHtml(claudeAuth,claudeActionMessage);
-  if(cap>=0)html+=sessionRowsHtml(p,cap);
+  if(cap>=0&&!model)html+=sessionRowsHtml(p,cap);
   return html;
 }
 // The card follows the hovered cell: centred on it along the pill (kept inside the window), tail pointing at it.
 // On the upright edges that means matching its vertical centre; on the flat ones, its horizontal centre,
 // and the card is pushed clear of a pill whose thickness follows the cells it holds.
 function placeCard(){
-  const cell=pill.querySelector(`.cell[data-p="${hoverId}"]`)||pill;
+  const cell=cellById(hoverId)||pill;
   const rr=(cell.querySelector('.ringwrap')||cell).getBoundingClientRect();
   const z=parseFloat(document.documentElement.style.zoom)||1;
   const scale=nativeLayout?.scale||1;
@@ -1343,11 +1659,13 @@ function placeCard(){
 }
 
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function attr(s){return esc(s).replaceAll('"','&quot;').replaceAll("'",'&#39;');}
 
 /* Hover: stays expanded while either the pill or the card is under the cursor; collapses after a 250 ms grace period (upstream motion rule) */
 const card=document.getElementById('card'), pill=document.getElementById('pill'), tail=document.getElementById('tail');
+function cellById(id){return Array.from(pill.querySelectorAll('.cell')).find(cell=>cell.dataset.p===id)||null;}
 let hideTimer=null;
-function showCard(){clearTimeout(hideTimer);card.classList.add('show');renderCard();armWatchdog();refreshClock();} // show first, then render: placeCard needs offsetHeight
+function showCard(){clearTimeout(hideTimer);card.classList.add('show');renderCard();if(providers().find(p=>p.id===hoverId)?.base==='deepseek')refreshDeepSeekPricing();armWatchdog();refreshClock();} // show first, then render: placeCard needs offsetHeight
 // Nothing is broadcast when the Windows clock format changes, so ask again each time the card opens
 function refreshClock(){
   invoke('get_state').then(s=>{
@@ -1356,7 +1674,7 @@ function refreshClock(){
     if(card.classList.contains('show')) renderCard();
   }).catch(()=>{});
 }
-function hideCard(){card.classList.remove('show');reportHot();}
+function hideCard(){card.classList.remove('show');clearTimeout(deepSeekPricingTimer);deepSeekPricingTimer=0;reportHot();}
 function scheduleHide(){clearTimeout(hideTimer);if(!notchAlert)hideTimer=setTimeout(hideCard,250);}
 // ===== Diagnostics + geometry =====
 function jslog(m){invoke('log_js',{msg:String(m)}).catch(()=>{});}
@@ -1378,12 +1696,98 @@ function cardBridge(){
 /* Rust gates click-through on these, so they are reported whenever the pill or card moves, not only
    when the card opens: a stale pill rectangle is a pill that cannot be clicked. */
 function reportHot(){
+  queueNativeSurface();
   if(folded){ callq('set_hot',{rects:[wakeRect()],expanded:false}).catch(()=>{}); return; }
   const open=card.classList.contains('show');
   const rects=open?[rectOf(pill),rectOf(tail),rectOf(card),rectOfBounds(cardBridge())]:[rectOf(pill)];
   if(placeHandles()){ rects.push(rectOf(orb)); if(showMove) rects.push(rectOf(moveHandle)); }
   callq('set_hot',{rects,expanded:open}).catch(()=>{});
 }
+// AppKit owns Liquid Glass. The WebView reports the *same* silhouettes it
+// draws, and stays opaque until the native backing confirms installation.
+let nativeSurfaceFrame=0,nativeSurfaceStyle='solid';
+function acceptNativeSurface(cap){
+  const next=cap?.glass_available&&['glass','darkGlass'].includes(cap?.effective_surface_style)
+    ?cap.effective_surface_style:'solid';
+  if(next===nativeSurfaceStyle)return;
+  nativeSurfaceStyle=next;
+  document.body.classList.toggle('native-glass',nativeSurfaceStyle!=='solid');
+  document.body.dataset.surfaceStyle=nativeSurfaceStyle;
+  updatePalette();
+}
+function surfaceRect(r,radius=0){return {x:r.left,y:r.top,width:r.width,height:r.height,radius};}
+function sampledPath(path,count=192,screen=false){
+  const total=path.getTotalLength();if(!Number.isFinite(total)||total<=0)return [];
+  const matrix=screen?path.getScreenCTM():null;
+  if(screen&&!matrix)return [];
+  const pts=[];
+  for(let i=0;i<count;i++){
+    const p=path.getPointAtLength(total*i/count);
+    const q=matrix?new DOMPoint(p.x,p.y).matrixTransform(matrix):p;
+    pts.push([q.x,q.y]);
+  }
+  return pts;
+}
+const outlineProbe=document.createElementNS('http://www.w3.org/2000/svg','svg');
+const outlinePath=document.createElementNS('http://www.w3.org/2000/svg','path');
+outlineProbe.style.cssText='position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
+outlineProbe.append(outlinePath);document.body.append(outlineProbe);
+function sampledD(d){outlinePath.setAttribute('d',d);return sampledPath(outlinePath,192,false);}
+// Swift TooltipSilhouette is a rounded card united with TooltipTail. Insert
+// its two cubic shoulders into the card's adjacent edge, removing the shared
+// internal edge so AppKit receives exactly one closed glass mask.
+function cardSilhouette(){
+  const c=card.getBoundingClientRect(),t=tail.getBoundingClientRect();
+  const z=c.width/(card.offsetWidth||c.width);
+  const r=Math.min(parseFloat(getComputedStyle(card).borderTopLeftRadius)*z||0,c.width/2,c.height/2);
+  const l=c.left,top=c.top,right=c.right,bottom=c.bottom,mx=t.left+t.width/2,my=t.top+t.height/2;
+  let d=`M ${l+r} ${top}`;
+  if(notchEdge==='top'){
+    d+=` L ${t.left} ${top} C ${t.left+t.width*.25} ${top} ${mx-t.width*.12} ${t.top+t.height*.42} ${mx} ${t.top}`;
+    d+=` C ${mx+t.width*.12} ${t.top+t.height*.42} ${t.right-t.width*.25} ${top} ${t.right} ${top}`;
+  }
+  d+=` L ${right-r} ${top} A ${r} ${r} 0 0 1 ${right} ${top+r}`;
+  if(notchEdge==='right'){
+    d+=` L ${right} ${t.top} C ${right} ${t.top+t.height*.25} ${t.right-t.width*.42} ${my-t.height*.12} ${t.right} ${my}`;
+    d+=` C ${t.right-t.width*.42} ${my+t.height*.12} ${right} ${t.bottom-t.height*.25} ${right} ${t.bottom}`;
+  }
+  d+=` L ${right} ${bottom-r} A ${r} ${r} 0 0 1 ${right-r} ${bottom}`;
+  if(notchEdge==='bottom'){
+    d+=` L ${t.right} ${bottom} C ${t.right-t.width*.25} ${bottom} ${mx+t.width*.12} ${t.bottom-t.height*.42} ${mx} ${t.bottom}`;
+    d+=` C ${mx-t.width*.12} ${t.bottom-t.height*.42} ${t.left+t.width*.25} ${bottom} ${t.left} ${bottom}`;
+  }
+  d+=` L ${l+r} ${bottom} A ${r} ${r} 0 0 1 ${l} ${bottom-r}`;
+  if(notchEdge==='left'){
+    d+=` L ${l} ${t.bottom} C ${l} ${t.bottom-t.height*.25} ${t.left+t.width*.42} ${my+t.height*.12} ${t.left} ${my}`;
+    d+=` C ${t.left+t.width*.42} ${my-t.height*.12} ${l} ${t.top+t.height*.25} ${l} ${t.top}`;
+  }
+  d+=` L ${l} ${top+r} A ${r} ${r} 0 0 1 ${l+r} ${top}`;
+  return {outline:sampledD(d+' Z'),radius:r};
+}
+function circleOutline(r){const x=r.left+r.width/2,y=r.top+r.height/2;
+  return Array.from({length:64},(_,i)=>[x+Math.cos(i*2*Math.PI/64)*r.width/2,y+Math.sin(i*2*Math.PI/64)*r.height/2]);}
+function queueNativeSurface(){
+  if(nativeSurfaceFrame)return;
+  nativeSurfaceFrame=requestAnimationFrame(()=>{nativeSurfaceFrame=0;reportNativeSurface();});
+}
+function reportNativeSurface(){
+  const path=document.querySelector('.notch-surface path');
+  if(!path?.getAttribute('d'))return;
+  const p=document.querySelector('.notch-surface').getBoundingClientRect();
+  const pillOutline=sampledPath(path,192,true);
+  if(pillOutline.length<3)return;
+  const open=!folded&&card.classList.contains('show');
+  const c=open?card.getBoundingClientRect():null;
+  const silhouette=open?cardSilhouette():null;
+  const disc=!folded&&orb.classList.contains('hover')?orb.querySelector('.h-disc').getBoundingClientRect():null;
+  const report={viewport:{width:innerWidth,height:innerHeight},pill:surfaceRect(p),
+    card:c?surfaceRect(c,silhouette.radius):null,
+    orb:disc?surfaceRect(disc,disc.width/2):null,folded,
+    pill_outline:pillOutline,card_outline:silhouette?.outline||null,
+    orb_outline:disc?circleOutline(disc):null};
+  invoke('report_native_surface',{report}).then(acceptNativeSurface).catch(()=>acceptNativeSurface(null));
+}
+listen('native_notch_surface',e=>acceptNativeSurface(e.payload)).catch(()=>{});
 /* What wakes the folded notch: the resting pill, as long along the edge as the pill and deepened into
    the screen by the Mac's pillHotZone — Design.px(90), 34 here — because the pill is small and the
    place that opens it should not be (NotchViewModel.wakeLength and wakeDepth). */
@@ -1437,8 +1841,29 @@ function queueNotchLayout(){
       const credits=p.snap.reset_credits||p.snap.resetCredits;
       return Number(credits?.available_count??credits?.availableCount??0)>0;
     });
+    // The native panel budget uses Swift NotchLayout.cardHeight's semantic
+    // inputs per snapshot. DOM measurements remain for browser fallback only.
+    const snapshots=ps.map(p=>{
+      const s=p.snap,ws=Array.isArray(s.windows)?s.windows:[],detail=s.usage_detail||s.usageDetail;
+      const groups=Array.isArray(detail?.groups)?detail.groups:[];
+      const visibleGroups=groups.filter(usageGroupHasUsage);
+      const reset=s.reset_credits||s.resetCredits;
+      const local=s.local_model||s.localModel;
+      return {window_count:ws.length,group_count:new Set(ws.map(w=>w.group).filter(Boolean)).size,
+        money_window_count:ws.filter(w=>w.money!=null).length,
+        usage_detail_group_count:visibleGroups.length,
+        status_message:ws.length||local?null:(s.note||'Waiting for the first reading…'),
+        block_message:s.block?.reason||null,
+        has_token_usage:!!(s.token_usage||s.tokenUsage),has_plan:s.plan!=null,
+        has_reset_credits:Number(reset?.available_count??reset?.availableCount??0)>0,
+        local_model_name:local?.name||null,
+        shows_local_performance:!!(s.shows_local_performance||s.showsLocalPerformance),
+        local_ledger_rows:(s.local_ledger||s.localLedger)?5:0,
+        compact_row_count:ws.filter(isCompactWindow).length,
+        shows_deepseek_pricing:appearance.deepseek_pricing_enabled!==false};
+    });
     const content={count:ps.length,cell_extent:cellExtent,card_height:budgetHeights[4],budget_heights:budgetHeights,
-      has_plan:hasPlan,has_token_usage:hasTokenUsage,has_reset_credits:hasResetCredits};
+      has_plan:hasPlan,has_token_usage:hasTokenUsage,has_reset_credits:hasResetCredits,snapshots};
     const key=JSON.stringify(content);if(key===lastContent)return;
     lastContent=key;
     callq('set_notch_content',{content}).catch(()=>{lastContent='';});
@@ -1449,6 +1874,11 @@ function acceptNotchLayout(layout){
   const nextCap=Number.isInteger(layout.session_cap)&&layout.session_cap>=0&&layout.session_cap<=SESSION_CEILING?layout.session_cap:sessionCap;
   const capChanged=nextCap!==sessionCap;sessionCap=nextCap;
   nativeLayout=layout;
+  if(notchEdge==='top'&&hardwareNotch){
+    document.documentElement.style.setProperty('--hardware-inset',`${hardwareNotch.height/layout.scale}px`);
+    document.documentElement.style.setProperty('--hardware-min-width',`${hardwareNotch.width/layout.scale+2*78.8*44/117}px`);
+  }
+  document.documentElement.style.setProperty('--bezel-bleed',(2/layout.scale)+'px');
   pill.style.gap=layout.spacing+'px';
   // Tooltip text retains its designed size when the notch is resized (NotchViewModel.panelSize).
   card.style.zoom=String(1/layout.scale);
@@ -1483,11 +1913,13 @@ function tickFold(now){
 function drawNotchShape(){
   const svg=document.querySelector('.notch-surface');if(!svg)return;
   const vertical=edgeIsVertical(),openDepth=vertical?pill.offsetWidth:pill.offsetHeight;
-  const flare=103*44/117,body=vertical?pill.offsetHeight:pill.offsetWidth;
-  const restDepth=26*44/117,restLength=210*44/117;
+  const joined=notchEdge==='top'&&!!hardwareNotch,scale=nativeLayout?.scale||1;
+  const flare=(joined?28:103)*44/117,body=vertical?pill.offsetHeight:pill.offsetWidth;
+  const restDepth=joined?hardwareNotch.height/scale:26*44/117;
+  const restLength=joined?hardwareNotch.width/scale:210*44/117;
   const depth=Math.max(1,restDepth+(openDepth-restDepth)*foldPosition);
   const length=Math.max(1,restLength+(body+2*flare-restLength)*foldPosition);
-  const wanted=Math.max(0,Math.min(78.8*44/117,depth/2));
+  const wanted=Math.max(0,Math.min(78.8*44/117,joined?hardwareNotch.height/(2*scale):Infinity,depth/2));
   const curl=Math.max(0,Math.min(flare,length/2,depth-wanted));
   const corner=Math.max(0,Math.min(wanted,(length-2*curl)/2));
   const d=`M ${depth} 0 A ${curl} ${curl} 0 0 1 ${depth-curl} ${curl} L ${corner} ${curl} A ${corner} ${corner} 0 0 0 0 ${curl+corner} L 0 ${length-curl-corner} A ${corner} ${corner} 0 0 0 ${corner} ${length-curl} L ${depth-curl} ${length-curl} A ${curl} ${curl} 0 0 1 ${depth} ${length} Z`;
@@ -1496,6 +1928,17 @@ function drawNotchShape(){
   const w=vertical?depth:length,h=vertical?length:depth;
   svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
   Object.assign(svg.style,{width:w+'px',height:h+'px',left:vertical?(notchEdge==='left'?'0':'auto'):'50%',right:notchEdge==='right'?'0':'auto',top:vertical?'50%':notchEdge==='top'?'0':'auto',bottom:notchEdge==='bottom'?'0':'auto',transform:vertical?'translateY(-50%)':'translateX(-50%)'});
+  const band=document.getElementById('hardware-band');
+  if(joined){
+    const rect=svg.getBoundingClientRect();
+    const points=sampledPath(path,128,true);
+    Object.assign(band.style,{left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',height:rect.height+'px',
+      clipPath:`polygon(${points.map(([x,y])=>`${(x-rect.left)/rect.width*100}% ${(y-rect.top)/rect.height*100}%`).join(',')})`});
+    // A solid black band across the display's cutout, including the 2 pt
+    // outward bleed; below it the installed glass may show through.
+    band.style.background=`linear-gradient(to bottom,#000 0 ${hardwareNotch.height+2}px,transparent ${hardwareNotch.height+2}px)`;
+  }
+  queueNativeSurface();
 }
 // Viewport fit (pure front-end fallback, independent of Rust): Rust sizes and zooms the window so this
 // page is as wide as the design, so if the CSS viewport is not that wide the WebView's DPR disagrees
@@ -1592,7 +2035,7 @@ function refreshRing(id){
 // The reading has a layer of its own that renders never replace, turned as a whole element so the
 // compositor can run it; it finishes its turn whenever the press lets go
 function turnReading(id){
-  const el=pill.querySelector(`.cell[data-p="${id}"] svg.reading`);
+  const el=cellById(id)?.querySelector('svg.reading');
   if(!el||matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   if(el.getAnimations().some(a=>a.playState==='running')) return;
   el.animate([{transform:'rotate(0deg)'},{transform:'rotate(360deg)'}],{duration:950,easing:'cubic-bezier(.32,0,.14,1)'});
@@ -1655,12 +2098,15 @@ function placeHandles(){
   if(!r.width) return false;
   // Measurements come back zoomed when fitZoom has zoomed the page; styles are written unzoomed
   const z=parseFloat(document.documentElement.style.zoom)||1;
+  const bleed=(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bezel-bleed'))||2)*z;
+  const bx=notchEdge==='left'?-bleed:notchEdge==='right'?bleed:0;
+  const by=notchEdge==='top'?-bleed:notchEdge==='bottom'?bleed:0;
   const R=(parseFloat(getComputedStyle(pill).getPropertyValue('--fillet'))||38.7)*z;
   // Each fillet's centre: the corner of its square diagonally opposite the one on the screen edge
-  const far=notchEdge==='left'?[r.left+R,r.bottom+R]:notchEdge==='top'?[r.right+R,r.top+R]
-    :notchEdge==='bottom'?[r.right+R,r.bottom-R]:[r.right-R,r.bottom+R];
-  const near=notchEdge==='left'?[r.left+R,r.top-R]:notchEdge==='top'?[r.left-R,r.top+R]
-    :notchEdge==='bottom'?[r.left-R,r.bottom-R]:[r.right-R,r.top-R];
+  const far=notchEdge==='left'?[r.left+R-bx,r.bottom+R-by]:notchEdge==='top'?[r.right+R-bx,r.top+R-by]
+    :notchEdge==='bottom'?[r.right+R-bx,r.bottom-R-by]:[r.right-R-bx,r.bottom+R-by];
+  const near=notchEdge==='left'?[r.left+R-bx,r.top-R-by]:notchEdge==='top'?[r.left-R-bx,r.top+R-by]
+    :notchEdge==='bottom'?[r.left-R-bx,r.bottom-R-by]:[r.right-R-bx,r.top-R-by];
   orbAt=put(orb,far[0],far[1],z);
   // No point at all when it is switched off, since hover, the press and the hot area all read this
   moveAt=showMove?put(moveHandle,near[0],near[1],z):null;
@@ -1674,13 +2120,14 @@ function setHovered(which){
   hovered=which;
   orb.classList.toggle('hover',which==='orb');
   moveHandle.classList.toggle('hover',which==='move'||carrying);
+  queueNativeSurface();
 }
 document.addEventListener('mouseout',e=>{ if(!e.relatedTarget&&!carrying) setHovered(null); });
 orb.addEventListener('click',e=>{
   if(!near(orbAt,e.clientX,e.clientY)) return;
   orb.style.setProperty('--spins',++orbSpins);
   pressIn(orb);
-  callq('open_settings').catch(()=>{});
+  callq('toggle_settings').catch(()=>{});
 });
 // The Mac's press: down fast, back with a little bounce
 function pressIn(el){
@@ -1745,6 +2192,13 @@ listen('move_handle',e=>{ showMove=e.payload!==false; reportHot(); }).catch(()=>
 invoke('get_move_handle').then(v=>{ showMove=v!==false; reportHot(); }).catch(()=>{});
 
 let notchAlert=null,alertTimer=null,peekTimer=null,peekUntil=0,pendingFocus=null;
+listen('notch_peek',e=>{
+  const seconds=Number(e.payload?.seconds);
+  if(!Number.isFinite(seconds)||seconds<=0)return;
+  peekUntil=Math.max(peekUntil,Date.now()+seconds*1000);
+  clearTimeout(peekTimer);unfold();
+  peekTimer=setTimeout(()=>{peekUntil=0;scheduleFold();},Math.max(1,peekUntil-Date.now()));
+}).catch(()=>{});
 listen('notch_alert',e=>{
  const alert=e.payload;if(!alert)return;
  const seconds=Math.min(10,Math.max(3,alert.seconds||5));
@@ -1764,7 +2218,11 @@ function takePendingFocus(){
  invoke('focus_session',{id}).catch(e=>notice(e));setFolded(true);return true;
 }
 invoke('get_system_look').then(look=>{if(/^#[0-9a-f]{6}$/i.test(look?.accent?.[3]||'')){systemAccent=look.accent[3];renderRing();if(card.classList.contains('show'))renderCard();}}).catch(()=>{});
-function acceptAppearance(prefs){if(prefs){appearance={...appearance,...prefs};scheduleFold(fullscreen);renderRing();if(card.classList.contains('show'))renderCard();}}
+listen('system_accent_changed',event=>{
+  if(!/^#[0-9a-f]{6}$/i.test(event.payload||''))return;
+  systemAccent=event.payload;renderRing();if(card.classList.contains('show'))renderCard();
+}).catch(()=>{});
+function acceptAppearance(prefs){if(prefs){appearance={...appearance,...prefs};scheduleFold(fullscreen);renderRing();if(card.classList.contains('show'))renderCard();if(card.classList.contains('show')&&providers().find(p=>p.id===hoverId)?.base==='deepseek')refreshDeepSeekPricing();queueNativeSurface();}}
 invoke('get_appearance').then(acceptAppearance).catch(()=>{});
 listen('appearance',e=>acceptAppearance(e.payload)).catch(()=>{});
 function acceptProviders(rows){const previous=new Map(extraProviders.map(p=>[p.id,JSON.stringify(p.snap)]));extraProviders=Array.isArray(rows)?rows:[];for(const p of extraProviders){if(previous.get(p.id)!==JSON.stringify(p.snap))settle(p.id);}renderRing();if(card.classList.contains('show'))renderCard();}
@@ -1804,6 +2262,8 @@ invoke('get_glyphs').then(g=>{glyphs=g||glyphs;glyphEpoch++;renderRing();}).catc
 // The edge: pushed on every placement (a drag that snapped elsewhere, or Settings), and asked for once
 // at startup in case the placement happened before this page was listening.
 listen('notch_edge',e=>applyEdge(e.payload)).catch(()=>{});
+listen('native_notch_geometry',e=>applyHardwareNotch(e.payload)).catch(()=>{});
+invoke('get_native_notch_geometry').then(applyHardwareNotch).catch(()=>{});
 // applyEdge measures for the edge it is given; on the right-hand one it returns early, so the first
 // measurement is made here either way — and still made if the ask fails, from the default edge.
 invoke('get_notch_edge').then(e=>{applyEdge(e);reportDpr();}).catch(()=>reportDpr());

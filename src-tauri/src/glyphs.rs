@@ -473,6 +473,35 @@ pub fn collect() -> HashMap<String, Glyph> {
     map
 }
 
+/// Merge custom endpoint glyphs into the same provider map consumed by the notch and settings.
+/// A saved custom image wins over its selected built-in preset, as in Swift ProviderGlyphView.
+pub fn collect_custom(
+    endpoints: &[crate::custom_endpoint::Endpoint],
+    map: &mut HashMap<String, Glyph>,
+) {
+    for endpoint in endpoints {
+        let id = format!("custom-endpoint-{}", endpoint.id);
+        if let Some(png) = crate::custom_endpoint::icon_png_for(endpoint) {
+            map.insert(
+                id,
+                Glyph {
+                    kind: "png".into(),
+                    url: format!("data:image/png;base64,{}", b64(&png)),
+                    source: "app-owned CustomIcons".into(),
+                    scale: 1.0,
+                    ..Default::default()
+                },
+            );
+        } else if let Some(preset) = map
+            .get(&endpoint.icon)
+            .or_else(|| map.get("openai"))
+            .cloned()
+        {
+            map.insert(id, preset);
+        }
+    }
+}
+
 /// Asset-catalog template rendering tints the artwork's alpha. Inline the trusted monochrome
 /// SVG paths, just like the other Swift glyphs: WKWebView must not depend on data-URL CSS masks.
 /// Preserve `fill="none"` (Ollama has intentional transparent paths).

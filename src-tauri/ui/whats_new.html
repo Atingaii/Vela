@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What's New</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --accent: #007aff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100vh; background: light-dark(#f6f6f7, #202123); color: light-dark(#17181a, #f6f6f6); }
+    main { height: 100%; display: flex; flex-direction: column; }
+    header { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 26px 28px 20px; }
+    header img { width: 60px; height: 60px; object-fit: contain; display: block; margin: 0 auto 8px; }
+    h1 { font-size: 19px; line-height: 24px; font-weight: 600; margin: 0; }
+    .version { font-size: 12px; color: light-dark(#73757c, #9b9da2); }
+    .headline { font-size: 13px; line-height: 18px; color: light-dark(#5a5d64, #b8b9bd); margin: 0; padding-top: 6px; }
+    .changes { flex: 1; overflow-y: auto; min-height: 0; padding: 0 28px 22px; }
+    .change { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 14px; }
+    .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-top: 6px; }
+    .change h2 { font-size: 13px; line-height: 18px; font-weight: 500; margin: 0; }
+    .change p { font-size: 13px; line-height: 18px; color: light-dark(#5a5d64, #b8b9bd); margin: 2px 0 0; }
+    footer { flex: none; display: flex; justify-content: flex-end; border-top: 1px solid light-dark(#d8d9dc, #434448); padding: 16px 24px; }
+    button { min-width: 82px; height: 28px; border: 0; border-radius: 7px; padding: 0 14px; background: var(--accent); color: #fff; font: 500 13px -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    button:hover { filter: brightness(.92); }
+  </style>
+</head>
+<body>
+  <main>
+    <header><img id="app-icon" alt=""><h1 id="heading">What's new in Velo</h1><div class="version" id="version"></div><p class="headline" id="headline"></p></header>
+    <div class="changes" id="changes"></div>
+    <footer><button id="continue" type="button">Continue</button></footer>
+  </main>
+  <script>
+    const invoke = window.__TAURI__?.core?.invoke;
+    const closeWindow = () => window.__TAURI__?.window?.getCurrentWindow().close();
+    window.__TAURI__?.event?.listen?.('system_accent_changed', event => {
+      if (window.__veloSystemAccent && /^#[0-9a-f]{6}$/i.test(event.payload||''))
+        document.documentElement.style.setProperty('--accent', event.payload);
+    })?.catch(() => {});
+    document.getElementById('continue').addEventListener('click', closeWindow);
+    document.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.repeat) closeWindow(); });
+    const COPY = {
+      en: ['What\'s New','What\'s new in Velo','Version ','Continue'],
+      zh: ['新变化','Velo 新变化','版本 ','继续'],
+      'zh-Hant': ['新變化','Velo 新變化','版本 ','繼續'],
+      ja: ['新機能','Velo の新機能','バージョン ','続ける'],
+      ko: ['새로운 기능','Velo의 새로운 기능','버전 ','계속'],
+      'pt-BR': ['Novidades','Novidades do Velo','Versão ','Continuar'],
+      ru: ['Что нового','Что нового в Velo','Версия ','Продолжить'],
+      uk: ['Що нового','Що нового у Velo','Версія ','Продовжити']
+    };
+    const ZH_NOTE = {
+      headline: '初识 Velo 的屏幕边缘助手。',
+      changes: [
+        ['一眼查看账户额度','在设置中连接支持的编程工具，查看其公布的额度周期。'],
+        ['调整刘海显示','选择显示哪些已连接账户，并调整位置和外观。'],
+        ['随时返回设置','再次打开 Velo，或使用已启用的程序坞、菜单栏入口。']
+      ]
+    };
+    if (invoke) Promise.allSettled([
+      invoke('get_whats_new_info'), invoke('get_appearance'),
+      invoke('get_system_look'), invoke('get_lang_resolved')
+    ]).then(results => {
+      const [noteResult, appearanceResult, lookResult, langResult] = results;
+      const note = noteResult.status === 'fulfilled' ? noteResult.value : null;
+      if (!note) return;
+      const appearance = appearanceResult.status === 'fulfilled' ? appearanceResult.value : {};
+      const look = lookResult.status === 'fulfilled' ? lookResult.value : {};
+      const lang = langResult.status === 'fulfilled' ? langResult.value : 'en';
+      const copy = COPY[lang] || COPY.en;
+      const chosen = appearance?.accent_color;
+      window.__veloSystemAccent = chosen === 'system';
+      const system = look?.accent?.[3];
+      const accent = /^[0-9a-f]{6}$/i.test(chosen||'') ? '#'+chosen
+        : /^#[0-9a-f]{6}$/i.test(system||'') ? system : '#007aff';
+      document.documentElement.style.setProperty('--accent', accent);
+      document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+      document.title = copy[0];
+      document.getElementById('heading').textContent = copy[1];
+      document.getElementById('continue').textContent = copy[3];
+      document.getElementById('app-icon').src = note.icon;
+      document.getElementById('version').textContent = copy[2] + note.version;
+      const translated = lang === 'zh' && note.version === '0.1.0' ? ZH_NOTE : null;
+      document.getElementById('headline').textContent = translated?.headline || note.headline;
+      const changes = document.getElementById('changes');
+      for (const [index, change] of note.changes.entries()) {
+        const row = document.createElement('div'); row.className = 'change';
+        const dot = document.createElement('span'); dot.className = 'dot'; dot.setAttribute('aria-hidden', 'true');
+        const text = document.createElement('div');
+        const title = document.createElement('h2'); title.textContent = translated?.changes[index]?.[0] || change.title;
+        text.append(title);
+        const detailText = translated?.changes[index]?.[1] || change.detail;
+        if (detailText) { const detail = document.createElement('p'); detail.textContent = detailText; text.append(detail); }
+        row.append(dot, text); changes.append(row);
+      }
+    }).catch(() => {});
+  </script>
+</body>
+</html>

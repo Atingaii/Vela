@@ -198,10 +198,12 @@ pub(super) fn read(home: &Path, budget: Option<u64>) -> Result<Vec<LimitWindow>,
         } else {
             Some(total.min(i64::MAX as u64) as i64)
         },
+        has_fraction: Some(budget.is_some()),
         resets_at: Some(end),
         duration: None,
         derived: true,
         group: None,
+        ..Default::default()
     }];
     for (source, t) in sources {
         for (id, label, n) in [
@@ -216,10 +218,12 @@ pub(super) fn read(home: &Path, budget: Option<u64>) -> Result<Vec<LimitWindow>,
                 label: label.into(),
                 used: 0.,
                 count: Some(n.min(i64::MAX as u64) as i64),
+                has_fraction: Some(false),
                 resets_at: None,
                 duration: None,
                 derived: true,
                 group: Some(source.into()),
+                ..Default::default()
             });
         }
     }

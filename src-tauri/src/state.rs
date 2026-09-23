@@ -2,7 +2,7 @@
 //! done persists: it is cleared only by a new UserPromptSubmit for that session, the user's ✕, or the > 24 h stale sweep.
 
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const ST_RUNNING: &str = "running";
@@ -29,9 +29,10 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct Session {
     pub id: String,
+    pub provider: String,
     pub title: String,
     pub state: String,
     /// Start of the current activity (ms epoch)
@@ -77,6 +78,10 @@ pub struct Snapshot {
 #[derive(Default)]
 pub struct Store {
     map: HashMap<String, Session>,
+    registry: HashMap<String, Session>,
+    registry_provider: HashMap<String, String>,
+    registry_session_ids: HashSet<String>,
+    registry_seen_ids: HashMap<String, u64>,
 }
 
 pub struct HookEvent {
@@ -113,15 +118,121 @@ fn title_of(cwd: &str, id: &str) -> String {
 }
 
 impl Store {
+    /// The process registry is authoritative while a PID is live. Its session ID
+    /// suppresses the matching hook/transcript row, so one Claude turn is not
+    /// drawn twice. A dead process disappears at the next monitor tick.
+    pub fn replace_registry(
+        &mut self,
+        rows: Vec<crate::claude_session_monitor::LiveSession>,
+    ) -> bool {
+        let now = now_ms();
+        let mut registry = HashMap::new();
+        let mut provider = HashMap::new();
+        let mut ids = HashSet::new();
+        for row in rows {
+            provider.insert(row.id.clone(), row.provider.clone());
+            if let Some(id) = row.session_id.as_ref() {
+                ids.insert(id.clone());
+            }
+            let state = match row.state {
+                "busy" => ST_RUNNING,
+                "waiting" => ST_ATTENTION,
+                _ => ST_IDLE,
+            };
+            registry.insert(
+                row.id.clone(),
+                Session {
+                    id: row.id,
+                    provider: row.provider,
+                    title: row.name,
+                    state: state.into(),
+                    started: row.since,
+                    total: 0,
+                    last: row.detail,
+                    attn: row.waiting_for.unwrap_or_default(),
+                    prompt: String::new(),
+                    model: String::new(),
+                    ppid: row.pid,
+                    last_event: now,
+                    cwd: row.cwd,
+                    last_hook: 0,
+                },
+            );
+        }
+        // last_event is internal bookkeeping, not a UI change.
+        let visible = |map: &HashMap<String, Session>| {
+            map.iter()
+                .map(|(id, s)| {
+                    (
+                        id.clone(),
+                        (
+                            s.title.clone(),
+                            s.provider.clone(),
+                            s.state.clone(),
+                            s.started,
+                            s.last.clone(),
+                            s.attn.clone(),
+                            s.ppid,
+                        ),
+                    )
+                })
+                .collect::<HashMap<_, _>>()
+        };
+        let changed =
+            visible(&self.registry) != visible(&registry) || self.registry_session_ids != ids;
+        for id in &ids {
+            self.map.remove(id);
+        }
+        self.registry_seen_ids
+            .retain(|_, seen| now.saturating_sub(*seen) <= 10 * 60 * 1000);
+        for id in &ids {
+            self.registry_seen_ids.insert(id.clone(), now);
+        }
+        self.registry = registry;
+        self.registry_provider = provider;
+        self.registry_session_ids = ids;
+        changed
+    }
+    pub fn clear_provider_sessions(&mut self, provider: &str) -> bool {
+        let ids: Vec<String> = self
+            .registry_provider
+            .iter()
+            .filter(|(_, p)| p.as_str() == provider)
+            .map(|(id, _)| id.clone())
+            .collect();
+        let mut changed = false;
+        for id in ids {
+            changed |= self.registry.remove(&id).is_some();
+            self.registry_provider.remove(&id);
+        }
+        if provider == "claude" {
+            changed |= !self.map.is_empty();
+            self.map.clear();
+        }
+        changed
+    }
     pub fn apply(&mut self, ev: HookEvent) -> bool {
         let now = now_ms();
+        // A registry-backed turn ends with its process. A delayed watcher tail
+        // must not resurrect a 24-hour done/attention row after the PID exits.
+        if ev.src == "watch" && self.registry_seen_ids.contains_key(&ev.session_id) {
+            return false;
+        }
+        if self.registry_session_ids.contains(&ev.session_id) {
+            return false;
+        }
         if ev.e == "session_end" {
             return self.map.remove(&ev.session_id).is_some();
         }
         let cwd: String = ev.cwd.chars().take(MAX_CWD_CHARS).collect();
         if !self.map.contains_key(&ev.session_id) && self.map.len() >= MAX_SESSIONS {
             // Full: the session heard from longest ago makes room.
-            if let Some(oldest) = self.map.iter().min_by_key(|(_, s)| s.last_event).map(|(k, _)| k.clone()) {
+            if let Some(oldest) = self
+                .map
+                .iter()
+                .min_by_key(|(_, s)| s.last_event)
+                .map(|(k, _)| k.clone())
+            {
                 self.map.remove(&oldest);
             }
         }
@@ -130,6 +241,7 @@ impl Store {
             .entry(ev.session_id.clone())
             .or_insert_with(|| Session {
                 id: ev.session_id.clone(),
+                provider: "claude".into(),
                 title: title_of(&cwd, &ev.session_id),
                 state: ST_IDLE.into(),
                 started: now,
@@ -217,7 +329,7 @@ impl Store {
     }
 
     pub fn dismiss(&mut self, id: &str) -> bool {
-        self.map.remove(id).is_some()
+        self.map.remove(id).is_some() || self.registry.remove(id).is_some()
     }
 
     pub fn has_done(&self) -> bool {
@@ -258,11 +370,45 @@ impl Store {
     }
 
     pub fn ppid_of(&self, id: &str) -> Option<u32> {
-        self.map.get(id).map(|s| s.ppid).filter(|p| *p != 0)
+        self.map
+            .get(id)
+            .or_else(|| self.registry.get(id))
+            .map(|s| s.ppid)
+            .filter(|p| *p != 0)
     }
 
-    pub fn snapshot(&self, lang: &str, lang_resolved: &str, clock_24h: bool, drag: bool) -> Snapshot {
-        let mut sessions: Vec<Session> = self.map.values().cloned().collect();
+    pub fn snapshot(
+        &self,
+        lang: &str,
+        lang_resolved: &str,
+        clock_24h: bool,
+        drag: bool,
+    ) -> Snapshot {
+        self.snapshot_filtered(lang, lang_resolved, clock_24h, drag, &BTreeSet::new())
+    }
+
+    pub fn snapshot_filtered(
+        &self,
+        lang: &str,
+        lang_resolved: &str,
+        clock_24h: bool,
+        drag: bool,
+        disabled: &BTreeSet<String>,
+    ) -> Snapshot {
+        let mut sessions: Vec<Session> = self
+            .map
+            .iter()
+            .filter(|(id, s)| {
+                !disabled.contains(&s.provider) && !self.registry_session_ids.contains(*id)
+            })
+            .map(|(_, s)| s.clone())
+            .chain(
+                self.registry
+                    .iter()
+                    .filter(|(_, s)| !disabled.contains(&s.provider))
+                    .map(|(_, s)| s.clone()),
+            )
+            .collect();
         let rank = |st: &str| match st {
             ST_ATTENTION => 0,
             ST_RUNNING => 1,
@@ -302,6 +448,60 @@ impl Store {
 mod tests {
     use super::*;
 
+    #[test]
+    fn live_registry_replaces_same_transcript_and_death_does_not_restore_it() {
+        let mut store = Store::default();
+        store.apply(event("running", "session-a", "/tmp/work"));
+        assert!(
+            store.replace_registry(vec![crate::claude_session_monitor::LiveSession {
+                id: "claude.42".into(),
+                session_id: Some("session-a".into()),
+                provider: "claude".into(),
+                name: "work".into(),
+                detail: "Terminal · work".into(),
+                state: "waiting",
+                waiting_for: Some("permission".into()),
+                since: 1234,
+                pid: 42,
+                cwd: "/tmp/work".into(),
+            }])
+        );
+        let snapshot = store.snapshot("en", "en", true, false);
+        assert_eq!(snapshot.sessions.len(), 1);
+        assert_eq!(snapshot.sessions[0].id, "claude.42");
+        assert_eq!(snapshot.sessions[0].state, ST_ATTENTION);
+        assert_eq!(store.ppid_of("claude.42"), Some(42));
+        let disabled = ["claude".to_string()].into_iter().collect();
+        assert!(store
+            .snapshot_filtered("en", "en", true, false, &disabled)
+            .sessions
+            .is_empty());
+        assert!(store.replace_registry(Vec::new()));
+        let mut delayed = event("done", "session-a", "/tmp/work");
+        delayed.src = "watch";
+        assert!(!store.apply(delayed));
+        assert!(store.snapshot("en", "en", true, false).sessions.is_empty());
+    }
+
+    #[test]
+    fn disconnect_removes_registry_before_the_next_monitor_tick() {
+        let mut store = Store::default();
+        store.replace_registry(vec![crate::claude_session_monitor::LiveSession {
+            id: "claude-work.77".into(),
+            session_id: Some("work-session".into()),
+            provider: "claude-work".into(),
+            name: "work".into(),
+            detail: "Terminal · work".into(),
+            state: "busy",
+            waiting_for: None,
+            since: 100,
+            pid: 77,
+            cwd: "/tmp/work".into(),
+        }]);
+        assert!(store.clear_provider_sessions("claude-work"));
+        assert!(store.snapshot("en", "en", true, false).sessions.is_empty());
+    }
+
     fn event(e: &str, id: &str, cwd: &str) -> HookEvent {
         HookEvent {
             e: e.into(),
@@ -324,7 +524,10 @@ mod tests {
             store.apply(event("session_start", &format!("s{n}"), "C:/work"));
         }
         assert_eq!(store.map.len(), MAX_SESSIONS);
-        assert!(store.map.contains_key(&format!("s{}", MAX_SESSIONS + 49)), "the newest session must be kept");
+        assert!(
+            store.map.contains_key(&format!("s{}", MAX_SESSIONS + 49)),
+            "the newest session must be kept"
+        );
     }
 
     #[test]
