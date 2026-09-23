@@ -1,0 +1,14 @@
+{
+  "version": "0.1.1-preview.1",
+  "pub_date": "2026-09-23T11:02:57.672Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/Velo-macos-arm64.app.tar.gz",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSZVlSNjVlbm9SaDYzTUljTnJoQ3d1VURMamxtUW51enJQM2JDTTNqa0hmUis5ZmYvSzBmSTlZWEtJMUpKekdNVGFXSDM4aDEvTHE5TnZwdTZDZWZmWGhiRExvdzlsT3dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMTU5MzU2CWZpbGU6VmVsby5hcHAudGFyLmd6CXZlcnNpb246MC4xLjEtcHJldmlldy4xClpoLytBbUo3SkNPa0VvZW5keVFkTjRVYjB5NFNRaHBlQ3NvN0gyTTlmdkpGcUhTQ29GazRJNGJneE5ZdUtDakVpRTZqOVIxb1NYQ1lMRXY4dFRXTkRRPT0K"
+    },
+    "darwin-x86_64": {
+      "url": "https://github.com/Atingaii/Velo/releases/download/v0.1.1-preview.1/Velo-macos-x64.app.tar.gz",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSZVlSNjVlbm9SaC9pVzFnckRGdUF0ekJjcG5xMVpQdkZKRUl2U21CdURyaXdQTno4NWkwZGd4UFltUUpqSGEwSlBQRWl1RWRJYmxRckUyWFJDUTdFb29yLzl6Z2M5UmdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMTYxMTE3CWZpbGU6VmVsby5hcHAudGFyLmd6CXZlcnNpb246MC4xLjEtcHJldmlldy4xCk9zY01YZmdCVjNWcVhyTk5KUVROb1lIYzdlQlVtSjc5eldSUmRrTHZUZHp5bVVyZkh0RmY0bHRJTHRJYnRFVm50cEtOWVl5djJCMGdUK0loS3Frc0JBPT0K"
+    }
+  }
+}
