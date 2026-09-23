@@ -35,7 +35,11 @@ jobs:
       - run: cargo test --locked --workspace -- --test-threads=1
       - name: Build debug macOS application and bundled helper
         if: runner.os == 'macOS'
-        run: npm run build -- --debug --bundles app
+        # PR builds exercise the native app without producing signed updater artifacts.
+        # The release workflow keeps createUpdaterArtifacts enabled and supplies the signing key.
+        run: >-
+          npm run build -- --debug --bundles app
+          --config '{"bundle":{"createUpdaterArtifacts":false}}'
       - name: Build debug Windows application and bundled helper
         if: runner.os == 'Windows'
         run: npm run build -- --debug --no-bundle
