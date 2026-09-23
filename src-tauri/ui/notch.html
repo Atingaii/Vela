@@ -1350,11 +1350,11 @@ function sessionRowsHtml(p,cap){
     const provider=p.account_provider||p.base,rank={attention:0,waiting:0,running:1,busy:1,done:2,success:2,idle:3};
     rows=(stateSnap.sessions||[]).filter(s=>(s.provider||'claude')===provider&&s.state!=='idle')
       .sort((a,b)=>(rank[a.state]??3)-(rank[b.state]??3)||(b.started||0)-(a.started||0))
-      .map(s=>({id:s.id,name:s.title,detail:s.state==='attention'?(s.attn||s.last):(s.prompt||s.last),state:s.state,since:s.started}));
+      .map(s=>({id:s.focusable===true?s.id:null,name:s.title,detail:s.state==='attention'?(s.attn||s.last):(s.prompt||s.last),state:s.state,since:s.started}));
   }else{
     const rank={waiting:0,busy:1,success:2,idle:3};
     rows=activity.filter(a=>a.provider===p.base).sort((a,b)=>(rank[a.state]??3)-(rank[b.state]??3)||b.since-a.since)
-      .map(a=>({name:a.name,detail:a.state==='waiting'?(a.waiting_for||a.detail):a.detail,state:a.state,since:a.since}));
+      .map(a=>({id:a.focusable===true?a.id:null,name:a.name,detail:a.state==='waiting'?(a.waiting_for||a.detail):a.detail,state:a.state,since:a.since}));
   }
   if(!rows.length)return '';
   const shown=rows.slice(0,Math.max(0,cap));

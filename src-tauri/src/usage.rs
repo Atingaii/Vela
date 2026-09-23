@@ -996,6 +996,29 @@ pub(crate) fn was_refused_claude_access(id: &str) -> bool {
     profile_directory_for_id(id).is_some() && claude_keychain::was_refused(id)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BorrowedKeychainError {
+    Denied,
+    Transient,
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn read_borrowed_keychain(
+    service: &str,
+    account: &str,
+    interactive: bool,
+) -> Result<Option<Vec<u8>>, BorrowedKeychainError> {
+    claude_keychain::borrowed_secret(service, account, interactive).map_err(|error| match error {
+        claude_keychain::ReadError::Denied => BorrowedKeychainError::Denied,
+        _ => BorrowedKeychainError::Transient,
+    })
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn has_borrowed_keychain(service: &str, account: &str) -> bool {
+    claude_keychain::has_borrowed_secret(service, account)
+}
+
 #[tauri::command]
 pub fn allow_claude_keychain_access(app: AppHandle, id: String) -> Result<(), String> {
     if profile_directory_for_id(&id).is_none() || !crate::providers::enabled(&app, &id) {

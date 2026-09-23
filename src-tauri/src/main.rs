@@ -1080,15 +1080,23 @@ fn set_click_through(w: &tauri::WebviewWindow, on: bool) {
 /// rings, text and hover card scale together, as the Mac's size does.
 fn zoom_notch(w: &tauri::WebviewWindow, monitor_scale: f64, size: f64) {
     let runtime = native_notch::runtime(w.label());
-    let mut rt = runtime.lock().unwrap();
-    let base = match rt.base_dpr {
-        b if b > 0.0 => b,
-        _ => monitor_scale,
+    let update = {
+        let mut rt = runtime.lock().unwrap();
+        let base = if rt.base_dpr > 0.0 { rt.base_dpr } else { monitor_scale };
+        let target = monitor_scale * size / base;
+        if (target - rt.zoom).abs() <= 0.001 {
+            None
+        } else {
+            rt.zoom_seq = rt.zoom_seq.wrapping_add(1);
+            Some((target, rt.zoom_seq))
+        }
     };
-    let target = monitor_scale * size / base;
-    if (target - rt.zoom).abs() > 0.001 {
+    if let Some((target, seq)) = update {
         match w.set_zoom(target) {
-            Ok(()) => rt.zoom = target,
+            Ok(()) => {
+                let mut rt = runtime.lock().unwrap();
+                if rt.zoom_seq == seq { rt.zoom = target; }
+            }
             Err(e) => applog(&format!("notch zoom failed: {e}")),
         }
     }
@@ -1136,47 +1144,66 @@ fn report_dpr(
     settled: Option<bool>,
 ) {
     let runtime = native_notch::runtime(win.label());
-    let want = runtime
-        .lock()
-        .unwrap()
-        .screen
-        .clone()
+    let screen = { runtime.lock().unwrap().screen.clone() };
+    let want = screen
         .or_else(|| target_screen(&app))
         .map(|s| s.scale)
         .unwrap_or_else(|| win.scale_factor().unwrap_or(1.0))
         * ui_scale(&app);
-    let mut rt = runtime.lock().unwrap();
-    let base = if rt.zoom > 0.0 { dpr / rt.zoom } else { dpr };
-    rt.base_dpr = base;
-    let target = if base > 0.0 { want / base } else { 1.0 };
+    // Never hold WindowRuntime across WebView calls: set_zoom may synchronously wait for the UI
+    // thread, which itself reports DPR and needs the same runtime mutex.
+    let (previous_zoom, target, correction, reveal) = {
+        let mut rt = runtime.lock().unwrap();
+        let base = if rt.zoom > 0.0 { dpr / rt.zoom } else { dpr };
+        rt.base_dpr = base;
+        let target = if base > 0.0 { want / base } else { 1.0 };
+        let previous_zoom = rt.zoom;
+        let correction = if (dpr - want).abs() > 0.02
+            && (target - rt.zoom).abs() > 0.01
+            && (0.25..=4.0).contains(&target)
+            && rt.dpr_corrections < 3
+        {
+            rt.dpr_corrections += 1;
+            rt.zoom_seq = rt.zoom_seq.wrapping_add(1);
+            Some(rt.zoom_seq)
+        } else { None };
+        let reveal = if settled == Some(true) && correction.is_none() && rt.landing != 0 {
+            rt.landing = 0;
+            true
+        } else { false };
+        (previous_zoom, target, correction, reveal)
+    };
     applog(&format!(
         "dpr report: dpr={dpr:.3} viewport={w:.0}x{h:.0} want_dpr={want:.3} zoom_applied={:.3} -> target_zoom={target:.3}",
-        rt.zoom
+        previous_zoom
     ));
     // Oscillation guard: at most three corrections per process (if the DPR does not follow the zoom, stop chasing it)
-    let mut corrected = false;
-    if (dpr - want).abs() > 0.02
-        && (target - rt.zoom).abs() > 0.01
-        && (0.25..=4.0).contains(&target)
-        && rt.dpr_corrections < 3
-    {
-        rt.dpr_corrections += 1;
+    if let Some(seq) = correction {
         match win.set_zoom(target) {
             Ok(()) => {
-                rt.zoom = target;
-                corrected = true;
+                {
+                    let mut rt = runtime.lock().unwrap();
+                    if rt.zoom_seq == seq { rt.zoom = target; }
+                }
                 applog(&format!("dpr correction: set_zoom({target:.3}) ok"));
             }
             Err(e) => applog(&format!("dpr correction failed: {e}")),
         }
+        // A failed correction must not leave a settled landing hidden indefinitely.
+        if settled == Some(true) {
+            let should_reveal = {
+                let mut rt = runtime.lock().unwrap();
+                if rt.zoom_seq == seq && rt.landing != 0 && (rt.zoom - target).abs() > 0.01 {
+                    rt.landing = 0;
+                    true
+                } else { false }
+            };
+            if should_reveal { let _ = app.emit_to(win.label(), "notch_reveal", ()); }
+        }
     }
     // A correction resizes the page once more, and its own settled report follows; the landing is
     // shown on the first settled report that needed none
-    if settled == Some(true) && !corrected && rt.landing != 0 {
-        rt.landing = 0;
-        drop(rt);
-        let _ = app.emit_to(win.label(), "notch_reveal", ());
-    }
+    if reveal { let _ = app.emit_to(win.label(), "notch_reveal", ()); }
 }
 
 /// Slack around every hot rectangle: this is sampled on a timer, so a cursor arriving at the pill
@@ -1314,11 +1341,28 @@ fn log_js(msg: String) {
 
 #[tauri::command]
 async fn focus_session(app: AppHandle, id: String) -> bool {
-    let ppid = {
+    // A row's ID is only a lookup key. Never accept a PID from the WebView,
+    // and never focus a recycled Claude PID from an old hook/registry event.
+    let claude = {
         let st = app.state::<AppState>();
         let store = st.store.lock().unwrap();
-        store.ppid_of(&id)
+        store.focus_target(&id)
     };
+    let ppid = claude.and_then(|(pid, born)|
+        (claude_session_monitor::process_start_ms(pid) == Some(born)).then_some(pid));
+    let activity_source = {
+        let st = app.state::<AppState>();
+        let disabled = st.cfg.lock().unwrap().providers.disabled.clone();
+        let source = st.activity.lock().unwrap().iter()
+            .find(|row| row.id == id && row.focusable && !disabled.contains(&row.provider))
+            .map(|row| row.provider.clone());
+        source
+    };
+    let ppid = ppid.or_else(|| match activity_source.as_deref() {
+        Some("grok") => grok_activity::focus_target(&id),
+        Some("kimi") => kimi_activity::focus_target(&id),
+        _ => None,
+    });
     #[cfg(target_os = "macos")]
     {
         let owner = if let Some(pid) = ppid {
@@ -1825,6 +1869,11 @@ struct UiFlags {
 }
 
 fn ui_flags(c: &config::Config) -> UiFlags {
+    let (fullscreen, pinned) = {
+        let runtime = native_notch::runtime("notch");
+        let rt = runtime.lock().unwrap();
+        (rt.fullscreen, rt.pinned)
+    };
     UiFlags {
         notch_visible: c.notch_visible,
         notch_on_hover: c.notch_on_hover,
@@ -1833,8 +1882,8 @@ fn ui_flags(c: &config::Config) -> UiFlags {
         } else {
             c.tray_visible
         },
-        fullscreen: native_notch::runtime("notch").lock().unwrap().fullscreen,
-        pinned: native_notch::runtime("notch").lock().unwrap().pinned,
+        fullscreen,
+        pinned,
     }
 }
 
@@ -1929,9 +1978,12 @@ pub fn apply_visibility(app: &AppHandle) {
     {
         let mut local = flags.clone();
         let runtime = native_notch::runtime(w.label());
-        let rt = runtime.lock().unwrap();
-        local.pinned = rt.pinned;
-        local.fullscreen = rt.fullscreen;
+        let (pinned, fullscreen) = {
+            let rt = runtime.lock().unwrap();
+            (rt.pinned, rt.fullscreen)
+        };
+        local.pinned = pinned;
+        local.fullscreen = fullscreen;
         let _ = app.emit_to(w.label(), "ui_flags", local);
         if notch {
             let _ = w.show();

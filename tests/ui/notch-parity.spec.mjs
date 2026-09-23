@@ -85,6 +85,30 @@ test('本地模型特殊字符 ID 不破坏 DOM，活动仅驱动自身圆环',a
   expect(errors).toEqual([]);
 });
 
+test('非 Claude 活动仅在后端标记可聚焦时点击稳定会话 ID',async({page})=>{
+  await notchBridge(page);await page.goto('/notch.html');
+  const id='grok.run"[1]';
+  await page.evaluate(id=>{
+    emitNotch('activity',[{id,provider:'grok',state:'busy',name:'app',detail:'Grok',since:Date.now(),focusable:true}]);
+    hoverId='grok';showCard();
+  },id);
+  await expect(page.locator('#card .s-row[data-session-id]')).toHaveCount(1);
+  await page.locator('#card .s-row[data-session-id]').click();
+  await expect.poll(()=>page.evaluate(()=>notchCalls.filter(call=>call.cmd==='focus_session').at(-1)?.args.id)).toBe(id);
+  await page.evaluate(id=>{emitNotch('activity',[{id,provider:'grok',state:'busy',name:'app',detail:'Grok',since:Date.now(),focusable:false}]);renderCard();},id);
+  await expect(page.locator('#card .s-row[data-session-id]')).toHaveCount(0);
+  await page.evaluate(()=>{
+    emitNotch('state',{sessions:[
+      {id:'network',provider:'claude',state:'running',title:'Claude Desktop',prompt:'Working',started:Date.now(),focusable:false},
+      {id:'terminal',provider:'claude',state:'running',title:'Terminal',prompt:'Working',started:Date.now(),focusable:true}
+    ],agg:'running',lang_resolved:'en'});
+    hoverId='claude';renderCard();
+  });
+  await expect(page.locator('#card .s-row')).toHaveCount(2);
+  await expect(page.locator('#card .s-row[data-session-id]')).toHaveCount(1);
+  await expect(page.locator('#card .s-row[data-session-id]')).toHaveAttribute('data-session-id','terminal');
+});
+
 test('六账户提交稳定的会话预算，屏幕 cap 控制可见行和隐藏行',async({page})=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await notchBridge(page);await page.setViewportSize({width:360,height:800});await page.goto('/notch.html');

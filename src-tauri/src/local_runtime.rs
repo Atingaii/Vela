@@ -196,7 +196,7 @@ fn activity_rows_from(
                     rows.push(crate::activity::Activity {
                         id: cell.clone(), provider: cell, state: "busy".into(),
                         name: "Thinking".into(), detail: "Thinking".into(),
-                        waiting_for: None, since, queued: 0,
+                        waiting_for: None, since, queued: 0, focusable: false,
                     });
                 }
             }
@@ -219,6 +219,7 @@ fn activity_rows_from(
                     detail: if active.queued > 0 { format!("{note} · {} queued", active.queued) }
                         else { note.into() },
                     waiting_for: None, since: active.since, queued: active.queued,
+                    focusable: false,
                 });
             }
         }

@@ -27,7 +27,7 @@ fn focus_map() -> &'static Mutex<HashMap<String, (u32, Option<u64>)>> {
 /// Only current monitor-owned process IDs may be focused, and PID reuse is rechecked.
 pub fn focus_target(id: &str) -> Option<u32> {
     let (pid, start) = *focus_map().lock().ok()?.get(id)?;
-    alive(pid, start).then_some(pid)
+    (alive(pid, start) && kimi_identity(pid)).then_some(pid)
 }
 
 pub fn read(now_ms: u64) -> Vec<Activity> {
@@ -56,7 +56,9 @@ fn read_at(root: &Path, now_ms: u64, mut live: Vec<Process>) -> Vec<Activity> {
             continue;
         }
         let row = session(&session_dir, &process, now_ms);
-        focus.insert(row.id.clone(), (process.pid, process.started_at));
+        if row.focusable {
+            focus.insert(row.id.clone(), (process.pid, process.started_at));
+        }
         out.push(row);
     }
     if let Ok(mut held) = focus_map().lock() {
@@ -237,6 +239,7 @@ fn session(dir: &Path, process: &Process, now_ms: u64) -> Activity {
         waiting_for,
         since,
         queued: 0,
+        focusable: kimi_identity(process.pid),
     }
 }
 
@@ -272,8 +275,38 @@ fn alive(pid: u32, started_at: Option<u64>) -> bool {
     }
     true
 }
+#[cfg(target_os = "macos")]
+fn kimi_identity(pid: u32) -> bool {
+    let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
+    if unsafe {
+        libc::proc_pidinfo(
+            pid as i32,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            std::ptr::from_mut(&mut info).cast(),
+            size,
+        )
+    } != size
+    {
+        return false;
+    }
+    let comm = unsafe { std::ffi::CStr::from_ptr(info.pbi_comm.as_ptr()) }.to_string_lossy();
+    if comm == "kimi-code" || comm == "kimi" {
+        return true;
+    }
+    let mut path = vec![0i8; libc::MAXPATHLEN as usize];
+    (unsafe { libc::proc_pidpath(pid as i32, path.as_mut_ptr().cast(), path.len() as u32) }) > 0
+        && unsafe { std::ffi::CStr::from_ptr(path.as_ptr()) }
+            .to_string_lossy()
+            .ends_with("/.kimi-code/bin/kimi")
+}
 #[cfg(not(target_os = "macos"))]
 fn alive(_: u32, _: Option<u64>) -> bool {
+    false
+}
+#[cfg(not(target_os = "macos"))]
+fn kimi_identity(_: u32) -> bool {
     false
 }
 

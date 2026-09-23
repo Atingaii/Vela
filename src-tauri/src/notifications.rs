@@ -595,6 +595,7 @@ mod tests {
             waiting_for: None,
             since,
             queued: 0,
+            focusable: false,
         };
         // Startup is quiet even when a provider is already waiting or finished.
         assert!(watcher
@@ -676,7 +677,9 @@ mod tests {
             attn: String::new(),
             prompt: String::new(),
             model: String::new(),
+            focusable: false,
             ppid: 0,
+            process_started_at: None,
             last_event: 0,
             cwd: String::new(),
             last_hook: 0,
@@ -764,7 +767,9 @@ mod tests {
                 attn: String::new(),
                 prompt: String::new(),
                 model: String::new(),
+                focusable: false,
                 ppid: 0,
+                process_started_at: None,
                 last_event: at,
                 cwd: String::new(),
                 last_hook: 0,
@@ -803,6 +808,7 @@ mod tests {
             waiting_for: None,
             since: 100,
             pid: 42,
+            process_started_at: Some(111),
             cwd: "/tmp".into(),
         };
         let disabled = ["claude".to_string()].into_iter().collect();

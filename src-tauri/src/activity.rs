@@ -44,6 +44,8 @@ pub struct Activity {
     pub since: u64,
     #[serde(default)]
     pub queued: u32,
+    #[serde(default)]
+    pub focusable: bool,
 }
 
 fn now_ms() -> u64 {
@@ -325,6 +327,7 @@ fn cursor_session(
             .or(created)
             .unwrap_or(now),
         queued: 0,
+        focusable: false,
     })
 }
 
@@ -508,6 +511,7 @@ fn codex_turns_in_progress(ctx: &mut Ctx) -> Vec<Activity> {
                 waiting_for: waiting.then(|| "needs your input".into()),
                 since: started_ms,
                 queued: 0,
+                focusable: false,
             });
         }
         Some(out)
@@ -564,6 +568,7 @@ fn codex_activity(ctx: &mut Ctx) -> Vec<Activity> {
                     waiting_for: None,
                     since: at,
                     queued: 0,
+                    focusable: false,
                 }];
             }
         }
@@ -735,6 +740,7 @@ fn claude_activity() -> Vec<Activity> {
             waiting_for: None,
             since: last,
             queued: 0,
+            focusable: false,
         }]
     } else {
         vec![]

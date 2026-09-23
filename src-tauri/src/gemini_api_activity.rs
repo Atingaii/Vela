@@ -101,6 +101,7 @@ fn gemini_cli(root: &Path, now_ms: u64) -> Vec<Activity> {
         waiting_for: None,
         since: at,
         queued: 0,
+        focusable: false,
     }]
 }
 
@@ -174,6 +175,7 @@ fn open_code(path: &Path, now_ms: u64) -> Vec<Activity> {
                 waiting_for: None,
                 since: created.max(0) as u64,
                 queued: 0,
+                focusable: false,
             })
         })
         .collect()
@@ -243,6 +245,7 @@ fn hermes_sessions(path: &Path, now_ms: u64) -> Vec<Activity> {
                     .map(|value| (value * 1000.0).max(0.0) as u64)
                     .unwrap_or(now_ms),
                 queued: 0,
+                focusable: false,
             }
         })
         .collect()

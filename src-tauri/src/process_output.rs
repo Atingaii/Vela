@@ -252,14 +252,18 @@ mod tests {
     #[test]
     fn fast_shim_descendant_holding_stdout_cannot_extend_the_deadline() {
         const MODE: &str = "VELO_TEST_OUTPUT_SHIM_MODE";
+        const MARKER: &str = "VELO_TEST_OUTPUT_SHIM_MARKER";
         let exe = std::env::current_exe().unwrap();
+        let (_, module) = module_path!().split_once("::").unwrap();
         let own_test =
-            "process_output::tests::fast_shim_descendant_holding_stdout_cannot_extend_the_deadline";
+            format!("{module}::fast_shim_descendant_holding_stdout_cannot_extend_the_deadline");
         match std::env::var(MODE).as_deref() {
             Ok("shim") => {
+                let marker = std::env::var(MARKER).unwrap();
+                std::fs::write(format!("{marker}.shim"), b"started").unwrap();
                 // The grandchild inherits stdout and outlives this helper.
                 let _ = Command::new(&exe)
-                    .args(["--exact", own_test])
+                    .args(["--exact", &own_test])
                     .env(MODE, "grandchild")
                     .stdout(Stdio::inherit())
                     .stderr(Stdio::null())
@@ -268,22 +272,39 @@ mod tests {
                 return;
             }
             Ok("grandchild") => {
+                let marker = std::env::var(MARKER).unwrap();
+                std::fs::write(format!("{marker}.grandchild"), b"started").unwrap();
                 std::thread::sleep(Duration::from_secs(10));
                 return;
             }
             _ => {}
         }
+        let temp = tempfile::tempdir().unwrap();
+        let marker = temp.path().join("ran");
         let started = Instant::now();
         assert!(output(
             {
                 let mut command = Command::new(&exe);
-                command.args(["--exact", own_test]).env(MODE, "shim");
+                command
+                    .args(["--exact", &own_test])
+                    .env(MODE, "shim")
+                    .env(MARKER, &marker);
                 command
             },
             4096,
-            Duration::from_millis(250)
+            Duration::from_millis(500)
         )
         .is_none());
         assert!(started.elapsed() < Duration::from_secs(2));
+        let shim = format!("{}.shim", marker.display());
+        let grandchild = format!("{}.grandchild", marker.display());
+        assert!(
+            std::path::Path::new(&shim).is_file(),
+            "shim test did not execute"
+        );
+        assert!(
+            std::path::Path::new(&grandchild).is_file(),
+            "descendant test did not execute"
+        );
     }
 }

@@ -14,6 +14,11 @@
 - 已将该构建复制到本次专用 `Velo Parity.app`，临时签名验证通过，未覆盖 `/Applications/Velo.app`。锁屏期间运行安装 smoke 失败：设置 WebView/IPC 未完成，程序到时未退出，外部 45 秒 watchdog 结束了进程（`/tmp/velo-migration-runtime-installed-smoke.log`）。没有新的截图或安装可用结论，需解锁后复测并排查；不把失败归零或当作通过。
 - 准备推送的后续检查点：Rust 319 + helper 1、3 ignored（`/tmp/velo-migration-activity-integration-tests-third.log`），Chromium/WebKit 各 51（`/tmp/velo-migration-activity-model-ui-second.log`、`/tmp/velo-migration-activity-model-webkit.log`），Node 15（`/tmp/velo-migration-checkpoint-node-tests.log`）通过。额外只读 Codex `account/rateLimits/read` 集成检查通过（`/tmp/velo-migration-live-codex-readonly.log`），没有运行 Claude 真实续期或 Antigravity CLI 集成测试。
 - 新活动模块的 Mac FFI 已按本机 SDK 核实结构与常量；Windows Grok/Kimi 进程/句柄路径尚未完成，不能用返回空数组的暂存分支代表跨端迁移已验收。模型属性中的引号必须用属性编码，不能用仅适合文本节点的转义；新增带引号模型 ID 与活动隔离回归已双引擎通过。
+- 此检查点已提交并推送为 `2f39315`，对应 [CI 35815026540](https://github.com/Atingaii/Velo/actions/runs/35815026540) 的 macOS 和浏览器通过，Windows 311 通过、1 失败、3 忽略。失败的自有子进程测试给 `--exact` 传入了缺少 `usage::` 前缀的名称，子进程实际运行零项测试；正在修复，不能将 Job Object 路径记为已通过。
+- 本机安装 smoke 改用 `/private/tmp/` 实际路径后，原先的沙箱路径报错消失，但 WebView/IPC 仍未完成，45 秒 watchdog 终止进程。`/tmp/velo-migration-realpath-installed-smoke.log` 保留失败；Mac 仍锁屏，不将路径修正当成安装修复完成。
+- 预览更新密钥已生成并存入系统 Keychain，读回比对成功；两个签名 Secrets 已配置到 GitHub Actions，临时私钥文件已删除。用实际密钥签署自有测试文件，并用应用依赖的 `minisign-verify` 验证：原字节通过、修改一个字节拒绝、签名可信注释包含 `0.1.1-preview.1`。这只验证密钥与签名能力，客户端 feed、下载、安装和新版发布仍未完成。
+- 随后对自有隔离原生进程采集调用栈，已定位启动失败的代码原因：主线程 `get_ui_flags → ui_flags → WindowRuntime::lock` 阻塞，`ui_flags` 在同一 struct 表达式的两个字段重复锁定同一 mutex，首个临时 guard 尚未释放。不能再把该次启动失败归为锁屏限制。正在修复此处并审查缩放、显隐、材质调用中的跨线程持锁；调用栈保存在本次临时目录 `velo-smoke-stack-7w2wlgli/sample.txt`，后续以新原生 smoke 验证修复。
+- 修复上述自锁及缩放、显隐、材质的跨调用持锁后，重新原生构建并更新本次隔离 `Velo Parity.app`：`/tmp/velo-migration-deadlock-fixed-installed-smoke.json` 已通过，实际设置 WebView/IPC 与 bundled helper 为真，采集未启动，退出码 0，无超时。测试时 Mac 仍锁屏，说明此前失败不能由锁屏解释。该证据来自复制新 debug binary 的隔离 app，不代表最终 DMG / NSIS 或 Gatekeeper 已通过，视觉仍待解锁对照。
 
 ## 必须关闭的审查项
 
@@ -42,7 +47,9 @@
 23. 提醒的三个原版状态机不能合并成一套“首次静默、静音均消费”的规则：`ThresholdNotifier` 首次即检测 80/100，100→90→100 可再次越过 100；`UsageLimitWatcher` 首次静默，静音时未送出的后续耗尽事件不标为已送出；`UsageResetWatcher` 只有实际送出后才清峰值并记最后提醒的重置时间。以固定源函数为准，旧文档的“首次快照不提醒”仅适用于 Limit/Reset。
 24. 自定义尺寸：原版分别保存 preset、usesCustomNotchScale 和 customNotchScale，切回预设再切自定义不能丢掉先前滑块值。LM Studio 未选地址时读取其自身配置端口，已选地址优先；WebSocket 保留 IPv6 loopback 地址，不强制改连 IPv4。
 25. 供应商异常语义逐个迁移：Copilot/CommandCode/Ollama Cloud 的 403、OpenCode 无订阅及指数退避、MiniMax 国际凭据失败后一次中国站重试；Kiro CLI 与可选 API enrichment 的失败和限流必须独立，不能丢弃仍有效的 CLI 用量。
-26. 安装更新：按 ADR 0008 提供独立的签名预览 feed，三平台安装检查通过后才能更新 feed；Tauri 应用更新签名不等同 Apple 公证。当前尚未生成更新签名密钥，也未完成新版安装包/更新验收。
+26. 安装更新：按 ADR 0008 提供独立的签名预览 feed，三平台安装检查通过后才能更新 feed；Tauri 应用更新签名不等同 Apple 公证。实际密钥与篡改拒绝已验证，尚未完成客户端更新链路、新版安装包及更新验收。
+27. 跳回会话：前端只发稳定会话 ID；后端由当前活动映射到 PID，并复核采集时的进程出生时间与未停用状态。Windows 应选择最近的宿主窗口而非更上层 Explorer，且只有实际前台切换成功才报告成功。没有来源 PID 的行不可伪造跳转。
+28. Windows 应用呈现：设置中的应用图标选项必须有真实任务栏/托盘行为，不能只写配置；再次启动仍能打开设置。需分别验证操作系统等效行为与 macOS 原版行为。
 
 ## 解锁后的原生复核顺序
 

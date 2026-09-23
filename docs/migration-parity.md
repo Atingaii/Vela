@@ -61,3 +61,5 @@
 2026-09-23 持续迁移：生命周期、Codex token/reset 元数据、DeepSeek/Qianwen 解析检查点共 Rust 215 + helper 1 通过，3 忽略。原版同数据原生对照进一步发现 OpenAI 图标、百分比前缀及漏移植 2pt bezel bleed；正在修正。多屏每窗状态、显示器 UUID、网页会话和原生材质仍在实现与复核，本检查点不构成全量验收。生产 Phone Link 的可用性以同一 SHA 的 `Sources/PhoneLink/PhoneLinkServer.swift` 为准，不按旧协议文档推断产品已开放。
 
 2026-09-23 后续整合检查点：Rust 319 + helper 1、Node 15、Chromium 51、WebKit 51 通过，五页脚本语法通过。已接 Grok/Gemini API/Kimi 活动、本地模型独立活动与详情、LM Studio WS/日志/账本、Ollama relay、三类提醒状态机、账户生命周期、原生菜单/材质和设置保留状态。另单独执行本机已登录 Codex 的只读额度集成测试并通过；其结果不代表其他真实账号已验收。Grok/Kimi Windows 进程适配、跳回会话、部分供应商授权/字段、签名更新链路仍有剩余工作。锁屏期间隔离原生安装 smoke 未完成 WebView/IPC 握手，保留为失败待解锁复测，不能据此宣称安装可用或视觉 1:1 完成。
+
+2026-09-23 启动与聚焦修复：Rust 321 + helper 1、Chromium/WebKit 各 52 通过。调用栈证明此前原生启动失败来自 `ui_flags` 重复锁定相同 mutex，已修复并移除缩放/显隐/材质路径跨原生调用持锁；隔离 app 的真实 WebView/IPC smoke 现已通过，正常退出且未启动供应商采集。Claude/Grok/Kimi 会话使用来源 PID 与出生时间校验跳回；固定 Swift 源的 Codex/Cursor/Antigravity/Gemini API 会话未提供 processID，保留不可跳转。Grok macOS 临时文件真实持有/关闭测试已通过。Windows 活动、完整账户操作与鉴权、签名更新链路、最终安装包和逐屏视觉对照继续进行，不将此阶段标为完整迁移。

@@ -36,7 +36,7 @@
 use crate::usage::{LimitWindow, UsageSnapshot};
 use crate::AppState;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -50,6 +50,23 @@ const CSRF_HEADER: &str = "x-codeium-csrf-token";
 
 static REFRESH_CLI: Mutex<Option<std::sync::mpsc::SyncSender<()>>> = Mutex::new(None);
 static REFRESH_LEGACY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static KEYCHAIN_PROMPT: OnceLock<Mutex<Option<u64>>> = OnceLock::new();
+
+fn keychain_prompt() -> &'static Mutex<Option<u64>> {
+    KEYCHAIN_PROMPT.get_or_init(|| Mutex::new(None))
+}
+
+fn grant_keychain_prompt(now: u64) {
+    *keychain_prompt().lock().unwrap() = Some(now.saturating_add(60_000));
+}
+
+fn take_keychain_prompt(now: u64) -> bool {
+    keychain_prompt()
+        .lock()
+        .unwrap()
+        .take()
+        .is_some_and(|deadline| now < deadline)
+}
 
 pub fn request_refresh() {
     if let Some(sender) = REFRESH_CLI.lock().unwrap().as_ref() {
@@ -155,7 +172,21 @@ pub fn present() -> bool {
 
 /// Every `~/.gemini/antigravity*` install counts, not only the first one found.
 fn legacy_present() -> bool {
-    !state_roots().is_empty() || read_credential_raw().is_some()
+    let home = dirs::home_dir().unwrap_or_default();
+    !state_roots().is_empty()
+        || keychain_present()
+        || home.join(".omp/agent/agent.db").is_file()
+        || home.join(".gemini/oauth_creds.json").is_file()
+}
+
+#[cfg(target_os = "macos")]
+fn keychain_present() -> bool {
+    crate::usage::has_borrowed_keychain("gemini", "antigravity")
+}
+
+#[cfg(not(target_os = "macos"))]
+fn keychain_present() -> bool {
+    read_credential_raw(false).is_some()
 }
 
 // ---------------- 1. Local bridge ----------------
@@ -421,11 +452,13 @@ struct Creds {
     access_token: String,
     expired: bool,
     auth_method: String,
+    project_id: Option<String>,
+    email: Option<String>,
 }
 
 /// Windows Credential Manager: generic credential with target = "gemini:antigravity" (Go keyring's service:user naming)
 #[cfg(windows)]
-fn read_credential_raw() -> Option<Vec<u8>> {
+fn read_credential_raw(_interactive: bool) -> Option<Vec<u8>> {
     use windows::core::PCWSTR;
     use windows::Win32::Security::Credentials::{
         CredFree, CredReadW, CREDENTIALW, CRED_TYPE_GENERIC,
@@ -456,27 +489,15 @@ fn read_credential_raw() -> Option<Vec<u8>> {
     }
 }
 #[cfg(not(any(windows, target_os = "macos")))]
-fn read_credential_raw() -> Option<Vec<u8>> {
+fn read_credential_raw(_interactive: bool) -> Option<Vec<u8>> {
     None
 }
 
 #[cfg(target_os = "macos")]
-fn read_credential_raw() -> Option<Vec<u8>> {
-    use security_framework::item::{ItemClass, ItemSearchOptions, SearchResult};
-    ItemSearchOptions::new()
-        .class(ItemClass::generic_password())
-        .service("gemini")
-        .account("antigravity")
-        .load_data(true)
-        .limit(1)
-        .skip_authenticated_items(true)
-        .search()
-        .ok()?
-        .into_iter()
-        .find_map(|item| match item {
-            SearchResult::Data(data) => Some(data),
-            _ => None,
-        })
+fn read_credential_raw(interactive: bool) -> Option<Vec<u8>> {
+    crate::usage::read_borrowed_keychain("gemini", "antigravity", interactive)
+        .ok()
+        .flatten()
 }
 
 /// Raw JSON, or base64 with a `go-keyring-base64:` prefix (UTF-16 storage is accepted too)
@@ -514,7 +535,61 @@ fn decode_credential(raw: &[u8]) -> Option<Creds> {
         access_token: access,
         expired,
         auth_method,
+        project_id: None,
+        email: None,
     })
+}
+
+fn decode_file_credential(raw: &[u8], omp: bool) -> Option<Creds> {
+    let value: serde_json::Value = serde_json::from_slice(raw).ok()?;
+    let token = value
+        .get(if omp { "access" } else { "access_token" })?
+        .as_str()?
+        .trim();
+    if token.is_empty() {
+        return None;
+    }
+    let expiry = value
+        .get(if omp { "expires" } else { "expiry_date" })
+        .and_then(serde_json::Value::as_f64)
+        .filter(|millis| millis.is_finite() && *millis >= 0.0);
+    Some(Creds {
+        access_token: token.into(),
+        expired: expiry.is_some_and(|millis| millis <= now_ms() as f64),
+        auth_method: "consumer".into(),
+        project_id: value
+            .get("projectId")
+            .or_else(|| value.get("project_id"))
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned),
+        email: value
+            .get("email")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned),
+    })
+}
+
+fn read_json_credentials(path: &Path) -> Option<Creds> {
+    let meta = std::fs::metadata(path).ok()?;
+    if meta.len() > 64 * 1024 {
+        return None;
+    }
+    decode_file_credential(&std::fs::read(path).ok()?, false)
+}
+
+fn read_omp_credentials(path: &Path) -> Option<Creds> {
+    use rusqlite::OpenFlags;
+    let db = rusqlite::Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).ok()?;
+    db.busy_timeout(Duration::from_millis(100)).ok()?;
+    db.execute_batch("PRAGMA query_only=ON;").ok()?;
+    let raw: String = db
+        .query_row(
+            "SELECT data FROM auth_credentials WHERE provider = 'google-antigravity' ORDER BY updated_at DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .ok()?;
+    (raw.len() <= 64 * 1024).then(|| decode_file_credential(raw.as_bytes(), true))?
 }
 
 /// Dependency-free base64 (standard alphabet, tolerant of URL-safe characters and missing padding)
@@ -543,8 +618,33 @@ pub(crate) fn b64_decode(s: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 
-fn read_credentials() -> Option<Creds> {
-    decode_credential(&read_credential_raw()?)
+fn read_credentials(interactive: bool) -> Option<Creds> {
+    let mut expired = None;
+    if let Some(keychain) = read_credential_raw(interactive).and_then(|raw| decode_credential(&raw))
+    {
+        if !keychain.expired {
+            return Some(keychain);
+        }
+        expired = Some(keychain);
+    }
+    let home = dirs::home_dir()?;
+    if let Some(omp) = read_omp_credentials(&home.join(".omp/agent/agent.db")) {
+        if !omp.expired {
+            return Some(omp);
+        }
+        if expired.is_none() {
+            expired = Some(omp);
+        }
+    }
+    if let Some(json) = read_json_credentials(&home.join(".gemini/oauth_creds.json")) {
+        if !json.expired {
+            return Some(json);
+        }
+        if expired.is_none() {
+            expired = Some(json);
+        }
+    }
+    expired
 }
 
 /// Tier name ("Personal"/"Pro"…); 401/403 → NeedsAuth
@@ -754,7 +854,7 @@ fn read_once(rt: &mut Runtime, prev: &UsageSnapshot) -> UsageSnapshot {
     }
     // 3. Credential path
     let mut tier: Option<String> = None;
-    match read_credentials() {
+    match read_credentials(take_keychain_prompt(now_ms())) {
         Some(c) if !c.expired => match load_tier(&c.access_token) {
             Ok(t) => {
                 tier = Some(t);
@@ -971,7 +1071,7 @@ pub fn probe() -> String {
 
 fn legacy_probe() -> String {
     let roots = state_roots();
-    let cred = read_credentials();
+    let cred = read_credentials(false);
     let ep = discover();
     format!(
         "Antigravity: state dirs {} | Credential Manager gemini:antigravity {} | language_server {}",
@@ -1150,9 +1250,8 @@ mod tests {
 }
 
 pub fn read_profile(home: &std::path::Path, mut previous: UsageSnapshot) -> UsageSnapshot {
-    let cred = std::fs::read(home.join("oauth_creds.json"))
-        .ok()
-        .and_then(|raw| decode_credential(&raw));
+    let cred = read_json_credentials(&home.join("oauth_creds.json"))
+        .or_else(|| read_omp_credentials(&home.join("agent.db")));
     let Some(cred) = cred else {
         previous.status = "needsAuth".into();
         return previous;

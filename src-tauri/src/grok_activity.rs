@@ -1,9 +1,11 @@
 //! Grok TUI registry and headless process activity, from GrokActivityMonitor.swift.
 use crate::activity::Activity;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::UNIX_EPOCH;
 
 const STALE_MS: u64 = 45_000;
@@ -36,9 +38,20 @@ struct Process {
     cwd: Option<String>,
     open_sessions: Vec<PathBuf>,
 }
+static FOCUS: OnceLock<Mutex<HashMap<String, (u32, u64)>>> = OnceLock::new();
+fn focus_map() -> &'static Mutex<HashMap<String, (u32, u64)>> {
+    FOCUS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+pub fn focus_target(id: &str) -> Option<u32> {
+    let (pid, start) = *focus_map().lock().ok()?.get(id)?;
+    (grok_identity(pid) && alive(pid, Some(start))).then_some(pid)
+}
 
 pub fn read(now_ms: u64) -> Vec<Activity> {
     if crate::smoke::root().is_some() {
+        if let Ok(mut held) = focus_map().lock() {
+            held.clear();
+        }
         return Vec::new();
     }
     let Some(home) = dirs::home_dir() else {
@@ -55,16 +68,49 @@ pub fn read(now_ms: u64) -> Vec<Activity> {
 
 fn read_at(active: &Path, sessions: &Path, now_ms: u64, processes: Vec<Process>) -> Vec<Activity> {
     let mut out = Vec::new();
+    let mut focus = HashMap::new();
     if let Some(bytes) = read_capped(active, 1024 * 1024) {
         if let Ok(rows) = serde_json::from_slice::<Vec<Value>>(&bytes) {
-            out.extend(
-                rows.iter()
-                    .take(1024)
-                    .filter_map(|row| tui(row, sessions, now_ms)),
-            );
+            for row in rows.iter().take(1024) {
+                let Some(activity) = tui(row, sessions, now_ms) else {
+                    continue;
+                };
+                if activity.focusable {
+                    if let Some(pid) = row
+                        .get("pid")
+                        .and_then(Value::as_u64)
+                        .and_then(|pid| u32::try_from(pid).ok())
+                    {
+                        if let Some(start) = process_start(pid) {
+                            focus.insert(activity.id.clone(), (pid, start));
+                        }
+                    }
+                }
+                out.push(activity);
+            }
         }
     }
-    out.extend(headless(&processes));
+    let runs = headless(&processes);
+    for activity in &runs {
+        if !activity.focusable {
+            continue;
+        }
+        if let Some(process) = processes.iter().find(|process| {
+            process.open_sessions.iter().any(|dir| {
+                format!(
+                    "grok.{}",
+                    dir.file_name().unwrap_or_default().to_string_lossy()
+                ) == activity.id
+                    && kind(dir).as_deref() == Some("headless")
+            })
+        }) {
+            focus.insert(activity.id.clone(), (process.pid, process.started_at));
+        }
+    }
+    out.extend(runs);
+    if let Ok(mut held) = focus_map().lock() {
+        *held = focus;
+    }
     out
 }
 
@@ -120,6 +166,11 @@ fn tui(row: &Value, root: &Path, now_ms: u64) -> Option<Activity> {
     if now_ms.saturating_sub(at) > STALE_MS {
         return None;
     }
+    let focusable = row
+        .get("pid")
+        .and_then(Value::as_u64)
+        .and_then(|pid| u32::try_from(pid).ok())
+        .is_some_and(|pid| grok_identity(pid) && process_start(pid).is_some());
     Some(Activity {
         id: format!("grok.{id}"),
         provider: "grok".into(),
@@ -129,6 +180,7 @@ fn tui(row: &Value, root: &Path, now_ms: u64) -> Option<Activity> {
         waiting_for: None,
         since: at,
         queued: 0,
+        focusable,
     })
 }
 
@@ -205,6 +257,9 @@ fn headless(processes: &[Process]) -> Vec<Activity> {
                 waiting_for: None,
                 since: process.started_at,
                 queued: 0,
+                focusable: process.started_at > 0
+                    && grok_identity(process.pid)
+                    && alive(process.pid, Some(process.started_at)),
             })
         })
         .collect()
@@ -234,6 +289,48 @@ fn turn_open(bytes: &[u8]) -> bool {
         }
     }
     true
+}
+
+#[cfg(any(target_os = "macos", windows))]
+fn process_start(pid: u32) -> Option<u64> {
+    crate::claude_session_monitor::process_start_ms(pid)
+}
+#[cfg(not(any(target_os = "macos", windows)))]
+fn process_start(_: u32) -> Option<u64> {
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn grok_identity(pid: u32) -> bool {
+    let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
+    if unsafe {
+        libc::proc_pidinfo(
+            pid as i32,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            std::ptr::from_mut(&mut info).cast(),
+            size,
+        )
+    } != size
+    {
+        return false;
+    }
+    let comm = unsafe { std::ffi::CStr::from_ptr(info.pbi_comm.as_ptr()) }.to_string_lossy();
+    if !comm.starts_with("grok") && comm != "agent" {
+        return false;
+    }
+    let mut path = vec![0i8; libc::MAXPATHLEN as usize];
+    if unsafe { libc::proc_pidpath(pid as i32, path.as_mut_ptr().cast(), path.len() as u32) } <= 0 {
+        return false;
+    }
+    unsafe { std::ffi::CStr::from_ptr(path.as_ptr()) }
+        .to_string_lossy()
+        .contains("/.grok/downloads/grok-")
+}
+#[cfg(not(target_os = "macos"))]
+fn grok_identity(_: u32) -> bool {
+    false
 }
 
 #[cfg(target_os = "macos")]
@@ -348,9 +445,9 @@ fn open_sessions(pid: i32, root: &Path) -> Vec<PathBuf> {
     if read <= 0 {
         return Vec::new();
     }
-    let prefix = root.to_string_lossy().trim_end_matches('/').to_owned() + "/";
-    let real_root = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
-    let real_prefix = real_root.to_string_lossy().trim_end_matches('/').to_owned() + "/";
+    let Ok(real_root) = fs::canonicalize(root) else {
+        return Vec::new();
+    };
     fds.into_iter()
         .take(read as usize / stride)
         .filter_map(|fd| {
@@ -373,12 +470,11 @@ fn open_sessions(pid: i32, root: &Path) -> Vec<PathBuf> {
             }
             let path = unsafe { std::ffi::CStr::from_ptr(info.pvip.vip_path.as_ptr().cast()) }
                 .to_string_lossy();
-            if !path.ends_with("/events.jsonl")
-                || !(path.starts_with(&prefix) || path.starts_with(&real_prefix))
-            {
+            let real_path = fs::canonicalize(path.as_ref()).ok()?;
+            if real_path.file_name()? != "events.jsonl" || !real_path.starts_with(&real_root) {
                 return None;
             }
-            Some(PathBuf::from(path.as_ref()).parent()?.to_path_buf())
+            Some(real_path.parent()?.to_path_buf())
         })
         .collect()
 }
@@ -386,6 +482,33 @@ fn open_sessions(pid: i32, root: &Path) -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn kernel_vnode_path_abi_and_live_held_file() {
+        assert_eq!(std::mem::size_of::<ProcFileInfo>(), 24);
+        assert_eq!(std::mem::size_of::<VnodeFdInfoWithPath>(), 1200);
+        assert_eq!(std::mem::offset_of!(VnodeFdInfoWithPath, pvip), 24);
+        assert_eq!(
+            std::mem::offset_of!(libc::vnode_info_path, vip_path) + 24,
+            176
+        );
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("sessions");
+        let session = root.join("folder/run");
+        fs::create_dir_all(&session).unwrap();
+        let events = session.join("events.jsonl");
+        fs::write(&events, "").unwrap();
+        let held = File::open(&events).unwrap();
+        let pid = unsafe { libc::getpid() };
+        let resolved_session = fs::canonicalize(&session).unwrap();
+        let opened = open_sessions(pid, &root);
+        assert!(
+            opened.contains(&resolved_session),
+            "held paths: {opened:?}; expected: {resolved_session:?}"
+        );
+        drop(held);
+        assert!(!open_sessions(pid, &root).contains(&resolved_session));
+    }
     #[test]
     fn stop_hook_after_completion_does_not_reopen_headless_turn() {
         let complete = br#"{"params":{"update":{"sessionUpdate":"turn_completed"}}}

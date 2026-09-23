@@ -117,6 +117,25 @@ pub(super) fn forget_cached(id: &str) {
 #[cfg(not(target_os = "macos"))]
 pub(super) fn forget_cached(_id: &str) {}
 
+/// Read one exact borrowed item with the same bounded, no-prompt Security
+/// path used by Claude. The caller owns its own one-use permission state.
+#[cfg(target_os = "macos")]
+pub(super) fn borrowed_secret(
+    service: &str,
+    account: &str,
+    interactive: bool,
+) -> Result<Option<Vec<u8>>, ReadError> {
+    let Some(item) = native::exact(service, account) else {
+        return Ok(None);
+    };
+    native::read_secret(&item, interactive).map(Some)
+}
+
+#[cfg(target_os = "macos")]
+pub(super) fn has_borrowed_secret(service: &str, account: &str) -> bool {
+    native::exact(service, account).is_some()
+}
+
 /// The sole one-use source of an interactive keychain read. A timer never
 /// passes true merely because a previous refresh happened to be refused.
 #[cfg(target_os = "macos")]
@@ -325,7 +344,18 @@ mod native {
         })
     }
 
+    pub(super) fn exact(service: &str, account: &str) -> Option<Match> {
+        unsafe { matches(service) }
+            .into_iter()
+            .filter(|item| item.account == account)
+            .max_by(|a, b| a.modified.total_cmp(&b.modified))
+    }
+
     pub(super) fn read(item: &Match, interactive: bool) -> Result<Credential, ReadError> {
+        read_secret(item, interactive).and_then(|bytes| decode(&bytes))
+    }
+
+    pub(super) fn read_secret(item: &Match, interactive: bool) -> Result<Vec<u8>, ReadError> {
         let _guard = INTERACTION_LOCK.lock().unwrap();
         let mut was_allowed: u8 = 1;
         if !interactive {
@@ -340,7 +370,7 @@ mod native {
         let mut result = unsafe { read_locked(item, interactive) };
         if !interactive && matches!(result, Err(ReadError::Denied)) {
             if let Some(bytes) = rescue_via_security_tool(&item.service, &item.account) {
-                result = decode(&bytes);
+                result = Ok(bytes);
             }
         }
         if !interactive {
@@ -379,7 +409,7 @@ mod native {
         (!bytes.is_empty()).then_some(bytes)
     }
 
-    unsafe fn read_locked(item: &Match, interactive: bool) -> Result<Credential, ReadError> {
+    unsafe fn read_locked(item: &Match, interactive: bool) -> Result<Vec<u8>, ReadError> {
         let mut query = CFMutableDictionary::from_CFType_pairs(&[]);
         query.add(&kSecClass.to_void(), &kSecClassGenericPassword.to_void());
         query.add(
@@ -403,7 +433,7 @@ mod native {
                 let data = CFType::wrap_under_create_rule(result)
                     .downcast::<CFData>()
                     .ok_or(ReadError::NeedsAuth)?;
-                decode(data.bytes())
+                Ok(data.bytes().to_vec())
             }
             -25320 | -60008 => Err(ReadError::Transient),
             -128 | -25293 | -25308 => Err(ReadError::Denied),

@@ -46,8 +46,12 @@ pub struct Session {
     pub prompt: String,
     /// The model the session actually uses (message.model of a transcript assistant entry)
     pub model: String,
+    #[serde(default)]
+    pub focusable: bool,
     #[serde(skip)]
     pub ppid: u32,
+    #[serde(skip)]
+    pub process_started_at: Option<u64>,
     #[serde(skip)]
     pub last_event: u64,
     #[serde(skip)]
@@ -152,7 +156,9 @@ impl Store {
                     attn: row.waiting_for.unwrap_or_default(),
                     prompt: String::new(),
                     model: String::new(),
+                    focusable: false,
                     ppid: row.pid,
+                    process_started_at: row.process_started_at,
                     last_event: now,
                     cwd: row.cwd,
                     last_hook: 0,
@@ -250,7 +256,9 @@ impl Store {
                 attn: String::new(),
                 prompt: String::new(),
                 model: String::new(),
+                focusable: false,
                 ppid: 0,
+                process_started_at: None,
                 last_event: now,
                 cwd: cwd.clone(),
                 last_hook: 0,
@@ -271,6 +279,9 @@ impl Store {
         );
         s.last_event = now;
         if ev.ppid != 0 {
+            if s.ppid != ev.ppid || s.process_started_at.is_none() {
+                s.process_started_at = crate::claude_session_monitor::process_start_ms(ev.ppid);
+            }
             s.ppid = ev.ppid;
         }
         if !ev.model.is_empty() {
@@ -377,6 +388,27 @@ impl Store {
             .filter(|p| *p != 0)
     }
 
+    /// A click target is tied to the process birth observed with this session.
+    /// The native focus path checks the same birth again immediately before use.
+    pub fn focus_target(&self, id: &str) -> Option<(u32, u64)> {
+        let session = self.map.get(id).or_else(|| self.registry.get(id))?;
+        (session.ppid != 0
+            && (session.provider == "claude" || session.provider.starts_with("claude-")))
+        .then_some((session.ppid, session.process_started_at?))
+    }
+
+    fn visible_session(&self, source: &Session) -> Session {
+        let mut session = source.clone();
+        session.focusable = self
+            .focus_target(&source.id)
+            .and_then(|(pid, birth)| {
+                crate::claude_session_monitor::process_start_ms(pid)
+                    .filter(|current| *current == birth)
+            })
+            .is_some();
+        session
+    }
+
     pub fn snapshot(
         &self,
         lang: &str,
@@ -401,12 +433,12 @@ impl Store {
             .filter(|(id, s)| {
                 !disabled.contains(&s.provider) && !self.registry_session_ids.contains(*id)
             })
-            .map(|(_, s)| s.clone())
+            .map(|(_, s)| self.visible_session(s))
             .chain(
                 self.registry
                     .iter()
                     .filter(|(_, s)| !disabled.contains(&s.provider))
-                    .map(|(_, s)| s.clone()),
+                    .map(|(_, s)| self.visible_session(s)),
             )
             .collect();
         let rank = |st: &str| match st {
@@ -463,6 +495,7 @@ mod tests {
                 waiting_for: Some("permission".into()),
                 since: 1234,
                 pid: 42,
+                process_started_at: Some(111),
                 cwd: "/tmp/work".into(),
             }])
         );
@@ -471,6 +504,7 @@ mod tests {
         assert_eq!(snapshot.sessions[0].id, "claude.42");
         assert_eq!(snapshot.sessions[0].state, ST_ATTENTION);
         assert_eq!(store.ppid_of("claude.42"), Some(42));
+        assert_eq!(store.focus_target("claude.42"), Some((42, 111)));
         let disabled = ["claude".to_string()].into_iter().collect();
         assert!(store
             .snapshot_filtered("en", "en", true, false, &disabled)
@@ -496,9 +530,11 @@ mod tests {
             waiting_for: None,
             since: 100,
             pid: 77,
+            process_started_at: Some(222),
             cwd: "/tmp/work".into(),
         }]);
         assert!(store.clear_provider_sessions("claude-work"));
+        assert_eq!(store.focus_target("claude-work.77"), None);
         assert!(store.snapshot("en", "en", true, false).sessions.is_empty());
     }
 

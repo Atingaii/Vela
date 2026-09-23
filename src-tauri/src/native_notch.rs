@@ -17,6 +17,8 @@ pub struct WindowRuntime {
     pub hot: Vec<[f64; 4]>,
     pub expanded: bool,
     pub zoom: f64,
+    /// Reject a stale completion after a later zoom request for this panel.
+    pub zoom_seq: u64,
     pub base_dpr: f64,
     pub dpr_corrections: u32,
     pub landing: u32,
@@ -763,7 +765,8 @@ fn apply_preferences_to_windows_on_main_thread(app: &AppHandle) {
         .values()
         .filter(|w| is_notch_label(w.label()))
     {
-        if let Some(report) = runtime(window.label()).lock().unwrap().surface.clone() {
+        let report = { runtime(window.label()).lock().unwrap().surface.clone() };
+        if let Some(report) = report {
             let actual = apply_surface_on_main_thread(app, window, &report);
             let _ = app.emit_to(window.label(), "native_notch_surface", actual);
         } else {

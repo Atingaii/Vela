@@ -1,8 +1,22 @@
-//! Jump back to the right terminal: from the session's Claude CLI process PID, walk the parent chain
-//! to the hosting terminal window, then SetForegroundWindow + FlashWindowEx. Returns false on failure (the page reports it).
+//! Jump back to the nearest owning terminal window of a live agent process.
+
+#[cfg(any(windows, test))]
+fn window_distance(chain: &[u32], parents: &std::collections::HashMap<u32, u32>, pid: u32) -> Option<usize> {
+    if let Some(distance) = chain.iter().position(|&ancestor| ancestor == pid) {
+        return Some(distance * 2);
+    }
+    let parent = parents.get(&pid)?;
+    chain.iter().position(|&ancestor| ancestor == *parent)
+        .map(|distance| distance * 2 + 1)
+}
+
+#[cfg(any(windows, test))]
+fn is_non_terminal_shell(name: &str) -> bool {
+    name.eq_ignore_ascii_case("explorer.exe") || name.eq_ignore_ascii_case("velo.exe")
+}
 
 #[cfg(windows)]
-pub fn focus_terminal(claude_pid: u32) -> bool {
+pub fn focus_terminal(agent_pid: u32) -> bool {
     use std::collections::HashMap;
     use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
     use windows::Win32::System::Diagnostics::ToolHelp::{
@@ -10,16 +24,18 @@ pub fn focus_terminal(claude_pid: u32) -> bool {
         TH32CS_SNAPPROCESS,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, FlashWindowEx, GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic,
-        IsWindowVisible, SetForegroundWindow, ShowWindow, FLASHWINFO, FLASHW_ALL, SW_RESTORE,
+        EnumWindows, FlashWindowEx, GetForegroundWindow, GetWindowTextLengthW,
+        GetWindowThreadProcessId, IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow,
+        FLASHWINFO, FLASHW_ALL, SW_RESTORE,
     };
 
-    if claude_pid == 0 {
+    if agent_pid == 0 {
         return false;
     }
 
     // 1) Full pid -> ppid snapshot
     let mut ppid_map: HashMap<u32, u32> = HashMap::new();
+    let mut names: HashMap<u32, String> = HashMap::new();
     unsafe {
         let Ok(snap) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else {
             return false;
@@ -31,6 +47,10 @@ pub fn focus_terminal(claude_pid: u32) -> bool {
         if Process32FirstW(snap, &mut entry).is_ok() {
             loop {
                 ppid_map.insert(entry.th32ProcessID, entry.th32ParentProcessID);
+                let len = entry.szExeFile.iter().position(|&ch| ch == 0)
+                    .unwrap_or(entry.szExeFile.len());
+                names.insert(entry.th32ProcessID,
+                    String::from_utf16_lossy(&entry.szExeFile[..len]));
                 if Process32NextW(snap, &mut entry).is_err() {
                     break;
                 }
@@ -39,9 +59,10 @@ pub fn focus_terminal(claude_pid: u32) -> bool {
         let _ = windows::Win32::Foundation::CloseHandle(snap);
     }
 
-    // 2) claude's ancestor chain (itself included), at most 8 levels: node → shell → WindowsTerminal/conhost host…
-    let mut chain: Vec<u32> = vec![claude_pid];
-    let mut cur = claude_pid;
+    // 2) Agent's ancestry, nearest first. Explorer may own the terminal
+    // process but must never win just because it is a higher ancestor.
+    let mut chain: Vec<u32> = vec![agent_pid];
+    let mut cur = agent_pid;
     for _ in 0..8 {
         match ppid_map.get(&cur) {
             Some(&p) if p != 0 && !chain.contains(&p) => {
@@ -75,25 +96,16 @@ pub fn focus_terminal(claude_pid: u32) -> bool {
         wins.push(Cand { hwnd: h, pid: p });
     }
 
-    // 4) Score: the window's PID is on the ancestor chain (higher up = the real terminal host = higher
-    //    score), or the window PID's parent is on the chain (the classic conhost case).
-    let score_of = |pid: u32| -> Option<usize> {
-        if let Some(i) = chain.iter().position(|&c| c == pid) {
-            return Some(i);
-        }
-        if let Some(&pp) = ppid_map.get(&pid) {
-            if let Some(i) = chain.iter().position(|&c| c == pp) {
-                return Some(i);
-            }
-        }
-        None
-    };
+    // 4) Nearest matching owner (or its conhost child). Never choose Explorer
+    // as the destination merely because it launched the terminal.
     let best = wins
         .iter()
-        .filter_map(|w| score_of(w.pid).map(|s| (s, w.hwnd)))
-        .max_by_key(|(s, _)| *s);
+        .filter(|w| !names.get(&w.pid).is_some_and(|name| is_non_terminal_shell(name)))
+        .filter_map(|w| window_distance(&chain, &ppid_map, w.pid)
+            .map(|distance| (distance, w.hwnd, w.pid)))
+        .min_by_key(|(distance, _, _)| *distance);
 
-    let Some((_, hwnd_raw)) = best else {
+    let Some((_, hwnd_raw, target_pid)) = best else {
         return false;
     };
     unsafe {
@@ -101,7 +113,7 @@ pub fn focus_terminal(claude_pid: u32) -> bool {
         if IsIconic(hwnd).as_bool() {
             let _ = ShowWindow(hwnd, SW_RESTORE);
         }
-        let _ = SetForegroundWindow(hwnd);
+        let requested = SetForegroundWindow(hwnd).as_bool();
         let fi = FLASHWINFO {
             cbSize: std::mem::size_of::<FLASHWINFO>() as u32,
             hwnd,
@@ -109,9 +121,13 @@ pub fn focus_terminal(claude_pid: u32) -> bool {
             uCount: 2,
             dwTimeout: 0,
         };
-        let _ = FlashWindowEx(&fi);
+        let mut foreground_pid = 0u32;
+        let foreground = GetForegroundWindow();
+        GetWindowThreadProcessId(foreground, Some(&mut foreground_pid));
+        if foreground_pid == target_pid { return true; }
+        if !requested { let _ = FlashWindowEx(&fi); }
     }
-    true
+    false
 }
 
 #[cfg(not(any(windows, target_os = "macos")))]
@@ -209,8 +225,9 @@ pub fn pid_hits_chain(pid: u32, chain: &[u32], maps: &ProcMaps) -> bool {
 pub fn focus_claude_desktop() -> bool {
     use windows::Win32::Foundation::{BOOL, HWND, LPARAM, RECT};
     use windows::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, FlashWindowEx, GetWindowRect, GetWindowTextLengthW, GetWindowThreadProcessId,
-        IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow, FLASHWINFO, FLASHW_ALL,
+        EnumWindows, FlashWindowEx, GetForegroundWindow, GetWindowRect, GetWindowTextLengthW,
+        GetWindowThreadProcessId, IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow,
+        FLASHWINFO, FLASHW_ALL,
         SW_RESTORE,
     };
     let maps = proc_maps();
@@ -227,7 +244,7 @@ pub fn focus_claude_desktop() -> bool {
     unsafe {
         let _ = EnumWindows(Some(cb), LPARAM(&mut wins as *mut _ as isize));
     }
-    let mut best: Option<(isize, i64)> = None;
+    let mut best: Option<(isize, i64, u32)> = None;
     for (h, pid) in wins {
         let Some(name) = maps.name.get(&pid) else {
             continue;
@@ -243,11 +260,11 @@ pub fn focus_claude_desktop() -> bool {
                 0
             }
         };
-        if best.map(|(_, a)| area > a).unwrap_or(true) {
-            best = Some((h, area));
+        if best.map(|(_, a, _)| area > a).unwrap_or(true) {
+            best = Some((h, area, pid));
         }
     }
-    let Some((h, _)) = best else {
+    let Some((h, _, target_pid)) = best else {
         return false;
     };
     unsafe {
@@ -255,7 +272,7 @@ pub fn focus_claude_desktop() -> bool {
         if IsIconic(hwnd).as_bool() {
             let _ = ShowWindow(hwnd, SW_RESTORE);
         }
-        let _ = SetForegroundWindow(hwnd);
+        let requested = SetForegroundWindow(hwnd).as_bool();
         let fi = FLASHWINFO {
             cbSize: std::mem::size_of::<FLASHWINFO>() as u32,
             hwnd,
@@ -263,9 +280,12 @@ pub fn focus_claude_desktop() -> bool {
             uCount: 2,
             dwTimeout: 0,
         };
-        let _ = FlashWindowEx(&fi);
+        let mut foreground_pid = 0u32;
+        GetWindowThreadProcessId(GetForegroundWindow(), Some(&mut foreground_pid));
+        if foreground_pid == target_pid { return true; }
+        if !requested { let _ = FlashWindowEx(&fi); }
     }
-    true
+    false
 }
 
 #[cfg(not(any(windows, target_os = "macos")))]
@@ -380,4 +400,25 @@ pub(crate) fn claude_desktop_pid() -> Option<u32> {
         .name
         .iter()
         .find_map(|(pid, name)| name.ends_with("/claude.app/contents/macos/claude").then_some(*pid))
+}
+
+#[cfg(test)]
+mod window_candidate_tests {
+    use super::{is_non_terminal_shell, window_distance};
+    use std::collections::HashMap;
+
+    #[test]
+    fn nearest_terminal_or_conhost_wins_over_explorer_ancestor() {
+        let chain = [10, 20, 30, 40]; // agent, shell, terminal, explorer
+        let parents = HashMap::from([(25,20), (30,40)]);
+        let candidates = [(40,"explorer.exe"), (30,"WindowsTerminal.exe"),
+            (25,"conhost.exe")];
+        let best = candidates.into_iter()
+            .filter(|(_,name)| !is_non_terminal_shell(name))
+            .filter_map(|(pid,_)| window_distance(&chain, &parents, pid).map(|distance| (distance,pid)))
+            .min();
+        assert_eq!(best, Some((3,25)));
+        assert_eq!(window_distance(&chain, &parents, 40), Some(6));
+        assert_eq!(window_distance(&chain, &parents, 999), None);
+    }
 }

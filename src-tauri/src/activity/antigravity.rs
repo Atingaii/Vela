@@ -111,6 +111,7 @@ fn session(root: &Path, id: &str, path: &Path, modified: u64, now: u64) -> Optio
         waiting_for,
         since: modified,
         queued: 0,
+        focusable: false,
     })
 }
 

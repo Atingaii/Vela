@@ -22,6 +22,8 @@ pub struct LiveSession {
     pub waiting_for: Option<String>,
     pub since: u64,
     pub pid: u32,
+    /// Actual process birth, captured after liveness/reuse validation.
+    pub process_started_at: Option<u64>,
     pub cwd: String,
 }
 
@@ -327,6 +329,7 @@ impl Monitor {
                     waiting_for,
                     since,
                     pid: record.pid,
+                    process_started_at: process_start_ms(record.pid),
                     cwd: record.cwd,
                 }
             })
@@ -488,7 +491,7 @@ pub(crate) fn process_start_ms(pid: u32) -> Option<u64> {
 }
 
 #[cfg(all(not(target_os = "macos"), not(windows)))]
-fn process_start_ms(_pid: u32) -> Option<u64> {
+pub(crate) fn process_start_ms(_pid: u32) -> Option<u64> {
     None
 }
 

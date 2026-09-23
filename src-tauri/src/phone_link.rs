@@ -791,6 +791,7 @@ mod activity_wire_tests {
             waiting_for: Some("Permission".into()),
             since: 1000,
             queued: 0,
+            focusable: false,
         };
         let v = activity_json(&s);
         assert_eq!(v["waitingFor"], "Permission");
