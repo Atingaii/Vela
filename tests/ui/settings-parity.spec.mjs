@@ -29,6 +29,7 @@ async function settingsBridge(page, connectedSlots = []) {
       providerPrefs:{minimax_china:false,gemini_token_budget:null},failProviderPrefs:false,lmTokenPresent:false,failLMToken:false,
       localActivity:{relay:{ready:true,status:'Listening',address:'http://127.0.0.1:11435',thinking_models:{},performances:{'llama3':{output_tokens:100,generation_seconds:2,measured_at:0,approximate:false}}}},
       trayOptions:null,providerRows:null,
+      destinations:{},failAccountOpen:false,
       surfaceCap:{supported:false,glass_available:false,reduce_transparency:false,effective_surface_style:'solid'},
       localPresets:[{name:'Local vLLM (:8000)',url:'http://localhost:8000/v1',header:'Authorization',model:'',icon:'ollama',color:'#10B981'}],
       emit(name, payload) { for (const cb of listeners[name] || []) cb({payload}); },
@@ -60,6 +61,11 @@ async function settingsBridge(page, connectedSlots = []) {
           {id:'ollama-local',name:'Ollama',guidance:'',snap:{status:'absent',note:'Connecting to Ollama…'}},
           {id:'lmstudio',name:'LM Studio',guidance:'',snap:{status:'absent',note:'Connecting to LM Studio…'}}
         ];
+        if (cmd === 'get_account_destination') return window.settingsFixture.destinations[args.id]||null;
+        if (cmd === 'open_account_destination') {
+          if(window.settingsFixture.failAccountOpen)throw Error('fixture account destination refused');
+          return window.settingsFixture.destinations[args.id]||null;
+        }
         if (cmd === 'get_web_session_state') return {...webStates[args.id]};
         if (cmd === 'get_provider_settings') return {...window.settingsFixture.providerPrefs};
         if (cmd === 'set_provider_settings') {
@@ -253,6 +259,70 @@ test('账户摘要优先于状态，拒绝访问与续签独立显示，关闭�
   await expect(page.locator('[data-account="claude"] .acct-detail')).toContainText('Signed out — nothing is read');
   await expect(page.locator('[data-account="claude"] [data-allow-keychain]')).toHaveCount(0);
   await expect(page.locator('[data-account="claude"] .renewal')).toHaveCount(0);
+});
+
+test('账户 Open 和 Switch 只传 ID，由原生端选择所属 App 或网站并显示失败',async({page})=>{
+  await settingsBridge(page,['claude','codex']);await page.goto('/settings.html');
+  await page.waitForFunction(()=>providerMetadata.length===2);
+  await page.evaluate(()=>{
+    settingsFixture.destinations={
+      claude:{kind:'website',label:'claude.ai',help:'source website'},
+      codex:{kind:'app',label:'Codex',help:'owner app'}
+    };
+    settingsFixture.emit('providers',[
+      {id:'claude',enabled:true,account:{label:'first@example.com',plan:'pro',source:'Claude Code',manage_url:'https://claude.ai/settings/usage'}},
+      {id:'codex',enabled:true,account:{label:'second@example.com',plan:'plus',source:'Codex',manage_url:'https://chatgpt.com/#settings/Account'}}
+    ]);
+  });
+  await page.locator('#tab-accounts').click();
+  await expect(page.locator('[data-account="claude"] [data-account-open]')).toHaveText('Open claude.ai');
+  await expect(page.locator('[data-account="claude"] [data-account-switch]')).toHaveCount(0);
+  await expect(page.locator('[data-account="codex"] [data-account-open]')).toHaveText('Open Codex');
+  await expect(page.locator('[data-account="codex"] [data-account-switch]')).toHaveText('Switch…');
+  await page.locator('[data-account="codex"] [data-account-switch]').click();
+  await page.locator('[data-account="claude"] [data-account-open]').click();
+  const opens=await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='open_account_destination').map(c=>c.args));
+  expect(opens).toEqual([{id:'codex'},{id:'claude'}]);
+  await page.evaluate(()=>{settingsFixture.failAccountOpen=true;});
+  await page.locator('[data-account="codex"] [data-account-open]').click();
+  await expect(page.locator('#strip')).toContainText('fixture account destination refused');
+});
+
+test('已连接账户的原生目的地随账号元数据出现和撤销即时更新',async({page})=>{
+  await settingsBridge(page,['claude']);await page.goto('/settings.html');
+  await page.waitForFunction(()=>providerMetadata.length===2);
+  await page.locator('#tab-accounts').click();
+  await page.evaluate(()=>settingsFixture.emit('providers',[{id:'claude',enabled:true,account:{label:'first@example.com',plan:'pro',source:'Claude Code',manage_url:null}}]));
+  await expect(page.locator('[data-account="claude"] [data-account-open]')).toHaveCount(0);
+  await page.evaluate(()=>{
+    settingsFixture.destinations.claude={kind:'website',label:'claude.ai',help:'source website'};
+    settingsFixture.emit('providers',[{id:'claude',enabled:true,account:{label:'first@example.com',plan:'pro',source:'Claude Code',manage_url:'https://claude.ai/settings/usage'}}]);
+  });
+  await expect(page.locator('[data-account="claude"] [data-account-open]')).toHaveText('Open claude.ai');
+  await page.evaluate(()=>{
+    delete settingsFixture.destinations.claude;
+    settingsFixture.emit('providers',[{id:'claude',enabled:true,account:{label:'first@example.com',plan:'pro',source:'Claude Code',manage_url:null}}]);
+  });
+  await expect(page.locator('[data-account="claude"] [data-account-open]')).toHaveCount(0);
+});
+
+test('设置首次打开不编辑字段，点击焦点环保留编辑，空白与重开只结束编辑不丢草稿',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');
+  await page.locator('#tab-lmstudio').click();
+  expect(await page.evaluate(()=>document.activeElement?.matches('input,textarea'))).toBeFalsy();
+  const token=page.locator('#lmstudio-token');
+  await token.fill('draft-token');
+  await expect(token).toBeFocused();
+  const box=await token.boundingBox();
+  await page.mouse.click(box.x-2,box.y+box.height/2);
+  await expect(token).toBeFocused();
+  await page.locator('#pane-lmstudio > .sec').click();
+  await expect(token).not.toBeFocused();
+  await expect(token).toHaveValue('draft-token');
+  await token.focus();
+  await page.evaluate(()=>settingsFixture.emit('settings_opened',null));
+  await expect(token).not.toBeFocused();
+  await expect(token).toHaveValue('draft-token');
 });
 
 test('MiniMax 区域与 Gemini API 月预算属于各自账户行，失败按原值回滚',async({page})=>{

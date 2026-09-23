@@ -28,6 +28,8 @@ qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 if-addrs = "0.13"
 regex = "1"
 tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls", "zip"] }
+minisign-verify = "=0.2.5"
+semver = "=1.0.28"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tiny_http = "0.12"
@@ -67,6 +69,7 @@ objc2-quartz-core = { version = "0.3", default-features = false, features = ["st
 plist = "1.10"
 
 [target.'cfg(windows)'.dependencies]
+tauri = { version = "2.11", features = ["unstable"] }
 sysinfo = { version = "=0.39.6", default-features = false, features = ["system"] }
 windows = { version = "0.58", features = [
   "Win32_Foundation",

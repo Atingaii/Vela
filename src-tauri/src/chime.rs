@@ -10,7 +10,10 @@ fn directories() -> Vec<PathBuf> {
         if let Some(home) = dirs::home_dir() {
             dirs.push(home.join("Library/Sounds"));
         }
-        dirs.extend([PathBuf::from("/Library/Sounds"), PathBuf::from("/System/Library/Sounds")]);
+        dirs.extend([
+            PathBuf::from("/Library/Sounds"),
+            PathBuf::from("/System/Library/Sounds"),
+        ]);
         dirs
     }
     #[cfg(windows)]
@@ -74,7 +77,10 @@ fn available_in(directories: &[PathBuf]) -> Vec<String> {
 }
 
 fn url_for_in(name: &str, directories: &[PathBuf]) -> Option<PathBuf> {
-    if !available_in(directories).iter().any(|candidate| candidate == name) {
+    if !available_in(directories)
+        .iter()
+        .any(|candidate| candidate == name)
+    {
         return None;
     }
     for directory in directories {
@@ -84,7 +90,7 @@ fn url_for_in(name: &str, directories: &[PathBuf]) -> Option<PathBuf> {
                 continue;
             }
             let path = directory.join(format!("{name}.{ext}"));
-            if path.is_file() {
+            if path.exists() {
                 return Some(path);
             }
         }
@@ -133,7 +139,11 @@ pub fn play(name: &str) -> Result<(), String> {
 #[cfg(target_os = "macos")]
 mod macos {
     use super::*;
-    use objc2::{msg_send, rc::Retained, runtime::{AnyClass, AnyObject}};
+    use objc2::{
+        msg_send,
+        rc::Retained,
+        runtime::{AnyClass, AnyObject},
+    };
     use objc2_foundation::{NSError, NSString, NSURL};
     use std::sync::{mpsc, OnceLock};
     use std::time::Duration;
@@ -160,7 +170,11 @@ mod macos {
         let sender = sender.as_ref().ok_or("无法播放提示音")?;
         let (answer, result) = mpsc::channel();
         sender
-            .send(Request { path, name: name.into(), answer })
+            .send(Request {
+                path,
+                name: name.into(),
+                answer,
+            })
             .map_err(|_| "无法播放提示音")?;
         if result.recv_timeout(Duration::from_secs(5)).unwrap_or(false) {
             Ok(())
@@ -173,37 +187,46 @@ mod macos {
         let mut playing: Option<Retained<AnyObject>> = None;
         for request in receiver {
             let started = objc2::rc::autoreleasepool(|_| {
-                let Some(class) = AnyClass::get(c"AVAudioPlayer") else {
-                    return fallback(&request.name);
-                };
-                let url = NSURL::fileURLWithPath(&NSString::from_str(&request.path.to_string_lossy()));
-                let mut error: *mut NSError = std::ptr::null_mut();
-                let allocated: *mut AnyObject = unsafe { msg_send![class, alloc] };
-                let raw: *mut AnyObject = unsafe {
-                    msg_send![allocated, initWithContentsOfURL: &*url, error: &mut error]
-                };
-                let Some(player) = (unsafe { Retained::from_raw(raw) }) else {
+                let Some(player) = new_player(&request.path) else {
                     return fallback(&request.name);
                 };
                 let _: bool = unsafe { msg_send![&*player, prepareToPlay] };
-                let started: bool = unsafe { msg_send![&*player, play] };
-                if started {
-                    playing = Some(player);
-                }
-                started
+                playing = Some(player);
+                // Swift retains the new player before calling play(), even when play says no.
+                unsafe { msg_send![&**playing.as_ref().unwrap(), play] }
             });
             let _ = request.answer.send(started);
             let _ = playing.as_ref(); // Retain the last player until it is replaced or the app exits.
         }
     }
 
+    fn new_player(path: &Path) -> Option<Retained<AnyObject>> {
+        let class = AnyClass::get(c"AVAudioPlayer")?;
+        let url = NSURL::fileURLWithPath(&NSString::from_str(&path.to_string_lossy()));
+        let mut error: *mut NSError = std::ptr::null_mut();
+        let allocated: *mut AnyObject = unsafe { msg_send![class, alloc] };
+        let raw: *mut AnyObject =
+            unsafe { msg_send![allocated, initWithContentsOfURL: &*url, error: &mut error] };
+        unsafe { Retained::from_raw(raw) }
+    }
+
+    #[cfg(test)]
+    pub(super) fn prepare_without_play(path: &Path) -> bool {
+        objc2::rc::autoreleasepool(|_| {
+            let Some(player) = new_player(path) else {
+                return false;
+            };
+            let _: bool = unsafe { msg_send![&*player, prepareToPlay] };
+            true
+        })
+    }
+
     fn fallback(name: &str) -> bool {
         let Some(class) = AnyClass::get(c"NSSound") else {
             return false;
         };
-        let sound: *mut AnyObject = unsafe {
-            msg_send![class, soundNamed: &*NSString::from_str(name)]
-        };
+        let sound: *mut AnyObject =
+            unsafe { msg_send![class, soundNamed: &*NSString::from_str(name)] };
         !sound.is_null() && unsafe { msg_send![sound, play] }
     }
 }
@@ -226,12 +249,61 @@ mod tests {
         std::fs::write(system.join("Funk.aiff"), b"invalid audio").unwrap();
         let dirs = [user.clone(), system.clone()];
         assert_eq!(url_for_in("Glass", &dirs), Some(user.join("Glass.aiff")));
-        assert_eq!(available_in(&dirs).iter().filter(|name| *name == "Glass").count(), 1);
+        assert_eq!(
+            available_in(&dirs)
+                .iter()
+                .filter(|name| *name == "Glass")
+                .count(),
+            1
+        );
         assert!(url_for_in("../Glass", &dirs).is_none());
     }
 
     #[test]
     fn invalid_name_never_starts_audio() {
         assert!(url_for_in("missing", &[]).is_none());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn av_audio_player_prepares_valid_silence_without_playing() {
+        assert!(objc2::runtime::AnyClass::get(c"AVAudioPlayer").is_some());
+        let temp = tempfile::tempdir().unwrap();
+        let file = temp.path().join("silent.wav");
+        // PCM, mono, 8 kHz, 16 bits, 16 zero samples. No playback call is made.
+        let mut wav = Vec::new();
+        wav.extend_from_slice(b"RIFF");
+        wav.extend_from_slice(&68_u32.to_le_bytes());
+        wav.extend_from_slice(b"WAVEfmt ");
+        wav.extend_from_slice(&16_u32.to_le_bytes());
+        wav.extend_from_slice(&1_u16.to_le_bytes());
+        wav.extend_from_slice(&1_u16.to_le_bytes());
+        wav.extend_from_slice(&8_000_u32.to_le_bytes());
+        wav.extend_from_slice(&16_000_u32.to_le_bytes());
+        wav.extend_from_slice(&2_u16.to_le_bytes());
+        wav.extend_from_slice(&16_u16.to_le_bytes());
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&32_u32.to_le_bytes());
+        wav.extend_from_slice(&[0_u8; 32]);
+        std::fs::write(&file, wav).unwrap();
+        assert!(macos::prepare_without_play(&file));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn malformed_audio_fails_after_native_initialization_without_audible_fallback() {
+        assert!(objc2::runtime::AnyClass::get(c"AVAudioPlayer").is_some());
+        let temp = tempfile::tempdir().unwrap();
+        let name = format!(
+            "VeloInvalidSound-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let file = temp.path().join(format!("{name}.aiff"));
+        std::fs::write(&file, b"not an audio container").unwrap();
+        assert!(macos::play(file, &name).is_err());
     }
 }

@@ -38,11 +38,10 @@ use crate::AppState;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
 const POLL_SECS: u64 = 300;
-const CLI_TTL: Duration = Duration::from_secs(300);
 const QUOTA_SUMMARY: &str =
     "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary";
 const LS_SERVICE: &str = "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary";
@@ -63,7 +62,6 @@ fn bounded_json(response: ureq::Response) -> Option<serde_json::Value> {
         .flatten()
 }
 
-static REFRESH_CLI: Mutex<Option<std::sync::mpsc::SyncSender<()>>> = Mutex::new(None);
 static REFRESH_LEGACY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 #[derive(Default)]
 struct PromptPermission {
@@ -97,18 +95,11 @@ fn take_keychain_prompt(now: u64) -> bool {
 }
 
 pub fn request_refresh() {
-    if let Some(sender) = REFRESH_CLI.lock().unwrap().as_ref() {
-        let _ = sender.try_send(());
-    } else {
-        REFRESH_LEGACY.store(true, std::sync::atomic::Ordering::Relaxed);
-    }
+    REFRESH_LEGACY.store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
 pub fn request_hover_refresh() {
-    // Hover must not wake the legacy adapter's periodic poller.
-    if let Some(sender) = REFRESH_CLI.lock().unwrap().as_ref() {
-        let _ = sender.try_send(());
-    }
+    // The source adapter is periodic; hover never asks the keychain for a new read.
 }
 
 #[tauri::command]
@@ -124,7 +115,6 @@ pub fn allow_antigravity_keychain_access(app: AppHandle, id: String) -> Result<(
 #[cfg(test)]
 #[test]
 fn hover_does_not_request_legacy_refresh() {
-    assert!(REFRESH_CLI.lock().unwrap().is_none());
     request_hover_refresh();
     assert!(!REFRESH_LEGACY.load(std::sync::atomic::Ordering::Relaxed));
 }
@@ -164,48 +154,28 @@ fn store_path() -> PathBuf {
 }
 
 pub fn load_persisted() -> UsageSnapshot {
-    if crate::agy_cli::find_agy().is_some() {
-        let mut snap = std::fs::read_to_string(store_path())
-            .ok()
-            .and_then(|s| serde_json::from_str::<UsageSnapshot>(&s).ok())
-            .unwrap_or_default();
-        if !snap.note.starts_with("via Antigravity CLI") {
-            snap = UsageSnapshot::default();
-        }
-        snap.status = if snap.windows.is_empty() {
-            "error"
-        } else if now_ms().saturating_sub(snap.fetched_at) < CLI_TTL.as_millis() as u64 {
-            "ok"
-        } else {
-            "stale"
-        }
-        .into();
-        if snap.windows.is_empty() {
-            snap.note = "Waiting for Antigravity CLI quota".into();
-        }
-        snap
-    } else {
-        std::fs::read_to_string(store_path())
-            .ok()
-            .and_then(|t| serde_json::from_str::<UsageSnapshot>(&t).ok())
-            .map(|mut s| {
-                if !s.windows.is_empty() {
-                    s.status = "stale".into();
-                }
-                s
-            })
-            .unwrap_or_default()
-    }
+    std::fs::read_to_string(store_path())
+        .ok()
+        .and_then(|text| serde_json::from_str::<UsageSnapshot>(&text).ok())
+        .filter(|snapshot| !snapshot.note.starts_with("via Antigravity CLI"))
+        .map(|mut snapshot| {
+            if !snapshot.windows.is_empty() {
+                snapshot.status = "stale".into();
+            }
+            snapshot
+        })
+        .unwrap_or_default()
 }
 
 fn persist(s: &UsageSnapshot) {
-    let _ = crate::agy_cli::save_persisted_to(&store_path(), s);
+    if let Ok(bytes) = serde_json::to_vec(s) {
+        let _ = crate::providers::persist(&store_path(), &bytes);
+    }
 }
 
-/// Is Antigravity installed: the official CLI is available, or any state
-/// directory exists, or Credential Manager holds its token
+/// Is Antigravity installed via its own state or borrowed credential.
 pub fn present() -> bool {
-    crate::agy_cli::find_agy().is_some() || legacy_present()
+    legacy_present()
 }
 
 /// Every `~/.gemini/antigravity*` install counts, not only the first one found.
@@ -915,84 +885,10 @@ fn sleep_interruptible(secs: u64) {
 }
 
 pub fn start(app: AppHandle) {
-    if crate::agy_cli::find_agy().is_some() {
-        start_cli(app);
-    } else {
-        start_legacy(app);
-    }
+    start_source(app);
 }
 
-fn start_cli(app: AppHandle) {
-    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
-    *REFRESH_CLI.lock().unwrap() = Some(sender);
-
-    std::thread::spawn(move || {
-        {
-            let st = app.state::<AppState>();
-            let snap = st.antigravity.lock().unwrap().clone();
-            let _ = app.emit("antigravity", &snap);
-        }
-
-        let mut last_attempt: Option<Instant> = None;
-        let mut last_epoch = crate::providers::generation("gemini");
-
-        while receiver.recv().is_ok() {
-            if !crate::providers::enabled(&app, "gemini") {
-                continue;
-            }
-            let epoch = crate::providers::generation("gemini");
-            if epoch != last_epoch {
-                last_attempt = None;
-                last_epoch = epoch;
-            }
-            if last_attempt.is_some_and(|last| last.elapsed() < CLI_TTL) {
-                crate::refresh::complete("gemini");
-                continue;
-            }
-            let st = app.state::<AppState>();
-            let previous = st.antigravity.lock().unwrap().clone();
-            if !previous.windows.is_empty()
-                && now_ms().saturating_sub(previous.fetched_at) < CLI_TTL.as_millis() as u64
-            {
-                crate::refresh::complete("gemini");
-                continue;
-            }
-            last_attempt = Some(Instant::now());
-
-            let snap = match crate::agy_cli::read_quota() {
-                Ok(windows) => UsageSnapshot {
-                    status: "ok".into(),
-                    windows,
-                    fetched_at: now_ms(),
-                    note: "via Antigravity CLI".into(),
-                    ..Default::default()
-                },
-                Err(error) => UsageSnapshot {
-                    status: if previous.windows.is_empty() {
-                        "error".into()
-                    } else {
-                        "stale".into()
-                    },
-                    note: format!(
-                        "via Antigravity CLI — {error}.{}",
-                        if previous.windows.is_empty() {
-                            ""
-                        } else {
-                            " Last reading kept."
-                        }
-                    ),
-                    ..previous
-                },
-            };
-
-            broadcast(&app, epoch, snap);
-        }
-    });
-
-    request_refresh();
-}
-
-fn start_legacy(app: AppHandle) {
+fn start_source(app: AppHandle) {
     std::thread::spawn(move || {
         {
             let st = app.state::<AppState>();
@@ -1043,14 +939,10 @@ fn start_legacy(app: AppHandle) {
 
 /// For doctor: contains no secrets
 pub fn probe() -> String {
-    if let Some(agy) = crate::agy_cli::find_agy() {
-        format!("Antigravity: official CLI installed at {}", agy.display())
-    } else {
-        legacy_probe()
-    }
+    source_probe()
 }
 
-fn legacy_probe() -> String {
+fn source_probe() -> String {
     let roots = state_roots();
     let cred = read_credentials(false);
     let ep = discover();

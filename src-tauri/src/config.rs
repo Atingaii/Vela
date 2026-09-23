@@ -46,10 +46,16 @@ pub struct Config {
     /// "auto" | "zh" | "zh-Hant" | "en" | "ja" | "ko" | "pt-BR" | "ru" | "uk"
     #[serde(default = "default_lang")]
     pub lang: String,
-    /// Opt-in until a verifiable release feed is configured. Existing installations retain
-    /// their manual update behavior; Settings exposes the same choice as Swift's updater.
-    #[serde(default)]
+    /// Sparkle's source default is on. An explicit saved false stays off; builds without a
+    /// signed feed still cannot check or download regardless of this preference.
+    #[serde(default = "yes")]
     pub automatic_updates: bool,
+    /// Persistent consent generation prevents an old staged download from surviving off -> on,
+    /// including when the application restarts between those two preference changes.
+    #[serde(default)]
+    pub automatic_updates_generation: u64,
+    #[serde(default)]
+    pub last_update_check_ms: Option<u64>,
     #[serde(default)]
     pub bar_x: Option<i32>,
     #[serde(default)]
@@ -229,7 +235,9 @@ impl Default for Config {
             custom_endpoints: Vec::new(),
             port: default_port(),
             lang: default_lang(),
-            automatic_updates: false,
+            automatic_updates: true,
+            automatic_updates_generation: 0,
+            last_update_check_ms: None,
             bar_x: None,
             bar_y: None,
             bar_w: None,
@@ -386,17 +394,16 @@ mod tests {
         assert_eq!(cfg.appearance.saved_custom_scale, 0.95);
     }
     #[test]
-    fn automatic_updates_are_opt_in_and_survive_config_round_trip() {
+    fn automatic_updates_default_on_but_preserve_an_explicit_off_choice() {
         let old: super::Config = serde_json::from_str(r#"{"lang":"en"}"#).unwrap();
-        assert!(
-            !old.automatic_updates,
-            "old configs must not silently opt in"
-        );
-        let mut enabled = old;
-        enabled.automatic_updates = true;
-        let saved = serde_json::to_string(&enabled).unwrap();
+        assert!(old.automatic_updates);
+        let mut disabled = old;
+        disabled.automatic_updates = false;
+        disabled.automatic_updates_generation = 3;
+        let saved = serde_json::to_string(&disabled).unwrap();
         let reloaded: super::Config = serde_json::from_str(&saved).unwrap();
-        assert!(reloaded.automatic_updates);
+        assert!(!reloaded.automatic_updates);
+        assert_eq!(reloaded.automatic_updates_generation, 3);
     }
 
     #[test]

@@ -465,6 +465,7 @@ pub fn get_providers(app: AppHandle) -> Vec<Reading> {
                     source: "Command Code".into(),
                     manage_url: Some("https://commandcode.ai".into()),
                 }),
+                "kiro" => kiro::account(snapshot("kiro").plan),
                 _ => None,
             },
             snap: if enabled(&app, p.id) {
@@ -720,6 +721,9 @@ pub fn set_provider_enabled(app: AppHandle, id: String, value: bool) -> Result<(
         None
     };
     if !value {
+        if id == "kiro" {
+            kiro::forget();
+        }
         // Vela owns these two keys. CLI credentials are borrowed and must remain untouched.
         if matches!(id.as_str(), "minimax" | "ollama-cloud") {
             let _ = crate::secrets::delete_owned_provider_secret(&id);
@@ -1052,10 +1056,7 @@ fn collect_catalog(app: &AppHandle, id: &'static str, epoch: u64, old: UsageSnap
             other => Some(other),
         }
     } else if id == "kiro" {
-        Some(kiro::read().map(|windows| UsageSnapshot {
-            windows,
-            ..Default::default()
-        }))
+        Some(kiro::read(app, epoch))
     } else if id == "gemini-api" {
         let budget = app
             .state::<crate::AppState>()

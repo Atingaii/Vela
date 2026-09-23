@@ -444,6 +444,26 @@ function esc(s){
     { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
   ));
 }
+function isEditingField(element){
+  return element instanceof HTMLTextAreaElement ||
+    (element instanceof HTMLInputElement && ['text','url','password','number','email','search'].includes(element.type));
+}
+// SettingsWindowController keeps editing inside the text field's 4pt focus ring,
+// and ends it after an outside click has reached its own target.
+document.addEventListener('pointerdown',event=>{
+  if(event.button!==0)return;
+  const edited=document.activeElement;
+  if(!isEditingField(edited))return;
+  const frame=edited.getBoundingClientRect(),pad=4;
+  const inside=event.clientX>=frame.left-pad&&event.clientX<=frame.right+pad&&
+    event.clientY>=frame.top-pad&&event.clientY<=frame.bottom+pad;
+  if(inside){
+    if(event.target!==edited)event.preventDefault();
+  }else setTimeout(()=>{if(document.activeElement===edited)edited.blur();},0);
+},true);
+window.__TAURI__.event.listen('settings_opened',()=>{
+  if(isEditingField(document.activeElement))document.activeElement.blur();
+}).catch(()=>{});
 
 /* ---- Translations ---------------------------------------------------------
    Strings shared with the Mac take the Mac catalog's translations; strings kept from the previous
@@ -1239,6 +1259,7 @@ function showTab(id, moveFocus){
   if(TABS.indexOf(id) < 0) id = TABS[0];
   curTab = id;
   if(PROVIDER_TABS.includes(id))expandAccounts(true);
+  if(id==='accounts')refreshAccountDestinations(true);
   if(id==='phone')readPhone();
   for(const t of TABS){
     const on = t === id;
@@ -1291,6 +1312,8 @@ const FALLBACK_LABEL = { claude:'Claude', codex:'Codex', glm:'z.ai', cursor:'Cur
 let disabledProviders=[];
 let providerMetadata=[];
 let providerSettings={minimax_china:false,gemini_token_budget:null},providerSettingsBusy=false;
+let accountDestinations={},accountDestinationSignature='',accountDestinationEpoch=0;
+const accountDestinationBusy=new Set();
 let options = [];      // [{id,label,status,used}] from get_tray_options
 let glyphs = {};       // id -> {kind:'svg'|'png'|'appicon', svg, url}
 const keychainRetryBusy=new Set();
@@ -1321,6 +1344,39 @@ window.__TAURI__.event.listen('web_session_state',e=>{
 function providerList(){
   return options.length ? options : ORDER.map(id => ({ id, label:FALLBACK_LABEL[id], status:'' }));
 }
+const ACCOUNT_TEMPLATES={
+ 'pt-BR':{'Open %@':'Abrir o %@','Opens %@, which is where this account is signed in.':'Abre o %@, que é onde esta conta está conectada.','Opens %@ in your browser. That site has its own sign-in, separate from the credential read here.':'Abre o %@ no seu navegador. Esse site tem o login próprio dele, separado da credencial lida aqui.','Switch accounts in %@; the notch follows.':'Troque de conta no %@; o notch acompanha.'},
+ ru:{'Open %@':'Открыть %@','Opens %@, which is where this account is signed in.':'Открывает %@, где выполнен вход в этот аккаунт.','Opens %@ in your browser. That site has its own sign-in, separate from the credential read here.':'Открывает %@ в браузере. На этом сайте используется отдельный вход, не связанный с читаемыми здесь данными.','Switch accounts in %@; the notch follows.':'Смените аккаунт в %@ — выемка обновится.'},
+ zh:{'Open %@':'打开 %@','Opens %@, which is where this account is signed in.':'打开 %@，这个账号就是在那里登录的。','Opens %@ in your browser. That site has its own sign-in, separate from the credential read here.':'在浏览器打开 %@。那个网站有自己的登录，和这里读取的凭证不是一回事。','Switch accounts in %@; the notch follows.':'在 %@ 里切换账号，刘海会跟上。'},
+ 'zh-Hant':{'Open %@':'開啟 %@','Opens %@, which is where this account is signed in.':'開啟 %@，這個帳號就是在那裡登入的。','Opens %@ in your browser. That site has its own sign-in, separate from the credential read here.':'在瀏覽器開啟 %@。那個網站有自己的登入，和這裡讀取的憑證不是一回事。','Switch accounts in %@; the notch follows.':'在 %@ 裡切換帳號，瀏海會跟上。'},
+ ja:{'Open %@':'%@ を開く','Opens %@, which is where this account is signed in.':'このアカウントがサインインしている %@ を開きます。','Opens %@ in your browser. That site has its own sign-in, separate from the credential read here.':'ブラウザで %@ を開きます。このサイトには独自のサインインがあり、ここで読み取っている資格情報とは別のものです。','Switch accounts in %@; the notch follows.':'%@ でアカウントを切り替えると、ノッチもそれに従います。'},
+ ko:{'Open %@':'%@ 열기','Opens %@, which is where this account is signed in.':'이 계정이 로그인된 %@을(를) 엽니다.','Opens %@ in your browser. That site has its own sign-in, separate from the credential read here.':'브라우저에서 %@을(를) 엽니다. 해당 사이트의 로그인은 여기서 읽는 자격 증명과 별개입니다.','Switch accounts in %@; the notch follows.':'%@에서 계정을 전환하면 노치에도 반영됩니다.'},
+ uk:{'Open %@':'Відкрити %@','Opens %@, which is where this account is signed in.':'Відкриває %@ — саме там виконано вхід у цей акаунт.','Opens %@ in your browser. That site has its own sign-in, separate from the credential read here.':'Відкриває %@ у браузері. Той сайт має власний вхід, окремий від облікових даних, які читаються тут.','Switch accounts in %@; the notch follows.':'Змініть акаунт у %@ — виріз оновиться.'}
+};
+function accountText(key,label){return (ACCOUNT_TEMPLATES[uiLang]?.[key]||key).replace('%@',label);}
+function destinationHelp(destination){
+ return accountText(destination.kind==='app'?'Opens %@, which is where this account is signed in.':'Opens %@ in your browser. That site has its own sign-in, separate from the credential read here.',destination.label);
+}
+async function refreshAccountDestinations(force=false){
+ const ids=[...new Set(providerList().map(row=>row.id))];
+ const signature=JSON.stringify(ids.map(id=>{
+  const row=providerMetadata.find(row=>row.id===id);
+  return [id,!disabledProviders.includes(id),row?.enabled!==false,row?.account?.manage_url||'',row?.account?.label||''];
+ }));
+ const changed=signature!==accountDestinationSignature;
+ if(!force&&!changed)return;
+ accountDestinationSignature=signature;
+ const epoch=++accountDestinationEpoch;
+ if(changed){accountDestinations={};renderAccounts();}
+ const found=await Promise.all(ids.map(async id=>{
+  try{return [id,await invoke('get_account_destination',{id})];}
+  catch(_){return [id,null];}
+ }));
+ if(epoch!==accountDestinationEpoch)return;
+ accountDestinations=Object.fromEntries(found.filter(([,destination])=>destination&&['app','website'].includes(destination.kind)&&typeof destination.label==='string'));
+ renderAccounts();
+}
+setInterval(()=>{if(curTab==='accounts')refreshAccountDestinations(true);},15000);
 function statusText(p){
   const words = STATUS_TEXT[uiLang] || STATUS_TEXT.en;
   return words[p.status] !== undefined ? words[p.status] : String(p.status || '');
@@ -1336,10 +1392,10 @@ function glyphHtml(p){
   if(g && g.url) return '<span class="glyph"><img src="' + esc(g.url) + '" alt=""></span>';
   return '<span class="glyph letter">' + esc((p.label || p.id).charAt(0)) + '</span>';
 }
-invoke('get_disabled_providers').then(v=>{disabledProviders=Array.isArray(v)?v:[];renderAccounts();renderLocalConnections();}).catch(()=>{});
+invoke('get_disabled_providers').then(v=>{disabledProviders=Array.isArray(v)?v:[];renderAccounts();renderLocalConnections();refreshAccountDestinations();}).catch(()=>{});
 function refreshOptions(){
   call('get_tray_options', undefined, null).then(opts => {
-    if(Array.isArray(opts) && opts.length){ options = opts.filter(o => o && typeof o.id === 'string'); renderAccounts(); }
+    if(Array.isArray(opts) && opts.length){ options = opts.filter(o => o && typeof o.id === 'string'); renderAccounts();refreshAccountDestinations(); }
   });
 }
 
@@ -1418,12 +1474,14 @@ function accountBlock(p, isOn, locked){
   const metadata=providerMetadata.find(x=>x.id===p.id);
   const model=metadata?.snap?.local_model;
   const web=webSessionStates[p.id],account=metadata?.account;
+  const destination=accountDestinations[p.id];
   const webCanSignIn=!!(web?.supported&&WEB_SESSION_IDS.includes(p.id));
   const accountSummary=account?[account.label,account.plan?.replace(/\b\p{L}/gu,c=>c.toUpperCase()),ui('via '+account.source)].filter(Boolean).join(' · '):'';
   let h = '<div class="acct' + (isOn ? '' : ' off') + '" data-account="'+esc(p.id)+'">'
     + '<div class="acct-line">'+(isOn?'<button class="account-handle" draggable="true" data-reorder="'+esc(p.id)+'" aria-label="'+esc(ui('Reorder')+' '+p.label)+'" title="'+esc(ui('Drag to reorder; use arrow keys'))+'">☰</button>':'')+'<span class="acct-name">' + glyphHtml(p) + '<span>' + esc(p.label || p.id) + '</span></span>'
     + (isOn?'<button class="account-alert" data-mute="'+esc(p.id)+'" aria-pressed="'+(notificationPrefs.muted_providers||[]).includes(p.id)+'" aria-label="'+esc(ui('Mute threshold alerts')+' '+p.label)+'" title="'+esc(ui('Mute threshold alerts')+' '+p.label)+'"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5a4 4 0 0 1 8 0v3l1 2H2l1-2Zm2.5 7h3"/>'+((notificationPrefs.muted_providers||[]).includes(p.id)?'<path d="m1 1 12 12"/>':'')+'</svg></button>':'')
     + (isOn&&metadata?.was_refused_access?'<button class="btn compact" data-allow-keychain="'+esc(p.id)+'"'+(keychainRetryBusy.has(p.id)?' disabled':'')+'>'+esc(ui('Allow access…'))+'</button>':'')
+    + (isOn&&destination?'<button class="btn compact" data-account-open="'+esc(p.id)+'" title="'+esc(destinationHelp(destination))+'"'+(accountDestinationBusy.has(p.id)?' disabled':'')+'>'+esc(accountText('Open %@',destination.label))+'</button>':'')
     + '<button class="switch' + (isOn ? ' on' : '') + (locked || notchSaving ? ' locked' : '') + '" role="switch" aria-checked="' + isOn + '"'
     + (notchSaving ? ' disabled' : '') + ' data-np="' + esc(p.id) + '" aria-label="' + esc(p.label || p.id) + '"></button></div>';
   if(model){
@@ -1435,15 +1493,15 @@ function accountBlock(p, isOn, locked){
   }else if(!isOn)h+='<div class="acct-detail">'+esc(ui('Signed out — nothing is read, and no readings are kept.'))+'</div>';
   else if(accountSummary){
     h+='<div class="acct-detail"><div class="account-summary">'+esc(accountSummary)
-      +(webCanSignIn?'<button class="link" data-web-sign-in="'+esc(p.id)+'" data-switch="true">'+esc(ui('Switch…'))+'</button>':'')
-      +'</div><div class="account-source">'+esc(webCanSignIn?ui('Sign out in the '+p.label+' window to use another account.'):ui('Switch accounts in the tool that owns it; the notch follows.'))+'</div></div>';
+      +(webCanSignIn?'<button class="link" data-web-sign-in="'+esc(p.id)+'" data-switch="true">'+esc(ui('Switch…'))+'</button>':destination?.kind==='app'?'<button class="link" data-account-switch="'+esc(p.id)+'">'+esc(ui('Switch…'))+'</button>':'')
+      +'</div><div class="account-source">'+esc(webCanSignIn?ui('Sign out in the '+p.label+' window to use another account.'):destination?.kind==='app'?accountText('Switch accounts in %@; the notch follows.',destination.label):ui('Switch accounts in the tool that owns it; the notch follows.'))+'</div></div>';
   }else if(metadata?.was_refused_access){
     h+='<div class="acct-detail warning">'+esc(ui('Velo is not reading '+(p.label||p.id)+"'s saved login. Choose Allow access… above and answer Allow."))+'</div>';
   }else if(web){
     if(!web.supported)h+='<div class="acct-detail warning">'+esc(web.reason||'Private browser profiles are unavailable on this system.')+'</div>';
     else if(web.signed_in)h+='<div class="acct-detail"><div class="account-summary">'+esc(ui('via '+(p.label||p.id)))+'<button class="link" data-web-sign-in="'+esc(p.id)+'" data-switch="true">'+esc(ui('Switch…'))+'</button></div><div class="account-source">'+esc(ui('Sign out in the '+p.label+' window to use another account.'))+'</div></div>';
     else h+='<div class="acct-sub"><span>'+esc(ui('Sign in to '+(p.label||p.id)+' to read this account.'))+'</span><button class="btn" data-web-sign-in="'+esc(p.id)+'">'+esc(ui('Sign in to '+(p.label||p.id)))+'</button></div>';
-  }else h+='<div class="acct-detail'+(st&&st!=='ok'?' warning':'')+'">'+esc(metadata?.guidance||st||ui('Sign in with the tool that owns this account.'))+'</div>';
+  }else h+='<div class="acct-detail'+(st&&st!=='ok'?' warning':'')+'">'+esc(metadata?.guidance||st||ui('Sign in with the tool that owns this account.'))+(destination?.kind==='app'?'<button class="btn compact" data-account-open="'+esc(p.id)+'"'+(accountDestinationBusy.has(p.id)?' disabled':'')+'>'+esc(accountText('Open %@',destination.label))+'</button>':'')+'</div>';
   if(isOn&&metadata?.needs_sign_in_renewal)h+='<div class="acct-detail warning renewal">'+esc(ui((p.label||p.id)+' usage needs its sign-in renewed — run `claude` once in a terminal.'))+'</div>';
   if(p.id === 'gemini' && isOn){
     h += '<div class="acct-sub"><span>' + esc(ui('Notch reads', 'Notch reads')) + '</span>' + agSelect('limit', AG_LIMITS, agPrefs.limit) + '</div>'
@@ -1488,6 +1546,7 @@ async function toggleNotch(id){
     await invoke('set_provider_enabled',{id,value});
     const [disabled,slots]=await Promise.all([invoke('get_disabled_providers'),invoke('get_notch_slots')]);
     disabledProviders=Array.isArray(disabled)?disabled:[];notchSlots=slots;
+    refreshAccountDestinations(true);
     if(value&&WEB_SESSION_IDS.includes(id)&&webSessionStates[id]?.supported&&!webSessionStates[id].signed_in)
       await openWebSession(id);
     toast();
@@ -1515,6 +1574,16 @@ accountsPane.addEventListener('click', async e => {
   }
   const web=e.target.closest('[data-web-sign-in]');
   if(web){await openWebSession(web.dataset.webSignIn,web.dataset.switch==='true');return;}
+  const destination=e.target.closest('[data-account-open],[data-account-switch]');
+  if(destination){
+    const id=destination.dataset.accountOpen||destination.dataset.accountSwitch;
+    if(accountDestinationBusy.has(id)||!accountDestinations[id])return;
+    accountDestinationBusy.add(id);renderAccounts();
+    try{await invoke('open_account_destination',{id});}
+    catch(error){strip(errText(error));refreshAccountDestinations(true);}
+    finally{accountDestinationBusy.delete(id);renderAccounts();}
+    return;
+  }
   const mute=e.target.closest('[data-mute]');
   if(mute){const muted=new Set(notificationPrefs.muted_providers||[]);if(muted.has(mute.dataset.mute))muted.delete(mute.dataset.mute);else muted.add(mute.dataset.mute);await saveNotification({muted_providers:[...muted]});return;}
   const save=e.target.closest('[data-save-key]');
@@ -1607,7 +1676,7 @@ field('ollama-metrics').addEventListener('click',async()=>{
  finally{localBusy=false;renderLocalConnections();renderOllamaRelay();}
 });
 setInterval(()=>{if(curTab==='ollama')refreshLocalActivity();},3000);
-invoke('get_providers').then(v=>{providerMetadata=Array.isArray(v)?v:[];renderAccounts();renderLocalConnections();}).catch(()=>{});
+invoke('get_providers').then(v=>{providerMetadata=Array.isArray(v)?v:[];renderAccounts();renderLocalConnections();refreshAccountDestinations();}).catch(()=>{});
 invoke('get_provider_settings').then(v=>{if(v)providerSettings={...providerSettings,...v};renderAccounts();}).catch(()=>{});
 async function saveProviderSettings(patch){
   if(providerSettingsBusy)return;
@@ -1649,7 +1718,7 @@ async function refreshLocalModels(){
  // Loaded model rows live in Accounts, as in SettingsView.providerSummaries.
  refreshOptions();
 }
-window.__TAURI__.event.listen('providers',e=>{providerMetadata=Array.isArray(e.payload)?e.payload:providerMetadata;renderAccounts();renderLocalConnections();refreshLocalModels().catch(()=>{});refreshMenuBarChoices();}).catch(()=>{});
+window.__TAURI__.event.listen('providers',e=>{providerMetadata=Array.isArray(e.payload)?e.payload:providerMetadata;renderAccounts();renderLocalConnections();refreshLocalModels().catch(()=>{});refreshMenuBarChoices();refreshAccountDestinations();}).catch(()=>{});
 refreshLocalModels().catch(()=>{});
 const CUSTOM_COLORS=['#6366F1','#10B981','#F97316','#EC4899','#14B8A6','#8B5CF6','#3B82F6','#EAB308'];
 const CUSTOM_ICONS=['openai','claude','deepseek','grok','meta','mistral','ollama','lmstudio','qwen','gemini-spark'];

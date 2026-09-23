@@ -52,14 +52,14 @@ pub fn root() -> Option<&'static PathBuf> {
 }
 
 pub fn start(app: &tauri::AppHandle) {
-    crate::settings_window::open(app);
+    crate::settings_window::open_for_smoke(app);
     if visual() {
         return;
     }
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(30));
-        finish(&app, false, false);
+        finish(&app, false, false, false);
     });
 }
 
@@ -241,13 +241,14 @@ pub fn swift_snapshot(id: &str) -> Option<crate::usage::UsageSnapshot> {
         .map(|row| row.snap)
 }
 
-fn finish(app: &tauri::AppHandle, page_ready: bool, helper_present: bool) {
+fn finish(app: &tauri::AppHandle, page_ready: bool, helper_present: bool, presence_ok: bool) {
     let Some(root) = root() else { return };
-    let success = page_ready && helper_present;
+    let success = page_ready && helper_present && presence_ok;
     let report = serde_json::json!({
         "success":success,"version":env!("CARGO_PKG_VERSION"),
         "os":std::env::consts::OS,"arch":std::env::consts::ARCH,
         "settings_webview_and_ipc":page_ready,"bundled_helper":helper_present,
+        "windows_taskbar_proxy": if cfg!(windows) { Some(presence_ok) } else { None },
         "providers_started":false
     });
     let written = std::fs::write(root.join("smoke-result.json"), report.to_string()).is_ok();
@@ -276,7 +277,11 @@ pub fn smoke_ready(
         .get_webview_window("settings")
         .and_then(|w| w.is_visible().ok())
         .unwrap_or(false);
-    finish(&app, ready && visible, present);
+    #[cfg(windows)]
+    let presence_ok = crate::settings_window::windows_taskbar_smoke_ok(&app);
+    #[cfg(not(windows))]
+    let presence_ok = true;
+    finish(&app, ready && visible, present, presence_ok);
     Ok(())
 }
 

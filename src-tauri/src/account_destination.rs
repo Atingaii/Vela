@@ -50,13 +50,70 @@ async fn installed_app(app: &AppHandle, bundle: &'static str) -> bool {
     rx.recv().await.unwrap_or(false)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+fn windows_executable(bundle: &str) -> Option<&'static str> {
+    Some(match bundle {
+        "com.openai.codex" => "Codex.exe",
+        "com.todesktop.230313mzl4w4u92" => "Cursor.exe",
+        "com.google.antigravity" => "Antigravity.exe",
+        "com.exafunction.windsurf" => "Windsurf.exe",
+        "com.electron.ollama" => "Ollama.exe",
+        "ai.elementlabs.lmstudio" => "LM Studio.exe",
+        _ => return None,
+    })
+}
+
+/// App Paths is Windows' own installed-application registration. Do not treat a macOS bundle ID
+/// as an executable or launch a guessed location from the user's PATH.
+#[cfg(windows)]
+fn windows_app_path(bundle: &str) -> Option<std::path::PathBuf> {
+    use windows::core::HSTRING;
+    use windows::Win32::System::Registry::{
+        RegGetValueW, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE,
+        RRF_RT_REG_EXPAND_SZ, RRF_RT_REG_SZ,
+    };
+    let executable = windows_executable(bundle)?;
+    let key = HSTRING::from(format!(
+        "Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\{executable}"
+    ));
+    let default_value = HSTRING::from("");
+    for root in [HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE] {
+        let mut value = [0u16; 4096];
+        let mut bytes = (value.len() * std::mem::size_of::<u16>()) as u32;
+        let status = unsafe {
+            RegGetValueW(root, &key, &default_value, RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ,
+                None, Some(value.as_mut_ptr().cast()), Some(&mut bytes))
+        };
+        if !status.is_ok() { continue; }
+        let Some(len) = value.iter().position(|unit| *unit == 0) else { continue };
+        let Ok(raw) = String::from_utf16(&value[..len]) else { continue };
+        let path = std::path::PathBuf::from(raw);
+        if path.is_absolute() && path.is_file()
+            && path.file_name().is_some_and(|name| name.to_string_lossy().eq_ignore_ascii_case(executable)) {
+            return Some(path);
+        }
+    }
+    None
+}
+
+#[cfg(windows)]
+async fn installed_app(_app: &AppHandle, bundle: &'static str) -> bool {
+    windows_app_path(bundle).is_some()
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 async fn installed_app(_app: &AppHandle, _bundle: &'static str) -> bool { false }
 
 async fn resolve(app: &AppHandle, id: &str) -> Option<(AccountDestination, Target)> {
     if crate::smoke::root().is_some() { return None; }
     let row = crate::providers::get_providers(app.clone())
-        .into_iter().find(|row| row.id == id && row.enabled)?;
+        .into_iter().find(|row| row.id == id);
+    // Default six rings come from AppState, not the provider catalog. A missing Reading must not
+    // erase a real connected Codex/Cursor/Antigravity app destination from Accounts.
+    let enabled = row.as_ref().map(|row| row.enabled).unwrap_or_else(|| {
+        crate::TRAY_PROVIDER_IDS.contains(&id) && crate::providers::enabled(app, id)
+    });
+    if !enabled { return None; }
     if let Some((bundle, name)) = owner_app(id) {
         if installed_app(app, bundle).await {
             return Some((AccountDestination {
@@ -66,7 +123,18 @@ async fn resolve(app: &AppHandle, id: &str) -> Option<(AccountDestination, Targe
             }, Target::App(bundle)));
         }
     }
-    let (url, host) = safe_account_url(row.account.as_ref()?.manage_url.as_deref()?)?;
+    let manage_url = row.as_ref().and_then(|row| row.account.as_ref())
+        .and_then(|account| account.manage_url.as_deref())
+        .map(str::to_owned)
+        .or_else(|| {
+            // The default Codex profile's local auth identity is the same evidence Swift uses
+            // before offering its browser fallback. Never open a generic sign-in page merely
+            // because an account switch is enabled.
+            (id == "codex" && dirs::home_dir()
+                .is_some_and(|home| crate::codex::account_identity(&home.join(".codex")).is_some()))
+                .then_some("https://chatgpt.com/#settings/Account".to_string())
+        })?;
+    let (url, host) = safe_account_url(&manage_url)?;
     Some((AccountDestination {
         kind: "website",
         label: host.clone(),
@@ -95,7 +163,19 @@ async fn open_app(app: &AppHandle, bundle: &'static str) -> Result<(), String> {
     else { Err("The account's application is no longer available.".into()) }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+async fn open_app(_app: &AppHandle, bundle: &'static str) -> Result<(), String> {
+    use std::process::{Command, Stdio};
+    let path = windows_app_path(bundle)
+        .ok_or_else(|| "The account's application is no longer installed.".to_string())?;
+    let mut child = Command::new(path)
+        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+        .spawn().map_err(|error| error.to_string())?;
+    std::thread::spawn(move || { let _ = child.wait(); });
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 async fn open_app(_app: &AppHandle, _bundle: &'static str) -> Result<(), String> {
     Err("The account's application is not available on this system.".into())
 }

@@ -42,6 +42,24 @@ pub fn open(app: &AppHandle) {
     });
 }
 
+/// The isolated installed-app smoke first exercises the Windows Taskbar-only state before it
+/// raises Settings. Both operations run in one UI turn so scheduling cannot skip the first state.
+pub fn open_for_smoke(app: &AppHandle) {
+    #[cfg(windows)]
+    {
+        let handle = app.clone();
+        std::thread::spawn(move || {
+            let app = handle.clone();
+            let _ = handle.run_on_main_thread(move || {
+                apply_windows_presence_on_main_thread(&app);
+                open_now(&app);
+            });
+        });
+    }
+    #[cfg(not(windows))]
+    open(app);
+}
+
 /// Only the notch gear toggles. Menu items and first-launch introduction always show Settings.
 pub fn toggle(app: &AppHandle) {
     let handle = app.clone();
@@ -84,6 +102,7 @@ fn open_now(app: &AppHandle) {
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
+        let _ = app.emit_to(LABEL, "settings_opened", ());
         #[cfg(windows)]
         apply_windows_presence_on_main_thread(app);
         return;
@@ -144,6 +163,7 @@ fn open_now(app: &AppHandle) {
                 }
             });
             let _ = w.set_focus();
+            let _ = app.emit_to(LABEL, "settings_opened", ());
             #[cfg(windows)]
             apply_windows_presence_on_main_thread(app);
         }
@@ -174,6 +194,8 @@ pub fn apply_presence(app: &AppHandle) {
 const TASKBAR_LABEL: &str = "taskbar-presence";
 #[cfg(windows)]
 static TASKBAR_ARMED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+#[cfg(windows)]
+static TASKBAR_BOOT_OK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 #[cfg(windows)]
 fn app_presence_mode(app: &AppHandle) -> String {
@@ -182,6 +204,8 @@ fn app_presence_mode(app: &AppHandle) -> String {
 
 /// Windows has no Dock. A tiny native window supplies the Taskbar entry while Settings is
 /// closed; selecting it opens Settings. It contains no WebView, IPC capability, or account data.
+/// Tauri 2.11 exposes native-only WindowBuilder/get_window behind its `unstable` feature;
+/// using WebviewWindowBuilder here would create an unnecessary privileged renderer.
 #[cfg(windows)]
 fn taskbar_window(app: &AppHandle) -> Option<tauri::Window> {
     if let Some(window) = app.get_window(TASKBAR_LABEL) { return Some(window); }
@@ -213,7 +237,6 @@ fn taskbar_window(app: &AppHandle) -> Option<tauri::Window> {
 
 #[cfg(windows)]
 fn apply_windows_presence_on_main_thread(app: &AppHandle) {
-    if crate::smoke::root().is_some() { return; }
     let mode = app_presence_mode(app);
     let settings = app.get_webview_window(LABEL);
     let settings_open = settings.as_ref().is_some_and(|window| window.is_visible().unwrap_or(false));
@@ -232,6 +255,9 @@ fn apply_windows_presence_on_main_thread(app: &AppHandle) {
                 TASKBAR_ARMED.store(false, std::sync::atomic::Ordering::Release);
                 let _ = proxy.show();
                 let _ = proxy.minimize();
+                if proxy.is_visible().unwrap_or(false) && proxy.is_minimized().unwrap_or(false) {
+                    TASKBAR_BOOT_OK.store(true, std::sync::atomic::Ordering::Release);
+                }
                 TASKBAR_ARMED.store(true, std::sync::atomic::Ordering::Release);
             }
         }
@@ -240,6 +266,16 @@ fn apply_windows_presence_on_main_thread(app: &AppHandle) {
         let _ = proxy.hide();
         let _ = proxy.set_skip_taskbar(true);
     }
+}
+
+#[cfg(windows)]
+pub fn windows_taskbar_smoke_ok(app: &AppHandle) -> bool {
+    TASKBAR_BOOT_OK.load(std::sync::atomic::Ordering::Acquire)
+        && app.get_window(TASKBAR_LABEL)
+            .is_some_and(|proxy| proxy.is_minimized().unwrap_or(false)
+                && !proxy.is_visible().unwrap_or(true))
+        && app.get_webview_window(LABEL)
+            .is_some_and(|settings| settings.is_visible().unwrap_or(false))
 }
 
 #[cfg(target_os = "macos")]

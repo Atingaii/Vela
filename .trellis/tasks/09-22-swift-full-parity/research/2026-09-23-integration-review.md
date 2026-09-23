@@ -53,8 +53,11 @@
 29. Gemini API 输出严格按固定源：month 总窗口保留实际 token 和可选预算百分比、today 总窗口、cli/opencode/hermes 各一个月窗口；不能添加每来源 calls/today 行，也不能有预算后丢掉实际 token。无日志采用原版 nothingMetered 语义。
 30. Devin 金额展示保留 Usage / Extra usage 分组，overage 的 used 是四舍五入后的 cents，usedText 是据该 cents 格式化的美元；金额不能只拼进 label 后再显示裸分数。Desktop 优先凭据、身份和源标签、CLI 空白校验与请求错误策略一并迁移。
 31. 声音原生桥接必须实际验证无声坏文件失败，不能用文件枚举测试代替 AVAudioPlayer 初始化结果。按源在调用 play 前替换 retained player；仅初始化失败才采用 NSSound 回退。
+32. 默认内置供应商的刷新也要对齐 UsageStore。CATALOG 与 named profile 已有活跃 60 秒、空闲 300 秒和 reset 边界调度，但 Codex/Cursor/Grok/GLM/Antigravity 默认采集仍有独立固定 300 秒循环；不能只对新增供应商迁移调度，再把全局调度标作完成。
 
 最近检查：`882093e` 的浏览器/macOS/Windows CI 35816546847 全通过。当前后续检查点本机 Cargo 331 + helper 1、3 ignored（`/tmp/velo-migration-platform-ag-chime-tests.log`）、Node 18/18（`/tmp/velo-migration-platform-ag-node-tests.log`）通过。新 Windows 活动适配尚待对应提交的 CI，不能复用此前结果。
+
+`d132ff1` 已推送，对应 CI 35817407268。其后本机 Cargo 332 + helper 1、3 ignored 通过（`/tmp/velo-migration-accounts-chime-kiro-tests.log`），包含真实 AVAudioPlayer 初始化坏音频后返回失败的无声测试。原生构建通过（`/tmp/velo-migration-accounts-native-build.log`），新 binary 复制到本次专用隔离 bundle 后实际 smoke 再次通过（`/tmp/velo-migration-accounts-native-smoke.json`）：WebView/IPC 和 helper 存在、无供应商采集、正常退出。该次 Windows Taskbar 检查在 macOS 报告为 null，绝不推断 Windows 已验证。Kiro 此检查点只闭合完整 Reading 结构，其 enrichment 仍在实现。
 
 ## 解锁后的原生复核顺序
 
@@ -66,3 +69,5 @@
 6. 全量检查稳定后冻结源码、提交并运行对应 SHA 的双平台 CI 与安装包 smoke；真实账户和 Windows 实机未执行的项目保持明确边界，不由 parser fixtures 代替。
 
 实现按用户要求由 GPT-6-Sol High 执行；根代理负责源代码核对、集成审查及最终验证。工作区尚未达到全量迁移完成条件。
+
+后续 Kiro 完整 CLI/API enrichment 批次通过 Cargo 340 + helper 1（3 ignored，`/tmp/velo-migration-kiro-feature-tests.log`）、Node 18/18 与 UI 脚本检查。Chromium/WebKit 各 55/55 通过。CI 35817407268 的 Windows 在 Tauri native WindowBuilder 的 unstable feature gate 处编译失败，尚未执行活动测试；本检查点补 Windows-only feature，并将实际 native startup smoke 加入普通双平台 CI。新 updater 模块仍在实现，不包含在此验证结论中。
