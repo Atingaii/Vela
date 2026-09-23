@@ -1,12 +1,11 @@
 // Make a disposable older-version source tree from the *current* updater implementation.
 // This only prepares files; the caller builds it serially with the normal release command.
 // The public 0.1.0 preview cannot serve as a verification base because it had no signing key.
-import {cp, mkdtemp, mkdir, readFile, rm, symlink, writeFile} from 'node:fs/promises';
+import {cp, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const oldVersion = '0.1.1-preview.0';
 const currentVersion = '0.1.1-preview.1';
 
@@ -16,15 +15,19 @@ function replaceOnce(contents, pattern, replacement, name) {
   return contents.replace(pattern, replacement);
 }
 
+export function rewriteCargoLockVersion(contents, name = 'Cargo.lock') {
+  return replaceOnce(contents,
+    /(\[\[package\]\]\r?\nname = "vela"\r?\nversion = ")0\.1\.1-preview\.1(")/m,
+    (_match, before, after) => `${before}${oldVersion}${after}`, name);
+}
+
 async function rewriteVersions(root) {
   const cargo = join(root, 'src-tauri', 'Cargo.toml');
   await writeFile(cargo, replaceOnce(await readFile(cargo, 'utf8'),
     /^version = "0\.1\.1-preview\.1"$/m, `version = "${oldVersion}"`, cargo));
 
   const lock = join(root, 'Cargo.lock');
-  await writeFile(lock, replaceOnce(await readFile(lock, 'utf8'),
-    /(\[\[package\]\]\nname = "vela"\nversion = ")0\.1\.1-preview\.1(")/m,
-    (_match, before, after) => `${before}${oldVersion}${after}`, lock));
+  await writeFile(lock, rewriteCargoLockVersion(await readFile(lock, 'utf8'), lock));
 
   const tauriPath = join(root, 'src-tauri', 'tauri.conf.json');
   const tauri = JSON.parse(await readFile(tauriPath, 'utf8'));
@@ -49,6 +52,8 @@ async function rewriteVersions(root) {
   }
 }
 
+async function prepare() {
+const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const root = await mkdtemp(join(tmpdir(), 'velo-old-update-source-'));
 const copy = async (relative, filter) => {
   const destination = join(root, relative);
@@ -77,7 +82,20 @@ try {
     build: `cd '${root}' && node scripts/desktop.mjs build`,
     note: 'Build serially; supply signing credentials only through the normal secure build environment. Remove this disposable source after verification.'}, null, 2));
 } catch (error) {
-  await rm(root, {recursive: true, force: true});
+  let cleaned = false;
+  try {
+    await rm(root, {recursive: true, force: true});
+    cleaned = true;
+  } catch (cleanupError) {
+    console.error(`Could not remove failed preparation at ${root}: ${cleanupError.message}`);
+  }
+  console.log(JSON.stringify({success: false, prepared_root: root, cleaned, error: error.message}));
   console.error(`Could not prepare isolated old-version source at ${root}: ${error.message}`);
   process.exitCode = 1;
+}
+}
+
+if (process.argv[1] && await realpath(resolve(process.argv[1])).catch(() => null)
+    === await realpath(fileURLToPath(import.meta.url))) {
+  await prepare();
 }
