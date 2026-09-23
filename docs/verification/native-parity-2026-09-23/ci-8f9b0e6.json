@@ -1,0 +1,35 @@
+{
+  "run": "https://github.com/Atingaii/Velo/actions/runs/35854312077",
+  "source_sha": "8f9b0e64e69b985d8ce4bd3eae7b08b0af72d5c6",
+  "status": "completed",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "name": "native (macos-15-intel)",
+      "conclusion": "success",
+      "url": "https://github.com/Atingaii/Velo/actions/runs/35854312077/job/107159068225"
+    },
+    {
+      "name": "native (macos-latest)",
+      "conclusion": "success",
+      "url": "https://github.com/Atingaii/Velo/actions/runs/35854312077/job/107159068300"
+    },
+    {
+      "name": "browser",
+      "conclusion": "success",
+      "url": "https://github.com/Atingaii/Velo/actions/runs/35854312077/job/107159068373"
+    }
+  ],
+  "checks_per_macos_architecture": {
+    "rust_main_passed": 386,
+    "rust_main_ignored": 3,
+    "rust_helper_passed": 1,
+    "node_passed": 33
+  },
+  "browser": {
+    "chromium_passed": 84,
+    "webkit_passed": 84
+  },
+  "native_visual_and_real_account_acceptance": false,
+  "contains_changes_after_public_preview_tag": true
+}

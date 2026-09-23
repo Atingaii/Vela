@@ -143,4 +143,12 @@ Sol/max 对固定 Swift 和当前源码的有界复核发现：Swift 的 Kiro CL
 
 **该修复晚于 v0.1.1-preview.1 标签，不在其安装包内。** 后续 Mac CI 和原生交互验证按新源码提交单独记录，不把已发布包的验证结果套用到这次代码修复。多平台源码分支保留，Windows/Linux 没有新增实施或验证。
 
-官网已部署 [6198467a](https://6198467a.velo-5i0.pages.dev)，四个正式页面与 b1baaae 内容一致；两种 Mac 下载、首次打开步骤及图标已核对，[部署收据](website-macos-preview-b1baaae.json)保留页面哈希。本轮清理了约 43 MB 的一次性验签编译目录、上传副本和重复下载 DMG；原始发行产物、待原生对照的安装副本及可复用依赖仍保留。
+官网已部署 [6198467a](https://6198467a.velo-5i0.pages.dev)，四个正式页面与 b1baaae 内容一致；两种 Mac 下载、首次打开步骤及图标已核对，[部署收据](website-macos-preview-b1baaae.json)保留页面哈希。本轮清理了约 93 MB 的一次性验签编译目录、上传副本、重复下载 DMG 和过时的首次运行安装副本；原始发行产物、待原生对照的安装副本及可复用依赖仍保留。
+
+## 第十批：最新 Mac 源码 CI（8f9b0e6）
+
+[CI 35854312077](https://github.com/Atingaii/Velo/actions/runs/35854312077) 的 Apple Silicon、Intel Mac 与 browser 全部通过，客户端源码为 8f9b0e64e69b985d8ce4bd3eae7b08b0af72d5c6。每种 Mac 架构 Rust 主程序 386 + helper 1 通过、3 ignored，Node 33 通过；Chromium 84/84、WebKit 84/84。详见[流水线收据](ci-8f9b0e6.json)。
+
+新源码实际构建原生应用后，[ARM](macos-smoke-8f9b0e6-arm64.json)与[Intel](macos-smoke-8f9b0e6-intel.json)均通过设置 WebView/IPC/helper/wake 检查，exit 0、无超时、未启动供应商采集。对应[ARM 诊断](macos-diagnostic-8f9b0e6-arm64.json)与[Intel 诊断](macos-diagnostic-8f9b0e6-intel.json)无匹配崩溃报告。该结果包含 Kiro 分类修复，但不是重新发布的安装包；现有 v0.1.1-preview.1 仍固定原标签源码。
+
+Mac 原生控制仍报告锁屏，完整四边/动画/材质/设置逐交互对照及真实账户验收未完成。任务继续保持 in_progress，未开始边缘插件验收，Windows/Linux 仅规划；本次 CI 成功不改变这些未完成项。

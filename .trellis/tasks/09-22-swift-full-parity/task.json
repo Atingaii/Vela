@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "当前仅 macOS。预览版 v0.1.1-preview.1 的发行检查 35848207535、真实签名升级 35852348869 均在两种 Mac 架构通过；后续 Kiro 登录分类修复 8f9b0e6 已通过 CI 35854312077，未包含于既有固定标签安装包。官网部署 6198467a。Mac 仍锁屏，完整原生 UI、真实账户、多屏与材质验收未完成。Windows/Linux 仅规划。",
   "meta": {}
 }
