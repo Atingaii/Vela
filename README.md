@@ -7,9 +7,9 @@
 <p align="center">用量、重置时间、运行与等待状态，抬眼即见。</p>
 
 <p align="center">
-  <a href="https://github.com/Atingaii/Velo/actions/workflows/ci.yml"><img src="https://github.com/Atingaii/Velo/actions/workflows/ci.yml/badge.svg" alt="Cross-platform checks"></a>
+  <a href="https://github.com/Atingaii/Velo/actions/workflows/ci.yml"><img src="https://github.com/Atingaii/Velo/actions/workflows/ci.yml/badge.svg" alt="macOS and browser checks"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-69c8b3" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-42484c" alt="目标平台：macOS 与 Windows">
+  <img src="https://img.shields.io/badge/platform-macOS-42484c" alt="当前平台：macOS">
   <img src="https://img.shields.io/badge/status-in%20development-c99d54" alt="开发中">
 </p>
 
@@ -22,11 +22,11 @@
 
 ---
 
-Velo 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工具的额度和会话状态收进屏幕边缘的一条小面板，让你在终端、编辑器和多个账户之间工作时，少一次切换，少一次等待。
+Velo 是面向 **macOS 的 AI 编程桌面伴侣**。它把不同工具的额度和会话状态收进屏幕边缘的一条小面板，让你在终端、编辑器和多个账户之间工作时，少一次切换，少一次等待。
 
 鼠标移到圆环上，可以查看额度窗口、重置时间和会话信息；需要你回应或任务完成时，通过状态变化与提醒及时发现。
 
-> **当前为开发版本。** 核心界面和多项集成已实现，完整功能对齐、双平台原生体验及真实账户验收仍在进行。可下载安装预览版或从源码运行；详细进展见 [功能核对表](docs/migration-parity.md) 和 [兼容性与验收](docs/verification.md)。
+> **当前为开发版本。** 核心界面和多项集成已实现，完整功能对齐、Mac 原生界面与交互及真实账户验收仍在进行。Windows、Linux 仅列入[后续规划](docs/platform-roadmap.md)，收到明确指示后再推进。可下载安装预览版或从源码运行；详细进展见 [功能核对表](docs/migration-parity.md) 和 [兼容性与验收](docs/verification.md)。
 
 ## 为什么使用 Velo
 
@@ -39,7 +39,7 @@ Velo 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工
 
 ## 界面预览
 
-以下图片由仓库当前 HTML 界面在浏览器中渲染，**账户、额度和会话均为演示数据**，用于展示布局和操作方式，不代表原生窗口或真实服务验收。头图为 Velo 品牌插画。
+以下图片为先前开发预览的 HTML 界面在浏览器中的渲染，**账户、额度和会话均为演示数据**，用于展示布局和操作方式，不代表原生窗口或真实服务验收。头图为 Velo 品牌插画。
 
 ### 用量与活动，留在视线边缘
 
@@ -64,12 +64,12 @@ Velo 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工
 | 集成 | 当前范围 |
 | --- | --- |
 | Claude Code、Codex、Cursor、Antigravity、GLM、Grok | 已有用量接入，账户、活动及平台行为继续核对中 |
-| MiniMax、Devin、OpenCode、Command Code、GitHub Copilot、Kimi、Kiro、Ollama Cloud、Gemini API | 已移植解析与串行采集，真实账户与异常状态待验收 |
+| MiniMax、Devin、OpenCode、Command Code、GitHub Copilot、Kimi、Kiro、Ollama Cloud、Gemini API | 已移植解析与账户采集，真实账户与异常状态待验收 |
 | 自定义 OpenAI 兼容端点 | 已有配置保存、系统凭据库与探测，完整界面行为待核对 |
-| 手机连接 | 已实现局域网 v3 加密配对与刷新协议，真实手机互通及快照完整性待验收；默认关闭 |
-| 网页登录集成、本地 Ollama / LM Studio 完整指标 | 尚待完成 |
+| 手机连接 | 保留原版 v3 协议实现；固定 Swift 主线未开放，生产不显示入口 |
+| 网页登录集成、本地 Ollama / LM Studio 指标 | 隔离会话与本地指标已补实现和离线回归；真实登录与完整运行时体验待验 |
 
-接下来的重点是完成现有能力与 macOS / Windows 实机验收；之后再推进边缘插件机制。文件中转、剪贴板插件及其他扩展目前不作为可用功能提供。
+接下来的重点是完成现有能力与 Mac 原生界面、交互和安装验收；之后再推进边缘插件机制。文件中转、剪贴板插件及其他扩展目前不作为可用功能提供。
 
 ## 快速开始
 
@@ -81,11 +81,10 @@ Velo 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工
 | --- | --- |
 | macOS · Apple Silicon | [Velo-macos-arm64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-macos-arm64.dmg) |
 | macOS · Intel | [Velo-macos-x64.dmg](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-macos-x64.dmg) |
-| Windows · x64 | [Velo-windows-x64-setup.exe](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/Velo-windows-x64-setup.exe) |
 
-macOS 打开 DMG 并将 Velo 拖入「应用程序」；Windows 运行安装向导。预览版 macOS 使用 ad-hoc 签名、尚未公证，Windows 尚未代码签名，首次打开可能需要系统确认。请先阅读 [安装说明](docs/releases/preview.md)，核对 [SHA-256](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/SHA256SUMS.txt)；不需要关闭系统保护。
+macOS 打开 DMG 并将 Velo 拖入「应用程序」。预览版使用 ad-hoc 签名、尚未公证，首次打开需要按安装说明对 Velo 单独允许。请先阅读 [安装说明](docs/releases/preview.md)，核对 [SHA-256](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/SHA256SUMS.txt)；不需要关闭系统保护。
 
-发布流程在三个系统 runner 上执行安装后原生 WebView、IPC 和辅助程序检查。真实账户与完整系统体验仍需单独验收。当前公开的 `v0.1.0-preview.4` 安装包未配置新版本的更新公钥与 feed，升级请重新下载安装包。开发中的 `v0.1.1-preview.1` 尚未发布，自动更新链路仍待验收，目前不应视为更新可用。
+当前发布流程在 Apple Silicon 与 Intel Mac runner 上执行 DMG 安装后的原生 WebView、IPC 和辅助程序检查。真实账户与完整系统体验仍需单独验收。当前公开的 `v0.1.0-preview.4` 安装包未配置新版本的更新公钥与 feed，升级请重新下载安装包。开发中的 `v0.1.1-preview.1` 尚未发布，自动更新链路仍待验收，目前不应视为更新可用。
 
 ### 环境准备
 
@@ -93,9 +92,8 @@ macOS 打开 DMG 并将 Velo 拖入「应用程序」；Windows 运行安装向�
 | --- | --- |
 | 通用 | Git、Node.js 20+、npm、Rust stable |
 | macOS | Xcode Command Line Tools；当前打包配置最低为 macOS 12，兼容性仍需实机验证 |
-| Windows | Microsoft C++ Build Tools（MSVC）、WebView2 |
 
-系统依赖的具体安装步骤见 [Tauri 官方前置条件](https://v2.tauri.app/start/prerequisites/)。Linux 可用于部分开发检查，目前目标桌面平台为 macOS 和 Windows。
+系统依赖的具体安装步骤见 [Tauri 官方前置条件](https://v2.tauri.app/start/prerequisites/)。当前仅推进 macOS；Windows、Linux 的后续实施条件见[平台规划](docs/platform-roadmap.md)。
 
 ### 从源码运行
 

@@ -1,5 +1,7 @@
 # 兼容性与验收
 
+当前阶段仅推进 macOS（Apple Silicon / Intel）；Windows、Linux 暂缓，见[平台规划](platform-roadmap.md)。下方跨平台表和分批记录保留为历史实现记录，不作为当前支持清单。最新 Mac 检查点以[原生验收记录](verification/native-parity-2026-09-23/README.md)和[完整迁移清单](migration-parity.md)为准，启动 smoke 通过不等于原生 UI、真实账户或 Gatekeeper 已通过。
+
 ## 实现范围
 
 采用 Tauri 2 / Rust 作为跨平台实现，按固定 Codenotch Swift 主线全量迁移。当前仍未通过原版 UI、效果和全部行为一致性验收；具体缺口见 [迁移清单](migration-parity.md)。首版不精简设置；迁移验收后只完成新增第 1 项插件，再暂停。
