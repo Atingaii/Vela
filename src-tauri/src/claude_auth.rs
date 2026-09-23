@@ -233,30 +233,41 @@ mod tests {
     }
     #[test]
     #[cfg(windows)]
+    fn child_process_fixture() {
+        // This test is also an owned process fixture. A fresh test binary is much more
+        // predictable on CI than PowerShell startup, while still exercising real exit codes.
+        match std::env::var("VELA_CLAUDE_AUTH_CHILD").as_deref() {
+            Ok("failure") => std::process::exit(7),
+            Ok("sleep") => std::thread::sleep(Duration::from_secs(30)),
+            _ => {}
+        }
+    }
+    #[test]
+    #[cfg(windows)]
     fn failed_exit_and_timeout_are_reaped() {
         use std::os::windows::process::CommandExt;
-        let root = std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap());
-        let shell = root.join("System32/WindowsPowerShell/v1.0/powershell.exe");
-        let mut child = Command::new(&shell)
-            .args(["-NoProfile", "-NonInteractive", "-Command", "exit 7"])
-            .creation_flags(0x0800_0000)
-            .spawn()
-            .unwrap();
-        assert!(!wait_child(&mut child, Duration::from_secs(5)));
-        let mut child = Command::new(&shell)
-            .args(["-NoProfile", "-NonInteractive", "-Command", "exit 0"])
-            .creation_flags(0x0800_0000)
-            .spawn()
-            .unwrap();
-        assert!(wait_child(&mut child, Duration::from_secs(5)));
-        let mut child = Command::new(root.join("System32/WindowsPowerShell/v1.0/powershell.exe"))
-            .args(["-NoProfile", "-Command", "Start-Sleep -Seconds 30"])
-            .creation_flags(0x0800_0000)
-            .spawn()
-            .unwrap();
+        let binary = std::env::current_exe().unwrap();
+        let fixture = |outcome: &str| {
+            Command::new(&binary)
+                .args(["--exact", "claude_auth::tests::child_process_fixture"])
+                .env("VELA_CLAUDE_AUTH_CHILD", outcome)
+                .creation_flags(0x0800_0000)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap()
+        };
+        let mut child = fixture("failure");
+        assert!(!wait_child(&mut child, Duration::from_secs(10)));
+        assert_eq!(child.try_wait().unwrap().unwrap().code(), Some(7));
+        let mut child = fixture("success");
+        assert!(wait_child(&mut child, Duration::from_secs(10)));
+        assert!(child.try_wait().unwrap().unwrap().success());
+        let mut child = fixture("sleep");
         let start = Instant::now();
         assert!(!wait_child(&mut child, Duration::from_millis(300)));
-        assert!(start.elapsed() < Duration::from_secs(5));
+        assert!(start.elapsed() < Duration::from_secs(10));
         assert!(child.try_wait().unwrap().is_some());
     }
 }
