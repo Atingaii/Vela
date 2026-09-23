@@ -132,7 +132,7 @@
   body.native-glass:not(.folded) #orb.hover .h-disc{background:transparent}
   #hardware-band{position:absolute;display:none;pointer-events:none;background:#000}
   body[data-edge="top"].hardware-joined #hardware-band{display:block}
-  body[data-edge="top"].hardware-joined #pill{padding-top:calc(12.9744px + var(--hardware-inset,0px));min-width:var(--hardware-min-width,0px)}
+  body[data-edge="top"].hardware-joined #pill{padding-top:calc(12.9744px + var(--hardware-inset,0px));min-width:var(--hardware-min-width,0px);justify-content:center}
   #pill{isolation:isolate}
 
   /* The tail, its point on the hovered ring: the Mac's curved wedge (TooltipTail), whose shoulders
@@ -290,6 +290,7 @@
   body[data-edge="bottom"] #rest{bottom:0;border-bottom:none;border-radius:6px 6px 0 0}
   #rest{background:transparent!important;border:0!important;width:9.777778px;height:78.974359px}
   body[data-edge="top"] #rest,body[data-edge="bottom"] #rest{width:78.974359px;height:9.777778px}
+  body[data-edge="top"].hardware-joined #rest{width:var(--hardware-width);height:var(--hardware-inset)}
   /* JS applies the fixed NotchMotion.contents spring and 45 ms capped stagger.
      CSS easing cannot preserve velocity when the pointer reverses a fold. */
   .cell{opacity:1}
@@ -307,11 +308,11 @@
   .handle.placed{display:block}
   .handle.hover{cursor:pointer}
   .handle > *{position:absolute;left:50%;top:50%;pointer-events:none;transition:opacity .2s,transform .36s cubic-bezier(.34,1.3,.64,1)}
-  .h-rest{width:72px;height:72px;margin:-36px 0 0 -36px;overflow:visible;transform:rotate(var(--arc)) scale(1)}
+  .h-rest{width:var(--rest-size,72px);height:var(--rest-size,72px);margin:calc(-1 * var(--rest-half,36px)) 0 0 calc(-1 * var(--rest-half,36px));overflow:visible;transform:translate(var(--arc-offset-x,0px),var(--arc-offset-y,0px)) rotate(var(--arc)) scale(1)}
   .h-disc{width:46.6px;height:46.6px;margin:-23.3px 0 0 -23.3px;border-radius:50%;background:#000;border:1px solid #2e2e2e;opacity:0;transform:scale(1.1)}
   .h-glyph{width:21px;height:21px;margin:-10.5px 0 0 -10.5px;fill:var(--ink,#fff);opacity:0;
     transform:rotate(calc(var(--spins,0) * 360deg - 60deg)) scale(.5);transition:opacity .2s,transform .55s cubic-bezier(.34,1.2,.64,1)}
-  .handle.hover .h-rest{opacity:0;transform:rotate(var(--arc)) scale(.86)}
+  .handle.hover .h-rest{opacity:0;transform:translate(var(--arc-offset-x,0px),var(--arc-offset-y,0px)) rotate(var(--arc)) scale(.86)}
   .handle.hover .h-disc{opacity:1;transform:scale(1)}
   .handle.hover .h-glyph{opacity:1;transform:rotate(calc(var(--spins,0) * 360deg)) scale(1)}
   /* Carrying: the disc goes dashed and the hand stops turning — it is being held now, not offered */
@@ -323,6 +324,8 @@
   #move{--arc:0deg}
   body[data-edge="left"] #move{--arc:90deg}
   body[data-edge="top"] #move{--arc:270deg}
+  body[data-edge="top"].hardware-joined #orb{--arc:0deg}
+  body[data-edge="top"].hardware-joined #move{--arc:90deg}
   @media (prefers-reduced-motion: reduce){.handle > *{transition:none}}
 </style>
 </head>
@@ -424,16 +427,23 @@ let hardwareNotch=null;
 function applyHardwareNotch(payload){
   const n=payload?.hardware_notch;
   hardwareNotch=n&&Number(n.width)>0&&Number(n.height)>0?{width:Number(n.width),height:Number(n.height)}:null;
+  updateHardwareMetrics();
+  drawNotchShape();reportHot();
+}
+function updateHardwareMetrics(){
   const joined=notchEdge==='top'&&!!hardwareNotch;
   document.body.classList.toggle('hardware-joined',joined);
-  const scale=nativeLayout?.scale||1;
-  document.documentElement.style.setProperty('--hardware-inset',joined?`${hardwareNotch.height/scale}px`:'0px');
-  document.documentElement.style.setProperty('--hardware-min-width',joined?`${hardwareNotch.width/scale+2*78.8*44/117}px`:'0px');
-  drawNotchShape();reportHot();
+  // Swift keeps hardware and cells in design coordinates and scales the whole
+  // notch once. The pill is the body, so exclude the two bezel fillets from
+  // the minimum whole-shape width; centring its cells supplies endSpread.
+  document.documentElement.style.setProperty('--hardware-inset',joined?`${hardwareNotch.height}px`:'0px');
+  document.documentElement.style.setProperty('--hardware-width',joined?`${hardwareNotch.width}px`:'0px');
+  document.documentElement.style.setProperty('--hardware-min-width',joined?`${hardwareNotch.width+2*(78.8-28)*44/117}px`:'0px');
 }
 // Show on hover — the logic is beside the move handle below; declared here, since reportHot reads `folded` from the first frame
 let fullscreen=false, pinned=false;
 let onHover=false, folded=false, pointerIn=false, menuOpen=false, foldTimer=null;
+let edgeCrossing=null,edgeGeneration=0,edgeFadeAnimation=null,edgeArrivalTimer=null;
 /* How much of the window the taskbar covers, in CSS px, from Rust: top, right, bottom, left. The pill
    stays against the screen edge; the card is kept out of these. */
 let insets=[0,0,0,0];
@@ -452,10 +462,7 @@ function applyEdge(e){
   if(next===notchEdge) return;
   notchEdge=next;
   document.body.dataset.edge=next;
-  document.body.classList.toggle('hardware-joined',next==='top'&&!!hardwareNotch);
-  const scale=nativeLayout?.scale||1;
-  document.documentElement.style.setProperty('--hardware-inset',next==='top'&&hardwareNotch?`${hardwareNotch.height/scale}px`:'0px');
-  document.documentElement.style.setProperty('--hardware-min-width',next==='top'&&hardwareNotch?`${hardwareNotch.width/scale+2*78.8*44/117}px`:'0px');
+  updateHardwareMetrics();
   // The window changes shape with the edge, and so does the width the zoom correction measures against
   reportDpr();
   // The pill changes shape, so both the hot rectangles and the card's anchor have to be measured again
@@ -1918,7 +1925,12 @@ function reportHot(){
   if(folded){ callq('set_hot',{rects:[wakeRect()],expanded:false}).catch(()=>{}); return; }
   const open=card.classList.contains('show');
   const rects=open?[rectOf(pill),rectOf(tail),rectOf(card),rectOfBounds(cardBridge())]:[rectOf(pill)];
-  if(placeHandles()){ rects.push(rectOf(orb)); if(showMove) rects.push(rectOf(moveHandle)); }
+  if(placeHandles()){
+    for(const at of [orbAt,moveAt])for(const point of at?.points||[]){
+      const k=window.devicePixelRatio||1,reach=at.reach;
+      rects.push([(point.x-reach)*k,(point.y-reach)*k,2*reach*k,2*reach*k]);
+    }
+  }
   callq('set_hot',{rects,expanded:open}).catch(()=>{});
 }
 // AppKit owns Liquid Glass. The WebView reports the *same* silhouettes it
@@ -2013,7 +2025,9 @@ listen('native_notch_surface',e=>acceptNativeSurface(e.payload)).catch(()=>{});
 const WAKE_BAND=90*44/117;
 function wakeRect(){
   const r=document.getElementById('rest').getBoundingClientRect(), k=window.devicePixelRatio||1;
-  const b=WAKE_BAND*(parseFloat(document.documentElement.style.zoom)||1); // rects come back zoomed
+  // Swift's wake band is in panel points, independent of sizeScale. The
+  // hardware cutout is already a generous target: never cover titlebar buttons.
+  const b=notchEdge==='top'&&hardwareNotch?0:WAKE_BAND*(parseFloat(document.documentElement.style.zoom)||1)/(nativeLayout?.scale||1);
   let x=r.left,y=r.top,w=r.width,h=r.height;
   if(notchEdge==='left') w+=b; else if(notchEdge==='top') h+=b; else if(notchEdge==='bottom'){ y-=b; h+=b; } else { x-=b; w+=b; }
   return [x*k,y*k,w*k,h*k];
@@ -2095,10 +2109,7 @@ function acceptNotchLayout(layout){
   const nextCap=Number.isInteger(layout.session_cap)&&layout.session_cap>=0&&layout.session_cap<=SESSION_CEILING?layout.session_cap:sessionCap;
   const capChanged=nextCap!==sessionCap;sessionCap=nextCap;
   nativeLayout=layout;
-  if(notchEdge==='top'&&hardwareNotch){
-    document.documentElement.style.setProperty('--hardware-inset',`${hardwareNotch.height/layout.scale}px`);
-    document.documentElement.style.setProperty('--hardware-min-width',`${hardwareNotch.width/layout.scale+2*78.8*44/117}px`);
-  }
+  updateHardwareMetrics();
   document.documentElement.style.setProperty('--bezel-bleed',(2/layout.scale)+'px');
   pill.style.gap=layout.spacing+'px';
   // Tooltip text retains its designed size when the notch is resized (NotchViewModel.panelSize).
@@ -2136,11 +2147,11 @@ function drawNotchShape(){
   const vertical=edgeIsVertical(),openDepth=vertical?pill.offsetWidth:pill.offsetHeight;
   const joined=notchEdge==='top'&&!!hardwareNotch,scale=nativeLayout?.scale||1;
   const flare=(joined?28:103)*44/117,body=vertical?pill.offsetHeight:pill.offsetWidth;
-  const restDepth=joined?hardwareNotch.height/scale:26*44/117;
-  const restLength=joined?hardwareNotch.width/scale:210*44/117;
+  const restDepth=joined?hardwareNotch.height:26*44/117;
+  const restLength=joined?hardwareNotch.width:210*44/117;
   const depth=Math.max(1,restDepth+(openDepth-restDepth)*foldPosition);
   const length=Math.max(1,restLength+(body+2*flare-restLength)*foldPosition);
-  const wanted=Math.max(0,Math.min(78.8*44/117,joined?hardwareNotch.height/(2*scale):Infinity,depth/2));
+  const wanted=Math.max(0,Math.min(78.8*44/117,joined?hardwareNotch.height/2:Infinity,depth/2));
   const curl=Math.max(0,Math.min(flare,length/2,depth-wanted));
   const corner=Math.max(0,Math.min(wanted,(length-2*curl)/2));
   const d=`M ${depth} 0 A ${curl} ${curl} 0 0 1 ${depth-curl} ${curl} L ${corner} ${curl} A ${corner} ${corner} 0 0 0 0 ${curl+corner} L 0 ${length-curl-corner} A ${corner} ${corner} 0 0 0 ${corner} ${length-curl} L ${depth-curl} ${length-curl} A ${curl} ${curl} 0 0 1 ${depth} ${length} Z`;
@@ -2157,7 +2168,7 @@ function drawNotchShape(){
       clipPath:`polygon(${points.map(([x,y])=>`${(x-rect.left)/rect.width*100}% ${(y-rect.top)/rect.height*100}%`).join(',')})`});
     // A solid black band across the display's cutout, including the 2 pt
     // outward bleed; below it the installed glass may show through.
-    band.style.background=`linear-gradient(to bottom,#000 0 ${hardwareNotch.height+2}px,transparent ${hardwareNotch.height+2}px)`;
+    band.style.background=`linear-gradient(to bottom,#000 0 ${hardwareNotch.height*scale+2}px,transparent ${hardwareNotch.height*scale+2}px)`;
   }
   queueNativeSurface();
 }
@@ -2307,7 +2318,7 @@ function notice(msg){
    centre, as on the Mac, not the whole box; the card gives way while either is under the pointer.
    A click on the settings orb opens Settings; holding the move handle carries the notch. */
 const orb=document.getElementById('orb'), moveHandle=document.getElementById('move');
-const HANDLE_REACH=28.5; // the Mac's hot zone, half of 57
+const HANDLE_K=44/117,HANDLE_REACH=152*HANDLE_K/2;
 let orbAt=null, moveAt=null, hovered=null, orbSpins=0, moveSpins=0, showMove=true, carrying=false;
 const handleMotion=NotchMotion.createSpringAnimator('contents',requestAnimationFrame,cancelAnimationFrame);
 const handleProgress=new Map([['orb',1],['move',1]]),handleTimers=new Map(),handleFrames=new Map();
@@ -2318,7 +2329,7 @@ function paintHandle(el,progress){
   el.style.transform=`scale(${merge+(1-merge)*progress})`;
   queueNativeSurface();
 }
-function animateHandles(){
+function animateHandles(immediate=false){
   const target=folded?0:1;
   for(const el of [orb,moveHandle]){
     const id=el.id,timer=handleTimers.get(id),frame=handleFrames.get(id);
@@ -2326,7 +2337,7 @@ function animateHandles(){
     if(frame)cancelAnimationFrame(frame);handleFrames.delete(id);
     handleMotion.stop(id);
     const apply=value=>paintHandle(el,value);
-    if(reduceRingMotion.matches){apply(target);continue;}
+    if(immediate||reduceRingMotion.matches){apply(target);continue;}
     if(folded){
       const start=handleProgress.get(id)??1,t0=performance.now();
       const tick=now=>{
@@ -2347,7 +2358,20 @@ function animateHandles(){
 function put(el,x,y,z){
   el.style.left=(x/z-HANDLE_REACH)+'px'; el.style.top=(y/z-HANDLE_REACH)+'px';
   el.classList.add('placed');
-  return {x,y,reach:HANDLE_REACH*z};
+  return {x,y,reach:HANDLE_REACH*z,points:[{x,y}]};
+}
+function handleArc(el,radius,offsetX=0,offsetY=0){
+  const svg=el.querySelector('.h-rest'),half=radius+8,size=half*2;
+  el.style.setProperty('--rest-size',`${size}px`);
+  el.style.setProperty('--rest-half',`${half}px`);
+  el.style.setProperty('--arc-offset-x',`${offsetX}px`);
+  el.style.setProperty('--arc-offset-y',`${offsetY}px`);
+  svg.setAttribute('viewBox',`${-half} ${-half} ${size} ${size}`);
+  const circumference=2*Math.PI*radius;
+  for(const circle of svg.querySelectorAll('circle')){
+    circle.setAttribute('r',String(radius));
+    circle.setAttribute('stroke-dasharray',`${circumference/4} ${circumference}`);
+  }
 }
 function placeHandles(){
   const r=pill.getBoundingClientRect();
@@ -2358,6 +2382,38 @@ function placeHandles(){
   const bx=notchEdge==='left'?-bleed:notchEdge==='right'?bleed:0;
   const by=notchEdge==='top'?-bleed:notchEdge==='bottom'?bleed:0;
   const R=(parseFloat(getComputedStyle(pill).getPropertyValue('--fillet'))||38.7)*z;
+  // At a joined top notch the arc traces the bar's convex rounded corner,
+  // while its button hangs diagonally clear of it. Swift keeps those two
+  // centres separate; the arc and button each have their own round hot point.
+  if(notchEdge==='top'&&hardwareNotch){
+    const flare=28*HANDLE_K;
+    const shape=nativeLayout?.edge==='top'&&Number.isFinite(nativeLayout.shape_length)
+      ?nativeLayout.shape_length:r.width/z+2*flare;
+    const depth=nativeLayout?.edge==='top'&&Number.isFinite(nativeLayout.depth)
+      ?nativeLayout.depth:r.height/z;
+    const corner=Math.min(78.8*HANDLE_K,hardwareNotch.height/2);
+    const radius=corner+27*HANDLE_K;
+    const offset=(radius+124*HANDLE_K/2)/Math.SQRT2;
+    const along=shape-flare-corner+offset;
+    const inset=depth-corner+offset;
+    const start=r.left+(r.width-shape*z)/2;
+    const y=r.top-by+inset*z;
+    const farX=start+along*z,nearX=start+(shape-along)*z;
+    orbAt=put(orb,farX,y,z);
+    handleArc(orb,radius,-offset,-offset);
+    orbAt.points.unshift({x:farX+(radius/Math.SQRT2-offset)*z,
+      y:y+(radius/Math.SQRT2-offset)*z});
+    if(showMove){
+      moveAt=put(moveHandle,nearX,y,z);
+      handleArc(moveHandle,radius,offset,-offset);
+      moveAt.points.push({x:nearX+(offset-radius/Math.SQRT2)*z,
+        y:y+(radius/Math.SQRT2-offset)*z});
+    }else{moveAt=null;moveHandle.classList.remove('placed','hover');}
+    return true;
+  }
+  const arcRadius=76*HANDLE_K;
+  handleArc(orb,arcRadius);
+  handleArc(moveHandle,arcRadius);
   // Each fillet's centre: the corner of its square diagonally opposite the one on the screen edge
   const far=notchEdge==='left'?[r.left+R-bx,r.bottom+R-by]:notchEdge==='top'?[r.right+R-bx,r.top+R-by]
     :notchEdge==='bottom'?[r.right+R-bx,r.bottom-R-by]:[r.right-R-bx,r.bottom+R-by];
@@ -2369,7 +2425,7 @@ function placeHandles(){
   if(!showMove) moveHandle.classList.remove('placed','hover');
   return true;
 }
-function near(at,x,y){ return !!at&&Math.hypot(x-at.x,y-at.y)<=at.reach; }
+function near(at,x,y){ return !!at&&at.points.some(point=>Math.hypot(x-point.x,y-point.y)<=at.reach); }
 function onHandle(x,y){ return near(orbAt,x,y)?'orb':near(moveAt,x,y)?'move':null; }
 function setHovered(which){
   if(which===hovered) return;
@@ -2379,12 +2435,21 @@ function setHovered(which){
   queueNativeSurface();
 }
 document.addEventListener('mouseout',e=>{ if(!e.relatedTarget&&!carrying) setHovered(null); });
-orb.addEventListener('click',e=>{
-  if(!near(orbAt,e.clientX,e.clientY)) return;
+function openSettingsFromHandle(e){
+  if(folded||edgeCrossing)return false;
+  if(!near(orbAt,e.clientX,e.clientY)) return false;
+  e.stopPropagation();
   orb.style.setProperty('--spins',++orbSpins);
   pressIn(orb);
   callq('toggle_settings').catch(()=>{});
-});
+  return true;
+}
+orb.addEventListener('click',openSettingsFromHandle);
+// The convex resting arc lies apart from the button element. Native click
+// through admits its hot circle, then the page handles that visible arc here.
+document.addEventListener('click',e=>{
+  if(!orb.contains(e.target))openSettingsFromHandle(e);
+},true);
 // The Mac's press: down fast, back with a little bounce
 function pressIn(el){
   if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -2393,27 +2458,34 @@ function pressIn(el){
 /* Holding the move handle puts the notch in hand: Rust raises the drop zones and follows the pointer
    until the button comes up. The notch itself does not move — what is being chosen is a place on the
    screen, not a distance. The pill's own size goes with it, so a zone is the notch, not a guess. */
-/* The shape the zones draw: the pill standing upright, whichever edge it is on now. Worked out from
-   the parts it is made of rather than measured, so a notch lying flat still offers the same
-   silhouette everywhere — the 70 px depth and the 18 px end padding are the pill's own, from the CSS
-   above. The notch really is shallower and shorter lying flat, but drawing that would offer four
-   outlines of two sizes, which reads as four different things instead of one notch offered a place. */
+/* EdgeDropZones receives the folded footprint and the full shape length. The
+   window applies sizeScale, matching NotchWindowController.beginMove; a top
+   hardware notch supplies its own resting depth. */
 function pillShapes(){
-  const cells=Math.max(1,pill.querySelectorAll('.cell').length);
-  const ring=(pill.querySelector('.ringwrap')||{}).offsetHeight||44;
-  const label=(pill.querySelector('.pct')||{}).offsetHeight||20;
-  const ends=36, between=14, underRing=6;
-  return { depth:70, length:ends+cells*(ring+underRing+label)+(cells-1)*between };
+  const K=44/117;
+  const joined=notchEdge==='top'&&!!hardwareNotch;
+  const depth=joined?hardwareNotch.height:26*K;
+  const along=edgeIsVertical()?pill.offsetHeight:pill.offsetWidth;
+  const flare=(joined?28:103)*K;
+  const length=nativeLayout?.edge===notchEdge&&Number.isFinite(nativeLayout.shape_length)
+    ?nativeLayout.shape_length:along+2*flare;
+  return {depth,length};
 }
-moveHandle.addEventListener('mousedown',e=>{
-  if(e.button!==0||!near(moveAt,e.clientX,e.clientY)) return;
+function beginMoveFromHandle(e){
+  if(folded||edgeCrossing)return false;
+  if(e.button!==0||!near(moveAt,e.clientX,e.clientY))return false;
   e.stopPropagation();
   carrying=true;
   moveHandle.classList.add('armed','hover');
   moveHandle.style.setProperty('--spins',++moveSpins);
   clearTimeout(hideTimer); hideCard();
   callq('begin_move',pillShapes()).catch(()=>{carrying=false;moveHandle.classList.remove('armed');});
-});
+  return true;
+}
+moveHandle.addEventListener('mousedown',beginMoveFromHandle);
+document.addEventListener('mousedown',e=>{
+  if(!moveHandle.contains(e.target))beginMoveFromHandle(e);
+},true);
 listen('move_end',()=>{ carrying=false; moveHandle.classList.remove('armed'); setHovered(null); reportHot(); scheduleFold(); }).catch(()=>{});
 
 /* Show on hover, the Mac's .onHover. It opens on contact and folds a moment after the pointer has gone.
@@ -2440,14 +2512,27 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden){for(const activity of pill.querySelectorAll('svg.activity'))activity.replaceChildren();for(const id of labelExits.keys())stopLabel(id);}
   else renderRing();
 });
-function unfold(){ clearTimeout(foldTimer); setFolded(false); }
+function unfold(){ if(edgeCrossing)return; clearTimeout(foldTimer); setFolded(false); }
 function scheduleFold(immediate=false){
   clearTimeout(foldTimer);
+  if(edgeCrossing)return;
   if(!shouldFold()){ setFolded(false); return; }
   if(immediate&&foldAllowed()){setFolded(true);return;}
   if(foldAllowed()) foldTimer=setTimeout(()=>{ if(foldAllowed()) setFolded(true); },FOLD_GRACE);
 }
-function applyUiFlags(f){ onHover=!!(f&&f.notch_on_hover);fullscreen=!!f?.fullscreen;pinned=!!f?.pinned;scheduleFold(fullscreen); }
+let notchShown=true;
+function applyUiFlags(f){
+  const nextShown=f?.notch_visible===undefined?notchShown:!!f.notch_visible;
+  const nextHover=!!f?.notch_on_hover;
+  const visibilityChanged=nextShown!==notchShown||nextHover!==onHover;
+  const entersHover=nextShown&&nextHover&&(!onHover||!notchShown);
+  notchShown=nextShown;onHover=nextHover;fullscreen=!!f?.fullscreen;pinned=!!f?.pinned;
+  if(visibilityChanged){clearTimeout(peekTimer);peekUntil=0;pendingFocus=null;}
+  // NotchWindowController.apply(.onHover/.hidden) folds at the setting change,
+  // even if the cursor is still on the old open pill. The next movement can reopen it.
+  if(!nextShown||entersHover){clearTimeout(foldTimer);setFolded(true);return;}
+  scheduleFold(fullscreen);
+}
 listen('notch_pinned',e=>{pinned=e.payload===true;scheduleFold();}).catch(()=>{});
 listen('fullscreen',e=>{fullscreen=e.payload===true;scheduleFold(fullscreen);}).catch(()=>{});
 listen('notch_pointer',e=>{ pointerIn=e.payload===true; if(pointerIn) unfold(); else scheduleFold(); }).catch(()=>{});
@@ -2526,6 +2611,54 @@ invoke('get_activity').then(a=>{activity=a||activity;renderRing();}).catch(()=>{
 invoke('get_glyphs').then(g=>{glyphs=g||glyphs;glyphEpoch++;renderRing();}).catch(()=>{});
 // The edge: pushed on every placement (a drag that snapped elsewhere, or Settings), and asked for once
 // at startup in case the placement happened before this page was listening.
+// NotchWindowController.apply(edge:): .16 s whole-panel fade, folded arrival,
+// then the original spring after .05 s. Native macOS alpha includes Liquid Glass.
+listen('notch_edge_prepare',async e=>{
+  const generation=Number(e.payload?.generation);
+  if(!Number.isInteger(generation)||generation<=edgeGeneration)return;
+  edgeGeneration=generation;
+  edgeCrossing={generation,wasOpen:!folded};
+  clearTimeout(edgeArrivalTimer);clearTimeout(foldTimer);clearTimeout(hideTimer);
+  pointerIn=false;hideCard();setHovered(null);
+  const opacity=getComputedStyle(document.documentElement).opacity;
+  edgeFadeAnimation?.cancel();edgeFadeAnimation=null;
+  if(!e.payload.native){
+    edgeFadeAnimation=document.documentElement.animate([{opacity},{opacity:0}],{duration:160,easing:'ease',fill:'forwards'});
+    try{await edgeFadeAnimation.finished;}catch{return;}
+  }
+  if(edgeCrossing?.generation!==generation)return;
+  invoke('notch_edge_fade',{generation}).catch(error=>notice('notch edge fade: '+error));
+}).catch(()=>{});
+function landFolded(edge){
+  applyEdge(edge);
+  setFolded(true);
+  cancelAnimationFrame(foldFrame);foldFrame=0;foldVelocity=0;foldPosition=0;
+  animateCells(true);animateHandles(true);drawNotchShape();reportHot();
+}
+function finishEdgeCrossing(generation){
+  if(edgeCrossing?.generation!==generation)return;
+  const wasOpen=edgeCrossing.wasOpen;
+  edgeFadeAnimation?.cancel();edgeFadeAnimation=null;
+  // Keep hover/visibility callbacks from coalescing folded arrival and opening.
+  edgeArrivalTimer=setTimeout(()=>{
+    if(edgeCrossing?.generation!==generation)return;
+    edgeCrossing=null;
+    if(wasOpen)setFolded(false);
+    reportHot();
+  },50);
+}
+listen('notch_edge_arrived',e=>{
+  const {generation,edge}=e.payload||{};
+  if(edgeCrossing?.generation!==generation)return;
+  landFolded(edge);
+  requestAnimationFrame(()=>requestAnimationFrame(async()=>{
+    if(edgeCrossing?.generation!==generation)return;
+    try{
+      if(await invoke('notch_edge_visible',{generation}))finishEdgeCrossing(generation);
+    }catch(error){notice('notch edge arrival: '+error);}
+  }));
+}).catch(()=>{});
+listen('notch_edge_fallback',e=>finishEdgeCrossing(e.payload)).catch(()=>{});
 listen('notch_edge',e=>applyEdge(e.payload)).catch(()=>{});
 listen('native_notch_geometry',e=>applyHardwareNotch(e.payload)).catch(()=>{});
 invoke('get_native_notch_geometry').then(applyHardwareNotch).catch(()=>{});

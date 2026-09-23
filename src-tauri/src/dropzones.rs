@@ -1,7 +1,7 @@
 //! The four places the notch can land, shown while it is carried from the move handle.
 //!
 //! A transparent, click-through window over whichever monitor the pointer is on, drawing the notch's own
-//! outline at each edge — the shape differs per edge, and showing the real silhouette is what makes
+//! SideNotchShape outline at each edge — the shape differs per edge, and showing the real silhouette is what makes
 //! the choice legible before it is made. The page is `ui/dropzones.html`; this side only says where
 //! the window goes and which zone the pointer is nearest.
 
@@ -20,7 +20,9 @@ static CURRENT: Mutex<Option<Zones>> = Mutex::new(None);
 pub struct Zones {
     pub w: f64,
     pub h: f64,
-    /// How deep the notch sits against its edge and how far it runs along it, in the page's CSS px
+    /// Folded depth and full shape length in screen-point CSS sizes. The caller
+    /// applies sizeScale before sending these to the preview page, as in
+    /// NotchWindowController.beginMove / EdgeDropZones.
     pub depth: f64,
     pub length: f64,
     pub target: String,

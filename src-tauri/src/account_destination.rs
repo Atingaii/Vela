@@ -27,6 +27,10 @@ fn owner_app(id: &str) -> Option<(&'static str, &'static str)> {
     })
 }
 
+fn connected_without_reading(id: &str) -> bool {
+    matches!(id, "ollama-local" | "lmstudio") || crate::TRAY_PROVIDER_IDS.contains(&id)
+}
+
 fn safe_account_url(raw: &str) -> Option<(String, String)> {
     let parsed = tauri::Url::parse(raw).ok()?;
     if parsed.scheme() != "https" || !parsed.username().is_empty() || parsed.password().is_some() {
@@ -111,7 +115,7 @@ async fn resolve(app: &AppHandle, id: &str) -> Option<(AccountDestination, Targe
     // Default six rings come from AppState, not the provider catalog. A missing Reading must not
     // erase a real connected Codex/Cursor/Antigravity app destination from Accounts.
     let enabled = row.as_ref().map(|row| row.enabled).unwrap_or_else(|| {
-        crate::TRAY_PROVIDER_IDS.contains(&id) && crate::providers::enabled(app, id)
+        connected_without_reading(id) && crate::providers::enabled(app, id)
     });
     if !enabled { return None; }
     if let Some((bundle, name)) = owner_app(id) {
@@ -200,6 +204,11 @@ mod tests {
     fn owner_route_is_only_for_default_gui_accounts() {
         assert_eq!(owner_app("codex").unwrap().0, "com.openai.codex");
         assert_eq!(owner_app("gemini").unwrap().0, "com.google.antigravity");
+        assert_eq!(owner_app("ollama-local").unwrap().1, "Ollama");
+        assert_eq!(owner_app("lmstudio").unwrap().1, "LM Studio");
+        assert!(connected_without_reading("ollama-local"));
+        assert!(connected_without_reading("lmstudio"));
+        assert!(!connected_without_reading("custom-endpoint-example"));
         assert!(owner_app("codex-work").is_none());
         assert!(owner_app("antigravity-work").is_none());
         assert!(owner_app("custom-endpoint-example").is_none());

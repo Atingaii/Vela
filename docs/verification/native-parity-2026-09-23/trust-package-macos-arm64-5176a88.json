@@ -1,0 +1,26 @@
+{
+  "integrity": true,
+  "developer_id": false,
+  "gatekeeper_accepted": false,
+  "notarization_ticket": false,
+  "ready_for_default_open": false,
+  "preview_exception": true,
+  "checks": {
+    "signature": {
+      "status": 0,
+      "output": "--prepared:/Users/runner/work/_temp/velo-installed/Velo.app/Contents/MacOS/vela-hook\n--validated:/Users/runner/work/_temp/velo-installed/Velo.app/Contents/MacOS/vela-hook\n/Users/runner/work/_temp/velo-installed/Velo.app: valid on disk\n/Users/runner/work/_temp/velo-installed/Velo.app: satisfies its Designated Requirement"
+    },
+    "identity": {
+      "status": 0,
+      "output": "Executable=/Users/runner/work/_temp/velo-installed/Velo.app/Contents/MacOS/velo\nIdentifier=com.atingaii.vela\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20500 size=34290 flags=0x10002(adhoc,runtime) hashes=1065+3 location=embedded\nSignature=adhoc\nInfo.plist entries=14\nTeamIdentifier=not set\nRuntime Version=26.5.0\nSealed Resources version=2 rules=13 files=2\nInternal requirements count=0 size=12"
+    },
+    "gatekeeper": {
+      "status": 3,
+      "output": "/Users/runner/work/_temp/velo-installed/Velo.app: rejected"
+    },
+    "ticket": {
+      "status": 65,
+      "output": "Processing: /Users/runner/work/_temp/velo-installed/Velo.app\nVelo.app does not have a ticket stapled to it."
+    }
+  }
+}

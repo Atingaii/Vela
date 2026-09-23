@@ -11,8 +11,13 @@ use tauri::{AppHandle, Emitter, Manager};
 /// display from changing the primary panel's hit test or card fit.
 #[derive(Default)]
 pub struct WindowRuntime {
+    pub edge_transition: crate::edge_transition::Transition,
     pub screen: Option<crate::Screen>,
     pub content: Option<crate::notch_layout::Content>,
+    /// The last AppKit hardware notch reported for this panel's screen.
+    pub hardware_notch: Option<HardwareNotch>,
+    /// Placement target for that report; a screen change invalidates it before sizing.
+    pub geometry_screen: Option<(i32, i32, i32, i32)>,
     pub insets: [f64; 4],
     pub hot: Vec<[f64; 4]>,
     pub expanded: bool,
@@ -28,6 +33,41 @@ pub struct WindowRuntime {
     pub pinned: bool,
     pub fullscreen: bool,
     pub surface: Option<SurfaceReport>,
+}
+
+/// Fade the whole NSWindow, including its native glass backing. JavaScript's
+/// opacity affects only WKWebView and would leave the glass floating in place.
+#[cfg(target_os = "macos")]
+pub fn fade_edge(app: &AppHandle, label: &str, generation: u32) {
+    let app = app.clone();
+    let handle = app.clone();
+    let label = label.to_owned();
+    let _ = handle.run_on_main_thread(move || {
+        use objc2_app_kit::{NSAnimatablePropertyContainer, NSAnimationContext, NSWindow};
+        let Some(window) = app.get_webview_window(&label) else { return; };
+        if !runtime(&label).lock().unwrap().edge_transition.begin_fade(generation) { return; }
+        let Ok(ptr) = window.ns_window() else { return; };
+        let native = unsafe { &*ptr.cast::<NSWindow>() };
+        let changes = block2::RcBlock::new(|context: std::ptr::NonNull<NSAnimationContext>| {
+            unsafe { context.as_ref() }.setDuration(0.16);
+            native.animator().setAlphaValue(0.0);
+        });
+        let completion = block2::RcBlock::new(move || {
+            crate::complete_edge_fade(&app, &label, generation);
+        });
+        NSAnimationContext::runAnimationGroup_completionHandler(&changes, Some(&completion));
+    });
+}
+
+/// Called only on the UI thread, after the folded WebView has painted.
+pub fn reveal_edge(window: &tauri::WebviewWindow) {
+    #[cfg(target_os = "macos")]
+    if let Ok(ptr) = window.ns_window() {
+        let native = unsafe { &*ptr.cast::<objc2_app_kit::NSWindow>() };
+        native.setAlphaValue(1.0);
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = window;
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -434,6 +474,14 @@ fn geometry_on_main_thread(_: &tauri::WebviewWindow) -> NativeNotchGeometry {
     }
 }
 
+fn remember_geometry(window: &tauri::WebviewWindow, geometry: &NativeNotchGeometry) -> bool {
+    let runtime = runtime(window.label());
+    let mut current = runtime.lock().unwrap();
+    let changed = current.hardware_notch != geometry.hardware_notch;
+    current.hardware_notch = geometry.hardware_notch;
+    changed
+}
+
 /// A newly loaded notch asks for its own screen geometry. The caller window is injected by
 /// Tauri, so Settings cannot accidentally obtain or overwrite a different panel's geometry.
 #[tauri::command]
@@ -444,8 +492,12 @@ pub async fn get_native_notch_geometry(
     #[cfg(target_os = "macos")]
     {
         let (tx, mut rx) = tauri::async_runtime::channel(1);
+        let handle = app.clone();
         app.run_on_main_thread(move || {
-            let _ = tx.try_send(geometry_on_main_thread(&window));
+            let geometry = geometry_on_main_thread(&window);
+            let changed = remember_geometry(&window, &geometry);
+            let _ = tx.try_send(geometry);
+            if changed { crate::place_notch(&handle); }
         })
         .map_err(|e| e.to_string())?;
         rx.recv()
@@ -455,7 +507,9 @@ pub async fn get_native_notch_geometry(
     #[cfg(not(target_os = "macos"))]
     {
         let _ = app;
-        Ok(geometry_on_main_thread(&window))
+        let geometry = geometry_on_main_thread(&window);
+        remember_geometry(&window, &geometry);
+        Ok(geometry)
     }
 }
 
@@ -469,19 +523,24 @@ pub fn notify_geometry(app: &AppHandle, label: &str) {
     {
         let handle = app.clone();
         let _ = app.run_on_main_thread(move || {
+            let geometry = geometry_on_main_thread(&window);
+            let changed = remember_geometry(&window, &geometry);
             let _ = handle.emit_to(
                 window.label(),
                 "native_notch_geometry",
-                geometry_on_main_thread(&window),
+                geometry,
             );
+            if changed { crate::place_notch(&handle); }
         });
     }
     #[cfg(not(target_os = "macos"))]
     {
+        let geometry = geometry_on_main_thread(&window);
+        remember_geometry(&window, &geometry);
         let _ = app.emit_to(
             window.label(),
             "native_notch_geometry",
-            geometry_on_main_thread(&window),
+            geometry,
         );
     }
 }

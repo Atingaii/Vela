@@ -40,6 +40,7 @@ mod native_notch;
 #[cfg(target_os = "macos")]
 mod native_lifecycle;
 mod notch_layout;
+mod edge_transition;
 mod notch_window;
 mod notchmenu;
 mod notifications;
@@ -326,24 +327,61 @@ fn notch_hidden(window: tauri::WebviewWindow) {
     rt.landing_hidden = rt.landing;
 }
 
-/// The screen the pointer is over, for a carry that can cross between them. None in the gap a
-/// smaller screen leaves beside a larger one, where the carry stays on the screen it was last over.
-fn screen_at(list: &[Screen], x: f64, y: f64) -> Option<&Screen> {
-    list.iter().find(|s| {
-        x >= s.x as f64 && x < (s.x + s.w) as f64 && y >= s.y as f64 && y < (s.y + s.h) as f64
-    })
-}
-
-/// By where it is rather than by name, which the platform is not obliged to report.
-fn same_screen(a: &Screen, b: &Screen) -> bool {
-    (a.x, a.y, a.w, a.h) == (b.x, b.y, b.w, b.h)
-}
-
 /// `edge_origin` run backwards along one axis: where a window at `pos`, `len` long, has its centre,
 /// as a fraction of the span from `start`. What a slide along the edge saves, so it lands exactly
 /// where it was let go.
 fn along_at(pos: i32, len: i32, start: i32, span: i32) -> f64 {
     (((pos - start) as f64 + len as f64 / 2.0) / span.max(1) as f64).clamp(0.0, 1.0)
+}
+
+/// NotchViewModel.leadingExtent/trailingExtent. The shape excludes the settings
+/// and move handles; their full hot circles must still stay on the display.
+/// AppKit rounds these extents up in screen points before the panel is placed.
+fn handle_extents(
+    edge: &str,
+    size_scale: f64,
+    monitor_scale: f64,
+    show_move: bool,
+    hardware: Option<native_notch::HardwareNotch>,
+) -> (f64, f64) {
+    const K: f64 = 44.0 / 117.0;
+    let beyond_shape = if edge == "top" {
+        hardware.map_or(0.0, |notch| {
+            let corner = (78.8 * K).min(notch.height / 2.0);
+            let offset = (corner + 27.0 * K + 62.0 * K) / 2.0_f64.sqrt();
+            offset - 28.0 * K - corner
+        })
+    } else {
+        0.0
+    };
+    let full = ((beyond_shape + 152.0 * K / 2.0).max(0.0) * size_scale).ceil()
+        * monitor_scale;
+    (if show_move { full } else { 0.0 }, full)
+}
+
+/// Physical top/left panel origin. Swift NotchGeometry.panelFrame clamps by the
+/// visible shape plus handle extents, allowing transparent card slack offscreen.
+/// Its small-screen fallback chooses the leading limit when the limits cross.
+fn visible_along_origin(
+    wanted: f64,
+    start: i32,
+    span: i32,
+    panel_len: i32,
+    shape: Option<f64>,
+    leading: f64,
+    trailing: f64,
+    vertical: bool,
+) -> i32 {
+    let slack = (panel_len as f64 - shape.unwrap_or(panel_len as f64)) / 2.0;
+    let lo = start as f64 - slack + leading;
+    let hi = (start + span - panel_len) as f64 + slack - trailing;
+    if lo <= hi {
+        wanted.clamp(lo, hi).round() as i32
+    } else {
+        // Swift's inverted-range clamp returns the AppKit lower limit. AppKit
+        // y grows upwards, so vertical edges map that limit to physical hi.
+        (if vertical { hi } else { lo }).round() as i32
+    }
 }
 
 /// How far the taskbar (or anything else outside the work area) covers each side of a window at
@@ -387,24 +425,20 @@ fn content_edge_origin(
     wh: i32,
     ratio: f64,
     shape: Option<f64>,
+    extents: (f64, f64),
 ) -> (i32, i32) {
-    let Some(shape) = shape else {
-        return edge_origin(s, edge, ww, wh, ratio);
-    };
     let (ax, ay, aw, ah) = s.area();
-    let along = |span: i32, len: i32| {
-        let centre = if shape >= span as f64 {
-            span as f64 / 2.0
-        } else {
-            (span as f64 * ratio).clamp(shape / 2.0, span as f64 - shape / 2.0)
-        };
-        (centre - len as f64 / 2.0).round() as i32
+    let along = |start: i32, span: i32, len: i32| {
+        visible_along_origin(
+            start as f64 + span as f64 * ratio - len as f64 / 2.0,
+            start, span, len, shape, extents.0, extents.1, config::edge_is_vertical(edge),
+        )
     };
     match edge {
-        "left" => (ax, ay + along(ah, wh)),
-        "top" => (ax + along(aw, ww), ay),
-        "bottom" => (ax + along(aw, ww), ay + ah - wh),
-        _ => (ax + aw - ww, ay + along(ah, wh)),
+        "left" => (ax, along(ay, ah, wh)),
+        "top" => (along(ax, aw, ww), ay),
+        "bottom" => (along(ax, aw, ww), ay + ah - wh),
+        _ => (ax + aw - ww, along(ay, ah, wh)),
     }
 }
 
@@ -472,13 +506,48 @@ fn place_notch_on(app: &AppHandle, w: &tauri::WebviewWindow, mon: &Screen) {
     let ms = mon.scale;
     let size = ui_scale(app);
     // Read here, not with the ratio below, because the window's shape depends on it.
-    let edge = {
+    let (edge, show_move) = {
         let st = app.state::<AppState>();
         let c = st.cfg.lock().unwrap();
-        config::edge_or_right(&c.notch_edge)
+        (config::edge_or_right(&c.notch_edge), c.show_move_handle)
     };
-    let content = native_notch::runtime(w.label()).lock().unwrap().content.clone();
-    let layout = content.map(|c| notch_layout::calculate(&edge, c, mon.h as f64 / ms, size));
+    let placement = native_notch::runtime(w.label()).lock().unwrap().edge_transition.observe(&edge);
+    match placement {
+        edge_transition::Placement::Wait => return,
+        edge_transition::Placement::Fade(generation) => {
+            let _ = app.emit_to(w.label(), "notch_edge_prepare", serde_json::json!({
+                "generation": generation, "native": cfg!(target_os = "macos")
+            }));
+            // A lost WebView callback must not leave the panel invisible forever.
+            // The generation also prevents an old timeout revealing a newer crossing.
+            let app = app.clone();
+            let label = w.label().to_owned();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(700));
+                let handle = app.clone();
+                let _ = handle.run_on_main_thread(move || {
+                    complete_edge_fade(&app, &label, generation);
+                    if reveal_edge_transition(&app, &label, generation) {
+                        applog("notch edge: folded paint acknowledgement timed out");
+                        let _ = app.emit_to(&label, "notch_edge_fallback", generation);
+                    }
+                });
+            });
+            return;
+        }
+        edge_transition::Placement::Place => {}
+    }
+    let (content, hardware) = {
+        let runtime = native_notch::runtime(w.label());
+        let mut current = runtime.lock().unwrap();
+        let screen_key = (mon.x, mon.y, mon.w, mon.h);
+        if current.geometry_screen != Some(screen_key) {
+            current.geometry_screen = Some(screen_key);
+            current.hardware_notch = None;
+        }
+        (current.content.clone(), current.hardware_notch)
+    };
+    let layout = content.map(|c| notch_layout::calculate(&edge, c, mon.h as f64 / ms, size, hardware));
     let (width, height) = layout
         .map(|l| (l.width, l.height))
         .unwrap_or_else(|| notch_window_size(&edge));
@@ -504,7 +573,12 @@ fn place_notch_on(app: &AppHandle, w: &tauri::WebviewWindow, mon: &Screen) {
         c.along(&edge)
     };
     let shape = layout.map(|l| l.shape_length * ms * size);
-    let (x, y) = content_edge_origin(&mon, &edge, ww, wh, ratio, shape);
+    let extents = if shape.is_some() {
+        handle_extents(&edge, size, ms, show_move, hardware)
+    } else {
+        (0.0, 0.0)
+    };
+    let (x, y) = content_edge_origin(&mon, &edge, ww, wh, ratio, shape, extents);
     let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
     let mut placed = (x, y, ww, wh);
     if w.outer_size()
@@ -519,6 +593,7 @@ fn place_notch_on(app: &AppHandle, w: &tauri::WebviewWindow, mon: &Screen) {
             target.height as i32,
             ratio,
             shape,
+            extents,
         );
         let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
         placed = (x, y, target.width as i32, target.height as i32);
@@ -545,6 +620,50 @@ fn place_notch_on(app: &AppHandle, w: &tauri::WebviewWindow, mon: &Screen) {
             mon.work
         ));
     native_notch::notify_geometry(app, w.label());
+}
+
+fn complete_edge_fade(app: &AppHandle, label: &str, generation: u32) {
+    let Some(window) = app.get_webview_window(label) else { return; };
+    let edge = native_notch::runtime(label).lock().unwrap().edge_transition.land(generation);
+    let Some(edge) = edge else { return; };
+    let screen = native_notch::runtime(label).lock().unwrap().screen.clone()
+        .or_else(|| target_screen(app));
+    if let Some(screen) = screen { place_notch_on(app, &window, &screen); }
+    let _ = app.emit_to(label, "notch_edge_arrived", serde_json::json!({"generation": generation, "edge": edge}));
+}
+
+fn reveal_edge_transition(app: &AppHandle, label: &str, generation: u32) -> bool {
+    let Some(window) = app.get_webview_window(label) else { return false; };
+    if !native_notch::runtime(label).lock().unwrap().edge_transition.reveal(generation) { return false; }
+    native_notch::reveal_edge(&window);
+    true
+}
+
+#[tauri::command]
+fn notch_edge_fade(app: AppHandle, window: tauri::WebviewWindow, generation: u32) {
+    #[cfg(target_os = "macos")]
+    native_notch::fade_edge(&app, window.label(), generation);
+    #[cfg(not(target_os = "macos"))]
+    {
+        let label = window.label().to_owned();
+        let handle = app.clone();
+        let _ = handle.run_on_main_thread(move || {
+            if native_notch::runtime(&label).lock().unwrap().edge_transition.begin_fade(generation) {
+                complete_edge_fade(&app, &label, generation);
+            }
+        });
+    }
+}
+
+#[tauri::command]
+async fn notch_edge_visible(app: AppHandle, window: tauri::WebviewWindow, generation: u32) -> bool {
+    let (send, receive) = tokio::sync::oneshot::channel();
+    let label = window.label().to_owned();
+    let handle = app.clone();
+    let _ = handle.run_on_main_thread(move || {
+        let _ = send.send(reveal_edge_transition(&app, &label, generation));
+    });
+    receive.await.unwrap_or(false)
 }
 
 /// How often the work area is re-read. It only changes by hand — the taskbar moved to another edge,
@@ -605,6 +724,7 @@ fn start_work_area_watch(app: AppHandle) {
             if all_now != last_all {
                 last_all = all_now;
                 native_notch::schedule_reconcile(&app);
+                let _ = app.emit_to("settings", "monitors_changed", ());
             }
             if now != last {
                 last = now;
@@ -676,6 +796,16 @@ pub(crate) fn edge_at(x: f64, y: f64, w: f64, h: f64) -> &'static str {
     }
 }
 
+/// The move handle changes only the edge. Display preference belongs to the
+/// separate monitor setting, and a release on the same edge is a no-op.
+fn apply_move_edge(config: &mut config::Config, target: &str) -> bool {
+    if config::edge_or_right(&config.notch_edge) == target {
+        return false;
+    }
+    config.notch_edge = target.to_string();
+    true
+}
+
 /// Carrying the notch by its move handle: the zones go up, the pointer picks one, and releasing
 /// hands it over. The notch itself stays where it is until then — what is being chosen is a place on
 /// the screen, not a distance moved, so nothing follows the pointer.
@@ -713,36 +843,20 @@ fn begin_move(app: AppHandle, window: tauri::WebviewWindow, depth: f64, length: 
         };
         // The overlay is at the monitor's own scale; the notch page is that scale times its size
         let size = ui_scale(&app);
-        // Every figure here is the work area's, to match the overlay window and the notch itself:
-        // the zone drawn on the taskbar's edge has to sit where the notch will, and the edge the
-        // pointer picks has to be read against the same rectangle the zones are drawn in.
-        let zones_on = |s: &Screen, target: &str| {
-            let (_, _, aw, ah) = s.area();
-            dropzones::Zones {
-                w: aw as f64 / s.scale,
-                h: ah as f64 / s.scale,
-                depth: depth * size,
-                length: length * size,
-                target: target.to_string(),
-            }
+        let (ax, ay, aw, ah) = start.area();
+        let mut zones = dropzones::Zones {
+            w: aw as f64 / start.scale,
+            h: ah as f64 / start.scale,
+            depth: depth * size,
+            length: length * size,
+            target: from.clone(),
         };
-        let all = screens(&app);
-        let mut mon = start.clone();
-        let mut zones = zones_on(&mon, &from);
-        dropzones::show(&app, &mon, &zones);
+        dropzones::show(&app, &start, &zones);
         let mut target = from.clone();
         while left_button_down() {
             if let Ok(cur) = app.cursor_position() {
-                // Crossing onto another screen takes the zones with it. The silhouette is in logical
-                // px, so it keeps its size on a screen at another scale, exactly as the notch will.
-                if let Some(s) = screen_at(&all, cur.x, cur.y) {
-                    if !same_screen(s, &mon) {
-                        mon = s.clone();
-                        zones = zones_on(&mon, &target);
-                        dropzones::relocate(&app, &mon, &zones);
-                    }
-                }
-                let (ax, ay, aw, ah) = mon.area();
+                // Match DropZoneOverlay(screen:): the overlay and its coordinates stay on
+                // the screen where the handle was pressed, even if the pointer crosses over.
                 let next = edge_at(cur.x - ax as f64, cur.y - ay as f64, aw as f64, ah as f64);
                 if next != target {
                     target = next.to_string();
@@ -753,41 +867,16 @@ fn begin_move(app: AppHandle, window: tauri::WebviewWindow, depth: f64, length: 
             }
             std::thread::sleep(std::time::Duration::from_millis(16));
         }
-        // The right edge of another screen is a move too, though the edge has the same name
-        let mut crossed = !same_screen(&mon, &start);
-        // A screen Windows will not name has nothing stable to remember it by, which is why the
-        // picker in Settings lists those disabled. Saving `None` would not mean "this screen", it
-        // means "the primary", so the notch would jump off it at the next placement. Take the edge
-        // the carry chose and leave it on the screen it came from rather than record a move that
-        // will not survive.
-        let unnameable = crossed && mon.stable_id.is_none() && mon.name.is_none();
-        if unnameable {
-            crossed = false;
-        }
-        applog(&format!(
-            "notch carry: {from} -> {target} on {:?}{}",
-            mon.name,
-            if unnameable {
-                " (unnamed screen, staying put)"
-            } else {
-                ""
-            }
-        ));
-        if target != from || crossed || unnameable {
-            {
+        applog(&format!("notch carry: {from} -> {target} on {:?}", start.name));
+        if target != from {
+            let changed = {
                 let st = app.state::<AppState>();
                 let mut c = st.cfg.lock().unwrap();
-                // It lands where it was last left on that edge — centred, like the zone it was
-                // offered, on an edge it has never been slid along
-                c.notch_edge = target.clone();
-                if c.appearance.notch_scope == "mainDisplay" && !unnameable {
-                    c.notch_monitor = mon.stable_id.clone().or_else(|| mon.name.clone());
-                }
-                config::save(&c);
-            }
-            if crossed && label == "notch" {
-                land_on_another_screen(&app, start.scale, mon.scale);
-            } else {
+                let changed = apply_move_edge(&mut c, &target);
+                if changed { config::save(&c); }
+                changed
+            };
+            if changed {
                 place_notch(&app);
             }
         }
@@ -820,14 +909,30 @@ fn drag_begin(app: AppHandle, w: tauri::WebviewWindow) {
             DRAGGING.store(false, std::sync::atomic::Ordering::SeqCst);
             return;
         };
-        let edge = {
+        let (edge, show_move) = {
             let st = app.state::<AppState>();
             let c = st.cfg.lock().unwrap();
-            config::edge_or_right(&c.notch_edge)
+            (config::edge_or_right(&c.notch_edge), c.show_move_handle)
         };
         let vertical = config::edge_is_vertical(&edge);
         let (ww, wh) = (size.width as i32, size.height as i32);
-        // The span `edge_origin` places against, so it cannot be slid under the taskbar
+        let scale = ui_scale(&app);
+        let (content, hardware) = {
+            let runtime = native_notch::runtime(w.label());
+            let current = runtime.lock().unwrap();
+            (current.content.clone(), current.hardware_notch)
+        };
+        let shape = content.map(|c| {
+            notch_layout::calculate(&edge, c, mon.h as f64 / mon.scale, scale, hardware).shape_length
+                * mon.scale * scale
+        });
+        let extents = if shape.is_some() {
+            handle_extents(&edge, scale, mon.scale, show_move, hardware)
+        } else {
+            (0.0, 0.0)
+        };
+        // The visible shape and both handle hot circles stay on the full display;
+        // transparent card slack may run past either end, as in NotchGeometry.panelFrame.
         let (ax, ay, aw, ah) = mon.area();
         let (mut last_x, mut last_y) = (start_pos.x, start_pos.y);
         let mut moved = false;
@@ -837,11 +942,17 @@ fn drag_begin(app: AppHandle, w: tauri::WebviewWindow) {
             }
             if let Ok(cur) = app.cursor_position() {
                 let (nx, ny) = if vertical {
-                    let y = (start_pos.y as f64 + (cur.y - start_cur.y)).round() as i32;
-                    (start_pos.x, y.clamp(ay, (ay + ah - wh).max(ay)))
+                    let y = visible_along_origin(
+                        start_pos.y as f64 + cur.y - start_cur.y,
+                        ay, ah, wh, shape, extents.0, extents.1, true,
+                    );
+                    (start_pos.x, y)
                 } else {
-                    let x = (start_pos.x as f64 + (cur.x - start_cur.x)).round() as i32;
-                    (x.clamp(ax, (ax + aw - ww).max(ax)), start_pos.y)
+                    let x = visible_along_origin(
+                        start_pos.x as f64 + cur.x - start_cur.x,
+                        ax, aw, ww, shape, extents.0, extents.1, false,
+                    );
+                    (x, start_pos.y)
                 };
                 if nx != last_x || ny != last_y {
                     last_x = nx;
@@ -880,16 +991,29 @@ pub fn toggle_drag(app: &AppHandle) {
 }
 
 pub fn apply_lang(app: &AppHandle, lang: &str) {
-    {
+    let changed = {
         let st = app.state::<AppState>();
         let mut c = st.cfg.lock().unwrap();
-        c.lang = lang.to_string();
-        config::save(&c);
-    }
+        let changed = c.lang != lang;
+        if changed {
+            c.lang = lang.to_string();
+            config::save(&c);
+        }
+        changed
+    };
     // Through refresh_menu, which makes sure the swap happens on the main thread: doing it from the
     // settings window's thread left the tray with a menu that would never open again.
     tray::refresh_menu(app);
     broadcast(app);
+    if changed {
+        // Swift UsageStore re-reads on a language change because parsed window labels are
+        // archived with the reading; repainting alone can leave an old-language label.
+        // Account discovery stays off the settings IPC thread.
+        let app = app.clone();
+        std::thread::spawn(move || {
+            let _ = refresh_all_tracked(&app);
+        });
+    }
 }
 
 // ---------------- commands ----------------
@@ -1233,23 +1357,12 @@ fn cursor_in_hot(rects: &[[f64; 4]], lx: f64, ly: f64, window: Option<(f64, f64)
     if !in_window {
         return false;
     }
-    if rects.iter().any(|r| {
+    rects.iter().any(|r| {
         lx >= r[0] - HOT_PAD
             && ly >= r[1] - HOT_PAD
             && lx < r[0] + r[2] + HOT_PAD
             && ly < r[1] + r[3] + HOT_PAD
-    }) {
-        return true;
-    }
-    // The gap between hot rectangles (pill and card) counts as inside: use the bounding box of all of them
-    if rects.len() > 1 {
-        let x0 = rects.iter().map(|r| r[0]).fold(f64::MAX, f64::min);
-        let y0 = rects.iter().map(|r| r[1]).fold(f64::MAX, f64::min);
-        let x1 = rects.iter().map(|r| r[0] + r[2]).fold(f64::MIN, f64::max);
-        let y1 = rects.iter().map(|r| r[1] + r[3]).fold(f64::MIN, f64::max);
-        return lx >= x0 && ly >= y0 && lx < x1 && ly < y1;
-    }
-    false
+    })
 }
 
 /// Was 150 ms, when this only decided whether the card stayed up. It now also gates whether a click
@@ -1287,7 +1400,8 @@ pub(crate) fn start_pointer_watchdog(app: AppHandle, label: String) {
             };
             let (rects, expanded) = {
                 let rt = runtime.lock().unwrap();
-                (rt.hot.clone(), rt.expanded)
+                if rt.edge_transition.pending() { (Vec::new(), false) }
+                else { (rt.hot.clone(), rt.expanded) }
             };
             // Cursor position relative to the window's top-left, in physical pixels; the hot rectangles are physical too, so no scale conversion
             let lx = cur.x - pos.x as f64;
@@ -1756,12 +1870,29 @@ fn get_antigravity_prefs(app: AppHandle) -> AntigravityPrefs {
     }
 }
 
+fn refresh_changed_antigravity_accounts(
+    changed: bool,
+    ids: impl FnOnce() -> Vec<String>,
+    mut enabled: impl FnMut(&str) -> bool,
+    mut request: impl FnMut(&str),
+) {
+    if !changed {
+        return;
+    }
+    for id in ids() {
+        if enabled(&id) {
+            request(&id);
+        }
+    }
+}
+
 /// Unknown values are refused rather than stored. The notch draws its own rings, so it is told.
 #[tauri::command]
 fn set_antigravity_prefs(app: AppHandle, limit: String, model: String) -> AntigravityPrefs {
-    let prefs = {
+    let (prefs, changed) = {
         let st = app.state::<AppState>();
         let mut c = st.cfg.lock().unwrap();
+        let previous = (c.antigravity_limit.clone(), c.antigravity_model.clone());
         if ["automatic", "5h", "weekly"].contains(&limit.as_str()) {
             c.antigravity_limit = limit;
         }
@@ -1769,13 +1900,24 @@ fn set_antigravity_prefs(app: AppHandle, limit: String, model: String) -> Antigr
             c.antigravity_model = model;
         }
         config::save(&c);
-        AntigravityPrefs {
-            limit: c.antigravity_limit.clone(),
-            model: c.antigravity_model.clone(),
-        }
+        (
+            AntigravityPrefs {
+                limit: c.antigravity_limit.clone(),
+                model: c.antigravity_model.clone(),
+            },
+            previous != (c.antigravity_limit.clone(), c.antigravity_model.clone()),
+        )
     };
     let _ = app.emit("antigravity_prefs", &prefs);
     tray::refresh_menu(&app);
+    refresh_changed_antigravity_accounts(
+        changed,
+        providers::antigravity_profile_ids,
+        |id| providers::enabled(&app, id),
+        |id| {
+            let _ = refresh_provider(&app, id);
+        },
+    );
     prefs
 }
 
@@ -2130,6 +2272,8 @@ pub struct MonitorInfo {
     pub primary: bool,
     pub current: bool,
     pub pinned: bool,
+    /// The saved pin is retained while its physical display is disconnected.
+    pub unavailable: bool,
 }
 
 #[tauri::command]
@@ -2141,7 +2285,7 @@ fn get_monitors(app: AppHandle) -> Vec<MonitorInfo> {
     };
     let list = screens(&app);
     let chosen = target_screen(&app).and_then(|s| s.stable_id.or(s.name));
-    list.iter()
+    let mut rows: Vec<_> = list.iter()
         .enumerate()
         .map(|(i, s)| MonitorInfo {
             id: s.stable_id.clone().or_else(|| s.name.clone()),
@@ -2149,8 +2293,20 @@ fn get_monitors(app: AppHandle) -> Vec<MonitorInfo> {
             primary: i == 0,
             current: s.stable_id.as_ref().or(s.name.as_ref()) == chosen.as_ref(),
             pinned: want.as_deref().is_some_and(|id| screen_id_matches(s, id)),
+            unavailable: false,
         })
-        .collect()
+        .collect();
+    if want.as_ref().is_some_and(|_| !rows.iter().any(|row| row.pinned)) {
+        rows.push(MonitorInfo {
+            id: want,
+            label: "Unavailable display".into(),
+            primary: false,
+            current: false,
+            pinned: true,
+            unavailable: true,
+        });
+    }
+    rows
 }
 
 /// `None` follows the frontmost window; disconnected displays fall back without stranding the notch.
@@ -2589,6 +2745,8 @@ fn main() {
             report_dpr,
             set_notch_content,
             notch_hidden,
+            notch_edge_fade,
+            notch_edge_visible,
             log_js,
             focus_session,
             dismiss_session,
@@ -2673,7 +2831,8 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        cursor_in_hot, notch_window_size, provider_page, remember_notch_slots, ring_window, work_insets, Screen, HOT_PAD,
+        content_edge_origin, cursor_in_hot, handle_extents, notch_window_size, provider_page,
+        remember_notch_slots, ring_window, visible_along_origin, work_insets, Screen, HOT_PAD,
         NOTCH_W, TRAY_PROVIDER_IDS,
     };
     use crate::usage::LimitWindow;
@@ -2682,6 +2841,36 @@ mod tests {
     fn explicit_simplified_chinese_alias_reaches_native_translations() {
         assert_eq!(super::resolved_lang("zh-Hans"), "zh");
         assert_eq!(super::resolved_lang("zh-Hant"), "zh-Hant");
+    }
+
+    #[test]
+    fn changed_antigravity_setting_refreshes_only_connected_family_accounts() {
+        let ids = || {
+            vec![
+                "gemini".to_string(),
+                "codex".to_string(),
+                "antigravity-work".to_string(),
+            ]
+        };
+        let mut requested = Vec::new();
+        super::refresh_changed_antigravity_accounts(
+            false,
+            || panic!("unchanged selection must not discover accounts"),
+            |_| true,
+            |id| requested.push(id.to_string()),
+        );
+        assert!(requested.is_empty(), "unchanged selection spends no requests");
+        super::refresh_changed_antigravity_accounts(
+            true,
+            || ids().into_iter().filter(|id| id.as_str() != "codex").collect(),
+            |id| id != "antigravity-work",
+            |id| requested.push(id.to_string()),
+        );
+        assert_eq!(
+            requested,
+            vec!["gemini".to_string()],
+            "only enabled Antigravity accounts are requested"
+        );
     }
 
     #[test]
@@ -2782,6 +2971,63 @@ mod tests {
     }
 
     #[test]
+    fn a_tall_panel_can_slide_its_visible_shape_to_both_screen_ends() {
+        let s = Screen {
+            name: None, stable_id: None, x: 100, y: 200, w: 1440, h: 900,
+            scale: 1.0, work: (100, 200, 1440, 900),
+        };
+        let (ww, wh, shape) = (360, 954, 460.0);
+        let extents = (29.0, 29.0);
+        for edge in ["left", "right"] {
+            let (top_x, top_y) = content_edge_origin(&s, edge, ww, wh, 0.0, Some(shape), extents);
+            let (bottom_x, bottom_y) = content_edge_origin(&s, edge, ww, wh, 1.0, Some(shape), extents);
+            assert_eq!(top_y, -18, "{edge} can put the visible move handle at the top");
+            assert_eq!(bottom_y, 364, "{edge} can put the settings handle at the bottom");
+            assert_eq!(top_x, bottom_x);
+            for y in [top_y, 200, bottom_y] {
+                let ratio = super::along_at(y, wh, s.y, s.h);
+                assert_eq!(content_edge_origin(&s, edge, ww, wh, ratio, Some(shape), extents).1, y);
+            }
+        }
+        let (hidden_x, _) = content_edge_origin(&s, "right", ww, wh, 0.0, Some(shape), (0.0, 29.0));
+        assert_eq!(hidden_x, 100 + 1440 - ww);
+        assert_eq!(content_edge_origin(&s, "right", ww, wh, 0.0, Some(shape), (0.0, 29.0)).1, -47);
+        assert_eq!(visible_along_origin(-999.0, 200, 900, wh, Some(shape), 29.0, 29.0, true), -18);
+    }
+
+    #[test]
+    fn oversized_shape_clamps_in_the_swift_coordinate_direction() {
+        // Physical bounds cross: lo=-180, hi=-320. Swift's AppKit lower bound
+        // maps to physical hi vertically, but remains lo horizontally.
+        assert_eq!(visible_along_origin(0.0, 0, 100, 600, Some(200.0), 20.0, 20.0, true), -320);
+        assert_eq!(visible_along_origin(0.0, 0, 100, 600, Some(200.0), 20.0, 20.0, false), -180);
+    }
+
+    #[test]
+    fn four_edges_share_visible_bounds_and_preserve_the_physical_bezel() {
+        let s = Screen {
+            name: None, stable_id: None, x: 50, y: 70, w: 1440, h: 900,
+            scale: 1.0, work: (50, 70, 1440, 900),
+        };
+        for edge in ["top", "bottom"] {
+            let a = content_edge_origin(&s, edge, 954, 360, 0.0, Some(460.0), (29.0, 29.0));
+            let b = content_edge_origin(&s, edge, 954, 360, 1.0, Some(460.0), (29.0, 29.0));
+            assert_eq!(a.0, -168);
+            assert_eq!(b.0, 754);
+            assert_eq!(a.1, if edge == "top" { 70 } else { 610 });
+            assert_eq!(b.1, a.1);
+            for x in [a.0, 50, b.0] {
+                let ratio = super::along_at(x, 954, s.x, s.w);
+                assert_eq!(content_edge_origin(&s, edge, 954, 360, ratio, Some(460.0), (29.0, 29.0)).0, x);
+            }
+        }
+        assert_eq!(handle_extents("left", 1.0, 1.0, false, None).0, 0.0);
+        assert_eq!(handle_extents("right", 1.0, 1.0, true, None), (29.0, 29.0));
+        let joined = super::native_notch::HardwareNotch { width: 220.0, height: 37.0 };
+        assert!(handle_extents("top", 1.0, 1.0, true, Some(joined)).1 > 29.0);
+    }
+
+    #[test]
     fn dock_and_taskbar_do_not_move_the_physical_edge() {
         let s = Screen {
             name: None,
@@ -2846,11 +3092,11 @@ mod tests {
         assert_eq!(super::edge_at(-200.0, 700.0, w, h), "left");
     }
 
-    /// A carry follows the pointer from one screen to the next, and holds on to the last one while
-    /// the pointer crosses the gap a shorter screen leaves beside a taller one.
+    /// DropZoneOverlay remains attached to the screen where the handle was pressed.
+    /// Its edge calculation keeps using that screen's coordinates after the pointer leaves it.
     #[test]
-    fn a_carry_crosses_onto_whichever_screen_the_pointer_is_over() {
-        let main = Screen {
+    fn a_carry_uses_the_press_screen_and_never_rewrites_monitor_preference() {
+        let screen = Screen {
             name: Some("1".into()),
             stable_id: None,
             x: 0,
@@ -2860,44 +3106,17 @@ mod tests {
             scale: 1.25,
             work: (0, 0, 2560, 1552),
         };
-        // An older monitor to the right, shorter, and sitting 200 px lower
-        let old = Screen {
-            name: Some("2".into()),
-            stable_id: None,
-            x: 2560,
-            y: 200,
-            w: 1920,
-            h: 1080,
-            scale: 1.0,
-            work: (2560, 200, 1920, 1040),
-        };
-        let all = [main.clone(), old.clone()];
-        assert_eq!(
-            super::screen_at(&all, 100.0, 100.0).and_then(|s| s.name.clone()),
-            main.name
-        );
-        assert_eq!(
-            super::screen_at(&all, 3000.0, 700.0).and_then(|s| s.name.clone()),
-            old.name
-        );
-        assert!(
-            super::screen_at(&all, 3000.0, 100.0).is_none(),
-            "above the shorter screen is on neither"
-        );
-        assert!(
-            super::screen_at(&all, 2560.0, 700.0).is_some(),
-            "the shared border belongs to the right-hand one"
-        );
-        assert!(super::same_screen(&main, &main.clone()));
-        assert!(!super::same_screen(&main, &old));
-        // The same place with no name reported is still the same screen
-        assert!(super::same_screen(
-            &Screen {
-                name: None,
-                ..old.clone()
-            },
-            &old
-        ));
+        let (x, y, w, h) = screen.area();
+        assert_eq!(super::edge_at(3000.0 - x as f64, 700.0 - y as f64, w as f64, h as f64), "right");
+        assert_eq!(super::edge_at(1000.0 - x as f64, -100.0 - y as f64, w as f64, h as f64), "top");
+        let mut config = crate::config::Config::default();
+        config.notch_edge = "right".into();
+        config.notch_monitor = Some("chosen-display".into());
+        assert!(!super::apply_move_edge(&mut config, "right"));
+        assert_eq!(config.notch_monitor.as_deref(), Some("chosen-display"));
+        assert!(super::apply_move_edge(&mut config, "top"));
+        assert_eq!(config.notch_edge, "top");
+        assert_eq!(config.notch_monitor.as_deref(), Some("chosen-display"));
     }
 
     /// Real values from the run.log in #106: a 2560×1600 display at 150 %.
@@ -2947,18 +3166,25 @@ mod tests {
         }
     }
 
-    /// Far enough apart that the pads do not meet — the case the bounding box exists for.
+    /// The page reports the card-to-pill bridge separately. A bounding box of
+    /// every hot rect would also steal clicks in the transparent corners.
     const FAR_A: [f64; 4] = [0.0, 0.0, 50.0, 50.0];
     const FAR_B: [f64; 4] = [200.0, 0.0, 50.0, 50.0];
 
     #[test]
-    fn a_wide_gap_is_bridged_by_the_bounding_box() {
-        assert!(cursor_in_hot(&[FAR_A, FAR_B], 125.0, 25.0, None));
+    fn a_wide_gap_needs_the_explicit_card_bridge() {
+        assert!(!cursor_in_hot(&[FAR_A, FAR_B], 125.0, 25.0, None));
+        assert!(cursor_in_hot(&[FAR_A, FAR_B, [50.0, 0.0, 150.0, 50.0]], 125.0, 25.0, None));
     }
 
     #[test]
-    fn the_bounding_box_needs_two_rectangles_to_bridge_anything() {
-        assert!(!cursor_in_hot(&[FAR_A], 125.0, 25.0, None));
+    fn a_card_does_not_make_the_far_transparent_corner_hot() {
+        let pill = [400.0, 200.0, 100.0, 300.0];
+        let card = [0.0, 300.0, 200.0, 100.0];
+        let bridge = [200.0, 300.0, 200.0, 100.0];
+        let handle = [430.0, 140.0, 57.0, 57.0];
+        assert!(cursor_in_hot(&[pill, card, bridge, handle], 300.0, 350.0, None));
+        assert!(!cursor_in_hot(&[pill, card, bridge, handle], 80.0, 180.0, None));
     }
 
     #[test]

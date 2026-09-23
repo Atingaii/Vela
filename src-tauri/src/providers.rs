@@ -280,6 +280,7 @@ fn profile_account(profile: &profiles::Profile, snap: &UsageSnapshot) -> Option<
 struct Store {
     snapshots: BTreeMap<String, UsageSnapshot>,
     requested: BTreeSet<String>,
+    checking: BTreeSet<(String, u64)>,
     rate_limit_attempts: BTreeMap<String, u32>,
 }
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
@@ -354,6 +355,7 @@ fn store() -> &'static Mutex<Store> {
                 })
                 .collect(),
             requested: BTreeSet::new(),
+            checking: BTreeSet::new(),
             rate_limit_attempts: BTreeMap::new(),
         })
     })
@@ -367,6 +369,7 @@ fn purge_disabled(app: &AppHandle) {
     let before = s.snapshots.len();
     s.snapshots.retain(|id, _| !disabled.contains(id));
     s.requested.retain(|id| !disabled.contains(id));
+    s.checking.retain(|(id, _)| !disabled.contains(id));
     if s.snapshots.len() != before {
         if let Ok(bytes) = serde_json::to_vec(&s.snapshots) {
             let _ = persist(&cache_path(), &bytes);
@@ -416,6 +419,12 @@ pub fn snapshot(id: &str) -> UsageSnapshot {
             status: "absent".into(),
             ..Default::default()
         })
+}
+pub fn local_runtime_checking(id: &str) -> bool {
+    if !matches!(id, "ollama-local" | "lmstudio") { return false; }
+    let epoch = generation(id);
+    let state = store().lock().unwrap();
+    state.requested.contains(id) || state.checking.contains(&(id.to_owned(), epoch))
 }
 pub fn request(id: &str) -> bool {
     if let Some(p) = profile_list().into_iter().find(|p| p.id == id) {
@@ -726,6 +735,20 @@ pub(crate) fn codex_profile_ids() -> Vec<String> {
         profile_list()
             .into_iter()
             .filter(|profile| profile.kind == "codex")
+            .map(|profile| profile.id),
+    );
+    ids
+}
+
+pub(crate) fn antigravity_profile_ids() -> Vec<String> {
+    if crate::smoke::root().is_some() {
+        return Vec::new();
+    }
+    let mut ids = vec!["gemini".to_string()];
+    ids.extend(
+        profile_list()
+            .into_iter()
+            .filter(|profile| profile.kind == "antigravity")
             .map(|profile| profile.id),
     );
     ids
@@ -1080,6 +1103,9 @@ pub fn start(app: AppHandle) {
         loop {
             while let Ok(key) = completed.try_recv() {
                 in_flight.remove(&key);
+                if matches!(key.0.as_str(), "ollama-local" | "lmstudio") {
+                    store().lock().unwrap().checking.remove(&key);
+                }
             }
             while let Ok(key) = custom_completed.try_recv() {
                 if custom_in_flight.as_ref() == Some(&key) {
@@ -1130,6 +1156,9 @@ pub fn start(app: AppHandle) {
                         reported: false,
                     },
                 );
+                if matches!(id, "ollama-local" | "lmstudio") {
+                    store().lock().unwrap().checking.insert(key.clone());
+                }
                 let app = app.clone();
                 let finished = finished.clone();
                 std::thread::spawn(move || {
@@ -1332,8 +1361,12 @@ fn remote_reset_due(app: &AppHandle, last: u64, now: u64) -> bool {
     reset_due
 }
 
-fn remote_due(last: u64, now: u64, busy: bool, reset_due: bool) -> bool {
+pub(crate) fn remote_due(last: u64, now: u64, busy: bool, reset_due: bool) -> bool {
     busy || reset_due || now.saturating_sub(last) >= 300_000
+}
+
+pub(crate) fn remote_refresh_due(app: &AppHandle, last: u64, now: u64) -> bool {
+    remote_due(last, now, remote_busy(app), remote_reset_due(app, last, now))
 }
 
 pub(crate) fn wait_remote_due(
@@ -1349,12 +1382,7 @@ pub(crate) fn wait_remote_due(
         }
         let now = crate::now_ms();
         if now >= tick {
-            if remote_due(
-                last,
-                now,
-                remote_busy(app),
-                remote_reset_due(app, last, now),
-            ) {
+            if remote_refresh_due(app, last, now) {
                 return;
             }
             tick = tick.saturating_add(((now - tick) / 60_000 + 1) * 60_000);

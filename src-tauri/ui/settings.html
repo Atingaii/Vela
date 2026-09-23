@@ -85,6 +85,10 @@
   .local-activity{padding:10px;font-size:11px;line-height:13px;color:var(--text2)}
   .local-activity > * + *{margin-top:6px}.local-activity strong{display:block;font-size:13px;line-height:16px;font-weight:600;color:var(--text)}
   .local-activity .problem{color:var(--danger)}.local-activity code{font:11px/13px ui-monospace,SFMono-Regular,Menlo,monospace;user-select:text}
+  .setup-note{display:flex;align-items:flex-start;gap:10px;margin:10px;padding:12px;border-radius:8px;background:rgba(255,165,0,.09)}
+  .setup-note .setup-symbol{color:orange;flex:none}.setup-note strong{display:block;font-size:12px;line-height:16px}
+  .setup-note p{margin:3px 0 0;font-size:11px;line-height:13px;color:var(--text2)}
+  .group .account-explanation{padding:10px;font-size:11px;line-height:13px;color:var(--text3)}
   .local-token-row{display:flex;align-items:center;gap:8px;padding:0 10px 6px}.local-token-row input{width:260px;max-width:60%;min-width:0;padding:6px}.local-token-row span{color:#69d89e;font-size:11px}
   .item .hint{font-size:12px;color:var(--text2)}
   .value{color:var(--text2)}
@@ -262,6 +266,7 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
 
       <section class="pane" id="pane-ollama" role="tabpanel" aria-labelledby="tab-ollama" hidden>
         <div class="sec">Connection</div><div class="group provider-config"><div class="item"><span>Ollama</span><button class="switch" id="ollama-monitor" role="switch" aria-label="Monitor Ollama" aria-checked="false"></button></div>
+        <div class="item"><button class="btn compact" id="ollama-open" type="button">Open Ollama</button></div>
         <form id="ollama-preferences"><label>Server address<input id="ollama-url" type="url" required aria-label="Ollama server address"></label><button class="btn" type="submit" id="ollama-apply">Apply</button></form>
         <div class="item cap" id="ollama-status" role="status" data-dynamic></div>
         <div class="item cap">Detected models appear in Accounts → Connected. Model loading and unloading is checked every second.</div>
@@ -271,11 +276,13 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
       </section>
       <section class="pane" id="pane-lmstudio" role="tabpanel" aria-labelledby="tab-lmstudio" hidden>
         <div class="sec">Connection</div><div class="group provider-config"><div class="item"><span>LM Studio</span><button class="switch" id="lmstudio-monitor" role="switch" aria-label="Monitor LM Studio" aria-checked="false"></button></div>
+        <div class="item"><button class="btn compact" id="lmstudio-open" type="button">Open LM Studio</button></div>
         <form id="lmstudio-preferences"><label>Server address<input id="lmstudio-url" type="url" required aria-label="LM Studio server address"></label><button class="btn" type="submit" id="lmstudio-apply">Apply</button></form>
         <div class="item cap" id="lmstudio-status" role="status" data-dynamic></div>
         <div class="item cap">Loaded models appear in Accounts → Connected and are checked every second. Embedding models are not shown.</div>
         <div class="item cap">API token</div><div class="local-token-row"><input id="lmstudio-token" type="password" autocomplete="off" placeholder="sk-lm-…" aria-label="LM Studio API token"><button class="btn compact" id="lmstudio-token-save" type="button">Save</button><button class="btn compact" id="lmstudio-token-remove" type="button" hidden>Remove</button><span id="lmstudio-token-saved" hidden>Saved</span></div>
-        <div class="item cap" id="lmstudio-token-hint" data-dynamic></div></div>
+        <div class="item cap" id="lmstudio-token-hint" data-dynamic></div>
+        <div id="lmstudio-activity" class="local-activity" hidden data-dynamic></div></div>
       </section>
       <section class="pane" id="pane-custom" role="tabpanel" aria-labelledby="tab-custom" hidden>
         <div class="group" id="custom-config">
@@ -351,8 +358,8 @@ dialog{color:var(--text);background:#161618;border:1px solid #333;border-radius:
           <div class="item cap" id="cap-screen" data-dynamic hidden></div>
         </div>
         <div class="sec">Usage Limits</div><div class="group">
-          <div class="item limit-row"><div class="limit-label"><label for="appearance-watch">Watch limit</label><output id="appearance-watch_value"></output></div><input id="appearance-watch" type="range" min="1" max="99" step="1"></div>
-          <div class="item limit-row"><div class="limit-label"><label for="appearance-critical">Critical limit</label><output id="appearance-critical_value"></output></div><input id="appearance-critical" type="range" min="1" max="100" step="1"></div>
+          <div class="item limit-row"><div class="limit-label"><label for="appearance-watch">Watch limit</label><output id="appearance-watch_value"></output></div><input id="appearance-watch" type="range" min="1" max="99" step="any"></div>
+          <div class="item limit-row"><div class="limit-label"><label for="appearance-critical">Critical limit</label><output id="appearance-critical_value"></output></div><input id="appearance-critical" type="range" min="1" max="100" step="any"></div>
           <div class="item"><button class="btn" id="appearance-reset_limits">Reset to defaults</button></div>
         </div>
         <div class="sec">App</div>
@@ -471,6 +478,8 @@ document.addEventListener('pointerdown',event=>{
 },true);
 window.__TAURI__.event.listen('settings_opened',()=>{
   if(isEditingField(document.activeElement))document.activeElement.blur();
+  refreshProviderMetadata();
+  refreshScreens();
 }).catch(()=>{});
 
 /* ---- Translations ---------------------------------------------------------
@@ -1113,7 +1122,9 @@ Object.assign(STATIC_TEXT["ko"], {"Peak/off-peak pricing":"피크/오프피크 �
 Object.assign(STATIC_TEXT["pt-BR"], {"Show limit information in menu bar":"Exibir limites na barra de menus","Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets.":"Troca o ícone pelo limite de cinco horas de cada provedor escolhido — quanto foi usado e quanto falta para renovar.","Leaving a provider out keeps it off the menu bar only — Velo still reads it. With none chosen, the icon comes back.":"Deixar um provedor de fora só o tira da barra de menus — o Velo continua a lê-lo. Sem nenhum escolhido, o ícone volta.","Nothing Velo reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.":"Nada do que o Velo lê tem ainda um limite de cinco horas para mostrar. Claude e Codex têm — ative um deles em Contas.","Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu.":"Com mais de dois, cada um mostra só a sua parte e as contagens regressivas vão para a dica. Com mais de quatro, os demais ficam no menu.","Displays":"Telas","Main display":"Tela principal","All displays":"Todas as telas","The notch appears only on the display with the menu bar.":"O notch aparece apenas na tela que tem a barra de menus.","Each display gets its own notch, and hovering one opens only that one.":"Cada tela ganha o próprio notch, e passar o cursor sobre um abre somente aquele.","Allow access…":"Permitir acesso…","Monthly budget":"Orçamento mensal","None":"Nenhum","tokens":"tokens"});
 Object.assign(STATIC_TEXT["ru"], {"Show limit information in menu bar":"Показывать лимиты в строке меню","Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets.":"Заменяет значок пятичасовым лимитом каждого выбранного провайдера — сколько использовано и сколько осталось до сброса.","Leaving a provider out keeps it off the menu bar only — Velo still reads it. With none chosen, the icon comes back.":"Невыбранный провайдер лишь исчезает из строки меню — Velo продолжает его читать. Если не выбран ни один, возвращается значок.","Nothing Velo reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.":"Ни у одного провайдера, которого читает Velo, пока нет пятичасового лимита. У Claude и Codex он есть — включите одного из них в разделе «Аккаунты».","Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu.":"Если выбрано больше двух, каждый показывает только долю, а обратный отсчёт уходит во всплывающую подсказку. Если больше четырёх, остальные — в меню.","Surface":"Поверхность","Liquid Glass":"Жидкое стекло","Dark glass":"Тёмное стекло","Solid black":"Сплошной чёрный","System Liquid Glass. Follows this Mac's Appearance settings, including Clear or Tinted glass and light or dark mode.":"Системное жидкое стекло. Следует настройкам внешнего вида Mac, включая прозрачное или тонированное стекло и светлый или тёмный режим.","Liquid Glass tinted black. Always dark, whatever the Mac's appearance.":"Liquid Glass с чёрным оттенком. Всегда тёмное, независимо от оформления Mac.","The original opaque black notch. Always dark, whatever the Mac's appearance.":"Исходная непрозрачная чёрная панель. Всегда тёмная независимо от внешнего вида Mac.","Displays":"Дисплеи","Main display":"Основной дисплей","All displays":"Все дисплеи","The notch appears only on the display with the menu bar.":"Панель появляется только на дисплее со строкой меню.","Each display gets its own notch, and hovering one opens only that one.":"На каждом дисплее есть своя панель, и наведение открывает только её.","Allow access…":"Разрешить доступ…","Monthly budget":"Месячный бюджет","None":"Нет","tokens":"токенов","Unused resets":"Неиспользованные сбросы","1 unused reset":"1 неиспользованный сброс","%lld unused resets":"%lld неиспользованных сбросов","Next expires %@":"Следующий истекает %@","Expires %@":"Истекает %@"});
 Object.assign(STATIC_TEXT["uk"], {"Peak/off-peak pricing":"Ціни в пік і поза піком","Show DeepSeek pricing":"Показувати ціни DeepSeek","Shows the current billing phase and the next peak/off-peak change on the DeepSeek usage card.":"Показує поточну фазу тарифікації та найближчу зміну пікового чи непікового періоду на картці використання DeepSeek.","Peak rule":"Правило піку","The schedule is maintained locally because it cannot be read reliably from an official API. Times below are UTC; the card converts the next change to your local time.":"Розклад ведеться локально, бо його не можна надійно прочитати з офіційного API. Час нижче — за UTC; картка переводить наступну зміну у ваш місцевий час.","Peak days":"Пікові дні","Mon":"Пн","Tue":"Вт","Wed":"Ср","Thu":"Чт","Fri":"Пт","Sat":"Сб","Sun":"Нд","Window %lld":"Вікно %lld","Start":"Початок","End":"Кінець","to":"до","Remove peak window":"Видалити вікно піку","Add peak window":"Додати вікно піку","Restore current default rule":"Відновити типове правило","Show limit information in menu bar":"Показувати ліміти в рядку меню","Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets.":"Замінює значок п’ятигодинним лімітом кожного вибраного провайдера — скільки використано і скільки лишилося до скидання.","Leaving a provider out keeps it off the menu bar only — Velo still reads it. With none chosen, the icon comes back.":"Невибраний провайдер лише зникає з рядка меню — Velo і далі його читає. Якщо не вибрано жодного, повертається значок.","Nothing Velo reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.":"Жоден провайдер, якого читає Velo, поки не має п’ятигодинного ліміту. У Claude і Codex він є — увімкніть одного з них у розділі «Акаунти».","Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu.":"Якщо вибрано більше двох, кожен показує лише частку, а зворотний відлік переходить у підказку. Якщо більше чотирьох, решта — в меню.","Surface":"Поверхня","Liquid Glass":"Liquid Glass","Dark glass":"Темне скло","Solid black":"Суцільний чорний","System Liquid Glass. Follows this Mac's Appearance settings, including Clear or Tinted glass and light or dark mode.":"Системне Liquid Glass. Відповідає налаштуванням вигляду цього Mac, зокрема прозорому чи тонованому склу та світлому або темному режиму.","Liquid Glass tinted black. Always dark, whatever the Mac's appearance.":"Liquid Glass з чорним відтінком. Завжди темний, незалежно від вигляду Mac.","The original opaque black notch. Always dark, whatever the Mac's appearance.":"Початковий непрозорий чорний виріз. Завжди темний, незалежно від вигляду Mac.","Displays":"Дисплеї","Main display":"Основний дисплей","All displays":"Усі дисплеї","The notch appears only on the display with the menu bar.":"Виріз зʼявляється лише на дисплеї з рядком меню.","Each display gets its own notch, and hovering one opens only that one.":"Кожен дисплей отримує власний виріз, і наведення відкриває лише його.","Allow access…":"Дозволити доступ…","Monthly budget":"Місячний бюджет","None":"Немає","tokens":"токенів","Region":"Регіон","International":"Міжнародний","China mainland":"Материковий Китай","Usage details":"Деталі використання","Tokens":"Токени","Cost":"Витрати","Requests":"Запити","API keys":"Ключі API","Pricing":"Тарифікація","Peak pricing · 2× off-peak":"Пікова ціна · 2× від ціни поза піком","Off-peak pricing · baseline":"Ціна поза піком · базова","Next peak":"Наступний пік","Next off-peak":"Наступний непіковий час","Daily tokens":"Токени за день","Daily cost":"Витрати за день","Unused resets":"Невикористані скидання","1 unused reset":"1 невикористане скидання","%lld unused resets":"%lld невикористаних скидань","Next expires %@":"Наступне спливає %@","Expires %@":"Спливає %@","Lifetime tokens":"Токенів усього","Peak tokens":"Пік токенів за день","Longest chat":"Найдовший чат","Current streak":"Поточна серія","Longest streak":"Найдовша серія","Today":"Сьогодні","30-day tokens":"Токени за 30 днів","Pending":"Очікується","Spent":"Витрачено","Remaining":"Залишок","Funded":"Поповнено"});
-function ui(key, fallback=key){ const table = STATIC_TEXT[uiLang]; return (table && table[key]) || fallback; }
+function ui(key, fallback=key){ const table = STATIC_TEXT[uiLang]; return (table && table[key]) || ACCOUNT_SOURCE_L10N[uiLang]?.[key] || fallback; }
+// Fixed Swift Localizable.xcstrings account guidance, with only the product name changed.
+const ACCOUNT_SOURCE_L10N = {"zh":{"Connect an assistant to get started":"连接一个助手以开始使用","Nothing is connected, so the notch has no rings to draw.":"没有已连接的服务，刘海里没有圆环可画。","The notch draws these in this order. Drag one by its handle to move it.":"刘海按这个顺序画。拖动一行的手柄即可改顺序。","Most readings are borrowed from a tool that already holds the account. DeepSeek and MiniMax are the exceptions: clicking Sign in opens a Codenotch window for that account, and signing out here clears only that session and its saved reading.":"大多数读数借自已经持有该账号的工具。DeepSeek 和 MiniMax 是例外：点「登录」会打开该账号的 Velo 窗口，在这里退出只会清掉这次会话和已保存的读数。","Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.":"Velo 读取这台 Mac 上已经登录的工具的用量 — 从不问你的密码。安装并登录 Claude Code（终端工具，不是 Claude 应用）、Cursor（编辑器或 cursor-agent）、Codex、Antigravity、GLM、Grok、OpenCode、Command Code、GitHub Copilot、Kimi Code、Kiro 或 Gemini API 密钥（经由 Gemini CLI、OpenCode 或 Hermes）中的任意一个，刘海里就会出现对应的圆环。","macOS may ask before Codenotch reads Claude Code's, Antigravity's or cursor-agent's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.":"Velo 读取 Claude Code、Antigravity 或 cursor-agent 保存的登录信息前，macOS 可能会先询问。后台刷新从不弹出这个询问；只有点击“允许访问…”时才会出现，选择“拒绝”后，在你再次请求之前 Velo 不会读取该登录信息。","Unavailable display":"不可用的显示器","That display is disconnected. Codenotch follows the active window until it returns.":"那台显示器已断开。Velo 会跟随活动窗口，直到它回来。","Open Ollama":"打开 Ollama","Open LM Studio":"打开 LM Studio"},"zh-Hant":{"Connect an assistant to get started":"連線一個助手以開始使用","Nothing is connected, so the notch has no rings to draw.":"沒有已連線的服務，瀏海裡沒有圓環可畫。","The notch draws these in this order. Drag one by its handle to move it.":"瀏海按這個順序畫。拖動一行的手柄即可改順序。","Most readings are borrowed from a tool that already holds the account. DeepSeek and MiniMax are the exceptions: clicking Sign in opens a Codenotch window for that account, and signing out here clears only that session and its saved reading.":"大多數讀數是向已經持有帳號的工具借用的。DeepSeek 與 MiniMax 是例外：點一下「登入」會開啟該帳號的 Velo 視窗，而在這裡登出只會清除該工作階段及其已儲存的讀數。","Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.":"Velo 會從這部 Mac 上已登入的工具讀取用量 — 它不會向你要密碼。安裝並登入 Claude Code（終端機工具，不是 Claude App）、Cursor（編輯器或 cursor-agent）、Codex、Antigravity、GLM、Grok、OpenCode、Command Code、GitHub Copilot、Kimi Code、Kiro，或 Gemini API 金鑰（透過 Gemini CLI、OpenCode 或 Hermes），對應的圓環就會出現在瀏海上。","macOS may ask before Codenotch reads Claude Code's, Antigravity's or cursor-agent's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.":"Velo 讀取 Claude Code、Antigravity 或 cursor-agent 儲存的登入資訊前，macOS 可能會先詢問。背景重新整理從不彈出這個詢問；只有點按“允許取用…”時才會出現，選擇“拒絕”後，在你再次要求之前 Velo 不會讀取該登入資訊。","Unavailable display":"不可用的顯示器","That display is disconnected. Codenotch follows the active window until it returns.":"那台顯示器已斷開。Velo 會跟隨活動視窗，直到它回來。","Open Ollama":"開啟 Ollama","Open LM Studio":"開啟 LM Studio"},"ja":{"Connect an assistant to get started":"アシスタントを接続して始めましょう","Nothing is connected, so the notch has no rings to draw.":"何も接続されていないため、ノッチに描くリングがありません。","The notch draws these in this order. Drag one by its handle to move it.":"ノッチはこの順にリングを描きます。ハンドルをドラッグして並べ替えられます。","Most readings are borrowed from a tool that already holds the account. DeepSeek and MiniMax are the exceptions: clicking Sign in opens a Codenotch window for that account, and signing out here clears only that session and its saved reading.":"ほとんどの読み取りは、すでにアカウントを持っているツールから借りています。DeepSeek と MiniMax だけは例外で、「サインイン」をクリックするとそのアカウント用の Velo のウインドウが開きます。ここでサインアウトしても、消えるのはそのセッションと保存された読み取りだけです。","Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.":"Velo は、この Mac ですでにサインイン済みのツールから使用量を読み取ります。パスワードを尋ねることはありません。Claude Code（Claude アプリではなくターミナルのツール）、Cursor（エディタまたは cursor-agent）、Codex、Antigravity、GLM、Grok、OpenCode、Command Code、GitHub Copilot、Kimi Code、Kiro、または Gemini API キー（Gemini CLI、OpenCode、Hermes 経由）のいずれかをインストールしてサインインすると、そのリングがノッチに現れます。","macOS may ask before Codenotch reads Claude Code's, Antigravity's or cursor-agent's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.":"Velo が Claude Code・Antigravity・cursor-agent の保存済みログインを読む前に、macOS が確認することがあります。バックグラウンドの更新でこの確認が表示されることはなく、「アクセスを許可…」をクリックしたときだけ表示されます。「拒否」を選ぶと、もう一度求めるまで Velo はそのログインを読みません。","Unavailable display":"利用できないディスプレイ","That display is disconnected. Codenotch follows the active window until it returns.":"そのディスプレイは接続されていません。復帰するまで、Velo はアクティブなウインドウに追従します。","Open Ollama":"Ollama を開く","Open LM Studio":"LM Studio を開く"},"ko":{"Connect an assistant to get started":"시작하려면 어시스턴트를 연결하십시오","Nothing is connected, so the notch has no rings to draw.":"연결된 항목이 없어 노치에 표시할 링이 없습니다.","The notch draws these in this order. Drag one by its handle to move it.":"노치에 이 순서대로 표시합니다. 핸들을 드래그해 순서를 바꿀 수 있습니다.","Most readings are borrowed from a tool that already holds the account. DeepSeek and MiniMax are the exceptions: clicking Sign in opens a Codenotch window for that account, and signing out here clears only that session and its saved reading.":"대부분의 측정값은 이미 계정에 로그인된 도구에서 가져옵니다. DeepSeek와 MiniMax는 예외로, ‘로그인’을 클릭하면 해당 계정의 Velo 창이 열리며 여기서 로그아웃하면 해당 세션과 저장된 측정값만 삭제합니다.","Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.":"Velo는 이 Mac에서 이미 로그인된 도구의 사용량을 읽으며 비밀번호를 요구하지 않습니다. Claude Code(Claude 앱이 아닌 터미널 도구), Cursor(편집기 또는 cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro 또는 Gemini API 키(Gemini CLI, OpenCode, Hermes 경유)를 사용하는 도구를 설치하고 로그인하면 노치에 해당 링이 나타납니다.","macOS may ask before Codenotch reads Claude Code's, Antigravity's or cursor-agent's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.":"Velo가 Claude Code, Antigravity 또는 cursor-agent의 저장된 로그인 정보를 읽기 전에 macOS가 권한을 요청할 수 있습니다. 백그라운드 새로 고침 중에는 요청하지 않으며, ‘접근 허용…’을 클릭할 때만 나타납니다. ‘거부’를 선택하면 다시 요청할 때까지 해당 로그인 정보를 읽지 않습니다.","Unavailable display":"사용할 수 없는 디스플레이","That display is disconnected. Codenotch follows the active window until it returns.":"해당 디스플레이의 연결이 끊겼습니다. 다시 연결될 때까지 Velo는 활성 창을 따라갑니다.","Open Ollama":"Ollama 열기","Open LM Studio":"LM Studio 열기"},"pt-BR":{"Connect an assistant to get started":"Conecte um assistente para começar","Nothing is connected, so the notch has no rings to draw.":"Nada está conectado, então o notch não tem anéis para desenhar.","The notch draws these in this order. Drag one by its handle to move it.":"O notch desenha estes nesta ordem. Arraste um pela alça para movê-lo.","macOS may ask before Codenotch reads Claude Code's, Antigravity's or cursor-agent's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.":"O macOS pode perguntar antes de o Velo ler o login salvo do Claude Code, do Antigravity ou do cursor-agent. As atualizações em segundo plano nunca mostram essa pergunta; ela só aparece quando você clica em Permitir acesso…, e Negar impede o Velo de ler esse login até você pedir de novo.","Unavailable display":"Tela indisponível","That display is disconnected. Codenotch follows the active window until it returns.":"Essa tela está desconectada. O Velo acompanha a janela ativa até ela voltar."},"ru":{"Connect an assistant to get started":"Подключите ассистента, чтобы начать","Nothing is connected, so the notch has no rings to draw.":"Ничего не подключено, поэтому панели нечего отображать.","The notch draws these in this order. Drag one by its handle to move it.":"Панель отображает эти кольца в таком порядке. Перетащите кольцо за маркер, чтобы изменить порядок.","macOS may ask before Codenotch reads Claude Code's, Antigravity's or cursor-agent's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.":"macOS может спросить разрешение, прежде чем Velo прочитает сохранённый вход Claude Code, Antigravity или cursor-agent. Фоновые обновления никогда не показывают этот вопрос: он появляется только после нажатия «Разрешить доступ…», а «Запретить» не даёт Velo читать этот вход, пока вы не спросите снова.","Unavailable display":"Недоступный дисплей","That display is disconnected. Codenotch follows the active window until it returns.":"Этот дисплей отключён. Velo следует за активным окном, пока дисплей не вернётся."},"uk":{"Connect an assistant to get started":"Підключіть асистента, щоб почати","Nothing is connected, so the notch has no rings to draw.":"Нічого не підключено, тож вирізу немає чого малювати.","The notch draws these in this order. Drag one by its handle to move it.":"Виріз малює їх у цьому порядку. Перетягніть кільце за маркер, щоб перемістити його.","Most readings are borrowed from a tool that already holds the account. DeepSeek and MiniMax are the exceptions: clicking Sign in opens a Codenotch window for that account, and signing out here clears only that session and its saved reading.":"Більшість показників беруться з інструмента, який уже тримає цей акаунт. Винятки — DeepSeek і MiniMax: натискання «Увійти» відкриває вікно Velo для цього акаунта, а вихід тут очищає лише цю сесію та її збережений показник.","Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.":"Velo читає використання з інструментів, у які вже виконано вхід на цьому Mac, і ніколи не питає ваш пароль. Установіть будь-який з них — Claude Code (термінальний інструмент, не застосунок Claude), Cursor (редактор або cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro чи ключ Gemini API (через Gemini CLI, OpenCode або Hermes) — і увійдіть: його кільце зʼявиться у вирізі.","macOS may ask before Codenotch reads Claude Code's, Antigravity's or cursor-agent's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.":"macOS може запитати дозвіл, перш ніж Velo прочитає збережений вхід Claude Code, Antigravity або cursor-agent. Фонові оновлення ніколи не показують цього запитання: воно з'являється лише після натискання «Дозволити доступ…», а «Заборонити» не дає Velo читати цей вхід, доки ви не запитаєте знову.","Unavailable display":"Недоступний дисплей","That display is disconnected. Codenotch follows the active window until it returns.":"Цей дисплей відʼєднано. Velo стежить за активним вікном, доки дисплей не повернеться.","Open Ollama":"Відкрити Ollama","Open LM Studio":"Відкрити LM Studio"},"fr":{"Connect an assistant to get started":"Connectez un assistant pour commencer","Nothing is connected, so the notch has no rings to draw.":"Rien n'est connecté : l'encoche n'a donc aucun anneau à dessiner.","The notch draws these in this order. Drag one by its handle to move it.":"L'encoche les dessine dans cet ordre. Faites glisser une ligne par sa poignée pour la déplacer.","macOS may ask before Codenotch reads Claude Code's, Antigravity's or cursor-agent's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.":"macOS peut demander l'autorisation avant que Velo lise la connexion enregistrée de Claude Code, d'Antigravity ou de cursor-agent. Les actualisations en arrière-plan n'affichent jamais cette question ; elle n'apparaît que lorsque vous cliquez sur Autoriser l'accès…, et Refuser empêche Velo de lire cette connexion jusqu'à ce que vous redemandiez.","Unavailable display":"Écran indisponible","That display is disconnected. Codenotch follows the active window until it returns.":"Cet écran est déconnecté. Velo suit la fenêtre active jusqu'à son retour."},"de":{"Connect an assistant to get started":"Verbinde einen Assistenten, um loszulegen","Nothing is connected, so the notch has no rings to draw.":"Nichts ist verbunden, daher hat die Notch keine Ringe zu zeichnen.","The notch draws these in this order. Drag one by its handle to move it.":"Die Notch zeichnet diese in dieser Reihenfolge. Ziehe eines an seinem Griff, um es zu verschieben.","macOS may ask before Codenotch reads Claude Code's, Antigravity's or cursor-agent's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.":"macOS kann fragen, bevor Velo die gespeicherte Anmeldung von Claude Code, Antigravity oder cursor-agent liest. Hintergrundaktualisierungen zeigen diese Frage nie; sie erscheint nur, wenn du auf „Zugriff erlauben…“ klickst, und „Ablehnen“ verhindert, dass Velo diese Anmeldung liest, bis du erneut fragst.","Unavailable display":"Nicht verfügbarer Bildschirm","That display is disconnected. Codenotch follows the active window until it returns.":"Dieser Bildschirm ist getrennt. Velo folgt dem aktiven Fenster, bis er zurückkommt.","Open Ollama":"Ollama öffnen","Open LM Studio":"LM Studio öffnen"},"uz":{"Connect an assistant to get started":"Boshlash uchun yordamchini ulang","Nothing is connected, so the notch has no rings to draw.":"Hech narsa ulanmagan, shuning uchun notch chizadigan halqalar yoʻq.","The notch draws these in this order. Drag one by its handle to move it.":"Notch bularni shu tartibda chizadi. Koʻchirish uchun birini dastagidan torting.","Most readings are borrowed from a tool that already holds the account. DeepSeek and MiniMax are the exceptions: clicking Sign in opens a Codenotch window for that account, and signing out here clears only that session and its saved reading.":"Koʻrsatkichlarning aksariyati hisobni allaqachon saqlab turgan vositadan olinadi. DeepSeek va MiniMax bundan mustasno: Kirish tugmasini bosish oʻsha hisob uchun Velo oynasini ochadi, bu yerda chiqish esa faqat oʻsha sessiya va uning saqlangan koʻrsatkichini tozalaydi.","Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.":"Velo foydalanishni shu Macʼda allaqachon tizimga kirgan vositalardan oʻqiydi — u hech qachon parolingizni soʻramaydi. Quyidagilardan birortasini oʻrnatib, unga kiring: Claude Code (terminal vositasi, Claude ilovasi emas), Cursor (muharrir yoki cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro yoki Gemini API kaliti (Gemini CLI, OpenCode yoki Hermes orqali) — va uning halqasi notchʼda paydo boʻladi.","macOS may ask before Codenotch reads Claude Code's, Antigravity's or cursor-agent's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.":"Velo Claude Code, Antigravity yoki cursor-agentʼning saqlangan kirish maʼlumotini oʻqishidan oldin macOS soʻrashi mumkin. Fondagi yangilanishlar bu savolni hech qachon koʻrsatmaydi; u faqat Ruxsat berish… ni bosganingizda paydo boʻladi, Deny esa siz qayta soʻramaguningizcha Velo oʻsha kirish maʼlumotini oʻqishini toʻxtatadi.","Unavailable display":"Mavjud boʻlmagan displey","That display is disconnected. Codenotch follows the active window until it returns.":"Bu displey uzilgan. U qaytgunicha Velo faol oynaga ergashadi.","Open Ollama":"Ollamaʼni ochish","Open LM Studio":"LM Studioʻni ochish"}};
 /* Text the scripts draw is skipped here: renderers set it through ui() themselves. */
 function applyStaticUi(){
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -1260,7 +1271,6 @@ const TABS = ['accounts', 'deepseek', 'ollama', 'lmstudio', 'custom', 'phone', '
 const TITLES = {phone:'Phone', deepseek:'DeepSeek',ollama:'Ollama',lmstudio:'LM Studio',custom:'Custom Endpoints',accounts:'Accounts', appearance:'Appearance', notifications:'Notifications', general:'General' };
 Object.assign(ZH_STATIC, {'Install updates automatically':'自动安装更新','Check now':'立即检查','App designed and developed by':'应用设计与开发','. Updates are downloaded and verified before installation.':'。更新下载后会先验证签名，再安装。','Automatic updates are not available in this preview. Download new versions from velo.codes.':'此预览版暂不支持自动更新，可从 velo.codes 下载新版。'});
 const SUBTITLES={phone:'See your usage on your phone.',deepseek:'Peak and off-peak pricing for your DeepSeek spend.',ollama:'Models running in Ollama on this computer.',lmstudio:'Models loaded in LM Studio on this computer.',custom:'OpenAI-compatible APIs, local runtimes and custom proxies.',accounts:'Choose which providers the notch reads.',appearance:'How the notch looks and where it sits.',notifications:'What Velo tells you, and when.',general:'Startup, updates and everything else.'};
-const TAB_KEY = 'vela.settings.pane';
 let curTab = TABS[0];
 const PROVIDER_TABS=['deepseek','ollama','lmstudio','custom'];
 function expandAccounts(expanded){
@@ -1292,13 +1302,8 @@ function showTab(id, moveFocus){
   document.getElementById('subtitle').textContent = ui(SUBTITLES[id],SUBTITLES[id]);
   document.getElementById('body').scrollTop = 0;
   syncBodyScrollbarGutter();
-  if(id==='ollama')refreshLocalActivity();
-  try { localStorage.setItem(TAB_KEY, id); } catch(e) { /* not remembered, that is all */ }
+  if(id==='ollama'||id==='lmstudio')refreshLocalActivity();
   if(moveFocus) document.getElementById('tab-' + id).focus();
-}
-function savedTab(){
-  try { const v = localStorage.getItem(TAB_KEY); return TABS.indexOf(v) >= 0 ? v : TABS[0]; }
-  catch(e) { return TABS[0]; }
 }
 document.getElementById('side').addEventListener('click', e => {
   const b = e.target.closest('[role="tab"]');
@@ -1330,6 +1335,16 @@ const ORDER = ['claude', 'codex', 'glm', 'cursor', 'grok', 'gemini'];
 const FALLBACK_LABEL = { claude:'Claude', codex:'Codex', glm:'z.ai', cursor:'Cursor', grok:'Grok', gemini:'Antigravity' };
 let disabledProviders=[];
 let providerMetadata=[];
+let providerMetadataRevision=0;
+async function refreshProviderMetadata(){
+  const revision=++providerMetadataRevision;
+  try{
+    const rows=await invoke('get_providers');
+    if(revision!==providerMetadataRevision||!Array.isArray(rows))return;
+    providerMetadata=rows;
+    renderAccounts();renderLocalConnections();refreshAccountDestinations();
+  }catch(_){/* Keep the last visible reading if refreshing metadata fails. */}
+}
 let providerSettings={minimax_china:false,gemini_token_budget:null},providerSettingsBusy=false;
 let accountDestinations={},accountDestinationSignature='',accountDestinationEpoch=0;
 const accountDestinationBusy=new Set();
@@ -1414,7 +1429,7 @@ function glyphHtml(p){
 invoke('get_disabled_providers').then(v=>{disabledProviders=Array.isArray(v)?v:[];renderAccounts();renderLocalConnections();refreshAccountDestinations();}).catch(()=>{});
 function refreshOptions(){
   call('get_tray_options', undefined, null).then(opts => {
-    if(Array.isArray(opts) && opts.length){ options = opts.filter(o => o && typeof o.id === 'string'); renderAccounts();refreshAccountDestinations(); }
+    if(Array.isArray(opts)){ options = opts.filter(o => o && typeof o.id === 'string'); renderAccounts();refreshAccountDestinations(); }
   });
 }
 
@@ -1466,6 +1481,10 @@ const AG_MODELS = [['gemini', 'Gemini Models'], ['3p', 'Claude and GPT models']]
 let agPrefs = { limit:'automatic', model:'gemini' };
 const HOOKS_WHY = 'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Velo a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.';
 const NO_RING = 'These have no ring to place. Switch one on and it joins the end of the list above.';
+const ACCOUNT_SETUP_COPY='Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.';
+const ACCOUNT_KEYCHAIN_COPY="macOS may ask before Codenotch reads Claude Code's, Antigravity's or cursor-agent's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.";
+const ACCOUNT_SESSION_COPY='Most readings are borrowed from a tool that already holds the account. DeepSeek and MiniMax are the exceptions: clicking Sign in opens a Codenotch window for that account, and signing out here clears only that session and its saved reading.';
+function accountSourceText(key){return ui(key).replaceAll('Codenotch','Velo');}
 
 function notchOn(){
   const ids = providerList().map(p => p.id);
@@ -1534,15 +1553,39 @@ function accountBlock(p, isOn, locked){
 }
 function renderAccounts(force=false){
   if(!force&&document.activeElement?.matches('#acc-on input,#acc-off input'))return;
+  const drafts=new Map();
+  for(const row of document.querySelectorAll('#acc-on .acct,#acc-off .acct')){
+    for(const input of row.querySelectorAll('input[data-key],input[data-gemini-budget]')){
+      const kind=input.getAttribute('data-key')||'gemini-budget';
+      const saved=kind==='gemini-budget'?String(providerSettings.gemini_token_budget??''):'';
+      if(input.value!==saved)drafts.set(row.getAttribute('data-account')+'\u0000'+kind,input.value);
+    }
+  }
   const list = providerList();
   const onIds = notchOn().map(sl => sl.provider);
   const connected = onIds.map(id=>list.find(p=>p.id===id)).filter(Boolean);
   const off = list.filter(p => onIds.indexOf(p.id) < 0);
-  document.getElementById('account-count').textContent=String(connected.length);
-  document.getElementById('acc-on').innerHTML = connected.map(p => accountBlock(p, true, false)).join('');
+  const hasLocalModel=connected.some(p=>providerMetadata.find(row=>row.id===p.id)?.snap?.local_model);
+  const usageAccounts=list.filter(p=>!['ollama-local','lmstudio'].includes(p.id)&&!providerMetadata.find(row=>row.id===p.id)?.snap?.local_model);
+  const needsSetup=!hasLocalModel&&usageAccounts.length>0&&usageAccounts.every(p=>!providerMetadata.find(row=>row.id===p.id)?.account);
+  const setupCopy=accountSourceText(ACCOUNT_SETUP_COPY);
+  const setup=needsSetup?'<div class="setup-note"><span class="setup-symbol" aria-hidden="true">✦</span><div><strong>'+esc(accountSourceText('Connect an assistant to get started'))+'</strong><p>'+esc(document.documentElement.dataset.platform==='macos'?setupCopy:setupCopy.replaceAll('Mac','PC'))+'</p>'+
+    (document.documentElement.dataset.platform==='macos'?'<p>'+esc(accountSourceText(ACCOUNT_KEYCHAIN_COPY))+'</p>':'')+'</div></div>':'';
+  const orderCopy=connected.length?'The notch draws these in this order. Drag one by its handle to move it.':'Nothing is connected, so the notch has no rings to draw.';
+  document.getElementById('account-count').textContent=String(connected.filter(p=>!providerMetadata.find(row=>row.id===p.id)?.snap?.local_model).length);
+  document.getElementById('acc-on').innerHTML = setup+connected.map(p => accountBlock(p, true, false)).join('')
+    +'<div class="account-explanation">'+esc(accountSourceText(orderCopy))+'</div>'
+    +'<div class="account-explanation">'+esc(accountSourceText(ACCOUNT_SESSION_COPY))+'</div>';
   document.getElementById('acc-off-wrap').hidden = !off.length;
   document.getElementById('acc-off').innerHTML = off.map(p => accountBlock(p, false, false)).join('')
     + '<div class="item cap">' + esc(ui(NO_RING, NO_RING)) + '</div>';
+  for(const row of document.querySelectorAll('#acc-on .acct,#acc-off .acct')){
+    for(const input of row.querySelectorAll('input[data-key],input[data-gemini-budget]')){
+      const kind=input.getAttribute('data-key')||'gemini-budget';
+      const draft=drafts.get(row.getAttribute('data-account')+'\u0000'+kind);
+      if(draft!==undefined)input.value=draft;
+    }
+  }
 }
 function saveNotch(next){
   const ids = providerList().map(p => p.id);
@@ -1630,18 +1673,24 @@ let customEndpoints=[];
 const field=id=>document.getElementById(id);
 const LOCAL_IDS={ollama:'ollama-local',lmstudio:'lmstudio'};
 let localBusy=false;
+const localCheckPending=new Set();
 function renderLocalConnections(){
  for(const [runtime,id] of Object.entries(LOCAL_IDS)){
   const on=!disabledProviders.includes(id),button=field(runtime+'-monitor'),address=field(runtime+'-url');
   button.classList.toggle('on',on);button.setAttribute('aria-checked',on);button.disabled=localBusy;
-  field(runtime+'-apply').textContent=ui(address.value.trim()===localPreferences[runtime]?'Check connection':'Apply');
+  const unchanged=address.value.trim()===localPreferences[runtime];
+  const checking=localActivity?.checking?.[id]===true||localCheckPending.has(id);
+  field(runtime+'-apply').textContent=ui(unchanged?'Check connection':'Apply');
+  field(runtime+'-apply').disabled=localBusy||(unchanged&&(!on||checking));
   const meta=providerMetadata.find(p=>p.id===id);
-  field(runtime+'-status').textContent=ui(!on?'Monitoring off.':meta?.snap?.note||meta?.guidance||(runtime==='ollama'?'Connecting to Ollama…':'Connecting to LM Studio…'));
+  const hasReading=meta?.snap?.status==='ok'||(meta?.snap?.windows?.length||0)>0;
+  field(runtime+'-status').textContent=ui(!on?'Monitoring off.':checking&&!hasReading?(runtime==='ollama'?'Checking Ollama…':'Checking LM Studio…'):meta?.snap?.note||meta?.guidance||(runtime==='ollama'?'Connecting to Ollama…':'Connecting to LM Studio…'));
  }
  const metrics=field('ollama-metrics'),enabled=localPreferences.ollama_metrics_enabled===true;
  metrics.classList.toggle('on',enabled);metrics.setAttribute('aria-checked',String(enabled));
  metrics.disabled=localBusy||disabledProviders.includes('ollama-local');
  field('ollama-relay').hidden=!enabled||disabledProviders.includes('ollama-local');
+ renderLMStudioActivity();
 }
 let localActivity=null,localActivityReading=false;
 let lmTokenState={present:false},lmTokenBusy=false;
@@ -1676,11 +1725,37 @@ function renderOllamaRelay(){
      +'<div><code>'+esc('OLLAMA_HOST='+address+' ollama')+'</code></div>'
      +'<div>'+esc(ui('Keep Velo open. Speed appears after each completed native Ollama response. Requests sent directly to the server address only provide model detection here.'))+'</div>':'');
 }
+function compactLocalCount(value){
+ const n=Number(value)||0;
+ if(n<10000)return String(Math.round(n));
+ if(n<1000000)return Math.trunc(n/1000)+'k';
+ return (n/1000000).toFixed(1)+'M';
+}
+function renderLMStudioActivity(){
+ const box=field('lmstudio-activity');
+ if(disabledProviders.includes('lmstudio')){box.hidden=true;return;}
+ box.hidden=false;
+ const metrics=localActivity?.lmstudio;
+ const today=metrics?.today||{};
+ box.innerHTML='<strong>'+esc(ui('Activity, speed and tokens'))+'</strong>'
+   +'<div'+(metrics&&!metrics.linked?' class="problem"':'')+'>'+esc(metrics?.status||ui('Connecting…'))+'</div>'
+   +'<div>'+esc(metrics?.history_loaded
+     ?((Number(today.requests)||0)===0?ui("No requests found in LM Studio's server log yet."):
+       'Today: '+today.requests+' requests · '+compactLocalCount(today.input_tokens)+' tokens in · '+compactLocalCount(today.output_tokens)+' out, across '+metrics.model_count+' model(s) with history.')
+     :ui("Reading LM Studio's server log…"))+'</div>'
+   +'<div>'+esc(ui("What a model is doing comes from LM Studio's own status, polled several times a second. Speed, context use and token counts are read from ~/.lmstudio/server-logs; only the numbers are kept, never a prompt or a reply. Responses through the OpenAI-compatible endpoint carry no clock, so their speed is timed here and marked ~."))+'</div>';
+}
 async function refreshLocalActivity(){
- if(localActivityReading||curTab!=='ollama'||disabledProviders.includes('ollama-local')||localPreferences.ollama_metrics_enabled!==true)return;
+ if(localActivityReading||!['ollama','lmstudio'].includes(curTab)||disabledProviders.includes(LOCAL_IDS[curTab]))return;
  localActivityReading=true;
- try{localActivity=await invoke('get_local_runtime_activity');renderOllamaRelay();}
- catch(error){localActivity={relay:{ready:false,status:errText(error)}};renderOllamaRelay();}
+ try{
+  localActivity=await invoke('get_local_runtime_activity');
+  for(const id of Object.values(LOCAL_IDS)){
+   if(localActivity?.checking?.[id]===false)localCheckPending.delete(id);
+  }
+  renderOllamaRelay();renderLocalConnections();
+ }
+ catch(error){localCheckPending.clear();renderLocalConnections();strip(errText(error));}
  finally{localActivityReading=false;}
 }
 field('ollama-metrics').addEventListener('click',async()=>{
@@ -1694,8 +1769,8 @@ field('ollama-metrics').addEventListener('click',async()=>{
  }catch(error){strip(errText(error));}
  finally{localBusy=false;renderLocalConnections();renderOllamaRelay();}
 });
-setInterval(()=>{if(curTab==='ollama')refreshLocalActivity();},3000);
-invoke('get_providers').then(v=>{providerMetadata=Array.isArray(v)?v:[];renderAccounts();renderLocalConnections();refreshAccountDestinations();}).catch(()=>{});
+setInterval(()=>{if(curTab==='ollama'||curTab==='lmstudio')refreshLocalActivity();},1000);
+refreshProviderMetadata();
 invoke('get_provider_settings').then(v=>{if(v)providerSettings={...providerSettings,...v};renderAccounts();}).catch(()=>{});
 async function saveProviderSettings(patch){
   if(providerSettingsBusy)return;
@@ -1708,9 +1783,15 @@ async function saveProviderSettings(patch){
   finally{providerSettingsBusy=false;renderAccounts(true);}
 }
 invoke('get_local_runtime_settings').then(v=>{if(!v)return;localPreferences=v;field('ollama-url').value=v.ollama;field('lmstudio-url').value=v.lmstudio;renderLocalConnections();renderOllamaRelay();refreshLocalModels().catch(()=>{});refreshLocalActivity();}).catch(()=>{});
-async function saveForm(form,action){const button=form.querySelector('[type=submit]');button.disabled=true;try{await action();toast();}catch(error){strip(errText(error));}finally{button.disabled=false;}}
+async function openLocalOwner(id){
+ try{
+  const target=await invoke('get_account_destination',{id});
+  if(target?.kind==='app')await invoke('open_account_destination',{id});
+ }catch(error){strip(errText(error));}
+}
 for(const [runtime,id] of Object.entries(LOCAL_IDS)){
  field(runtime+'-url').addEventListener('input',renderLocalConnections);
+ field(runtime+'-open').addEventListener('click',()=>openLocalOwner(id));
  field(runtime+'-monitor').addEventListener('click',async()=>{
   if(localBusy)return;localBusy=true;renderLocalConnections();
   const on=disabledProviders.includes(id);
@@ -1723,21 +1804,31 @@ for(const [runtime,id] of Object.entries(LOCAL_IDS)){
   catch(error){strip(errText(error));}
   finally{localBusy=false;renderLocalConnections();renderOllamaRelay();refreshLocalActivity();}
  });
- field(runtime+'-preferences').addEventListener('submit',e=>{e.preventDefault();saveForm(e.currentTarget,async()=>{
+ field(runtime+'-preferences').addEventListener('submit',async e=>{e.preventDefault();
+  const submit=field(runtime+'-apply');
+  if(submit.disabled)return;
+  localBusy=true;renderLocalConnections();
+  try{
   const address=field(runtime+'-url').value.trim();
   if(address!==localPreferences[runtime]){
    const prefs={...localPreferences,[runtime]:address};await invoke('set_local_runtime_settings',{prefs});
    localPreferences=await invoke('get_local_runtime_settings');field(runtime+'-url').value=localPreferences[runtime];
    await refreshLocalModels();
+   toast();
   }
-  await invoke('refresh_ring',{provider:id});renderLocalConnections();
- });});
+  if(!disabledProviders.includes(id)){
+   const accepted=await invoke('refresh_ring',{provider:id});
+   if(accepted){localCheckPending.add(id);refreshLocalActivity();}
+  }
+  }catch(error){strip(errText(error));}
+  finally{localBusy=false;renderLocalConnections();}
+ });
 }
 async function refreshLocalModels(){
  // Loaded model rows live in Accounts, as in SettingsView.providerSummaries.
  refreshOptions();
 }
-window.__TAURI__.event.listen('providers',e=>{providerMetadata=Array.isArray(e.payload)?e.payload:providerMetadata;renderAccounts();renderLocalConnections();refreshLocalModels().catch(()=>{});refreshMenuBarChoices();refreshAccountDestinations();loadCustom().catch(()=>{});}).catch(()=>{});
+window.__TAURI__.event.listen('providers',e=>{if(Array.isArray(e.payload)){providerMetadataRevision++;providerMetadata=e.payload;}renderAccounts();renderLocalConnections();refreshLocalModels().catch(()=>{});refreshMenuBarChoices();refreshAccountDestinations();loadCustom().catch(()=>{});}).catch(()=>{});
 refreshLocalModels().catch(()=>{});
 const CUSTOM_COLORS=['#6366F1','#10B981','#F97316','#EC4899','#14B8A6','#8B5CF6','#3B82F6','#EAB308'];
 const CUSTOM_ICONS=['openai','claude','deepseek','grok','meta','mistral','ollama','lmstudio','qwen','gemini-spark'];
@@ -2025,11 +2116,17 @@ function renderAppearance(){
   return '<button class="accent-swatch" data-accent="'+value+'" style="--swatch:'+(value==='system'?(palette?.[3]||'#007aff'):'#'+value)+'" aria-label="'+esc(name)+'" title="'+esc(name)+'" aria-pressed="'+(value===selected)+'"'+(appearanceSaving?' disabled':'')+'></button>';
  }).join('');
  const mac=document.documentElement.dataset.platform==='macos';
- field('app-presence-controls').hidden=!mac;
+ field('app-presence-controls').hidden=false;
+ const presenceButtons=field('seg-presence').querySelectorAll('button[data-v]');
+ presenceButtons[0].textContent=mac?ui('Dock'):(uiLang.startsWith('zh')?'任务栏':'Taskbar');
+ presenceButtons[1].textContent=mac?ui('Menu bar'):(uiLang.startsWith('zh')?'系统托盘':'System tray');
+ presenceButtons[2].textContent=ui('Neither');
  drawSeg('seg-presence',appearance.app_presence||'dock',appearanceSaving);
  const presenceCopy={dock:'A normal app icon in the Dock while Velo is running.',menuBar:'A small icon in the menu bar instead, and nothing in the Dock.',hidden:'No icon anywhere. Open Velo again from Applications to bring these settings back.'};
  const presenceZh={dock:'Velo 运行时，在 Dock 中显示正常的应用图标。',menuBar:'仅在菜单栏显示小图标，Dock 中不显示。',hidden:'不显示应用图标。从“应用程序”再次打开 Velo，即可返回设置。'};
- field('cap-presence').textContent=(uiLang.startsWith('zh')?presenceZh:presenceCopy)[appearance.app_presence||'dock'];
+ const windowsCopy={dock:'Keep Velo in the taskbar while it runs.',menuBar:'Show Velo in the system tray instead of the taskbar.',hidden:'Show no icon. Launch Velo again from the Start menu to reopen Settings.'};
+ const windowsZh={dock:'Velo 运行时显示在任务栏。',menuBar:'在系统托盘显示 Velo，不在任务栏显示。',hidden:'不显示图标。从“开始”菜单再次启动 Velo 以打开设置。'};
+ field('cap-presence').textContent=(mac?(uiLang.startsWith('zh')?presenceZh:presenceCopy):(uiLang.startsWith('zh')?windowsZh:windowsCopy))[appearance.app_presence||'dock'];
  renderMenuBarControls();
  drawSeg('seg-scope',appearance.notch_scope||'mainDisplay',appearanceSaving);
  field('cap-scope').textContent=ui(appearance.notch_scope==='allDisplays'?'Each display gets its own notch, and hovering one opens only that one.':'The notch appears only on the display with the menu bar.');
@@ -2050,7 +2147,7 @@ function renderAppearance(){
  field('appearance-custom_scale').disabled=(appearanceSaving&&!appearanceLiveSaving)||!custom;
  field('appearance-custom_scale').value=appearance.custom_scale??appearance.saved_custom_scale??1;
  field('appearance-scale_value').textContent=Math.round((appearance.custom_scale??appearance.saved_custom_scale??1)*100)+'%';
- for(const key of ['watch','critical']){field('appearance-'+key).value=Math.round(appearance[key]*100);field('appearance-'+key).disabled=appearanceSaving&&!appearanceLiveSaving;field('appearance-'+key+'_value').textContent=Math.trunc(appearance[key]*100)+'%';}
+ for(const key of ['watch','critical']){field('appearance-'+key).value=appearance[key]*100;field('appearance-'+key).disabled=appearanceSaving&&!appearanceLiveSaving;field('appearance-'+key+'_value').textContent=Math.trunc(appearance[key]*100)+'%';}
  field('appearance-reset_limits').disabled=appearanceSaving;
  renderDeepSeekPricing();
 }
@@ -2232,15 +2329,16 @@ function renderScreens(){
   for(const m of monitors){
     const o = document.createElement('option');
     o.value = m.id || '';
-    o.textContent = m.label + (m.primary ? ' · ' + ui('Main', 'Main') : '');
+    o.textContent = m.unavailable ? ui('Unavailable display') : m.label + (m.primary ? ' · ' + ui('Main', 'Main') : '');
     if(!m.id) o.disabled = true;
     if(m.pinned) o.selected = true;
     sel.appendChild(o);
   }
   const who = monitors.find(m => m.current);
   const pinned=monitors.find(m => m.pinned);
-  const text=pinned ? 'Pinned to ' + pinned.label + '.' : 'Moves to the display containing the window receiving keyboard input.';
-  cap.textContent = ui(text, text) + (who && !who.id ? ' (' + ui('this screen cannot be remembered by name', 'this screen cannot be remembered by name') + ')' : '');
+  const text=pinned?.unavailable?'That display is disconnected. Codenotch follows the active window until it returns.':
+    pinned ? 'Pinned to ' + pinned.label + '.' : 'Moves to the display containing the window receiving keyboard input.';
+  cap.textContent = (pinned?.unavailable?accountSourceText(text):ui(text, text)) + (who && !who.id ? ' (' + ui('this screen cannot be remembered by name', 'this screen cannot be remembered by name') + ')' : '');
 }
 document.getElementById('screen').addEventListener('change', e => {
   const want = e.target.value;
@@ -2254,6 +2352,7 @@ function refreshScreens(){
     renderScreens();
   });
 }
+window.__TAURI__.event.listen('monitors_changed',()=>refreshScreens()).catch(()=>{});
 
 /* ---- Appearance: position ------------------------------------------------ */
 document.getElementById('btn-recentre').addEventListener('click', () => {
@@ -2428,7 +2527,7 @@ if('ResizeObserver' in window)new ResizeObserver(syncBodyScrollbarGutter).observ
 window.addEventListener('resize',syncBodyScrollbarGutter);
 syncBodyScrollbarGutter();
 function boot(){
-  showTab(savedTab());
+  showTab(TABS[0]);
   setUiLanguage('auto');
   loadLook();
   refreshOptions();
@@ -2462,6 +2561,7 @@ function boot(){
    when the old values are wrong, so that is when they are read again. */
 window.addEventListener('focus', () => {
   loadLook();
+  refreshProviderMetadata();
   refreshOptions();
   refreshMenuBarChoices();
   refreshSurfaceCapability();

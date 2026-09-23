@@ -116,16 +116,46 @@ fn take_refresh_targets() -> Option<BTreeSet<String>> {
     refresh_requests().lock().unwrap().take_targets()
 }
 
-/// Sleep in slices so request_refresh can interrupt it
-fn sleep_interruptible(total_secs: u64) {
+/// A single wait path for both the real worker and virtual-clock tests. Profile requests
+/// interrupt immediately; otherwise the shared Swift-style busy/reset decision is sampled
+/// at 60-second ticks, with the existing bounded backoff wait as an upper limit.
+fn sleep_interruptible_with(
+    total_secs: u64,
+    last_attempt: u64,
+    mut requested: impl FnMut() -> bool,
+    mut due: impl FnMut(u64, u64) -> bool,
+    mut now_ms: impl FnMut() -> u64,
+    mut sleep_one: impl FnMut(),
+) {
+    let tick_ms = POLL_ACTIVE_SECS * 1_000;
+    let mut tick = last_attempt.saturating_add(tick_ms);
     for _ in 0..total_secs {
-        let requests = refresh_requests().lock().unwrap();
-        if requests.all || !requests.profiles.is_empty() {
+        if requested() {
             return;
         }
-        drop(requests);
-        std::thread::sleep(Duration::from_secs(1));
+        let now = now_ms();
+        if now >= tick {
+            if due(last_attempt, now) {
+                return;
+            }
+            tick = tick.saturating_add(((now - tick) / tick_ms + 1) * tick_ms);
+        }
+        sleep_one();
     }
+}
+
+fn sleep_interruptible(app: &AppHandle, total_secs: u64, last_attempt: u64) {
+    sleep_interruptible_with(
+        total_secs,
+        last_attempt,
+        || {
+            let requests = refresh_requests().lock().unwrap();
+            requests.all || !requests.profiles.is_empty()
+        },
+        |last, now| crate::providers::remote_refresh_due(app, last, now),
+        now_ms,
+        || std::thread::sleep(Duration::from_secs(1)),
+    );
 }
 
 fn now_ms() -> u64 {
@@ -1429,6 +1459,7 @@ pub fn start(app: AppHandle) {
                 std::thread::sleep(Duration::from_secs(2));
                 continue;
             }
+            let attempted_at = now_ms();
             let targeted = take_refresh_targets();
             // Re-read the list each tick: an account signed into or removed while this runs needs no restart
             let order = profiles();
@@ -1511,27 +1542,16 @@ pub fn start(app: AppHandle) {
                 set_and_broadcast(&app, |u| *u = snap);
                 backoff_until
             });
-            // 60 s while a session is active, 300 s otherwise (upstream throttling discipline)
-            let active = {
-                let st = app.state::<AppState>();
-                let store = st.store.lock().unwrap();
-                let s = store.snapshot("en", "en", false, false);
-                !s.sessions.is_empty()
-            };
-            let base = if active {
-                POLL_ACTIVE_SECS
+            // The global activity/reset decision is checked at each 60-second tick. A
+            // Claude-only session count would miss a busy Codex/Kimi session and would treat
+            // idle or completed Claude sessions as busy. Keep the account backoff wake-up.
+            let now = now_ms();
+            let secs = if backoff_until > now {
+                ((backoff_until - now) / 1000).clamp(1, 30)
             } else {
                 POLL_IDLE_SECS
             };
-            // A back-off deadline sooner than the next tick is what we wake for, as the single-account
-            // loop did when it slept the window out in slices
-            let now = now_ms();
-            let secs = if backoff_until > now {
-                ((backoff_until - now) / 1000).clamp(1, base.min(30))
-            } else {
-                base
-            };
-            sleep_interruptible(secs);
+            sleep_interruptible(&app, secs, attempted_at);
         }
     });
 }
@@ -1539,8 +1559,72 @@ pub fn start(app: AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
 
     const EXP: u64 = 1_000_000_000;
+
+    #[test]
+    fn claude_worker_wait_follows_global_busy_reset_ticks_and_profile_requests() {
+        let clock = Cell::new(0_u64);
+        let checked = Cell::new(0_u32);
+        sleep_interruptible_with(
+            POLL_IDLE_SECS,
+            0,
+            || false,
+            |last, now| {
+                checked.set(checked.get() + 1);
+                crate::providers::remote_due(last, now, now >= 120_000, false)
+            },
+            || clock.get(),
+            || clock.set(clock.get() + 1_000),
+        );
+        assert_eq!(clock.get(), 120_000, "other-provider activity wakes Claude at a tick");
+        assert_eq!(checked.get(), 2);
+
+        clock.set(0);
+        sleep_interruptible_with(
+            POLL_IDLE_SECS,
+            0,
+            || false,
+            |last, now| crate::providers::remote_due(last, now, false, now >= 60_000),
+            || clock.get(),
+            || clock.set(clock.get() + 1_000),
+        );
+        assert_eq!(clock.get(), 60_000, "a reset wakes Claude without a busy session");
+
+        clock.set(0);
+        sleep_interruptible_with(
+            POLL_IDLE_SECS,
+            0,
+            || clock.get() >= 10_000,
+            |_, _| panic!("targeted profile request must interrupt before the first tick"),
+            || clock.get(),
+            || clock.set(clock.get() + 1_000),
+        );
+        assert_eq!(clock.get(), 10_000);
+
+        clock.set(0);
+        sleep_interruptible_with(
+            30,
+            0,
+            || false,
+            |_, _| panic!("backoff's short wake remains bounded before the first tick"),
+            || clock.get(),
+            || clock.set(clock.get() + 1_000),
+        );
+        assert_eq!(clock.get(), 30_000);
+
+        clock.set(0);
+        sleep_interruptible_with(
+            POLL_IDLE_SECS,
+            0,
+            || false,
+            |last, now| crate::providers::remote_due(last, now, false, false),
+            || clock.get(),
+            || clock.set(clock.get() + 1_000),
+        );
+        assert_eq!(clock.get(), 300_000, "idle cadence remains five minutes");
+    }
 
     #[test]
     fn archived_claude_reading_is_stale_without_changing_its_age() {

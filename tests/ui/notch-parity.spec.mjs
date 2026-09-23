@@ -10,6 +10,7 @@ async function notchBridge(page){
     const slots=['claude','codex','cursor','gemini','glm','grok'].map(provider=>({provider}));
     window.__TAURI__={core:{invoke:async(cmd,args)=>{
       window.notchCalls.push({cmd,args});
+      if(cmd==='notch_edge_visible')return true;
       if(cmd==='get_deepseek_pricing_state'&&window.notchPricingFixture){
         const fixture=window.notchPricingFixture;fixture.reads++;
         return fixture.reads===1?{phase:'peak',next_phase:'offPeak',next_at:Date.now()+60000}:{phase:'offPeak',next_phase:'peak',next_at:Date.now()+3600000};
@@ -29,6 +30,151 @@ async function notchBridge(page){
   });
 }
 
+test('换边先淡出，再折叠落位，50ms后按原展开状态恢复',async({page})=>{
+  await notchBridge(page);await page.goto('/notch.html');
+  await expect(page.locator('.cell')).toHaveCount(6);
+  await page.evaluate(()=>emitNotch('notch_edge_prepare',{generation:1,native:false}));
+  expect(await page.evaluate(()=>notchCalls.some(c=>c.cmd==='notch_edge_fade'))).toBe(false);
+  await expect.poll(()=>page.evaluate(()=>notchCalls.some(c=>c.cmd==='notch_edge_fade'&&c.args.generation===1))).toBe(true);
+  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).opacity)).toBe('0');
+  const landed=await page.evaluate(()=>{
+    emitNotch('notch_edge_arrived',{generation:1,edge:'left'});
+    return {edge:notchEdge,folded,position:foldPosition,cells:[...pill.children].map(c=>c.style.opacity)};
+  });
+  expect(landed).toEqual({edge:'left',folded:true,position:0,cells:['0','0','0','0','0','0']});
+  await expect(page.locator('body')).not.toHaveClass(/folded/);
+  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).opacity)).toBe('1');
+});
+
+test('快速换边拒绝旧到达回调，原本折叠的刘海保持折叠',async({page})=>{
+  await notchBridge(page);await page.goto('/notch.html');
+  await expect(page.locator('.cell')).toHaveCount(6);
+  const initial=await page.evaluate(()=>{
+    setFolded(true);
+    emitNotch('notch_edge_prepare',{generation:1,native:true});
+    emitNotch('notch_edge_prepare',{generation:2,native:true});
+    emitNotch('notch_edge_arrived',{generation:1,edge:'left'});
+    return {edge:notchEdge,opacity:getComputedStyle(document.documentElement).opacity};
+  });
+  expect(initial).toEqual({edge:'right',opacity:'1'}); // AppKit owns native opacity.
+  await page.evaluate(()=>emitNotch('notch_edge_arrived',{generation:2,edge:'top'}));
+  await expect.poll(()=>page.evaluate(()=>edgeCrossing===null)).toBe(true);
+  await expect(page.locator('body')).toHaveClass(/folded/);
+  expect(await page.evaluate(()=>notchCalls.filter(c=>c.cmd==='notch_edge_visible').map(c=>c.args.generation))).toEqual([2]);
+});
+
+test('硬件折叠热区只覆盖完整硬件刘海，折叠手柄不能操作',async({page})=>{
+  await notchBridge(page);await page.goto('/notch.html');await expect(page.locator('.cell')).toHaveCount(6);
+  const result=await page.evaluate(()=>{
+    applyEdge('top');applyHardwareNotch({hardware_notch:{width:220,height:32}});
+    document.documentElement.style.zoom='1';setFolded(true);foldPosition=0;drawNotchShape();
+    const rest=document.getElementById('rest').getBoundingClientRect(),hot=wakeRect(),dpr=devicePixelRatio;
+    orbAt={x:1,y:1,reach:20,points:[{x:1,y:1}]};moveAt=orbAt;
+    const event={button:0,clientX:1,clientY:1,stopPropagation(){throw new Error('folded handle consumed click');}};
+    return {size:[hot[2]/dpr,hot[3]/dpr],origin:[hot[0]/dpr-rest.x,hot[1]/dpr-rest.y],
+      settings:openSettingsFromHandle(event),move:beginMoveFromHandle(event)};
+  });
+  expect(result).toEqual({size:[220,32],origin:[0,0],settings:false,move:false});
+});
+
+test('硬件顶边按源端部展开和单次缩放，切回其他边清除硬件留白',async({page})=>{
+  await notchBridge(page);await page.setViewportSize({width:1600,height:1000});await page.goto('/notch.html');
+  for(const count of [1,6]){
+    await page.evaluate(count=>emitNotch('notch_slots',['claude','codex','cursor','gemini','glm','grok'].slice(0,count).map(provider=>({provider}))),count);
+    await expect(page.locator('.cell')).toHaveCount(count);
+    for(const scale of [.8,1,1.2]){
+      const geometry=await page.evaluate(({count,scale})=>{
+        emitNotch('notch_edge','top');
+        emitNotch('native_notch_geometry',{hardware_notch:{width:220,height:32}});
+        emitNotch('notch_layout',{edge:'top',width:1600,height:1000,spacing:83.5*44/117,depth:129.065,scale,session_cap:4});
+        foldPosition=1;drawNotchShape();
+        const bounds=pill.getBoundingClientRect(),cells=[...pill.querySelectorAll('.cell')].map(c=>c.getBoundingClientRect());
+        const surface=document.querySelector('.notch-surface').viewBox.baseVal;
+        return {shape:surface.width,depth:surface.height,inset:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hardware-inset')),
+          centred:((cells[0].left+cells.at(-1).right)/2-(bounds.left+bounds.right)/2),
+          sourceShape:Math.max((69.5+50.1)*44/117+count*44+(count-1)*83.5*44/117+2*28*44/117,220+2*78.8*44/117)};
+      },{count,scale});
+      expect(Math.abs(geometry.shape-geometry.sourceShape)).toBeLessThan(1);
+      expect(geometry.inset).toBe(32);
+      expect(Math.abs(geometry.centred)).toBeLessThan(1);
+      expect(geometry.depth).toBeGreaterThan(128);
+    }
+  }
+  await page.evaluate(()=>emitNotch('notch_edge','right'));
+  await expect(page.locator('body')).not.toHaveClass(/hardware-joined/);
+  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--hardware-inset'))).toBe('0px');
+});
+
+test('硬件顶边凸角手柄按源圆心、弧半径与两点热区定位，三种缩放均一致',async({page})=>{
+  await notchBridge(page);await page.setViewportSize({width:650,height:900});await page.goto('/notch.html');
+  for(const scale of [.8,1,1.2]){
+    const actual=await page.evaluate(scale=>{
+      showMove=true;
+      applyEdge('top');
+      const shape=360,depth=129.065;
+      nativeLayout={edge:'top',width:650,height:900,shape_length:shape,depth,spacing:83.5*44/117,scale};
+      applyHardwareNotch({hardware_notch:{width:220,height:32}});
+      document.documentElement.style.zoom=String(scale);
+      reportHot();
+      const r=pill.getBoundingClientRect();
+      const bleed=(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bezel-bleed'))||2)*scale;
+      const K=44/117,corner=Math.min(78.8*K,16),radius=corner+27*K;
+      const offset=(radius+124*K/2)/Math.SQRT2;
+      const start=r.left+(r.width-shape*scale)/2,y=r.top+bleed+(depth-corner+offset)*scale;
+      const far=start+(shape-28*K-corner+offset)*scale;
+      const nearButton=start+(28*K+corner-offset)*scale;
+      const orbArc=orbAt.points[0],moveArc=moveAt.points[1];
+      const calls=notchCalls.filter(c=>c.cmd==='set_hot').at(-1)?.args?.rects||[];
+      return {scale,orb:[orbAt.x,orbAt.y],move:[moveAt.x,moveAt.y],
+        expectedOrb:[far,y],expectedMove:[nearButton,y],
+        orbArc:[orbArc.x,orbArc.y],expectedOrbArc:[far+(radius/Math.SQRT2-offset)*scale,y+(radius/Math.SQRT2-offset)*scale],
+        moveArc:[moveArc.x,moveArc.y],expectedMoveArc:[nearButton+(offset-radius/Math.SQRT2)*scale,y+(radius/Math.SQRT2-offset)*scale],
+        radius:Number(orb.querySelector('.h-rest circle').getAttribute('r')),
+        moveRadius:Number(moveHandle.querySelector('.h-rest circle').getAttribute('r')),
+        orbTrim:getComputedStyle(orb).getPropertyValue('--arc').trim(),
+        moveTrim:getComputedStyle(moveHandle).getPropertyValue('--arc').trim(),
+        hotRects:calls.length,arcHot:near(orbAt,orbArc.x,orbArc.y)&&near(moveAt,moveArc.x,moveArc.y)};
+    },scale);
+    for(const pair of [['orb','expectedOrb'],['move','expectedMove'],['orbArc','expectedOrbArc'],['moveArc','expectedMoveArc']]){
+      for(let i=0;i<2;i++)expect(actual[pair[0]][i]).toBeCloseTo(actual[pair[1]][i],3);
+    }
+    expect(actual.radius).toBeCloseTo(Math.min(78.8*44/117,16)+27*44/117,5);
+    expect(actual.moveRadius).toBe(actual.radius);
+    expect([actual.orbTrim,actual.moveTrim]).toEqual(['0deg','90deg']);
+    expect(actual.arcHot).toBe(true);
+    expect(actual.hotRects).toBeGreaterThanOrEqual(5);
+  }
+});
+
+test('离开硬件顶边后四边普通弧、单点热点和手柄隐藏状态恢复',async({page})=>{
+  await notchBridge(page);await page.setViewportSize({width:650,height:900});await page.goto('/notch.html');
+  const states=await page.evaluate(()=>{
+    showMove=true;
+    applyEdge('top');applyHardwareNotch({hardware_notch:{width:220,height:32}});
+    nativeLayout=null;
+    const rows=[];
+    for(const edge of ['right','left','bottom','top']){
+      applyEdge(edge);placeHandles();
+      rows.push({edge,orb:orbAt.points.length,move:moveAt.points.length,
+        radius:Number(orb.querySelector('.h-rest circle').getAttribute('r')),
+        x:orb.style.getPropertyValue('--arc-offset-x'),
+        y:orb.style.getPropertyValue('--arc-offset-y'),
+        joined:document.body.classList.contains('hardware-joined')});
+    }
+    showMove=false;reportHot();
+    const hidden={move:moveAt,placed:moveHandle.classList.contains('placed')};
+    return {rows,hidden};
+  });
+  for(const row of states.rows){
+    expect(row.orb).toBe(row.edge==='top'?2:1);
+    expect(row.move).toBe(row.edge==='top'?2:1);
+    expect(row.radius).toBeCloseTo(row.edge==='top'?Math.min(78.8*44/117,16)+27*44/117:76*44/117,5);
+    expect(row.joined).toBe(row.edge==='top');
+    if(row.edge!=='top')expect([row.x,row.y]).toEqual(['0px','0px']);
+  }
+  expect(states.hidden).toEqual({move:null,placed:false});
+});
+
 test('最近的失败保留原读数亮度，超过十五分钟才变暗',async({page})=>{
   await notchBridge(page);await page.goto('/notch.html');
   const states=await page.evaluate(()=>{
@@ -40,6 +186,60 @@ test('最近的失败保留原读数亮度，超过十五分钟才变暗',async(
     };
   });
   expect(states).toEqual({recent:[false,false,false],old:[true,true,true],explicit:true});
+});
+
+test('从常显或隐藏切到悬停模式立即收起，指针仍在胶囊上也不等待延时',async({page})=>{
+  await notchBridge(page);await page.goto('/notch.html');
+  const states=await page.evaluate(()=>{
+    pointerIn=true;
+    applyUiFlags({notch_visible:true,notch_on_hover:false,pinned:false});
+    setFolded(false);
+    emitNotch('ui_flags',{notch_visible:true,notch_on_hover:true,pinned:false});
+    const afterAlwaysShow=folded;
+    emitNotch('ui_flags',{notch_visible:false,notch_on_hover:true,pinned:false});
+    setFolded(false); // hidden WebView state should not survive re-showing in hover mode
+    emitNotch('ui_flags',{notch_visible:true,notch_on_hover:true,pinned:false});
+    return {afterAlwaysShow,afterHidden:folded,pointerIn};
+  });
+  expect(states).toEqual({afterAlwaysShow:true,afterHidden:true,pointerIn:true});
+});
+
+test('移动手柄向四边预览传折叠深度与同一布局的真实形状长度',async({page})=>{
+  await notchBridge(page);await page.goto('/notch.html');
+  const sizes=await page.evaluate(()=>{
+    notchEdge='right';hardwareNotch=null;
+    nativeLayout={edge:'right',shape_length:418.25,scale:1};
+    const side=pillShapes();
+    notchEdge='top';hardwareNotch={width:220,height:37};
+    nativeLayout={edge:'top',shape_length:407.5,scale:1};
+    return {side,joined:pillShapes()};
+  });
+  expect(sizes.side.depth).toBeCloseTo(26*44/117,5);
+  expect(sizes.side.length).toBe(418.25);
+  expect(sizes.joined).toEqual({depth:37,length:407.5});
+});
+
+test('四边移动预览使用源 SideNotchShape 路径而非圆角矩形',async({page})=>{
+  await notchBridge(page);await page.goto('/dropzones.html');
+  const outlines=await page.evaluate(()=>{
+    draw({depth:26*44/117,length:418.25,w:1440,h:900,target:'top'});
+    return ['left','right','top','bottom'].map(edge=>{
+      const el=document.getElementById(edge),svg=el.querySelector('svg'),path=svg.querySelector('path');
+      return {edge,width:parseFloat(el.style.width),height:parseFloat(el.style.height),
+        path:path.getAttribute('d'),transform:path.getAttribute('transform'),
+        selected:el.classList.contains('on'),border:getComputedStyle(el).borderTopWidth};
+    });
+  });
+  for(const row of outlines){
+    expect(row.path).toMatch(/^M .* A .* Z$/);
+    expect(row.border).toBe('0px');
+    expect(row.width).toBeCloseTo(['left','right'].includes(row.edge)?26*44/117:418.25,5);
+    expect(row.height).toBeCloseTo(['left','right'].includes(row.edge)?418.25:26*44/117,5);
+  }
+  expect(outlines.map(row=>row.transform)).toEqual([
+    `matrix(-1 0 0 1 ${26*44/117} 0)`,'','matrix(0 -1 1 0 0 '+26*44/117+')','matrix(0 1 1 0 0 0)'
+  ]);
+  expect(outlines.map(row=>row.selected)).toEqual([false,false,true,false]);
 });
 
 test('刘海齿轮点击切换设置窗口，保留独立打开命令给菜单',async({page})=>{

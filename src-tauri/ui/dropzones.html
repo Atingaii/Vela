@@ -8,47 +8,58 @@
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;overflow:hidden;user-select:none;cursor:default}
   .zone{
-    position:absolute;background:rgba(0,0,0,.3);
-    /* The notch's own outline: dashed, and washed inside. A stroke alone disappears over a light or
-       busy desktop, which is where seeing the places matters most. */
-    border:3px dashed rgba(232,232,234,.72);
-    transition:transform .3s cubic-bezier(.34,1.3,.64,1),background-color .2s,border-color .2s;
+    position:absolute;
+    transition:transform .3s cubic-bezier(.34,1.3,.64,1);
   }
-  .zone.on{background:rgba(0,0,0,.62);border-color:#e8e8ea;transform:scale(1.06)}
-  /* Welded to its edge, rounded on the three corners that are not against it, as the notch is */
-  #right{border-radius:20px 0 0 20px;right:0}
-  #left{border-radius:0 20px 20px 0;left:0}
-  #top{border-radius:0 0 20px 20px;top:0}
-  #bottom{border-radius:20px 20px 0 0;bottom:0}
+  .zone svg{width:100%;height:100%;overflow:visible;display:block}
+  .zone path{fill:rgba(0,0,0,.3);stroke:rgba(232,232,234,.72);stroke-width:6.0171;stroke-dasharray:12.7863 9.7778;stroke-linecap:round}
+  .zone.on{transform:scale(1.06)}
+  .zone.on path{fill:rgba(0,0,0,.62);stroke:#e8e8ea}
+  #right{right:0}
+  #left{left:0}
+  #top{top:0}
+  #bottom{bottom:0}
   @media (prefers-reduced-motion: reduce){.zone{transition:none}}
 </style>
 </head>
 <body>
-<div class="zone" id="left"></div>
-<div class="zone" id="right"></div>
-<div class="zone" id="top"></div>
-<div class="zone" id="bottom"></div>
+<div class="zone" id="left"><svg><path/></svg></div>
+<div class="zone" id="right"><svg><path/></svg></div>
+<div class="zone" id="top"><svg><path/></svg></div>
+<div class="zone" id="bottom"><svg><path/></svg></div>
 <script>
 const invoke = window.__TAURI__.core.invoke;
 const listen = window.__TAURI__.event.listen;
 
-/* One shape, turned on its side for the flat edges: a column down a side edge, a row along a flat
-   one. Depth and length are the pill's own, standing upright. */
+/* SideNotchShape.canonicalPath and transform(for:), at Swift 117a38b8.
+   EdgeDropZones does not pass `joining`, even if the carried top notch rests on
+   hardware, so all four preview paths keep the ordinary flare. */
+function canonicalPath(depth,length){
+  const K=44/117,flare=103*K,wanted=Math.max(0,Math.min(78.8*K,depth/2));
+  const curl=Math.max(0,Math.min(flare,length/2,depth-wanted));
+  const corner=Math.max(0,Math.min(wanted,(length-2*curl)/2));
+  return `M ${depth} 0 A ${curl} ${curl} 0 0 1 ${depth-curl} ${curl} L ${corner} ${curl} A ${corner} ${corner} 0 0 0 0 ${curl+corner} L 0 ${length-curl-corner} A ${corner} ${corner} 0 0 0 ${corner} ${length-curl} L ${depth-curl} ${length-curl} A ${curl} ${curl} 0 0 1 ${depth} ${length} Z`;
+}
 function draw(z){
   if(!z) return;
-  const depth=Math.round(z.depth), length=Math.round(z.length);
-  for(const edge of ['left','right']){
+  const depth=Number(z.depth),length=Number(z.length);
+  if(!Number.isFinite(depth)||!Number.isFinite(length)||depth<=0||length<=0)return;
+  const d=canonicalPath(depth,length);
+  for(const edge of ['left','right','top','bottom']){
     const el=document.getElementById(edge);
-    el.style.width=depth+'px'; el.style.height=length+'px';
-    el.style.top=Math.round((z.h-length)/2)+'px';
+    const vertical=edge==='left'||edge==='right';
+    const w=vertical?depth:length,h=vertical?length:depth;
+    el.style.width=w+'px';el.style.height=h+'px';
+    if(vertical)el.style.top=(z.h-length)/2+'px';
+    else el.style.left=(z.w-length)/2+'px';
+    const svg=el.querySelector('svg'),path=svg.querySelector('path');
+    svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+    path.setAttribute('d',d);
+    path.setAttribute('transform',edge==='left'?`matrix(-1 0 0 1 ${depth} 0)`
+      :edge==='top'?`matrix(0 -1 1 0 0 ${depth})`
+      :edge==='bottom'?'matrix(0 1 1 0 0 0)':'');
+    el.classList.toggle('on',edge===z.target);
   }
-  for(const edge of ['top','bottom']){
-    const el=document.getElementById(edge);
-    el.style.width=length+'px'; el.style.height=depth+'px';
-    el.style.left=Math.round((z.w-length)/2)+'px';
-  }
-  for(const edge of ['left','right','top','bottom'])
-    document.getElementById(edge).classList.toggle('on',edge===z.target);
 }
 listen('zones',e=>draw(e.payload)).catch(()=>{});
 invoke('get_zones').then(draw).catch(()=>{});

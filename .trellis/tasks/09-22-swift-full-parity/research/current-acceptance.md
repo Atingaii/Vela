@@ -60,3 +60,11 @@
 2026-09-23 实例接管最终源码检查：macOS 已改以 NSBundle 包 ID 与内核 `proc` 出生时间 tuple 识别严格更早的实例，避免 LaunchServices 缺失 `launchDate` 时跳过旧进程。`/tmp/velo-migration-instance-final-rust.log` 的全量 Rust 369 + helper 1 再次通过、3 ignored。标准 Tauri debug `.app` 正为此版本重建，上一份 `macos-smoke-web-endpoint-lifecycle.json` 属前一检查点，尚不能证明这次最终重建包；待新的隔离原生 smoke 留证后再更新结论。
 
 最终实例接管源码对应的标准 Tauri debug app 重建成功（`/tmp/velo-migration-instance-final-native-build.log`），重新执行的隔离 smoke 成功（`/tmp/velo-migration-instance-final-native-smoke.json`），已更新上述入库 macOS 报告。唤醒订阅、WebView/IPC、helper 均通过，版本 0.1.1-preview.1，未启动供应商、exit 0、无超时。此 smoke 主动跳过实例接管，不能冒充新旧实例接管的桌面实测。自动更新默认值亦与固定 Swift Info.plist 核对为开启，保留用户显式关闭，无需额外修改。
+
+5176a88 的 CI 35826483051：macOS 原生与浏览器通过，Windows Cargo 360 通过、1 失败、4 ignored。失败为自定义 localhost 扫描测试返回空（日志 `/tmp/velo-ci-5176a88-failed.log`），已在下一批工作树补双栈解析与真实 IPv4/IPv6 回归，Windows 复验尚待新提交。该 SHA 的发行包验证 35826536749 已通过 Apple Silicon DMG 挂载/复制/签名完整性/原生启动；报告 `smoke-package-macos-arm64-5176a88.json` 与 `trust-package-macos-arm64-5176a88.json` 已入库，明确未通过 Developer ID/Gatekeeper/公证，不代表当前未提交的界面修复。新工作树 Rust 376 + helper 1、3 ignored 已通过，日志 `/tmp/velo-parity-controls-geometry-rust.log`。用户新增分级协作采用 `docs/agents/model-delegation.md`，后续 Sol/Luna max；本批旧 Sol High 会话无法原地重配且新 Luna 因环境线程上限未创建，未冒称新模型运行。
+
+
+最新换边与设置检查点：Rust379+helper1/3ignored，Node27，Chromium/WebKit各84通过。LM Studio断开状态初次失败已修复并保留断言；accounts数量、连续阈值和新页面初始页复核完成。原生包重建中，源审计见2026-09-23-edge-crossing-review.md。Mac仍锁屏，最终视觉/真实账号/新Windows/安装包与签名更新继续待验。
+
+
+本批最终标准 Tauri debug app 构建成功（`/tmp/velo-parity-crossing-native-build-final.log`），隔离 native smoke 成功：WebView/IPC/helper/wake_subscription=true，providers_started=false，0.1.1-preview.1，exit 0、无超时。报告已保存为 `docs/verification/native-parity-2026-09-23/macos-smoke-controls-edge-crossing.json`。该报告验证启动与订阅，不是锁屏期间的视觉/鼠标/实际睡眠恢复验收。

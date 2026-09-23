@@ -33,7 +33,9 @@ async function settingsBridge(page, connectedSlots = [], version = '1.16.0', ini
       holdIcon:false,releaseIcon:null,holdCustomSecret:false,releaseCustomSecret:null,
       failWeb:false,showWebProviders:false,webStates,autostartProblem:null,failKeychain:false,
       providerPrefs:{minimax_china:false,gemini_token_budget:null},failProviderPrefs:false,lmTokenPresent:false,failLMToken:false,
-      localActivity:{relay:{ready:true,status:'Listening',address:'http://127.0.0.1:11435',thinking_models:{},performances:{'llama3':{output_tokens:100,generation_seconds:2,measured_at:0,approximate:false}}}},
+      localActivity:{relay:{ready:true,status:'Listening',address:'http://127.0.0.1:11435',thinking_models:{},performances:{'llama3':{output_tokens:100,generation_seconds:2,measured_at:0,approximate:false}}},
+        lmstudio:{status:'Reading server log',linked:true,history_loaded:false,today:{requests:0,input_tokens:0,output_tokens:0},model_count:0},checking:{'ollama-local':false,lmstudio:false}},
+      refreshAccepted:true,monitors:[],
       trayOptions:null,providerRows:null,
       destinations:{},failAccountOpen:false,
       surfaceCap:{supported:false,glass_available:false,reduce_transparency:false,effective_surface_style:'solid'},
@@ -75,6 +77,7 @@ async function settingsBridge(page, connectedSlots = [], version = '1.16.0', ini
         }
         if (cmd === 'get_local_models') return {};
         if (cmd === 'get_local_runtime_activity') return window.settingsFixture.localActivity;
+        if (cmd === 'refresh_ring') return window.settingsFixture.refreshAccepted;
         if (cmd === 'get_providers') return window.settingsFixture.providerRows||[
           {id:'ollama-local',name:'Ollama',guidance:'',snap:{status:'absent',note:'Connecting to Ollama…'}},
           {id:'lmstudio',name:'LM Studio',guidance:'',snap:{status:'absent',note:'Connecting to LM Studio…'}}
@@ -147,7 +150,7 @@ async function settingsBridge(page, connectedSlots = [], version = '1.16.0', ini
         if (cmd === 'get_ui_flags') return {notch_visible:true, notch_on_hover:false, tray_visible:true};
         if (cmd === 'get_lang') return 'en';
         if (cmd === 'get_lang_resolved') return 'en';
-        if (cmd === 'get_monitors') return [];
+        if (cmd === 'get_monitors') return window.settingsFixture.monitors.map(m=>({...m}));
         if (cmd === 'get_notch_slots') return slots.map(slot=>({...slot}));
         if (cmd === 'get_tray_options') return [];
         if (cmd === 'get_alert_sounds') return ['Glass','Funk'];
@@ -595,6 +598,8 @@ test('已加载本地模型只在 Accounts 有独立行，关闭模型不关闭�
   },model);
   await page.locator('#tab-accounts').click();
   await expect(page.locator('[data-account="ollama-local:model:qwen3:8b"]')).toContainText('4 GB VRAM · via Ollama');
+  // Swift's sidebar count includes the connected runtime account, not its model cells.
+  await expect(page.locator('#account-count')).toHaveText('1');
   await page.locator('[data-account="ollama-local:model:qwen3:8b"] [data-np]').click();
   await expect(page.locator('[data-account="ollama-local:model:qwen3:8b"]')).toContainText('Hidden from the notch · Loaded in Ollama');
   await expect(page.locator('[data-account="ollama-local"] [data-np]')).toHaveAttribute('aria-checked','true');
@@ -800,6 +805,19 @@ test('原版连续尺寸与阈值滑杆串行保存最新值，失败回滚到�
   await expect.poll(() => page.evaluate(() => settingsFixture.calls.filter(c=>c.cmd==='set_appearance').at(-1)?.args.prefs.watch)).toBe(.6);
   await page.locator('#appearance-critical').evaluate(el => {el.value='80';el.dispatchEvent(new Event('input',{bubbles:true}));});
   await expect.poll(() => page.evaluate(() => settingsFixture.calls.filter(c=>c.cmd==='set_appearance').at(-1)?.args.prefs.critical)).toBe(.8);
+  await page.locator('#appearance-watch').evaluate(el => {el.value='50.5';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await expect.poll(() => page.evaluate(() => settingsFixture.calls.filter(c=>c.cmd==='set_appearance').at(-1)?.args.prefs.watch)).toBe(.505);
+  await expect(page.locator('#appearance-watch')).toHaveValue('50.5');
+});
+
+test('新进程的设置默认打开 Accounts，同一窗口再次前置保留当前页',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');
+  await page.locator('#tab-general').click();
+  await page.evaluate(()=>settingsFixture.emit('settings_opened'));
+  await expect(page.locator('#pane-general')).toBeVisible();
+  // Reload reconstructs SettingsView; its selection state starts at Accounts.
+  await page.reload();
+  await expect(page.locator('#pane-accounts')).toBeVisible();
 });
 
 test('原生版本 API 同步侧栏与通用页，失踪的已选音效保留标记', async ({page}) => {
@@ -811,4 +829,100 @@ test('原生版本 API 同步侧栏与通用页，失踪的已选音效保留标
   await page.locator('#tab-notifications').click();
   await expect(page.locator('#notification-finished_sound option:checked')).toHaveText('Removed Bell (missing)');
   await expect(page.locator('#notification-finished_sound')).toHaveValue('Removed Bell');
+});
+
+test('Accounts 首次连接说明、空组和顺序说明随真实元数据及窗口重开更新',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');
+  await expect(page.locator('#acc-on')).toContainText('Connect an assistant to get started');
+  await expect(page.locator('#acc-on')).toContainText('Nothing is connected, so the notch has no rings to draw.');
+  await expect(page.locator('#acc-on')).toContainText('DeepSeek and MiniMax are the exceptions');
+  await page.evaluate(()=>{
+    settingsFixture.providerRows=[{id:'claude',name:'Claude',enabled:true,account:{label:'work',source:'Claude Code'},snap:{status:'ok'}}];
+    settingsFixture.emit('settings_opened',null);
+  });
+  await expect(page.locator('.setup-note')).toHaveCount(0);
+  await page.evaluate(()=>{settingsFixture.trayOptions=[{id:'claude',label:'Claude',status:'ok'}];notchSlots=[{provider:'claude'}];refreshOptions();});
+  await expect(page.locator('#acc-on')).toContainText('The notch draws these in this order.');
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='get_providers').length)).toBeGreaterThan(1);
+});
+
+test('settings_opened 重读账户时保留尚未保存的密钥草稿',async({page})=>{
+  await settingsBridge(page,['minimax']);await page.goto('/settings.html');
+  await page.evaluate(()=>{
+    settingsFixture.trayOptions=[{id:'minimax',label:'MiniMax',status:'needsAuth'}];
+    settingsFixture.providerRows=[{id:'minimax',name:'MiniMax',enabled:true,account:null,snap:{status:'needsAuth'}}];
+    settingsFixture.emit('providers',settingsFixture.providerRows);
+    refreshOptions();
+  });
+  const draft=page.locator('[data-account="minimax"] input[data-key="minimax"]');
+  await draft.fill('fixture-unsaved-key');
+  await page.evaluate(()=>{settingsFixture.providerRows=[{...settingsFixture.providerRows[0],guidance:'Sign in needed'}];settingsFixture.emit('settings_opened',null);});
+  await expect(draft).toHaveValue('fixture-unsaved-key');
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='save_provider_secret'&&c.args?.id==='minimax'))).toHaveLength(0);
+});
+
+test('本地 Open 不依赖监控开关，Check 只按真实接受和检查状态运行',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');
+  await page.locator('#tab-ollama').click();
+  await expect(page.locator('#ollama-apply')).toBeDisabled();
+  await page.evaluate(()=>{settingsFixture.destinations['ollama-local']={kind:'app',label:'Ollama',help:''};});
+  await page.locator('#ollama-open').click();
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='open_account_destination').at(-1)?.args)).toEqual({id:'ollama-local'});
+  await page.locator('#ollama-monitor').click();
+  await expect(page.locator('#ollama-apply')).toBeEnabled();
+  await page.evaluate(()=>{settingsFixture.refreshAccepted=false;});
+  await page.locator('#ollama-apply').click();
+  await expect(page.locator('#ollama-apply')).toBeEnabled();
+  await page.evaluate(()=>{settingsFixture.refreshAccepted=true;settingsFixture.localActivity.checking['ollama-local']=true;});
+  await page.locator('#ollama-apply').click();
+  await expect(page.locator('#ollama-apply')).toBeDisabled();
+  await expect(page.locator('#ollama-status')).toContainText('Checking Ollama…');
+});
+
+test('LM Studio 的真实状态、历史和 token 数在连接后可见',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');
+  await page.locator('#tab-lmstudio').click();
+  await expect(page.locator('#lmstudio-activity')).toBeVisible();
+  await page.locator('#lmstudio-monitor').click();
+  await expect(page.locator('#lmstudio-activity')).toBeHidden();
+  await page.locator('#lmstudio-monitor').click();
+  await expect(page.locator('#lmstudio-activity')).toContainText("Reading LM Studio's server log…");
+  await page.evaluate(()=>{
+    settingsFixture.localActivity.lmstudio={status:'Linked to LM Studio',linked:true,history_loaded:true,
+      today:{requests:2,input_tokens:12345,output_tokens:1500000},model_count:1};
+    refreshLocalActivity();
+  });
+  await expect(page.locator('#lmstudio-activity')).toContainText('Linked to LM Studio');
+  await expect(page.locator('#lmstudio-activity')).toContainText('Today: 2 requests · 12k tokens in · 1.5M out');
+  await page.evaluate(()=>{settingsFixture.destinations.lmstudio={kind:'app',label:'LM Studio',help:''};});
+  await page.locator('#lmstudio-open').click();
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='open_account_destination').at(-1)?.args)).toEqual({id:'lmstudio'});
+});
+
+test('断开的已选显示器仍保留选项，重连事件立即刷新',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-appearance').click();
+  await page.evaluate(()=>{
+    settingsFixture.monitors=[{id:'old-screen',label:'Unavailable display',primary:false,current:false,pinned:true,unavailable:true}];
+    settingsFixture.emit('monitors_changed',null);
+  });
+  await expect(page.locator('#screen')).toHaveValue('old-screen');
+  await expect(page.locator('#screen option:checked')).toHaveText('Unavailable display');
+  await expect(page.locator('#cap-screen')).toContainText('That display is disconnected.');
+  await page.evaluate(()=>{
+    settingsFixture.monitors=[{id:'old-screen',label:'2  2560 × 1440',primary:false,current:true,pinned:true,unavailable:false}];
+    settingsFixture.emit('monitors_changed',null);
+  });
+  await expect(page.locator('#screen')).toHaveValue('old-screen');
+  await expect(page.locator('#cap-screen')).toContainText('Pinned to 2  2560 × 1440.');
+});
+
+test('Windows App icon 三态使用任务栏和托盘文案',async({page})=>{
+  await page.addInitScript(()=>Object.defineProperty(navigator,'platform',{get:()=> 'Win32'}));
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-appearance').click();
+  await expect(page.locator('#app-presence-controls')).toBeVisible();
+  await expect(page.locator('#seg-presence [data-v="dock"]')).toHaveText('Taskbar');
+  await expect(page.locator('#seg-presence [data-v="menuBar"]')).toHaveText('System tray');
+  await page.locator('#seg-presence [data-v="hidden"]').click();
+  await expect(page.locator('#cap-presence')).toContainText('Start menu');
+  expect(await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='set_appearance').at(-1)?.args.prefs.app_presence)).toBe('hidden');
 });

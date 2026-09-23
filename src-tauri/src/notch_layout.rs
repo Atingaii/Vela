@@ -221,7 +221,13 @@ fn described_card_height(card: &CardDescription, cap: usize, line: f64) -> f64 {
     height
 }
 
-pub fn calculate(edge: &str, content: Content, screen_height: f64, scale: f64) -> Layout {
+pub fn calculate(
+    edge: &str,
+    content: Content,
+    screen_height: f64,
+    scale: f64,
+    hardware: Option<crate::native_notch::HardwareNotch>,
+) -> Layout {
     let edge = match edge {
         "left" => "left",
         "top" => "top",
@@ -229,11 +235,13 @@ pub fn calculate(edge: &str, content: Content, screen_height: f64, scale: f64) -
         _ => "right",
     };
     let vertical = matches!(edge, "left" | "right");
+    let hardware = hardware.filter(|_| edge == "top");
+    let flare = if hardware.is_some() { 28.0 * K } else { FLARE };
     let scale = scale.clamp(0.25, 4.0);
     let count = content.count as f64;
     let gaps = content.count.saturating_sub(1) as f64;
     let cell = if vertical { content.cell_extent } else { 44.0 };
-    let packed = (69.5 + 50.1) * K + count * cell + 2.0 * FLARE;
+    let packed = (69.5 + 50.1) * K + count * cell + 2.0 * flare;
     // Swift spends the gaps against the cap-zero card, before solving how many
     // session rows fit. Measuring today's visible rows here would make the
     // window oscillate whenever activity changes.
@@ -255,11 +263,15 @@ pub fn calculate(edge: &str, content: Content, screen_height: f64, scale: f64) -
     } else {
         GAP
     };
-    let shape_length = packed + gaps * spacing;
+    // NotchViewModel.endSpread opens the whole shape past the hardware width.
+    // Hardware dimensions, cells and fillets share design coordinates; sizeScale
+    // is applied once when main places the panel, not undone for the cutout.
+    let shape_length = (packed + gaps * spacing)
+        .max(hardware.map_or(0.0, |notch| notch.width + 2.0 * 78.8 * K));
     let depth = if vertical {
         BODY_DEPTH
     } else {
-        BODY_DEPTH - 44.0 + content.cell_extent
+        BODY_DEPTH - 44.0 + content.cell_extent + hardware.map_or(0.0, |notch| notch.height)
     };
     // NotchViewModel.cardBudget and NotchLayout.sessionsFitting. The search
     // starts at one and stops at the first row that cannot fit.
@@ -326,8 +338,32 @@ mod tests {
         }
     }
     #[test]
+    fn hardware_join_matches_swift_shape_inset_and_single_scale() {
+        let hardware = crate::native_notch::HardwareNotch { width: 220.0, height: 32.0 };
+        for count in [1, 6] {
+            for scale in [0.8, 1.0, 1.2] {
+                let ordinary = calculate("top", content(count), 982.0, scale, None);
+                let joined = calculate("top", content(count), 982.0, scale, Some(hardware));
+                let source_drawn = (69.5 + 50.1) * K + count as f64 * 44.0
+                    + count.saturating_sub(1) as f64 * GAP + 2.0 * 28.0 * K;
+                let source_shape = source_drawn.max(220.0 + 2.0 * 78.8 * K);
+                assert!((joined.shape_length - source_shape).abs() < 0.0001);
+                assert!((joined.depth - ordinary.depth - 32.0).abs() < 0.0001);
+                // Card slack remains in screen points; hardware inset scales with the notch.
+                assert!(((joined.height - ordinary.height) * scale - 32.0 * scale).abs() < 0.0001);
+                for edge in ["left", "right", "bottom"] {
+                    let with = calculate(edge, content(count), 982.0, scale, Some(hardware));
+                    let without = calculate(edge, content(count), 982.0, scale, None);
+                    assert_eq!(with.shape_length, without.shape_length);
+                    assert_eq!(with.depth, without.depth);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn six_accounts_spend_spacing_before_clipping_flare_or_settings_orb() {
-        let l = calculate("right", content(6), 900.0, 1.0);
+        let l = calculate("right", content(6), 900.0, 1.0, None);
         assert!(l.height > 650.0);
         assert!(l.height <= 900.0 + 0.01);
         assert!(l.spacing < GAP && l.spacing > 0.0);
@@ -335,7 +371,7 @@ mod tests {
     }
     #[test]
     fn flat_stack_uses_ring_width_and_symmetric_padding() {
-        let l = calculate("top", content(6), 900.0, 1.0);
+        let l = calculate("top", content(6), 900.0, 1.0, None);
         let expected = (69.5 + 50.1 + 206.0 + 5.0 * 83.5) * K + 6.0 * 44.0;
         assert!((l.shape_length - expected).abs() < 1e-9);
         assert_eq!(l.spacing, GAP);
@@ -343,13 +379,13 @@ mod tests {
     #[test]
     fn tooltip_room_does_not_scale_with_the_notch() {
         for s in [0.75, 1.0, 1.5] {
-            let l = calculate("left", content(2), 1200.0, s);
+            let l = calculate("left", content(2), 1200.0, s, None);
             assert!(((l.width - BODY_DEPTH) * s - CARD_WIDTH - TAIL).abs() < 1e-9);
         }
     }
     #[test]
     fn crowded_stack_keeps_ring_size_instead_of_negative_spacing() {
-        let l = calculate("right", content(12), 768.0, 1.0);
+        let l = calculate("right", content(12), 768.0, 1.0, None);
         assert_eq!(l.spacing, 0.0);
         assert!(l.height > 768.0); // same limit as upstream; do not conceal clipping by shrinking rings
         assert!(!Content {
@@ -369,8 +405,8 @@ mod tests {
     fn session_cap_uses_screen_budget_and_reserves_hidden_row() {
         let mut c = content(2);
         c.budget_heights = Some(std::array::from_fn(|n| 180.0 + n as f64 * 30.0));
-        let small = calculate("right", c.clone(), 600.0, 1.0);
-        let large = calculate("right", c, 1200.0, 1.0);
+        let small = calculate("right", c.clone(), 600.0, 1.0, None);
+        let large = calculate("right", c, 1200.0, 1.0, None);
         assert_eq!(small.session_cap, 0); // actual one-window cards alone would fit two
         assert_eq!(large.session_cap, SESSION_CEILING);
         assert!((large.width - BODY_DEPTH - CARD_WIDTH - TAIL).abs() < 1e-9);
@@ -396,9 +432,9 @@ mod tests {
         let mut c = content(2);
         c.snapshots = Some(vec![description(), description()]);
         c.budget_heights = Some([10_000.0; SESSION_CEILING + 1]);
-        let native = calculate("left", c.clone(), 900.0, 1.0);
+        let native = calculate("left", c.clone(), 900.0, 1.0, None);
         c.snapshots = None;
-        let dom = calculate("left", c, 900.0, 1.0);
+        let dom = calculate("left", c, 900.0, 1.0, None);
         assert!(native.height < dom.height);
     }
 }

@@ -15,7 +15,7 @@
 | 用量展示 | 明确主窗口、周窗口、节奏、每日额度、重置格式、DeepSeek 价格规则 | 主周元数据、每日份额与价格边界已补并通过阶段测试；各供应商剩余语义继续核对 |
 | 提醒 | 完成/等待展开与声音、额度阈值、用量重置、提供方静音；Limit/Reset 首次静默，Threshold 按源首次检测越界 | 三个原版状态机的首帧、静音和再次越界语义测试通过；完整原生声音及展开实测待补齐 |
 | 位置与呈现 | 物理边缘、硬件刘海、多屏实例、跟随活动屏幕、全屏收起、保持展开、尺寸与材质 | 已补 fleet、UUID、逐窗预算与原生玻璃层；新的同场景截图、多屏和系统材质验收待解锁继续 |
-| 应用入口 | Dock / 托盘显隐、菜单栏额度与时间、启动项、诊断、更新 | 已补原生菜单图形、启动项、What's New 与唤醒订阅源码；新唤醒 API 编译/单测通过，当前批次原生 smoke 待跑。签名预览更新链路不能当作已交付 |
+| 应用入口 | Dock / 托盘显隐、菜单栏额度与时间、启动项、诊断、更新 | 已补原生菜单图形、启动项、What's New 与唤醒订阅；5176a88 的 macOS 隔离启动/订阅 smoke 通过，实际睡眠恢复与新批次 Windows 待验。签名预览更新链路不能当作已交付 |
 | 手机连接 | 原版 `PhoneLink.isAvailable=false`，生产不显示入口、不启动服务器；保留局域网配对与只读 v3 协议实现 | 已迁移协议、设备撤销和刷新等待；生产 gate 已按源补齐，隔离测试可进入；不宣称手机端已开放 |
 | 状态持久化 | 每账户缓存、过期/鉴权/限流区分、停用即停止轮询 | 已补账户代次、关闭忘记读数和自有密钥、Claude 定向刷新、网页会话退出清理与旧请求竞态测试；真实账户、唤醒后刷新和平台生命周期仍待原生验收 |
 | 设置整理 | 主选项与高级选项分层，精简布局不删除能力 | 本轮不做 |
@@ -71,3 +71,11 @@
 `ae7ee93` 的 [CI 35820700594](https://github.com/Atingaii/Velo/actions/runs/35820700594) 已通过 Windows 测试/原生构建/Taskbar proxy/Settings WebView/IPC/helper 检查，见 [Windows 实际报告](verification/native-parity-2026-09-23/windows-smoke-ae7ee93.json)。当前工作树重新构建后，在本次专用 macOS app 中实际启动也成功，报告 [0.1.1-preview.1 原生启动](verification/native-parity-2026-09-23/installation-smoke-0.1.1-preview.1.json) 的两处版本号一致、IPC/helper 成功、未启动账户采集、正常退出且无超时。Mac 仍锁屏，同场景原生视觉/材质/逐交互、真实账户和新三平台 DMG/NSIS/更新包的验收仍不能由上述测试替代。完整迁移任务保持进行中，边缘插件验收尚未开始。
 
 2026-09-23 本批网页会话、自定义端点和生命周期源码检查点：Rust 369 + helper 1 通过、3 ignored（`/tmp/velo-migration-native-wake-probe-rust.log`）；Node 27 通过（`/tmp/velo-migration-web-endpoint-lifecycle-node.log`）；Chromium / WebKit 各 68 通过（`/tmp/velo-migration-web-endpoint-lifecycle-chromium-final.log`、`/tmp/velo-migration-web-endpoint-lifecycle-webkit.log`）。修复内容与固定源对照见 [本批 source review](../.trellis/tasks/09-22-swift-full-parity/research/2026-09-23-web-endpoint-lifecycle-source-review.md)。`9eb92d0` 的 [CI 35823934689](https://github.com/Atingaii/Velo/actions/runs/35823934689) 在 macOS / Windows / browser 均通过，旧版原生报告见 [macOS](verification/native-parity-2026-09-23/macos-smoke-9eb92d0.json) 和 [Windows](verification/native-parity-2026-09-23/windows-smoke-9eb92d0.json)；该提交不含本批新功能。本批标准 Tauri debug `.app` 构建与 [macOS 隔离 smoke](verification/native-parity-2026-09-23/macos-smoke-web-endpoint-lifecycle.json) 均成功：`wake_subscription=true`、WebView/IPC/helper=true、providers_started=false、版本与包版本均 `0.1.1-preview.1`、exit 0 且无超时。它仅证明唤醒 API 注册/注销及隔离启动，不证明实际睡眠恢复。macOS 仍锁屏；逐屏视觉、真实网页登录和账户、Windows 本批原生运行、三平台安装包及真实升级均未验，不标完成或归档。
+
+
+2026-09-23 设置、硬件几何与换边检查点：Rust 379 + helper 1 通过、3 ignored（`/tmp/velo-parity-crossing-rust.log`）；Node 27 通过，Chromium / WebKit 各 84 通过（`/tmp/velo-parity-crossing-{node,chromium,webkit}-final.log`）。恢复硬件顶边的单次缩放、凸角手柄及折叠热区，修复透明窗口边界阻碍拖动与热区包围盒误捕获，drop zone 使用源收起轮廓；换边补齐整窗 0.16 秒淡出、折叠落位、50 ms 后展开和旧回调隔离。设置补首次接入说明、焦点回读但保留草稿、运行时打开/连接/活动、离线显示器选择、Windows 应用入口，并修正本地模型计数、连续阈值和新页面默认页。首次 Chromium 回归曾发现 LM Studio 断开后指标未隐藏，已修复状态刷新并保留原断言，最终双引擎通过。
+
+来源与边界见[换边复核](../.trellis/tasks/09-22-swift-full-parity/research/2026-09-23-edge-crossing-review.md)、[侧栏交互审计](../.trellis/tasks/09-22-swift-full-parity/research/2026-09-23-notch-interaction-audit.md)和[设置审计](../.trellis/tasks/09-22-swift-full-parity/research/2026-09-23-settings-controls-readonly-review.md)。本批标准原生 app 正在重建。5176a88 的 Windows CI 在 localhost 扫描失败，当前双栈修复已通过本机 IPv4/IPv6 回归，仍需新 Windows CI；旧 SHA 的 Apple Silicon DMG 安装/签名完整性/隔离启动通过，Developer ID、公证和 Gatekeeper 默认信任均未通过。Mac 仍锁屏，未补新的原生截图或鼠标/材质验收；全量迁移和边缘插件验收均不标完成。
+
+
+本批最终标准 Tauri debug app 构建成功（`/tmp/velo-parity-crossing-native-build-final.log`），隔离 native smoke 成功：WebView/IPC/helper/wake_subscription=true，providers_started=false，0.1.1-preview.1，exit 0、无超时。报告已保存为 `docs/verification/native-parity-2026-09-23/macos-smoke-controls-edge-crossing.json`。该报告验证启动与订阅，不是锁屏期间的视觉/鼠标/实际睡眠恢复验收。

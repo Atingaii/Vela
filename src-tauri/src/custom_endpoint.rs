@@ -771,7 +771,33 @@ pub struct LocalPreset {
     pub color: String,
 }
 type LocalCandidate = (&'static str, u16, &'static str, &'static str);
-fn scan_candidates(candidates: &[LocalCandidate]) -> Vec<LocalPreset> {
+fn resolve_scan_host(netloc: &str) -> std::io::Result<Vec<std::net::SocketAddr>> {
+    use std::net::{Ipv6Addr, SocketAddr, ToSocketAddrs};
+
+    if let Some(port) = netloc
+        .strip_prefix("localhost:")
+        .and_then(|value| value.parse::<u16>().ok())
+    {
+        // Keep Swift's localhost URL/Host header but try both loopback families in a stable
+        // order. Windows commonly resolves ::1 first; an IPv4-only engine can consume most
+        // of the 1.2-second discovery deadline before that fallback reaches 127.0.0.1.
+        return Ok(vec![
+            SocketAddr::from(([127, 0, 0, 1], port)),
+            SocketAddr::from((Ipv6Addr::LOCALHOST, port)),
+        ]);
+    }
+    netloc.to_socket_addrs().map(Iterator::collect)
+}
+
+#[derive(Default)]
+struct ScanOutcome {
+    found: Vec<LocalPreset>,
+    // Kept in memory for the fixture assertion. Production exposes only `found` and never logs
+    // transport errors; discovery carries no account credential.
+    errors: Vec<String>,
+}
+
+fn scan_candidates(candidates: &[LocalCandidate]) -> ScanOutcome {
     let handles: Vec<_> = candidates
         .iter()
         .copied()
@@ -782,24 +808,33 @@ fn scan_candidates(candidates: &[LocalCandidate]) -> Vec<LocalPreset> {
                     .timeout(std::time::Duration::from_millis(1200))
                     // Discovery sends no key; Swift uses URLSession's redirect policy here.
                     .redirects(10)
+                    .resolver(resolve_scan_host)
                     .build();
-                agent.get(&target).call().ok().map(|_| LocalPreset {
-                    name: format!("{name} (:{port})"),
-                    url: format!("http://localhost:{port}/v1"),
-                    header: "Authorization".into(),
-                    model: String::new(),
-                    icon: icon.into(),
-                    color: color.into(),
-                })
+                agent
+                    .get(&target)
+                    .call()
+                    .map_err(|error| error.to_string())
+                    .map(|_| LocalPreset {
+                        name: format!("{name} (:{port})"),
+                        url: format!("http://localhost:{port}/v1"),
+                        header: "Authorization".into(),
+                        model: String::new(),
+                        icon: icon.into(),
+                        color: color.into(),
+                    })
             })
         })
         .collect();
-    let mut found: Vec<_> = handles
-        .into_iter()
-        .filter_map(|handle| handle.join().ok().flatten())
-        .collect();
-    found.sort_by(|a, b| a.name.cmp(&b.name));
-    found
+    let mut outcome = ScanOutcome::default();
+    for handle in handles {
+        match handle.join() {
+            Ok(Ok(preset)) => outcome.found.push(preset),
+            Ok(Err(error)) => outcome.errors.push(error),
+            Err(_) => outcome.errors.push("scan worker panicked".into()),
+        }
+    }
+    outcome.found.sort_by(|a, b| a.name.cmp(&b.name));
+    outcome
 }
 #[tauri::command]
 pub async fn scan_local_engines() -> Result<Vec<LocalPreset>, String> {
@@ -812,7 +847,7 @@ pub async fn scan_local_engines() -> Result<Vec<LocalPreset>, String> {
             ("Local Ollama", 11434, "ollama-local", "#14B8A6"),
             ("Local AI Server", 5000, "openai", "#3B82F6"),
         ];
-        scan_candidates(&candidates)
+        scan_candidates(&candidates).found
     })
     .await
     .map_err(|_| "本地扫描失败".into())
@@ -821,12 +856,31 @@ pub async fn scan_local_engines() -> Result<Vec<LocalPreset>, String> {
 mod tests {
     use super::*;
     fn fixture_response(status: &str, body: &str) -> (u16, std::thread::JoinHandle<String>) {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        fixture_response_on("127.0.0.1:0", status, body).unwrap()
+    }
+    fn fixture_response_on(
+        address: &str,
+        status: &str,
+        body: &str,
+    ) -> std::io::Result<(u16, std::thread::JoinHandle<String>)> {
+        let listener = std::net::TcpListener::bind(address)?;
+        listener.set_nonblocking(true)?;
         let port = listener.local_addr().unwrap().port();
         let status = status.to_owned();
         let body = body.to_owned();
         let worker = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+            let mut stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(std::time::Instant::now() < deadline, "fixture was not contacted");
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                    }
+                    Err(error) => panic!("fixture accept failed: {error}"),
+                }
+            };
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(std::time::Duration::from_secs(2)))
                 .unwrap();
@@ -843,7 +897,7 @@ mod tests {
             stream.write_all(reply.as_bytes()).unwrap();
             String::from_utf8_lossy(&request).into_owned()
         });
-        (port, worker)
+        Ok((port, worker))
     }
     #[test]
     fn late_probe_preserves_edits_and_rejects_changed_destination() {
@@ -976,10 +1030,28 @@ mod tests {
             .to_ascii_lowercase()
             .contains("authorization: bearer fixture-key"));
         let (port, worker) = fixture_response("200 OK", "{}");
+        let resolved = resolve_scan_host(&format!("localhost:{port}")).unwrap();
+        assert_eq!(
+            resolved[0],
+            std::net::SocketAddr::from(([127, 0, 0, 1], port))
+        );
+        assert_eq!(
+            resolved[1],
+            std::net::SocketAddr::from((std::net::Ipv6Addr::LOCALHOST, port))
+        );
         let found = scan_candidates(&[("Fixture", port, "openai", "#3B82F6")]);
-        worker.join().unwrap();
-        assert_eq!(found.len(), 1);
-        assert_eq!(found[0].url, format!("http://localhost:{port}/v1"));
+        let request = worker.join();
+        assert_eq!(found.found.len(), 1, "scan errors: {:?}", found.errors);
+        assert_eq!(found.found[0].url, format!("http://localhost:{port}/v1"));
+        let request = request.unwrap();
+        assert!(request.contains("GET /v1/models"));
+        assert!(request
+            .to_ascii_lowercase()
+            .contains(&format!("host: localhost:{port}")));
+        assert!(
+            !request.contains("fixture-key"),
+            "discovery must not send draft keys"
+        );
         let (port, worker) = fixture_response("401 Unauthorized", "{}");
         let denied = probe_request(&format!("http://127.0.0.1:{port}/v1"), "Authorization", "");
         worker.join().unwrap();
@@ -995,5 +1067,34 @@ mod tests {
         assert_eq!(query.models, vec!["query-model"]);
         assert!(request.contains("GET /v1/models?tenant=a HTTP/1.1"));
         assert!(!request.contains("#models"));
+    }
+
+    #[test]
+    fn scan_reaches_ipv6_only_loopback_without_exposing_a_key() {
+        let (port, worker) = match fixture_response_on("[::1]:0", "200 OK", "{}") {
+            Ok(fixture) => fixture,
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::AddrNotAvailable | std::io::ErrorKind::Unsupported
+                ) || matches!(error.raw_os_error(), Some(97 | 10047)) =>
+            {
+                eprintln!(
+                    "IPv6 loopback is unavailable on this host; skipped IPv6 fixture: {error}"
+                );
+                return;
+            }
+            Err(error) => panic!("could not create IPv6 loopback fixture: {error}"),
+        };
+        let outcome = scan_candidates(&[("IPv6 Fixture", port, "openai", "#3B82F6")]);
+        let request = worker.join();
+        assert_eq!(outcome.found.len(), 1, "scan errors: {:?}", outcome.errors);
+        assert_eq!(outcome.found[0].url, format!("http://localhost:{port}/v1"));
+        let request = request.unwrap();
+        assert!(request.contains("GET /v1/models"));
+        assert!(request
+            .to_ascii_lowercase()
+            .contains(&format!("host: localhost:{port}")));
+        assert!(!request.to_ascii_lowercase().contains("authorization:"));
     }
 }

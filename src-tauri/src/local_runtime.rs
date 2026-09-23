@@ -433,11 +433,19 @@ pub fn get_local_runtime_settings(app: AppHandle) -> Preferences {
 pub struct LocalActivity {
     pub relay: crate::ollama_relay::RelayStatus,
     pub lmstudio: crate::lmstudio_metrics::Status,
+    pub checking: std::collections::BTreeMap<&'static str, bool>,
 }
 
 #[tauri::command]
 pub fn get_local_runtime_activity() -> LocalActivity {
-    LocalActivity { relay: crate::ollama_relay::status(), lmstudio: crate::lmstudio_metrics::status() }
+    LocalActivity {
+        relay: crate::ollama_relay::status(),
+        lmstudio: crate::lmstudio_metrics::status(),
+        checking: [
+            ("ollama-local", crate::providers::local_runtime_checking("ollama-local")),
+            ("lmstudio", crate::providers::local_runtime_checking("lmstudio")),
+        ].into(),
+    }
 }
 
 /// Keep the relay lifecycle tied to the saved switch and provider connection.
