@@ -43,6 +43,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: 'true'
+          # Reuse this architecture's verified release dependencies on the same branch.
+          shared-key: package
       - run: npm ci
       - name: Build isolated older macOS app and verify real update
         if: runner.os == 'macOS'
@@ -52,6 +54,10 @@ jobs:
           mkdir -p update-reports
           node scripts/prepare-old-update-verification.mjs > update-reports/prepared-source.json
           old=$(node -p "JSON.parse(require('fs').readFileSync('update-reports/prepared-source.json')).prepared_root")
+          # Only CI compilation outputs are shared. The verifier still copies the .app
+          # into its own fresh installation root before staging or installing an update.
+          mkdir -p "$GITHUB_WORKSPACE/target"
+          ln -s "$GITHUB_WORKSPACE/target" "$old/target"
           (cd "$old" && node scripts/desktop.mjs build --bundles app)
           app=$(find "$old/target/release/bundle/macos" -name Velo.app -type d -print -quit)
           test -n "$app"

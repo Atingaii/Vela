@@ -118,3 +118,5 @@ Apple Silicon runner 已挂载 DMG、复制 `.app`、校验签名完整性并执
 从同一 DMG 另建独立 bundle ID 的原生对照副本，仅修改包标识后临时签名；后续必须使用隔离 `--visual-test ... --fixture swift` 模式。Mac 仍锁屏，尚未操作或拍摄本次发行版原生界面。Sol/max 的有界只读终审未发现新的、可确认的高影响 macOS 实现遗漏；这一源码结论不替代视觉、真实账户或真实签名升级验收。
 
 失败日志还确认 `CACHE_ON_FAILURE=false`，没有执行缓存保存。固定 Swatinem action 的 `post-if` 为 `success() || env.CACHE_ON_FAILURE == 'true'`，`save-if: true` 单独不足以在失败后保存缓存；后续 CI 配置需显式启用 `cache-on-failure: true`。这只减少重编译，不改变任何安装或签名门槛。
+
+恢复验证 [35848207535](https://github.com/Atingaii/Velo/actions/runs/35848207535) 使用工作流 `5717393`，`source_ref=v0.1.1-preview.1` 固定客户端源码；每种架构的 `source.json` 记录实际 checkout SHA，不能把工作流 SHA 当作客户端 SHA。此次手动运行不会自动发布。后续真实升级验证复用同架构的 package 依赖缓存，临时旧源码仅将编译输出链接至 CI 工作区的 target；安装验证仍复制到全新的隔离目录，旧源码清理仅删除该链接并保留可复用编译缓存。

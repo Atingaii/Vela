@@ -14,6 +14,8 @@ CARGO_BUILD_JOBS=1 cargo test --locked --workspace -- --test-threads=1
 
 `docs/migration-parity.md` 记录全量差异，不将部分适配标成全量完成。迁移完成前不以 UI 精简为由删除能力。
 
+发行构建诊断：Tauri CLI 的 DMG 脚本 stdout/stderr 在 debug 日志级别输出，CI 构建保留 `--verbose`，不得仅凭通用 `failed to run bundle_dmg.sh` 判断是 Finder、磁盘或应用启动问题。Swatinem/rust-cache 的失败后 post hook 需要 `cache-on-failure: 'true'`；`save-if: 'true'` 单独不能使它在失败后运行。手动用新版工作流验证固定发行源码时，同时记录 workflow SHA 和实际 checkout SHA；手动验证不自动发布，现有安装/信任/签名门槛保持完整。
+
 安装包发布还需运行 `scripts/smoke-installed.mjs <安装后的主程序> <报告>`：只允许显式 `--smoke-test <空目录>`，跳过采集与账户发现，检查实际 WebView、IPC、可见设置窗口与 bundled helper。必须检查真实 DMG / NSIS 的安装产物；模拟 IPC 不可代替该 gate。公开品牌 Velo，但旧配置目录、系统凭据服务和 helper 标识依 ADR 0007 保留。
 
 macOS 分发信任必须独立检查：`node scripts/assess-macos.mjs <app> <report.json>`。
