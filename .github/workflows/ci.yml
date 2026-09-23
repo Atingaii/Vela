@@ -30,7 +30,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          save-if: ${{ !cancelled() }}
+          # Preserve completed compilation even when a later native smoke fails.
+          save-if: 'true'
       - run: npm ci
       - run: npm run check:ui
       - run: npm test
