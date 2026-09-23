@@ -62,6 +62,7 @@ security-framework = "3"
 security-framework-sys = "2"
 core-foundation = "0.10"
 objc2 = "0.6"
+block2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSRunningApplication", "NSWorkspace"] }
 objc2-foundation = "0.3"
 objc2-core-graphics = { version = "0.3", default-features = false, features = ["std", "CGPath", "CGContext"] }
@@ -80,6 +81,7 @@ windows = { version = "0.58", features = [
   "Win32_Graphics_Gdi",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_System_Threading",
+  "Win32_System_Power",
   "Win32_System_JobObjects",
   "Win32_System_Pipes",
   "Win32_System_RestartManager",

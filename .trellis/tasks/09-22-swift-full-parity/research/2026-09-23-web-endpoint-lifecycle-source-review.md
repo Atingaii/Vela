@@ -1,0 +1,14 @@
+# 2026-09-23 网页会话、自定义端点与生命周期 source review
+
+固定来源：`vinzdg/codenotch@117a38b8edae2ebd0944bc86b8760c6381685345`。本记录仅描述当前工作树相对固定源已闭合的行为、已知偏离和本批证据；不表示最终 1:1 验收完成。历史检查点保留于 `docs/migration-parity.md` 和 `current-acceptance.md`。
+
+| 固定 Swift 依据 | 本批 Velo 对应与可复现场景 | 状态 / 边界 |
+| --- | --- | --- |
+| `Sources/Settings/CustomEndpointsSettingsView.swift:243–249, 441–461, 770–814, 850–862`：编辑读取已有 key；已发现模型用 Picker；保存 key 后保存端点；探测更新健康/延迟/模型；系统面板选择图片。`Sources/Model/CustomEndpoint.swift:42–49` 只校验 HTTP(S) 与 host。 | `settings.html`、`custom_endpoint.rs`：自有端点 key 的受限读取/清除，编辑/保存/删除、模型列表与手填切换、草稿探测、图片上传/移除/取消，以及后台探测事件更新列表但不重置草稿；测试覆盖上传未完成时移除后 Save 不再卡住、取消与失败回滚。URL query/fragment 保留。 | 离线 UI / Rust 回归通过；真实文件选择与实际兼容服务待原生验。Swift 可接受 URL userinfo；Velo 仍拒绝以保持“密钥只进系统凭据库”边界。Swift 本身也是先存 key 再存 preferences，若后一步失败并非原子交易；本批未虚称事务性。 |
+| `Sources/Model/UsageStore.swift:35–42, 249–255, 305–315, 350` 与 `Sources/App/AppDelegate.swift:145–165, 175–189`：注册启用的自定义 provider、立即刷新，并依忙/闲节奏再次读取。 | `providers.rs` 的自定义端点调度以启用端点与代次为候选，忙时 60 秒、空闲 300 秒；同一时间只排一个自动 probe，`custom_endpoint.rs` 在等待共享探测门后再验代次，关闭/删除后旧排队结果不能发布。 | 已有离线调度/竞态测试；真实长期运行、网络故障与账户场景待验。 |
+| `Sources/Providers/WebSessionProvider.swift:11–65, 414–455, 500–577` 与 `Sources/Providers/Sites.swift`、`QianwenUsage.swift`：登录门需实际未登录过渡与新身份；关闭时最终检查；退出清自有会话，站点失败需分辨鉴权与服务错误。 | `web_session.rs`、`providers.rs`：退出/重开清理每站自有 profile，登录确认后定向刷新；DeepSeek/QianwenAI 清旧账号通用退避，MiniMax 保留其退避；鉴权失败撤掉旧额度，业务/API 失败保留旧读数并报错；旧请求由账户/网页代次阻断。 | 离线解析、会话门和竞态回归通过；真实网页登录、切号、Cookie 清除与原生窗口待验。只读 MiniMax key/Cookie presence 不读取密钥内容作摘要。 |
+| `Sources/App/AppDelegate.swift:39–63`：新 macOS 实例要求严格更早的同 bundle 旧实例退出。`Sources/Model/UsageStore.swift:263–270, 287–301`：AppKit wake observer 触发刷新并在停止时移除。 | `native_lifecycle.rs` 用同 bundle、可执行文件、UID 与进程出生时间限制旧实例退休；macOS `NSWorkspace.didWakeNotification` 与 Windows `RegisterSuspendResumeNotification` 订阅仅排入现有刷新调度，退出时注销。`smoke.rs` 对注册/注销做隔离 probe。 | macOS 本批原生 smoke 的 `wake_subscription=true` 证明 API 注册/注销，不证明实际睡眠恢复。Windows 本批原生运行待 CI。Windows 仍通过 Tauri single-instance 接管，未模拟 Swift 的 macOS newcomer-wins 跨安装路径策略，属于平台边界。 |
+
+本批检查：Rust 369 + helper 1 通过、3 ignored；Node 27/27；Chromium / WebKit 各 68/68。对应日志分别为 `/tmp/velo-migration-native-wake-probe-rust.log`、`/tmp/velo-migration-web-endpoint-lifecycle-node.log`、`/tmp/velo-migration-web-endpoint-lifecycle-chromium-final.log`、`/tmp/velo-migration-web-endpoint-lifecycle-webkit.log`。`9eb92d0` 的 [CI 35823934689](https://github.com/Atingaii/Velo/actions/runs/35823934689) 在 macOS / Windows / browser 全绿，但不含本批新功能；对应原生报告在 `docs/verification/native-parity-2026-09-23/*-smoke-9eb92d0.json`。本批标准 Tauri debug `.app` 构建及 [macOS 隔离 smoke](../../../../docs/verification/native-parity-2026-09-23/macos-smoke-web-endpoint-lifecycle.json) 通过：`wake_subscription=true`、WebView/IPC/helper=true、providers_started=false、版本与包版本均 `0.1.1-preview.1`、exit 0、无超时。
+
+macOS 仍锁屏，逐屏视觉、实际睡眠恢复、真实网页登录/账户、Windows 本批原生运行、三平台安装包和真实升级尚未验收。全量迁移与边缘插件阶段均不标完成；本任务不归档。

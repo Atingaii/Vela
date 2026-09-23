@@ -44,6 +44,51 @@ pub fn read(_id: &str) -> Result<String, String> {
     Err("此平台未启用凭据保管库".into())
 }
 
+/// Metadata for an app-owned item only. Settings must not load the credential
+/// bytes or show a Keychain prompt merely to decide whether an account exists.
+pub(crate) fn owned_secret_present(id: &str) -> bool {
+    if !matches!(id, "minimax" | "minimax-cookie") || crate::smoke::root().is_some() {
+        return false;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use security_framework::item::{ItemClass, ItemSearchOptions};
+        return ItemSearchOptions::new()
+            .class(ItemClass::generic_password())
+            .service("Vela")
+            .account(id)
+            .load_attributes(true)
+            .skip_authenticated_items(true)
+            .search()
+            .is_ok_and(|rows| !rows.is_empty());
+    }
+    #[cfg(windows)]
+    {
+        use windows::{core::PCWSTR, Win32::Security::Credentials::*};
+        let target: Vec<u16> = format!("Vela/{id}\0").encode_utf16().collect();
+        let mut count = 0u32;
+        let mut items = std::ptr::null_mut();
+        // Enumerate only the app's exact target name. Inspect the count, never
+        // dereference a CredentialBlob; the OS-owned result is freed at once.
+        let found = unsafe {
+            CredEnumerateW(
+                PCWSTR(target.as_ptr()),
+                CRED_ENUMERATE_FLAGS(0),
+                &mut count,
+                &mut items,
+            )
+            .is_ok()
+                && count > 0
+        };
+        if !items.is_null() {
+            unsafe { CredFree(items.cast()) };
+        }
+        return found;
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    false
+}
+
 #[tauri::command]
 pub fn save_provider_secret(id: String, secret: String) -> Result<(), String> {
     if !valid(&id) || secret.len() > 8192 || secret.contains(['\r', '\n']) {
@@ -110,7 +155,10 @@ pub fn get_lmstudio_token_state() -> Result<LMStudioTokenState, String> {
     if crate::smoke::root().is_some() {
         return Ok(LMStudioTokenState { present: false });
     }
-    if std::env::var("LM_API_TOKEN").ok().is_some_and(|value| !value.trim().is_empty()) {
+    if std::env::var("LM_API_TOKEN")
+        .ok()
+        .is_some_and(|value| !value.trim().is_empty())
+    {
         return Ok(LMStudioTokenState { present: true });
     }
     #[cfg(target_os = "macos")]
@@ -125,19 +173,26 @@ pub fn get_lmstudio_token_state() -> Result<LMStudioTokenState, String> {
             .skip_authenticated_items(true)
             .search();
         return match result {
-            Ok(rows) => Ok(LMStudioTokenState { present: !rows.is_empty() }),
-            Err(error) if error.code() == errSecItemNotFound => Ok(LMStudioTokenState { present: false }),
+            Ok(rows) => Ok(LMStudioTokenState {
+                present: !rows.is_empty(),
+            }),
+            Err(error) if error.code() == errSecItemNotFound => {
+                Ok(LMStudioTokenState { present: false })
+            }
             Err(_) => Err("无法检查 LM Studio 密钥状态".into()),
         };
     }
     #[cfg(not(target_os = "macos"))]
-    Ok(LMStudioTokenState { present: read("lmstudio-api-token").is_ok() })
+    Ok(LMStudioTokenState {
+        present: read("lmstudio-api-token").is_ok(),
+    })
 }
 
 /// Only used for an explicitly connected LM Studio runtime, never serialized
 /// into config, snapshots or log messages.
 pub fn lmstudio_token() -> Option<String> {
-    std::env::var("LM_API_TOKEN").ok()
+    std::env::var("LM_API_TOKEN")
+        .ok()
         .filter(|value| !value.trim().is_empty() && !value.contains(['\r', '\n']))
         .or_else(|| read("lmstudio-api-token").ok())
 }

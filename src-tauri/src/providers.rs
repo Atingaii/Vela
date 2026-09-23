@@ -436,6 +436,52 @@ pub fn request(id: &str) -> bool {
     s.requested.insert(id.into());
     true
 }
+
+fn queue_after_web_auth(st: &mut Store, id: &str, now: u64) -> bool {
+    if id == "minimax"
+        && st
+            .snapshots
+            .get(id)
+            .is_some_and(|snapshot| snapshot.backoff_until > now)
+    {
+        return false;
+    }
+    if id != "minimax" {
+        if let Some(snapshot) = st.snapshots.get_mut(id) {
+            snapshot.backoff_until = 0;
+        }
+    }
+    st.requested.insert(id.into());
+    true
+}
+
+/// Authentication confirmation has its own targeted refresh in UsageStore.
+/// DeepSeek and QianwenAI do not have a provider-owned rate limiter, so an
+/// old account's generic HTTP backoff must not delay the new account. MiniMax
+/// does retain its own retry deadline across sign-out in the pinned Swift
+/// source, and continues to honor that deadline here.
+pub(crate) fn request_after_web_auth(app: &AppHandle, id: &str) -> bool {
+    if !matches!(id, "deepseek" | "qianwenai" | "minimax") {
+        return false;
+    }
+    let expected = generation(id);
+    let mut requested = false;
+    with_current(app, id, expected, || {
+        if !crate::web_session::signed_in(id) {
+            return;
+        }
+        let mut st = store().lock().unwrap();
+        requested = queue_after_web_auth(&mut st, id, crate::now_ms());
+        if requested && id != "minimax" {
+            // Persist the cleared old-account backoff, so a restart before the
+            // new fetch cannot reintroduce it from the archive.
+            if let Ok(bytes) = serde_json::to_vec(&st.snapshots) {
+                let _ = persist(&cache_path(), &bytes);
+            }
+        }
+    });
+    requested
+}
 #[tauri::command]
 pub fn get_providers(app: AppHandle) -> Vec<Reading> {
     if let Some(rows) = crate::smoke::swift_rows() {
@@ -448,6 +494,13 @@ pub fn get_providers(app: AppHandle) -> Vec<Reading> {
         return Vec::new();
     }
     purge_disabled(&app);
+    let minimax_china = app
+        .state::<crate::AppState>()
+        .cfg
+        .lock()
+        .unwrap()
+        .providers
+        .minimax_china;
     let mut result: Vec<Reading> = CATALOG
         .iter()
         .map(|p| Reading {
@@ -473,6 +526,15 @@ pub fn get_providers(app: AppHandle) -> Vec<Reading> {
                 }),
                 "kiro" => kiro::account(snapshot("kiro").plan),
                 "devin" => transport::devin_account(),
+                "minimax" => transport::minimax_account_present().then(|| AccountSummary {
+                    label: None,
+                    plan: snapshot("minimax").plan,
+                    source: "MiniMax".into(),
+                    manage_url: Some(format!(
+                        "https://platform.{}/user-center/payment/coding-plan",
+                        if minimax_china { "minimaxi.com" } else { "minimax.io" }
+                    )),
+                }),
                 "gemini-api" => gemini_logs::account(
                     &dirs::home_dir().unwrap_or_default(),
                     &snapshot("gemini-api"),
@@ -736,16 +798,30 @@ fn web_reading(app: &AppHandle, id: &str, china: bool) -> Option<Result<UsageSna
         // A sign-in is in progress; it does not invalidate the last reading.
         Err(WebSessionError::Busy) => None,
         Err(WebSessionError::NeedsAuth) => Some(Err(Failure::Auth)),
-        Err(WebSessionError::BadStatus(429)) if id == "minimax" => {
+        Err(WebSessionError::BadStatus(429) | WebSessionError::BusinessStatus(429))
+            if id == "minimax" =>
+        {
             Some(Err(Failure::MiniMaxThrottle(None)))
         }
         Err(WebSessionError::BadStatus(429)) => Some(Err(Failure::Throttle(60))),
+        Err(WebSessionError::NothingMetered) => Some(Err(Failure::Unsupported(
+            match id {
+                "minimax" => "MiniMax reported no usage windows",
+                "qianwenai" => "QianwenAI reported no Token Plan usage",
+                _ => "The provider reported no usage windows",
+            },
+        ))),
+        Err(WebSessionError::Api(code)) => Some(Err(Failure::Api(code))),
+        Err(WebSessionError::BusinessStatus(code)) => {
+            Some(Err(Failure::Api(format!("Provider error {code}"))))
+        }
         Err(WebSessionError::Unavailable | WebSessionError::Temporary) => {
             Some(Err(Failure::Network))
         }
-        Err(WebSessionError::Invalid | WebSessionError::BadStatus(_)) => {
-            Some(Err(Failure::Invalid))
+        Err(WebSessionError::BadStatus(code)) => {
+            Some(Err(Failure::Api(format!("Provider error {code}"))))
         }
+        Err(WebSessionError::Invalid) => Some(Err(Failure::Invalid)),
     }
 }
 
@@ -996,9 +1072,19 @@ pub fn start(app: AppHandle) {
         let mut last_attempt = BTreeMap::<(String, u64), u64>::new();
         let mut in_flight = BTreeMap::<(String, u64), InFlight>::new();
         let (finished, completed) = std::sync::mpsc::channel::<(String, u64)>();
+        // Custom probes share one HTTP gate. Keep at most one scheduled probe
+        // outstanding, so dozens of endpoints cannot build a stale queue.
+        let mut custom_last_attempt = BTreeMap::<(String, u64), u64>::new();
+        let mut custom_in_flight: Option<(String, u64)> = None;
+        let (custom_finished, custom_completed) = std::sync::mpsc::channel::<(String, u64)>();
         loop {
             while let Ok(key) = completed.try_recv() {
                 in_flight.remove(&key);
+            }
+            while let Ok(key) = custom_completed.try_recv() {
+                if custom_in_flight.as_ref() == Some(&key) {
+                    custom_in_flight = None;
+                }
             }
             let now = crate::now_ms();
             for ((id, epoch), flight) in &mut in_flight {
@@ -1091,6 +1177,44 @@ pub fn start(app: AppHandle) {
                     let _ = finished.send((profile.id, epoch));
                 });
             }
+            if crate::smoke::root().is_none() && custom_in_flight.is_none() {
+                let endpoints: Vec<_> = app
+                    .state::<crate::AppState>()
+                    .cfg
+                    .lock()
+                    .unwrap()
+                    .custom_endpoints
+                    .iter()
+                    .filter(|endpoint| endpoint.enabled)
+                    .map(|endpoint| endpoint.id.clone())
+                    .collect();
+                let candidates: Vec<_> = endpoints
+                    .into_iter()
+                    .filter_map(|id| {
+                        let provider_id = format!("custom-endpoint-{id}");
+                        enabled(&app, &provider_id).then(|| (id, generation(&provider_id)))
+                    })
+                    .collect();
+                custom_last_attempt.retain(|key, _| candidates.contains(key));
+                let interval = if busy { 60_000 } else { 300_000 };
+                if let Some((id, epoch)) =
+                    next_custom_probe(crate::now_ms(), interval, &candidates, &custom_last_attempt)
+                {
+                    custom_last_attempt.insert((id.clone(), epoch), crate::now_ms());
+                    custom_in_flight = Some((id.clone(), epoch));
+                    let app = app.clone();
+                    let finished = custom_finished.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let _ = crate::custom_endpoint::probe_custom_endpoint_at_epoch(
+                            app,
+                            id.clone(),
+                            epoch,
+                        )
+                        .await;
+                        let _ = finished.send((id, epoch));
+                    });
+                }
+            }
             std::thread::sleep(Duration::from_secs(1));
         }
     });
@@ -1099,6 +1223,23 @@ pub fn start(app: AppHandle) {
 struct InFlight {
     started: u64,
     reported: bool,
+}
+
+fn next_custom_probe(
+    now: u64,
+    interval: u64,
+    candidates: &[(String, u64)],
+    last_attempt: &BTreeMap<(String, u64), u64>,
+) -> Option<(String, u64)> {
+    candidates
+        .iter()
+        .filter(|key| {
+            last_attempt
+                .get(*key)
+                .is_none_or(|last| now.saturating_sub(*last) >= interval)
+        })
+        .min_by_key(|key| last_attempt.get(*key).copied().unwrap_or(0))
+        .cloned()
 }
 
 fn should_collect(
@@ -1354,35 +1495,59 @@ pub(super) enum Failure {
     OpenCodeThrottle(Option<u64>),
     MiniMaxThrottle(Option<u64>),
     MissingEndpoint,
+    Api(String),
     Invalid,
     Network,
 }
 fn failure(mut old: UsageSnapshot, e: Failure, now: u64) -> UsageSnapshot {
-    if let Failure::Unsupported(reason) = e {
-        return UsageSnapshot {
-            status: "unsupported".into(),
-            note: reason.into(),
-            ..Default::default()
-        };
+    match &e {
+        Failure::Auth => {
+            return UsageSnapshot {
+                status: "needsAuth".into(),
+                note: "登录已失效，请在原应用重新登录".into(),
+                ..Default::default()
+            };
+        }
+        Failure::Expired => {
+            return UsageSnapshot {
+                status: "needsAuth".into(),
+                note: "凭据已过期，请在原应用续期".into(),
+                ..Default::default()
+            };
+        }
+        Failure::Unsupported(reason) => {
+            return UsageSnapshot {
+                status: "unsupported".into(),
+                note: (*reason).into(),
+                ..Default::default()
+            };
+        }
+        _ => {}
     }
     let (status, note) = match e {
-        Failure::Absent => ("absent", "未找到登录凭据"),
-        Failure::Auth => ("needsAuth", "登录已失效，请在原应用重新登录"),
-        Failure::Expired => ("needsAuth", "凭据已过期，请在原应用续期"),
-        Failure::Denied => ("accessDenied", "服务拒绝访问，请检查账户权限"),
+        Failure::Absent => ("absent", "未找到登录凭据".into()),
+        Failure::Auth => unreachable!(),
+        Failure::Expired => unreachable!(),
+        Failure::Denied => ("accessDenied", "服务拒绝访问，请检查账户权限".into()),
         Failure::Unsupported(_) => unreachable!(),
         Failure::Throttle(seconds) => {
             old.backoff_until = now.saturating_add(seconds.max(60).saturating_mul(1000));
-            ("backoff", "服务限流，等待重试时间")
+            ("backoff", "服务限流，等待重试时间".into())
         }
-        Failure::OpenCodeThrottle(_) => ("backoff", "服务限流，等待重试时间"),
-        Failure::MiniMaxThrottle(_) => ("backoff", "服务限流，等待重试时间"),
-        Failure::MissingEndpoint => ("error", "服务用量端点不存在"),
-        Failure::Invalid => ("error", "服务未返回可识别的用量数据"),
-        Failure::Network => ("error", "无法连接服务，保留上次读数"),
+        Failure::OpenCodeThrottle(_) => ("backoff", "服务限流，等待重试时间".into()),
+        Failure::MiniMaxThrottle(_) => ("backoff", "服务限流，等待重试时间".into()),
+        Failure::MissingEndpoint => ("error", "服务用量端点不存在".into()),
+        Failure::Api(code) => ("error", code),
+        Failure::Invalid => ("error", "服务未返回可识别的用量数据".into()),
+        Failure::Network => ("error", "无法连接服务，保留上次读数".into()),
     };
-    old.status = status.into();
-    old.note = note.into();
+    // The pinned UsageStore retains a previous reading's explicit stale
+    // state after a transient failure, even if its timestamp is recent (for
+    // example, just after restoring the archive on launch).
+    if old.status != "stale" || old.windows.is_empty() {
+        old.status = status.into();
+    }
+    old.note = note;
     old
 }
 
@@ -1407,6 +1572,37 @@ mod tests {
         assert!(!should_collect(89_999, Some(60_000), 300_000, false, &old));
         assert!(should_collect(90_000, Some(60_000), 300_000, false, &old));
         assert!(!should_collect(91_000, Some(90_000), 300_000, false, &old));
+    }
+
+    #[test]
+    fn custom_scheduler_starts_new_ids_and_epochs_once_without_queueing() {
+        let a = ("a".to_string(), 1);
+        let b = ("b".to_string(), 1);
+        let candidates = vec![a.clone(), b.clone()];
+        let mut attempts = BTreeMap::new();
+        assert_eq!(
+            next_custom_probe(1_000, 300_000, &candidates, &attempts),
+            Some(a.clone())
+        );
+        attempts.insert(a.clone(), 1_000);
+        assert_eq!(
+            next_custom_probe(1_001, 300_000, &candidates, &attempts),
+            Some(b.clone())
+        );
+        attempts.insert(b, 1_001);
+        assert_eq!(
+            next_custom_probe(60_999, 60_000, &candidates, &attempts),
+            None
+        );
+        assert_eq!(
+            next_custom_probe(61_000, 60_000, &candidates, &attempts),
+            Some(a)
+        );
+        assert_eq!(
+            next_custom_probe(1_002, 300_000, &[("a".into(), 2)], &attempts),
+            Some(("a".into(), 2))
+        );
+        assert_eq!(next_custom_probe(500_000, 300_000, &[], &attempts), None);
     }
 
     #[test]
@@ -1670,5 +1866,73 @@ mod tests {
             failure(failed, Failure::Denied, 2000).status,
             "accessDenied"
         );
+    }
+
+    #[test]
+    fn signed_out_web_account_discards_old_quota_but_business_error_keeps_it() {
+        let old = UsageSnapshot {
+            status: "ok".into(),
+            fetched_at: 42,
+            backoff_until: 9000,
+            windows: vec![crate::usage::LimitWindow {
+                id: "spend".into(),
+                used: 0.8,
+                has_fraction: Some(true),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let business = failure(old.clone(), Failure::Api("Bad Request".into()), 1000);
+        assert_eq!(business.status, "error");
+        assert_eq!(business.note, "Bad Request");
+        assert_eq!(business.windows.len(), 1);
+        assert_eq!(business.windows[0].id, "spend");
+        let signed_out = failure(old, Failure::Auth, 1000);
+        assert_eq!(signed_out.status, "needsAuth");
+        assert!(signed_out.windows.is_empty());
+        assert_eq!(signed_out.fetched_at, 0);
+        assert_eq!(signed_out.backoff_until, 0);
+        let expired = failure(business, Failure::Expired, 1000);
+        assert_eq!(expired.status, "needsAuth");
+        assert!(expired.windows.is_empty());
+        assert_eq!(expired.fetched_at, 0);
+        let explicit_stale = failure(
+            UsageSnapshot {
+                status: "stale".into(),
+                fetched_at: 950,
+                windows: vec![crate::usage::LimitWindow {
+                    id: "spend".into(),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            },
+            Failure::Network,
+            1000,
+        );
+        assert_eq!(explicit_stale.status, "stale");
+        assert_eq!(explicit_stale.note, "无法连接服务，保留上次读数");
+    }
+
+    #[test]
+    fn authentication_refresh_reaches_due_rule_after_old_account_backoff() {
+        let old = UsageSnapshot {
+            backoff_until: 120_000,
+            ..Default::default()
+        };
+        assert!(!should_collect(1_000, Some(0), 60_000, true, &old));
+        let mut st = Store::default();
+        st.snapshots.insert("qianwenai".into(), old.clone());
+        assert!(queue_after_web_auth(&mut st, "qianwenai", 1_000));
+        assert!(st.requested.contains("qianwenai"));
+        assert!(should_collect(
+            1_000,
+            Some(0),
+            60_000,
+            st.requested.contains("qianwenai"),
+            st.snapshots.get("qianwenai").unwrap()
+        ));
+        st.snapshots.insert("minimax".into(), old);
+        assert!(!queue_after_web_auth(&mut st, "minimax", 1_000));
+        assert_eq!(st.snapshots["minimax"].backoff_until, 120_000);
     }
 }

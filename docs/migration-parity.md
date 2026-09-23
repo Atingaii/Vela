@@ -9,15 +9,15 @@
 | 原有供应商 | Claude、Codex、Cursor、Antigravity、GLM、Grok | 已有，核对中 |
 | 独立账户 | Claude / Codex / Antigravity profile，各自圆环、活动与启停 | 启动固定 registry、账户代次和 Claude 活动已补实现与隔离测试；Antigravity 授权重试及完整原生验收继续核对 |
 | 新供应商 | MiniMax、Devin、OpenCode、Command Code、GitHub Copilot、Kimi、Kiro、Ollama Cloud、Gemini API | 已移植解析与独立账户采集，60 秒超时不阻塞其他账户；Kiro enrichment、部分账户字段与异常语义继续核对 |
-| 网页会话 | DeepSeek、MiniMax、QianwenAI 的显式登录、退出和用量解析 | 已实现隔离会话、origin/nonce 校验、登录退出代次及解析，离线检查通过；真实网页登录与原生窗口待验收 |
+| 网页会话 | DeepSeek、MiniMax、QianwenAI 的显式登录、退出和用量解析 | 已实现隔离会话、origin/nonce 校验、登录退出代次、失败分类及定向刷新；退出/重开自有 profile 清理和离线回归通过。真实网页登录、切号与原生窗口待验收 |
 | 本地运行时 | Ollama、LM Studio 模型发现、上下文、速度、活动、日用量；Ollama 显式中转 | relay、LM Studio WS/日志/账本已实现并通过阶段测试；每模型活动与原生详情仍在整合，未完成实机验收 |
-| 自定义端点 | OpenAI 兼容地址、模型、凭据、图标、启停 | 已有持久化、系统凭据库与探测；UI 和完整行为待核对 |
+| 自定义端点 | OpenAI 兼容地址、模型、凭据、图标、启停 | 添加/编辑/删除、模型探测、图标上传/取消、凭据读取与清除、启停、后台定时探测和失败回滚已接并通过离线回归；真实服务与原生交互待验。URL 的 userinfo 因凭据库边界仍拒绝，属明确偏离 |
 | 用量展示 | 明确主窗口、周窗口、节奏、每日额度、重置格式、DeepSeek 价格规则 | 主周元数据、每日份额与价格边界已补并通过阶段测试；各供应商剩余语义继续核对 |
 | 提醒 | 完成/等待展开与声音、额度阈值、用量重置、提供方静音；Limit/Reset 首次静默，Threshold 按源首次检测越界 | 三个原版状态机的首帧、静音和再次越界语义测试通过；完整原生声音及展开实测待补齐 |
 | 位置与呈现 | 物理边缘、硬件刘海、多屏实例、跟随活动屏幕、全屏收起、保持展开、尺寸与材质 | 已补 fleet、UUID、逐窗预算与原生玻璃层；新的同场景截图、多屏和系统材质验收待解锁继续 |
-| 应用入口 | Dock / 托盘显隐、菜单栏额度与时间、启动项、诊断、更新 | 已补原生菜单图形、启动项与 What's New；签名预览更新链路正在实现，不能当作已交付 |
+| 应用入口 | Dock / 托盘显隐、菜单栏额度与时间、启动项、诊断、更新 | 已补原生菜单图形、启动项、What's New 与唤醒订阅源码；新唤醒 API 编译/单测通过，当前批次原生 smoke 待跑。签名预览更新链路不能当作已交付 |
 | 手机连接 | 原版 `PhoneLink.isAvailable=false`，生产不显示入口、不启动服务器；保留局域网配对与只读 v3 协议实现 | 已迁移协议、设备撤销和刷新等待；生产 gate 已按源补齐，隔离测试可进入；不宣称手机端已开放 |
-| 状态持久化 | 每账户缓存、过期/鉴权/限流区分、停用即停止轮询 | 已补账户代次、关闭忘记读数和自有密钥、Claude 定向刷新及旧请求竞态测试；网页会话退出与活动生命周期继续迁移 |
+| 状态持久化 | 每账户缓存、过期/鉴权/限流区分、停用即停止轮询 | 已补账户代次、关闭忘记读数和自有密钥、Claude 定向刷新、网页会话退出清理与旧请求竞态测试；真实账户、唤醒后刷新和平台生命周期仍待原生验收 |
 | 设置整理 | 主选项与高级选项分层，精简布局不删除能力 | 本轮不做 |
 | 已有新增 | 插件、账期用量、供应商切换、MCP/Skill | 迁移验收后仅完成插件；其余延后 |
 
@@ -69,3 +69,5 @@
 2026-09-23 后续整合检查点：Rust 362 + helper 1、Node 25、Chromium / WebKit 各 63 通过。已闭合 Kiro enrichment、Gemini/Devin/Copilot/CommandCode 输出、默认供应商活跃调度、重复圆环、稳定 ID 节点、原版弹簧/数字/卡片/手柄动画、状态透明度、完整语言选项与菜单、连续设置保存和真实版本号。真实 Ollama loopback 验证原文转发、thinking 起止及速度；按固定源仅 LM Studio 使用日账本。更新公钥、带签名版本校验的暂存、下次启动交接与三平台隔离升级验证脚本已实现，实际发布包升级尚未执行。
 
 `ae7ee93` 的 [CI 35820700594](https://github.com/Atingaii/Velo/actions/runs/35820700594) 已通过 Windows 测试/原生构建/Taskbar proxy/Settings WebView/IPC/helper 检查，见 [Windows 实际报告](verification/native-parity-2026-09-23/windows-smoke-ae7ee93.json)。当前工作树重新构建后，在本次专用 macOS app 中实际启动也成功，报告 [0.1.1-preview.1 原生启动](verification/native-parity-2026-09-23/installation-smoke-0.1.1-preview.1.json) 的两处版本号一致、IPC/helper 成功、未启动账户采集、正常退出且无超时。Mac 仍锁屏，同场景原生视觉/材质/逐交互、真实账户和新三平台 DMG/NSIS/更新包的验收仍不能由上述测试替代。完整迁移任务保持进行中，边缘插件验收尚未开始。
+
+2026-09-23 本批网页会话、自定义端点和生命周期源码检查点：Rust 369 + helper 1 通过、3 ignored（`/tmp/velo-migration-native-wake-probe-rust.log`）；Node 27 通过（`/tmp/velo-migration-web-endpoint-lifecycle-node.log`）；Chromium / WebKit 各 68 通过（`/tmp/velo-migration-web-endpoint-lifecycle-chromium-final.log`、`/tmp/velo-migration-web-endpoint-lifecycle-webkit.log`）。修复内容与固定源对照见 [本批 source review](../.trellis/tasks/09-22-swift-full-parity/research/2026-09-23-web-endpoint-lifecycle-source-review.md)。`9eb92d0` 的 [CI 35823934689](https://github.com/Atingaii/Velo/actions/runs/35823934689) 在 macOS / Windows / browser 均通过，旧版原生报告见 [macOS](verification/native-parity-2026-09-23/macos-smoke-9eb92d0.json) 和 [Windows](verification/native-parity-2026-09-23/windows-smoke-9eb92d0.json)；该提交不含本批新功能。本批标准 Tauri debug `.app` 构建与 [macOS 隔离 smoke](verification/native-parity-2026-09-23/macos-smoke-web-endpoint-lifecycle.json) 均成功：`wake_subscription=true`、WebView/IPC/helper=true、providers_started=false、版本与包版本均 `0.1.1-preview.1`、exit 0 且无超时。它仅证明唤醒 API 注册/注销及隔离启动，不证明实际睡眠恢复。macOS 仍锁屏；逐屏视觉、真实网页登录和账户、Windows 本批原生运行、三平台安装包及真实升级均未验，不标完成或归档。

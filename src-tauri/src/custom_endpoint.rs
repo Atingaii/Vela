@@ -69,10 +69,8 @@ fn url(s: &str) -> Result<tauri::Url, String> {
         || u.host_str().is_none()
         || !u.username().is_empty()
         || u.password().is_some()
-        || u.query().is_some()
-        || u.fragment().is_some()
     {
-        return Err("地址不能包含凭据、查询参数或片段".into());
+        return Err("地址不能包含凭据".into());
     }
     Ok(u)
 }
@@ -462,6 +460,21 @@ pub fn get_custom_endpoints(app: AppHandle) -> Vec<Endpoint> {
         .custom_endpoints
         .clone()
 }
+/// The Settings editor may reveal only the key of an endpoint saved by Velo.
+/// Never serialize it into Endpoint, provider events, logs, or smoke fixtures.
+#[tauri::command]
+pub fn get_custom_endpoint_key(app: AppHandle, id: String) -> Result<Option<String>, String> {
+    if !get_custom_endpoints(app)
+        .iter()
+        .any(|endpoint| endpoint.id == id)
+    {
+        return Err("端点不存在".into());
+    }
+    if crate::smoke::root().is_some() {
+        return Ok(None);
+    }
+    Ok(crate::secrets::read(&format!("endpoint-{id}")).ok())
+}
 #[tauri::command]
 pub fn save_custom_endpoint(app: AppHandle, mut endpoint: Endpoint) -> Result<(), String> {
     endpoint.header = endpoint.header.trim().to_string();
@@ -558,9 +571,19 @@ pub fn delete_custom_endpoint(app: AppHandle, id: String) -> Result<(), String> 
 pub async fn probe_custom_endpoint(app: AppHandle, id: String) -> Result<Endpoint, String> {
     let provider_id = format!("custom-endpoint-{id}");
     let epoch = crate::providers::generation(&provider_id);
+    probe_custom_endpoint_at_epoch(app, id, epoch).await
+}
+pub(crate) async fn probe_custom_endpoint_at_epoch(
+    app: AppHandle,
+    id: String,
+    epoch: u64,
+) -> Result<Endpoint, String> {
+    let provider_id = format!("custom-endpoint-{id}");
     let _permit = PROBE_GATE.lock().await;
-    if !crate::providers::enabled(&app, &provider_id) {
-        return Err("端点已断开".into());
+    if !crate::providers::enabled(&app, &provider_id)
+        || crate::providers::generation(&provider_id) != epoch
+    {
+        return Err("端点已断开或配置已变化".into());
     }
     let endpoint = get_custom_endpoints(app.clone())
         .into_iter()
@@ -623,7 +646,9 @@ fn probe_request(base_url: &str, header: &str, api_key: &str) -> ProbeResult {
     let started = std::time::Instant::now();
     let request = (|| -> Result<Vec<String>, String> {
         let mut target = url(base_url)?;
-        if !target.path().ends_with("/models") {
+        // Swift checks the original URL string, including query/fragment, before
+        // appending the component. Preserve that edge case for saved base URLs.
+        if !base_url.trim().ends_with("/models") {
             target.set_path(&format!("{}/models", target.path().trim_end_matches('/')));
         }
         let agent = ureq::AgentBuilder::new()
@@ -752,10 +777,11 @@ fn scan_candidates(candidates: &[LocalCandidate]) -> Vec<LocalPreset> {
         .copied()
         .map(|(name, port, icon, color)| {
             std::thread::spawn(move || {
-                let target = format!("http://127.0.0.1:{port}/v1/models");
+                let target = format!("http://localhost:{port}/v1/models");
                 let agent = ureq::AgentBuilder::new()
                     .timeout(std::time::Duration::from_millis(1200))
-                    .redirects(0)
+                    // Discovery sends no key; Swift uses URLSession's redirect policy here.
+                    .redirects(10)
                     .build();
                 agent.get(&target).call().ok().map(|_| LocalPreset {
                     name: format!("{name} (:{port})"),
@@ -849,6 +875,8 @@ mod tests {
         assert!(validate(&e).is_ok());
         e.url = "https://user:key@example.com/v1".into();
         assert!(validate(&e).is_err());
+        e.url = "https://example.com/v1?tenant=a#models".into();
+        assert!(validate(&e).is_ok());
         e.url = "https://example.com/v1".into();
         e.budget = Some(0.);
         assert!(validate(&e).is_err());
@@ -957,5 +985,15 @@ mod tests {
         worker.join().unwrap();
         assert_eq!(denied.status_code, Some(401));
         assert_eq!(denied.health, "unreachable");
+        let (port, worker) = fixture_response("200 OK", r#"{"data":[{"id":"query-model"}]}"#);
+        let query = probe_request(
+            &format!("http://127.0.0.1:{port}/v1?tenant=a#models"),
+            "Authorization",
+            "",
+        );
+        let request = worker.join().unwrap();
+        assert_eq!(query.models, vec!["query-model"]);
+        assert!(request.contains("GET /v1/models?tenant=a HTTP/1.1"));
+        assert!(!request.contains("#models"));
     }
 }

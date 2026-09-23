@@ -34,6 +34,7 @@ pub fn show_notch_menu(window: Window, provider: Option<String>) -> Result<(), S
             .map_err(err)?;
     let mut menu = MenuBuilder::new(app).item(&keep_open).separator().item(
         &MenuItemBuilder::with_id(format!("{PREFIX}refresh"), tr(&lang, "refresh_now"))
+            .accelerator("CmdOrCtrl+R")
             .build(app)
             .map_err(err)?,
     );
@@ -50,6 +51,7 @@ pub fn show_notch_menu(window: Window, provider: Option<String>) -> Result<(), S
         menu = menu.item(&open);
     }
     let quit = MenuItemBuilder::with_id(format!("{PREFIX}quit"), tr(&lang, "quit_app"))
+        .accelerator("CmdOrCtrl+Q")
         .build(app)
         .map_err(err)?;
     let menu = menu.separator().item(&quit).build().map_err(err)?;

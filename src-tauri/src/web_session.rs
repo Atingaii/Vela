@@ -16,7 +16,7 @@ const EVAL_TIMEOUT: Duration = Duration::from_secs(8);
 const PAGE_TIMEOUT: Duration = Duration::from_secs(10);
 const SCRIPT_TIMEOUT: Duration = Duration::from_secs(25);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WebSessionError {
     Unavailable,
     NeedsAuth,
@@ -24,6 +24,9 @@ pub enum WebSessionError {
     Temporary,
     Invalid,
     BadStatus(u16),
+    BusinessStatus(i64),
+    Api(String),
+    NothingMetered,
 }
 
 impl std::fmt::Display for WebSessionError {
@@ -35,6 +38,9 @@ impl std::fmt::Display for WebSessionError {
             Self::Temporary => write!(f, "The provider page did not finish loading"),
             Self::Invalid => write!(f, "The provider returned unreadable usage"),
             Self::BadStatus(code) => write!(f, "The provider returned HTTP {code}"),
+            Self::BusinessStatus(code) => write!(f, "The provider returned error {code}"),
+            Self::Api(code) => write!(f, "The provider returned {code}"),
+            Self::NothingMetered => write!(f, "The provider reported no usage windows"),
         }
     }
 }
@@ -257,6 +263,19 @@ fn data_store_id(id: &str) -> [u8; 16] {
     bytes
 }
 
+fn profile_directory_at(config_path: &std::path::Path, id: &str) -> std::path::PathBuf {
+    config_path.with_file_name("web-profiles").join(id)
+}
+
+#[cfg(target_os = "windows")]
+fn remove_owned_profile_dir(path: &std::path::Path) -> Result<(), WebSessionError> {
+    match std::fs::remove_dir_all(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(_) => Err(WebSessionError::Temporary),
+    }
+}
+
 fn same_origin(url: &Url, origin: &str) -> bool {
     let Ok(expected) = Url::parse(origin) else {
         return false;
@@ -309,6 +328,16 @@ fn window_for(app: &AppHandle, site: &Site) -> Result<WebviewWindow, WebSessionE
         }
         return Ok(existing);
     }
+    #[cfg(target_os = "windows")]
+    if read_flags().get(site.id) == Some(&false) {
+        // A previous process may have quit after persisting signed_out but
+        // before WebView2 released its profile lock. Never attach a new login
+        // window to that old cookie jar; retry the removal once it is free.
+        remove_owned_profile_dir(&profile_directory_at(
+            &crate::config::config_path(),
+            site.id,
+        ))?;
+    }
     let origin = Url::parse(site.origin).map_err(|_| WebSessionError::Invalid)?;
     {
         let mut all = sessions().lock().unwrap();
@@ -343,11 +372,8 @@ fn window_for(app: &AppHandle, site: &Site) -> Result<WebviewWindow, WebSessionE
         #[cfg(target_os = "macos")]
         let builder = builder.data_store_identifier(data_store_id(&id));
         #[cfg(target_os = "windows")]
-        let builder = builder.data_directory(
-            crate::config::config_path()
-                .with_file_name("web-profiles")
-                .join(&id),
-        );
+        let builder =
+            builder.data_directory(profile_directory_at(&crate::config::config_path(), &id));
         let outcome = builder.build().map_err(|_| WebSessionError::Temporary);
         if let Ok(window) = &outcome {
             let app_for_event = app_for_main.clone();
@@ -520,6 +546,10 @@ fn committed(app: &AppHandle, id: &str, epoch: u64, fingerprint: Option<String>)
     if let Ok(state) = state(id) {
         let _ = app.emit("web_session_state", state);
     }
+    // UsageStore.providerAuthenticationChanged refreshes only this provider.
+    // The lifecycle gate rejects a concurrent disconnect; MiniMax's own
+    // rate-limit deadline still applies to this request.
+    let _ = crate::providers::request_after_web_auth(app, id);
 }
 
 fn close_probe(app: &AppHandle, id: &str) {
@@ -683,6 +713,40 @@ pub async fn open_web_session(
     switching: bool,
     minimax_china: bool,
 ) -> Result<WebSessionState, String> {
+    web_sites::site(&id, minimax_china).ok_or(WebSessionError::Invalid.to_string())?;
+    let retry_cleanup = {
+        let all = sessions().lock().unwrap();
+        all.get(&id)
+            .filter(|session| session.cleaning && !session.cleanup_started)
+            .map(|session| session.epoch)
+    };
+    if let Some(epoch) = retry_cleanup {
+        sign_out_revoked(&app, &id, epoch)
+            .await
+            .map_err(|error| error.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    if read_flags().get(&id) == Some(&false)
+        && sessions()
+            .lock()
+            .unwrap()
+            .get(&id)
+            .is_none_or(|session| session.window.is_none())
+    {
+        // If the process stopped after persisting sign-out but before WebKit
+        // released the profile, retry the targeted removal before creating a
+        // login WebView. Never attach it to the prior account's cookies.
+        let profile = data_store_id(&id);
+        let known = app
+            .fetch_data_store_identifiers()
+            .await
+            .map_err(|_| WebSessionError::Temporary.to_string())?;
+        if known.contains(&profile) {
+            app.remove_data_store(profile)
+                .await
+                .map_err(|_| WebSessionError::Temporary.to_string())?;
+        }
+    }
     tauri::async_runtime::spawn_blocking(move || {
         open_sign_in_sync(&app, &id, switching, minimax_china)
     })
@@ -705,6 +769,48 @@ fn compact_count(value: i64) -> String {
     } else {
         value.to_string()
     }
+}
+
+// MiniMax can answer HTTP 200 with a failed base_resp. Both the inner and
+// outer envelopes matter: the outer one may reject a cookie even when the
+// inner one says status_code: 0. Match MiniMaxUsage.envelopeFailure before
+// asking the shared quota parser to interpret model_remains.
+fn minimax_envelope_failure(root: &serde_json::Value) -> Option<WebSessionError> {
+    fn code(value: &serde_json::Value) -> Option<i64> {
+        value
+            .as_i64()
+            .or_else(|| value.as_str()?.trim().parse().ok())
+    }
+    let payload = root
+        .get("data")
+        .filter(|value| value.is_object())
+        .unwrap_or(root);
+    let mut first_error = None;
+    for response in [payload.get("base_resp"), root.get("base_resp")]
+        .into_iter()
+        .flatten()
+    {
+        let Some(code) = code(&response["status_code"]).or_else(|| code(&response["code"])) else {
+            continue;
+        };
+        if code == 0 || code == 200 {
+            continue;
+        }
+        let message = response["status_msg"]
+            .as_str()
+            .or_else(|| response["msg"].as_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if matches!(code, 1004 | 401 | 403)
+            || ["cookie", "log in", "login", "unauthorized"]
+                .iter()
+                .any(|word| message.contains(word))
+        {
+            return Some(WebSessionError::NeedsAuth);
+        }
+        first_error.get_or_insert(WebSessionError::BusinessStatus(code));
+    }
+    first_error
 }
 
 fn parse_reading(site: &Site, body: &str) -> Result<UsageSnapshot, WebSessionError> {
@@ -746,7 +852,9 @@ fn parse_reading(site: &Site, body: &str) -> Result<UsageSnapshot, WebSessionErr
         "qianwenai" => {
             let window = web_sites::parse_qianwen(body, now).map_err(|error| match error {
                 web_sites::QianwenError::NeedsAuth => WebSessionError::NeedsAuth,
-                _ => WebSessionError::Invalid,
+                web_sites::QianwenError::Api(code) => WebSessionError::Api(code),
+                web_sites::QianwenError::NothingMetered => WebSessionError::NothingMetered,
+                web_sites::QianwenError::Invalid => WebSessionError::Invalid,
             })?;
             UsageSnapshot {
                 status: "ok".into(),
@@ -756,7 +864,22 @@ fn parse_reading(site: &Site, body: &str) -> Result<UsageSnapshot, WebSessionErr
             }
         }
         "minimax" => {
-            crate::providers::parse_minimax_web(body).map_err(|_| WebSessionError::Invalid)?
+            let root: serde_json::Value =
+                serde_json::from_str(body).map_err(|_| WebSessionError::Invalid)?;
+            if !root.is_object() {
+                return Err(WebSessionError::Invalid);
+            }
+            if let Some(error) = minimax_envelope_failure(&root) {
+                return Err(error);
+            }
+            crate::providers::parse_minimax_web(body).map_err(|error| match error {
+                crate::providers::Failure::Auth => WebSessionError::NeedsAuth,
+                crate::providers::Failure::Throttle(_) => WebSessionError::BadStatus(429),
+                crate::providers::Failure::Invalid | crate::providers::Failure::Unsupported(_) => {
+                    WebSessionError::NothingMetered
+                }
+                _ => WebSessionError::Invalid,
+            })?
         }
         _ => return Err(WebSessionError::Invalid),
     };
@@ -904,6 +1027,13 @@ pub async fn sign_out_revoked(
             result = Err(WebSessionError::Temporary);
         }
     }
+    #[cfg(target_os = "windows")]
+    if remove_owned_profile_dir(&profile_directory_at(&crate::config::config_path(), id)).is_err() {
+        // A live WebView2 process can keep this directory locked after
+        // destroy. Leave `cleaning` set and the persisted flag false; the
+        // next attempt may retry, but it must never reuse these cookies.
+        result = Err(WebSessionError::Temporary);
+    }
     #[cfg(target_os = "macos")]
     if private_profiles_supported() {
         let profile = data_store_id(id);
@@ -988,6 +1118,99 @@ mod tests {
         assert_eq!(data_store_id("deepseek"), data_store_id("deepseek"));
         assert_ne!(data_store_id("deepseek"), data_store_id("qianwenai"));
         assert_eq!(data_store_id("deepseek")[6] & 0xf0, 0x40);
+    }
+
+    #[test]
+    fn http_200_business_failures_keep_their_account_meaning() {
+        let qianwen = web_sites::site("qianwenai", false).unwrap();
+        let expired = serde_json::json!({"code": "200", "data": {
+            "success": false, "errorCode": "BailianGateway.Login.NotLogined"
+        }})
+        .to_string();
+        assert!(matches!(
+            parse_reading(&qianwen, &expired),
+            Err(WebSessionError::NeedsAuth)
+        ));
+        let refused = serde_json::json!({"code": "200", "data": {
+            "success": false, "errorCode": "Bad Request"
+        }})
+        .to_string();
+        assert!(matches!(
+            parse_reading(&qianwen, &refused),
+            Err(WebSessionError::Api(code)) if code == "Bad Request"
+        ));
+
+        let minimax = web_sites::site("minimax", false).unwrap();
+        let outer_auth = serde_json::json!({"base_resp": {"status_code": 1004},
+            "data": {"base_resp": {"status_code": 0}, "model_remains": []}})
+        .to_string();
+        assert!(matches!(
+            parse_reading(&minimax, &outer_auth),
+            Err(WebSessionError::NeedsAuth)
+        ));
+        let message_auth = serde_json::json!({"base_resp": {
+            "status_code": 9001, "status_msg": "Cookie expired"}})
+        .to_string();
+        assert!(matches!(
+            parse_reading(&minimax, &message_auth),
+            Err(WebSessionError::NeedsAuth)
+        ));
+        let rate_limited = serde_json::json!({"base_resp": {"status_code": 429}}).to_string();
+        assert!(matches!(
+            parse_reading(&minimax, &rate_limited),
+            Err(WebSessionError::BusinessStatus(429))
+        ));
+        let negative_auth = serde_json::json!({"base_resp": {
+            "status_code": -1, "status_msg": "Cookie expired"}})
+        .to_string();
+        assert!(matches!(
+            parse_reading(&minimax, &negative_auth),
+            Err(WebSessionError::NeedsAuth)
+        ));
+        let large_error = serde_json::json!({"base_resp": {"status_code": 120_045}}).to_string();
+        assert!(matches!(
+            parse_reading(&minimax, &large_error),
+            Err(WebSessionError::BusinessStatus(120_045))
+        ));
+        let no_usage = serde_json::json!({"base_resp": {"status_code": 0}}).to_string();
+        assert!(matches!(
+            parse_reading(&minimax, &no_usage),
+            Err(WebSessionError::NothingMetered)
+        ));
+        assert!(matches!(
+            parse_reading(&minimax, "not json"),
+            Err(WebSessionError::Invalid)
+        ));
+    }
+
+    #[test]
+    fn browser_profile_paths_are_per_site() {
+        let config = std::path::Path::new("/tmp/velo-test/config.json");
+        assert_eq!(
+            profile_directory_at(config, "minimax"),
+            std::path::Path::new("/tmp/velo-test/web-profiles/minimax")
+        );
+        assert_ne!(
+            profile_directory_at(config, "minimax"),
+            profile_directory_at(config, "qianwenai")
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn sign_out_removes_only_its_owned_windows_cookie_profile() {
+        let root = tempfile::tempdir().unwrap();
+        let config = root.path().join("config.json");
+        let minimax = profile_directory_at(&config, "minimax");
+        let qianwen = profile_directory_at(&config, "qianwenai");
+        std::fs::create_dir_all(&minimax).unwrap();
+        std::fs::create_dir_all(&qianwen).unwrap();
+        std::fs::write(minimax.join("Cookie"), b"test-only").unwrap();
+        std::fs::write(qianwen.join("Cookie"), b"keep").unwrap();
+        remove_owned_profile_dir(&minimax).unwrap();
+        assert!(!minimax.exists());
+        assert_eq!(std::fs::read(qianwen.join("Cookie")).unwrap(), b"keep");
+        remove_owned_profile_dir(&minimax).unwrap();
     }
 
     #[test]

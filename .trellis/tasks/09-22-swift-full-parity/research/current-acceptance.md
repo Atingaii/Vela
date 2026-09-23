@@ -11,6 +11,9 @@
 | 用量展示 | Gemini/Devin/Copilot/CommandCode 新输出、默认 Reading 去重、稳定 ID DOM 和 Codex extra 即时刷新已通过整合检查 | settings_parity / notch_parity |
 | 原生 Windows 入口 | ae7ee93 的原生 Taskbar/Settings/IPC/helper smoke 成功；Grok / Kimi 进程与文件持有在 Windows CI 通过；新整合提交仍需对应 CI | update_flow / settings_parity，root 验收 CI |
 | 语言与时间格式 | fr/de/uz、完整语言选择、原译文、macOS 系统时钟和原生菜单/What's New 已补；连续滑块、缺失音效、两处版本号、0.12 秒纯淡入已通过双引擎 | settings_parity |
+| 自定义端点 | 源设置流程与定时探测已按本批 source review 补齐，离线 UI / Rust 回归通过；真实服务、文件选择与原生交互待验。userinfo 仍按本项目凭据边界拒绝 | settings_parity；root 原生验收 |
+| 网页会话与账户代次 | 退出/切换清理自有 profile、登录后定向刷新、失败分类和旧请求代次门已补并通过离线回归；真实站点登录/退出、切号待验 | notch_parity / settings_parity；root 真实账号验收 |
+| 唤醒与实例生命周期 | macOS NSWorkspace、Windows suspend/resume 真 API 订阅及 macOS 旧实例退休源码与单测已补；本批 macOS debug app 实测仅证明订阅注册/注销与 WebView/IPC 启动，实际睡眠恢复和 Windows 新批次 CI 尚待验 | update_flow / settings_parity；root 平台验收 |
 | 自动更新与发行 | 真公钥和独立 feed；自动下载、下次启动安装；开关/代次取消；三平台签名产物与原子 feed 发布 | update_flow；root 密钥、发行与隔离升级验证 |
 | 侧栏动效 | 源 spin/pulse、reading/contents/glide、数字变化、卡片进出、手柄 merge、keyed cell 和 native 降低透明度已补并通过双引擎；原生同场景视觉待解锁 | notch_parity |
 | 最终视觉 / 官网 | 解锁后的固定 fixture 四边、设置逐页、材质与菜单交互；据真实软件截图同步官网、README 与下载说明 | root 复核；实现交 GPT-6-Sol High |
@@ -51,3 +54,9 @@
 最新冻结整合检查：Cargo 362 + helper 1 通过、3 ignored（`/tmp/velo-migration-settings-final-rust.log`）；Node 25/25（`/tmp/velo-migration-integrated-final-node.log`）；Chromium / WebKit 各 63/63（`/tmp/velo-migration-integrated-final-chromium.log`、`/tmp/velo-migration-integrated-final-webkit.log`）。包括连续设置保存、版本及缺失音效、卡片/手柄动画、数字变化、稳定 ID 与降低透明度。当前正在重新构建原生 app，以上仍不能替代原生截图、真实账户或新安装包/签名升级验收。
 
 本批原生 build 已完成，专用 macOS `Velo Parity.app` 的实际启动 smoke 通过：version 与 package_version 均 0.1.1-preview.1，WebView/IPC/helper 成功、未启动采集、exit 0，无超时。报告已入库。桌面工具再次明确返回锁屏，已异步请求手动解锁；继续提交 CI 与安装包检查，不能在解锁前改写视觉验收结果。
+
+2026-09-23 网页会话/自定义端点/生命周期检查点：Rust 369 + helper 1 通过、3 ignored（`/tmp/velo-migration-native-wake-probe-rust.log`）；Node 27/27（`/tmp/velo-migration-web-endpoint-lifecycle-node.log`）；Chromium / WebKit 各 68/68（`/tmp/velo-migration-web-endpoint-lifecycle-chromium-final.log`、`/tmp/velo-migration-web-endpoint-lifecycle-webkit.log`）。逐项来源与实现边界见 [本批 source review](2026-09-23-web-endpoint-lifecycle-source-review.md)。`9eb92d0` 的 [CI 35823934689](https://github.com/Atingaii/Velo/actions/runs/35823934689) 在 macOS / Windows / browser 均为 green；对应 [macOS](../../../../docs/verification/native-parity-2026-09-23/macos-smoke-9eb92d0.json) 和 [Windows](../../../../docs/verification/native-parity-2026-09-23/windows-smoke-9eb92d0.json) 原生报告只验证该旧提交，不包含本批新功能。当前标准 Tauri debug `.app` 已构建，本批实际 [macOS smoke](../../../../docs/verification/native-parity-2026-09-23/macos-smoke-web-endpoint-lifecycle.json) 成功：`wake_subscription=true`、WebView/IPC/helper=true、providers_started=false、version/package_version 均 `0.1.1-preview.1`、exit 0 且未超时。它只证明唤醒 API 可注册/注销与隔离启动，不证明实际睡眠恢复。Mac 仍锁屏；原生逐屏视觉、真实网页登录/账户、Windows 本批原生运行、三平台安装包和真实升级未验。任务不标完成、不归档。
+
+2026-09-23 实例接管最终源码检查：macOS 已改以 NSBundle 包 ID 与内核 `proc` 出生时间 tuple 识别严格更早的实例，避免 LaunchServices 缺失 `launchDate` 时跳过旧进程。`/tmp/velo-migration-instance-final-rust.log` 的全量 Rust 369 + helper 1 再次通过、3 ignored。标准 Tauri debug `.app` 正为此版本重建，上一份 `macos-smoke-web-endpoint-lifecycle.json` 属前一检查点，尚不能证明这次最终重建包；待新的隔离原生 smoke 留证后再更新结论。
+
+最终实例接管源码对应的标准 Tauri debug app 重建成功（`/tmp/velo-migration-instance-final-native-build.log`），重新执行的隔离 smoke 成功（`/tmp/velo-migration-instance-final-native-smoke.json`），已更新上述入库 macOS 报告。唤醒订阅、WebView/IPC、helper 均通过，版本 0.1.1-preview.1，未启动供应商、exit 0、无超时。此 smoke 主动跳过实例接管，不能冒充新旧实例接管的桌面实测。自动更新默认值亦与固定 Swift Info.plist 核对为开启，保留用户显式关闭，无需额外修改。

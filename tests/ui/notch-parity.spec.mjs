@@ -29,6 +29,19 @@ async function notchBridge(page){
   });
 }
 
+test('最近的失败保留原读数亮度，超过十五分钟才变暗',async({page})=>{
+  await notchBridge(page);await page.goto('/notch.html');
+  const states=await page.evaluate(()=>{
+    const recent=Date.now()-60_000,old=Date.now()-16*60_000;
+    return {
+      recent:['error','backoff','accessDenied'].map(status=>staleOf({status,fetched_at:recent})),
+      old:['error','backoff','accessDenied'].map(status=>staleOf({status,fetched_at:old})),
+      explicit:staleOf({status:'stale',fetched_at:recent})
+    };
+  });
+  expect(states).toEqual({recent:[false,false,false],old:[true,true,true],explicit:true});
+});
+
 test('刘海齿轮点击切换设置窗口，保留独立打开命令给菜单',async({page})=>{
   await notchBridge(page);await page.setViewportSize({width:360,height:1000});await page.goto('/notch.html');
   await expect(page.locator('.cell')).toHaveCount(6);

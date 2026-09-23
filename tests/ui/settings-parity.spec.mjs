@@ -19,6 +19,8 @@ async function settingsBridge(page, connectedSlots = [], version = '1.16.0', ini
     let updates = {configured:true, automatic:true, available:null, checking:false, installing:false, message:null};
     let weekly = 'off';
     let customEndpoints = [];
+    const customSecrets = {};
+    let iconCounter = 0;
     let local = {ollama:'http://127.0.0.1:11434',lmstudio:'http://127.0.0.1:1234',disabled_models:[],ollama_metrics_enabled:false};
     let disabled = ['ollama-local'];
     let slots = initialSlots.map(provider => ({provider}));
@@ -27,6 +29,8 @@ async function settingsBridge(page, connectedSlots = [], version = '1.16.0', ini
       calls:[], failAppearance:false, holdAppearance:false, releaseAppearance:null,
       appearanceInFlight:0, maxAppearanceInFlight:0,
       failNotifications:false, failCustom:false, failLocal:false,
+      customSecrets,customProbeResult:{health:'online',latency_ms:12,models:['local-a','local-b'],error:null},
+      holdIcon:false,releaseIcon:null,holdCustomSecret:false,releaseCustomSecret:null,
       failWeb:false,showWebProviders:false,webStates,autostartProblem:null,failKeychain:false,
       providerPrefs:{minimax_china:false,gemini_token_budget:null},failProviderPrefs:false,lmTokenPresent:false,failLMToken:false,
       localActivity:{relay:{ready:true,status:'Listening',address:'http://127.0.0.1:11435',thinking_models:{},performances:{'llama3':{output_tokens:100,generation_seconds:2,measured_at:0,approximate:false}}}},
@@ -34,6 +38,7 @@ async function settingsBridge(page, connectedSlots = [], version = '1.16.0', ini
       destinations:{},failAccountOpen:false,
       surfaceCap:{supported:false,glass_available:false,reduce_transparency:false,effective_surface_style:'solid'},
       localPresets:[{name:'Local vLLM (:8000)',url:'http://localhost:8000/v1',header:'Authorization',model:'',icon:'ollama',color:'#10B981'}],
+      backgroundCustomProbe(id,patch){customEndpoints=customEndpoints.map(endpoint=>endpoint.id===id?{...endpoint,...patch}:endpoint);this.emit('providers',[]);},
       emit(name, payload) { for (const cb of listeners[name] || []) cb({payload}); },
       update(state) { updates = {...updates, ...state}; this.emit('update_state', updates); },
       setNotifications(patch) { notifications={...notifications,...patch}; this.emit('notifications',notifications); }
@@ -55,8 +60,12 @@ async function settingsBridge(page, connectedSlots = [], version = '1.16.0', ini
         if (cmd === 'get_notifications') return {...notifications};
         if (cmd === 'get_custom_endpoints') return customEndpoints.map(p => ({...p}));
         if (cmd === 'scan_local_engines') return window.settingsFixture.localPresets;
-        if (cmd === 'test_custom_endpoint_draft') return {health:'online',latency_ms:12,models:['local-a','local-b'],error:null};
-        if (cmd === 'save_custom_icon') return args.id+'-0123456789abcdef.png';
+        if (cmd === 'test_custom_endpoint_draft') return {...window.settingsFixture.customProbeResult};
+        if (cmd === 'get_custom_endpoint_key') return customSecrets[args.id]??null;
+        if (cmd === 'save_custom_icon') {
+          if(window.settingsFixture.holdIcon)await new Promise(resolve=>{window.settingsFixture.releaseIcon=resolve;});
+          return args.id+'-'+(++iconCounter).toString(16).padStart(16,'0')+'.png';
+        }
         if (cmd === 'get_custom_icon') return null;
         if (cmd === 'discard_custom_icon') return null;
         if (cmd === 'get_local_runtime_settings') return {...local};
@@ -110,7 +119,15 @@ async function settingsBridge(page, connectedSlots = [], version = '1.16.0', ini
         if (cmd === 'delete_custom_endpoint') {customEndpoints=customEndpoints.filter(p=>p.id!==args.id);return null;}
         if (cmd === 'probe_custom_endpoint') return customEndpoints.find(p=>p.id===args.id);
         if (cmd === 'get_lmstudio_token_state') return {present:window.settingsFixture.lmTokenPresent};
-        if (cmd === 'save_provider_secret') {if(args.id==='lmstudio-api-token'){if(window.settingsFixture.failLMToken)throw Error('fixture token vault refused');window.settingsFixture.lmTokenPresent=!!args.secret;}return null;}
+        if (cmd === 'save_provider_secret') {
+          if(args.id.startsWith('endpoint-')){
+            if(window.settingsFixture.holdCustomSecret)await new Promise(resolve=>{window.settingsFixture.releaseCustomSecret=resolve;});
+            if(args.secret)customSecrets[args.id.slice('endpoint-'.length)]=args.secret;
+            else delete customSecrets[args.id.slice('endpoint-'.length)];
+          }
+          if(args.id==='lmstudio-api-token'){if(window.settingsFixture.failLMToken)throw Error('fixture token vault refused');window.settingsFixture.lmTokenPresent=!!args.secret;}
+          return null;
+        }
         if (cmd === 'set_notifications') {
           if (window.settingsFixture.failNotifications) throw Error('fixture notification save refused');
           notifications = {...args.prefs}; return {...notifications};
@@ -412,6 +429,7 @@ test('自定义端点本地扫描、草稿探测、双预算、重置与自有�
   await expect(page.locator('#custom-url')).toHaveValue('http://localhost:8000/v1');
   await page.locator('#custom-draft-probe').click();
   await expect(page.locator('#custom-draft-result')).toContainText('online (12 ms)');
+  await expect(page.locator('#custom-model')).toHaveJSProperty('tagName','SELECT');
   await expect(page.locator('#custom-model')).toHaveValue('local-a');
   await page.locator('#custom-budget').fill('20');await page.locator('#custom-used').fill('4.25');
   await page.locator('#seg-custom-unit [data-v="tokens"]').click();
@@ -429,9 +447,111 @@ test('自定义端点本地扫描、草稿探测、双预算、重置与自有�
   await page.locator('#custom-form [type="submit"]').click();
   await expect(page.locator('#custom-list .endpoint-row')).toHaveCount(1);
   const payload=await page.evaluate(()=>settingsFixture.calls.filter(call=>call.cmd==='save_custom_endpoint').at(-1).args.endpoint);
-  expect(payload).toMatchObject({unit:'tokens',monthly_budget_usd:20,current_spend_usd:0,monthly_budget_tokens_m:10,current_tokens_used_m:2.5,model:'local-a'});
+  expect(payload).toMatchObject({unit:'tokens',monthly_budget_usd:20,current_spend_usd:0,monthly_budget_tokens_m:10,current_tokens_used_m:2.5,model:'local-a',health:'online',latency_ms:12});
   expect(payload.custom_icon_filename).toMatch(/\.png$/);
   expect(await page.evaluate(()=>settingsFixture.calls.some(call=>call.cmd==='test_custom_endpoint_draft'&&call.args.baseUrl==='http://localhost:8000/v1'))).toBe(true);
+});
+
+test('自定义端点编辑回填自有密钥，探测沿用密钥，清空后删除且保存失败不关闭草稿',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-custom').click();
+  await page.locator('#custom-add').click();
+  await page.locator('#custom-name').fill('Private endpoint');
+  await page.locator('#custom-url').fill('https://example.com/v1?tenant=a#models');
+  await page.locator('#custom-key').fill('fixture-custom-key');
+  await page.locator('#custom-form [type="submit"]').click();
+  await expect(page.locator('#custom-editor-wrap')).toBeHidden();
+  const id=await page.evaluate(()=>settingsFixture.calls.find(c=>c.cmd==='save_custom_endpoint').args.endpoint.id);
+  await page.locator('[data-custom-edit]').click();
+  await expect(page.locator('#custom-key')).toHaveValue('fixture-custom-key');
+  await page.locator('#custom-draft-probe').click();
+  await expect(page.locator('#custom-draft-result')).toContainText('online');
+  const probe=await page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='test_custom_endpoint_draft').at(-1).args);
+  expect(probe).toMatchObject({baseUrl:'https://example.com/v1?tenant=a#models',apiKey:'fixture-custom-key'});
+  await page.evaluate(()=>{settingsFixture.customProbeResult={health:'unreachable',latency_ms:18,models:[],error:'The endpoint answered 401',status_code:401};});
+  await page.locator('#custom-draft-probe').click();
+  await expect(page.locator('#custom-draft-result')).toContainText('401');
+  await page.locator('#custom-key').fill('');
+  await page.evaluate(()=>{settingsFixture.failCustom=true;});
+  await page.locator('#custom-form [type="submit"]').click();
+  await expect(page.locator('#custom-editor-wrap')).toBeVisible();
+  await expect(page.locator('#strip')).toContainText('fixture endpoint save refused');
+  await page.evaluate(()=>{settingsFixture.failCustom=false;});
+  await page.locator('#custom-form [type="submit"]').click();
+  await expect(page.locator('#custom-editor-wrap')).toBeHidden();
+  const saved=await page.evaluate(id=>settingsFixture.calls.filter(c=>c.cmd==='save_custom_endpoint'&&c.args.endpoint.id===id).at(-1).args.endpoint,id);
+  expect(saved).toMatchObject({health:'unreachable',latency_ms:18,last_status_code:401,models:['local-a','local-b']});
+  expect(await page.evaluate(id=>settingsFixture.customSecrets[id]??null,id)).toBeNull();
+  expect(await page.evaluate(id=>settingsFixture.calls.some(c=>c.cmd==='save_provider_secret'&&c.args.id==='endpoint-'+id&&c.args.secret===''),id)).toBe(true);
+});
+
+test('取消上传后旧响应只清理旧图片，保存中取消不能丢失凭据',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-custom').click();
+  await page.locator('#custom-add').click();
+  const oldId=await page.locator('#custom-id').inputValue();
+  await page.evaluate(()=>{settingsFixture.holdIcon=true;});
+  const base64=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=2;canvas.height=2;return canvas.toDataURL('image/png').split(',')[1];});
+  await page.locator('#custom-image-file').setInputFiles({name:'delayed.png',mimeType:'image/png',buffer:Buffer.from(base64,'base64')});
+  await expect.poll(()=>page.evaluate(()=>settingsFixture.calls.some(c=>c.cmd==='save_custom_icon'))).toBe(true);
+  await page.locator('#custom-cancel').click();
+  await page.locator('#custom-add').click();
+  const newId=await page.locator('#custom-id').inputValue();expect(newId).not.toBe(oldId);
+  await page.evaluate(()=>{settingsFixture.holdIcon=false;settingsFixture.releaseIcon?.();});
+  await expect.poll(()=>page.evaluate(id=>settingsFixture.calls.some(c=>c.cmd==='discard_custom_icon'&&c.args.filename?.startsWith(id)),oldId)).toBe(true);
+  await expect(page.locator('#custom-image-preview')).toBeHidden();
+  await page.locator('#custom-name').fill('Saved after cancellation');
+  await page.locator('#custom-url').fill('http://localhost:8000/v1');
+  await page.locator('#custom-key').fill('fixture-key-after-cancel');
+  await page.evaluate(()=>{settingsFixture.holdCustomSecret=true;});
+  await page.locator('#custom-form [type="submit"]').click();
+  await expect.poll(()=>page.evaluate(id=>settingsFixture.calls.some(c=>c.cmd==='save_provider_secret'&&c.args.id==='endpoint-'+id),newId)).toBe(true);
+  await expect(page.locator('#custom-cancel')).toBeDisabled();
+  await page.evaluate(()=>{settingsFixture.holdCustomSecret=false;settingsFixture.releaseCustomSecret?.();});
+  await expect(page.locator('#custom-editor-wrap')).toBeHidden();
+  expect(await page.evaluate(id=>settingsFixture.customSecrets[id],newId)).toBe('fixture-key-after-cancel');
+  const saved=await page.evaluate(id=>settingsFixture.calls.find(c=>c.cmd==='save_custom_endpoint'&&c.args.endpoint.id===id).args.endpoint,newId);
+  expect(saved.custom_icon_filename).toBeNull();
+});
+
+test('移除已有图片时取消进行中的第二次上传并恢复保存',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-custom').click();
+  await page.locator('#custom-add').click();
+  const id=await page.locator('#custom-id').inputValue();
+  const base64=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=2;canvas.height=2;return canvas.toDataURL('image/png').split(',')[1];});
+  const image={name:'icon.png',mimeType:'image/png',buffer:Buffer.from(base64,'base64')};
+  await page.locator('#custom-image-file').setInputFiles(image);
+  await expect(page.locator('#custom-image-preview')).toBeVisible();
+  await page.evaluate(()=>{settingsFixture.holdIcon=true;});
+  await page.locator('#custom-image-file').setInputFiles({...image,name:'icon-two.png'});
+  await expect.poll(()=>page.evaluate(()=>settingsFixture.calls.filter(c=>c.cmd==='save_custom_icon').length)).toBe(2);
+  await expect(page.locator('#custom-form [type="submit"]')).toBeDisabled();
+  await page.locator('#custom-remove-image').click();
+  await expect(page.locator('#custom-image-preview')).toBeHidden();
+  await expect(page.locator('#custom-form [type="submit"]')).toBeEnabled();
+  await page.locator('#custom-name').fill('Removed image');
+  await page.locator('#custom-url').fill('http://localhost:8000/v1');
+  await page.locator('#custom-form [type="submit"]').click();
+  await expect(page.locator('#custom-editor-wrap')).toBeHidden();
+  await page.evaluate(()=>{settingsFixture.holdIcon=false;settingsFixture.releaseIcon?.();});
+  const stale=id+'-0000000000000002.png';
+  await expect.poll(()=>page.evaluate(filename=>settingsFixture.calls.some(c=>c.cmd==='discard_custom_icon'&&c.args.filename===filename),stale)).toBe(true);
+  const saved=await page.evaluate(id=>settingsFixture.calls.find(c=>c.cmd==='save_custom_endpoint'&&c.args.endpoint.id===id).args.endpoint,id);
+  expect(saved.custom_icon_filename).toBeNull();
+});
+
+test('后台自定义端点探测事件更新列表而不覆盖正在编辑的草稿',async({page})=>{
+  await settingsBridge(page);await page.goto('/settings.html');await page.locator('#tab-custom').click();
+  await page.locator('#custom-add').click();
+  await page.locator('#custom-name').fill('Background endpoint');
+  await page.locator('#custom-url').fill('http://localhost:8000/v1');
+  await page.locator('#custom-form [type="submit"]').click();
+  const id=await page.evaluate(()=>settingsFixture.calls.find(c=>c.cmd==='save_custom_endpoint').args.endpoint.id);
+  await page.locator('[data-custom-edit]').click();
+  await expect(page.locator('#custom-key')).toHaveValue('');
+  await page.locator('#custom-name').fill('Unsaved editor name');
+  await page.evaluate(id=>settingsFixture.backgroundCustomProbe(id,{health:'online',latency_ms:37,models:['model-x']}),id);
+  await expect(page.locator('#custom-list')).toContainText('37 ms');
+  await expect(page.locator('#custom-name')).toHaveValue('Unsaved editor name');
+  await expect(page.locator('#custom-model')).toHaveJSProperty('tagName','INPUT');
 });
 
 test('本地运行时监控与地址检查走真实命令，失败保留原设置', async ({page}) => {

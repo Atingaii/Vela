@@ -1255,7 +1255,7 @@ function weeklyOf(snap,id){
 // 15 minutes, the Mac's `UsageStore.staleAfter`. At 5 a reading went grey between two polls of a
 // provider that is answering perfectly well, which made "stale" mean "recently fetched" rather than
 // "old enough not to trust". A provider that knows its own reading is stale still says so in status.
-function staleOf(snap){ if(['stale','error','needsAuth','accessDenied','backoff'].includes(snap.status)) return true; return snap.fetched_at>0 && (Date.now()-snap.fetched_at)>15*60*1000; }
+function staleOf(snap){ return snap.status==='stale'||(snap.fetched_at>0 && (Date.now()-snap.fetched_at)>15*60*1000); }
 let stateSnap={sessions:[],agg:'idle'};
 
 function svgArc(r,frac,color,width,extra=''){

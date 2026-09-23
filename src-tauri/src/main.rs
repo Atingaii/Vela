@@ -37,6 +37,8 @@ mod lmstudio_metrics;
 mod ollama_relay;
 mod ollama_stream;
 mod native_notch;
+#[cfg(target_os = "macos")]
+mod native_lifecycle;
 mod notch_layout;
 mod notch_window;
 mod notchmenu;
@@ -61,6 +63,8 @@ mod updater_stage;
 mod usage;
 mod usage_alerts;
 mod watcher;
+#[cfg(windows)]
+mod windows_lifecycle;
 mod web_sites;
 mod web_usage_detail;
 mod web_session;
@@ -2291,6 +2295,12 @@ fn finish_setup(handle: AppHandle, port: u16, first_launch: bool) -> tauri::Resu
     settings_window::apply_presence(&handle);
     notchmenu::setup(&handle);
     if smoke::root().is_some() {
+        if !smoke::visual() {
+            #[cfg(target_os = "macos")]
+            smoke::record_wake_subscription(native_lifecycle::probe_wake_subscription());
+            #[cfg(windows)]
+            smoke::record_wake_subscription(windows_lifecycle::probe_wake_subscription());
+        }
         if smoke::visual() {
             smoke::seed_visual(&handle);
             reload_glyphs(&handle);
@@ -2319,6 +2329,10 @@ fn finish_setup(handle: AppHandle, port: u16, first_launch: bool) -> tauri::Resu
     phone_link::start(handle.clone());
     providers::start(handle.clone());
     activity::start(handle.clone());
+    #[cfg(target_os = "macos")]
+    native_lifecycle::start_wake_watch(handle.clone());
+    #[cfg(windows)]
+    windows_lifecycle::start_wake_watch(handle.clone());
     // Collecting glyphs may read icon resources out of a few executables; do it off the main thread and push when done
     let gh = handle.clone();
     std::thread::spawn(move || reload_glyphs(&gh));
@@ -2405,6 +2419,13 @@ fn main() {
         }
     }
 
+    // AppDelegate's newcomer-wins rule runs before reading preferences or creating a notch.
+    // An isolated smoke/visual/update verifier must never touch an installed Velo instance.
+    #[cfg(target_os = "macos")]
+    if smoke::root().is_none() {
+        native_lifecycle::retire_older_instances();
+    }
+
     let first_launch = smoke::root().is_none() && !config::config_path().exists();
     let mut cfg = if smoke::root().is_some() {
         config::Config::default()
@@ -2426,6 +2447,7 @@ fn main() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build());
     // Isolated verification must never activate or send commands to an installed instance.
+    #[cfg(not(target_os = "macos"))]
     let builder = if smoke::root().is_none() {
         builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // Opening Velo again while it runs brings Settings forward, as on the Mac: with the
@@ -2488,6 +2510,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             smoke::smoke_ready,
             custom_endpoint::get_custom_endpoints,
+            custom_endpoint::get_custom_endpoint_key,
             custom_endpoint::save_custom_endpoint,
             custom_endpoint::delete_custom_endpoint,
             custom_endpoint::probe_custom_endpoint,
@@ -2635,8 +2658,14 @@ fn main() {
         .expect("Velo failed to start")
         .run(|_app, _event| {
             #[cfg(target_os = "macos")]
-            if matches!(_event, tauri::RunEvent::Reopen { .. }) {
-                settings_window::open(_app);
+            match _event {
+                tauri::RunEvent::Reopen { .. } => settings_window::open(_app),
+                tauri::RunEvent::Exit => native_lifecycle::stop_wake_watch(),
+                _ => {}
+            }
+            #[cfg(windows)]
+            if matches!(_event, tauri::RunEvent::Exit) {
+                windows_lifecycle::stop_wake_watch();
             }
         });
 }

@@ -47,3 +47,9 @@ Swift 的活动识别依赖进程身份、出生时间、工作目录以及进�
 原版 Dock / Menu Bar / Hidden 三种应用入口，在 Windows 分别映射为任务栏 / 托盘 / 隐藏。设置关闭时任务栏模式仍须留下能重新打开设置的入口，不能只保存偏好。采用一个由 Tauri 管理的最小化原生窗口作为任务栏入口；不为它启动额外 WebView，也不维护第二套 Win32 窗口过程。
 
 锁定的 Tauri 2.11.5 将纯原生 `WindowBuilder` 与 `Manager::get_window` 放在 `unstable` 功能门内。仅 Windows 目标启用该功能以访问这两个 API，macOS 不变。选择它比额外创建 WebView 或自行维护 Win32 窗口生命周期更小；Tauri 升级时须重新检查该接口，并由 Windows CI 的真实原生 smoke 验证创建、最小化、设置显示及代理隐藏。编译成功不代表任务栏点击和系统视觉已完成验收。
+
+## macOS 应用生命周期
+
+固定 Swift `AppDelegate` 在正常启动时让同 bundle ID、启动时间严格更早的实例退出，由新实例接管；路径和版本不参与排序。macOS 的 Tauri single-instance 插件会先通知旧实例并直接退出新进程，因此此平台改在创建窗口前用 AppKit 执行原版顺序。自身 bundle ID 取自 `NSBundle.mainBundle`，新旧顺序由内核进程出生时间判断：`NSRunningApplication.launchDate` 对绕过 LaunchServices 直接运行包内程序的实例可能为空，不能因此静默跳过接管。终止请求另须核对同用户、同可执行文件名、PID 与进程出生时间，并在请求前重核身份；无法核实时跳过，隔离 smoke/视觉/升级验证均不参与。Windows 保留现有单实例行为，此处不将 Windows 入口视为与 macOS 新实例接管同一语义。唤醒后的全量刷新由 `NSWorkspace.didWakeNotification` 触发，应用退出时移除该 observer。
+
+Windows 的唤醒刷新由系统 `RegisterSuspendResumeNotification` 的回调触发，仅处理必经的 `PBT_APMRESUMEAUTOMATIC`，避免随后可能到达的 `PBT_APMRESUMESUSPEND` 导致重复读取；退出时注销。通知回调只排队现有刷新，不在系统电源回调线程执行账户读取。

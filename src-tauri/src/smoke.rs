@@ -8,6 +8,11 @@ static VISUAL: OnceLock<bool> = OnceLock::new();
 static SWIFT_FIXTURE: OnceLock<bool> = OnceLock::new();
 static SWIFT_ROWS: OnceLock<Vec<crate::providers::Reading>> = OnceLock::new();
 static UPDATE_EXPECTED: OnceLock<String> = OnceLock::new();
+static WAKE_SUBSCRIPTION: OnceLock<bool> = OnceLock::new();
+
+pub fn record_wake_subscription(ok: bool) {
+    let _ = WAKE_SUBSCRIPTION.set(ok);
+}
 
 pub fn update_verification() -> bool {
     UPDATE_EXPECTED.get().is_some()
@@ -296,12 +301,15 @@ pub fn swift_snapshot(id: &str) -> Option<crate::usage::UsageSnapshot> {
 
 fn finish(app: &tauri::AppHandle, page_ready: bool, helper_present: bool, presence_ok: bool) {
     let Some(root) = root() else { return };
-    let success = page_ready && helper_present && presence_ok;
+    let wake_subscription = WAKE_SUBSCRIPTION.get().copied();
+    let wake_ok = wake_subscription.unwrap_or(!cfg!(any(windows, target_os = "macos")));
+    let success = page_ready && helper_present && presence_ok && wake_ok;
     let report = serde_json::json!({
         "success":success,"version":env!("CARGO_PKG_VERSION"),
         "package_version":app.package_info().version.to_string(),
         "os":std::env::consts::OS,"arch":std::env::consts::ARCH,
         "settings_webview_and_ipc":page_ready,"bundled_helper":helper_present,
+        "wake_subscription":wake_subscription,
         "windows_taskbar_proxy": if cfg!(windows) { Some(presence_ok) } else { None },
         "update_verification_executable": if update_verification() {
             std::env::current_exe().ok().map(|path| path.display().to_string())

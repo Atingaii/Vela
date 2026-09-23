@@ -149,6 +149,35 @@ fn minimax_cookie() -> Option<String> {
         })
 }
 
+fn minimax_account_present_with(
+    mut environment: impl FnMut(&str) -> Option<String>,
+    mut owned: impl FnMut(&str) -> bool,
+) -> bool {
+    [
+        "MiniMax_CODING_API_KEY",
+        "MINIMAX_CODING_API_KEY",
+        "MINIMAX_API_KEY",
+    ]
+    .iter()
+    .any(|key| environment(key).is_some_and(|value| !value.trim().is_empty()))
+        || owned("minimax")
+        || ["MINIMAX_COOKIE", "MINIMAX_COOKIE_HEADER"]
+            .iter()
+            .filter_map(|key| environment(key))
+            .any(|raw| normalized_cookie(&raw).is_some())
+        || owned("minimax-cookie")
+}
+
+pub(super) fn minimax_account_present() -> bool {
+    if crate::smoke::root().is_some() {
+        return false;
+    }
+    minimax_account_present_with(
+        |name| std::env::var(name).ok(),
+        crate::secrets::owned_secret_present,
+    )
+}
+
 fn minimax_envelope_code(value: &Value) -> Option<i64> {
     [
         &value["status_code"],
@@ -787,6 +816,26 @@ mod tests {
             None
         );
         assert_eq!(normalized_cookie("Cookie: \r\nAuthorization: x"), None);
+    }
+
+    #[test]
+    fn minimax_account_presence_uses_attributes_and_valid_environment_only() {
+        let empty = |_: &str| None;
+        assert!(!minimax_account_present_with(empty, |_| false));
+        assert!(minimax_account_present_with(empty, |id| id == "minimax"));
+        assert!(minimax_account_present_with(empty, |id| id == "minimax-cookie"));
+        assert!(minimax_account_present_with(
+            |key| (key == "MiniMax_CODING_API_KEY").then(|| "  key  ".into()),
+            |_| false
+        ));
+        assert!(!minimax_account_present_with(
+            |key| (key == "MINIMAX_COOKIE").then(|| "curl -b /Chrome/Cookies".into()),
+            |_| false
+        ));
+        assert!(minimax_account_present_with(
+            |key| (key == "MINIMAX_COOKIE").then(|| "Cookie: sid=fixture".into()),
+            |_| false
+        ));
     }
 
     #[test]

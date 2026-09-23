@@ -335,13 +335,19 @@ fn build_menu_from(
                 .build(app)?,
         );
     }
-    let refresh = MenuItemBuilder::with_id("refresh", tr(&lang, "refresh_all")).build(app)?;
+    let refresh = MenuItemBuilder::with_id("refresh", tr(&lang, "refresh_all"))
+        .accelerator("CmdOrCtrl+R")
+        .build(app)?;
     #[cfg(target_os = "macos")]
     let show_limits = CheckMenuItemBuilder::with_id("show_menu_bar_limits", menu_bar_toggle_label(&lang))
         .checked(app.state::<crate::AppState>().cfg.lock().unwrap().appearance.shows_limits_in_menu_bar)
         .build(app)?;
-    let settings = MenuItemBuilder::with_id("settings", tr(&lang, "settings")).build(app)?;
-    let quit = MenuItemBuilder::with_id("quit", tr(&lang, "quit_app")).build(app)?;
+    let settings = MenuItemBuilder::with_id("settings", tr(&lang, "settings"))
+        .accelerator("CmdOrCtrl+,")
+        .build(app)?;
+    let quit = MenuItemBuilder::with_id("quit", tr(&lang, "quit_app"))
+        .accelerator("CmdOrCtrl+Q")
+        .build(app)?;
     let mut menu = MenuBuilder::new(app);
     for item in &items {
         menu = menu.item(item);
