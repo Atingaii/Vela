@@ -29,6 +29,8 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ !cancelled() }}
       - run: npm ci
       - run: npm run check:ui
       - run: npm test
@@ -66,6 +68,18 @@ jobs:
               ci-reports/native-smoke-diagnostic.json \
               "$(cat ci-reports/native-smoke-started-ms.txt)" \
               ci-reports/native-smoke-macos.json
+          fi
+      - name: Diagnose failed macOS smoke without a crash report
+        if: ${{ always() && runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -s ci-reports/native-smoke-binary.txt && test -s ci-reports/native-smoke-macos.json; then
+            node scripts/diagnose-macos-smoke-with-lldb.mjs \
+              "$(cat ci-reports/native-smoke-binary.txt)" \
+              ci-reports/native-smoke-macos.json \
+              ci-reports/native-smoke-diagnostic.json \
+              ci-reports/native-smoke-lldb.json
           fi
       - name: Launch isolated native Windows WebView and IPC smoke
         if: runner.os == 'Windows'

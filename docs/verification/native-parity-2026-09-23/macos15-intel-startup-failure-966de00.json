@@ -1,0 +1,19 @@
+{
+  "executable": "/Users/runner/work/Velo/Velo/target/debug/bundle/macos/Velo.app/Contents/MacOS/velo",
+  "arch": "x64",
+  "os": "darwin",
+  "macos_version": "15.7.9",
+  "started_ms": 1790149097551,
+  "smoke": {
+    "success": false,
+    "runner": {
+      "exit_code": null,
+      "exit_signal": "SIGABRT",
+      "timed_out": false,
+      "interrupted_by": null,
+      "error": "smoke-result.json unavailable: ENOENT: no such file or directory, open '/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/velo-install-smoke-LfyZc7/smoke-result.json'",
+      "cleanup_error": null
+    }
+  },
+  "matching_crashes": []
+}

@@ -85,7 +85,7 @@ Velo 是面向 **macOS 和 Windows 的 AI 编程桌面伴侣**。它把不同工
 
 macOS 打开 DMG 并将 Velo 拖入「应用程序」；Windows 运行安装向导。预览版 macOS 使用 ad-hoc 签名、尚未公证，Windows 尚未代码签名，首次打开可能需要系统确认。请先阅读 [安装说明](docs/releases/preview.md)，核对 [SHA-256](https://github.com/Atingaii/Velo/releases/download/v0.1.0-preview.4/SHA256SUMS.txt)；不需要关闭系统保护。
 
-发布流程在三个系统 runner 上执行安装后原生 WebView、IPC 和辅助程序检查。真实账户与完整系统体验仍需单独验收。自动更新尚未配置，升级请重新下载。
+发布流程在三个系统 runner 上执行安装后原生 WebView、IPC 和辅助程序检查。真实账户与完整系统体验仍需单独验收。当前公开的 `v0.1.0-preview.4` 安装包未配置新版本的更新公钥与 feed，升级请重新下载安装包。开发中的 `v0.1.1-preview.1` 尚未发布，自动更新链路仍待验收，目前不应视为更新可用。
 
 ### 环境准备
 

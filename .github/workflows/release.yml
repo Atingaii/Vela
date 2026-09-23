@@ -54,6 +54,8 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ !cancelled() }}
       - run: npm ci
       - run: cargo test --locked --workspace -- --test-threads=1
       - run: npm run build -- --bundles ${{ matrix.bundles }}
@@ -110,6 +112,19 @@ jobs:
               "release-diagnostics/smoke-macos-${{ matrix.arch }}-diagnostic.json" \
               "$(cat "$started")" \
               "release-assets/smoke-macos-${{ matrix.arch }}.json"
+          fi
+      - name: Diagnose failed macOS smoke without a crash report
+        if: ${{ always() && runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke="release-assets/smoke-macos-${{ matrix.arch }}.json"
+          if test -s "$smoke"; then
+            node scripts/diagnose-macos-smoke-with-lldb.mjs \
+              "$RUNNER_TEMP/velo-installed/Velo.app/Contents/MacOS/velo" \
+              "$smoke" \
+              "release-diagnostics/smoke-macos-${{ matrix.arch }}-diagnostic.json" \
+              "release-diagnostics/smoke-macos-${{ matrix.arch }}-lldb.json"
           fi
       - uses: actions/upload-artifact@v4
         if: always()

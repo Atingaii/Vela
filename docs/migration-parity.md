@@ -79,3 +79,5 @@
 
 
 本批最终标准 Tauri debug app 构建成功（`/tmp/velo-parity-crossing-native-build-final.log`），隔离 native smoke 成功：WebView/IPC/helper/wake_subscription=true，providers_started=false，0.1.1-preview.1，exit 0、无超时。报告已保存为 `docs/verification/native-parity-2026-09-23/macos-smoke-controls-edge-crossing.json`。该报告验证启动与订阅，不是锁屏期间的视觉/鼠标/实际睡眠恢复验收。
+
+2026-09-23 兼容性复核：`966de00` 的 [CI 35831142333](https://github.com/Atingaii/Velo/actions/runs/35831142333) 中 Apple Silicon 原生与浏览器通过，Intel macOS 15.7.9 启动 SIGABRT，Windows 本地端点扫描失败。已根据 Apple SDK 和固定 Swift 源修复无条件调用 macOS 26 专属 `NSScreen.CGDirectDisplayID`，改为 `deviceDescription["NSScreenNumber"]`，详见 [复核记录](../.trellis/tasks/09-22-swift-full-parity/research/2026-09-23-macos15-startup.md)。本地端点采用各有独立 1.2 秒期限的 IPv4/IPv6 并发无凭据探测，保留 localhost URL 并去重；不以调整地址顺序牺牲另一地址族。两项修复需新目标平台 CI 验证。失败诊断只保留本次隔离进程的报告，并补有界 LLDB 回退，不将失败转成成功。原生视觉和真实账户验收继续待完成。

@@ -236,6 +236,14 @@ fn display_uuid(display: u32) -> Option<String> {
     }
 }
 
+/// Swift obtains the Quartz display number from NSScreen's device description on all OS versions.
+#[cfg(target_os = "macos")]
+fn display_number(description: &objc2_foundation::NSDictionary<objc2_foundation::NSString, objc2::runtime::AnyObject>) -> Option<u32> {
+    use objc2_foundation::{NSNumber, NSString};
+    let value = description.objectForKey(&NSString::from_str("NSScreenNumber"))?;
+    value.downcast_ref::<NSNumber>().map(NSNumber::unsignedIntValue).filter(|id| *id != 0)
+}
+
 /// Match Tao's scaled CoreGraphics coordinates to Tauri Monitor's physical bounds. The
 /// resulting ColorSync UUID is stable across display reconfiguration.
 #[cfg(target_os = "macos")]
@@ -247,7 +255,9 @@ fn refresh_display_ids(screens: &mut [crate::Screen]) {
     };
     let mut identities = HashMap::new();
     for native in NSScreen::screens(mtm).iter() {
-        let id = native.CGDirectDisplayID();
+        // Match Swift NotchGeometry: NSScreen.CGDirectDisplayID is macOS 26-only.
+        // Sending that selector on macOS 15 throws before the app can finish startup.
+        let Some(id) = display_number(&native.deviceDescription()) else { continue; };
         let Some(uuid) = display_uuid(id) else {
             continue;
         };
@@ -839,6 +849,25 @@ fn apply_preferences_to_windows_on_main_thread(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn display_number_accepts_native_number_and_rejects_missing_or_wrong_type() {
+        use objc2::runtime::AnyObject;
+        use objc2_foundation::{NSDictionary, NSNumber, NSString};
+        let key = NSString::from_str("NSScreenNumber");
+        let number = NSNumber::new_u32(42);
+        let good = NSDictionary::<NSString, AnyObject>::from_slices(&[&*key], &[number.as_ref()]);
+        assert_eq!(display_number(&good), Some(42));
+        let missing = NSDictionary::<NSString, AnyObject>::new();
+        assert_eq!(display_number(&missing), None);
+        let text = NSString::from_str("42");
+        let wrong = NSDictionary::<NSString, AnyObject>::from_slices(&[&*key], &[text.as_ref()]);
+        assert_eq!(display_number(&wrong), None);
+        let zero = NSNumber::new_u32(0);
+        let null_id = NSDictionary::<NSString, AnyObject>::from_slices(&[&*key], &[zero.as_ref()]);
+        assert_eq!(display_number(&null_id), None);
+    }
 
     #[test]
     fn hardware_notch_uses_menu_bar_strips_and_safe_inset() {

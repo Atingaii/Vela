@@ -16,7 +16,7 @@
 | 唤醒与实例生命周期 | macOS NSWorkspace、Windows suspend/resume 真 API 订阅及 macOS 旧实例退休源码与单测已补；本批 macOS debug app 实测仅证明订阅注册/注销与 WebView/IPC 启动，实际睡眠恢复和 Windows 新批次 CI 尚待验 | update_flow / settings_parity；root 平台验收 |
 | 自动更新与发行 | 真公钥和独立 feed；自动下载、下次启动安装；开关/代次取消；三平台签名产物与原子 feed 发布 | update_flow；root 密钥、发行与隔离升级验证 |
 | 侧栏动效 | 源 spin/pulse、reading/contents/glide、数字变化、卡片进出、手柄 merge、keyed cell 和 native 降低透明度已补并通过双引擎；原生同场景视觉待解锁 | notch_parity |
-| 最终视觉 / 官网 | 解锁后的固定 fixture 四边、设置逐页、材质与菜单交互；据真实软件截图同步官网、README 与下载说明 | root 复核；实现交 GPT-6-Sol High |
+| 最终视觉 / 官网 | 解锁后的固定 fixture 四边、设置逐页、材质与菜单交互；据真实软件截图同步官网、README 与下载说明 | root 复核；实现交 GPT-6-Sol max |
 
 以上只列已定位的剩余差异，不豁免全量 `docs/migration-parity.md` 的最终检查。新发现必须按具体源文件和可复现场景加入，而不是仅因缺少同名函数而重写。
 
@@ -71,3 +71,5 @@
 
 
 925ae99 已推送，普通 CI 35830483977 启动。旧5176a88发行验证的 Intel macOS 15在DMG构建/签名校验通过后，隔离原生smoke约1.8秒以foreign Objective-C exception/SIGABRT退出，未生成成功报告；失败日志 /tmp/velo-intel-package-failed-job.log。该旧run35826536749其余过期工作已取消，arm64历史证据仍保留。新增按实际可执行文件及启动时间过滤的崩溃采集，保留异常原因和最后异常调用栈；失败不转为成功。普通CI新增macos-15-intel优先串行验证。诊断脚本Node全套28通过（/tmp/velo-macos-diagnostic-node.log），客户端未改。根因仍待新Intel运行的栈证据，不能因构建成功宣称安装可用。
+
+最新 CI 状态：925ae99 的 [CI 35830483977](https://github.com/Atingaii/Velo/actions/runs/35830483977) macOS 与 browser 成功，Windows 的 IPv6-only 自定义端点扫描失败。并发工作树中的 `custom_endpoint.rs` 已调整为 IPv4/IPv6 双族并发扫描；Rust 380 + helper 1 通过、3 ignored（`/tmp/velo-ipv6-race-rust-full.log`），对应 Windows CI 待验证。当前 `966de00` 的 [CI 35831142333](https://github.com/Atingaii/Velo/actions/runs/35831142333) 在 Intel macOS 15.7.9 再次 SIGABRT；`native-smoke-diagnostic.json` 没有 matching_crashes。Root 正推进隔离 LLDB 诊断；后续源码核对又发现实际 SDK 兼容问题：`NSScreen.CGDirectDisplayID` 仅 macOS 26 可用。当前工作树的 `src-tauri/src/native_notch.rs` 已改为按 Swift 源读取 `deviceDescription[NSScreenNumber]`，并增加真实 `NSNumber` 解析测试；Intel macOS 15 CI 对此修正仍待验证。当前证据不能证明崩溃根因已在 CI 中确认，也不能据此宣称全量迁移完成。
